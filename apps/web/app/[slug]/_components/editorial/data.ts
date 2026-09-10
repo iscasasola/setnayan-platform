@@ -21,6 +21,7 @@ import { readCustomColumns, type CustomColumn } from './custom-columns';
 import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-story';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
@@ -32,6 +33,7 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl, isYouTubeVideoId } from '@/lib/panood-watch';
+import { filmsFromRows, type EventFilm, type EventFilmRow } from '@/lib/event-films';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { bylineFor } from '@/lib/guest-columns';
@@ -608,6 +610,13 @@ export type EditorialData = {
   // buyer still qualifies) AND a video id from either source below. Null →
   // the section is hidden (fail-closed).
   watchFilmEmbedUrl: string | null;
+  /**
+   * 🎞 Films the couple attached themselves — same-day edit, prenup, the
+   * videographer's cut. FREE and ungated, unlike `watchFilmEmbedUrl` above which
+   * gates on LIVE_STUDIO: that one renders a broadcast Setnayan produced, these
+   * are the couple's own links and must not vanish when an unlock lapses.
+   */
+  films: EventFilm[];
   // Section visibility from the editorial editor. Optional → a block shows
   // unless its key is explicitly false (samples omit it = everything on).
   sections?: Partial<EditorialSections>;
@@ -1457,7 +1466,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // plain/relative URLs through unchanged.
   if (!heroPhotoUrl) {
     heroPhotoUrl = await displayUrlForStoredAsset(
-      asString((event as Record<string, unknown>).landing_page_hero_image_url),
+      // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+      siteMediaServeRef((event as Record<string, unknown>).landing_page_hero_image_url),
     );
   }
 
@@ -1480,19 +1490,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // so it does not reach a guest until it goes through the screen-and-seal
   // spine. The still photo (already its poster) shows instead.
   const heroVideoUrl = await displayUrlForStoredAsset(
-    heroVideoRefForGuests(
-      asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    siteMediaServeRef(
+      heroVideoRefForGuests(
+        asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+      ),
     ),
   );
 
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes
   // through displayUrlForStoredAsset (presigns r2://, passes plain/relative
   // URLs through). Best-effort.
-  const galleryRefs = Array.isArray((event as Record<string, unknown>).our_photos)
-    ? ((event as Record<string, unknown>).our_photos as unknown[]).filter(
-        (r): r is string => typeof r === 'string' && r.trim().length > 0,
-      )
-    : [];
+  // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+  const galleryRefs = siteMediaServeRefs((event as Record<string, unknown>).our_photos);
   const manualGalleryPhotos = (
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
@@ -2613,6 +2622,28 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     watchFilmEmbedUrl = null;
   }
 
+  // ── 🎞 Films the couple attached ────────────────────────────────────────────
+  // Their same-day edit, prenup, the videographer's cut. FREE and ungated — owner
+  // ruling 2026-09-02, and the reason there is no entitlement check here: a couple's
+  // own films must not vanish from their own story the day an unlock lapses. That is
+  // the opposite posture to the Watch-the-Film block above, which gates on LIVE_STUDIO
+  // because it renders a broadcast Setnayan produced.
+  //
+  // Every row is re-validated by `filmFromRow` on the way out — an unrecognisable row
+  // is dropped, never rendered as a broken frame. Fail-soft to [].
+  let films: EventFilm[] = [];
+  try {
+    const { data: filmRows } = await admin
+      .from('event_films')
+      .select('provider, video_id, video_hash, label')
+      .eq('event_id', eventId)
+      .order('sort_key', { ascending: true })
+      .order('id', { ascending: true });
+    films = filmsFromRows((filmRows ?? []) as EventFilmRow[]);
+  } catch {
+    films = [];
+  }
+
   // ── Their song ──────────────────────────────────────────────────────────────
   // Prefer the DELIVERED Pakanta song (events.pakanta_song_r2_key) — presign it
   // so the recap plays/credits the couple's actual song. The column is read by
@@ -2694,6 +2725,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     kwentoQuotes,
     guestColumns,
     watchFilmEmbedUrl,
+    films,
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
     customColumns: readCustomColumns(draftJson),
@@ -3320,6 +3352,7 @@ function mariaAndJuan(): EditorialData {
       { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', atIso: '2026-02-14T19:12:00+08:00', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
     ],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }
 
@@ -3423,6 +3456,7 @@ function jackAndJill(): EditorialData {
     ],
     kwentoQuotes: [],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }
 
@@ -3526,6 +3560,7 @@ function johnAndJane(): EditorialData {
     ],
     kwentoQuotes: [],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }
 
@@ -3630,6 +3665,7 @@ function peterAndMary(): EditorialData {
     ],
     kwentoQuotes: [],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }
 
@@ -3734,6 +3770,7 @@ function jackAndRose(): EditorialData {
     ],
     kwentoQuotes: [],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }
 
@@ -3922,5 +3959,6 @@ function sofiaReyes(): EditorialData {
       { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', atIso: '2026-03-14T19:25:00+08:00', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
     ],
     watchFilmEmbedUrl: null,
+    films: [],
   };
 }

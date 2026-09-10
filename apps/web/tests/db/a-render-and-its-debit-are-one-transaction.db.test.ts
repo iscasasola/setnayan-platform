@@ -134,6 +134,21 @@ async function renderCount(eventId: string): Promise<number> {
   return Number(r.rows[0]!.n);
 }
 
+/**
+ * The ONE key a render may name — `renders/<event_id>/<render_id>.<ext>`, the
+ * writer's own derivation (lib/moodboard-render-keys.ts). Since migration
+ * 20271220579615 the finish RPC refuses (and the table's CHECK rejects) any
+ * other string, so a fixture that finished a render with a made-up key would
+ * now prove nothing about the rule it was written to test.
+ */
+async function ownKey(renderId: string | null, ext: 'png' | 'jpg' | 'webp' = 'png'): Promise<string> {
+  const r = await db.query<{ event_id: string }>(
+    `SELECT event_id::text AS event_id FROM public.event_renders WHERE render_id = $1`,
+    [renderId],
+  );
+  return `renders/${r.rows[0]!.event_id}/${renderId}.${ext}`;
+}
+
 async function boolRpc(sql: string, params: unknown[]): Promise<boolean> {
   const r = await db.query<{ ok: boolean | null }>(sql, params);
   return r.rows[0]!.ok === true;
@@ -320,7 +335,7 @@ test('fail_render REFUSES a delivered render — it is not a free-render button'
   assert.equal(
     await boolRpc(`SELECT public.moodboard_finish_render($1,$2) AS ok`, [
       id,
-      'renders/x/y.png',
+      await ownKey(id),
     ]),
     true,
   );
@@ -346,7 +361,7 @@ test('finish_render cannot revive a failed render, nor overwrite a delivered one
   const failed = await begin(e, 'room:tunnel', 1);
   await db.query(`SELECT public.moodboard_fail_render($1,'x')`, [failed]);
   assert.equal(
-    await boolRpc(`SELECT public.moodboard_finish_render($1,'renders/a.png') AS ok`, [failed]),
+    await boolRpc(`SELECT public.moodboard_finish_render($1,$2) AS ok`, [failed, await ownKey(failed)]),
     false,
     'a refunded render must not accept an image afterwards',
   );
@@ -354,11 +369,13 @@ test('finish_render cannot revive a failed render, nor overwrite a delivered one
   // Delivered, then delivered again — that would orphan the first object.
   const ok = await begin(e, 'room:ceiling', 1);
   assert.equal(
-    await boolRpc(`SELECT public.moodboard_finish_render($1,'renders/b.png') AS ok`, [ok]),
+    await boolRpc(`SELECT public.moodboard_finish_render($1,$2) AS ok`, [ok, await ownKey(ok)]),
     true,
   );
   assert.equal(
-    await boolRpc(`SELECT public.moodboard_finish_render($1,'renders/c.png') AS ok`, [ok]),
+    // Its OWN other-extension key — so the refusal below is "already
+    // delivered", not "not your key".
+    await boolRpc(`SELECT public.moodboard_finish_render($1,$2) AS ok`, [ok, await ownKey(ok, 'jpg')]),
     false,
     'a second finish must refuse rather than repoint the row at a new object',
   );
@@ -366,7 +383,7 @@ test('finish_render cannot revive a failed render, nor overwrite a delivered one
     `SELECT image_key FROM public.event_renders WHERE render_id=$1`,
     [ok],
   );
-  assert.equal(r.rows[0]!.image_key, 'renders/b.png');
+  assert.equal(r.rows[0]!.image_key, await ownKey(ok));
 });
 
 test('a blank image_key is refused — an absent image must be ABSENT', async () => {
@@ -410,7 +427,7 @@ test('begin_render normalises a whitespace-only note to NULL, keeping `reusable`
 
   // And a real note keeps the render out of the pool, per the owner's rule.
   const noted = await begin(e, 'room:tables', 1, "my lola's veil on the chair");
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/n.png')`, [noted]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [noted, await ownKey(noted)]);
   const r2 = await db.query<{ reusable: boolean }>(
     `SELECT reusable FROM public.event_renders WHERE render_id=$1`,
     [noted],
@@ -472,7 +489,7 @@ test('withdrawing consent un-features the renders but does NOT claw back the bon
   await grant(e, 50);
   await db.query(`SELECT public.moodboard_set_share_consent($1,TRUE)`, [e]);
   const id = await begin(e, 'room:backdrop', 1);
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/f.png')`, [id]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [id, await ownKey(id)]);
 
   // Featuring is an ADMIN act — a couple must never feature its own creation.
   await setAuthUid(db, admin);
@@ -519,7 +536,7 @@ test('a non-consented render CANNOT be featured, even by an admin', async () => 
   await setAuthUid(db, u);
   await grant(e, 50);
   const id = await begin(e, 'room:ceiling', 1);
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/g.png')`, [id]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [id, await ownKey(id)]);
 
   await setAuthUid(db, admin);
   assert.equal(
@@ -542,7 +559,7 @@ test('a COUPLE cannot feature its own creation', async () => {
   await grant(e, 50);
   await db.query(`SELECT public.moodboard_set_share_consent($1,TRUE)`, [e]);
   const id = await begin(e, 'room:tables', 1);
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/h.png')`, [id]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [id, await ownKey(id)]);
 
   // Consent is given and the image exists — the ONLY thing standing between
   // this couple and a featured slot is that curation is an admin act.
@@ -564,7 +581,7 @@ test('the admin feed returns NON-consented renders, and zero rows to a non-admin
   await setAuthUid(db, u);
   await grant(e, 50);
   const id = await begin(e, 'room:stage', 1);
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/i.png')`, [id]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [id, await ownKey(id)]);
   // Deliberately NO consent.
 
   // A couple gets nothing from this function.
@@ -729,7 +746,7 @@ test('an admin can block a render from the reuse pool, and `reusable` follows', 
   await setAuthUid(db, u);
   await grant(e, 50);
   const id = await begin(e, 'room:ceiling', 1); // no note → pool-eligible
-  await db.query(`SELECT public.moodboard_finish_render($1,'renders/q.png')`, [id]);
+  await db.query(`SELECT public.moodboard_finish_render($1,$2)`, [id, await ownKey(id)]);
 
   const before = await db.query<{ reusable: boolean }>(
     `SELECT reusable FROM public.event_renders WHERE render_id=$1`, [id]);
@@ -764,7 +781,7 @@ test('an admin can block a render from the reuse pool, and `reusable` follows', 
   const back = await db.query<{ reusable: boolean; image_key: string }>(
     `SELECT reusable, image_key FROM public.event_renders WHERE render_id=$1`, [id]);
   assert.equal(back.rows[0]!.reusable, true);
-  assert.equal(back.rows[0]!.image_key, 'renders/q.png', 'the couple keeps their photograph');
+  assert.equal(back.rows[0]!.image_key, await ownKey(id), 'the couple keeps their photograph');
 });
 
 test('anon holds no EXECUTE on the quarantine handle either', async () => {

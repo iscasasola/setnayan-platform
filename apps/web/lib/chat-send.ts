@@ -30,6 +30,14 @@ export {
 
 const CHAT_ATTACHMENT_MIME_SET = new Set<string>(CHAT_ATTACHMENT_MIME);
 
+/**
+ * The word the database puts in its refusal when a message carries contact
+ * details (tg_chat_messages_guard_end_user_write, migration 20271221089848).
+ * tests/db/the-chat-cannot-leave-the-app.db.test.ts proves the database's
+ * refusal really contains it.
+ */
+const CHAT_CONTACT_REFUSAL_MARKER = 'CONTACT_BLOCKED';
+
 /** Is this an R2 bucket, or the local dev fallback? See the note at the ref. */
 function isR2Bucket(bucket: string): bucket is R2BucketName {
   return (Object.values(R2_BUCKETS) as string[]).includes(bucket);
@@ -285,8 +293,15 @@ export async function sendChatMessageCore(
     // helper is still named uploadPublicAsset (it is the one server-side
     // uploader); what makes an object private is the bucket it lands in, not
     // the function that put it there.
+    //
+    // 🔒 PER SENDER: `chat/<thread>/<the sender's own uid>/`. The database
+    // accepts an attachment from a signed-in session ONLY under that folder
+    // (tg_chat_messages_guard_end_user_write, migration 20271221089848), so a
+    // row can never name the other party's file — and erasure, which deletes
+    // the files behind the rows a person authored, can never be pointed at
+    // somebody else's. Change this prefix and every attachment is refused.
     const up = await uploadPublicAsset({
-      pathPrefix: `chat/${thread.thread_id}`,
+      pathPrefix: `chat/${thread.thread_id}/${user.id}`,
       file,
       allowedMime: CHAT_ATTACHMENT_MIME,
       maxBytes: CHAT_ATTACHMENT_MAX_BYTES,
@@ -299,18 +314,28 @@ export async function sendChatMessageCore(
         message: 'Couldn’t upload your file. Please try again.',
       };
     }
+    // ⚠ THE DEV FALLBACK CANNOT CARRY A CHAT FILE ANY MORE. With no R2
+    // credentials the uploader writes to Supabase Storage and hands back a
+    // public URL. That used to be stored here so a local checkout could show
+    // the file; the database now refuses anything but a thread-files ref
+    // (a stored URL is exactly the door out it closes), so the send would fail
+    // at the insert with a message nobody could act on. Say so here instead.
+    // Production always has R2.
+    if (!isR2Bucket(up.bucket)) {
+      console.error(
+        '[sendChatMessageCore] chat files need R2 — the Supabase Storage fallback URL cannot be stored on a message',
+      );
+      return {
+        ok: false,
+        code: 'attachment_failed',
+        message: 'Couldn’t upload your file. Please try again.',
+      };
+    }
     attachment = {
       // The REF, never the URL. `up.publicUrl` still resolves for a public
       // bucket and would look completely fine here — storing it is exactly the
       // defect being fixed, so it is deliberately unused.
-      //
-      // ⚠ THE ONE EXCEPTION IS THE DEV FALLBACK. With no R2 credentials the
-      // uploader writes to Supabase Storage and hands back a bucket name that
-      // is not an R2 bucket; `encodeR2Ref` would mint an `r2://` ref that
-      // `parseStoredAsset` cannot resolve, and the file would render as a
-      // broken glyph on every local checkout. A legacy URL passes through the
-      // resolver verbatim, which is what that path is for.
-      attachment_r2_key: isR2Bucket(up.bucket) ? encodeR2Ref(up.bucket, up.key) : up.publicUrl,
+      attachment_r2_key: encodeR2Ref(up.bucket, up.key),
       attachment_name: file.name.slice(0, 255),
       attachment_mime: file.type,
       attachment_size_bytes: file.size,
@@ -334,6 +359,13 @@ export async function sendChatMessageCore(
     ...(attachment ?? {}),
   });
   if (error) {
+    // The database screens the text with the same rules as the check above
+    // (migration 20271221089848) and refuses with this marker. It fires here
+    // only when the app-side check is switched off — so the sender still gets
+    // the words that tell them what to change, not "try again".
+    if (error.message.includes(CHAT_CONTACT_REFUSAL_MARKER)) {
+      return { ok: false, code: 'contact_blocked', message: CONTACT_BLOCK_MESSAGE };
+    }
     // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
     // internals). Log it server-side for observability; return friendly copy.
     console.error('[sendChatMessageCore] message insert failed:', error.message);

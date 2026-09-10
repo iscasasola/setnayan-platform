@@ -1606,6 +1606,28 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
     });
   }
+  /*
+    ═ C2 (2026-09-11): A CARD WITH A COVER SHOWS IT ON THE MAIN GRID ═
+    This grid never resolved showcase photos at all (the `toServiceCard` call
+    below always passed `showcase: undefined`), so a card drew with nothing to
+    look at unless its category's icon glyph counted. The cover
+    (`primary_photo_r2_key`, required to publish per `lib/vendor-services.ts`)
+    was already read into `c.row` by `fetchMarketplaceServiceCards` — it just
+    had no display URL and no wire to the card.
+    `publicUrlForStoredAsset` — NOT `displayUrlForStoredAsset` — per its own
+    docblock: this exact grid is a named example of the public, unsigned
+    surface it exists for, and it's synchronous (no signing round trip), so
+    resolving one per card costs nothing.
+  */
+  const serviceCardCoverUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      serviceCardCoverUrls.set(
+        c.row.vendor_service_id,
+        publicUrlForStoredAsset(c.row.primary_photo_r2_key),
+      );
+    }
+  }
   const marketplaceIsEmpty = liveShopCount === 0;
 
   if (isLandingView && marketplaceIsEmpty) {
@@ -3533,6 +3555,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     null,
                     null,
                     false,
+                    serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
                   )}
                   detailsEnabled
                   detailsHref={serviceCardAddress(c)}

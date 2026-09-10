@@ -27,6 +27,18 @@ import {
 } from './moodboard-gallery-copy';
 import { bucketForPrefix } from './bucket-routing';
 
+/**
+ * Render and event ids are UUIDS — the key builders canonicalise them and the
+ * database holds the key to the row's own (migration 20271220579615), so a
+ * slug-shaped fixture id would mint a key nothing could ever store.
+ */
+const EVENT_1 = '11111111-1111-4111-8111-111111111111';
+const RENDER_1 = '22222222-2222-4222-8222-222222222222';
+const EV = '33333333-3333-4333-8333-333333333333';
+const RN = '44444444-4444-4444-8444-444444444444';
+const EVENT_MB27 = '55555555-5555-4555-8555-555555555555';
+const RENDER_MB27 = '66666666-6666-4666-8666-666666666666';
+
 const FLAT = { r: 128, g: 128, b: 128 };
 
 async function flatImage(width = 800, height = 600): Promise<Buffer> {
@@ -54,20 +66,20 @@ async function deviationInBottomRight(bytes: Buffer): Promise<number> {
 }
 
 test('the gallery key can never collide with the couple’s own render key', () => {
-  const key = galleryObjectKey('event-1', 'render-1');
-  assert.equal(key, 'render-gallery/event-1/render-1.jpg');
+  const key = galleryObjectKey(EVENT_1, RENDER_1);
+  assert.equal(key, `render-gallery/${EVENT_1}/${RENDER_1}.jpg`);
   // `renderObjectKey` in render-actions.ts writes `renders/<event>/<render>.<ext>`.
   // The two prefixes cannot be confused by a `startsWith` in either direction,
   // which is what keeps the marked bytes from ever landing on the unmarked key.
   assert.equal(key.startsWith('renders/'), false);
-  assert.equal('renders/event-1/render-1.png'.startsWith('render-gallery/'), false);
+  assert.equal(`renders/${EVENT_1}/${RENDER_1}.png`.startsWith('render-gallery/'), false);
 });
 
 test('both private keys route to the PRIVATE bucket, and the picked copy to the public one', () => {
   // 🔒 `render-gallery/` does not start with `renders/`, so without its own
   // rule it would fall through to the public `media` default and publish every
   // render — consented or not — the moment it was made.
-  assert.equal(bucketForPrefix(galleryObjectKey('e', 'r')), 'threadFiles');
+  assert.equal(bucketForPrefix(galleryObjectKey(EV, RN)), 'threadFiles');
   assert.equal(bucketForPrefix('renders/e/r.png'), 'threadFiles');
   // The picked copy IS public, and only exists once a couple picked a render
   // whose event had consented.
@@ -78,12 +90,12 @@ test('both private keys route to the PRIVATE bucket, and the picked copy to the 
 test('buildGalleryCopy returns MARKED bytes, not the original, under the gallery key', async () => {
   const original = await flatImage();
   const copy = await buildGalleryCopy({
-    eventId: 'event-1',
-    renderId: 'render-1',
+    eventId: EVENT_1,
+    renderId: RENDER_1,
     bytes: original,
   });
 
-  assert.equal(copy.key, 'render-gallery/event-1/render-1.jpg');
+  assert.equal(copy.key, `render-gallery/${EVENT_1}/${RENDER_1}.jpg`);
   assert.equal(copy.contentType, 'image/jpeg');
   assert.notEqual(Buffer.compare(copy.bytes, original), 0);
 
@@ -101,8 +113,8 @@ test('the key and the bytes come back TOGETHER, so a caller cannot pair one with
   // — the only way to do that is to stop calling it, which the pixel assertion
   // above and the pool's `gallery_image_key` requirement both catch.
   const copy = await buildGalleryCopy({
-    eventId: 'e',
-    renderId: 'r',
+    eventId: EV,
+    renderId: RN,
     bytes: await flatImage(200, 200),
   });
   assert.deepEqual(Object.keys(copy).sort(), ['bytes', 'contentType', 'key']);
@@ -130,8 +142,8 @@ test('SABOTAGE-PROVEN: the couple’s own copy comes back byte-for-byte untouche
   const pristine = Buffer.from(original); // an independent copy, taken first
 
   const copy = await buildGalleryCopy({
-    eventId: 'event-1',
-    renderId: 'render-1',
+    eventId: EVENT_1,
+    renderId: RENDER_1,
     bytes: original,
   });
 
@@ -142,7 +154,7 @@ test('SABOTAGE-PROVEN: the couple’s own copy comes back byte-for-byte untouche
   );
   // And the marked copy is genuinely a different object, not an alias of it.
   assert.notEqual(Buffer.compare(copy.bytes, pristine), 0);
-  assert.notEqual(copy.key, 'renders/event-1/render-1.png');
+  assert.notEqual(copy.key, `renders/${EVENT_1}/${RENDER_1}.png`);
 
   // The unmarked master still reads as unmarked: no ink anywhere in it.
   assert.equal(await deviationInBottomRight(original), 0);
@@ -150,7 +162,7 @@ test('SABOTAGE-PROVEN: the couple’s own copy comes back byte-for-byte untouche
 
 test('bytes that cannot be marked THROW — there is no publish-the-original fallback', async () => {
   await assert.rejects(() =>
-    buildGalleryCopy({ eventId: 'e', renderId: 'r', bytes: Buffer.from('nope') }),
+    buildGalleryCopy({ eventId: EV, renderId: RN, bytes: Buffer.from('nope') }),
   );
 });
 
@@ -179,8 +191,8 @@ test('bytes that cannot be marked THROW — there is no publish-the-original fal
  */
 test('the gallery copy is produced with the STAMP variant, not the seal', async () => {
   const { bytes } = await buildGalleryCopy({
-    eventId: 'event-mb27',
-    renderId: 'render-mb27',
+    eventId: EVENT_MB27,
+    renderId: RENDER_MB27,
     bytes: await flatImage(900, 700),
   });
 

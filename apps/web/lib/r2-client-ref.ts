@@ -588,3 +588,22 @@ export function editorialVendorMediaPolicy(
 ): ClientRefPolicy {
   return { prefixes: [`editorial-vendor/${vendorProfileId}/${eventId}/`] };
 }
+
+/**
+ * A file shared in a conversation — the ONLY thing `/api/chat/attachment` will
+ * sign.
+ *
+ * 🚪 THE DOOR THIS SHUT (2026-09-10). The route used to read the stored value
+ * through `displayUrlForStoredAsset`, whose contract is to pass any non-`r2://`
+ * value through verbatim — so a row carrying `https://wa.me/…`, `viber://…` or
+ * `m.me/…` rendered as a file card on setnayan.com and 302-redirected the
+ * reader to WhatsApp or Viber: a way out of the app AND an open redirect.
+ *
+ * Scoped to the THREAD, not the sender: every party to a conversation may open
+ * every file in it. The per-sender folder (`chat/<thread>/<uid>/`) is enforced
+ * where it matters — on WRITE, by the database (migration 20271221089848), so
+ * a row can only name its own sender's file.
+ */
+export function chatAttachmentPolicy(threadId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`chat/${threadId}/`] };
+}

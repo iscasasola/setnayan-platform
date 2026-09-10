@@ -5,6 +5,7 @@ import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventNoun } from '@/lib/event-noun';
@@ -54,7 +55,7 @@ export default async function HeroPhotoEditorPage({
 
   // Resolve the current photo (if any) to a presigned GET URL for display.
   const currentPhotoUrl = await displayUrlForStoredAsset(
-    event.landing_page_hero_image_url,
+    siteMediaServeRef(event.landing_page_hero_image_url),
   );
 
   return (

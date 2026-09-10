@@ -255,6 +255,16 @@ export async function GuestAllotmentsChoice({
               />
               <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
             </div>
+            {/* A TYPED NUMBER IS "AT MOST" (migration 20271221350945): the
+                database holds it to the equal share, exactly as `splitTheRest`
+                does. Without this line the couple types 50, reads 14, and has
+                no idea why their number was not the one that applied. */}
+            {everyoneElse !== null && everyoneElse > split.perHead ? (
+              <p className="text-xs text-terracotta">
+                Your celebration holds enough for {split.perHead} credits each right now, so that is
+                what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
+              </p>
+            ) : null}
             <p className="text-xs text-ink/55">
               Leave this empty and they simply share what is left — {split.perHead} credits each
               right now. The smallest you can set is 1: everyone who comes gets at least one

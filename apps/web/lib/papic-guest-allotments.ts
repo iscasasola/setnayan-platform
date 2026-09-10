@@ -313,6 +313,9 @@ export function splitTheRest(i: SplitInputs): Split {
   // fairness rule. Nothing here may ever render "0 credits each".
   const shares = unnamedCount + extraHeads;
   const derived = Math.max(1, Math.floor(remaining / shares));
+  // A typed number is AT MOST the share — the database's
+  // `LEAST(v_everyone, COALESCE(v_share, v_everyone))` (20271221350945). It can
+  // lower what each guest gets, never raise it past what the pot divides to.
   const perHead =
     i.everyoneElse === null ? derived : Math.max(0, Math.min(i.everyoneElse, derived));
 

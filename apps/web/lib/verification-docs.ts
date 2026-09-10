@@ -1001,6 +1001,120 @@ export async function buildVerificationDocsReportWith(
   });
 }
 
+/**
+ * ROUND 6 · THE LAST GATE BEFORE AN IRREVERSIBLE DELETE, MADE CALLABLE.
+ *
+ * 🔴 **THIS IS THE WORST SEAM THIS PAGE HAS HAD, AND IT SAT IN `actions.ts` FOR
+ * FIVE ROUNDS.** That file is a `'use server'` module no `node:test` can load —
+ * the IDENTICAL property that forced the fold, the loop and the report assembly
+ * out of `verification-docs-server.ts` — and it still held the branch that
+ * decides whether `r2Delete` runs at all. It was guarded by three text matches
+ * (`verificationDeleteVerdict(`, a `verdict`-before-`r2Delete` index compare,
+ * and `error=${verdict}`), and all three are satisfied by a build that deletes
+ * unconditionally. Measured on this branch, each sabotage applied and counted
+ * comment-stripped, the suite **GREEN at 90/90** every time:
+ *   · `if (verdict !== 'ok') {` → `if (false) {` — needle 1 → 0, added 0 → 1.
+ *     The verdict is still COMPUTED and the redirect literal is still in the
+ *     file, inside the now-dead branch, so all three assertions still pass while
+ *     `r2Delete` runs on whatever key the form carried. **GREEN.**
+ *   · `referencesComplete: complete,` → `referencesComplete: true,` — needle
+ *     1 → 0, added 0 → 1. **GREEN.** A capped read (`error: null`,
+ *     `complete: false`, a partial key set) scores `refs` honestly and `ok`
+ *     sabotaged, for a government ID whose owning row sat past the cap — with
+ *     the PAGE still refusing while the ACTION deletes.
+ *   · `referenceError: error,` → `referenceError: null,` — needle 1 → 0, added
+ *     0 → 1. **GREEN.** Gate 1 never fires; only gate 2 catches it, so that one
+ *     failed closed by luck rather than by design.
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING** — fifth time on this page, and this time the
+ * BRANCH went with the rule. The whole sequence lives here: read, judge, and
+ * delete only on `'ok'`. The action supplies two closures and does no deciding,
+ * so a test asks the only question that matters — **was the object deleted?** —
+ * instead of reading the action's text and hoping.
+ *
+ * ⚖ `readReferences` and `deleteObject` are injected because both bottom out in
+ * `server-only` modules (`@/lib/supabase/admin`, `@/lib/r2`). A rule kept beside
+ * them is a rule nothing can call.
+ *
+ * 🚨 **A `readReferences` THAT THROWS IS DELIBERATELY NOT CAUGHT HERE.** It
+ * propagates, nothing is deleted, and the caller fails loudly. Swallowing it
+ * would hand `verificationDeleteVerdict` an empty set with no error — which is
+ * byte-identical to "nothing points at this", the exact defect this page exists
+ * to kill. See `readAllReferenceSources`, whose bare `await` says the same.
+ */
+export type VerificationDeleteOutcome = 'deleted' | 'refs' | 'inuse' | 'delete';
+
+export async function performVerificationDelete(deps: {
+  key: string;
+  readReferences: () => Promise<{
+    keys: Set<string>;
+    error: string | null;
+    complete: boolean;
+  }>;
+  deleteObject: (key: string) => Promise<void>;
+}): Promise<VerificationDeleteOutcome> {
+  // Gate 2 of the action's docblock: the reference set is re-read HERE, at press
+  // time, never trusted from the page. A listing in front of a person may be
+  // minutes old and a vendor can attach a document in between.
+  const read = await deps.readReferences();
+  const verdict = verificationDeleteVerdict({
+    key: deps.key,
+    referenced: read.keys,
+    referenceError: read.error,
+    referencesComplete: read.complete,
+  });
+  // The one branch that stands between a form post and an unrecoverable object.
+  if (verdict !== 'ok') return verdict;
+  try {
+    await deps.deleteObject(deps.key);
+  } catch {
+    return 'delete';
+  }
+  return 'deleted';
+}
+
+/**
+ * ROUND 6 · WHICH SHELF OFFERS A DELETE — decided here, not in the JSX.
+ *
+ * 🔴 The page bound `docs` and `deletable` to each other by hand, three times,
+ * in a file `node:test` cannot render. Measured, each applied and counted, suite
+ * **GREEN at 90/90**:
+ *   · `deletable={report.referencesComplete}` → `deletable={true}` — needle
+ *     1 → 0, added 0 → 1. Every left-over document gets a Delete button while
+ *     every gate on the page says no.
+ *   · the "In use" shelf's `deletable={false}` → `deletable={true}` — needle
+ *     1 → 0, added 0 → 1. A Delete button beside a LIVE government ID.
+ * The first was bounded only by the action re-deriving — i.e. bounded by the
+ * very thing the `if (false)` sabotage above kills. Together they are a
+ * deletion; either alone is survivable. They are one finding.
+ *
+ * 🔑 The binding is ATOMIC now: a shelf carries its documents and its own answer
+ * to "may these be removed?", so the JSX cannot pair one shelf's rows with
+ * another shelf's permission. `in_use` and `unrecognised` are `false` by
+ * construction — not by a literal somebody has to keep typing correctly.
+ */
+export type VerificationDocShelf = {
+  state: VerificationDoc['state'];
+  docs: VerificationDoc[];
+  deletable: boolean;
+};
+
+export function verificationDocShelves(
+  report: VerificationDocsReport,
+): VerificationDocShelf[] {
+  const of = (state: VerificationDoc['state']) => report.docs.filter((d) => d.state === state);
+  return [
+    // The ONLY shelf that can ever offer a delete, and only when every gate in
+    // `verificationDeletionBlockReason` passed.
+    { state: 'left_over', docs: of('left_over'), deletable: report.referencesComplete },
+    // A vendor record still points at these.
+    { state: 'in_use', docs: of('in_use'), deletable: false },
+    // We cannot say whose these are, so we do not remove them.
+    { state: 'unrecognised', docs: of('unrecognised'), deletable: false },
+  ];
+}
+
 /** Human bytes, matching the website-media page's phrasing. */
 export function formatDocSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

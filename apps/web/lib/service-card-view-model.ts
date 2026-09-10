@@ -118,6 +118,16 @@ export function toServiceCard(
   /** `serviceDetailsEnabled()` — gates the details-sheet-only payload below, so
    *  the flag-OFF card ships exactly the bytes it ships today. */
   detailsEnabled: boolean,
+  /**
+   * C2 (2026-09-11): the card's cover photo (`primary_photo_r2_key`),
+   * already resolved to a display URL by the caller — this stays a PURE
+   * function, so it cannot sign/resolve the ref itself. Optional and
+   * defaulted so the two callers that don't pass it (the vendor's own
+   * services list, the shop's own page — D2 owns that file) render
+   * byte-identical to today. Only used when `showcase` carries no photos,
+   * so a card with real showcase photos never loses them to the cover.
+   */
+  coverPhotoUrl?: string | null,
 ): ServiceCard {
   // ⚠ MUST read the vendor's own title first. This card is what the
   // maker's live preview promises "exactly what couples see" — a card
@@ -240,7 +250,17 @@ export function toServiceCard(
     notIncluded,
     priceDetail,
     serves: serves ?? null,
-    photos: showcase?.photos ?? [],
+    // C2: no showcase photos → fall back to the card's own cover so the
+    // grid never draws a card with nothing to look at. A showcase with real
+    // photos always wins; an EMPTY showcase array (not just `undefined`)
+    // still falls back — a card that was given no gallery is not a card
+    // that opted out of a picture.
+    photos:
+      showcase?.photos && showcase.photos.length > 0
+        ? showcase.photos
+        : coverPhotoUrl
+          ? [coverPhotoUrl]
+          : [],
     videoUrl: showcase?.videoUrl ?? null,
     // A card with no history shows NOTHING new — the record only exists once
     // this card has actually been booked (owner: a zero-history card must not

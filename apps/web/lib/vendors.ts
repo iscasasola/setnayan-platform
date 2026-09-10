@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 
 export type VendorCategory =
   | 'venue'
@@ -504,6 +505,7 @@ export function groupDisplayOptions(
 }
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
+const WEDDING_TILE_SET: ReadonlySet<string> = new Set(Object.keys(WEDDING_TILE_LABEL));
 
 /**
  * Vendor profiles store services as `text[]` where canonical entries use the
@@ -514,6 +516,15 @@ const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 export function displayServiceLabel(service: string): string {
   if (CATEGORY_SET.has(service)) {
     return VENDOR_CATEGORY_LABEL[service as VendorCategory];
+  }
+  // C2 (2026-09-11): the granular canonical-service leaf (e.g. `host_mc`,
+  // `live_band`) is a DIFFERENT, finer vocabulary than VENDOR_CATEGORY above
+  // and was falling straight through to the humanised floor below —
+  // `host_mc` → "Host Mc" instead of "Host / MC". `WEDDING_TILE_LABEL`
+  // already carries the proper copy for every one of these leaves (pure map,
+  // no DB round trip); consult it before humanising.
+  if (WEDDING_TILE_SET.has(service)) {
+    return WEDDING_TILE_LABEL[service as WeddingTile];
   }
   // ── NEVER PRINT A DATABASE KEY AT A COUPLE (2026-08-09) ───────────────────
   // This used to `return service` raw. `services` is a TEXT[] and already holds

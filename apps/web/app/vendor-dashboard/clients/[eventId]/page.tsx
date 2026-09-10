@@ -157,6 +157,7 @@ import {
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -571,7 +572,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ]),
   );
 
-  const completion = (evRow ?? null) as {
+  const completionRow = (evRow ?? null) as {
     vendor_id: string | null;
     source: string | null;
     completion_status: string | null;
@@ -583,6 +584,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
   } | null;
+  // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
+  // a short-lived link scoped to THIS event's deposit folder — never the stored
+  // value, which the couple's session can write (a `https://wa.me/…` there
+  // would otherwise render here as "View proof"). lib/deposit-proof.server.ts
+  const completion = completionRow
+    ? {
+        ...completionRow,
+        deposit_proof_url: await depositProofDisplayUrl(completionRow.deposit_proof_url, eventId),
+      }
+    : null;
 
   // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
   // through the vendor's own invite QR); anything else (host_manual, cascade,

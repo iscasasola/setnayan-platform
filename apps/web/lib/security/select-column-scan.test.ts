@@ -126,6 +126,17 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
   vendor_trusted_review_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
   events_host: 'view in prod; readSchema() parses CREATE TABLE only.',
   vendor_market_stats: 'view in prod; readSchema() parses CREATE TABLE only.',
+  vendor_profiles_self:
+    'view created by migration 20271217955839; readSchema() parses CREATE TABLE only — the ' +
+    'same blind spot as events_host directly above, which is the view this one is modelled on. ' +
+    'WHICH OF THE TWO IT IS, said explicitly because this list demands it: a PARSER GAP, not a ' +
+    'phantom relation. Teaching readSchema() about CREATE VIEW would still not resolve it — the ' +
+    'projection is computed from information_schema inside a DO block, precisely so a column ' +
+    'cannot silently drop out of it. What guards it instead is stronger than this scanner would ' +
+    'be: post-condition 6 of that migration REFUSES TO APPLY unless the view projects every ' +
+    'column of vendor_profiles, and tests/db/a-shop-tax-identity-is-not-public.db.test.ts reads ' +
+    'real values back through it as the shop, as a teammate, and as a stranger (who must get ' +
+    'zero rows).',
   reel_music_tracks:
     'ordinary TABLE in prod (relkind=r) that readSchema() does not pick up — a real ' +
     'parser gap, not a phantom. Worth closing; it is not a drive-by.',
@@ -136,8 +147,16 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
 /**
  * Ceiling for `KNOWN_UNRESOLVED_TABLES`. Started at 11 on 2026-07-27, the full
  * set at the moment the blind spot was closed. RAISING IT IS A DECISION.
+ *
+ * 11 → 12 on 2026-09-10 for `vendor_profiles_self`. The decision, stated rather
+ * than buried: that view is where a shop reads its OWN tax identity after
+ * migration 20271217955839 took those columns off `authenticated` at table
+ * level, so the repointed reads HAVE to name a relation this parser cannot see.
+ * The alternative was leaving eleven identity columns readable by every
+ * signed-in account. The entry's own note says why teaching the parser about
+ * views would not have avoided it, and names the two guards that do cover it.
  */
-const KNOWN_UNRESOLVED_CEILING = 11;
+const KNOWN_UNRESOLVED_CEILING = 12;
 
 /** Relations named by a `.from()` that the migration schema cannot resolve. */
 function unresolvedTables(): Map<string, string[]> {

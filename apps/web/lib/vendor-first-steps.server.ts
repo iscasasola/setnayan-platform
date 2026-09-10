@@ -152,7 +152,10 @@ async function hasRegistrationNumber(
 ): Promise<boolean> {
   try {
     const { data } = await supabase
-      .from('vendor_profiles')
+      // `vendor_profiles_self` (migration 20271217955839), never the table —
+      // the column is off `authenticated`'s allowlist and the catch below
+      // swallows the refusal into a silent "not on file".
+      .from('vendor_profiles_self')
       .select('registration_number_raw')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();

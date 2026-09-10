@@ -42,6 +42,28 @@ export const KEEPSAKE_CSS = `
   color: var(--k-ink);
 }
 
+/* ── SOLEMN-QUIET (the wake never prints as a celebration either) ──────────
+   Owner-judgment interpretation (flagged, not owner-ruled): "print quiet"
+   suppresses FESTIVE CHROME — the champagne-gold / mulberry accent colour
+   that reads as party dressing on every rule, chip and border on this
+   sheet — never CONTENT. Every headline, photo, quote and credit still
+   prints; only the two accent tokens collapse onto ink, so the whole sheet
+   (which threads --k-accent / --k-mulberry through dozens of existing rules)
+   goes quiet in one place instead of needing a solemn arm hand-added to each
+   of them. This mirrors the rest of the app's solemn register
+   (event-words.ts's "solemn" flag, the-wake-never-celebrates.test.ts): the
+   SAME signal, applied to colour instead of copy. */
+.keepsake-root.k-solemn {
+  /* Override the base channel tokens too, not just --k-accent/--k-mulberry —
+     a couple of rules read rgba(var(--color-terracotta), …) directly for a
+     tinted border rather than going through --k-accent, and both must go
+     quiet together. */
+  --color-terracotta: var(--color-ink);
+  --color-mulberry: var(--color-ink);
+  --k-accent: var(--k-ink);
+  --k-mulberry: var(--k-ink);
+}
+
 /* ── screen presentation: sheet centered on a grey ground ─────────────────── */
 .keepsake-root {
   min-height: 100dvh;

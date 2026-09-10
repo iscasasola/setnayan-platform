@@ -126,7 +126,9 @@ function ChapterCard({ chapter, names }: { chapter: DayChapter; names: string })
  * pre-S14 case; printing "as it stood today" for it would invent the one fact
  * this whole feature exists to make honest.
  */
-function Colophon({
+/** Exported so the A4 booklet's closing page can share the identical
+ *  colophon rather than a second hand-copied one — see a4-sheet.tsx. */
+export function Colophon({
   qrSvg,
   hideWatermark,
   stampLine,
@@ -398,8 +400,9 @@ export function PrintSheet({
 }
 
 /** The editorial's pinned close: "From the Couple" (or the celebrant, etc.)
- *  then "Their Song". */
-function LockedClose({
+ *  then "Their Song". Exported so the A4 booklet's closing page reuses it
+ *  instead of a second hand-copied close — see a4-sheet.tsx. */
+export function LockedClose({
   data,
   words,
 }: {

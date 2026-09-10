@@ -219,18 +219,22 @@ export function planApplicationScrub(row: {
   let refused = 0;
 
   for (const slot of Object.keys(subset)) {
-    const refs = collectStoredAssetRefs(subset[slot]);
-    const present = refs.map((ref) => ({ ref, decision: planCleanupDelete(ref, scope) }));
-    const inScope = present.filter((p) => p.decision.ok);
-    const outOfScope = present.filter((p) => !p.decision.ok);
-    if (outOfScope.length > 0) {
-      refused += outOfScope.length;
+    // ONE pass decides both halves, so there is no separate "in scope" list to
+    // widen: a target exists only where the planner minted one, and a single
+    // refusal keeps the whole slot.
+    const targets: PlannedDelete[] = [];
+    let slotRefused = 0;
+    for (const ref of collectStoredAssetRefs(subset[slot])) {
+      const decision = planCleanupDelete(ref, scope);
+      if (decision.ok) targets.push(decision.target);
+      else slotRefused += 1;
+    }
+    if (slotRefused > 0) {
+      refused += slotRefused;
       refusedSlots.push(slot);
       continue;
     }
-    for (const p of inScope) {
-      if (p.decision.ok) deletes.push(p.decision.target);
-    }
+    deletes.push(...targets);
     scrubbedSlots.push(slot);
   }
 

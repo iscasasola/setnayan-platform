@@ -188,6 +188,15 @@ test('a STORED document that holds one photo twice (written by hand) shows it ON
   assert.equal(onPages.length, 1, `P2 is on ${onPages.length} pages`);
 });
 
+test('…and so does the resolver on its own, for a caller that never went through the read', () => {
+  // The read's repair and the resolver's check are two fences; each must hold without the other.
+  const doc = handDoc();
+  doc.moments[1]!.objects.push({ id: 'photo:dup', kind: 'photo', ref: P(2), x: 20, y: 16, w: 146, h: 100 });
+  const shown = resolveArrangement({ stored: doc, runOfShow: RUN_OF_SHOW, pool: POOL });
+  const onPages = shown.moments.flatMap((m) => m.objects).filter((o) => o.kind === 'photo' && o.ref === P(2));
+  assert.equal(onPages.length, 1, `P2 is on ${onPages.length} pages`);
+});
+
 test('photos on pages + photos in the tray ALWAYS equals the pool — nothing twice, nothing lost', () => {
   for (const stored of [handDoc(), null, { ...handDoc(), mode: 'auto' as const }]) {
     const shown = resolveArrangement({ stored, runOfShow: RUN_OF_SHOW, pool: POOL });

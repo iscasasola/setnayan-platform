@@ -80,6 +80,7 @@ const OPTIONAL_LOADS = [
   { call: 'loadDesk(', what: 'the desk' },
   { call: 'loadCoverCandidates(', what: 'the cover step’s candidates (08 step 1.5)' },
   { call: 'getCreatableEventTypes(', what: 'the what’s-next roster (08 step 1.7)' },
+  { call: 'loadMakeItYours(', what: 'Make it yours — the story’s pages (step 4)' },
 ];
 
 test('every optional load on the Story Maker is inside a try', () => {

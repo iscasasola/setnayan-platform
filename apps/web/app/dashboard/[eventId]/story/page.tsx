@@ -35,6 +35,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { sanitizeStoryCover } from '@/lib/story-cover';
 import { loadCoverCandidates, type WrittenMinute } from './_lib/load-cover-candidates';
 import { CoverStep } from './_components/cover-step';
+import { MakeItYours } from './_components/make-it-yours';
+import { loadMakeItYours } from './_lib/load-make-it-yours';
 import { WhatsNextStep } from './_components/whats-next-step';
 import { nextCandidates, sanitizeNextAnnouncement, type NextTypeOption } from '@/lib/whats-next';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -451,6 +453,25 @@ export default async function EditorialEditorPage({
   const savedCover = sanitizeStoryCover(event.story_cover_kind, event.story_cover_ref);
 
   /*
+    ═══ MAKE IT YOURS (step 4 of `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) ═══════════════════
+
+    Behind the PROVED host, like the desk and the cover: the read is step 3's service-role read,
+    so its authority cannot be left to the page's own RLS-scoped event read, which admits any
+    event member. `loadMakeItYours` proves the host again itself (`loadArrangementForHost`).
+
+    ⚠ A LOAD THAT THROWS COSTS THIS STEP, NOT THE ROUTE — and it SAYS so. Rendering nothing would
+    read exactly like a story with no photos, which is the one thing it must never look like.
+  */
+  let makeItYours: Awaited<ReturnType<typeof loadMakeItYours>> | 'failed' | null = null;
+  if (desk) {
+    try {
+      makeItYours = await loadMakeItYours(eventId);
+    } catch {
+      makeItYours = 'failed';
+    }
+  }
+
+  /*
     ═══ WHAT'S NEXT (08 step 1.7) ════════════════════════════════════════════
 
     DERIVED, NEVER CREATED. The roster is the admin's own (`event_type_vocab`),
@@ -637,6 +658,19 @@ export default async function EditorialEditorPage({
                 .join(' · ')}
               uploadDisplayUrls={uploadDisplayUrls}
             />
+          ) : null
+        }
+        makeItYours={
+          makeItYours === 'failed' ? (
+            <p
+              role="alert"
+              className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+            >
+              <strong className="text-ink">We couldn&rsquo;t load your photos for Make it yours.</strong>{' '}
+              Nothing you arranged is lost &mdash; reload to try again.
+            </p>
+          ) : makeItYours ? (
+            <MakeItYours eventId={eventId} input={makeItYours} />
           ) : null
         }
         whatsNext={

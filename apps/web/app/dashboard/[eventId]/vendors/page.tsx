@@ -81,6 +81,11 @@ import {
 } from './_components/pending-lock-proposals';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  blockedLockReason,
+  resolveBenchCardActions,
+  type BlockedLockReason,
+} from '@/lib/bench-card-actions';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
@@ -1486,6 +1491,29 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : null,
   });
 
+  // ── Owner 2026-09-11 · which build picks cannot be locked right now ────────
+  // Read off the CARD's own resolver — the same call the bench makes — so the
+  // Picks column never offers "Lock to confirm" for a supplier whose card hides
+  // Lock (declined inquiry, a slot another booking took) or whose calendar shows
+  // the committed day taken. `inBuild: true` because only build picks reach that
+  // list, and a build pick is exempt from the SOFT window tier by design.
+  // Flag OFF ⇒ the resolver offers nothing ⇒ the map stays empty ⇒ the column
+  // renders as it shipped.
+  const lockBlockedByVendorId = new Map<string, BlockedLockReason>();
+  {
+    const replanOn = isExploreReplanEnabled();
+    for (const folder of shortlistFolders) {
+      for (const tile of folder.tiles) {
+        for (const v of tile.vendors) {
+          const why = blockedLockReason(
+            resolveBenchCardActions({ enabled: replanOn, vendor: v, inBuild: true }),
+          );
+          if (why) lockBlockedByVendorId.set(v.vendorId, why);
+        }
+      }
+    }
+  }
+
   // ── WHERE EACH SUPPLIER STANDS (2026-09-09) ────────────────────────────────
   // A bench card used to offer "Check inquiry" and say nothing about WHERE
   // THINGS STAND — the same button whether the supplier answered an hour ago,
@@ -2116,6 +2144,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // renders with the kill switch thrown. Passing it here is what puts
           // "Leave a review" on the surface a couple actually sees.
           reviewStatusByVendorId={reviewStatusByVendorId}
+          lockBlockedByVendorId={lockBlockedByVendorId}
         />
         {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
             renders null when off (owner 2026-07-24). */}

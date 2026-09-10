@@ -272,10 +272,20 @@ test('the bench applies the arrangement to the SORTED rail, and the sink stays l
     /applyBenchArrangement\(\s*sortWithReasons\(/,
     'the arrangement is no longer applied to the sorted rail',
   );
+  // 2026-09-11 · H5 — there are now TWO sinks, and BOTH still run over the
+  // arranged rail, after it: the HARD tier ("Not available on your date")
+  // takes its cards out of `arrangedRail` first, and the SOFT tier partitions
+  // what that leaves. The claim this guards — the couple's hand is applied
+  // before any sink, never after — is unchanged; only the composition grew.
   assert.match(
     src,
-    /partitionByBuildFit\(\s*arrangedRail,/,
-    'the date sink no longer runs over the arranged rail',
+    /sinkUnavailable\(\s*arrangedRail,/,
+    'the hard date sink no longer runs over the arranged rail',
+  );
+  assert.match(
+    src,
+    /partitionByBuildFit\(\s*availability\.available,/,
+    'the soft date sink no longer runs over what the hard sink left of the arranged rail',
   );
   // The drop index is measured against what is ON SCREEN. Measuring it against
   // the unsorted list would drop cards in the wrong slot for every lens but one.

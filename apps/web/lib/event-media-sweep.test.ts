@@ -17,11 +17,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import {
-  PAPIC_KEY_COLUMNS,
-  VENDOR_CAPTURE_KEY_COLUMNS,
-  planEventMediaDeletes,
-} from './event-media-sweep-core';
+import { EVENT_MEDIA_KEY_SETS, planEventMediaDeletes } from './event-media-sweep-core';
+
+const PAPIC_KEY_COLUMNS = EVENT_MEDIA_KEY_SETS.papic;
+const VENDOR_CAPTURE_KEY_COLUMNS = EVENT_MEDIA_KEY_SETS.vendorCapture;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SWEEP = resolve(HERE, 'event-media-sweep.ts');

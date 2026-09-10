@@ -42,7 +42,7 @@ import {
  * URLs, which is the same defect one layer down: the photograph is still there,
  * just at a different address.
  */
-export const PAPIC_KEY_COLUMNS = [
+const PAPIC_KEY_COLUMNS = [
   'r2_object_key',
   'display_r2_key',
   'thumb_r2_key',
@@ -63,10 +63,10 @@ export const PAPIC_KEY_COLUMNS = [
  *
  * `vendor_profile_id` is read with the keys because it is half the tenant.
  */
-export const VENDOR_CAPTURE_KEY_COLUMNS = ['r2_object_key', 'poster_r2_key'] as const;
+const VENDOR_CAPTURE_KEY_COLUMNS = ['r2_object_key', 'poster_r2_key'] as const;
 
 /** The event's own website media — hero, film, music, the delivered song. */
-export const EVENT_KEY_COLUMNS = [
+const EVENT_KEY_COLUMNS = [
   'landing_page_hero_image_url',
   'landing_page_hero_video_r2_key',
   'site_bg_music_r2_key',
@@ -74,7 +74,23 @@ export const EVENT_KEY_COLUMNS = [
 ] as const;
 
 /** JSONB columns holding arrays of refs (or of objects carrying one). */
-export const EVENT_JSON_COLUMNS = ['our_photos', 'photo_wall_photos'] as const;
+const EVENT_JSON_COLUMNS = ['our_photos', 'photo_wall_photos'] as const;
+
+/**
+ * The four key sets, exported ONLY as one object for the I/O half's selects and
+ * the tests. Deliberately NOT exported under a `*_COLUMNS` name: those are
+ * lists of keys a DELETE must reach, not a canonical read shape — a gallery
+ * that selects three of the seven keys is correct, and the dup-rule guard
+ * (which treats every exported `*_COLUMNS` as a list other reads must
+ * reproduce) would otherwise flag every such read in the app. They were
+ * file-local in the sweep for the same reason before this module existed.
+ */
+export const EVENT_MEDIA_KEY_SETS = {
+  papic: PAPIC_KEY_COLUMNS,
+  vendorCapture: VENDOR_CAPTURE_KEY_COLUMNS,
+  event: EVENT_KEY_COLUMNS,
+  eventJson: EVENT_JSON_COLUMNS,
+} as const;
 
 export type EventMediaRows = {
   eventId: string;

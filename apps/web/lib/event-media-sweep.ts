@@ -1,13 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import type { PlannedDelete } from '@/lib/cleanup-delete-scope';
-import {
-  EVENT_JSON_COLUMNS,
-  EVENT_KEY_COLUMNS,
-  PAPIC_KEY_COLUMNS,
-  VENDOR_CAPTURE_KEY_COLUMNS,
-  planEventMediaDeletes,
-} from '@/lib/event-media-sweep-core';
+import { EVENT_MEDIA_KEY_SETS, planEventMediaDeletes } from '@/lib/event-media-sweep-core';
+
+const { papic: PAPIC_KEYS, vendorCapture: VENDOR_CAPTURE_KEYS, event: EVENT_KEYS, eventJson: EVENT_JSON_KEYS } =
+  EVENT_MEDIA_KEY_SETS;
 
 /**
  * event-media-sweep.ts — when a celebration is removed, its files go too.
@@ -72,7 +69,7 @@ export async function collectEventMediaRefs(
 
   const { data: photos, error: photoErr } = await admin
     .from('papic_photos')
-    .select(PAPIC_KEY_COLUMNS.join(','))
+    .select(PAPIC_KEYS.join(','))
     .eq('event_id', eventId);
   if (photoErr) return null;
 
@@ -81,13 +78,13 @@ export async function collectEventMediaRefs(
   // tenant the planner pins them to.
   const { data: captures, error: captureErr } = await admin
     .from('vendor_papic_captures')
-    .select(['vendor_profile_id', ...VENDOR_CAPTURE_KEY_COLUMNS].join(','))
+    .select(['vendor_profile_id', ...VENDOR_CAPTURE_KEYS].join(','))
     .eq('event_id', eventId);
   if (captureErr) return null;
 
   const { data: ev, error: evErr } = await admin
     .from('events')
-    .select([...EVENT_KEY_COLUMNS, ...EVENT_JSON_COLUMNS].join(','))
+    .select([...EVENT_KEYS, ...EVENT_JSON_KEYS].join(','))
     .eq('event_id', eventId)
     .maybeSingle();
   if (evErr) return null;

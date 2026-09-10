@@ -872,7 +872,7 @@ col	public.chat_messages.attachment_mime	anon=S authenticated=SI
 col	public.chat_messages.attachment_name	anon=S authenticated=SI
 col	public.chat_messages.attachment_r2_key	anon=S authenticated=SI
 col	public.chat_messages.attachment_size_bytes	anon=S authenticated=SI
-col	public.chat_messages.attachment_url	anon=S authenticated=SI
+col	public.chat_messages.attachment_url	anon=S authenticated=S
 col	public.chat_messages.body	anon=S authenticated=SI
 col	public.chat_messages.change_order_id	anon=S authenticated=SI
 col	public.chat_messages.created_at	anon=S authenticated=S

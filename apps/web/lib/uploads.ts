@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { publicAssetTarget } from '@/lib/stored-asset-public-url';
 import {
   R2_BUCKETS,
   type R2BucketKey,
@@ -104,6 +105,41 @@ export async function displayUrlForStoredAsset(
   if (!ref) return null;
   if (ref.kind === 'legacy_url') return ref.url;
   return await presignDisplayUrl(ref.bucket, ref.key, opts.ttlSeconds);
+}
+
+/**
+ * Resolves a stored value to a PUBLIC, unsigned URL on the media host.
+ *
+ * The sibling of `displayUrlForStoredAsset`, for the surfaces that render a
+ * PUBLIC image (the Explore marketplace grid, the couple's vendors tab, the
+ * wizard's picks). Those must not presign: a presigned URL carries a signature
+ * and a 24h expiry, so `next/image` re-transforms it on every render (billed
+ * per transformation) and a cached page outlives its own URLs. `setnayan-media`
+ * is served unsigned by design — see `lib/r2-client-ref.ts`.
+ *
+ * ⚠ THE ARGUMENT IS THE STORED VALUE, NOT AN OBJECT KEY. That is the whole
+ * point: `r2PublicUrl`'s second argument is a key, and handing it the stored
+ * `r2://bucket/key` ref produced `https://<host>/r2%3A//setnayan-media/…`,
+ * which 404s. `lib/public-url-takes-a-key-not-a-ref.test.ts` now refuses any
+ * call to `r2PublicUrl` / `publicUrlFor` outside the storage layer, so a future
+ * caller cannot reach the raw builder to make that mistake again.
+ *
+ * Accepts either write path's output — an `r2://` ref (`<FileUpload>`) or a
+ * bare key (`uploadPublicAsset`) — and passes a legacy absolute URL through
+ * untouched. Returns `null` rather than a broken address for a private bucket,
+ * an unknown bucket, or a malformed ref; every caller already has a
+ * placeholder for null.
+ *
+ * Synchronous: no signing round trip, so a list of a hundred covers costs
+ * nothing and needs no `Promise.all`.
+ */
+export function publicUrlForStoredAsset(
+  value: string | null | undefined,
+): string | null {
+  const target = publicAssetTarget(value);
+  if (!target) return null;
+  if (target.kind === 'passthrough') return target.url;
+  return publicUrlFor(target.bucket, target.key);
 }
 
 /**

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6613
+# facts: 6612
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
 #   col       4858
-#   policy    902
+#   policy    901
 #   view      9
 #   func      255
 #
@@ -592,7 +592,7 @@ tpriv	public.vendor_tool_bundles|anon	SIUD
 tpriv	public.vendor_tool_bundles|authenticated	SIUD
 tpriv	public.vendor_verification_applications|anon	SD
 tpriv	public.vendor_verification_applications|authenticated	SD
-tpriv	public.vendor_verifications|authenticated	SIUD
+tpriv	public.vendor_verifications|authenticated	S
 tpriv	public.vendor_wallets|authenticated	SIUD
 tpriv	public.vendor_web_dossiers|anon	SIUD
 tpriv	public.vendor_web_dossiers|authenticated	SIUD
@@ -5337,35 +5337,35 @@ col	public.vendor_verification_applications.status	anon=S authenticated=SIU
 col	public.vendor_verification_applications.submitted_at	anon=S authenticated=SIU
 col	public.vendor_verification_applications.updated_at	anon=S authenticated=SIU
 col	public.vendor_verification_applications.vendor_profile_id	anon=S authenticated=SIU
-col	public.vendor_verifications.approved_at	anon=- authenticated=SIU
-col	public.vendor_verifications.approved_by_admin_user_id	anon=- authenticated=SIU
-col	public.vendor_verifications.bank_account_proof_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.bir_2303_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.created_at	anon=- authenticated=SIU
-col	public.vendor_verifications.dti_certificate_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.expires_at	anon=- authenticated=SIU
-col	public.vendor_verifications.google_meet_at	anon=- authenticated=SIU
-col	public.vendor_verifications.google_meet_passed	anon=- authenticated=SIU
-col	public.vendor_verifications.government_id_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.mayors_permit_r2_key	anon=- authenticated=SIU
-col	public.vendor_verifications.persona_inquiry_id	anon=- authenticated=SIU
-col	public.vendor_verifications.persona_status	anon=- authenticated=SIU
-col	public.vendor_verifications.portfolio_sample_ids	anon=- authenticated=SIU
-col	public.vendor_verifications.public_id	anon=- authenticated=SIU
-col	public.vendor_verifications.reference_calls_made	anon=- authenticated=SIU
-col	public.vendor_verifications.reference_calls_passed	anon=- authenticated=SIU
-col	public.vendor_verifications.references_json	anon=- authenticated=SIU
-col	public.vendor_verifications.rejected_at	anon=- authenticated=SIU
-col	public.vendor_verifications.rejection_reason	anon=- authenticated=SIU
-col	public.vendor_verifications.sanctions_clear	anon=- authenticated=SIU
-col	public.vendor_verifications.sanctions_screened_at	anon=- authenticated=SIU
-col	public.vendor_verifications.sku_code	anon=- authenticated=SIU
-col	public.vendor_verifications.social_media_url	anon=- authenticated=SIU
-col	public.vendor_verifications.status	anon=- authenticated=SIU
-col	public.vendor_verifications.submitted_at	anon=- authenticated=SIU
-col	public.vendor_verifications.updated_at	anon=- authenticated=SIU
-col	public.vendor_verifications.vendor_profile_id	anon=- authenticated=SIU
-col	public.vendor_verifications.verification_id	anon=- authenticated=SIU
+col	public.vendor_verifications.approved_at	anon=- authenticated=S
+col	public.vendor_verifications.approved_by_admin_user_id	anon=- authenticated=S
+col	public.vendor_verifications.bank_account_proof_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.bir_2303_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.created_at	anon=- authenticated=S
+col	public.vendor_verifications.dti_certificate_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.expires_at	anon=- authenticated=S
+col	public.vendor_verifications.google_meet_at	anon=- authenticated=S
+col	public.vendor_verifications.google_meet_passed	anon=- authenticated=S
+col	public.vendor_verifications.government_id_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.mayors_permit_r2_key	anon=- authenticated=S
+col	public.vendor_verifications.persona_inquiry_id	anon=- authenticated=S
+col	public.vendor_verifications.persona_status	anon=- authenticated=S
+col	public.vendor_verifications.portfolio_sample_ids	anon=- authenticated=S
+col	public.vendor_verifications.public_id	anon=- authenticated=S
+col	public.vendor_verifications.reference_calls_made	anon=- authenticated=S
+col	public.vendor_verifications.reference_calls_passed	anon=- authenticated=S
+col	public.vendor_verifications.references_json	anon=- authenticated=S
+col	public.vendor_verifications.rejected_at	anon=- authenticated=S
+col	public.vendor_verifications.rejection_reason	anon=- authenticated=S
+col	public.vendor_verifications.sanctions_clear	anon=- authenticated=S
+col	public.vendor_verifications.sanctions_screened_at	anon=- authenticated=S
+col	public.vendor_verifications.sku_code	anon=- authenticated=S
+col	public.vendor_verifications.social_media_url	anon=- authenticated=S
+col	public.vendor_verifications.status	anon=- authenticated=S
+col	public.vendor_verifications.submitted_at	anon=- authenticated=S
+col	public.vendor_verifications.updated_at	anon=- authenticated=S
+col	public.vendor_verifications.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_verifications.verification_id	anon=- authenticated=S
 col	public.vendor_wallets.earned_tokens	anon=- authenticated=SIU
 col	public.vendor_wallets.purchased_tokens	anon=- authenticated=SIU
 col	public.vendor_wallets.updated_at	anon=- authenticated=SIU
@@ -6346,7 +6346,6 @@ policy	public.vendor_tool_bundles|vendor_tool_bundles_self_read	mode=PERMISSIVE 
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))
-policy	public.vendor_verifications|vendor_verifications_self_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid()))))
 policy	public.vendor_verifications|vendor_verifications_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=is_admin() check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=is_admin()

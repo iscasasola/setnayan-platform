@@ -39,6 +39,18 @@ export type MarketplaceServiceCard = {
   businessName: string;
   businessSlug: string | null;
   locationCity: string | null;
+  /**
+   * The shop's logo AS STORED — `r2://bucket/key` for anything uploaded
+   * through the shop editor, a legacy `https://…` for anything pasted into the
+   * old text input, `null` for a shop that has not set one.
+   *
+   * 🪤 IT IS NOT A URL AND MUST NOT REACH AN `<img src>`. Put this through
+   * `displayLogoUrl` (`lib/uploads.ts`) — the ONE shipped resolver — and hand
+   * the RESULT to the view. A raw `r2://` in an `<img>` renders a broken-image
+   * glyph, throws nothing and logs nothing; that exact defect has shipped on
+   * this codebase more than once. The name says `Ref`, not `Url`, on purpose.
+   */
+  businessLogoRef: string | null;
 };
 
 export type MarketplaceQuery = {
@@ -101,7 +113,7 @@ export async function fetchMarketplaceServiceCards(
   let q = supabase
     .from('vendor_services')
     .select(
-      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,is_published,verification_state,public_visibility)`,
+      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility)`,
     )
     .eq('is_active', true)
     .eq('vendor_profiles.verification_state', 'verified')
@@ -138,6 +150,7 @@ export async function fetchMarketplaceServiceCards(
       businessName: String(vp.business_name ?? ''),
       businessSlug: (vp.business_slug as string | null) ?? null,
       locationCity: (vp.location_city as string | null) ?? null,
+      businessLogoRef: (vp.logo_url as string | null) ?? null,
     };
   });
 }

@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -262,7 +263,14 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   await Promise.all(
     payments.map(async (p) => {
       if (!p.screenshot_url) return;
-      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      // 🔒 The dedicated signer, scoped to THIS payment's own order folders
+      // (lib/r2-client-ref.ts paymentProofPolicy) — the generic signer is
+      // public-bucket-only, and a proof must never be signed from a folder
+      // that belongs to a different order.
+      const url = await displayUrlForPrivateStoredAsset(
+        p.screenshot_url,
+        paymentProofPolicy({ orderId: p.order_id, eventId: p.order?.event_id ?? null, userId: p.user_id }),
+      );
       if (url) screenshotUrlMap[p.payment_id] = url;
     }),
   );

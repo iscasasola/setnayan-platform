@@ -15,7 +15,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { paperworkScanPolicy } from '@/lib/r2-client-ref';
 import {
   DOCUMENT_META,
   DOCUMENTS_BY_CEREMONY_TYPE,
@@ -148,7 +149,9 @@ export default async function PaperworkPage({ params }: Props) {
   const displayUrlByRef: Record<string, string> = {};
   for (const ref of uploadedRefs) {
     try {
-      const url = await displayUrlForStoredAsset(ref);
+      // 🔒 Scans live in the PRIVATE vendor-contracts bucket; signed only from
+      // THIS event's `paperwork/<eventId>/` folder (the write policy's own).
+      const url = await displayUrlForPrivateStoredAsset(ref, paperworkScanPolicy(eventId));
       if (url) displayUrlByRef[ref] = url;
     } catch (e) {
       // Don't kill the page if a single signed URL fails — the host

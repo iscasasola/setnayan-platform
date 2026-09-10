@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import { emitNotification } from '@/lib/notification-emit';
 import { FLAG_TYPE_LABEL, isFlagType } from '@/lib/force-majeure';
+import { disputeEvidencePolicy, parseClientRef } from '@/lib/r2-client-ref';
 
 /**
  * Couple-side: file a force-majeure flag against an event.
@@ -74,6 +75,11 @@ export async function fileForceMajeureFlag(formData: FormData) {
     const trimmed = r.trim();
     if (trimmed.length === 0) continue;
     if (!trimmed.startsWith('r2://')) continue;
+    // 🔒 The WRITE half (N4 part 3). This used to keep ANY `r2://` ref — any
+    // bucket, any folder — so a couple could file a stranger's private file
+    // (a payment proof, a government ID) as their own "evidence" and have the
+    // server sign it back to them. Only the uploader's own folder is kept now.
+    if (!parseClientRef(trimmed, disputeEvidencePolicy(eventId))) continue;
     if (evidenceUrls.includes(trimmed)) continue;
     evidenceUrls.push(trimmed);
     if (evidenceUrls.length >= 5) break;

@@ -424,6 +424,12 @@ const ALLOWED_DOOR_LINES: ReadonlyArray<{ file: string; snippet: string }> = [
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Marketplace exposure to other PH couples' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Chat with couples in-app' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Couples browsing the marketplace' },
+  // ⚖ NOT COPY: `event_members.member_type` compared against its enum value in
+  // the signed-in arm's redirect — it never reaches a screen. join-flow.tsx joined
+  // this rule's derived set on 2026-09-10 when it began importing DoorShell's
+  // `DoorSkin` type for the invite themes; every OTHER line of it is now guarded
+  // here for the first time, which is why this is a snippet and not the file.
+  { file: 'join/[eventId]/_components/join-flow.tsx', snippet: "existing.member_type === 'couple'" },
 ];
 
 function doorFiles(): Array<{ rel: string; src: string }> {

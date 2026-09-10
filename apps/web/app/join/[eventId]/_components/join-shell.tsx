@@ -15,7 +15,7 @@
  * owns that colour now and gets it right; see its header note.
  */
 import Link from 'next/link';
-import { DoorShell, type DoorStep } from '@/app/_components/door/door-shell';
+import { DoorShell, type DoorSkin, type DoorStep } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 
 export type JoinShellEvent = {
@@ -30,6 +30,7 @@ export type JoinShellEvent = {
 export function JoinShell({
   event,
   steps,
+  skin,
   children,
 }: {
   event: JoinShellEvent;
@@ -38,6 +39,8 @@ export function JoinShell({
    * Optional: the opaque /join steps that are not part of the arrival carry none.
    */
   steps?: DoorStep[];
+  /** The invite link's theme skin (app/[slug]/invite/_themes). Omit for the bare door. */
+  skin?: DoorSkin;
   children: React.ReactNode;
 }) {
   return (
@@ -46,6 +49,7 @@ export function JoinShell({
       title={event?.display_name || 'Event invite'}
       meta={event ? joinDoorMeta(event) : undefined}
       steps={steps}
+      skin={skin}
     >
       {children}
     </DoorShell>

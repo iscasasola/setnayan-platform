@@ -712,7 +712,12 @@ export async function requestProfileCorrection(
 
   // Own profile + a display snapshot of the current value for the admin queue.
   const { data: profRow, error: profErr } = await supabase
-    .from('vendor_profiles')
+    // `vendor_profiles_self` (migration 20271217955839), never the table: the
+    // projection below names `business_owner_name`, which is off
+    // `authenticated`'s column allowlist, and PostgREST refuses the WHOLE query
+    // over one denied column — so on the table every correction request would
+    // fail with "Vendor profile not found".
+    .from('vendor_profiles_self')
     // ⚠ EVERY KEY IN `LOCKED_IDENTITY_FIELD_KEYS` MUST BE IN THIS SELECT. The
     // snapshot below reads `prof[fieldKey]`, so a key that is missing here
     // silently records `current_value = null` — the admin then reviews "change

@@ -1,0 +1,705 @@
+/*
+  "MAKE IT YOURS" — ported from `prototypes/story_make_it_yours_2026-09-10.html` (owner-passed
+  2026-09-10). PORTED, NOT REDRAWN: every rule below is the prototype's own, scoped to this editor,
+  in the prototype's order. Its two tokens that already have a home in the app take the app's
+  (ink #2C2A29 and the action colour #C24E25 are the prototype's exact values); the neutrals are
+  the prototype's literals. Only the photo half is here — words, their toolbar, naming, sets and
+  moment reorder are step 6, and stickers are off (owner, for now).
+*/
+
+.root {
+  --paper: rgb(var(--color-cream));
+  --sunk: #f7f4ef;
+  --line: #e7e1d8;
+  --line2: #d8d0c4;
+  --ink: rgb(var(--color-ink));
+  --mute: #6e6963;
+  --faint: #8e8880;
+  --act: rgb(var(--color-mulberry));
+  --act-soft: rgba(194, 78, 37, 0.1);
+  --ok: #3f6b4a;
+  --link: #3b4e67;
+  --tgold: #8a6b39;
+  --on-act: #ffffff;
+  --shadow: 0 1px 2px rgba(44, 42, 41, 0.05), 0 8px 24px -16px rgba(44, 42, 41, 0.28);
+  --lift: 0 10px 26px -10px rgba(44, 42, 41, 0.4);
+  --f-d: var(--font-pahina-display), Georgia, serif;
+  --f-u: var(--font-sans), system-ui, sans-serif;
+  --f-m: var(--font-mono), ui-monospace, monospace;
+  /* The two-column switch is asked of THIS editor's width, not the window's: the Story Maker's
+     own rail already takes 240px of a laptop screen, so a window media query would put the
+     moments beside a page with no room left to draw it. */
+  container-type: inline-size;
+  color: var(--ink);
+  font: 400 15px/1.5 var(--f-u);
+}
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+.root [hidden] {
+  display: none !important;
+}
+
+.head {
+  margin: 0 0 14px;
+}
+.title {
+  font: 600 26px/1.1 var(--f-d);
+  margin: 0 0 3px;
+}
+.lede {
+  margin: 0;
+  font-size: 13px;
+  color: var(--mute);
+  max-width: 64ch;
+}
+.lede b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* minmax(0,…) on BOTH layouts: a bare 1fr takes the tray's no-wrap row as its minimum, and five
+   photos in the tray pushed the whole page past a phone's right edge. */
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@container (min-width: 640px) {
+  .cols {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+}
+.box {
+  min-width: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  box-shadow: var(--shadow);
+}
+.bh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.bh h3 {
+  font: 600 14px var(--f-u);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.n {
+  font: 400 10.5px var(--f-m);
+  color: var(--mute);
+}
+.sh {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.sh:first-child {
+  flex: 1 1 auto;
+}
+.sh:last-child {
+  flex: none;
+}
+.mini {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--act);
+  padding: 6px 9px;
+  border-radius: 7px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mini:hover {
+  background: var(--act-soft);
+}
+.mini:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+.linkbtn {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linkbtn:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+
+/* moments */
+.chaps {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+/* A real <button> — step 4 has no row ×, so the row is never a button with a button inside it
+   (the prototype's open accessibility item, 10a r3/critic OPEN). */
+.chap {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 8px 8px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+.chap:hover {
+  background: var(--sunk);
+}
+.chap.on {
+  background: var(--act-soft);
+  border-color: var(--act);
+}
+.chap:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 1px;
+}
+.nm {
+  min-width: 0;
+}
+.chap b {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chap small {
+  display: block;
+  color: var(--mute);
+  font: 400 10.5px var(--f-m);
+  margin-top: 1px;
+}
+.pill {
+  font: 700 10px var(--f-m);
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--sunk);
+  color: var(--mute);
+}
+.chap.on .pill {
+  background: var(--act);
+  color: var(--on-act);
+}
+
+/* mode switch */
+.modewrap {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.seg {
+  display: flex;
+  gap: 4px;
+  background: var(--sunk);
+  padding: 3px;
+  border-radius: 10px;
+}
+.seg button {
+  all: unset;
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 6px;
+  border-radius: 8px;
+  color: var(--mute);
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.seg button.on {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.seg button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.seg button:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+@keyframes nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+.seg button.nudge {
+  animation: nudge 0.32s ease 2;
+  box-shadow: 0 0 0 2px var(--act);
+}
+.modenote {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--mute);
+}
+.autolock {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin: 11px 13px 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--act-soft);
+  font-size: 12px;
+  color: var(--ink);
+}
+.autolock b {
+  font-weight: 600;
+}
+.alert {
+  margin: 11px 13px 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border-top: 3px solid var(--act);
+  background: var(--act-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.alert b {
+  font-weight: 600;
+}
+.alert button {
+  all: unset;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-left: 6px;
+}
+.alert button:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+
+/*
+  THE DESK AND THE PAGE ON IT. The page is a fixed 660-unit sheet that is SCALED to fit, never
+  re-flowed. Positions are stored in page units, so turning a phone or narrowing a window changes
+  how big the page looks — never where anything sits. Re-flowing is what piled photos on top of
+  each other on a phone and left them piled after widening again.
+*/
+.stage {
+  position: relative;
+  margin: 13px;
+  border-radius: 11px;
+  border: 1px dashed var(--line2);
+  overflow: hidden;
+  overflow: clip;
+  background: var(--sunk);
+  height: 420px;
+}
+.canvas {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 660px;
+  height: 360px;
+  transform-origin: 0 0;
+  background: var(--paper);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.emptystage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--mute);
+  font-size: 13px;
+  padding: 24px;
+  pointer-events: none;
+  margin: 0;
+}
+.obj {
+  position: absolute;
+  touch-action: none;
+  cursor: grab;
+  border-radius: 9px;
+  transition: box-shadow 0.15s;
+}
+.locked .obj {
+  cursor: default;
+  touch-action: auto;
+}
+.obj.dragging {
+  cursor: grabbing;
+  box-shadow: var(--lift);
+  z-index: 9;
+}
+.obj.ph {
+  border: 3px solid var(--paper);
+  box-shadow: var(--shadow);
+  background: var(--paper);
+}
+/* ⚠ NO overflow:hidden on the photo itself — it clipped the remove button to a sliver and the
+   owner could not take a photo off the page (2026-09-10). The picture clips itself instead. */
+.obj.ph .scene {
+  border-radius: 6px;
+}
+.scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sunk);
+}
+.scene img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.stamp {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  font: 400 8.5px var(--f-m);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+@keyframes land {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.obj.fresh {
+  animation: land 0.28s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.obj.ph.sel {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+.obj.sel {
+  z-index: 4;
+}
+.obj:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 3px;
+}
+/* Words are drawn exactly as kept. Changing them is step 6; on this step they are part of the
+   page, never under a photo it deals (freeSlot), and never a place a press gets lost. */
+.obj.tx {
+  padding: 7px 10px 7px 24px;
+  background: transparent;
+  min-width: 90px;
+  max-width: 400px;
+  cursor: default;
+  z-index: 3;
+  pointer-events: none;
+}
+.obj.tx .ed {
+  font: 400 19px/1.25 var(--f-d);
+  color: var(--tc, var(--ink));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 60px;
+}
+.obj.tx.pillw .ed {
+  background: var(--tc, var(--ink));
+  color: var(--paper);
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+/* The way off the page. It is counter-scaled, so it stays a finger's size however small the page
+   is drawn — and on a PHOTO it is always showing, because the owner looked for it and could not
+   find it. A hover-only × also vanished when the pointer crossed a neighbouring photo on the way. */
+.x {
+  position: absolute;
+  top: -11px;
+  right: -11px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--paper);
+  background: var(--ink);
+  color: var(--paper);
+  font: 600 15px/1 var(--f-u);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  z-index: 8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  transform: scale(var(--inv, 1));
+}
+@media (pointer: coarse) {
+  .x {
+    width: 30px;
+    height: 30px;
+    top: -13px;
+    right: -13px;
+  }
+}
+/* NO invisible halo on the × — spread over a neighbour, it took off the wrong photo (round 3). */
+.x:hover {
+  background: var(--act);
+}
+.x:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+.locked .x {
+  display: none !important;
+}
+.clipbig {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 700 9px var(--f-m);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 99px;
+  z-index: 2;
+}
+/* A refused tap is explained where the person is looking — pinned to the screen, not to the
+   bottom of a tall page they may have scrolled away from. */
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translate(-50%, 10px);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  background: var(--ink);
+  color: var(--paper);
+  font: 400 13px/1.35 var(--f-u);
+  padding: 9px 14px;
+  border-radius: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+  z-index: 60;
+  box-shadow: var(--lift);
+  overflow-wrap: anywhere;
+}
+.hint.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.hint.act .undo {
+  pointer-events: auto;
+}
+@media (pointer: coarse) {
+  .hint {
+    bottom: auto;
+    top: 14px;
+    transform: translate(-50%, -10px);
+  }
+  .hint .undo {
+    padding: 12px 8px;
+  }
+}
+.undo {
+  all: unset;
+  cursor: pointer;
+  margin-left: 12px;
+  font-weight: 700;
+  color: var(--paper);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 6px 4px;
+}
+.undo:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* tray */
+.tray {
+  padding: 11px 13px 14px;
+}
+.tt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.tt > span:first-child {
+  font: 400 10.5px var(--f-m);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.films {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+.films:focus {
+  outline: none;
+}
+.film {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  position: relative;
+  flex: none;
+  width: 74px;
+  height: 56px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.14s, border-color 0.14s;
+}
+.film .scene {
+  border-radius: 6px;
+}
+.film:hover {
+  transform: translateY(-2px);
+  border-color: var(--act);
+}
+.film:focus-visible {
+  outline: 2px solid var(--act);
+  outline-offset: 2px;
+}
+@keyframes back {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.film.returning {
+  animation: back 0.32s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.clip {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 700 8px var(--f-m);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 99px;
+}
+.tick {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--act);
+  color: #fff;
+  display: none;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+}
+.film:hover .tick,
+.film:focus-visible .tick {
+  display: grid;
+}
+.trayEmpty {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--mute);
+}
+.bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0 13px 13px;
+}
+.btn {
+  all: unset;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--line2);
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn.pri {
+  background: var(--act);
+  color: var(--on-act);
+  border-color: var(--act);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.saved {
+  font: 400 11px var(--f-m);
+  color: var(--ok);
+}
+.saved.bad {
+  color: var(--act);
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .hint {
+    animation: none !important;
+    transition: none !important;
+  }
+}

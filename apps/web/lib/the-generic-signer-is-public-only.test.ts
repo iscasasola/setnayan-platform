@@ -165,6 +165,7 @@ const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   ['app/dashboard/[eventId]/orders/[orderId]/page.tsx', /displayUrlForPrivateStoredAsset\(\s*p\.screenshot_url,\s*paymentProofPolicy\(\{ orderId: order\.order_id/],
   ['app/vendor-dashboard/booking-fees/[orderId]/page.tsx', /displayUrlForPrivateStoredAsset\(\s*p\.screenshot_url,\s*paymentProofPolicy\(\{ orderId: order\.order_id/],
   ['app/dashboard/[eventId]/disputes/page.tsx', /displayUrlsForPrivateStoredAssets\(\s*f\.evidence_urls,\s*disputeEvidencePolicy\(eventId\)/],
+  ['app/admin/force-majeure/[flagId]/page.tsx', /displayUrlsForPrivateStoredAssets\(\s*row\.evidence_urls \?\? \[\],\s*disputeEvidencePolicy\(row\.event_id\)/],
   ['app/dashboard/[eventId]/paperwork/page.tsx', /displayUrlForPrivateStoredAsset\(ref, paperworkScanPolicy\(eventId\)\)/],
   ['lib/vendor-service-payment-schedules.server.ts', /displayUrlForPrivateStoredAsset\(p\.proof_r2_key, budgetPaymentProofPolicy\(eventId\)\)/],
   ['app/vendor-dashboard/shop/inline-docs-actions.ts', /displayUrlForPrivateStoredAsset\(ref, vendorVerificationDocPolicy\(vendorProfileId\)\)/],

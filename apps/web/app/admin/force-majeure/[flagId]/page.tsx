@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
+import { disputeEvidencePolicy } from '@/lib/r2-client-ref';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   FLAG_STATUS_LABEL,
@@ -125,6 +127,16 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   const vendor = vendorRes.data as EventVendorLookup | null;
   const couple = coupleRes.data as UserLookup | null;
   const handler = handlerRes.data as UserLookup | null;
+
+  // The couple's evidence is stored as `r2://setnayan-thread-files/events/<id>/
+  // disputes/…` refs — a PRIVATE bucket, so the raw ref never rendered here (an
+  // <img src="r2://…"> is a broken image). Signed through the scoped signer, only
+  // from THIS flag's event's own disputes folder (N4 part 3); a legacy public
+  // URL passes through as before.
+  const evidenceUrls = await displayUrlsForPrivateStoredAssets(
+    row.evidence_urls ?? [],
+    disputeEvidencePolicy(row.event_id),
+  ).catch(() => [] as string[]);
 
   // Change-Order Trail (Wave 3) — the immutable both-acknowledged add-on/removal
   // log for this booking, so an admin handling the dispute sees every scope/price
@@ -365,11 +377,11 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
 
       <section className="mb-6 space-y-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Evidence ({row.evidence_urls?.length ?? 0})
+          Evidence ({evidenceUrls.length})
         </h2>
-        {row.evidence_urls && row.evidence_urls.length > 0 ? (
+        {evidenceUrls.length > 0 ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {row.evidence_urls.map((url, idx) => (
+            {evidenceUrls.map((url, idx) => (
               <li key={url} className="overflow-hidden rounded-md border border-ink/10">
                 <a href={url} target="_blank" rel="noreferrer" className="block">
                   <span className="relative block aspect-square">

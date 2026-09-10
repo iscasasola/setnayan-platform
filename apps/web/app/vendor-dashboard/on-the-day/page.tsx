@@ -632,7 +632,7 @@ export default async function VendorOnTheDayPage({
                   — display or print it at the event so guests can scan and review you.
                 </p>
                 <Link
-                  href="/vendor-dashboard/verify"
+                  href="/vendor-dashboard/shop#get-verified"
                   className="mt-3 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
                   style={{ color: 'var(--m-orange-2)' }}
                 >

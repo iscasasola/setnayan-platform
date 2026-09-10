@@ -14,6 +14,7 @@ import {
 } from '@/lib/vendor-verification-state';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
+  looksLikeStorageRef,
   parseClientRef,
   vendorOwnedMediaPolicy,
   vendorVerificationDocPolicy,
@@ -459,8 +460,14 @@ export async function updateDocUploadInline(
         ? [storedSlot.r2_key as string]
         : [],
   );
+  // Gated on `looksLikeStorageRef`, NOT a plain `startsWith('r2://')` — see its
+  // docblock in lib/r2-client-ref.ts. The plain check let an `R2://…`, padded
+  // or BOM-led foreign ref skip this whole check (treated as "not a ref"),
+  // only to be refused by the database's own #5414 policy with a raw RLS
+  // error. Normalising the same way the database does catches it here and
+  // refuses it with a plain message instead.
   const refIsOwned = (ref: string): boolean =>
-    !ref.startsWith('r2://') ||
+    !looksLikeStorageRef(ref) ||
     alreadyStored.has(ref) ||
     parseClientRef(ref, vendorDocPolicy) !== null ||
     parseClientRef(ref, vendorMediaPolicy) !== null;

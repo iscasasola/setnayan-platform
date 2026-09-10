@@ -6,6 +6,7 @@ import {
   eventLastDay,
   faceDataDeletableFromMs,
   faceDataIsPastRetention,
+  planFaceSelfieDelete,
 } from './face-data-retention-core';
 import { FULL_RES_POST_EVENT_GRACE_DAYS } from './papic-fullres-drop-core';
 
@@ -94,4 +95,37 @@ test('the anchor is UTC midnight, so no event deletes a day early', () => {
   // `new Date('2026-01-01')` is midnight UTC — which is 31 Dec west of
   // Greenwich. Anchoring explicitly is what stops the clock drifting a day.
   assert.equal(faceDataDeletableFromMs('2026-01-01', null, 0), Date.UTC(2026, 0, 1));
+});
+
+/* ── 2026-09-10 · ONLY THE ENROLLMENT'S OWN SELFIE IS EVER DELETED ─────────
+ * `couple_writes_face_enrollment` is FOR ALL, so `asset_url` is not written
+ * only by the two actions that gate it. The weekly sweep, the guest's own
+ * withdrawal, the couple's consent toggle and erasure all ask this one question
+ * before deleting anything. */
+
+const FE = 'fa000000-0000-4000-8000-000000000001';
+const FG = 'fa000000-0000-4000-8000-0000000000aa';
+
+test('the enrollment’s own selfie is deletable; another guest’s, another event’s and a supplier’s ID are not', () => {
+  const own = planFaceSelfieDelete({
+    event_id: FE,
+    guest_id: FG,
+    asset_url: `r2://setnayan-media/events/${FE}/guest-selfies/${FG}/s.jpg`,
+  });
+  assert.equal(own?.ok, true);
+  for (const foreign of [
+    `r2://setnayan-media/events/${FE}/guest-selfies/fa000000-0000-4000-8000-0000000000bb/s.jpg`,
+    `r2://setnayan-media/events/fa000000-0000-4000-8000-000000000002/guest-selfies/${FG}/s.jpg`,
+    'r2://setnayan-vendor-verification/vendors/victim/verification/gov.png',
+    'r2://setnayan-media/vendors/victim/logo/logo.png',
+    `https://media.setnayan.com/events/${FE}/guest-selfies/${FG}/s.jpg`,
+  ]) {
+    const d = planFaceSelfieDelete({ event_id: FE, guest_id: FG, asset_url: foreign });
+    assert.equal(d?.ok, false, foreign);
+  }
+});
+
+test('no selfie is no decision — never a refusal that blocks the vector’s deletion', () => {
+  assert.equal(planFaceSelfieDelete({ event_id: FE, guest_id: FG, asset_url: null }), null);
+  assert.equal(planFaceSelfieDelete({ event_id: FE, guest_id: FG, asset_url: '  ' }), null);
 });

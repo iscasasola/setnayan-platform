@@ -69,7 +69,10 @@
 -- ⚠ WHY RESTRICTIVE, AND WHY IT IS SAFE ON LIVE UPLOAD TABLES:
 --   • Policies are OR-ed — adding a PERMISSIVE policy would WIDEN. A RESTRICTIVE
 --     one is AND-ed with the permissive set, so it can only narrow.
---   • It binds only the session roles named. service_role bypasses RLS, so the
+--   • It binds only the session roles named — `authenticated`, plus `anon` on
+--     vendor_papic_captures, the one table where anon holds the grant (a policy
+--     naming a verb its role was never granted is dead text, and
+--     a-samahan-lives-while-one-stays.db.test.ts fails on it). service_role bypasses RLS, so the
 --     derivative writer, the NSFW screen, the sweeps and the recording RPC are
 --     untouched — which is also why the two server actions validate the same
 --     folder themselves (recordSeatCapture's key reaches the table through the
@@ -96,7 +99,7 @@
 -- real `authenticated` session (tests/db/every-cleanup-delete-is-pinned.db.test.ts)
 -- and every post-condition below re-asserts itself on apply.
 --
--- REVERSIBLE (do not): GRANT UPDATE (…) back and DROP the three policies.
+-- REVERSIBLE (do not): GRANT UPDATE (…) back and DROP the five policies.
 -- ============================================================================
 
 BEGIN;
@@ -111,7 +114,7 @@ CREATE POLICY papic_photos_keys_stay_in_their_event
   ON public.papic_photos
   AS RESTRICTIVE
   FOR UPDATE
-  TO authenticated, anon
+  TO authenticated
   USING (true)
   WITH CHECK (
     clip_web_r2_key IS NULL
@@ -178,7 +181,7 @@ CREATE POLICY vendor_verification_applications_refs_are_own_insert
   ON public.vendor_verification_applications
   AS RESTRICTIVE
   FOR INSERT
-  TO authenticated, anon
+  TO authenticated
   WITH CHECK (
     NOT EXISTS (
       SELECT 1
@@ -201,7 +204,7 @@ CREATE POLICY vendor_verification_applications_refs_are_own_update
   ON public.vendor_verification_applications
   AS RESTRICTIVE
   FOR UPDATE
-  TO authenticated, anon
+  TO authenticated
   USING (true)
   WITH CHECK (
     NOT EXISTS (

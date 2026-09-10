@@ -148,18 +148,55 @@ test('every file that grants the verified badge is one of the files this test co
   }
 });
 
-test('all three grant doors record the evidence snapshot with the grant', () => {
-  for (const rel of GRANT_FILES) {
-    const src = read(rel);
-    assert.match(
-      src,
-      /verificationEvidenceSnapshot\(/,
-      `${rel} hands out the verified badge without recording what the checks found`,
+/**
+ * 🪤 REV 1 OF THIS TEST WAS DECORATION AND ONLY MUTATION FOUND IT. It matched
+ * `evidence_at_grant` anywhere in the FILE — but `verify/actions.ts` holds TWO
+ * grant paths, so deleting the record from the visibility one (the path that
+ * has issued every badge production ever granted) left the applications one
+ * standing and the test reported a clean pass. **A file-level count cannot say
+ * which path still does the thing.** Each path is sliced and checked on its own
+ * now, and the slice boundaries are asserted so a rename cannot silently empty
+ * one.
+ */
+const GRANT_PATHS: ReadonlyArray<{ file: string; fn: string; what: string }> = [
+  {
+    file: VERIFY_ACTIONS,
+    fn: 'transitionVendorVisibility',
+    what: 'the one-click Approve — the only path production has ever used',
+  },
+  {
+    file: VERIFY_ACTIONS,
+    fn: 'applyApplicationDecision',
+    what: 'the applications queue decision',
+  },
+  { file: BYPASS_ACTIONS, fn: 'grantVerificationBypass', what: 'the vouch' },
+];
+
+/** One function body, from its declaration to the next top-level one. */
+function bodyOf(src: string, fn: string): string {
+  const start = src.indexOf(`function ${fn}(`);
+  assert.ok(start > 0, `${fn} is gone — a grant path was renamed or deleted`);
+  const after = src.slice(start + 10);
+  const next = after.search(/\n(export )?(async )?function /);
+  return next === -1 ? after : after.slice(0, next);
+}
+
+test('EVERY grant path records the evidence snapshot — checked per path, not per file', () => {
+  for (const { file, fn, what } of GRANT_PATHS) {
+    const body = bodyOf(read(file), fn);
+    assert.ok(
+      body.length > 200,
+      `${fn}: the slice came back nearly empty, so this check would pass on anything`,
     );
     assert.match(
-      src,
+      body,
+      /verificationEvidenceSnapshot\(/,
+      `${fn} (${what}) hands out the verified badge without asking what the checks found`,
+    );
+    assert.match(
+      body,
       /evidence_at_grant/,
-      `${rel} computes the snapshot but never writes it into the audit row`,
+      `${fn} (${what}) computes the snapshot but never writes it into the audit row`,
     );
   }
 });

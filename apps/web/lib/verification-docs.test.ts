@@ -30,6 +30,8 @@ import {
   readReferenceSource,
   readAllReferenceSources,
   buildVerificationDocsReportWith,
+  performVerificationDelete,
+  verificationDocShelves,
   referenceSelectColumns,
   type ReferenceQueryClient,
   type ReferenceQueryResult,
@@ -107,18 +109,6 @@ test('only a parseable, unreferenced document is deletable', () => {
 
 // ── The gates that live in the action, not the page ─────────────────────────
 
-test('the delete action re-reads what is in use AT PRESS TIME', () => {
-  // The listing in front of a person may be minutes old, and a vendor can
-  // attach a document in between. A stale "left over" label must not be able to
-  // authorise a delete.
-  const fn = ACTIONS.slice(ACTIONS.indexOf('export async function deleteVerificationDoc'));
-  assert.match(fn, /await referencedVerificationKeys\(\)/);
-  assert.ok(
-    fn.indexOf('referencedVerificationKeys') < fn.indexOf('r2Delete'),
-    'the reference read must happen BEFORE the delete',
-  );
-});
-
 test('a failed reference read deletes NOTHING', () => {
   // An empty set from a failed query is indistinguishable from "nothing points
   // at this" — the RLS-denial-reads-as-empty trap. Here it would erase a live
@@ -147,18 +137,6 @@ test('a failed reference read deletes NOTHING', () => {
     }),
     'refs',
   );
-});
-
-test('the delete gate is the shared rule, not a re-typed condition', () => {
-  const fn = ACTIONS.slice(ACTIONS.indexOf('export async function deleteVerificationDoc'));
-  assert.match(fn, /verificationDeleteVerdict\(/);
-  assert.ok(
-    fn.indexOf('verificationDeleteVerdict') < fn.indexOf('r2Delete'),
-    'the verdict must be taken BEFORE the delete',
-  );
-  // And the verdict is what the redirect carries, so a gate cannot be added to
-  // the rule and forgotten at the call site.
-  assert.match(fn, /error=\$\{verdict\}/);
 });
 
 test('the delete gate refuses a referenced key and admits an unreferenced one', () => {
@@ -1643,7 +1621,17 @@ test('R5 · dropping the in-progress source makes a LIVE government ID deletable
   );
 });
 
-test('R5 · a source that RAISES stops the whole read, through the real loop', async () => {
+test('R5 · a source that is REFUSED stops the whole read, through the real loop', async () => {
+  // ⚠ RENAMED IN ROUND 6. This test was called "a source that RAISES" and its
+  // fake client does not raise — it RESOLVES with `{ data: null, error: {...} }`,
+  // which is a refusal. Refused and thrown are different failure modes with
+  // different code paths (`readAllPages` turns a refusal into `{error}`; a throw
+  // propagates), and the whole 1,761-line file contained exactly ONE
+  // `throw new Error` and it was on the LISTING path. So the thrown-reference-read
+  // property had ZERO coverage while a test's NAME claimed it — which is worse
+  // than no test, because it is the name a reviewer reads before deciding the
+  // property is held. The real raise is the test immediately below.
+
   const client: ReferenceQueryClient = {
     from(table: string) {
       return {
@@ -1757,5 +1745,421 @@ test('R5 · the whole report is assembled in the pure module, listing failure in
     }),
     'refs',
     'and the delete action must refuse on the same footing',
+  );
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 6 · THE THROW PATH — a guard was NAMED for it and did not test it
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `readAllReferenceSources` calls `await readReferenceSource(...)` bare.
+// `readAllPages` turns a REFUSED query into `{error}`, but a THROWN one
+// propagates — and propagation IS the safety property, because it is what stops
+// a source's documents from silently reading `left_over`. Nothing asserted it:
+// the test above was called "a source that RAISES" and resolves with an error
+// object instead, and the only `throw new Error` in this whole file was on the
+// LISTING path. So both swallow-shaped edits — and they are the shape a future
+// author writes as "defensive hardening" — sailed straight through. Measured on
+// this branch, each applied and counted comment-stripped, suite GREEN at 90/90:
+//   · N5 — `reads.push(await readReferenceSource(client, source, opts));` wrapped
+//     in `try { … } catch {}`. The needle reads 1 → 1 because the ADDED string
+//     CONTAINS it; the added string's own count is 0 → 1, which is the proof it
+//     landed. **GREEN.**
+//   · N6 — `.catch(() => ({ rows: [], error: null, complete: true }))` on the
+//     same await. Needle 1 → 0, added 0 → 1. **GREEN.**
+// Both were clean under `npx tsc --noEmit`, identical to baseline, so typecheck
+// is not a backstop for either.
+
+/** A client whose reference read THROWS rather than resolving with an error. */
+function throwingClient(failTable: string): ReferenceQueryClient {
+  return {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            order() {
+              return {
+                range(): PromiseLike<ReferenceQueryResult> {
+                  if (table === failTable) throw new Error('connection reset');
+                  return Promise.resolve({ data: [ALL_NULL_ROW], error: null, count: 1 });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+test('R6 · a reference read that THROWS propagates — it is never swallowed', async () => {
+  // The property N5 and N6 destroy. Asked as a question about behaviour: does
+  // the failure get OUT, or does it become a quietly-empty reference set?
+  await assert.rejects(
+    () => readAllReferenceSources(throwingClient('vendor_verification_applications'), { pageSize: 500 }),
+    /connection reset/,
+    'a thrown reference read must escape; swallowing it yields an empty set with NO error, which is byte-identical to "nothing points at this"',
+  );
+  // And from the FIRST source too, so a swallow at either end of the loop fails.
+  await assert.rejects(
+    () => readAllReferenceSources(throwingClient('vendor_verifications'), { pageSize: 500 }),
+    /connection reset/,
+  );
+});
+
+test('R6 · a swallowed throw would offer a LIVE government ID for deletion', async () => {
+  // The harm, driven end to end rather than argued. This is what N5/N6 produce:
+  // the read that would have raised is replaced by an empty, "complete" result.
+  const swallowed = { keys: new Set<string>(), error: null, complete: true };
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: swallowed.keys,
+      referenceError: swallowed.error,
+      referencesComplete: swallowed.complete,
+    }),
+    // The empty-set canary is the ONLY thing that catches this one, which is why
+    // it must never be measured by set SIZE. See `documentReferenceCount`.
+    'inuse',
+    'the empty-set gate is the last line of defence against a swallowed throw',
+  );
+  // …and it stops being the last line of defence the moment ANY other row in
+  // the surviving source carries one real key, because then the set is not empty.
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'ok',
+    'this is the defect a swallowed throw creates: one surviving source, the other document deletable',
+  );
+  // The unsabotaged read fails closed instead, by raising.
+  await assert.rejects(() =>
+    readAllReferenceSources(throwingClient('vendor_verification_applications'), { pageSize: 500 }),
+  );
+});
+
+test('R6 · the page also fails closed when a reference read throws', async () => {
+  // A page that renders no Delete buttons is the safe end state. A page that
+  // renders them against an empty reference set is the defect.
+  await assert.rejects(
+    () =>
+      buildVerificationDocsReportWith({
+        client: throwingClient('vendor_verifications'),
+        listObjects: async () => ({ objects: [obj(GOV)], truncated: false }),
+        pageSize: 500,
+      }),
+    /connection reset/,
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 6 · THE LAST GATE — asked by watching whether the object was deleted
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `actions.ts` is a `'use server'` module `node:test` cannot load, and it held
+// the branch deciding whether `r2Delete` runs. Its three text guards
+// (`verificationDeleteVerdict(`, a verdict-before-`r2Delete` index compare, and
+// `error=${verdict}`) ALL pass over a build that deletes unconditionally —
+// measured, `if (verdict !== 'ok') {` → `if (false) {`, needle 1 → 0, added
+// 0 → 1, suite GREEN at 90/90. Those two guards are deleted; the branch moved
+// into `performVerificationDelete`, and these tests CALL it.
+
+/** Records every key the delete closure was actually asked to remove. */
+function deleteSpy() {
+  const deleted: string[] = [];
+  return {
+    deleted,
+    deleteObject: async (key: string) => {
+      deleted.push(key);
+    },
+  };
+}
+
+test('R6 · A-1 · a refused verdict deletes NOTHING — the branch, called', async () => {
+  // Each arm is a state in which the gate must hold. `deleted` staying empty is
+  // the whole assertion: `if (false)` cannot pass this, because the verdict is
+  // no longer merely computed — it decides.
+  const arms: Array<[string, { keys: Set<string>; error: string | null; complete: boolean }, string]> = [
+    ['a read that RAISED', { keys: new Set(), error: 'vendor_verifications: permission denied', complete: false }, 'refs'],
+    ['a read that RAISED part-way, with keys', { keys: new Set([DTI]), error: 'nope', complete: false }, 'refs'],
+    ['a read that could not prove it FINISHED', { keys: new Set([DTI]), error: null, complete: false }, 'refs'],
+    ['an EMPTY reference set', { keys: new Set(), error: null, complete: true }, 'inuse'],
+    ['a key that is still REFERENCED', { keys: new Set([GOV, DTI]), error: null, complete: true }, 'inuse'],
+  ];
+  for (const [why, read, expected] of arms) {
+    const spy = deleteSpy();
+    const outcome = await performVerificationDelete({
+      key: GOV,
+      readReferences: async () => read,
+      deleteObject: spy.deleteObject,
+    });
+    assert.equal(outcome, expected, why);
+    assert.deepEqual(spy.deleted, [], `${why}: nothing may be removed from an UNVERSIONED bucket`);
+  }
+});
+
+test('R6 · A-1 · a genuine orphan IS deleted — the gate is not vacuous', async () => {
+  // Anti-vacuity in the other direction. Over-collection must not have made
+  // cleanup impossible: a real left-over file still goes.
+  const spy = deleteSpy();
+  const outcome = await performVerificationDelete({
+    key: GOV,
+    readReferences: async () => ({ keys: new Set([DTI]), error: null, complete: true }),
+    deleteObject: spy.deleteObject,
+  });
+  assert.equal(outcome, 'deleted');
+  assert.deepEqual(spy.deleted, [GOV], 'exactly the key that was asked for, exactly once');
+});
+
+test('R6 · A-3 · a CAPPED read refuses, and the key is derived not assumed', async () => {
+  // A-3 was `referencesComplete: complete,` → `referencesComplete: true,` in the
+  // action's argument object — needle 1 → 0, added 0 → 1, GREEN at 90/90. The
+  // harm: a government ID whose owning row sat past PostgREST's cap. The read
+  // carries `error: null` and a non-empty set, so gates 1 and 4 are quiet and
+  // completeness is the ONLY thing standing between it and an irreversible
+  // delete. Driven through the REAL paging, not a hand-made flag.
+  const capped = await readAllReferenceSources(countlessClient([{ dti_certificate_r2_key: ref(DTI) }]), {
+    pageSize: 4,
+    maxPages: 10,
+  });
+  assert.equal(capped.error, null, 'a capped read raises nothing — that is what makes it dangerous');
+  assert.ok(capped.keys.size > 0, 'and it is not empty either, so gate 4 stays quiet');
+  assert.equal(capped.complete, false);
+  const spy = deleteSpy();
+  assert.equal(
+    await performVerificationDelete({
+      key: GOV,
+      readReferences: async () => capped,
+      deleteObject: spy.deleteObject,
+    }),
+    'refs',
+  );
+  assert.deepEqual(spy.deleted, [], 'a read that cannot prove it finished may not authorise a delete');
+});
+
+test('R6 · A-4 · the reference ERROR reaches the gate, not just completeness', async () => {
+  // A-4 was `referenceError: error,` → `referenceError: null,` — needle 1 → 0,
+  // added 0 → 1, GREEN at 90/90. It fails CLOSED today only because gate 2
+  // happens to catch it, which is luck, not design. Pinned as design: a read
+  // that RAISED but nonetheless claims completeness must still be refused.
+  const spy = deleteSpy();
+  assert.equal(
+    await performVerificationDelete({
+      key: GOV,
+      readReferences: async () => ({ keys: new Set([DTI]), error: 'vendor_verifications: permission denied', complete: true }),
+      deleteObject: spy.deleteObject,
+    }),
+    'refs',
+    'the error alone must refuse, with no help from completeness',
+  );
+  assert.deepEqual(spy.deleted, []);
+});
+
+test('R6 · a storage failure is reported, never dressed up as a deletion', async () => {
+  // The `try/catch` moved out of the action with the branch. A throw from R2
+  // must reach the person as "nothing changed", not as "that file is gone".
+  const outcome = await performVerificationDelete({
+    key: GOV,
+    readReferences: async () => ({ keys: new Set([DTI]), error: null, complete: true }),
+    deleteObject: async () => {
+      throw new Error('r2 said no');
+    },
+  });
+  assert.equal(outcome, 'delete');
+});
+
+test('R6 · a reference read that THROWS is not caught by the delete action either', async () => {
+  // Deliberately NOT swallowed here: catching it would hand the verdict an
+  // empty set with no error. Nothing is deleted, and the failure is loud.
+  const spy = deleteSpy();
+  await assert.rejects(
+    () =>
+      performVerificationDelete({
+        key: GOV,
+        readReferences: async () => {
+          throw new Error('connection reset');
+        },
+        deleteObject: spy.deleteObject,
+      }),
+    /connection reset/,
+  );
+  assert.deepEqual(spy.deleted, []);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 6 · WHICH SHELF OFFERS A DELETE (PG-1, PG-2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const shelfReport = (referencesComplete: boolean) =>
+  buildVerificationDocsReportFrom({
+    keys: new Set([DTI]),
+    referenceError: null,
+    referencesComplete,
+    objects: [obj(GOV), obj(DTI), obj('stray.jpg')],
+    listingError: null,
+    listingTruncated: false,
+  });
+
+test('R6 · PG-1/PG-2 · only left-over rows are ever deletable, and only when proven', () => {
+  // PG-1: `deletable={report.referencesComplete}` → `deletable={true}`, needle
+  // 1 → 0, added 0 → 1, GREEN at 90/90 — a Delete button beside every left-over
+  // file while every gate on the page said no.
+  // PG-2: the IN-USE shelf's `deletable={false}` → `deletable={true}`, same
+  // counts, GREEN — a Delete button beside a LIVE government ID.
+  const ok = verificationDocShelves(shelfReport(true));
+  assert.deepEqual(
+    ok.map((s) => [s.state, s.deletable]),
+    [
+      ['left_over', true],
+      ['in_use', false],
+      ['unrecognised', false],
+    ],
+    'in_use and unrecognised are false BY CONSTRUCTION, never by a hand-typed literal',
+  );
+  // And the rows travel with the permission, so the JSX cannot pair one shelf's
+  // documents with another shelf's answer.
+  assert.deepEqual(ok.find((s) => s.state === 'left_over')?.docs.map((d) => d.key), [GOV]);
+  assert.deepEqual(ok.find((s) => s.state === 'in_use')?.docs.map((d) => d.key), [DTI]);
+  assert.deepEqual(ok.find((s) => s.state === 'unrecognised')?.docs.map((d) => d.key), ['stray.jpg']);
+
+  // When any gate on the page failed, NOTHING is deletable — including the
+  // left-over shelf, which is the only one that ever could be.
+  const blocked = verificationDocShelves(shelfReport(false));
+  assert.deepEqual(
+    blocked.map((s) => s.deletable),
+    [false, false, false],
+    'a page that cannot prove what is in use offers no removal at all',
+  );
+  // Anti-vacuity: the rows are still LISTED. Refusing to delete must not hide
+  // the file somebody is looking for.
+  assert.equal(blocked.reduce((n, s) => n + s.docs.length, 0), 3);
+});
+
+test('R6 · the page binds ONE deletable expression, and it comes from the shelf', () => {
+  // A React server component is not renderable by `node:test`, so the rule was
+  // moved out above and this is the residue: the JSX must not re-type an answer.
+  // A whitelist of the whole decision surface — the exact SET of `deletable={…}`
+  // expressions in the file — not a bill of forbidden spellings.
+  const PAGE = readFileSync(
+    join(HERE, '..', 'app', 'admin', 'verification-docs', 'page.tsx'),
+    'utf8',
+  );
+  const code = normaliseModuleBody(PAGE);
+  const bound = [...code.matchAll(/deletable=\{([^}]*)\}/g)].map((m) => m[1]);
+  assert.deepEqual(
+    bound,
+    ['shelf.deletable'],
+    'exactly one binding, taken from the shelf that owns the rows — a second one is a second answer to the same question, and two of those shipped GREEN',
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 6 · THE ACTION'S WHOLE BODY, PINNED
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Everything the action could DECIDE has moved into the pure module above,
+// where the tests CALL it. What is left is wiring that cannot leave: `redirect`
+// and `revalidatePath` are Next server functions, `createClient` is the request
+// -scoped Supabase client, and `r2Delete` + `R2_BUCKETS` live in `@/lib/r2`,
+// which opens with `import 'server-only'`. So the bucket choice — A-6,
+// `R2_BUCKETS.vendorVerification` → `R2_BUCKETS.media`, needle 1 → 0, added
+// 0 → 1, GREEN at 90/90, deleting nothing while reporting "Deleted. That file
+// is gone from storage." — genuinely cannot be tested by calling anything.
+//
+// ⚖ **SO IT IS PINNED WHOLE, exactly as `verification-docs-server.ts` is.** Not
+// a deny-list: this page has paid that bill four times and two reviewers walked
+// past a three-literal bill on their first attempt each. ANY edit to this file
+// fails, and whoever makes it updates the pin deliberately.
+//
+// ⚠ WHAT THIS STILL CANNOT CATCH, stated rather than implied: an edit made
+// *together with* a matching edit to the pin. That is a deliberate act with a
+// diff a reviewer reads, and it is the strongest thing available for a module
+// no test can load.
+
+/**
+ * The ENTIRE body `app/admin/verification-docs/actions.ts` is allowed to have.
+ *
+ * 🔑 Read it as the design rule it encodes: an admin gate, a form field, two
+ * closures handed to a pure rule, and a redirect. No verdict arithmetic, no
+ * reference-set field mapping, no `try/catch` around the delete. Every one of
+ * those has been a green sabotage on this page.
+ */
+const ACTIONS_BODY_PIN = `
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+import { createClient } from '@/lib/supabase/server';
+import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
+import { contentDispositionAttachment } from '@/lib/content-disposition';
+import { referencedVerificationKeys } from '@/lib/verification-docs-server';
+import { performVerificationDelete } from '@/lib/verification-docs';
+
+async function requireAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  const { data } = await supabase
+    .from('users')
+    .select('is_internal')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if ((data as { is_internal?: boolean } | null)?.is_internal !== true) {
+    redirect('/');
+  }
+}
+
+export async function viewVerificationDoc(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const key = String(formData.get('key') ?? '').trim();
+  if (!key) redirect('/admin/verification-docs?error=nokey');
+
+  const url = await r2SignedGet({
+    bucket: R2_BUCKETS.vendorVerification,
+    key,
+    expiresIn: 120,
+    responseContentDisposition: contentDispositionAttachment(key.split('/').pop() || 'document'),
+  });
+  redirect(url);
+}
+
+export async function deleteVerificationDoc(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const key = String(formData.get('key') ?? '').trim();
+  if (!key) redirect('/admin/verification-docs?error=nokey');
+
+  const outcome = await performVerificationDelete({
+    key,
+    readReferences: referencedVerificationKeys,
+    deleteObject: (k) => r2Delete({ bucket: R2_BUCKETS.vendorVerification, key: k }),
+  });
+  if (outcome !== 'deleted') {
+    redirect(\`/admin/verification-docs?error=\${outcome}\`);
+  }
+
+  revalidatePath('/admin/verification-docs');
+  redirect('/admin/verification-docs?deleted=1');
+}
+`;
+
+test('R6 · the delete action has NO body of its own beyond the pin', () => {
+  assert.equal(
+    normaliseModuleBody(ACTIONS),
+    normaliseModuleBody(ACTIONS_BODY_PIN),
+    [
+      'actions.ts is a `use server` module no node:test can load, so its whole body',
+      'is pinned rather than a list of forbidden spellings being enumerated — three',
+      'such literals all kept passing over a build that deleted unconditionally.',
+      'If you MEANT to change it, update ACTIONS_BODY_PIN in the same commit and say',
+      'in the PR what new thing that file now decides — six rounds of this page say',
+      'the answer is that it should live in verification-docs.ts and be CALLED.',
+    ].join(' '),
   );
 });

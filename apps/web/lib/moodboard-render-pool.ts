@@ -37,6 +37,7 @@ import {
   renderPartById,
 } from './moodboard-render-parts';
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
+import { isPooledRenderGalleryKey } from './moodboard-render-keys';
 
 /** ~6 tiles a screen — the same page size the supplier gallery uses. */
 export const POOL_PAGE_SIZE = 6;
@@ -174,7 +175,7 @@ export type RenderPoolPage = {
  */
 export async function shapeRenderPoolPage(
   rows: readonly RawPoolRow[],
-  signUrl: (key: string) => Promise<string | null>,
+  signUrl: (key: string, renderId: string) => Promise<string | null>,
 ): Promise<{ renders: PoolRender[]; withheld: number; total: number }> {
   const renders: PoolRender[] = [];
   let withheld = 0;
@@ -184,11 +185,14 @@ export async function shapeRenderPoolPage(
     const hexes = (row.swatches ?? []).filter(
       (hex) => typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex),
     );
-    if (!row.gallery_image_key || hexes.length === 0) {
+    // 🔒 A key that is not THIS render's own watermarked copy is withheld and
+    // never reaches `signUrl` — the pool is read by OTHER couples, so a forged
+    // key here would hand a stranger a signed link into the private bucket.
+    if (!isPooledRenderGalleryKey(row.gallery_image_key, row.render_id) || hexes.length === 0) {
       withheld += 1;
       continue;
     }
-    const imageUrl = await signUrl(row.gallery_image_key);
+    const imageUrl = await signUrl(row.gallery_image_key, row.render_id);
     if (!imageUrl) {
       withheld += 1;
       continue;

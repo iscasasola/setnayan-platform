@@ -84,6 +84,11 @@ test("the couple's own number cannot promise more than the celebration holds", (
   // 1,600 over 112 guests derives 14. Asking for 500 each is not refused with
   // an error — it is capped at what is actually there, which is the honest
   // number and the one the database will enforce.
+  // ⚠ UNTIL 2026-09-11 THAT LAST CLAUSE WAS FALSE: the database returned the
+  // typed number raw, so guests could spend 500 while this sheet said 14.
+  // Migration 20271221350945 made it true — `LEAST(typed, share)` — and
+  // tests/db/papic-the-typed-number-is-at-most.db.test.ts proves the two agree
+  // by running `splitTheRest` against the real resolver.
   const greedy = splitTheRest({ ...WORKED, everyoneElse: 500 });
   assert.equal(greedy.perHead, 14);
   // A number BELOW the derived share is obeyed exactly, and the difference

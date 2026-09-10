@@ -83,10 +83,16 @@ test('a non-slot query is refused outright', () => {
 
 /* ── shaping: what is shown, what is WITHHELD, and why they differ ────────── */
 
+// Real uuids: the shaper holds each key to its OWN row's render id
+// (isPooledRenderGalleryKey), and slug-shaped ids are not keys anything mints.
+const EV = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const R1 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const OWN_KEY = `render-gallery/${EV}/${R1}.jpg`;
+
 const row = (over: Partial<RawPoolRow> = {}): RawPoolRow => ({
-  render_id: 'r1',
+  render_id: R1,
   part_id: 'room:ceiling',
-  gallery_image_key: 'render-gallery/e/r1.jpg',
+  gallery_image_key: OWN_KEY,
   swatches: ['#a83f2b', '#f2e6d8'],
   created_at: '2026-09-04T00:00:00Z',
   total_count: 3,
@@ -100,7 +106,7 @@ test('a good row becomes six colours and a signed URL of the MARKED copy', async
   assert.equal(out.withheld, 0);
   assert.equal(out.total, 3);
   const r = out.renders[0]!;
-  assert.equal(r.imageUrl, 'https://signed/render-gallery/e/r1.jpg');
+  assert.equal(r.imageUrl, `https://signed/${OWN_KEY}`);
   assert.equal(r.partLabel, 'Ceiling');
   // Cycled to six, exactly like the template and supplier paths.
   assert.deepEqual(r.swatches, [

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { chatAttachmentPolicy } from '@/lib/r2-client-ref';
+import { presignClientRef } from '@/lib/r2-client-ref.server';
 
 /**
  * THE ONLY WAY TO READ A FILE SHARED IN A CONVERSATION.
@@ -44,7 +45,7 @@ export async function GET(
   // is answered exactly as if the message did not exist.
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('attachment_r2_key, attachment_url, attachment_name')
+    .select('thread_id, attachment_r2_key, attachment_url')
     .eq('message_id', messageId)
     .maybeSingle();
 
@@ -56,19 +57,31 @@ export async function GET(
   }
 
   const row = data as {
+    thread_id: string;
     attachment_r2_key: string | null;
     attachment_url: string | null;
-    attachment_name: string | null;
   } | null;
-  // `attachment_url` is the legacy public column — no writer has set it since
-  // 2026-09-09 and prod never had a row that used it, but a stored value there
-  // is still somebody's file, so it is honoured rather than dropped.
-  const stored = row?.attachment_r2_key ?? row?.attachment_url ?? null;
+  if (!row) return new NextResponse('Not found', { status: 404 });
+
+  // 🚪 ONLY OUR OWN STORAGE, ONLY THIS CONVERSATION'S FOLDER.
+  // This route used to hand the stored value to `displayUrlForStoredAsset`,
+  // which passes any non-`r2://` value through verbatim — so `https://wa.me/…`
+  // or `viber://…` in `attachment_url` became a file card that redirected the
+  // reader straight out of the app (and an open redirect on setnayan.com).
+  // `presignClientRef` signs a thread-files ref under `chat/<this thread>/`
+  // and returns null for everything else — a URL, another bucket, another
+  // thread's folder, a traversal. Null is answered exactly like a missing
+  // message. `attachment_url` is legacy: production never had a row that used
+  // it, nothing can write it now (migration 20271221089848), and a value there
+  // is signed only if it is itself such a ref.
+  const stored = row.attachment_r2_key ?? row.attachment_url ?? null;
   if (!stored) return new NextResponse('Not found', { status: 404 });
 
   // Short TTL: this URL is handed to one browser for one render. The route is
   // cheap to call again, so there is no reason to mint a long-lived link.
-  const url = await displayUrlForStoredAsset(stored, { ttlSeconds: 300 });
+  const url = await presignClientRef(stored, chatAttachmentPolicy(row.thread_id), {
+    ttlSeconds: 300,
+  });
   if (!url) return new NextResponse('Not found', { status: 404 });
 
   return NextResponse.redirect(url, {

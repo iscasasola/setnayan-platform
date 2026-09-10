@@ -50,8 +50,8 @@ import {
   type RenderPoolPage,
 } from '@/lib/moodboard-render-pool';
 import { pickedRenderObjectKey } from '@/lib/moodboard-gallery-copy';
-import { r2GetBytes, r2Upload, r2SignedGet, R2_BUCKETS, isR2Configured } from '@/lib/r2';
-import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
+import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
+import { readPooledGalleryBytes, signPooledGalleryImage } from '@/lib/moodboard-render-serve';
 
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -1046,10 +1046,10 @@ export async function fetchRenderPool(input: {
   if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as RawPoolRow[];
-  const { renders, withheld, total } = await shapeRenderPoolPage(rows, (key) =>
-    r2SignedGet({ bucket: R2_BUCKETS[RENDER_BUCKET_KEY], key, expiresIn: 60 * 60 }).catch(
-      () => null,
-    ),
+  // The shaper hands `signUrl` only keys it has already held to their own row;
+  // the door re-asks, by render id, before signing anything.
+  const { renders, withheld, total } = await shapeRenderPoolPage(rows, (key, renderId) =>
+    signPooledGalleryImage({ renderId, key }),
   );
 
   return {
@@ -1116,7 +1116,9 @@ export async function applyRenderPick(input: {
   });
   if (error) return { status: 'error', message: error.message };
   const row = ((data ?? []) as RawPoolRow[])[0];
-  if (!row) return { status: 'error', message: 'That photo is no longer available.' };
+  if (!row || row.render_id !== input.renderId) {
+    return { status: 'error', message: 'That photo is no longer available.' };
+  }
 
   // The same shaping the picker used, so anything it would have withheld — a
   // render with no palette to sample — is refused here too rather than written
@@ -1137,10 +1139,15 @@ export async function applyRenderPick(input: {
     // bucket, and this crosses from the private bucket to the public one — the
     // only crossing in the whole path, and it happens only for a render whose
     // event has consented to exactly this.
-    const source = await r2GetBytes({
-      bucket: R2_BUCKETS[RENDER_BUCKET_KEY],
-      key: row.gallery_image_key!,
+    //
+    // 🔒 THROUGH THE PINNED DOOR: this is the one place a private object's bytes
+    // are re-published, so the key must be THIS render's own watermarked copy
+    // (`render-gallery/<uuid>/<this render id>.jpg`) or nothing is read at all.
+    const source = await readPooledGalleryBytes({
+      renderId: input.renderId,
+      key: row.gallery_image_key,
     });
+    if (!source) return { status: 'error', message: 'That photo is no longer available.' };
     publicUrl = await r2Upload({
       bucket: R2_BUCKETS.media,
       key: destinationKey,

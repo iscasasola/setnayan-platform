@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { referencedVerificationKeys } from '@/lib/verification-docs-server';
-import { verificationDeleteVerdict } from '@/lib/verification-docs';
+import { performVerificationDelete } from '@/lib/verification-docs';
 
 /**
  * /admin/verification-docs — the ONLY write path against the vendor
@@ -61,31 +61,37 @@ export async function viewVerificationDoc(formData: FormData): Promise<void> {
  *
  * ── THE GATES, AND WHY EACH ONE EXISTS ──────────────────────────────────────
  * 1. Admin only.
- * 2. **The reference set is re-read HERE, at press time** — never trusted from
- *    the page. The listing in front of a person may be minutes old, and a
- *    vendor can attach a document in between. A stale "left over" label must
- *    not be able to authorise a delete.
+ * 2. **The reference set is re-read AT PRESS TIME** — never trusted from the
+ *    page. The listing in front of a person may be minutes old, and a vendor
+ *    can attach a document in between. A stale "left over" label must not be
+ *    able to authorise a delete.
  * 3. **If the reference read fails, nothing is deleted.** An empty set from a
  *    failed query looks identical to "nothing points at this" — that is the
- *    RLS-denial-reads-as-empty trap, and here it would erase a live ID. Fail
- *    closed, and say so.
- * 4. `isDeletableVerificationDoc` refuses a key we could not parse a vendor out
- *    of. If we cannot say whose it is, we do not remove it.
- * 5. **The same predicate now also refuses an EMPTY reference set.** A read
- *    that succeeds and returns nothing looks byte-identical to "nothing points
- *    at this", and that is precisely how this page shipped: the reference
- *    builder could not read the shape the database actually stores, raised no
- *    error, and would have offered every live government ID for deletion.
- *    Gate 3 cannot see that — there is no error. Gate 5 is what does.
+ *    RLS-denial-reads-as-empty trap, and here it would erase a live ID.
+ * 4. A key we could not parse a vendor out of is refused. If we cannot say
+ *    whose it is, we do not remove it.
+ * 5. **An EMPTY reference set is refused too.** A read that succeeds and
+ *    returns nothing looks byte-identical to "nothing points at this", and that
+ *    is precisely how this page shipped. Gate 3 cannot see it — there is no
+ *    error. Gate 5 is what does.
  * 6. **A reference read that stopped EARLY is refused like a failed one.**
- *    Neither reference SELECT used to be paged or bounded, and PostgREST caps
- *    what it returns. A capped read comes back large, non-empty and incomplete
- *    with no error at all — so it clears gate 3 AND gate 5 while offering every
- *    document belonging to a row past the cap. The danger on this page is
- *    always a reference set SMALLER than the truth.
+ *    PostgREST caps what it returns; a capped read comes back large, non-empty
+ *    and incomplete with NO error, clearing gates 3 and 5 at once. The danger
+ *    on this page is always a reference set SMALLER than the truth.
  *
- * ⚖ All of them live in `verificationDeleteVerdict`, in the pure module, so
- * they are tested by being CALLED. Do not re-type one of them here.
+ * ⚖ **EVERY ONE OF THEM, AND THE BRANCH THAT ACTS ON THEM, LIVES IN
+ * `performVerificationDelete` — in the pure module, where a test CALLS it and
+ * watches whether the object was deleted.** This file is a `'use server'`
+ * module no `node:test` can load, so a condition written HERE could only ever
+ * be guarded by matching this file's text — and on this branch
+ * `if (verdict !== 'ok')` was replaced with `if (false)` while all three text
+ * guards kept passing and the suite stayed GREEN at 90/90. Do not bring a
+ * decision back into this file.
+ *
+ * 🛡 What is left is wiring, and it is pinned WHOLE — see
+ * `R6 · the delete action has NO body of its own beyond the pin`. The bucket
+ * below is part of that pin: pointing it at the wrong bucket deletes nothing
+ * and still reports "Deleted. That file is gone from storage."
  *
  * ONE object per call. There is no bulk delete on this page and there should
  * not be: the whole value of the gate is that a person looked at each file.
@@ -95,26 +101,13 @@ export async function deleteVerificationDoc(formData: FormData): Promise<void> {
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 
-  const { keys, error, complete } = await referencedVerificationKeys();
-  // Gates 3–6, in ONE pure rule that a test can call. This file is a
-  // `'use server'` module no `node:test` can load, so a condition written HERE
-  // could only ever be guarded by matching this file's text — and two guards of
-  // exactly that shape on this branch were proven decorative by a reviewer who
-  // broke the behaviour while both asserted literals stayed put.
-  const verdict = verificationDeleteVerdict({
+  const outcome = await performVerificationDelete({
     key,
-    referenced: keys,
-    referenceError: error,
-    referencesComplete: complete,
+    readReferences: referencedVerificationKeys,
+    deleteObject: (k) => r2Delete({ bucket: R2_BUCKETS.vendorVerification, key: k }),
   });
-  if (verdict !== 'ok') {
-    redirect(`/admin/verification-docs?error=${verdict}`);
-  }
-
-  try {
-    await r2Delete({ bucket: R2_BUCKETS.vendorVerification, key });
-  } catch {
-    redirect('/admin/verification-docs?error=delete');
+  if (outcome !== 'deleted') {
+    redirect(`/admin/verification-docs?error=${outcome}`);
   }
 
   revalidatePath('/admin/verification-docs');

@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveVendorDisplayName, isVendorNameRevealed } from './vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed, displayServiceLabel } from './vendors';
 
 const BASE = {
   business_name: 'Aperture & Vine Studios',
@@ -95,4 +95,25 @@ test('venue exemption still wins regardless of verification', () => {
     name_revealed_at: null,
   });
   assert.equal(name, 'Aperture & Vine Studios');
+});
+
+// ── C2 (2026-09-11): displayServiceLabel consults WEDDING_TILE_LABEL before
+// humanising, so a canonical-service leaf like `host_mc` prints its real
+// copy ("Host / MC") instead of a title-cased key ("Host Mc"). ────────────
+
+test('displayServiceLabel: a WEDDING_TILE leaf prints its real label, not a title-cased key', () => {
+  assert.equal(displayServiceLabel('host_mc'), 'Host / MC');
+  assert.equal(displayServiceLabel('live_band'), 'Live Band');
+});
+
+test('displayServiceLabel: a VENDOR_CATEGORY code still wins over the tile map', () => {
+  // 'host_emcee' is a VendorCategory (VENDOR_CATEGORY_LABEL: 'Host / Emcee')
+  // that is NOT itself a WeddingTile key (the tile is 'host_mc') — proves the
+  // broader VENDOR_CATEGORY_LABEL branch is still checked first, unchanged
+  // for existing callers keyed on VendorCategory.
+  assert.equal(displayServiceLabel('host_emcee'), 'Host / Emcee');
+});
+
+test('displayServiceLabel: an unknown key still falls back to humanised title case', () => {
+  assert.equal(displayServiceLabel('some_future_leaf'), 'Some Future Leaf');
 });

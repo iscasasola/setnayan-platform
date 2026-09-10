@@ -29,6 +29,7 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
@@ -216,16 +217,21 @@ async function insertRender(
   eventId: string,
   opts: { note?: string | null; imageKey?: string | null; failed?: boolean } = {},
 ): Promise<boolean> {
+  // The render id is chosen HERE so the default image key can be the render's
+  // own (`renders/<event>/<render>.jpg`) — the only key the table accepts since
+  // migration 20271220579615 (CHECK event_renders_image_key_is_its_own).
+  const renderId = randomUUID();
   const r = await db.query<{ reusable: boolean }>(
     `INSERT INTO public.event_renders
-       (event_id, part_id, image_key, design_snapshot, prompt, config_digest, note, failed_at)
-     VALUES ($1,'room:ceiling',$2,'{}'::jsonb,'a stylist brief','v1:abc123',$3,$4)
+       (render_id, event_id, part_id, image_key, design_snapshot, prompt, config_digest, note, failed_at)
+     VALUES ($5,$1,'room:ceiling',$2,'{}'::jsonb,'a stylist brief','v1:abc123',$3,$4)
      RETURNING reusable`,
     [
       eventId,
-      opts.imageKey === undefined ? 'renders/x.jpg' : opts.imageKey,
+      opts.imageKey === undefined ? `renders/${eventId}/${renderId}.jpg` : opts.imageKey,
       opts.note ?? null,
       opts.failed ? new Date().toISOString() : null,
+      renderId,
     ],
   );
   return r.rows[0]!.reusable;
@@ -300,7 +306,7 @@ test('part_id is shape-checked, so a typo cannot become a cache key of its own',
       db.query(
         `INSERT INTO public.event_renders
            (event_id, part_id, image_key, design_snapshot, prompt, config_digest)
-         VALUES ($1,'ceiling','renders/x.jpg','{}'::jsonb,'p','v1:abc')`,
+         VALUES ($1,'ceiling',NULL,'{}'::jsonb,'p','v1:abc')`,
         [eventId],
       ),
     /event_renders_part_id_shape/,
@@ -311,7 +317,7 @@ test('part_id is shape-checked, so a typo cannot become a cache key of its own',
       db.query(
         `INSERT INTO public.event_renders
            (event_id, part_id, image_key, design_snapshot, prompt, config_digest)
-         VALUES ($1,'room:ceiling','renders/x.jpg','{}'::jsonb,'p','abc')`,
+         VALUES ($1,'room:ceiling',NULL,'{}'::jsonb,'p','abc')`,
         [eventId],
       ),
     /event_renders_config_digest_versioned/,

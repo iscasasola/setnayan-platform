@@ -5,6 +5,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import {
   Sparkles,
   CalendarClock,
@@ -691,7 +692,9 @@ export async function EventDashboard({
     return `/event-types/${eventType}.webp`;
   })();
   const ownHeroSrc = await (async () => {
-    const stored = (event.landing_page_hero_image_url as string | null) ?? null;
+    // The website hero is couple-writable: held to the public bucket before it
+    // can be signed (lib/site-media-ref.ts).
+    const stored = siteMediaServeRef(event.landing_page_hero_image_url);
     if (!stored) return null;
     try {
       return renderableImageSrc(await displayUrlForStoredAsset(stored));

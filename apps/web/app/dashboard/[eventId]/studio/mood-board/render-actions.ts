@@ -35,7 +35,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { r2Upload, r2SignedGet, R2_BUCKETS, isR2Configured } from '@/lib/r2';
+import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -55,6 +55,8 @@ import {
   type RenderFailureCode,
 } from '@/lib/gemini-image';
 import { buildGalleryCopy } from '@/lib/moodboard-gallery-copy';
+import { renderImageKey } from '@/lib/moodboard-render-keys';
+import { signOwnRenderImage } from '@/lib/moodboard-render-serve';
 
 /**
  * What the tile gets back. Three outcomes, all of them visible:
@@ -74,9 +76,12 @@ export type RenderActionResult =
   | { status: 'insufficient'; creditsNeeded: number; creditsLeft: number | null }
   | { status: 'failed'; code: RenderFailureCode | 'unavailable'; renderId: string | null };
 
-/**
+/*
  * Where a render's bytes live: `renders/<eventId>/<renderId>.<ext>` in the
- * PRIVATE bucket.
+ * PRIVATE bucket — minted by `renderImageKey` (lib/moodboard-render-keys.ts),
+ * the SAME derivation the database's equality CHECK and every reader use, so
+ * `moodboard_finish_render` accepts exactly the key written here and nothing
+ * else (migration 20271220579615).
  *
  * 🔒 `threadFiles`, not `media`. `media` is the public bucket — anything in it
  * is readable by URL by anyone who has one. A render is the couple's own
@@ -86,10 +91,6 @@ export type RenderActionResult =
  * the same posture as the payment proofs. `bucket-routing.ts` carries the
  * matching prefix rule so this cannot regress by omission.
  */
-function renderObjectKey(eventId: string, renderId: string, mimeType: string): string {
-  const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png';
-  return `renders/${eventId}/${renderId}.${ext}`;
-}
 
 // The private bucket every render is written to and read back from. NOT
 // exported: a 'use server' file may export only async functions. The key
@@ -288,7 +289,14 @@ export async function requestRender(args: {
     // An image we cannot keep is an image the couple cannot see. Refund.
     return fail('unavailable', 'R2 is not configured in this environment');
   }
-  const key = renderObjectKey(eventId, renderId, image.mimeType);
+  let key: string;
+  try {
+    // Inside the failure net: an id that cannot be canonicalised is a render
+    // the database would refuse, and the credit is already spent.
+    key = renderImageKey(eventId, renderId, image.mimeType);
+  } catch (err) {
+    return fail('unavailable', err instanceof Error ? err.message : 'no key for this render');
+  }
   try {
     await r2Upload({
       bucket: RENDER_BUCKET,
@@ -370,12 +378,8 @@ export async function requestRender(args: {
   // back a render they now have, and mark a delivered row as failed. So
   // `imageUrl` is nullable and the tile says "saved — reload to see it",
   // which is the true statement.
-  let imageUrl: string | null = null;
-  try {
-    imageUrl = await r2SignedGet({ bucket: RENDER_BUCKET, key, expiresIn: 60 * 60 });
-  } catch {
-    imageUrl = null;
-  }
+  // Through the one pinned door, like every other read of a render.
+  const imageUrl = await signOwnRenderImage({ eventId, renderId, key, expiresIn: 60 * 60 });
 
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   return {

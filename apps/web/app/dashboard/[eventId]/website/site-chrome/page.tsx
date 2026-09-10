@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -65,8 +66,9 @@ export default async function SiteChromeEditorPage({
   const musicGated = !proActive && !musicRef;
 
   const [musicUrl, videoUrl] = await Promise.all([
-    musicRef ? displayUrlForStoredAsset(musicRef) : Promise.resolve(null),
-    videoRef ? displayUrlForStoredAsset(videoRef) : Promise.resolve(null),
+    // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+    musicRef ? displayUrlForStoredAsset(siteMediaServeRef(musicRef)) : Promise.resolve(null),
+    videoRef ? displayUrlForStoredAsset(siteMediaServeRef(videoRef)) : Promise.resolve(null),
   ]);
   const musicDisplay: Record<string, string> = {};
   if (musicRef && musicUrl) musicDisplay[musicRef] = musicUrl;

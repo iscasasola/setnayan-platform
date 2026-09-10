@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { formatEventDate } from '@/lib/events';
 import { resolveStoryCover } from '@/lib/story-cover';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { stableMediaPath } from '@/lib/papic-display-ref';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import {
@@ -133,10 +134,14 @@ export async function GET(
       legacy and website images.
     */
     const coverStablePath = cover?.key ? stableMediaPath(cover.key) : null;
-    const coverPhotoUrl = cover?.key
+    // 🔒 The 'hero' rung IS the couple-writable website hero, and this card is
+    // rendered server-side and served publicly — held to the public bucket
+    // before it is signed (lib/site-media-ref.ts).
+    const coverKey = cover?.kind === 'hero' ? siteMediaServeRef(cover.key) : (cover?.key ?? null);
+    const coverPhotoUrl = coverKey
       ? (coverStablePath && coverStablePath.startsWith('/papic/media/')
           ? `${SITE_URL}${coverStablePath}`
-          : await displayUrlForStoredAsset(cover.key))
+          : await displayUrlForStoredAsset(coverKey))
       : null;
 
     // A PUBLISHED editorial → the editorial card (hero photo + scrim).

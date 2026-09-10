@@ -91,6 +91,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { eventTypePhotoSrc } from '../(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -728,7 +729,7 @@ export default async function LauncherPage({
         // are still N of them and a card row can hold a handful of events.
         const signed = await Promise.all(
           rows.map((r) =>
-            displayUrlForStoredAsset(r.landing_page_hero_image_url).catch(
+            displayUrlForStoredAsset(siteMediaServeRef(r.landing_page_hero_image_url)).catch(
               () => null,
             ),
           ),

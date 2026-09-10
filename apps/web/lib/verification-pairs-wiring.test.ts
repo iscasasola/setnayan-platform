@@ -35,13 +35,30 @@ function read(path: string): string {
 
 test('the identity read names every column the pairs type — a missing one reads as never typed', () => {
   const src = read(ACTIONS);
-  const m = /\.select\(\s*\n?\s*'([^']*public_visibility[^']*)'/.exec(src);
+  const m = /\.select\(\s*\n?\s*'([^']*registered_business_name[^']*)'/.exec(src);
   assert.ok(m, 'the identity select literal is gone');
   const named = m[1]!.split(',').map((s) => s.trim());
   for (const col of PAIR_COLUMNS) {
     assert.ok(named.includes(col), `the identity select does not read ${col}`);
   }
-  assert.ok(named.includes('public_visibility'), 'nothing tells the screen the shop is verified');
+  assert.equal(named.length, PAIR_COLUMNS.length, 'the identity read grew a column nothing asked for');
+});
+
+test('"is this shop verified?" has ONE source — the page read, threaded down', () => {
+  // A soft probe inside the lazy payload would degrade to false and draw a box
+  // on a verified shop whose save the server then refuses.
+  const actions = stripComments(read(ACTIONS));
+  assert.ok(
+    !/isVerified/.test(actions),
+    'the lazy payload grew its own verified probe — thread the page prop instead',
+  );
+  for (const f of [SECTION, DOCS_BODY, PAIRS]) {
+    assert.match(stripComments(read(f)), /isVerified/, 'the verified prop is not threaded');
+  }
+  assert.ok(
+    !/payload\.isVerified/.test(stripComments(read(PAIRS))),
+    'verify-pairs reads verified off the payload again',
+  );
 });
 
 test('every column the pairs type has a writer, and the number keeps its ONE writer', () => {

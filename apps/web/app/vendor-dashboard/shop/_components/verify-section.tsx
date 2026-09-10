@@ -262,6 +262,7 @@ export function VerifySection({
             vendorComplete={verify.vendorComplete}
             vendorTotal={verify.vendorTotal}
             vendorProfileId={vendorProfileId}
+            isVerified={isVerified}
           />
           <ContactsStep
             n={2}
@@ -391,6 +392,7 @@ function DocsStep({
   vendorComplete,
   vendorTotal,
   vendorProfileId,
+  isVerified,
 }: {
   n: number;
   done: boolean;
@@ -399,6 +401,8 @@ function DocsStep({
   vendorComplete: number;
   vendorTotal: number;
   vendorProfileId: string;
+  /** From the page's own authoritative profile read — NOT a second probe. */
+  isVerified: boolean;
 }) {
   const [payload, setPayload] = useState<InlineDocsPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -449,7 +453,12 @@ function DocsStep({
       onToggle={handleToggle}
     >
       {payload ? (
-        <DocsBody payload={payload} vendorProfileId={vendorProfileId} onSaved={reload} />
+        <DocsBody
+          payload={payload}
+          vendorProfileId={vendorProfileId}
+          isVerified={isVerified}
+          onSaved={reload}
+        />
       ) : failed ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Couldn&rsquo;t load your documents.{' '}

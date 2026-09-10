@@ -86,12 +86,6 @@ export type InlineDocsPayload = {
    * (owner 2026-09-09). All null on both production shops today.
    */
   identityValues: Record<string, string | null>;
-  /**
-   * `public_visibility === 'verified'`. Decides whether the two LOCKED columns
-   * render as a box or as the correction door — NOT whether the papers show at
-   * all: a verified shop keeps its badge AND is asked for its papers.
-   */
-  isVerified: boolean;
 };
 
 /**
@@ -203,7 +197,6 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     registrationNumberRaw: null,
     registrationNumberNeedsReview: false,
     identityValues: {},
-    isVerified: false,
   };
   const auth = await requireVendorId();
   if (!auth) return empty;
@@ -230,7 +223,6 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
       identityValues: identity.values,
-      isVerified: identity.isVerified,
     };
   }
 
@@ -249,7 +241,6 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
       identityValues: identity.values,
-      isVerified: identity.isVerified,
     };
   }
 
@@ -264,7 +255,6 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       registrationNumberRaw: regNumber.raw,
       registrationNumberNeedsReview: regNumber.needsReview,
       identityValues: identity.values,
-      isVerified: identity.isVerified,
     };
   return {
     applicationId: draft.applicationId,
@@ -278,7 +268,6 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     registrationNumberRaw: regNumber.raw,
     registrationNumberNeedsReview: regNumber.needsReview,
     identityValues: identity.values,
-    isVerified: identity.isVerified,
   };
 }
 
@@ -832,9 +821,8 @@ export async function saveVerificationIdentityField(
  */
 export async function loadVerificationIdentityFields(): Promise<{
   values: Record<string, string | null>;
-  isVerified: boolean;
 }> {
-  const empty = { values: {} as Record<string, string | null>, isVerified: false };
+  const empty = { values: {} as Record<string, string | null> };
   const auth = await requireVendorId();
   if (!auth) return empty;
   try {
@@ -846,7 +834,7 @@ export async function loadVerificationIdentityFields(): Promise<{
       // PAIR_COLUMNS and fails if a seventh column is added without landing
       // here, because a column missing from the select reads as never typed.
       .select(
-        'registered_business_name,business_owner_name,registration_number_raw,tin_number,registered_address,location_city,public_visibility',
+        'registered_business_name,business_owner_name,registration_number_raw,tin_number,registered_address,location_city',
       )
       .eq('vendor_profile_id', auth.vendorProfileId)
       .maybeSingle();
@@ -857,7 +845,7 @@ export async function loadVerificationIdentityFields(): Promise<{
       const v = row[c];
       values[c] = typeof v === 'string' && v.trim() ? v : null;
     }
-    return { values, isVerified: row.public_visibility === 'verified' };
+    return { values };
   } catch {
     return empty;
   }

@@ -51,10 +51,12 @@ const OPTIONAL_DOC_SLOTS = VENDOR_DOC_SLOTS.filter((s) => !PAIR_SLOT_KEYS.has(s.
 export function DocsBody({
   payload,
   vendorProfileId,
+  isVerified,
   onSaved,
 }: {
   payload: InlineDocsPayload;
   vendorProfileId: string;
+  isVerified: boolean;
   onSaved: () => void;
 }) {
   const locked = !payload.editable;
@@ -77,7 +79,12 @@ export function DocsBody({
           here is GONE — it is the same column as the number beside the
           registration certificate, and two boxes for one number is the drift
           the pairs exist to remove. Its uniqueness claim is unchanged. */}
-      <VerifyPairs payload={payload} vendorProfileId={vendorProfileId} onSaved={onSaved} />
+      <VerifyPairs
+        payload={payload}
+        vendorProfileId={vendorProfileId}
+        isVerified={isVerified}
+        onSaved={onSaved}
+      />
 
       {/* ── The three OPTIONAL items — untouched, still today's cards. ── */}
       <div className="space-y-2">

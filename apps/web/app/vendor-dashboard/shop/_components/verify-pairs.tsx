@@ -142,10 +142,18 @@ function Pill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
 export function VerifyPairs({
   payload,
   vendorProfileId,
+  isVerified,
   onSaved,
 }: {
   payload: InlineDocsPayload;
   vendorProfileId: string;
+  /**
+   * From the page's own authoritative profile read, threaded down — NOT a
+   * second probe inside the lazy payload. A soft probe that degrades to
+   * `false` would draw a box on a verified shop whose save the server then
+   * refuses, which is exactly the shape this build exists to remove.
+   */
+  isVerified: boolean;
   onSaved: () => void;
 }) {
   const locked = !payload.editable;
@@ -182,7 +190,7 @@ export function VerifyPairs({
         is left.
       </p>
 
-      {payload.isVerified && nothingSent ? (
+      {isVerified && nothingSent ? (
         <p
           className="rounded-lg border-l-[3px] p-3 text-xs"
           style={{
@@ -207,7 +215,7 @@ export function VerifyPairs({
               read={read}
               states={states}
               identityValues={payload.identityValues}
-              isVerified={payload.isVerified}
+              isVerified={isVerified}
               seedDisplayUrls={payload.seedDisplayUrls}
               vendorProfileId={vendorProfileId}
               registrationNumberRaw={payload.registrationNumberRaw}

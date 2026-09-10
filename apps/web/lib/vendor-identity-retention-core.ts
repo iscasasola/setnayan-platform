@@ -150,3 +150,68 @@ export function scrubIdentityUploads(docUploads: unknown): Record<string, unknow
 export function hasIdentityUploads(docUploads: unknown): boolean {
   return Object.keys(identityUploadsSubset(docUploads)).length > 0;
 }
+
+/**
+ * The ONE bucket a `vendor_verifications` identity key may point into.
+ *
+ * Mirrors `R2_BUCKETS.vendorVerification`. Written as a literal on purpose:
+ * this module is the PURE half and importing `lib/r2` would drag the S3 client
+ * and its env into every `node:test` that touches this rule.
+ * `verification-bucket-name-matches-r2.test.ts` pins the two together, so the
+ * literal cannot drift from the constant it mirrors.
+ */
+export const VERIFICATION_IDENTITY_BUCKET = 'setnayan-vendor-verification';
+
+/**
+ * MAY THE SWEEP DELETE THIS `vendor_verifications` REF? — defence in depth
+ * behind migration 20271218766967.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * `sweepVerifications` reads `government_id_r2_key` / `bank_account_proof_r2_key`
+ * and hands whatever it finds to an ADMIN-client delete. Those columns had no
+ * writer at all and, until that migration, a table-level INSERT grant plus a
+ * self-insert policy that constrained only `vendor_profile_id` — so any signed-in
+ * vendor could choose the string. `parseStoredAsset` accepts ALL FIVE buckets in
+ * `R2_BUCKETS`, and `setnayan-media` object keys are published in our own page
+ * source as presigned URLs, so the value could name a victim's live object.
+ *
+ * The migration is the load-bearing control. This is the second lock: a
+ * retention job for VERIFICATION identity documents has no business deleting an
+ * object in the public media bucket, whatever a future writer of these columns
+ * decides to store. The primitive is the deeper defect — narrowing it means even
+ * a restored grant cannot turn the sweep into a general delete.
+ *
+ * ⛔ THIS RULE IS FOR THE `vendor_verifications` COLUMNS ONLY. IT MUST NOT BE
+ *    APPLIED TO `vendor_verification_applications.doc_uploads`, and that is not
+ *    an oversight — it is measured. The live intake
+ *    (app/vendor-dashboard/verify/actions.ts) accepts a slot ref under EITHER
+ *    `vendorVerificationDocPolicy` (bucket `setnayan-vendor-verification`) OR
+ *    `vendorOwnedMediaPolicy`, and the latter has no `bucket` field, so
+ *    `parseClientRef` defaults it to the PUBLIC media bucket. A real
+ *    application's identity slot can therefore legitimately hold
+ *    `r2://setnayan-media/vendors/<own-id>/…`. Constraining that sweep to one
+ *    bucket would REFUSE to delete a document we promised to delete and leave it
+ *    retained past its declared retention — the RA 10173 failure, in the name of
+ *    security. Those refs are already tenancy-pinned at WRITE time by SEC-1 to
+ *    the vendor's own folder, which is the control this rule substitutes for on
+ *    the column path, where no write-time control exists at all.
+ *
+ * 🔒 FAILS CLOSED, in the direction that keeps the file: anything not provably
+ * an `r2://setnayan-vendor-verification/…` ref is REFUSED. A refusal must be
+ * COUNTED and surfaced by the caller — a refusal nobody can see is
+ * indistinguishable from a delete that happened — and the caller must NOT null
+ * the pointer for a ref it refused, or the object is retained past retention
+ * with nothing left pointing at it.
+ */
+export function verificationRefIsInScope(ref: string | null | undefined): boolean {
+  if (typeof ref !== 'string') return false;
+  const trimmed = ref.trim();
+  if (trimmed.length === 0) return false;
+
+  const prefix = `r2://${VERIFICATION_IDENTITY_BUCKET}/`;
+  if (!trimmed.startsWith(prefix)) return false;
+
+  // A bare `r2://bucket/` names no object. Require at least one key character,
+  // matching `parseClientRef`'s own "prefix plus something" rule.
+  return trimmed.length > prefix.length;
+}

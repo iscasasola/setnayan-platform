@@ -106,11 +106,13 @@ async function main() {
   const vendorProfileId = (vendor as { vendor_profile_id: string }).vendor_profile_id;
 
   // ── The shop's cards (step 1: A1 gift optional, B1 named) ────────────────
-  const { data: cards } = await supabase
+  const { data: cards, error: cardsErr } = await supabase
     .from('vendor_services')
-    .select('service_id, title, category, price_php, is_active, includes_setnayan_gift')
+    .select('vendor_service_id, title, category, starting_price_php, is_active, includes_setnayan_gift')
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });
+  // A failed read must not look like "no cards" (PostgREST returns { error }, it does not throw).
+  if (cardsErr) fail(`Could not read vendor_services: ${cardsErr.message}`);
 
   // ── The one inquiry thread between this couple and this shop ─────────────
   const { data: thread } = await supabase

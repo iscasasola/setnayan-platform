@@ -17,10 +17,10 @@
  */
 
 export type CardRow = {
-  service_id: string;
+  vendor_service_id: string;
   title: string | null;
   category: string | null;
-  price_php: number | string | null;
+  starting_price_php: number | string | null;
   is_active: boolean | null;
   includes_setnayan_gift: boolean | null;
 };
@@ -85,7 +85,7 @@ export function describeCard(card: CardRow | null): string {
   if (!card) return 'No card found for this shop yet.';
   const name = card.title?.trim() || `(nameless — shows as "${card.category ?? 'its category'}")`;
   const live = card.is_active ? 'published' : 'not published';
-  const price = card.price_php == null ? 'no price set' : `priced at ${peso(card.price_php)}`;
+  const price = card.starting_price_php == null ? 'no price set' : `priced at ${peso(card.starting_price_php)}`;
   const gift =
     card.includes_setnayan_gift == null
       ? 'gift value missing (should read as "no")'

@@ -19,10 +19,10 @@ import {
 
 test('describeCard: nameless, unpublished, no price, missing gift value', () => {
   const s = describeCard({
-    service_id: 'x',
+    vendor_service_id: 'x',
     title: null,
     category: 'live_band',
-    price_php: null,
+    starting_price_php: null,
     is_active: false,
     includes_setnayan_gift: null,
   });
@@ -34,10 +34,10 @@ test('describeCard: nameless, unpublished, no price, missing gift value', () => 
 
 test('describeCard: named, published, priced, gift explicitly no', () => {
   const s = describeCard({
-    service_id: 'x',
+    vendor_service_id: 'x',
     title: 'Weekend Reception Set',
     category: 'live_band',
-    price_php: 35000,
+    starting_price_php: 35000,
     is_active: true,
     includes_setnayan_gift: false,
   });

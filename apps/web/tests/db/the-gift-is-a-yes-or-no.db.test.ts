@@ -159,3 +159,44 @@ test('a present perk key still sets, and still clears', async () => {
   await save(id, { starting_price_php: 40000, exclusive_perk_text: '   ' }, true);
   assert.equal((await readCard(id)).exclusive_perk_text, null);
 });
+
+// ── Only the gift rule was meant to change ────────────────────────────────
+// Every definition of save_vendor_service since 20270208451790 refused an
+// UPDATE that matched no row. The first cut of the yes/no migration dropped
+// that refusal while copying the body, and nothing noticed: the save would
+// have written child rows against a NULL id and handed back NULL as if it had
+// saved. Restored 2026-09-10; this pins it.
+test('a save naming a card this shop does not own is still refused', async () => {
+  const other = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ('other@giftyesno.test', jsonb_build_object('account_type','customer'))
+     RETURNING id`,
+  );
+  const otherVp = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles
+       (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1, 'Somebody Else Studio', 'Cebu', ARRAY['photography']::text[], 'verified', NOW())
+     RETURNING vendor_profile_id`,
+    [other.rows[0]!.id],
+  );
+  const theirs = await db.query<{ vendor_service_id: string }>(
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, is_active)
+     VALUES ($1, 'photography', 25000, FALSE)
+     RETURNING vendor_service_id`,
+    [otherVp.rows[0]!.vendor_profile_id],
+  );
+  const theirId = theirs.rows[0]!.vendor_service_id;
+
+  await assert.rejects(
+    () => save(theirId, { starting_price_php: 1, includes_setnayan_gift: true }, false),
+    /Service not found/,
+    'a save against another shop\'s card went through without an error',
+  );
+  const untouched = await db.query<{ starting_price_php: number; includes_setnayan_gift: boolean }>(
+    `SELECT starting_price_php, includes_setnayan_gift FROM public.vendor_services
+      WHERE vendor_service_id = $1`,
+    [theirId],
+  );
+  assert.equal(untouched.rows[0]!.starting_price_php, 25000);
+  assert.equal(untouched.rows[0]!.includes_setnayan_gift, false);
+});

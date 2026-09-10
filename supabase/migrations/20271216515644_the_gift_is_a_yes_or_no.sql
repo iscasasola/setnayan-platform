@@ -213,6 +213,16 @@ BEGIN
     WHERE vendor_service_id = p_service_id
       AND vendor_profile_id = p_vendor_profile_id
     RETURNING vendor_service_id INTO v_service_id;
+
+    -- ⚠ KEPT FROM THE LIVE BODY (restored 2026-09-10). Every definition of this
+    -- function since 20270208451790 refuses an UPDATE that matched no row. The
+    -- first cut of this migration dropped it while copying the body, so a save
+    -- naming a card that is not this shop's (or was deleted mid-edit) would
+    -- have gone on to write child rows against a NULL id and returned NULL as
+    -- if it had saved. Only the gift rule was meant to change here.
+    IF v_service_id IS NULL THEN
+      RAISE EXCEPTION 'Service not found.' USING ERRCODE = 'no_data_found';
+    END IF;
   END IF;
 
   -- Replace-all "comes with" links.

@@ -571,6 +571,74 @@ export async function readReferenceSource(
   return readAllPages((from, to) => fetchReferencePage(client, source, from, to), opts);
 }
 
+/** What one reference source's read resolved to. The shape `readReferenceSource` returns. */
+export type ReferenceRead = {
+  rows: unknown[];
+  error: string | null;
+  complete: boolean;
+};
+
+/**
+ * Fold every source's READ into one reference set, one error and one verdict on
+ * completeness.
+ *
+ * 🛡 **THIS LIVES HERE BECAUSE IT IS THE LAST THING THE UNTESTABLE MODULE STILL
+ * DECIDED, AND ALL THREE OF ITS CONDITIONS WERE UNGUARDED.** Round 3 moved the
+ * query, the fold and every gate out of `verification-docs-server.ts` — and then
+ * put these three lines back into it. Measured on that branch, each sabotage
+ * applied and counted, the suite GREEN at 72/72 every time:
+ *   · `if (read.error) return …` → `if (false) return …` — needle 1 → 0,
+ *     `if (false) return` 0 → 1. A refused query stops raising, and its zero
+ *     rows are folded in as though the table were empty.
+ *   · `complete = complete && read.complete;` → `complete = complete;` — needle
+ *     1 → 0, added 0 → 1. A capped, short or count-less read is declared
+ *     complete, and the partial reference set feeds the irreversible delete.
+ *   · `complete: complete && !truncated` → `complete: complete` — needle 1 → 0,
+ *     added 0 → 1. A depth-truncated walk returns a SHORT reference set calling
+ *     itself complete, and every document past the ceiling is offered for
+ *     permanent deletion.
+ * None of the three could be caught, because the file they sat in opens with
+ * `import 'server-only'` and no `node:test` can load it. Its own docblock had
+ * already said so: *"a condition added to this file is a condition nothing can
+ * guard."*
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING** — third time on this page. The server module now
+ * awaits each source and hands the reads here; it decides nothing.
+ *
+ * All three arms fail CLOSED, and the order matters: an error wins outright and
+ * returns an EMPTY set, so no caller can mistake a partial read for a small one.
+ */
+export function foldReferenceReads(reads: Iterable<ReferenceRead>): {
+  keys: Set<string>;
+  error: string | null;
+  complete: boolean;
+} {
+  const rows: unknown[] = [];
+  let complete = true;
+  for (const read of reads) {
+    // 1 · A source that RAISED. Return nothing at all rather than a partial
+    // set: an empty set from a refused query is byte-identical to "nothing
+    // points at this", which is the bug this whole page exists to kill, so the
+    // error travels with it and gate 1 refuses on the error, not on the size.
+    if (read.error) return { keys: new Set(), error: read.error, complete: false };
+    rows.push(...read.rows);
+    // 2 · A source that SUCCEEDED but stopped early. No error exists for gate 1
+    // to trip on, so completeness has to carry it. One incomplete source makes
+    // the whole read incomplete — never the other way round.
+    complete = complete && read.complete;
+  }
+
+  // Whole rows go in. The projection is already reference-columns-only, so the
+  // walk finds every `*_r2_key` and the jsonb blob without naming one — a sixth
+  // column is covered the day it is added to `VERIFICATION_REFERENCE_SOURCES`.
+  const { keys, truncated } = collectReferencedKeysDetailed(rows);
+
+  // 3 · A walk that hit its depth ceiling. Same danger, third route in: the set
+  // is SMALLER than the truth and nothing raised.
+  return { keys, error: null, complete: complete && !truncated };
+}
+
 /**
  * Pull the vendor id and document slot out of a key.
  *
@@ -634,6 +702,35 @@ export function classifyVerificationDocs(
  * it, which means we cannot be confident we know what it is.
  *
  * 🪤 AND AN EMPTY REFERENCE SET IS NOT DELETABLE EITHER. See the body.
+ */
+/**
+ * How many collected references are shaped like a document in THIS bucket.
+ *
+ * ⚠ **HONEST CEILING, DECIDED RATHER THAN INHERITED — THIS COUNT IS STILL
+ * INFLATABLE, NARROWLY, AND THAT IS ACCEPTED ON PURPOSE.** `social_media` holds
+ * a platform → link map, and `referenceCandidateForms` rule 4 derives a key
+ * from any `http(s)` path at its first `vendors/`. So a stored link like
+ * `https://anything/vendors/x/verification/y` yields a `vendors/…` form and is
+ * counted here — inflating gate 4's number without protecting a real file.
+ *
+ * ⚖ **NARROWING IT WAS CONSIDERED AND REFUSED, for a reason worth more than the
+ * narrowing.** To tell "derived by slicing a URL path" from "stored as a key"
+ * needs PROVENANCE, and the fold is deliberately FLAT so that a sixth reference
+ * column is covered the day it is added. Threading a second, provenance-bearing
+ * set out of the fold, through the server module and into the report builder
+ * would add new wiring at exactly the seam this page keeps being bitten by —
+ * `buildVerificationDocsReportFrom`'s argument list, where counting
+ * `input.keys.size` instead of this function was itself sabotaged GREEN.
+ * **Buying a narrower backstop with a wider unguarded seam is a bad trade.**
+ *
+ * ⚖ What bounds the residual risk: gate 4 is a BACKSTOP, not the primary gate.
+ * The primary gate is `referenced.has(key)`, which is an EXACT match and cannot
+ * be inflated by anything. For the inflation to reach a person, the reference
+ * reader has to be broken AND a stored link has to carry a verification-shaped
+ * path — and even then only files whose keys are absent from the set are
+ * affected. `docs-inflation` in the test file pins this behaviour so the
+ * ceiling is STATED, not implied, and so that narrowing it later is a
+ * deliberate act with a failing test to notice.
  */
 export function documentReferenceCount(referenced: ReadonlySet<string>): number {
   let n = 0;

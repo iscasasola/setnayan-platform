@@ -6,9 +6,10 @@ import {
   VERIFICATION_PREFIX,
   VERIFICATION_REFERENCE_SOURCES,
   buildVerificationDocsReportFrom,
-  collectReferencedKeysDetailed,
+  foldReferenceReads,
   readReferenceSource,
   type ReferenceQueryClient,
+  type ReferenceRead,
   type VerificationDocsReport,
 } from '@/lib/verification-docs';
 
@@ -38,6 +39,15 @@ import {
  * records what the query asked for. What is left here is a client, a bucket
  * listing, and two function calls. Keep it that way — a condition added to this
  * file is a condition nothing can guard.
+ *
+ * 🛑 **AND ROUND 3 THEN PUT THREE CONDITIONS BACK INTO THIS FILE, DIRECTLY
+ * UNDER THAT SENTENCE.** The error arm, `complete = complete && read.complete`
+ * and `complete: complete && !truncated` all sat in `referencedKeys()`, and a
+ * reviewer sabotaged each one in turn with the suite GREEN at 72/72 — needle
+ * 1 → 0 and the replacement 0 → 1 on every one of the three. They are
+ * `foldReferenceReads` in the pure module now, called from here. **The
+ * docblock was right and was ignored by the very change that wrote it: the
+ * only durable form of this rule is that there is nothing here to guard.**
  *
  * ── FAIL CLOSED, LOUDLY ─────────────────────────────────────────────────────
  * If either reference source cannot be read, or cannot be read TO THE END, or
@@ -83,21 +93,17 @@ async function referencedKeys(): Promise<{
 }> {
   const client = createAdminClient() as unknown as ReferenceQueryClient;
 
-  const rows: unknown[] = [];
-  let complete = true;
+  // Read every source, then hand the reads to the pure fold. There is no
+  // condition here on purpose: the error arm, the completeness conjunction and
+  // the depth-truncation arm all used to live on these lines, all three were
+  // sabotaged GREEN at 72/72, and they are now `foldReferenceReads`, which a
+  // test CALLS. See that function for the three measurements.
+  const reads: ReferenceRead[] = [];
   for (const source of VERIFICATION_REFERENCE_SOURCES) {
-    const read = await readReferenceSource(client, source, { pageSize: REFERENCE_PAGE_SIZE });
-    if (read.error) return { keys: new Set(), error: read.error, complete: false };
-    rows.push(...read.rows);
-    complete = complete && read.complete;
+    reads.push(await readReferenceSource(client, source, { pageSize: REFERENCE_PAGE_SIZE }));
   }
 
-  // Whole rows go in. The projection is already reference-columns-only, so the
-  // walk finds every `*_r2_key` and the jsonb blob without naming one — a sixth
-  // column is covered the day it is added to `VERIFICATION_REFERENCE_SOURCES`.
-  const { keys, truncated } = collectReferencedKeysDetailed(rows);
-
-  return { keys, error: null, complete: complete && !truncated };
+  return foldReferenceReads(reads);
 }
 
 /** The set of referenced keys, for a delete action to re-derive at press time. */

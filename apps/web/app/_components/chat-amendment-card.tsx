@@ -88,6 +88,19 @@ export function ChatAmendmentCard({
   const meta = STATUS[data.status];
   const newTotal = newTotalPhp(data.baseTotalCentavos, items);
 
+  // ⚠ THE PRESS IS AN ASK, NOT A BOOKING (PR-H, live). This line used to be the
+  // hardcoded "🔒 Deal locked — price frozen." rendered for BOTH people the
+  // instant `locked_at` was stamped — while the booking row was still
+  // `considering` on a 48-hour fuse and the supplier had answered nothing. The
+  // words come from `lockFreezeLine` now, which can only reach the booked
+  // sentence from a real booking. Do not put a sentence back inline.
+  const freezeLine = lockFreezeLine({
+    state: lockHandshake?.state ?? null,
+    expiresAt: lockHandshake?.expiresAt ?? null,
+    viewerRole,
+    counterpartyLabel,
+  });
+
   const hidden = (
     <>
       <input type="hidden" name="thread_id" value={threadId} />
@@ -218,29 +231,14 @@ export function ChatAmendmentCard({
       {isAccepted ? (
         <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
           {data.lockedAt ? (
-            /* ⚠ THE PRESS IS AN ASK, NOT A BOOKING (PR-H, live). This line used
-               to be the hardcoded "🔒 Deal locked — price frozen." for BOTH
-               people the instant `locked_at` was stamped — while the booking row
-               was still `considering` on a 48-hour fuse. The words come from
-               `lockFreezeLine` now; do not put a sentence back inline. */
-            (() => {
-              const line = lockFreezeLine({
-                state: lockHandshake?.state ?? null,
-                expiresAt: lockHandshake?.expiresAt ?? null,
-                viewerRole,
-                counterpartyLabel,
-              });
-              return (
-                <p
-                  className={`inline-flex items-start gap-1.5 text-xs font-medium ${
-                    line.tone === 'booked' ? 'text-success-700' : 'text-ink/70'
-                  }`}
-                >
-                  <span aria-hidden>🔒</span>
-                  <span>{line.text}</span>
-                </p>
-              );
-            })()
+            <p
+              className={`inline-flex items-start gap-1.5 text-xs font-medium ${
+                freezeLine.tone === 'booked' ? 'text-success-700' : 'text-ink/70'
+              }`}
+            >
+              <span aria-hidden>🔒</span>
+              <span>{freezeLine.text}</span>
+            </p>
           ) : viewerRole === 'couple' ? (
             <form action={lockDeal}>
               <input type="hidden" name="thread_id" value={threadId} />

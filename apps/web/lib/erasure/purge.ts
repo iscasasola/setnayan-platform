@@ -75,8 +75,17 @@ import {
   vendorLogoScope,
   type CleanupScope,
 } from '@/lib/cleanup-delete-scope';
+import {
+  PROVENANCE_ROW_CEILING,
+  canonicalChatRef,
+  chatAttachmentIsSubjectsOwn,
+  type ChatAttachmentRow,
+} from '@/lib/erasure/chat-attachment-provenance';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
+
+/** Refs per provenance lookup — two strings each, well inside a PostgREST URL. */
+const PROVENANCE_BATCH = 20;
 
 
 /**
@@ -495,6 +504,14 @@ export async function purgeOwnedEventData(
  * depends on the bucket name, but the next person reasoning about the residual
  * risk does.
  *
+ * 🔒 ONLY FILES THE LEAVING PERSON SENT FIRST (2026-09-10, review of #5414). The
+ * `chat/<thread_id>/` folder pin cannot tell two thread members apart, and
+ * `attachment_r2_key` is writable on insert — so a member could copy the other
+ * party's file ref onto a message of their own and have their own erasure
+ * delete it. A file is now deleted only when every earliest message carrying
+ * that object is the subject's own (lib/erasure/chat-attachment-provenance.ts);
+ * anything else is kept and counted as `erasure_unattributed_retained`.
+ *
  * Best-effort, matching the other purges: a failure is logged to admin_audit_log
  * (so the erasure miss is recoverable via a manual sweep) but does NOT block the
  * deletion — a stuck purge must never trap an account in an undeletable state.
@@ -521,6 +538,7 @@ export async function purgeUserAuthoredChat(
     'erasure_purge_failed',
     { kind: 'chat_message_bodies' },
   );
+  const recordRetained = makeAuditRetained(admin, targetUserId, actorUserId, 'purgeUserAuthoredChat');
 
   // Collect attachment refs BEFORE the delete — afterwards there is no row to
   // tell us which objects were theirs.
@@ -543,12 +561,51 @@ export async function purgeUserAuthoredChat(
   // never worth a query shape the replay could not answer.
   if (readErr) await auditFail('chat-attachment-lookup', readErr.message);
 
+  // 🔒 WHO SENT EACH FILE FIRST — read BEFORE the delete, while the subject's
+  // own rows still exist to be compared. The thread folder a chat key sits in
+  // names no sender, so a thread member could copy the OTHER party's file ref
+  // onto a message of their own and have their own erasure delete it; the
+  // earliest message carrying the object is its genuine sender
+  // (lib/erasure/chat-attachment-provenance.ts says why that holds).
+  // Queried by the canonical ref AND the subject's own spelling, in small
+  // batches, never by thread — a thread can hold more messages than one
+  // response carries, and an unordered page must not decide this.
+  const provenanceRows: ChatAttachmentRow[] = [];
+  const provenanceUnreadable = new Set<string>();
+  {
+    const lookups = new Map<string, Set<string>>(); // subject's stored ref → strings to look up
+    for (const row of attachments ?? []) {
+      const r = row as { thread_id?: string | null; attachment_r2_key?: string | null };
+      const stored = r.attachment_r2_key;
+      if (typeof stored !== 'string' || !stored.startsWith('r2://')) continue;
+      const canonical = canonicalChatRef(stored, chatAttachmentScope(r.thread_id));
+      if (canonical === null) continue; // out of scope — the adapter refuses and audits it below
+      lookups.set(stored, new Set([stored, canonical]));
+    }
+    const refs = [...lookups.keys()];
+    for (let i = 0; i < refs.length; i += PROVENANCE_BATCH) {
+      const batch = refs.slice(i, i + PROVENANCE_BATCH);
+      const strings = [...new Set(batch.flatMap((ref) => [...lookups.get(ref)!]))];
+      const { data, error: provErr } = await admin
+        .from('chat_messages')
+        .select('attachment_r2_key, sender_user_id, created_at')
+        .in('attachment_r2_key', strings);
+      if (provErr || !data || data.length >= PROVENANCE_ROW_CEILING) {
+        for (const ref of batch) provenanceUnreadable.add(ref);
+        if (provErr) await auditFail('chat-attachment-provenance-lookup', provErr.message);
+        continue;
+      }
+      provenanceRows.push(...(data as ChatAttachmentRow[]));
+    }
+  }
+
   const { error } = await admin
     .from('chat_messages') // chat-guard-allow: RA 10173 right-to-erasure — deletes ONLY the leaving user's own authored messages on account deletion (service-role; audit-logged). See fn docstring.
     .delete()
     .eq('sender_user_id', targetUserId);
   if (error) await auditFail('chat-authored-messages', error.message);
 
+  let notSubjectsOwn = 0;
   for (const row of attachments ?? []) {
     const r = row as {
       thread_id?: string | null;
@@ -571,12 +628,34 @@ export async function purgeUserAuthoredChat(
       );
       continue;
     }
+    const scope = chatAttachmentScope(r.thread_id);
+    // 🔒 …and to the person who SENT it first. An out-of-scope ref is still
+    // handed over so the adapter refuses it and the refusal is audited as before;
+    // an in-scope ref somebody else sent first — or one whose sender could not be
+    // read — is KEPT and counted, never handed over.
+    if (canonicalChatRef(stored, scope) !== null) {
+      const verdict = provenanceUnreadable.has(stored)
+        ? ({ ok: false, reason: 'no_provenance' } as const)
+        : chatAttachmentIsSubjectsOwn(stored, scope, provenanceRows, targetUserId);
+      if (!verdict.ok) {
+        notSubjectsOwn += 1;
+        continue;
+      }
+    }
     try {
       // 🔒 Held to the message's own thread folder — see ErasureIo.
-      await io.deleteStoredAsset(stored, chatAttachmentScope(r.thread_id));
+      await io.deleteStoredAsset(stored, scope);
     } catch (e) {
       await auditFail('chat-attachment-r2-delete', e instanceof Error ? e.message : String(e));
     }
+  }
+  if (notSubjectsOwn > 0) {
+    // Counts only — never the ref. The file stays with the person who sent it.
+    await recordRetained('chat-attachment-not-senders-own', {
+      retained_count: notSubjectsOwn,
+      reason:
+        'the message carried a file another person sent first (or whose first sender could not be read), so it is not the leaving person’s to delete',
+    });
   }
 }
 

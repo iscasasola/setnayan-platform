@@ -41,7 +41,7 @@ verbatim).
 - Migration `20271219262486_every_cleanup_delete_is_pinned` — the write side:
   REVOKE UPDATE on the five service-written `papic_photos` keys; RESTRICTIVE
   policies holding `papic_photos.clip_web_r2_key`, every `vendor_papic_captures`
-  key, and every `r2://` string in `vendor_verification_applications.doc_uploads`
+  key, and every ref-shaped string in `vendor_verification_applications.doc_uploads`
   to the row's own folder. `recordSeatCapture` / `persistSeatClipWebCopy` refuse a
   key outside the seat's own folder before the service role writes it.
 - Guards: `cleanup-delete-scope.test.ts` (the rule, by calling it),
@@ -58,6 +58,23 @@ profile photo, the one event site-media ref; guest captures, supplier captures,
 face enrollments, samahan stories and chat attachments are all empty. So no
 legitimate file becomes undeletable. The 150 seeded mood-board rows hold URLs /
 seed paths that the old `replace()` never removed either.
+
+**Fixed before release (post-build review of #5414).**
+- The `doc_uploads` pin was a deny-list on strings beginning `r2://`. Every
+  shipped reader trims (and the admin documents classifier also lower-cases the
+  scheme) before testing, so a foreign ref behind a leading space, tab, newline,
+  NBSP or BOM, or spelled `R2://`, was accepted on write and then read as the
+  victim's file. It is now an allow-list: any string that, stripped of leading
+  non-alphanumerics and lower-cased, begins `r2:` must be a canonical ref under
+  the vendor's own folder. Proven as a real `authenticated` session: 15 variants
+  refused on insert, update, nested and on submit; the shipped slot writer's
+  output still saves.
+- Erasure could delete the OTHER party's chat file: the `chat/<thread>/` folder
+  names no sender and `attachment_r2_key` is writable on insert, so a member
+  could copy the partner's file ref onto their own message and have their own
+  erasure delete it. Erasure now deletes a chat file only when the earliest
+  message carrying that object (compared as the object, so a padded copy counts)
+  was the leaving person's own; anything else is kept and counted as retained.
 
 **Not done, named:** the `events` site-media columns and
 `guest_face_enrollments.asset_url` stay session-writable (their deletes are

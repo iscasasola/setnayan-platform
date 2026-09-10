@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c31b0be123",
-  "routeCount": 425,
-  "destinations": 907,
+  "generatedFromRef": "ad765b6441",
+  "routeCount": 427,
+  "destinations": 909,
   "actions": 631,
-  "blocks": 4402,
+  "blocks": 4409,
   "routes": {
     "/": {
       "files": [
@@ -1194,6 +1194,7 @@
     },
     "/[slug]/invite": {
       "files": [
+        "[slug]/invite/actions.ts",
         "[slug]/invite/page.tsx"
       ],
       "destinations": [],
@@ -1201,6 +1202,35 @@
       "blocks": [
         "InvalidTokenScreen",
         "JoinFlow"
+      ]
+    },
+    "/[slug]/invite/enter": {
+      "files": [
+        "[slug]/invite/enter/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorNotice",
+        "DoorShell",
+        "Link"
+      ]
+    },
+    "/[slug]/invite/reply": {
+      "files": [
+        "[slug]/invite/reply/page.tsx"
+      ],
+      "destinations": [
+        "/login?next=[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "DoorShell",
+        "Link",
+        "OAuthButtonRow",
+        "RsvpWidget"
       ]
     },
     "/[slug]/pabuya": {

@@ -122,7 +122,7 @@ export async function commitSimpleEvent(formData: FormData) {
   // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). A Simple Event is
   // vendor-free and the in-app services ARE the point of the type, so Papic must
   // be metered here as much as anywhere. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does

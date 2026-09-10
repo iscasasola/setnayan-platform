@@ -22,7 +22,7 @@ import test from 'node:test';
 
 const EDITOR = join(
   process.cwd(),
-  'app/dashboard/[eventId]/website/editorial/_components/editorial-editor.tsx',
+  'app/dashboard/[eventId]/story/_components/editorial-editor.tsx',
 );
 const src = () => readFileSync(EDITOR, 'utf8');
 

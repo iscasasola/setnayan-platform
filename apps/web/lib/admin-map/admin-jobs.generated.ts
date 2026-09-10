@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 311 jobs, 207 of them form-driven, as of c216ac53d.
+// that performs it. 319 jobs, 208 of them form-driven, as of c83118add.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -728,6 +728,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "starts_at",
       "ends_at",
       "promoted_vendor_tier",
+      "deal_length_days",
+      "reason",
+      "event_date_from",
+      "event_date_to",
       "show_banner"
     ],
     "refusedWhenEmpty": [
@@ -1134,6 +1138,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "grantVerificationBypass",
+    "phrase": "grant verification bypass",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "holdPaymentMethod",
     "phrase": "hold payment method",
     "ownerPath": "/admin/payment-options",
@@ -1179,12 +1192,28 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/users",
     "fields": [
       "user_id",
+      "event_id",
       "scope",
       "expiry_at",
       "retail_value_php",
       "rationale"
     ],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "issueVendorSkuComp",
+    "phrase": "issue vendor sku comp",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [
+      "vendor_id",
+      "sku",
+      "reason"
+    ],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -1302,6 +1331,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "phrase": "move tile to folder",
     "ownerPath": "/admin/taxonomy",
     "resolvedPath": "/admin/taxonomy",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "openApplicationDocument",
+    "phrase": "open application document",
+    "ownerPath": "/admin/verify",
+    "resolvedPath": "/admin/verify",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1473,6 +1511,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "phrase": "reject application",
     "ownerPath": "/admin/verify",
     "resolvedPath": "/admin/verify",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "rejectAsset",
+    "phrase": "reject asset",
+    "ownerPath": "/admin/moodboard-library",
+    "resolvedPath": "/admin/moodboard-library",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": true
@@ -2222,6 +2269,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "seat_no"
     ],
+    "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "revokeVerificationBypass",
+    "phrase": "revoke verification bypass",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": true
   },
@@ -2986,6 +3042,24 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "setRenderFeatured",
+    "phrase": "set render featured",
+    "ownerPath": "/admin/moodboard-renders",
+    "resolvedPath": "/admin/moodboard-renders",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "setRenderReuseBlocked",
+    "phrase": "set render reuse blocked",
+    "ownerPath": "/admin/moodboard-renders",
+    "resolvedPath": "/admin/moodboard-renders",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "setServiceFaith",
     "phrase": "set service faith",
     "ownerPath": "/admin/taxonomy",
@@ -3214,8 +3288,20 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "vendor_id",
       "tier_state",
+      "reason",
       "tier_expires_at"
     ],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
+    "destructive": false
+  },
+  {
+    "name": "sweepExpiredVerificationBypasses",
+    "phrase": "sweep expired verification bypasses",
+    "ownerPath": "/admin/vendors",
+    "resolvedPath": "/admin/vendors",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
   },

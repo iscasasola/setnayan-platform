@@ -58,6 +58,15 @@ const CREATION_PATHS = [
     file: join(APP, 'onboarding', 'simple', 'actions.ts'),
     fn: 'commitSimpleEvent',
   },
+  {
+    // The story's "Start it now" (08 step 1.7) — one celebration follows
+    // another. ⚠ THIS ROSTER IS HAND-MAINTAINED, so a new creation path passes
+    // by being ABSENT from it, not by being safe. Added in the same change as
+    // the path itself for that reason.
+    name: 'what comes after this story',
+    file: join(APP, 'dashboard', '[eventId]', 'story', 'whats-next-actions.ts'),
+    fn: 'startTheNextCelebration',
+  },
 ];
 
 const code = (p: string) => stripComments(readFileSync(p, 'utf8'));

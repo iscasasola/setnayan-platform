@@ -100,9 +100,18 @@ const NO_ACTIONS: BenchCardActions = {
  *
  * Rules, in the order they apply:
  *  1. Flag OFF → nothing (pre-replan render).
- *  2. Already LOCKED → nothing. The card's "★ Chosen" corner is the state; a
- *     second Lock, or an Add-to-build on a settled category, would both be
- *     lies. (Undo lives on the lock toast and the Build tab, which own it.)
+ *  2. Already LOCKED → no BUILD and no LOCK. The card's "★ Chosen" corner is
+ *     the state; a second Lock, or an Add-to-build on a settled category, would
+ *     both be lies. (Undo lives on the lock toast and the Build tab, which own
+ *     it.)
+ *     🔴 THE INQUIRY LEG SURVIVES, AND UNTIL 2026-09-09 IT DID NOT. This rule
+ *     returned NO_ACTIONS — every leg — while the reasoning above it justifies
+ *     withholding exactly two. The consequence was silent and backwards: a
+ *     couple could not open a conversation from the bench with the ONE supplier
+ *     they had actually booked, which is the card most likely to have something
+ *     waiting on them. Rules 5 and 6 below had already made this same argument
+ *     for their own cases ("and ONLY those", "INQUIRY SURVIVES"); rule 2 simply
+ *     never had it applied. A settled booking is not a finished conversation.
  *  3. Build + Lock require a resolvable plan group — `planGroupForCategory`
  *     returns null for a category no group claims, and both `setBuildPick` and
  *     `AccordionLockButton` require a real group id.
@@ -131,7 +140,21 @@ export function resolveBenchCardActions(args: {
 }): BenchCardActions {
   const { enabled, vendor, inBuild } = args;
   if (!enabled) return NO_ACTIONS;
-  if (vendor.status === 'locked') return NO_ACTIONS;
+
+  // Resolved BEFORE rule 2 so the locked branch and the ordinary one share ONE
+  // definition of "can this supplier be messaged, and is there a thread yet".
+  // Two copies would be two chances for a locked card to answer it differently.
+  const inquiry: BenchInquiryAction | null =
+    vendor.marketplaceVendorId == null
+      ? null
+      : hasLiveInquiry(vendor) && vendor.threadId != null
+        ? { kind: 'check', threadId: vendor.threadId }
+        : { kind: 'inquire' };
+
+  // Rule 2 — booked. No build, no lock, and the conversation stays open.
+  if (vendor.status === 'locked') {
+    return { build: null, inquiry, withdraw: null, lockGroupId: null };
+  }
 
   // Rule 6 — the ask is outstanding. Resolved BEFORE the build/lock legs so
   // neither can be handed a group id: withholding them later would leave two
@@ -154,13 +177,6 @@ export function resolveBenchCardActions(args: {
           : vendor.priceBasisPhp == null
             ? { kind: 'needs_price' }
             : { kind: 'add' };
-
-  const inquiry: BenchInquiryAction | null =
-    vendor.marketplaceVendorId == null
-      ? null
-      : hasLiveInquiry(vendor) && vendor.threadId != null
-        ? { kind: 'check', threadId: vendor.threadId }
-        : { kind: 'inquire' };
 
   // Lock is withheld on a clash for the same reason Add is — but the group id
   // is NOT forgotten anywhere else, so nothing downstream degrades.

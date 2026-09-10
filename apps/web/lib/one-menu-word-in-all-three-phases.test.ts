@@ -20,7 +20,7 @@ import { SIDEBAR_SLOT_KEYS } from '@/app/dashboard/[eventId]/_components/custome
  *
  *   plan   "Launch"     → /website/editor        (the editor, not the address)
  *   dayof  "Services"   → /launch                (the controller, right place)
- *   after  "Editorial"  → /website/editorial     (one room of it)
+ *   after  "Editorial"  → /story     (one room of it)
  *
  * Three names, three destinations, one thing. The vocabulary is owner-locked
  * (2026-08-16: *Event Hub* = the one public address) and the ruling is one slot,
@@ -50,7 +50,12 @@ const EVENT_ID = 'S89E-TESTEVENT';
 const BASE = `/dashboard/${EVENT_ID}`;
 const HUB_HREF = `${BASE}/launch`;
 const HUB_KEY = 'launch';
-const HUB_LABEL = 'Event Hub';
+/* ✏️ RENAMED 2026-09-03 (LS8). Owner ruling of that date: **Event Hub** is the
+   GUEST-FACING SITE; **Event Hub Controller** is the dashboard where the couple
+   controls what it contains. Every row this file governs is a dashboard row, so
+   all of them take the longer word — and the bare word is now a RETIRED label
+   here, in exactly the sense "Launch" and "Services" already were. */
+const HUB_LABEL = 'Event Hub Controller';
 const PHASES = ['plan', 'dayof', 'after'] as const;
 
 /** Every menu word the phone shows in a phase — top-level tabs AND docked
@@ -137,7 +142,12 @@ test('no roster offers a SECOND name for the Hub', () => {
      been deleted. Note "Editorial" is checked only as a name for THE HUB'S
      ADDRESS — the desktop rail's after-phase row pointing at the editorial
      MAKER is a different destination and must survive (test 5 below). */
-  const RETIRED = ['Launch', 'Services', 'Editorial'];
+  /* 'Event Hub' joined this list on 2026-09-03 (LS8) and is the reason the list
+     is checked at all now: the other three were merely OLD, while the bare word
+     is actively WRONG — it names the guest site, and a dashboard row wearing it
+     is the collision the ruling closed. A row reverted to it would still render,
+     still route correctly and still look right in review. */
+  const RETIRED = ['Launch', 'Services', 'Editorial', 'Event Hub'];
   for (const phase of PHASES) {
     for (const [surface, entries] of [
       ['phone', phoneEntries(phase)],
@@ -276,7 +286,7 @@ test('the editor and the editorial maker are still reachable', () => {
       'Hub controller shrank to a stub, or the stripper blanked what this test ' +
       'reads. Either way the assertions below would be checking nothing.',
   );
-  for (const room of ['website/editor', 'website/editorial']) {
+  for (const room of ['website/editor', 'story']) {
     assert.ok(
       src.includes(`/${room}\``),
       `the Event Hub controller no longer links /${room}. It was the ONLY door ` +
@@ -290,7 +300,7 @@ test('the editor and the editorial maker are still reachable', () => {
      maker (added 2026-08-21 after the owner asked "how do i see the editorial
      maker?"). The Hub taking the phone's tab must not undo that. */
   assert.ok(
-    railEntries('after').some((e) => e.href === `${BASE}/website/editorial`),
+    railEntries('after').some((e) => e.href === `${BASE}/story`),
     'the After rail lost its row for the editorial maker',
   );
 });

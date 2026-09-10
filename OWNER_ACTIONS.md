@@ -1489,6 +1489,36 @@ paths (this said three and missed the last one). All four are wired:
 
 ---
 
+## Desktop download channel — 4 GitHub Actions secrets (S10, 2026-09-05) — ~10 min
+
+> **Why this matters:** `/download` and the desktop app's update check now
+> resolve the current macOS/Windows build from Cloudflare R2 instead of a file
+> committed to the repo. Until these 4 secrets exist on the repo's GitHub
+> Actions (NOT just Vercel — they're a separate secret store), running the
+> `build-desktop` workflow builds the installers fine but SKIPS the R2 publish
+> step, and `/download` shows its "not available right now" state instead of a
+> download button.
+
+1. Go to **github.com → iscasasola/setnayan-platform → Settings → Secrets and
+   variables → Actions → New repository secret**.
+2. Add these 4, with the **same values already in Vercel** (Vercel → Settings →
+   Environment Variables — the R2 file-upload section above has the account
+   details if you need to look them up):
+   - `R2_ACCOUNT_ID`
+   - `R2_ACCESS_KEY_ID`
+   - `R2_SECRET_ACCESS_KEY`
+   - `R2_PUBLIC_URL` — must be set (not left blank) for this to work; the
+     upload/media feature above tolerates it being unset, this doesn't.
+3. Run the build once to confirm: **Actions → build-desktop → Run workflow**,
+   wait for it to finish, then check `/download` shows a working download
+   button. The job summary on the `publish desktop-latest` step also says
+   plainly whether the R2 publish ran or was skipped.
+
+Until this is done, `/download` fails gracefully (no broken link — see
+`lib/desktop-release-server.ts`), it just has nothing to serve yet.
+
+---
+
 ## If something breaks
 
 1. Check `/admin/help` first — useful for reproducing issues users report

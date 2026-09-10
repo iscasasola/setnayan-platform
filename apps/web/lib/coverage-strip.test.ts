@@ -206,8 +206,15 @@ test('categoryHintForTile resolves the plan-group hint deterministically', () =>
   assert.ok(hint && hint.length > 0);
   // Deterministic across calls despite the many-to-one bridge.
   assert.equal(categoryHintForTile('ceremony_venue'), hint);
-  // Finer than the plan-group set → null, so the caller hides the ⓘ.
-  assert.equal(categoryHintForTile('perfume_bar'), null);
+  // `perfume_bar` used to be the example of "finer than the plan-group set →
+  // null". It is not one any more: TILE_HINTS (2026-09-06) gives every tile on
+  // the bench its own line, which is the whole point of that map — a couple
+  // looking at "Perfume bar" or "Wedding singer" got no ⓘ at all before it.
+  assert.ok((categoryHintForTile('perfume_bar') ?? '').length > 0);
+  // The null path is still live, and still the contract: an id NO tile override
+  // and NO plan group claims returns null, so the caller hides the ⓘ rather
+  // than inventing copy.
+  assert.equal(categoryHintForTile('not_a_real_tile_id'), null);
 });
 
 test('coverageTileLabel names the state and the NEXT flag for screen readers', () => {

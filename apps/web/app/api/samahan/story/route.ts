@@ -171,7 +171,7 @@ export async function DELETE(req: Request): Promise<NextResponse> {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('samahan_stories')
-    .select('id, r2_object_key, poster_r2_key, user_id')
+    .select('id, community_id, r2_object_key, poster_r2_key, user_id')
     .eq('story_id', storyId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -179,7 +179,7 @@ export async function DELETE(req: Request): Promise<NextResponse> {
 
   const done = await hardDeleteStory(
     admin,
-    row as { id: number; r2_object_key: string; poster_r2_key: string },
+    row as { id: number; community_id: string | null; r2_object_key: string; poster_r2_key: string },
   );
   if (!done) return bad(503, 'delete_retry');
   return NextResponse.json({ ok: true });

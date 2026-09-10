@@ -83,8 +83,11 @@ import {
   archetypeFloorColor,
   archetypeBackground,
   ceilingDecorOccupied,
+  ROOM_DRAWN_ATTRIBUTES,
 } from '@/app/_components/plan3d/venue-decor';
-import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { sel, primaryOnlyNotice, type ReceptionDesign } from '@/lib/reception-scene';
+import type { BookedZoneCandidate } from '@/lib/reception-suggestion-chips';
+import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
@@ -104,6 +107,7 @@ import {
   updateTableType,
   updateTableLabel,
   publishSeating,
+  unpublishSeating,
   autoSeatGuests,
   seatRoleAtTable,
   unassignGuest,
@@ -222,7 +226,6 @@ import {
   steerPath,
   seatApproachPath,
   resolvePalette,
-  resolvePaletteFromRoles,
   DEMO_PALETTES,
   seatStatusOf,
   SIDE_COLOR,
@@ -233,6 +236,7 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { svgToMonogramTexture } from '@/lib/svg-monogram-texture';
+import { resolveDisplayPalette, resolveRoomPalette } from '@/lib/room-palette';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
 import { GhostBooths } from '@/app/_components/plan3d/ghost-booth';
 import { PLAN3D_BOOTH_ADS_ENABLED, type GhostBooth3D } from '@/lib/ghost-booths';
@@ -251,6 +255,27 @@ type Props = {
    *  drives the 3D decor (ceiling / backdrop / centrepieces / entrance arch),
    *  palette-tinted so the material switcher recolours it. */
   receptionDesign: ReceptionDesign;
+  /** The couple's own inspiration photos, keyed by design part. Only the five
+   *  parts with a matching slot appear; a part with none is simply absent, and
+   *  shows no reference rather than an unrelated photo. */
+  inspirationByPart?: Record<string, string[]>;
+  /** MB15 — the room zones a supplier has AGREED to build, keyed by RECEPTION
+   *  part id, resolved on the server through `isPartFinalized`. An entry means
+   *  the chips for that zone are frozen and the panel says who agreed and when.
+   *  Absent = nothing agreed, which is the common case. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
+  /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
+   *  look. Null when they have not named one; the room then says nothing rather
+   *  than inventing a title. */
+  themeName?: string | null;
   /** `events.moodboard_style_family` (migration 20271197327520) — which theme
    *  family produced this board, or null when the couple hasn't applied a
    *  template. Passed straight down to ReceptionDesignEditor, which is where
@@ -454,7 +479,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -482,15 +507,30 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
+  // MB15 — the couple's board resolved through `resolveRoomPalette`: their five
+  // majors AND their palette style. The demo switcher's fixed palettes are
+  // unchanged; only the 'mood' entry — the couple's own room — reads the board.
   const palette = useMemo<Lab3DPalette>(() => {
-    if (paletteKey === 'mood') return resolvePaletteFromRoles(rolePalette);
-    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolvePaletteFromRoles(rolePalette);
+    if (paletteKey === 'mood') return resolveRoomPalette(rolePalette);
+    return DEMO_PALETTES.find((p) => p.key === paletteKey)?.palette ?? resolveRoomPalette(rolePalette);
   }, [paletteKey, rolePalette]);
+  // 🔑 THE RESOLVED ATTIRE PALETTE IS NOT MEMOIZED HERE, AND THAT IS DELIBERATE.
+  // The only consumer in this file is the concept illustration inside <Hud>,
+  // which holds its own `hudDisplayPalette`. A second memo here would be a
+  // second `deriveBoard` on every mount of the lab, feeding nothing — the first
+  // draft of MB15 shipped exactly that, and neither tsc nor eslint said a word
+  // about it. `deriveBoard` measures ~11 ms a call on an idle M-series Mac
+  // (median of 3 × 60; it reads ~50 ms while the db suite is running, which is
+  // contention, not the number).
   // Wave 2b: room archetype + its floor tint (background stays the lab's dark
   // studio in Play/Build for editing legibility, but garden/beach/rooftop lift
   // it toward their sky so the open-air shells don't float in black).
   const archetype = useMemo(() => archetypeFor(venueSetting), [venueSetting]);
   const archFloorColor = useMemo(() => archetypeFloorColor(archetype, palette), [archetype, palette]);
+  // Same venue-label resolution as the Mood Board page (`isVenueSetting` +
+  // `VENUE_SETTING_LABEL`) — this component never invents a label from the
+  // raw enum value, and never asserts one it cannot back with the vocabulary.
+  const venueLabel = isVenueSetting(venueSetting) ? VENUE_SETTING_LABEL[venueSetting] : undefined;
   // Cinematic Tier A (Fable §3.5) — the dust motes hover in the key light's
   // shaft over the dance floor; a disabled dance floor falls back to the room
   // centre (the Play camera's focal point either way).
@@ -1795,7 +1835,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     [selectedId, canEdit, eventId, lock.lockId, persist, router],
   );
 
-  // 2D-parity: publish the plan (stamps table QR sheets for the print pack).
+  // Publish the plan. TWO things happen and the couple is told BOTH: the table
+  // QR sign sheets are stamped for the print pack, AND `event_floor_plan.
+  // published_at` is set — the one and only condition `public_venue_scene`
+  // checks before it serves the room to /[slug]/venue. The old notice named
+  // only the print pack, so the control that opens the reception walk read as
+  // a printing button. `floor.published` is carried forward optimistically so
+  // the panel switches to "Live" without waiting for a refresh.
   const publishPlan = useCallback(() => {
     if (!canEdit) return;
     const fd = new FormData();
@@ -1803,7 +1849,28 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     fd.set('lock_id', lock.lockId ?? '');
     void persist(async () => {
       const res = await publishSeating(fd);
-      setNotice(`Published — ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ready to print.`);
+      setFloor((f) => ({ ...f, published: true }));
+      setNotice(
+        `Live — guests can walk your reception, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
+      );
+    });
+  }, [canEdit, eventId, lock.lockId, persist]);
+
+  // Take it back down — the other half. Clears the public gate only; the
+  // printed sign sheets keep working (see unpublishSeating's contract).
+  const unpublishPlan = useCallback(() => {
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    void persist(async () => {
+      const res = await unpublishSeating(fd);
+      setFloor((f) => ({ ...f, published: false }));
+      setNotice(
+        res.wasPublished
+          ? 'Taken down — the 3D walk is private again. Printed table signs still work.'
+          : 'That plan wasn’t published.',
+      );
     });
   }, [canEdit, eventId, lock.lockId, persist]);
 
@@ -2972,8 +3039,15 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       <Hud
         eventId={eventId}
         receptionDesign={design}
+        inspirationByPart={inspirationByPart}
+        finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedSuggestions}
+        dismissedSuggestions={dismissedSuggestions}
+        themeName={themeName}
         onReceptionDesignChange={setDesign}
         styleFamily={styleFamily}
+        venueSetting={venueSetting}
+        venueLabel={venueLabel}
         rolePalette={rolePalette}
         viewSegment={
           <SeatingViewSegment
@@ -3068,6 +3142,8 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         selectedLinked={selectedId ? Boolean(tablesById.get(selectedId)?.linkGroupId) : false}
         onBreakApart={breakApart}
         onPublish={publishPlan}
+        onUnpublish={unpublishPlan}
+        published={floor.published}
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
       />
@@ -5177,8 +5253,15 @@ function ZoneDragPreview({
 function Hud({
   eventId,
   receptionDesign,
+  inspirationByPart,
+  finalizedByPart,
+  bookedSuggestions,
+  dismissedSuggestions,
+  themeName,
   onReceptionDesignChange,
   styleFamily,
+  venueSetting,
+  venueLabel,
   rolePalette,
   viewSegment,
   mode,
@@ -5248,13 +5331,37 @@ function Hud({
   selectedLinked,
   onBreakApart,
   onPublish,
+  onUnpublish,
+  published,
   printHref,
   tableCount,
 }: {
   eventId: string;
   receptionDesign: ReceptionDesign;
+  /** The couple's own inspiration photos, keyed by design part. Only the five
+   *  parts with a matching slot appear; a part with none is simply absent, and
+   *  shows no reference rather than an unrelated photo. */
+  inspirationByPart?: Record<string, string[]>;
+  /** MB15 — room zones a supplier has agreed to, keyed by reception part id.
+   *  Frozen in the designer below and named in the room legend. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
+  /** MB15 — `events.moodboard_theme_name`; null when the couple never named
+   *  their look, and the legend then shows no title rather than a made-up one. */
+  themeName?: string | null;
   onReceptionDesignChange: (next: ReceptionDesign) => void;
   styleFamily: MoodboardStyleFamily | null;
+  /** `events.venue_setting`, read-only here — see `ReceptionDesignEditor`'s
+   *  own docblock for why it is never re-asked. */
+  venueSetting: string | null;
+  venueLabel: string | undefined;
   rolePalette: RolePalette;
   viewSegment: ReactNode;
   mode: 'build' | 'play';
@@ -5324,6 +5431,11 @@ function Hud({
   selectedLinked: boolean;
   onBreakApart: () => void;
   onPublish: () => void;
+  onUnpublish: () => void;
+  /** Is the plan LIVE at /[slug]/venue right now? Straight off
+   *  `event_floor_plan.published_at`, which page.tsx has always shipped on
+   *  `Lab3DFloor` and this panel had never once read. */
+  published: boolean;
   printHref: string;
   tableCount: number;
 }) {
@@ -5331,6 +5443,10 @@ function Hud({
     'rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md text-white shadow-lg';
   // Two-tap confirm for the destructive auto-arrange (re-tidies every table).
   const [confirmArrange, setConfirmArrange] = useState(false);
+  // MB15 — the SAME resolver the 3D room and section 02 read. The concept
+  // illustration below drew neutral people for any role the couple had not
+  // hand-edited, beside a board that showed those roles in colour.
+  const hudDisplayPalette = useMemo(() => resolveDisplayPalette(rolePalette), [rolePalette]);
   return (
     <>
       {/* Top bar: the LIST | 2D | 3D view segment STACKED above the mode toggle
@@ -5396,10 +5512,39 @@ function Hud({
 
       {/* RSVP seat legend (hidden while a walker toast is showing) */}
       {!walker ? (
-        <div className={`pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
+        <div className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+          {/* MB15 · THE COUPLE'S OWN NAME FOR THIS LOOK.
+              `events.moodboard_theme_name` is what they typed on the mood
+              board. The room is a drawing OF that theme and never said its
+              name — the same room, under two different themes, was labelled
+              identically. Null when they have not named one: no title beats an
+              invented one, and beats "Untitled event". */}
+          {themeName ? (
+            <p className={`px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/90 ${glass}`}>
+              {themeName}
+            </p>
+          ) : null}
+          {/* WHAT THE ROOM IS NOT SHOWING.
+              The reception catalogue lets a couple combine treatments — a
+              draped ceiling AND fairy lights, three things on one welcome
+              table. The room draws the PRIMARY one, because there is one
+              physical ceiling band and one welcome table; that limit is fine.
+              A couple believing their whole combination is on screen when it
+              is not is NOT fine, and a room silently drawing one of three
+              looks exactly like a room that was given one. So it says so.
+              `primaryOnlyNotice` returns null when there is nothing to
+              disclose, which is why a single-selection board renders this
+              node not at all. */}
+          {primaryOnlyNotice(receptionDesign, ROOM_DRAWN_ATTRIBUTES) ? (
+            <p className={`max-w-md px-3 py-2 text-[11px] leading-relaxed text-amber-100 ${glass}`}>
+              {primaryOnlyNotice(receptionDesign, ROOM_DRAWN_ATTRIBUTES)}
+            </p>
+          ) : null}
+          <div className={`flex gap-3 px-3 py-2 text-[11px] text-white/85 ${glass}`}>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SIDE_COLOR.both }} />Confirmed</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: TENTATIVE_COLOR }} />Pending / maybe</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: PLUS_ONE_COLOR, opacity: 0.5 }} />+1 held</span>
+          </div>
         </div>
       ) : null}
 
@@ -5614,15 +5759,21 @@ function Hud({
             <ReceptionDesignEditor
               eventId={eventId}
               design={receptionDesign}
+              inspirationByPart={inspirationByPart}
+              finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedSuggestions}
+        dismissedSuggestions={dismissedSuggestions}
               onChange={onReceptionDesignChange}
               styleFamily={styleFamily}
+              venueSetting={venueSetting}
+              venueLabel={venueLabel}
               palette={rolePalette.reception ?? []}
               roleColors={{
-                bride: rolePalette.bride?.[0],
-                groom: rolePalette.groom?.[0],
-                party: rolePalette.wedding_party?.[0],
-                guest: rolePalette.guest?.[0],
-                guestPalette: rolePalette.guest ?? [],
+                bride: hudDisplayPalette.bride?.[0],
+                groom: hudDisplayPalette.groom?.[0],
+                party: hudDisplayPalette.wedding_party?.[0],
+                guest: hudDisplayPalette.guest?.[0],
+                guestPalette: hudDisplayPalette.guest ?? [],
               }}
               canEdit={canEdit}
             />
@@ -5636,14 +5787,29 @@ function Hud({
               onReorderPriority={onReorderPriority}
             />
             <p className="mt-2 text-[11px] text-white/50">{tableCount} tables</p>
+            {/* WHETHER THE ROOM IS OPEN, SAID OUT LOUD. `published` came down
+                from page.tsx on every load and this panel read it nowhere, so
+                the only two states a couple can be in — nobody can see it /
+                anyone with the address can walk it — looked identical, and the
+                single button that moves between them said "Publish" and
+                confirmed itself by counting print sheets. */}
+            <p className="mt-2 flex items-center gap-1.5 text-[11px]">
+              <span
+                aria-hidden
+                className={`inline-block h-1.5 w-1.5 rounded-full ${published ? 'bg-emerald-400' : 'bg-white/40'}`}
+              />
+              <span className={published ? 'text-emerald-300' : 'text-white/50'}>
+                {published ? 'Live — guests can walk your reception' : 'Draft — only you can see this'}
+              </span>
+            </p>
             <div className="mt-2 flex gap-1.5">
               <button
                 type="button"
                 disabled={!canEdit}
-                onClick={onPublish}
+                onClick={published ? onUnpublish : onPublish}
                 className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
               >
-                Publish
+                {published ? 'Take it down' : 'Publish'}
               </button>
               <a
                 href={printHref}
@@ -5654,6 +5820,20 @@ function Hud({
                 Print pack
               </a>
             </div>
+            {published ? (
+              <p className="mt-1.5 text-[10px] leading-snug text-white/45">
+                Taking it down hides the 3D walk. Printed table signs keep working.
+              </p>
+            ) : null}
+            {/* The door to the control centre — the couple's room as their
+                guests see it, the facts, and what feeds it. This panel keeps
+                the switch; that page explains it. */}
+            <a
+              href={`/dashboard/${eventId}/plan3d`}
+              className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
+            >
+              3D Plan control centre →
+            </a>
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

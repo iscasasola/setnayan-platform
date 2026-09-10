@@ -195,7 +195,7 @@ export function buildCustomerMenuTree(
         : []),
       // Position 4 — the slot this roster ALREADY spent on the Event Hub, under
       // the name "Services". Same route, same position; only the word changes.
-      { key: 'launch',   label: 'Event Hub', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      { key: 'launch',   label: 'Event Hub Controller', icon: Globe,         href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'schedule', label: 'Schedule',  icon: CalendarClock, href: `${base}/schedule`,                activeMatch: `${base}/schedule`                                        },
     ];
   }
@@ -213,10 +213,10 @@ export function buildCustomerMenuTree(
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors?tab=build`,       activeMatch: `${base}/vendors`                                         },
       // Position 3 — was "Editorial" pointing straight at the maker. The maker
       // is a DOOR INSIDE the controller (its S5 "The story" row), and the
-      // desktop rail keeps its own /website/editorial row, so nothing is
+      // desktop rail keeps its own /story row, so nothing is
       // orphaned: `a-finished-event-shows-its-summary.test.ts` still holds that
       // door open, which is the 2026-08-21 lesson this must not undo.
-      { key: 'launch',    label: 'Event Hub', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
+      { key: 'launch',    label: 'Event Hub Controller', icon: Globe,     href: `${base}/launch`,                  activeMatch: `${base}/launch`                                          },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
     ];
   }
@@ -257,6 +257,7 @@ export function buildCustomerMenuTree(
       activeMatch: [
         `${base}/guests`,
         `${base}/seating`,
+        `${base}/plan3d`,
         `${base}/event-qr`,
         `${base}/hosts`,
         `${base}/people`,
@@ -268,7 +269,7 @@ export function buildCustomerMenuTree(
       // design prototype + the desktop sidebar). Key + route (/vendors) + match
       // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
       // carries the same rename.
-      label: 'Marketplace',
+      label: 'Your Team',
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,
@@ -398,7 +399,7 @@ export function buildCustomerMenuTree(
       ? [
           {
             key: 'launch' as const,
-            label: 'Event Hub',
+            label: 'Event Hub Controller',
             icon: Globe,
             href: `${base}/launch`,
             activeMatch: `${base}/launch`,

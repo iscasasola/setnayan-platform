@@ -31,6 +31,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import type { NotificationType } from '@/lib/notifications';
 import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { revalidationTarget } from '@/lib/return-path';
 
 function str(v: FormDataEntryValue | null, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -227,7 +228,7 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
     });
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }
 
@@ -277,7 +278,7 @@ export async function respondAppointment(formData: FormData): Promise<void> {
     | null;
   // Act only on a live proposal you did NOT author.
   if (!appt || appt.status !== 'proposed' || appt.initiated_by === actorRole) {
-    revalidatePath(returnPath);
+    revalidatePath(revalidationTarget(returnPath));
     redirect(returnPath);
   }
 
@@ -296,6 +297,16 @@ export async function respondAppointment(formData: FormData): Promise<void> {
     // keep the row proposed so the original proposer confirms next.
     const newAt = toIso(formData.get('scheduled_at'));
     if (!newAt) redirect(returnPath);
+    // 🔑 KEEP WHAT WE ARE ABOUT TO DESTROY. This UPDATE is the only writer of
+    // `scheduled_at` after creation, so without the line below the time a
+    // meeting moved FROM is gone forever — and the conversation's Decisions
+    // view cannot show "moved from Sat 26 Sep to Sun 27 Sep", only the new
+    // time, silently, as though it had always said that.
+    //
+    // Written from `appt!.scheduled_at` — the value read under the same
+    // `status='proposed'` precondition that guards this update — so a losing
+    // racer, which updates 0 rows, cannot record a move that never happened.
+    update.previous_scheduled_at = appt!.scheduled_at;
     update.scheduled_at = newAt;
     update.initiated_by = actorRole;
     update.proposed_by_user_id = user.id;
@@ -339,7 +350,7 @@ export async function respondAppointment(formData: FormData): Promise<void> {
     }
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }
 
@@ -381,6 +392,6 @@ export async function cancelAppointment(formData: FormData): Promise<void> {
     });
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }

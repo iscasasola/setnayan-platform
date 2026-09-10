@@ -9,11 +9,10 @@ import {
   type VendorThreadWithEvent,
 } from '@/lib/chat';
 import {
-  fetchInquiryMaskMeta,
-  inquiryPlaceholderLabel,
-  isInquiryRevealed,
-  INQUIRY_MASK_UNKNOWN,
-} from '@/lib/inquiry-mask.server';
+  fetchInquiryCustomerFacts,
+  INQUIRY_CUSTOMER_UNKNOWN,
+} from '@/lib/inquiry-customer.server';
+import { previewFor } from '@/lib/conversation-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
 import {
@@ -84,18 +83,28 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     fetchVendorPreparationItemsByEvent(supabase, profile.vendor_profile_id),
   ]);
 
-  // Anonymization-until-accept (Glass PR-6b): for PRE-accept (unrevealed)
-  // threads, fetchVendorThreads already stripped the couple's event title +
-  // public-page link from the DTO. To still show a useful, non-identifying label
-  // ("A couple planning a {type} in {city}") we batch-read ONLY event_type +
-  // city-level region via the admin client (a vendor holds no events RLS),
-  // scoped to this vendor's own unrevealed threads.
-  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+  // WHO IS ASKING, for every row. A vendor holds no `events` RLS, so the
+  // embedded `r.event.display_name` is null on EVERY thread of theirs — which
+  // is why the old revealed/unrevealed split rendered "Event" either way. One
+  // admin-scoped batch over all rows, gated by the vendor-scoped thread fetch
+  // above, is what actually names them.
+  const inquiryCustomers = await fetchInquiryCustomerFacts(
     createAdminClient(),
-    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+    threads.map((t) => t.event_id),
   );
 
   // Pull latest message per thread for preview + unread inference.
+  //
+  // ⚠ BOUNDED. Measured: this used to fetch EVERY message of EVERY thread on
+  // every load of this page, with no row cap — cheap on a fresh shop, and the
+  // exact query shape that gets expensive the first time one gets busy,
+  // because it grows with total messages ever sent, not with thread count.
+  // `.order + .limit(600)` mirrors the cap `VendorThreadPage` already accepts
+  // for the identical "latest message per thread" read (`conversation-list.ts`
+  // consumers) — the reducer below keeps the FIRST row it sees per thread
+  // (newest-first order), so the cap only ever costs the preview on a shop's
+  // OLDEST live conversations once a page holds more than 600 total messages
+  // across all its threads, never a thread's existence.
   const threadIds = threads.map((t) => t.thread_id);
   const [{ data: latestMessages }, { data: unreadNotifs }] = await Promise.all([
     threadIds.length > 0
@@ -104,6 +113,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           .select('thread_id,body,sender_role,created_at')
           .in('thread_id', threadIds)
           .order('created_at', { ascending: false })
+          .limit(600)
       : Promise.resolve({ data: [] }),
     // Vendor's unread chat-message notifications — match by related_url
     // suffix (the URL is /vendor-dashboard/messages/<threadId>).
@@ -144,7 +154,14 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     return {
       ...t,
       status,
-      lastMessagePreview: last?.body ?? null,
+      // 🔴 WAS: `last?.body ?? null` — the reader's own last word rendered
+      // identically to the couple's, so "Can we do a tasting first?" and
+      // "Deposit received" looked the same row. `previewFor` is the ONE
+      // preview builder (`lib/conversation-list.ts`, shared with the
+      // Conversations column) — it prefixes "You:" for this vendor's own
+      // messages and writes any card this app generated as a short,
+      // fact-first line instead of the full in-thread body.
+      lastMessagePreview: last ? previewFor(last, 'vendor') : null,
       lastMessageAt: last?.created_at ?? null,
       unread,
     };
@@ -322,9 +339,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                         {STATUS_LABEL[r.status]}
                       </span>
                       <p className="truncate text-sm font-semibold text-ink">
-                        {isInquiryRevealed(r)
-                          ? (r.event?.display_name ?? 'Event')
-                          : inquiryPlaceholderLabel(inquiryMaskMeta.get(r.event_id) ?? INQUIRY_MASK_UNKNOWN)}
+                        {(inquiryCustomers.get(r.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN)
+                          .displayName ?? 'Event'}
                       </p>
                     </div>
                     <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

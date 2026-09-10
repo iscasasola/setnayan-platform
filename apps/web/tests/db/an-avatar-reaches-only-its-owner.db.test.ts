@@ -8,9 +8,15 @@
  *
  *   1. IT ACTUALLY ARRIVES. A token holder who made an avatar gets it back.
  *      (The whole point: an unread column is what this change is fixing.)
- *   2. IT REACHES NOBODY ELSE. A tokenless visitor gets no `you` block at all,
- *      and a DIFFERENT guest's token never returns the first guest's config —
- *      the check that would catch an `avatars`-for-everyone regression.
+ *   2. IT REACHES NOBODY ELSE THROUGH `you`. A tokenless visitor gets no `you`
+ *      block at all, and a DIFFERENT guest's token never returns the first
+ *      guest's config on `you`.
+ *      ⚠ AMENDED 2026-09-06 (C6, owner "build what is not done"): other guests
+ *      DO now receive seated avatars — through the separate `avatars` block,
+ *      under the couple's `venue_photo_visibility`, exactly as photos travel
+ *      (claims 5–7 below). The earlier sentence "the check that would catch an
+ *      avatars-for-everyone regression" is retired: everyone-under-'all' is the
+ *      product, and the gate is what is guarded now.
  *   3. A GUEST WHO NEVER MADE ONE GETS NULL, not a hash-rolled default. The
  *      server must not invent an avatar; that is the client's fallback to
  *      decline, and it can only decline what arrives as null.
@@ -59,6 +65,7 @@ const CONFIG = {
 type Scene = {
   published: boolean;
   you: { seatNumber: number; avatarConfig: unknown } | null;
+  avatars: { table: string; seatNumber: number; config: unknown }[];
 };
 
 async function scene(token: string | null): Promise<Scene> {
@@ -208,6 +215,37 @@ test('a guest sees their OWN avatar under every venue_photo_visibility', async (
       `venue_photo_visibility='${vis}' must not hide a guest's own avatar`,
     );
   }
+  await setPhotoVisibility('table');
+});
+
+// ── C6 · seated avatars for the ROOM, under the photo-visibility gate ────────
+
+test("5. 'table': a token holder sees their tablemates' avatars; a tokenless visitor sees none", async () => {
+  await setPhotoVisibility('table');
+  const mine = await scene(MINE);
+  assert.deepEqual(
+    mine.avatars.map((a) => [a.seatNumber, a.config]),
+    [[0, CONFIG]],
+    'Ana (seat 0) made one; Noa (seat 1) did not and is NOT listed — the server never invents',
+  );
+  const nobody = await scene(null);
+  assert.deepEqual(nobody.avatars, [], 'no token → no table → nobody');
+});
+
+test("6. 'all': everyone who made one, to everyone — token or not", async () => {
+  await setPhotoVisibility('all');
+  const nobody = await scene(null);
+  assert.deepEqual(nobody.avatars.map((a) => [a.seatNumber, a.config]), [[0, CONFIG]]);
+  const theirs = await scene(THEIRS);
+  assert.deepEqual(theirs.avatars.map((a) => [a.seatNumber, a.config]), [[0, CONFIG]], "Noa sees Ana's chibi");
+  await setPhotoVisibility('table');
+});
+
+test("7. 'none': nobody's avatar travels — but your OWN still does (C5's rule survives)", async () => {
+  await setPhotoVisibility('none');
+  const mine = await scene(MINE);
+  assert.deepEqual(mine.avatars, []);
+  assert.deepEqual(mine.you?.avatarConfig, CONFIG, 'you still see yourself under none');
   await setPhotoVisibility('table');
 });
 

@@ -94,6 +94,27 @@ export interface UgatCounts {
   runofshow: number;
   /** Live Studio: claimed camera operators. */
   livestudio: number;
+  /** Mood Board renders: "Make it real" images produced. */
+  render: number;
+  /**
+   * Mood Board library: EVERY asset in the pool — admin placeholders, generated
+   * attire figures, florals AND suppliers' own gallery photos. Not "supplier
+   * photos uploaded"; for that slice, filter on
+   * asset_type = 'supplier_gallery'.
+   */
+  gallery: number;
+  /**
+   * Design sign-offs: EVERY per-part finalization handshake ever opened,
+   * including closed rounds (declined / cancelled / expired). Not "parts
+   * currently settled"; for that slice, filter on state = 'agreed'.
+   */
+  signoff: number;
+  /**
+   * Colour access: every LIVE grant row — vendors and coordinators together,
+   * one row per DOMAIN. A stylist's single on-screen switch is two rows. Not
+   * "how many people hold access"; for that, count distinct subjects.
+   */
+  colourgrant: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -196,6 +217,11 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     tableRows,
     blockRows,
     cameraRows,
+    renderRows,
+    libraryRows,
+    signoffRows,
+    colourGrantRows,
+    colourGrantHostRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -257,6 +283,22 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'event_tables'),
     headCount(admin, 'event_schedule_blocks'),
     headCount(admin, 'panood_camera_operators'),
+    // Mood Board renders: every render ever made, paid or free-from-library. The
+    // node counts the IMAGE, not the credit — credits are a balance, and a
+    // balance is per event, not a platform tally.
+    headCount(admin, 'event_renders'),
+    // Mood Board library: the whole pool. The supplier-gallery slice is a
+    // filter on asset_type, deliberately NOT what this node counts — see the
+    // warning on UgatCounts.gallery and on TYPE-GALLERY itself.
+    headCount(admin, 'moodboard_library_assets'),
+    // Design sign-offs: every handshake ever opened. The node counts the
+    // CONVERSATION, not its verdict — see the warning on UgatCounts.signoff.
+    headCount(admin, 'moodboard_part_finalizations'),
+    // Colour access: LIVE grants only. A revoked row is kept (revocation is a
+    // flip, not a delete) and counting it would report standing permission
+    // that no longer stands.
+    headCount(admin, 'event_colour_grants', (q) => q.eq('is_active', true)),
+    headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
   ]);
 
   return {
@@ -281,6 +323,10 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     seatplan: tableRows,
     runofshow: blockRows,
     livestudio: cameraRows,
+    render: renderRows,
+    gallery: libraryRows,
+    signoff: signoffRows,
+    colourgrant: colourGrantRows + colourGrantHostRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

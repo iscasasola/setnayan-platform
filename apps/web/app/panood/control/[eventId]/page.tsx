@@ -23,7 +23,6 @@ import {
   ExternalLink,
   Unlink2,
   Server,
-  KeyRound,
   Zap,
   Crown,
   Captions,
@@ -107,12 +106,14 @@ import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
+import { EncoderKeyPanel } from '@/app/_components/encoder-key-panel';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import { ProgramBridgeHost } from './_components/program-bridge';
+import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
@@ -1173,10 +1174,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               managed broadcast exists to poll — the by-hand route (below) has no
               stream_id for YouTube to report on. PERSISTENT, beside the tally —
               never a toast, never console-only. */}
-          {liveAir.source === 'broadcast' ? (
+          {liveAir.source === 'broadcast' || liveAir.source === 'manual' ? (
             <IngestHealthStrip
               eventId={eventId}
-              initialLive
+              mode={liveAir.source === 'broadcast' ? 'broadcast' : 'manual'}
+              initialLive={liveAir.source === 'broadcast'}
               initialStreamStatus={null}
               initialHealthStatus={null}
             />
@@ -1446,6 +1448,31 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             mainStageSlot={programSlot}
           />
 
+          {/* ⭐ S18 — THE ENCODER ITSELF, inside the desktop shell only.
+              ProgramBridgeHost above delivers the streams to a window an
+              EXTERNAL encoder (OBS) captures. This composites those same
+              streams, encodes H.264/AAC and hands the bytes to Rust's RTMP
+              sender — the path that exists so a couple opens Setnayan instead
+              of configuring OBS the week of their wedding.
+
+              It sits here, beside ProgramBridgeHost and outside the setup
+              sheet, for exactly the reason that one does: a component the
+              sheet can unmount is a component that stops encoding the moment
+              the host closes the sheet. Renders nothing; its health goes to
+              the IngestHealthStrip that already exists. In a plain browser
+              `isTauri()` is false and this does nothing at all. */}
+          <DesktopEncoderHost
+            eventId={eventId}
+            air={air}
+            isLive={isLive}
+            streamingEnabled={streamingOn}
+            overlays={{
+              resolved: airOverlays,
+              qrSrc: qrSrc,
+              lowerThirdFallback: monogramText,
+            }}
+          />
+
           {/* ⭐ THE RESOLVED STATUS, KEPT CURRENT. `resolveChannelStatus` above runs
               once per render and this page has no timer of its own, so without this
               the honest status freezes at page load — which is how a card was seen
@@ -1666,25 +1693,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </div>
           </div>
 
-          <div className="sn-row space-y-1 p-3">
-            <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              <KeyRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Stream key · keep this secret
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <code className="break-all font-mono text-sm text-ink/85">
-                {activeStreamKey
-                  ? `${'•'.repeat(Math.max(0, activeStreamKey.length - 4))}${activeStreamKey.slice(-4)}`
-                  : '— unavailable —'}
-              </code>
-              {activeStreamKey ? (
-                <CopyButton value={activeStreamKey} label="Copy" copiedLabel="Copied" />
-              ) : null}
-            </div>
-            <p className="text-[11px] text-ink/50">
-              Treat it like a password — anyone with it can stream to your broadcast.
-            </p>
-          </div>
+          {/* S8: three renderings (browser reveal/copy · desktop own-channel
+              paste · desktop hosted-channel connect) — see EncoderKeyPanel's
+              docblock. Replaces this section's former inline copy of the same
+              reveal/copy JSX that go-live-card.tsx also carried. */}
+          <EncoderKeyPanel
+            eventId={eventId}
+            streamKey={activeStreamKey}
+            ownsHostedChannel={ownsHostedChannel}
+          />
 
           <div className="sn-row space-y-1 p-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">

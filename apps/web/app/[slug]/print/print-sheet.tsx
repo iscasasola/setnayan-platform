@@ -14,9 +14,9 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 import type { ComposedCopy } from '../_components/editorial/compose';
 import type { EditorialData, DayChapter } from '../_components/editorial/data';
+import { mastheadEdition } from '@/lib/story-spine';
+import { PRINTED_STAMP_LIMIT } from '@/lib/a-withdrawal-reaches-every-copy';
 import {
-  editionVolume,
-  toRoman,
   nameplate,
   editionCenter,
   prettyCategory,
@@ -104,13 +104,36 @@ function ChapterCard({ chapter, names }: { chapter: DayChapter; names: string })
   );
 }
 
-/** The QR colophon — ALWAYS the last element on the last side. */
+/**
+ * The QR colophon — ALWAYS the last element on the last side.
+ *
+ * ══ THE VERSION STAMP (`07` Q6, owner-ruled 2026-09-09 · `04` §3) ═══════════
+ *
+ * 🔑 WHAT THE STAMP CAN DO: tell a person holding this paper the exact moment it
+ * was true, so they can scan the code beside it and see whether the story has
+ * moved on.
+ *
+ * ⛔ WHAT IT CANNOT DO, AND WHY THE COPY SAYS SO OUT LOUD: reach a printed page.
+ * A guest can withdraw their photograph at any time and it comes down from the
+ * story within seconds — and it stays on every copy already printed, for ever.
+ * **Paper cannot be recalled.** A copy printed BEFORE this shipped carries no
+ * stamp at all and can never know anything. So the sentence beneath the date
+ * offers the reader an ACTION (scan and look) instead of a reassurance we are
+ * not able to keep, and no copy on this sheet may imply that a printed page is
+ * updated, corrected, recalled or kept current.
+ *
+ * ⚠ NO STAMP ⇒ NO LINE, never today's date. An unstamped story is exactly the
+ * pre-S14 case; printing "as it stood today" for it would invent the one fact
+ * this whole feature exists to make honest.
+ */
 function Colophon({
   qrSvg,
   hideWatermark,
+  stampLine,
 }: {
   qrSvg: string;
   hideWatermark: boolean;
+  stampLine: string | null;
 }): ReactElement {
   return (
     <footer className="k-colophon">
@@ -122,6 +145,11 @@ function Colophon({
         <p className="k-colophon-lead">
           Scan to return to the living story — the clips, the voices, the whole night.
         </p>
+        {stampLine ? (
+          <p className="k-colophon-stamp">
+            {stampLine} {PRINTED_STAMP_LIMIT}
+          </p>
+        ) : null}
         {!hideWatermark ? <p className="k-colophon-brand">Powered by Setnayan</p> : null}
       </div>
     </footer>
@@ -137,6 +165,7 @@ export function PrintSheet({
   mono,
   qrSvg,
   hideWatermark,
+  stampLine,
 }: {
   words: EventWords;
   data: EditorialData;
@@ -145,11 +174,29 @@ export function PrintSheet({
   /** Inline QR SVG string for https://www.setnayan.com/[slug]. */
   qrSvg: string;
   hideWatermark: boolean;
+  /**
+   * The moment this story was last true, already formatted in the celebration's
+   * own time zone (`printedStampLine`). `null` when the story carries no
+   * version — see the Colophon's docblock; the line is then omitted entirely.
+   */
+  stampLine: string | null;
 }): ReactElement {
   const hasBack = needsBackPage(data);
   const { front: frontChapters, back: backChapters } = splitChapters(data, hasBack);
 
-  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
+  /*
+    🔴 THIS PRINTED "No. 1" FOR ANY STORY WITHOUT A NUMBER (`data.editionNo ?? 1`)
+    — on the one surface a reader keeps. The edition is now stamped once at
+    publish (`03` §2.4), so an unstamped story genuinely has no number, and a
+    keepsake must say the Volume alone rather than assert a first edition that
+    nobody granted. Same rule as the masthead, one function.
+  */
+  const editionLeft = mastheadEdition(
+    data.eventDate,
+    data.editionNo,
+    data.editionNo != null,
+    data.editionVolume,
+  );
   const leadParagraphs = data.draft.leadParagraphs ?? [];
 
   // Primary vendor credits shown on the FRONT (first few); the full ledger, when
@@ -241,7 +288,9 @@ export function PrintSheet({
       {!hasBack ? <LockedClose words={words} data={data} /> : null}
 
       {/* Colophon is the last element on the last side → front only when no back. */}
-      {!hasBack ? <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} /> : null}
+      {!hasBack ? (
+        <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} />
+      ) : null}
     </section>
   );
 
@@ -336,7 +385,7 @@ export function PrintSheet({
       <LockedClose words={words} data={data} />
 
       {/* Colophon is ALWAYS the last element on the last side. */}
-      <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} />
+      <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} />
     </section>
   );
 

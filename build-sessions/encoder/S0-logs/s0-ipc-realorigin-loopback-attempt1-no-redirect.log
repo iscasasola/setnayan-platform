@@ -1,0 +1,277 @@
+=== S0 probe run mode=ipc minutes=1 started Sat Sep  5 15:27:51 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: 21d1eee84 claude/encoder-s0-spike
+        Info Looking up installed tauri packages to check mismatched versions...
+   Compiling setnayan-desktop v0.0.1 (/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.36s
+       Built application at: /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[runner] 2026-09-05T15:28:01+0800 BUILD_EXIT=0 elapsed=9s
+[runner] 2026-09-05T15:28:01+0800 load-at-start: 5.96 17.75 26.13 · SETNAYAN_PROBE_TOP=1 SETNAYAN_PROBE_ORIGIN=
+[runner] 2026-09-05T15:28:01+0800 app pid=14551 bin=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop.run-14265 (copy of /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop)
+[sample] 2026-09-05T15:28:01 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   9680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  26192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  10656 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  20848 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   1296 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[probe] t=1788593284426 page-load finished url=tauri://localhost on_target_origin=false tauri=2.11.1
+[probe] not evaluating on tauri://localhost (set SETNAYAN_PROBE_ORIGIN=any to force — weaker result)
+[sample] 2026-09-05T15:28:11 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   2.6  84064 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  19072 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  25968 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   7136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:28:21 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  86128 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25808 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22000 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  25872 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  62720 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:28:31 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  73104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21328 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  25952 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  63312 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:28:41 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  73040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21328 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  25920 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  63264 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:28:51 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  73040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21312 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  63248 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:29:01 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  73040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21328 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26016 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  64688 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:29:11 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  73040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  69536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:29:21 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   44679   0.7  69744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  72528 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample] 2026-09-05T15:29:31 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  72528 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26016 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  70272 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:29:41 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   44679   0.1  70880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  72096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  25680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample] 2026-09-05T15:29:51 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  78000 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:01 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26016 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77776 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:11 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:22 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:32 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  21616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26016 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:42 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  24832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22064 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:30:52 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  21040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  77616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:02 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24224 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:12 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:22 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:32 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24224 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:42 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:31:52 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:02 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24224 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:12 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:23 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:33 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24224 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:43 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:32:53 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72752 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:33:03 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   14579   0.1  29456 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   14551   0.1  95664 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop.run-14265
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample] 2026-09-05T15:33:13 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  59840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24208 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  72672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[runner] 2026-09-05T15:33:13+0800 no [probe] output for 300 s — stopping app
+[runner] 2026-09-05T15:33:13+0800 app exited; log=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/probe/s0-ipc-realorigin-loopback.log

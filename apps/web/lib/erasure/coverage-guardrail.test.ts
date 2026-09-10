@@ -234,7 +234,6 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   manual_payment_logs: 'Financial record for the manual QR/bank rail: reference_number + amount_php + payment_status against an event_id. No direct subject key (attribution is via event_id) and no staff-authored fields — the reconciliation trail the old note claimed was never built.',
   vendor_2307_filings: 'BIR Form 2307 artifact — a statutory filing.',
   vendor_token_purchases: 'Financial record (token pack purchase).',
-  comp_grants: 'Comp/discount grant — the money-side record of a waived charge.',
   discount_code_redemptions: 'Redemption record attached to a retained order.',
   // ⚠ TABLE DROPPED 2026-08-01 (migration 20271028225106) with the per-USER
   // Setnayan AI path — owner: "it is per event". The entry STAYS because
@@ -314,6 +313,8 @@ const PARTIALLY_PURGED: Record<string, string> = {
   // ── settled 2026-08-02, batch 5 ──
   event_egift_methods:
     'PURGED: created_by_user_id. DEFERRED: account_name, handle (a GCash/Maya number, bank account or PayPal.me URL) and the uploaded payment QR. The stamp records WHO FIRST PRESSED ADD — the update path rewrites the handle but never the stamp — so nothing in the schema maps a payout destination to partner 1 or partner 2. Under the owner’s 2026-07-26 ruling (delete only what is PROVABLY the leaver’s) these are retained, which means a financial identifier can outlive an erasure request when its owner cannot be proven. Same shared-record question as events.our_photos. ⚠ NEEDS A DPO/OWNER CALL.',
+  comp_grants:
+    'PURGED: granted_by and approved_by, the two ADMIN stamps. DEFERRED: user_id, the customer the comp was FOR, and the money itself (retail_value_centavos, rationale) — the row is the platform’s record of a charge it waived, retained on the lawful-retention basis it has always carried. MOVED here from DELIBERATE_EXCLUSIONS on 2026-09-06: the old note said erasure touches nothing on this table, which stopped being true the moment the admin stamps were added to AUTHOR_UUID_NULLS. Same shape as discount_code_eligible_users below — the staff stamp goes, the commercial concession stays.',
   discount_code_eligible_users:
     'PURGED: added_by_admin_id, the staff stamp. DEFERRED: user_id, which is CASCADE + NOT NULL — the schema’s verdict is that the row dies with the account, but the eligibility grant is the platform’s record of a commercial concession it made. Retained on that basis and flagged rather than silently deleted.',
 

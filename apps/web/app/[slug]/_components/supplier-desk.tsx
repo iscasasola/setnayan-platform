@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, MapPin, MessageSquare, Users } from 'lucide-react';
 
 import { formatBlockTimeRange } from '@/lib/schedule';
+import { displayServiceLabel } from '@/lib/vendors';
 import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
 import { PRIVATE_LINE_NOTE, type SupplierDeskStage } from '@/lib/supplier-desk-rule';
 import {
@@ -154,7 +155,7 @@ export function SupplierDesk({
             <ConsoleHeading as="h2">{desk.businessName}</ConsoleHeading>
             {desk.bookedCategories.length > 0 ? (
               <p className="text-sm text-ink/70">
-                Booked here for {desk.bookedCategories.join(' · ').replace(/_/g, ' ')}.
+                Booked here for {desk.bookedCategories.map(displayServiceLabel).join(' · ')}.
               </p>
             ) : null}
             {/* THE DATE, AND HOW FAR OFF IT IS. Not on the day itself — a desk
@@ -326,12 +327,45 @@ export function SupplierDesk({
                     : 'have said yes so far, of everyone invited'}
               </span>
             </div>
-            {desk.stage === 'call_sheet' ? (
+            {/* FINALIZED FLAG — a state over the same count, never a new
+                number. `pax.finalized` mirrors guestListIsClosed(): stamped,
+                or the deadline (explicit, else 14 days out) has passed. A
+                caterer ordering off a number that is still moving is exactly
+                the "read as final" defect this repo has already fixed once
+                for the couple's own roster. */}
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+              {desk.paxFinalized ? 'Guest list finalized' : 'Still moving — not finalized yet'}
+            </p>
+            {!desk.paxFinalized && desk.stage === 'call_sheet' ? (
               <p className="text-xs leading-relaxed text-ink/70">
                 Not settled yet — replies are still coming in.
               </p>
             ) : null}
           </ConsolePlate>
+
+          {/* THE OTHER VENDORS LOCKED HERE — name + category, never contact
+              info or cost. BOOKED-STAGE ONLY (the brief only fills this in
+              once a supplier has agreed), and empty on most bookings, since a
+              couple's team fills in gradually. */}
+          {desk.vendorRoster.length > 0 ? (
+            <ConsolePlate className="space-y-2">
+              <ConsoleHeading as="h3">Also locked on this celebration</ConsoleHeading>
+              <ul className="space-y-1">
+                {desk.vendorRoster.map((v, i) => (
+                  <li
+                    // eslint-disable-next-line react/no-array-index-key -- name+category has no stable id on this read-only, deduped list
+                    key={`${v.category}-${v.vendorName}-${i}`}
+                    className="flex flex-wrap items-baseline gap-x-2 text-sm"
+                  >
+                    <span className="font-medium text-ink">{v.vendorName}</span>
+                    <span className="text-xs text-ink/60">
+                      · {displayServiceLabel(v.category)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </ConsolePlate>
+          ) : null}
 
           {/* THE TOOLS. The console is the primary way in — it is where every
               tool that has no address of its own is rendered. The tiles below

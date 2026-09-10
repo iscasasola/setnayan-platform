@@ -2,12 +2,14 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { parseStoredAsset } from '@/lib/uploads';
-import { r2Delete } from '@/lib/r2';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import {
   INVITED_TO_BLOCKS,
@@ -207,8 +209,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // ruling 4 (2026-08-17): a guest must be TOLD when somebody else switches
     // their blur back off. Nobody should learn it by seeing their own face on a
     // screen at the venue.
+    // ── photo_consent + face_recognition_excluded ride along for S14 (`04` §3):
+    // this form is the ONLY writer of `photo_consent = false` in the product, and
+    // a withdrawal has to reach the story, the recap, the keepsake and the share
+    // card. Reading the old value is what lets us tell a real consent change from
+    // a host correcting a phone number, so an ordinary edit does not throw four
+    // public caches away.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, email, first_name, display_name',
+      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, email, first_name, display_name',
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
@@ -332,23 +340,49 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   if (!photo_consent) {
     const { data: enrols } = await bioAdmin
       .from('guest_face_enrollments')
-      .select('asset_url')
+      .select('id, asset_url')
       .eq('event_id', eventId)
       .eq('guest_id', guestId);
+    // 🔒 ONLY THIS GUEST'S OWN SELFIE (2026-09-10) — see planFaceSelfieDelete.
+    // A ref outside `events/<event>/guest-selfies/<guest>/` is NOT deleted, and
+    // its row is not hard-deleted either (a cleared pointer to a file we kept
+    // says nothing about whose it is): it is revoked with its vector nulled, so
+    // the biometric still goes.
+    const keptIds: number[] = [];
     for (const row of enrols ?? []) {
-      const asset = parseStoredAsset((row as { asset_url?: string | null }).asset_url);
-      if (asset?.kind !== 'r2') continue;
+      const r = row as { id: number; asset_url?: string | null };
+      const decision = planFaceSelfieDelete({
+        event_id: eventId,
+        guest_id: guestId,
+        asset_url: r.asset_url ?? null,
+      });
+      if (!decision) continue;
+      if (!decision.ok) {
+        keptIds.push(r.id);
+        console.warn('[guest-consent] REFUSED a selfie ref outside this guest’s own folder — kept', {
+          eventId,
+        });
+        continue;
+      }
       try {
-        await r2Delete({ bucket: asset.bucket, key: asset.key });
+        await executeCleanupDelete(decision.target);
       } catch {
         /* best-effort — a storage hiccup must not block consent withdrawal */
       }
     }
-    await bioAdmin
+    if (keptIds.length > 0) {
+      await bioAdmin
+        .from('guest_face_enrollments')
+        .update({ revoked_at: new Date().toISOString(), face_vector: null, vector_model: null })
+        .in('id', keptIds);
+    }
+    let removeRows = bioAdmin
       .from('guest_face_enrollments')
       .delete()
       .eq('event_id', eventId)
       .eq('guest_id', guestId);
+    if (keptIds.length > 0) removeRows = removeRows.not('id', 'in', `(${keptIds.join(',')})`);
+    await removeRows;
   } else if (face_recognition_excluded) {
     await bioAdmin
       .from('guest_face_enrollments')
@@ -463,6 +497,33 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(backTo);
+
+  /*
+    ══ A WITHDRAWAL COMES DOWN EVERYWHERE (`04` §3 · `07` Q6 · 08 step 4.1) ═══
+
+    🔴 THIS FORM IS THE ONLY WRITER OF `photo_consent = false` IN THE PRODUCT,
+    and until now it revalidated the guest list and the page it came from — both
+    of them host screens. Nothing public. So a guest who asked the couple to take
+    their photograph out of the story stayed in it until whichever cache expired
+    first, and the printable keepsake was the slowest of them.
+
+    ⚖ ONLY WHEN A CONSENT FIELD ACTUALLY MOVED. This action saves fifteen
+    unrelated things; bumping the story's version and dropping four public caches
+    on every phone-number correction would move the share-card address for no
+    reason, and on a big roster edit it would do it hundreds of times.
+
+    ⚠ A FAILED READ COUNTS AS CHANGED, the same safe direction the RSVP stamp
+    above takes: `prevGuest` is null when the SELECT was refused, and doing too
+    much cache work is recoverable where leaving a withdrawn guest on a public
+    page is not.
+  */
+  const consentMoved =
+    !prevGuest ||
+    prevGuest.photo_consent !== photo_consent ||
+    prevGuest.faceblock_enabled !== faceblock_enabled ||
+    prevGuest.face_recognition_excluded !== face_recognition_excluded;
+  if (consentMoved) await everyCopyIsNowStale(eventId);
+
   // Owner directive 2026-05-22: when information is saved on guest,
   // it needs to return to guest list. The guests list page consumes
   // ?saved=1 to render a "Saved." flash banner.
@@ -542,6 +603,16 @@ export async function softDeleteGuest(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    🔑 REMOVING A GUEST CAN MAKE PHOTOGRAPHS PUBLIC AGAIN, which is the opposite
+    of the direction anyone expects from a delete. The story's consent veto is
+    built from guests who opted out `AND deleted_at IS NULL`
+    (`consent-veto.ts`), so soft-deleting an opted-out guest lifts the veto on
+    every capture that tagged them. Whether that is the right rule is a question
+    for the owner and is NOT changed here; what is fixed is that the four public
+    surfaces now find out, instead of serving the old answer for up to an hour.
+  */
+  await everyCopyIsNowStale(eventId);
   redirect(`/dashboard/${eventId}/guests?removed=1`);
 }
 

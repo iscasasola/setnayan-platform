@@ -297,6 +297,25 @@ export type YoutubeStream = {
   streamId: string;
   ingestionAddress: string; // RTMP server URL the couple pastes into OBS
   streamName: string; // the OBS "Stream Key" — a secret
+  /**
+   * THE RTMPS PAIR — additive, and the ones the native encoder actually uses.
+   *
+   * `liveStreams.insert` returns four ingestion addresses, and until now we stored
+   * one: the plain-RTMP primary, because the only consumer was a human pasting it
+   * into OBS. The desktop encoder (S6) is not a human and does not use 1935 — it
+   * publishes over TLS on 443, which is the port that survives a venue's Wi-Fi, a
+   * hotel captive portal and a hotel's corporate firewall. And when a connection
+   * drops mid-reception, the reconnect (S7) needs somewhere else to go: that is what
+   * `rtmpsBackupIngestionAddress` is for, and it has to have been stored at creation
+   * time because by then we are not calling the Data API again.
+   *
+   * Optional on purpose. A stream row created before this shipped has neither, and
+   * the OBS route that reads `ingestionAddress` must keep working untouched.
+   */
+  rtmpsIngestionAddress?: string;
+  rtmpsBackupIngestionAddress?: string;
+  /** The plain-RTMP backup, stored for the same reconnect reason. */
+  backupIngestionAddress?: string;
 };
 
 /** Shared authed JSON fetch for the Data API. Throws with context on non-2xx. */
@@ -399,16 +418,32 @@ export async function createYoutubeStream(
     },
   )) as {
     id: string;
-    cdn?: { ingestionInfo?: { ingestionAddress?: string; streamName?: string } };
+    cdn?: {
+      ingestionInfo?: {
+        ingestionAddress?: string;
+        backupIngestionAddress?: string;
+        rtmpsIngestionAddress?: string;
+        rtmpsBackupIngestionAddress?: string;
+        streamName?: string;
+      };
+    };
   };
   const info = json.cdn?.ingestionInfo;
   if (!info?.ingestionAddress || !info?.streamName) {
     throw new Error('YouTube liveStreams.insert returned no ingestion info');
   }
+  // Still keyed on the plain-RTMP address + key: those two are what a stream cannot
+  // exist without, and what the OBS route has always required. The RTMPS pair is
+  // carried through when YouTube sends it and simply absent when it does not —
+  // making it required here would turn a field we have never depended on into a new
+  // way for go-live to fail.
   return {
     streamId: json.id,
     ingestionAddress: info.ingestionAddress,
     streamName: info.streamName,
+    rtmpsIngestionAddress: info.rtmpsIngestionAddress,
+    rtmpsBackupIngestionAddress: info.rtmpsBackupIngestionAddress,
+    backupIngestionAddress: info.backupIngestionAddress,
   };
 }
 
@@ -441,6 +476,43 @@ export async function transitionYoutubeBroadcast(
     { method: 'POST' },
   )) as { status?: { lifeCycleStatus?: string } };
   return { lifeCycleStatus: json.status?.lifeCycleStatus ?? broadcastStatus };
+}
+
+/**
+ * liveStreams.delete — S8's durable mitigation for a leaked hosted-channel
+ * key: rather than relying only on the claim-nonce handoff to keep the key
+ * off the wire, delete the YouTube `liveStream` resource itself the moment a
+ * broadcast ends, which invalidates its `streamName` (the RTMP stream key)
+ * on YouTube's side. A key that did leak stops being useful within one API
+ * call of the couple pressing "End broadcast" — see the threat model in
+ * lib/live-studio-encoder-claims.ts and src-tauri/src/stream_key.rs.
+ *
+ * Deliberately its own `fetch` rather than a `youtubeApi()` call: a
+ * successful delete returns 204 No Content, and `youtubeApi()` always calls
+ * `res.json()` on success, which throws on an empty body.
+ *
+ * Best-effort by convention (same as every other call site in
+ * endPanoodBroadcast): the couple's "End broadcast" must succeed even if this
+ * fails (already revoked, already deleted, a transient YouTube error), so
+ * callers should catch and ignore, not surface this as a user-facing error.
+ */
+export async function deleteYoutubeStream(
+  accessToken: string,
+  streamId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${YOUTUBE_LIVE_STREAMS_URL}?id=${encodeURIComponent(streamId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `YouTube DELETE liveStreams failed: ${res.status} ${text.slice(0, 300)}`,
+    );
+  }
 }
 
 /**

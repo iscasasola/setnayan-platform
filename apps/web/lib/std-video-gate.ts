@@ -70,7 +70,9 @@ import { randomUUID } from 'node:crypto';
 
 import * as Sentry from '@sentry/nextjs';
 
-import { r2Copy, r2Delete, r2Head, type R2BucketName } from '@/lib/r2';
+import { r2Copy, r2Head, type R2BucketName } from '@/lib/r2';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { planCleanupDelete, stdSealedScope } from '@/lib/cleanup-delete-scope';
 import {
   parseClientRef,
   stdSealedPolicy,
@@ -323,14 +325,15 @@ export async function retireSupersededSeals(args: {
   const keep = new Set(verdictSealedRefs(args.next));
   const drop = verdictSealedRefs(args.previous).filter((ref) => !keep.has(ref));
   if (drop.length === 0) return;
-  const policy = stdSealedPolicy(args.eventId);
+  const scope = stdSealedScope(args.eventId);
   for (const ref of drop) {
     // Only ever delete something that parses as THIS event's sealed object. A
-    // malformed or foreign ref in the column must not become a delete primitive.
-    const parsed = parseClientRef(ref, policy);
-    if (!parsed) continue;
+    // malformed or foreign ref in the column must not become a delete primitive
+    // — the one cleanup rule every job shares (lib/cleanup-delete-scope.ts).
+    const decision = planCleanupDelete(ref, scope);
+    if (!decision.ok) continue;
     try {
-      await r2Delete({ bucket: parsed.bucket, key: parsed.key });
+      await executeCleanupDelete(decision.target);
     } catch (err) {
       console.warn(
         `[std-video-gate] could not delete a superseded sealed object — event_id=${args.eventId}: ${err instanceof Error ? err.message : String(err)}`,

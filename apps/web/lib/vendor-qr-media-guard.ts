@@ -10,6 +10,10 @@ import {
   payloadHitsGuardedPath,
   VENDOR_QR_GUARDED_PATHS,
 } from '@/lib/vendor-qr-guard-shared';
+// MB11 (2026-09-04): the two-scale decoder moved to its own module so the
+// mood-board gallery screen can share it. The WEBSITE rule below — funnel
+// payloads only, never "any QR" — is unchanged and stays here.
+import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 
 /**
  * QR-in-media integrity guard — server scanner (owner-locked 2026-07-03).
@@ -69,41 +73,6 @@ export type VendorQrHit = {
  *  1–2 hops; anything deeper is not worth chasing at save time. */
 const MAX_REDIRECT_HOPS = 4;
 const REDIRECT_HOP_TIMEOUT_MS = 3500;
-
-/**
- * Decode a QR payload from encoded image bytes. Two scales (a QR printed into
- * a large photo often decodes better downscaled; a small corner QR needs the
- * larger pass). Returns the first decoded payload, or null. sharp + jsqr are
- * both existing dependencies; sharp is dynamically imported so nothing
- * server-native leaks toward a client bundle (mirrors lib/perceptual-hash).
- */
-async function decodeQrPayloadFromImage(
-  bytes: Uint8Array,
-): Promise<string | null> {
-  const sharp = (await import('sharp')).default;
-  const { default: jsQR } = await import('jsqr');
-  for (const edge of [1600, 800]) {
-    try {
-      const { data, info } = await sharp(Buffer.from(bytes))
-        .rotate() // bake EXIF orientation
-        .resize(edge, edge, { fit: 'inside', withoutEnlargement: true })
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      const code = jsQR(
-        new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
-        info.width,
-        info.height,
-        { inversionAttempts: 'attemptBoth' },
-      );
-      const payload = code?.data?.trim();
-      if (payload) return payload;
-    } catch {
-      // undecodable at this scale → try the next / give up
-    }
-  }
-  return null;
-}
 
 /**
  * Verdict for one decoded QR payload.

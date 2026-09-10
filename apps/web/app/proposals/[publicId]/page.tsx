@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { markProposalViewed } from '@/lib/proposal-send';
@@ -196,6 +196,38 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     vendorProfileId: proposal.vendor_profile_id,
     methodIds,
   });
+
+  /**
+   * Accepting only shortlists the shop at a price (respond_vendor_proposal
+   * upserts an event_vendors row, status 'shortlisted') — it does not book
+   * anything. The couple's own next action is pressing Lock on that shop's
+   * workspace page, which asks the supplier and only THEN books. Without this,
+   * the accepted page just says "Accepted on <date>" and stops — the exact
+   * dead end the owner's live test would hit on day one (build plan, step 9).
+   *
+   * Resolve the shop's `event_vendors.vendor_id` (the workspace route's own
+   * [vendorId] param — see that page's header comment) the same way accept
+   * wrote it: by (event_id, marketplace_vendor_id). Couple/moderator RLS on
+   * event_vendors already admits this reader (same membership the proposal
+   * row itself required to reach this page).
+   */
+  let lockWorkspaceHref: string | null = null;
+  if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id) {
+    const { data: pick, error: pickError } = await supabase
+      .from('event_vendors')
+      .select('vendor_id')
+      .eq('event_id', proposal.event_id)
+      .eq('marketplace_vendor_id', proposal.vendor_profile_id)
+      .maybeSingle();
+    if (pickError) {
+      logQueryError('proposals/[publicId]:acceptedPick', pickError, {
+        eventId: proposal.event_id,
+        vendorProfileId: proposal.vendor_profile_id,
+      });
+    } else if (pick) {
+      lockWorkspaceHref = `/dashboard/${proposal.event_id}/vendors/${pick.vendor_id}/workspace`;
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
@@ -463,6 +495,24 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         <p className="text-xs text-ink/50 print:hidden">
           {PROPOSAL_STATUS_LABEL[proposal.status]} on {fmtDate(proposal.resolved_at)}.
         </p>
+      ) : null}
+
+      {/* The next-step block. Accepting only shortlists {businessName} at this
+          price — it is not a booking. Say so, and point at the one action that
+          books them: asking the shop to Lock. */}
+      {lockWorkspaceHref ? (
+        <section className="rounded-xl border border-terracotta/30 bg-terracotta/[0.06] p-4 print:hidden">
+          <p className="text-sm text-ink/80">
+            You&rsquo;ve accepted. To book {businessName}, ask them to lock &mdash; once they
+            confirm, it&rsquo;s booked.
+          </p>
+          <Link
+            href={lockWorkspaceHref}
+            className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+          >
+            Go ask {businessName} to lock <ArrowRight aria-hidden className="h-4 w-4" />
+          </Link>
+        </section>
       ) : null}
 
       {/* Standing payment disclosure — every payment-adjacent surface. */}

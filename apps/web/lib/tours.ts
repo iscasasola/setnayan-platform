@@ -124,7 +124,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: MessageSquare,
         title: 'Chat with vendors',
-        body: 'Start a thread with any Setnayan vendor by their contact email. Identity stays masked — vendors see your event name, not your personal info, until you choose to share.',
+        // Corrected 2026-09-10. It said "by their contact email" (a couple is no
+        // longer shown one — owner: "not to let them communicate outside the
+        // app") and "Identity stays masked" (retired 2026-09-08 — a shop now
+        // sees who is asking). Both were promises the product no longer makes.
+        body: 'Message any Setnayan vendor from their page or your list. They reply here, and every message, quote and booking stays with your event.',
       },
       {
         Icon: PartyPopper,

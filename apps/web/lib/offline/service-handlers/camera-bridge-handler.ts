@@ -121,8 +121,20 @@ export async function syncOne(item: OfflineItem): Promise<SyncResult> {
       });
       return res.ok;
     },
-    record: (r2Ref, kind, posterR2Ref) =>
-      recordSeatCapture(parsed.seat_token, r2Ref, kind, posterR2Ref),
+    // 🕐 The shutter rides all the way through: the queue payload has carried
+    // `captured_at_ms` since this handler shipped, and the sink now hands it
+    // back here. A bridge capture drained hours after the venue's WiFi returned
+    // is filed under the minute it was TAKEN, not the minute it drained.
+    record: (r2Ref, kind, posterR2Ref, capturedAtMs) =>
+      recordSeatCapture(
+        parsed.seat_token,
+        r2Ref,
+        kind,
+        posterR2Ref,
+        undefined,
+        undefined,
+        capturedAtMs,
+      ),
     // The drain runs in the browser (sync daemon), so a queued clip still gets
     // its NSFW-screen poster frame at drain time. Lazy import keeps the module
     // out of the daemon's initial bundle; extraction never throws (null).

@@ -37,14 +37,31 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
+import { ChatOfferedServiceCard } from './chat-offered-service-card';
 import { ScheduleSuggestChip } from './schedule-suggest-chip';
 import {
   ChatAmendmentCard,
   type ChatAmendmentData,
   type AmendmentItemView,
 } from './chat-amendment-card';
+import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { AppointmentKind } from '@/lib/appointments';
+import {
+  ThreadViewSwitch,
+  DecisionsPanel,
+  FilesPanel,
+  type SupplierReplyActions,
+} from './chat-thread-views';
+import { withThreadView, type ThreadView } from '@/lib/thread-view';
+import {
+  buildThreadDecisions,
+  decisionsNeedingYou,
+  type GuestCountFact,
+  type PaymentFact,
+} from '@/lib/thread-decisions';
+import { buildSharedFiles } from '@/lib/chat-shared-files';
+import type { SupplierStanding } from '@/lib/supplier-standing';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalCardData = {
@@ -52,6 +69,12 @@ type ProposalCardData = {
   title: string;
   totalCentavos: number;
   status: string;
+  /**
+   * `vendor_proposals.resolved_at` — WHEN the current status was reached.
+   * Decisions needs it to say "Accepted · 1 Sep" rather than dating a verdict
+   * by the message that announced the quote six weeks earlier.
+   */
+  resolvedAt: string | null;
 };
 
 type Props = {
@@ -75,6 +98,46 @@ type Props = {
    * picker (today → day before the event). Negotiation Phase 1.
    */
   eventDate?: string | null;
+  /**
+   * WHERE THIS SUPPLIER STANDS — derived ONCE on the server by
+   * `buildSupplierStanding` (S6) and handed here to be drawn. ⛔ Never rebuilt
+   * in this component: the bench card renders the same sentence from the same
+   * derivation, and that is the only thing that makes showing it twice safe.
+   */
+  standing?: SupplierStanding | null;
+  /**
+   * The two Decisions sources that are NOT messages. Both are page sections
+   * rendered around this stream, so they can only arrive as props.
+   *
+   * ⚠ `payments` must be EVERY payment on the thread, not just the unconfirmed
+   * ones. `fetchPendingVendorPayments` filters `vendor_confirmed_at IS NULL`;
+   * feeding Decisions from it would drop the settled money from the record of
+   * what was settled.
+   */
+  decisionPayments?: readonly PaymentFact[];
+  decisionGuestCounts?: readonly GuestCountFact[];
+  /**
+   * PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+   * Resolved on the SERVER by `fetchThreadLockHandshake` — it cannot be fetched
+   * here, because a supplier cannot read `event_vendors` through their own
+   * session (every policy on that table is couple- or moderator-scoped). Read
+   * only by the locked-amendment line.
+   *
+   * ⚠ ABSENT MEANS UNKNOWN, NEVER "LOCKED". A mount site that forgets this prop
+   * degrades to "Price agreed and frozen at this amount." — true everywhere —
+   * rather than claiming a booking that may not exist.
+   */
+  lockHandshake?: ThreadLockHandshake | null;
+  /**
+   * Which third is showing on first paint — the page reads `?view=` on the
+   * server and passes it here, so a Decisions link never flashes the chat.
+   */
+  initialView?: ThreadView;
+  /**
+   * The supplier's own reply actions (payment · guest count). Passed ONLY by
+   * the supplier's page; the couple never receives those replies.
+   */
+  supplierReplyActions?: SupplierReplyActions;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -87,6 +150,12 @@ export function ChatMessageStream({
   viewerRole,
   counterpartyLabel,
   eventDate = null,
+  standing = null,
+  decisionPayments = [],
+  decisionGuestCounts = [],
+  lockHandshake = null,
+  initialView = 'all',
+  supplierReplyActions,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -118,7 +187,7 @@ export function ChatMessageStream({
       // waiting, and neither of them can tell anything went wrong.
       const { data, error } = await supabase
         .from('vendor_proposals')
-        .select('proposal_id, public_id, title, total_centavos, status')
+        .select('proposal_id, public_id, title, total_centavos, status, resolved_at')
         .in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -130,12 +199,14 @@ export function ChatMessageStream({
         const next = { ...prev };
         for (const p of data as {
           proposal_id: string;
+          resolved_at: string | null;
           public_id: string;
           title: string;
           total_centavos: number;
           status: string;
         }[]) {
           next[p.proposal_id] = {
+            resolvedAt: p.resolved_at,
             publicId: p.public_id,
             title: p.title,
             totalCentavos: p.total_centavos,
@@ -156,6 +227,12 @@ export function ChatMessageStream({
   // set changes so a status flip (accept / decline / propose-new) repaints.
   const negotiationOn = chatNegotiationEnabled();
   const [appointmentCards, setAppointmentCards] = useState<Record<string, ChatAppointmentData>>({});
+  /**
+   * The time each meeting moved FROM, kept beside the card data rather than
+   * inside it: the appointment CARD does not draw it (a card in the stream
+   * shows the live time), only the Decisions entry does.
+   */
+  const [apptPreviousAt, setApptPreviousAt] = useState<Record<string, string | null>>({});
   useEffect(() => {
     if (!negotiationOn) return;
     const ids = [
@@ -166,7 +243,9 @@ export function ChatMessageStream({
     void (async () => {
       const { data, error } = await supabase
         .from('event_appointments')
-        .select('appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by')
+        .select(
+          'appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by, previous_scheduled_at',
+        )
         .in('appointment_id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -174,6 +253,7 @@ export function ChatMessageStream({
         setCardsDegraded(true);
         return;
       }
+      const prev: Record<string, string | null> = {};
       setAppointmentCards(() => {
         const next: Record<string, ChatAppointmentData> = {};
         for (const a of data as Array<{
@@ -184,7 +264,9 @@ export function ChatMessageStream({
           scheduled_at: string | null;
           status: ChatAppointmentData['status'];
           initiated_by: ChatAppointmentData['initiated_by'];
+          previous_scheduled_at: string | null;
         }>) {
+          prev[a.appointment_id] = a.previous_scheduled_at;
           next[a.appointment_id] = {
             appointment_id: a.appointment_id,
             kind: a.kind,
@@ -196,6 +278,7 @@ export function ChatMessageStream({
         }
         return next;
       });
+      setApptPreviousAt(prev);
     })();
     return () => {
       cancelled = true;
@@ -297,6 +380,149 @@ export function ChatMessageStream({
       cancelled = true;
     };
   }, [messages, supabase, negotiationOn]);
+
+  // ---------------------------------------------------------------------------
+  // All · Decisions · Files
+  // ---------------------------------------------------------------------------
+  const [view, setViewState] = useState<ThreadView>(initialView);
+
+  /**
+   * Switching views rewrites the URL IN PLACE — `replaceState`, not a
+   * navigation. No server round trip, no history entry per tap (Back should
+   * leave the conversation, not step back through All · Decisions · All), and
+   * a reload or a shared link reopens the same third.
+   */
+  const setView = useCallback((next: ThreadView) => {
+    setViewState(next);
+    try {
+      const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.history.replaceState(window.history.state, '', withThreadView(here, next));
+    } catch {
+      // A blocked history API costs the URL, never the view itself.
+    }
+  }, []);
+
+  /**
+   * THE MERGE — three sources, one timeline.
+   *
+   * Four of the six card markers ride on messages and are resolved above; the
+   * payments and the guest-count change are page sections and arrive as props.
+   * The ordering, the wording and every "now" line are decided by
+   * `buildThreadDecisions` — this hook only gathers the facts.
+   *
+   * ⚠ `Date.now()` is read here, on the client, on purpose. "Waiting 4 days"
+   * is relative to the reader's present; baking a server timestamp into it
+   * would leave a tab open overnight saying yesterday's number.
+   */
+  const decisions = useMemo(() => {
+    const ms = (iso: string | null | undefined) => {
+      const t = iso ? Date.parse(iso) : NaN;
+      return Number.isFinite(t) ? t : null;
+    };
+
+    const quotes = messages
+      .filter((m) => m.proposal_id)
+      .map((m) => {
+        const card = proposalCards[m.proposal_id as string];
+        if (!card) return null;
+        return {
+          proposalId: m.proposal_id as string,
+          publicId: card.publicId,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.title,
+          totalPhp: Math.round(card.totalCentavos / 100),
+          status: card.status,
+          decidedAtMs: ms(card.resolvedAt),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+
+    const meetings = messages
+      .filter((m) => m.appointment_id)
+      .map((m) => {
+        const card = appointmentCards[m.appointment_id as string];
+        if (!card) return null;
+        return {
+          appointmentId: m.appointment_id as string,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.label,
+          scheduledAtMs: ms(card.scheduled_at),
+          previousScheduledAtMs: ms(apptPreviousAt[m.appointment_id as string]),
+          status: card.status as string,
+          initiatedBy: card.initiated_by,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+
+    const adjustments = messages
+      .filter((m) => m.amendment_id)
+      .map((m) => {
+        const card = amendmentCards[m.amendment_id as string];
+        if (!card) return null;
+        const delta = card.items.reduce((sum, it) => sum + (it.amount_php ?? 0), 0);
+        return {
+          amendmentId: m.amendment_id as string,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.data.note?.trim() || 'Adjustment',
+          deltaPhp: card.items.length > 0 ? delta : null,
+          status: card.data.status as string,
+          decidedAtMs: ms(card.data.lockedAt),
+          raisedBy: card.data.raised_by,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+
+    return buildThreadDecisions({
+      viewer: viewerRole,
+      nowMs: Date.now(),
+      quotes,
+      meetings,
+      adjustments,
+      payments: decisionPayments,
+      guestCounts: decisionGuestCounts,
+    });
+  }, [
+    messages,
+    proposalCards,
+    appointmentCards,
+    apptPreviousAt,
+    amendmentCards,
+    viewerRole,
+    decisionPayments,
+    decisionGuestCounts,
+  ]);
+
+  const needsYouCount = useMemo(() => decisionsNeedingYou(decisions), [decisions]);
+
+  /**
+   * THE FILES THIRD, from `buildSharedFiles` (PR #5362) — the same builder the
+   * supplier's customer card uses, fed only this conversation's attachments.
+   *
+   * 🔒 The link comes from `chatAttachmentHref` inside that module and nowhere
+   * else. This component never touches `attachment_url` to build a URL.
+   */
+  const files = useMemo(() => {
+    const rows = buildSharedFiles({
+      contracts: [],
+      handovers: [],
+      chatFiles: messages
+        .filter((m) => m.attachment_name || m.attachment_r2_key || m.attachment_url)
+        .map((m) => ({
+          message_id: m.message_id,
+          sender_role: m.sender_role,
+          created_at: m.created_at,
+          attachment_name: m.attachment_name ?? null,
+          attachment_mime: m.attachment_mime ?? null,
+          attachment_size_bytes: m.attachment_size_bytes ?? null,
+          attachment_r2_key: m.attachment_r2_key ?? null, // gitleaks:allow — a column name, not a key
+          attachment_url: m.attachment_url ?? null,
+        })),
+      coupleLabel: viewerRole === 'vendor' ? counterpartyLabel : 'You',
+    });
+    // That builder sorts newest-first for the customer card's Files tab; this
+    // view reads oldest-to-newest like the conversation it summarises.
+    return [...rows].reverse();
+  }, [messages, viewerRole, counterpartyLabel]);
 
   // In-app path back to THIS thread page — the return target for negotiation
   // server actions (appointment create / respond redirect + revalidate here).
@@ -533,6 +759,52 @@ export function ChatMessageStream({
   // Render
   // ---------------------------------------------------------------------------
   return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/*
+        THE SWITCH — above the conversation, at every width. On a phone this
+        row may be the most useful thing on the screen: the whole standing of a
+        booking without scrolling a month of chat. It is never breakpoint-hidden.
+      */}
+      <ThreadViewSwitch
+        view={view}
+        onChange={setView}
+        decisionsCount={decisions.length}
+        needsYouCount={needsYouCount}
+        filesCount={files.length}
+      />
+
+      {view === 'decisions' ? (
+        <div className="flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
+          <DecisionsPanel
+            entries={decisions}
+            standing={standing}
+            counterpartyLabel={counterpartyLabel}
+            needsYouCount={needsYouCount}
+            reply={{
+              threadId,
+              eventId: messages[0]?.event_id ?? '',
+              vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+              // 🔑 THE REPLY LANDS BACK ON DECISIONS. Every reply action ends
+              // in redirect(return_path); without the view in it, answering
+              // the other side would drop you into the full chat after every
+              // tap. The actions revalidate the bare route (lib/return-path.ts)
+              // and redirect to this.
+              returnPath: withThreadView(
+                viewerRole === 'couple' && messages[0]
+                  ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+                  : `/vendor-dashboard/messages/${threadId}`,
+                'decisions',
+              ),
+              eventDate,
+              supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+            }}
+          />
+        </div>
+      ) : view === 'files' ? (
+        <div className="flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
+          <FilesPanel files={files} />
+        </div>
+      ) : (
     <ol
       ref={listRef}
       onScroll={handleScroll}
@@ -638,12 +910,36 @@ export function ChatMessageStream({
                     viewerRole={viewerRole}
                     threadId={threadId}
                     returnPath={returnPathFor(m)}
+                    counterpartyLabel={counterpartyLabel}
+                    lockHandshake={lockHandshake}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">
                     <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
                   </div>
                 )}
+              </li>
+            );
+          }
+          // A service the supplier OFFERED renders as the card they built —
+          // cover photograph, showcase clip, price, what is included (migration
+          // 20271214894972). Owner 2026-09-09: "the service card of each
+          // service still needs that photo/image/video." It replaced a single
+          // word in the "Inquiring about" chip row, which was the bare category
+          // on every service that ships today.
+          //
+          // Deliberately NOT behind NEXT_PUBLIC_CHAT_NEGOTIATION_V1: the offer
+          // control this serves has shipped since 2026-06-12, so gating the card
+          // would leave the old chip-row behaviour live in production. The card
+          // component fetches its own data and draws the message body until it
+          // arrives, so a slow or refused resolve still reads as an offer.
+          if (m.offered_service_id) {
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <ChatOfferedServiceCard
+                  messageId={m.message_id}
+                  fallbackBody={m.body}
+                />
               </li>
             );
           }
@@ -677,9 +973,16 @@ export function ChatMessageStream({
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
-                {m.attachment_url ? (
+                {/* 🔒 NEVER THE STORED VALUE. Since 2026-09-09 the row carries a
+                    PRIVATE stored-asset ref, not a public URL, so the file is
+                    fetched through a route that re-proves this viewer is a
+                    party to the thread on every request. `attachment_url` is
+                    the legacy public column — no writer has set it since, and
+                    prod never had a row that used it, but a stored value there
+                    is still somebody's file, so it keeps a way in. */}
+                {m.attachment_r2_key || m.attachment_url ? (
                   <AttachmentBlock
-                    url={m.attachment_url}
+                    url={`/api/chat/attachment/${m.message_id}`}
                     name={m.attachment_name ?? null}
                     mime={m.attachment_mime ?? null}
                     sizeBytes={m.attachment_size_bytes ?? null}
@@ -762,6 +1065,8 @@ export function ChatMessageStream({
         </li>
       ) : null}
     </ol>
+      )}
+    </div>
   );
 }
 

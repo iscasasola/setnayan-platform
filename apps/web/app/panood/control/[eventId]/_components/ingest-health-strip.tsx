@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Radio, RadioTower, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { AlertTriangle, Radio, RadioTower, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import {
   decideIngestHealth,
   POLL_INTERVAL_MS,
   type IngestHealthState,
+  type EncoderHealthInput,
 } from '@/lib/live-studio-ingest-health';
+import { isTauri } from '@/lib/desktop-stream-key';
+import { readEncoderHealth, subscribeEncoderHealth } from '@/lib/encoder/encoder-health-bus';
 
 /**
  * apps/web/app/panood/control/[eventId]/_components/ingest-health-strip.tsx
@@ -43,6 +46,8 @@ const STATE_SKIN: Record<IngestHealthState, string> = {
   waiting_for_encoder: 'border-ink/15 bg-ink/[0.03] text-ink/70',
   receiving: 'border-success-300/70 bg-success-50 text-success-900',
   degraded: 'border-warn-300/70 bg-warn-50 text-warn-950',
+  reconnecting: 'border-warn-400/70 bg-warn-100 text-warn-950',
+  encoder_down: 'border-danger-400/70 bg-danger-50 text-danger-900',
   no_data: 'border-danger-400/70 bg-danger-50 text-danger-900',
 };
 
@@ -50,16 +55,34 @@ const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
   waiting_for_encoder: Loader2,
   receiving: Radio,
   degraded: AlertTriangle,
+  reconnecting: RefreshCw,
+  encoder_down: WifiOff,
   no_data: RadioTower,
 };
 
+/** States whose icon should spin — "still in motion", not "stopped and bad". */
+const SPINNING_STATES: ReadonlySet<IngestHealthState> = new Set([
+  'waiting_for_encoder',
+  'reconnecting',
+]);
+
 export function IngestHealthStrip({
   eventId,
+  mode = 'broadcast',
   initialLive,
   initialStreamStatus,
   initialHealthStatus,
 }: {
   eventId: string;
+  /**
+   * S9 mount-rule extension: `'broadcast'` is the pre-existing Setnayan-
+   * managed-broadcast case (YouTube polling, as before). `'manual'` is the
+   * own-channel/by-hand route — no `stream_id`, so this never polls YouTube
+   * — and only renders once the client confirms a desktop encoder might
+   * exist (`isTauri()`); a plain-browser by-hand stream still shows nothing,
+   * unchanged from before this session.
+   */
+  mode?: 'broadcast' | 'manual';
   initialLive: boolean;
   initialStreamStatus: string | null;
   initialHealthStatus: string | null;
@@ -73,8 +96,28 @@ export function IngestHealthStrip({
   // Bumped on every tick (success or failure) so the strip re-renders even
   // when `live` and the cache are unchanged — staleness must still advance.
   const [, bumpTick] = useState(0);
+  // `window.__TAURI__` is only known after mount (SSR always renders the
+  // browser case first) — same one-frame-flash tradeoff as EncoderKeyPanel.
+  // S18 — the desktop encoder's own reading, published by `DesktopEncoderHost`.
+  // `useSyncExternalStore` rather than a `useState` + effect pair so a reading
+  // that lands between render and effect is not missed: this value changes on
+  // every RTMP transition, and a dropped `reconnecting` is the one the operator
+  // most needs to see.
+  const encoderHealth = useSyncExternalStore(
+    subscribeEncoderHealth,
+    () => readEncoderHealth(eventId),
+    () => null,
+  );
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    setDesktop(isTauri());
+  }, []);
 
   useEffect(() => {
+    // Own-channel: no Setnayan-managed broadcast exists, so there is no
+    // stream_id for this endpoint to poll — starting the loop here would
+    // burn quota checking a broadcast that was never created.
+    if (mode === 'manual') return;
     let cancelled = false;
 
     const tick = async () => {
@@ -110,14 +153,30 @@ export function IngestHealthStrip({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [eventId]);
+  }, [eventId, mode]);
+
+  // Own-channel + plain browser: no YouTube reading, no desktop encoder to
+  // ask either — render nothing, exactly as before this session.
+  if (mode === 'manual' && !desktop) return null;
 
   const lastOkAt = cachedRef.current.at === null ? null : Date.now() - cachedRef.current.at;
+  // S18 — WIRED. `encoder_start` now runs `reconnect::supervise()` and pushes
+  // a `HealthUpdate` down a Tauri `Channel` for the life of the broadcast;
+  // `DesktopEncoderHost` folds that together with the worker's own drop counts
+  // and publishes it on `encoder-health-bus`. `null` here now means what it
+  // says — no desktop encoder is running for this event — rather than "nobody
+  // built the wire yet".
+  const encoder: EncoderHealthInput | null = encoderHealth?.input ?? null;
+  const guardSentence = encoderHealth?.note.guardSentence ?? '';
   const decision = decideIngestHealth({
     streamStatus: cachedRef.current.streamStatus,
     healthStatus: cachedRef.current.healthStatus,
-    live,
+    live: mode === 'broadcast' && live,
     lastOkAt,
+    encoder,
+    // Provenance only. `decideIngestHealth` will not let this change `state` —
+    // see its docblock on why "not raw" must never read as a degradation.
+    transportEnvelope: encoderHealth?.note.transportEnvelope ?? null,
   });
 
   const Icon = STATE_ICON[decision.state];
@@ -130,10 +189,20 @@ export function IngestHealthStrip({
     >
       <Icon
         aria-hidden
-        className={`mt-px h-4 w-4 shrink-0 ${decision.state === 'waiting_for_encoder' ? 'animate-spin' : ''}`}
+        className={`mt-px h-4 w-4 shrink-0 ${SPINNING_STATES.has(decision.state) ? 'animate-spin' : ''}`}
         strokeWidth={1.75}
       />
-      <span>{decision.sentence}</span>
+      <span>
+        {decision.sentence}
+        {/* The go-live probe's own message, when it has one — a refusal ("can't
+            send video from this computer") or a slower-than-usual note. It is
+            APPENDED rather than replacing `decision.sentence`, because the two
+            answer different questions: the decision says what YouTube and the
+            encoder report, and this says whether this computer could hand the
+            encoder anything in the first place. A refusal that hid the state
+            behind it would leave the operator unable to see both halves. */}
+        {guardSentence ? <span className="mt-1 block opacity-90">{guardSentence}</span> : null}
+      </span>
     </div>
   );
 }

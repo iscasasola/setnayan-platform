@@ -22,6 +22,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { buildBenchStandings } from '@/lib/conversation-list';
+import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   fetchEventVendors,
@@ -59,7 +61,7 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
-import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import {
   bucketVendorsByGroup,
   canonicalServiceToPlanGroupId,
@@ -681,7 +683,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           name: resolvedName || v.vendor_name || 'Vendor',
           city: s.location_city ?? null,
           waitingSince: pendingSinceByProfile.get(pid) ?? null,
-          href: `/dashboard/${eventId}/messages`,
+          // 🔴 THIS WAS THE INBOX, WITH THE THREAD ID RESOLVED ELEVEN LINES
+          // ABOVE (`thread_id: threadIdByProfile.get(pid)`). The rows most
+          // likely to have something to read — the suppliers a couple is still
+          // waiting on — sent every tap to the full list, and the component
+          // that renders them says the opposite in its own docblock: "tap a row
+          // to jump to the thread". Falls back to the list only when there is
+          // genuinely no thread to open.
+          href: threadIdByProfile.get(pid)
+            ? `/dashboard/${eventId}/messages/${threadIdByProfile.get(pid)}`
+            : `/dashboard/${eventId}/messages`,
         });
       }
     }
@@ -716,8 +727,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       total_cost_php: v.total_cost_php,
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
-      contact_email: v.contact_email,
-      contact_phone: v.contact_phone,
+      // No contact_email / contact_phone: nothing downstream reads them, and this
+      // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
       marketplace_vendor_id: v.marketplace_vendor_id,
       marketplace_business_name: mk?.name ?? null,
       marketplace_logo_url: mk?.logo ?? null,
@@ -1377,6 +1388,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
+  // ── The couple's own order, per category (owner 2026-09-09) ──────────────
+  // Read on the couple's OWN client so RLS answers "is this a host of this
+  // celebration?" rather than a check this file could forget. Fail-open and
+  // SILENT is wrong here and right nowhere else on this page: an unreadable
+  // arrangement must not take the bench down, but it must also not be reported
+  // as "you have not arranged anything" — so the empty map means "no pins we
+  // could see", the rail falls back to the lens's order, and the "Your order"
+  // chip simply does not appear rather than appearing with a Reset that would
+  // delete rows the couple cannot see.
+  const benchArrangement: Record<string, { vendorId: string; position: number }[]> = {};
+  {
+    const { data: pinRows, error: pinError } = await supabase
+      .from('event_bench_arrangement')
+      .select('tile, vendor_id, position')
+      .eq('event_id', eventId);
+    if (pinError) {
+      // A refused read and an empty table look identical through this API — say
+      // which one this was, in the log, rather than letting the bench imply the
+      // couple never arranged anything.
+      console.error('[vendors] bench arrangement unreadable', pinError.message);
+    }
+    for (const row of (pinRows ?? []) as { tile: string; vendor_id: string; position: number }[]) {
+      (benchArrangement[row.tile] ??= []).push({
+        vendorId: row.vendor_id,
+        position: row.position,
+      });
+    }
+  }
+
   // Per-card verdicts, resolved once here (server) rather than per render. NULL
   // for every vendor when the tier isn't running — the client then partitions
   // nothing and disables nothing.
@@ -1427,6 +1467,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     demandByVendorId: aiActive ? demandByVendorId : undefined,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    freeDaysByVendorId,
     // PR-H · the flag is READ HERE and PASSED IN; the builder is a pure core and
     // must never reach for the env itself.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
@@ -1444,6 +1485,55 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? Math.round(ev.estimated_budget_centavos / 100)
         : null,
   });
+
+  // ── WHERE EACH SUPPLIER STANDS (2026-09-09) ────────────────────────────────
+  // A bench card used to offer "Check inquiry" and say nothing about WHERE
+  // THINGS STAND — the same button whether the supplier answered an hour ago,
+  // sent a quote waiting on the couple, or went quiet for three weeks. The
+  // couple had to open every one to find out, which makes three caterers side
+  // by side a comparison they cannot actually make.
+  //
+  // ⚡ TWO QUERIES FOR THE WHOLE BENCH. `buildBenchStandings` reuses the same
+  // batched couple-side stage probes the conversation column already runs and
+  // adds one last-message read, then hands the facts to the ONE derivation in
+  // `lib/supplier-standing.ts`. No per-card probe: a rail holds dozens of cards
+  // and the page holds many rails.
+  //
+  // `Date.now()` is read ONCE here so every card on the page agrees about what
+  // "12 days" means — a per-card clock would let two cards rendered in the same
+  // paint disagree across a midnight boundary.
+  const standingsByVendorId: Record<string, SupplierStanding> = await (async () => {
+    const out: Record<string, SupplierStanding> = {};
+    const contactable = shortlistFolders
+      .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
+      .filter((v) => v.marketplaceVendorId != null && v.threadId != null);
+    if (contactable.length === 0) return out;
+    try {
+      const standings = await buildBenchStandings({
+        supabase,
+        eventId,
+        nowMs: Date.now(),
+        vendors: contactable.map((v) => ({
+          key: v.vendorId,
+          vendorProfileId: v.marketplaceVendorId as string,
+          threadId: v.threadId,
+          inquiryStatus: v.inquiryStatus,
+        })),
+        });
+      for (const [key, standing] of standings) if (standing) out[key] = standing;
+    } catch (caught) {
+      // Fail-SILENT, never fail-loud. The standing is an addition to a card that
+      // already works; a thrown read must cost the couple the sentence, never
+      // the bench.
+      logQueryError(
+        'VendorsPage.benchStandings (threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return out;
+  })();
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
   // event_vendor_preferences rows (one query, host-RLS scoped) and resolve, per
@@ -1603,6 +1693,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        // ── Where each supplier stands · one sentence per card, plus the
+        // page's roll-up. Derived once on the server (lib/supplier-standing.ts)
+        // and passed down; the component renders it and decides nothing.
+        standings={standingsByVendorId}
         initialOpenTile={sp.open ?? null}
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
         coveredByTile={coveredByTile}
@@ -1616,6 +1710,27 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
         convergence={convergenceBanner(buildDateWindow, { anchoredLabel: matchFormattedDate })}
+        // Inline "More in {category}" row (owner 2026-09-06) — the SAME window
+        // `buildFitByVendorId` above was resolved from, handed down so row 2
+        // sinks exactly the vendors row 1 sinks. A pass-down of values already
+        // in memory: no second query, and no second copy of the window logic in
+        // the row's server action (see _actions/inline-more-row.ts).
+        buildWindow={buildDateWindow}
+        probeDayKeys={probeWindow?.dayKeys ?? []}
+        // `freeDays` is a Set on the server type; it crosses to the client as an
+        // array and is rebuilt there rather than trusted to survive the boundary.
+        teamCalendar={teamCalendar.map((m) => ({
+          vendorId: m.vendorId,
+          name: m.name,
+          freeDays: [...m.freeDays],
+        }))}
+        // The couple's OWN order (owner 2026-09-09 · "per category", "all hosts
+        // of that event see the same order"). Read on the server, from the
+        // celebration — not from this browser — which is the whole difference
+        // between this and the sort lens beside it: `persistBenchSort` is
+        // localStorage and is deliberately private, an arrangement is a plan the
+        // hosts made together.
+        benchArrangement={benchArrangement}
       />
     </>
   );
@@ -2224,24 +2339,18 @@ async function fetchVendorPhotoMaps(
   // vendor_id in the same pass that maps service photos below.
   const startingPriceByServiceId = new Map<string, number>();
   for (const row of (svcRes.data ?? []) as SvcRow[]) {
-    if (row.primary_photo_r2_key) {
-      svcUrlByServiceId.set(
-        row.vendor_service_id,
-        r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
-      );
-    }
+    // A ref we cannot address resolves to null — leave the entry OUT so the
+    // card falls back to its placeholder rather than to a broken image.
+    const svcPhotoUrl = publicUrlForStoredAsset(row.primary_photo_r2_key);
+    if (svcPhotoUrl) svcUrlByServiceId.set(row.vendor_service_id, svcPhotoUrl);
     if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
       startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);
     }
   }
   const manualUrlByManualId = new Map<string, string>();
   for (const row of (manRes.data ?? []) as ManRow[]) {
-    if (row.photo_r2_key) {
-      manualUrlByManualId.set(
-        row.manual_vendor_id,
-        r2PublicUrl(R2_BUCKETS.media, row.photo_r2_key),
-      );
-    }
+    const manualPhotoUrl = publicUrlForStoredAsset(row.photo_r2_key);
+    if (manualPhotoUrl) manualUrlByManualId.set(row.manual_vendor_id, manualPhotoUrl);
   }
   for (const [vendorId, serviceId] of serviceIdByVendor) {
     const url = svcUrlByServiceId.get(serviceId);

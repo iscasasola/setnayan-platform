@@ -3,8 +3,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPeriodicJob } from '@/lib/periodic-jobs';
-import { isR2Configured, r2Delete, type R2BucketName } from '@/lib/r2';
-import { parseR2Ref } from '@/lib/nsfw-screen';
+import { isR2Configured } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { samahanStoryScope } from '@/lib/cleanup-delete-scope';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 // Samahan Stories (owner 2026-08-24 — "the same setlog concept"): a member
@@ -94,16 +95,36 @@ export async function fetchSamahanStories(
  * any file delete failed (the row stays, a later sweep retries). Shared by
  * the author's own "take it down" path and the expiry sweep — one deleter,
  * one ordering rule.
+ *
+ * 🔒 ONLY THE STORY'S OWN FILES (2026-09-10). Each ref must sit under
+ * `samahan/<community_id>/` — where `/api/samahan/story` files it — or it is
+ * refused: the file is kept, the ROW is kept (its pointer with it) and the call
+ * reports false so the refusal is re-met on every pass instead of being tidied
+ * away. Rows are written only by the service role with a server-minted key, so
+ * a refusal means something wrote a row it should not have. See
+ * lib/cleanup-delete-scope.ts.
  */
 export async function hardDeleteStory(
   admin: SupabaseClient,
-  story: { id?: number; story_id?: string; r2_object_key: string; poster_r2_key: string },
+  story: {
+    id?: number;
+    story_id?: string;
+    community_id: string | null;
+    r2_object_key: string;
+    poster_r2_key: string;
+  },
 ): Promise<boolean> {
+  const scope = samahanStoryScope(story.community_id);
   for (const ref of [story.r2_object_key, story.poster_r2_key]) {
-    const parsed = parseR2Ref(ref);
-    if (!parsed.bucket) continue; // not an r2:// ref — nothing of ours to delete
+    if (typeof ref !== 'string' || !ref.startsWith('r2://')) continue; // not an r2:// ref — nothing of ours to delete
     try {
-      await r2Delete({ bucket: parsed.bucket as R2BucketName, key: parsed.key });
+      const outcome = await cleanupDelete(ref, scope);
+      if (outcome === 'refused') {
+        console.error('[samahan-stories] REFUSED a story ref outside its own samahan folder — file and row kept', {
+          storyId: story.story_id ?? story.id,
+        });
+        return false;
+      }
     } catch {
       return false; // keep the row; the sweep retries
     }
@@ -126,11 +147,12 @@ export async function maybeRunSamahanStorySweep(): Promise<void> {
     const admin = createAdminClient();
     const { data } = await admin
       .from('samahan_stories')
-      .select('id, r2_object_key, poster_r2_key')
+      .select('id, community_id, r2_object_key, poster_r2_key')
       .lt('expires_at', new Date().toISOString())
       .limit(STORY_SWEEP_LIMIT);
     for (const row of (data ?? []) as Array<{
       id: number;
+      community_id: string | null;
       r2_object_key: string;
       poster_r2_key: string;
     }>) {

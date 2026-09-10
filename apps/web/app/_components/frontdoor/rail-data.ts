@@ -21,6 +21,7 @@ import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents } from '@/lib/events';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SLUG,
@@ -255,6 +256,14 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
         .eq('user_id', user.id),
     ]);
 
+    // The shop row's avatar wants a presigned display URL, never the raw
+    // `r2://` ref vendor_profiles.logo_url stores (see VendorAvatar's
+    // doc comment). Resolved unconditionally against the FIRST vendor profile
+    // fetchUserRoleSummary already read — no extra round trip to the table.
+    const shopLogoUrl = roles.hasVendorAccess
+      ? await displayUrlForStoredAsset(roles.vendorProfiles[0]?.logo_url)
+      : null;
+
     return {
       signedIn: true,
       initials: initialsFrom(
@@ -274,6 +283,7 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
       shopName: roles.hasVendorAccess
         ? (roles.vendorProfiles[0]?.business_name ?? 'Your shop')
         : null,
+      shopLogoUrl,
       // A FAILED READ MUST NOT GRANT THE ROW — a rejected query hides HQ rather
       // than offering a door that then refuses. The opposite direction from the
       // counts, and the right one: a missing row is a nuisance, an

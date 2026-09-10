@@ -3949,3 +3949,67 @@ html:active-view-transition .sn-page-enter { animation: none; }
   border-radius: 18px;
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STORY, BY THE MINUTE — the spine's own two rules
+   (Design_Editorial_By_The_Minute_2026-09-07 · 01_The_Story.md §3.3 + §7)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The write-up's drop cap. A minute reads as a piece of writing, not a caption. */
+.sn-dropcap::first-letter {
+  font-family: var(--font-condensed), 'Saira Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.78;
+  padding: 5px 9px 0 0;
+}
+
+/* ENTRIES RISE — THEY NEVER FADE (review finding).
+   The first cut held every entry at opacity .65 until an observer fired, which
+   is dim in a screenshot, dim to a crawler, dim with JS off, and took muted text
+   down to about 2.5:1. So: no opacity anywhere in this, and the offset itself is
+   applied ONLY once the script has run — `data-story-js` is set on mount. With
+   JavaScript off the entries have no transform at all and the page is simply
+   the page. `prefers-reduced-motion` removes it as well, in the stylesheet AND
+   in the script that would otherwise still animate the count-up. */
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story[data-story-js] [data-story-entry] {
+    transform: translateY(14px);
+    transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sn-story[data-story-js] [data-story-entry][data-story-in] {
+    transform: none;
+  }
+}
+
+/* Wide content scrolls inside its own container — the body never scrolls
+   sideways at 390px (§11). */
+.sn-story {
+  overflow-x: clip;
+}
+.sn-story [data-story-scroller] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sn-story [data-story-scroller]::-webkit-scrollbar {
+  display: none;
+}
+
+/* FIND IN THIS DAY — non-matching minutes dim (§8).
+   A PRESENTATIONAL marker and never a gate. Everything it dims is already in
+   the served HTML, which is exactly why the LAYERS this reader may not have are
+   taken out of the payload upstream instead of being hidden here: `opacity` on
+   a node whose contents were serialised into the page is the same paragraph,
+   one View Source away.
+   It is cleared when the search closes, and on unmount, so nobody is left
+   reading a greyed-out story. */
+.sn-story [data-story-entry][data-story-dim] {
+  opacity: 0.3;
+  filter: saturate(0.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story [data-story-entry] {
+    transition-property: transform, opacity;
+  }
+}

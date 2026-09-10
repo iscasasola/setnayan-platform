@@ -4267,7 +4267,20 @@ export function OnboardingShell({
                     </figure>
                   ) : null}
                   <div className="dash-cnames">{coupleDisplay}</div>
-                  <div className="dash-head"><span className="setna">Set na&nbsp;&rsquo;yan.</span> &#10024; This is the {bloomSurnameA}&ndash;{bloomSurnameB} wedding &mdash; and it already exists.</div>
+                  {/* 🔑 THE CLAIM IS GATED ON THE FACT (2026-09-07). This line
+                      read "…and it already exists" for everyone. Measured live:
+                      at the moment this screen renders, NO event row exists —
+                      the commit runs in `handleFinish`, when they tap through.
+                      A query at that exact moment returned nothing platform-wide.
+                      It becomes true ~30 seconds later, which is precisely the
+                      window in which the sentence was false.
+                      `committedEventId` is the only thing that knows: it is set
+                      in handleFinish right before navigating, so it is non-null
+                      exactly on the back-then-forward path where the wedding
+                      really does already exist. Same shape as every other read
+                      on this codebase — say what was measured, not what is
+                      about to be true. */}
+                  <div className="dash-head"><span className="setna">Set na&nbsp;&rsquo;yan.</span> &#10024; This is the {bloomSurnameA}&ndash;{bloomSurnameB} wedding &mdash; {committedEventId ? <>and it already exists.</> : <>ready when you are.</>}</div>
                 </div>
                 {/* COUNTDOWN — the existing live HH:MM:SS timer, anchored on the nearest picked date */}
                 {earliestDateISO ? (

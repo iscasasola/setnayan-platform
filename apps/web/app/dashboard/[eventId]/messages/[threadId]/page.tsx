@@ -2,7 +2,10 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchMessages, fetchThreadById } from '@/lib/chat';
+import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
+import { ConversationColumn } from '@/app/_components/chat/conversation-column';
+import { buildCoupleConversationRows } from '@/lib/conversation-list';
+import { interestChipLabel } from '@/lib/thread-interests';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
@@ -10,7 +13,16 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
+import { parseThreadView } from '@/lib/thread-view';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { deriveThreadStage } from '@/lib/vendor-thread-stage';
+import { buildSupplierStanding } from '@/lib/supplier-standing';
+import {
+  fetchThreadPayments,
+  fetchLiveQuoteTotalPhp,
+} from '@/lib/thread-decision-sources.server';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
@@ -23,9 +35,15 @@ import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
 
-type Props = { params: Promise<{ eventId: string; threadId: string }> };
+type Props = {
+  params: Promise<{ eventId: string; threadId: string }>;
+  /** `?view=decisions|files` — see lib/thread-view.ts. */
+  searchParams?: Promise<{ view?: string | string[] }>;
+};
 
-export default async function CoupleThreadPage({ params }: Props) {
+export default async function CoupleThreadPage({ params, searchParams }: Props) {
+  // Read on the server so a Decisions link paints Decisions, not the chat.
+  const initialView = parseThreadView((await searchParams)?.view);
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const {
@@ -76,7 +94,7 @@ export default async function CoupleThreadPage({ params }: Props) {
   const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select(
-      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
+      'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
@@ -93,6 +111,73 @@ export default async function CoupleThreadPage({ params }: Props) {
   // remains SEO-friendly. The <ChatMessageStream> client component takes
   // over from here, subscribing to Supabase Realtime for new inserts/updates.
   const initialMessages = await fetchMessages(supabase, threadId);
+
+  // PR-H · the frozen-price line in this thread must not claim a booking that
+  // does not exist yet. The COUPLE reads `event_vendors` through their own
+  // session — RLS is the boundary here, and it is sufficient.
+  const lockHandshake = await fetchThreadLockHandshake(supabase, {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+  });
+
+  /**
+   * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
+   *
+   * The same view the supplier has, from this side. The standing sentence is
+   * the S6 derivation verbatim, read in the couple's voice (the default); the
+   * bench card draws the same string, which is what makes showing it twice
+   * safe. The supplier's page calls the same function with `viewer: 'vendor'`
+   * (since 2026-09-10), so the two sides are told one set of facts, each
+   * with the subject turned the right way round.
+   *
+   * ⚠ There is no guest-count source on this side. The surcharge proposal is
+   * the SUPPLIER's to act on (`fetchVendorPaxProposals` is scoped to their
+   * bookings and their pricing), so the couple's Decisions list carries the
+   * payments and the message cards. Showing the couple a decision only the
+   * supplier can take would be a to-do they cannot do.
+   */
+  const decisionAdmin = createAdminClient();
+  const [threadStage, liveQuoteTotalPhp, decisionPayments] = await Promise.all([
+    deriveThreadStage({
+      supabase,
+      adminClient: decisionAdmin,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+      inquiryStatus: thread.inquiry_status,
+    }),
+    fetchLiveQuoteTotalPhp({
+      supabase,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+    }),
+    fetchThreadPayments({
+      adminClient: decisionAdmin,
+      eventId,
+      vendorProfileId: thread.vendor_profile_id,
+    }),
+  ]);
+
+  const lastThreadMessage = initialMessages[initialMessages.length - 1];
+  const threadStanding = buildSupplierStanding({
+    stage: threadStage,
+    // The couple is reading the conversation, so there is one by definition —
+    // this is the branch that keeps an invented grievance off a stranger's
+    // bench card, and it cannot apply here.
+    hasThread: true,
+    quotedAmountPhp: liveQuoteTotalPhp,
+    lastSpeaker:
+      lastThreadMessage == null
+        ? null
+        : lastThreadMessage.sender_role === 'vendor'
+          ? 'vendor'
+          : lastThreadMessage.sender_role === 'couple'
+            ? 'couple'
+            : null,
+    lastSaidAtMs: lastThreadMessage
+      ? Date.parse(lastThreadMessage.created_at) || null
+      : null,
+    nowMs: Date.now(),
+  });
   const vendorLabel = vendor
     ? resolveVendorDisplayName({
         business_name: vendor.business_name ?? null,
@@ -147,8 +232,161 @@ export default async function CoupleThreadPage({ params }: Props) {
     similarGroupId ? `#group-${similarGroupId}` : ''
   }`;
 
+  /* ── THE LEFT COLUMN: every supplier they are talking to, beside this one ──
+     Owner 2026-09-08: "list · conversation · context". The couple's chips are
+     their own words — All · Has a quote · Booked · Waiting · Closed.
+
+     ⚡ FOUR BATCHED READS FOR THE WHOLE COLUMN, plus the three stage probes
+     inside the builder. Never one per row.
+
+     ⚠ EVERY ONE FAILS QUIET. This column is navigation, not the page — a
+     refused read must leave the conversation itself readable. */
+  const listThreads = await fetchCoupleThreads(supabase, eventId).catch((caught: unknown) => {
+    logQueryError(
+      'CoupleThreadPage.conversationList',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+    return [] as Awaited<ReturnType<typeof fetchCoupleThreads>>;
+  });
+  /* A removed or displaced conversation is folded away on the couple's own
+     Messages page; the column beside a thread keeps the same shape rather than
+     inventing a second idea of which conversations exist. The one being READ
+     always survives the filter — a column that omits the open thread is a
+     column that cannot show you where you are. */
+  const listVisible = listThreads.filter(
+    (t) => t.thread_id === threadId || (!t.archived && t.archived_at == null),
+  );
+  const listThreadIds = listVisible.map((t) => t.thread_id);
+
+  const [listLastRes, listInterestRes, listReadRes] = await Promise.all([
+    listThreadIds.length > 0
+      ? supabase
+          .from('chat_messages')
+          .select('thread_id, sender_role, body, created_at')
+          .in('thread_id', listThreadIds)
+          .order('created_at', { ascending: false })
+          .limit(600)
+      : Promise.resolve({ data: [], error: null }),
+    listThreadIds.length > 0
+      ? supabase
+          .from('thread_service_interests')
+          .select('thread_id, category_key, created_at')
+          .in('thread_id', listThreadIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    listThreadIds.length > 0
+      ? supabase
+          .from('chat_thread_reads')
+          .select('thread_id, last_read_at')
+          .eq('user_id', user.id)
+          .in('thread_id', listThreadIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (listLastRes.error) {
+    logQueryError('CoupleThreadPage.lastMessages', listLastRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const listLast = new Map<string, { sender_role: string; body: string | null }>();
+  const listLastAt = new Map<string, string>();
+  for (const m of (listLastRes.data ?? []) as Array<{
+    thread_id: string;
+    sender_role: string;
+    body: string | null;
+    created_at: string;
+  }>) {
+    if (!listLast.has(m.thread_id)) {
+      listLast.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
+      listLastAt.set(m.thread_id, m.created_at);
+    }
+  }
+
+  if (listInterestRes.error) {
+    logQueryError('CoupleThreadPage.listInterests', listInterestRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  /* ⚠ ONE TAG, AND IT IS THE SERVICE — NOT THE DATE. The supplier's column tags
+     each row with a date because every row there is a different wedding. Here
+     every row is the SAME wedding, so a date would print the couple's own date
+     six times and say nothing. */
+  const listLabels = new Map<string, string[]>();
+  for (const i of (listInterestRes.data ?? []) as Array<{
+    thread_id: string;
+    category_key: string | null;
+  }>) {
+    if (!listLabels.has(i.thread_id) && i.category_key) {
+      listLabels.set(i.thread_id, [interestChipLabel({ category_key: i.category_key })]);
+    }
+  }
+
+  if (listReadRes.error) {
+    logQueryError('CoupleThreadPage.listReads', listReadRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const listUnread = new Set<string>();
+  for (const r of (listReadRes.data ?? []) as Array<{ thread_id: string; last_read_at: string | null }>) {
+    const said = listLastAt.get(r.thread_id);
+    if (said && r.last_read_at && new Date(said) > new Date(r.last_read_at)) {
+      listUnread.add(r.thread_id);
+    }
+  }
+
+  /* 🔒 THE NAME IS RESOLVED HERE, NOT IN THE COLUMN. A free or unverified
+     supplier's real business name stays behind their screen name until the
+     reveal predicate says otherwise — the same `resolveVendorDisplayName` the
+     header above and the Messages list already run. The column receives a name
+     that is already safe to print, and the avatar is its INITIALS, never the
+     logo: a logo is exactly as identifying as the name it stands for. */
+  const listDisplayNames = new Map<string, string>();
+  for (const t of listVisible) {
+    const v = t.vendor;
+    listDisplayNames.set(
+      t.vendor_profile_id,
+      v
+        ? resolveVendorDisplayName({
+            business_name: v.business_name ?? null,
+            name_revealed_at: v.name_revealed_at ?? null,
+            services: v.services ?? null,
+            screen_name: v.screen_name ?? null,
+            isPaidTier: isTrueNameTier(v.tier_state ?? null),
+            is_verified: v.verification_state === 'verified',
+            primary_canonical_service: v.services?.[0] ?? null,
+            location_city: v.location_city ?? null,
+          })
+        : 'Supplier',
+    );
+  }
+
+  const conversationRows = await buildCoupleConversationRows({
+    supabase,
+    eventId,
+    threads: listVisible.map((t) => ({
+      thread_id: t.thread_id,
+      vendor_profile_id: t.vendor_profile_id,
+      inquiry_status: t.inquiry_status ?? null,
+      updated_at: t.updated_at,
+    })),
+    displayNames: listDisplayNames,
+    labels: listLabels,
+    lastMessages: listLast,
+    unreadThreadIds: listUnread,
+    formatTime: formatChatTimestamp,
+  });
+
   return (
-    <section className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
+    <div className="flex h-[calc(100dvh-12rem)] gap-4">
+      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
+          xl, where there is room for it without squeezing the conversation —
+          giving the conversation back its space was the whole point. */}
+      <ConversationColumn
+        rows={conversationRows}
+        activeThreadId={threadId}
+        side="couple"
+        hrefBase={`/dashboard/${eventId}/messages`}
+        heading="Suppliers you’re talking to"
+        backHref={`/dashboard/${eventId}/vendors`}
+        backLabel="‹ Bench"
+      />
+    <section className="flex min-w-0 flex-1 flex-col gap-4">
       <header className="sn-tile flex items-center justify-between gap-3 p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
@@ -197,6 +435,10 @@ export default async function CoupleThreadPage({ params }: Props) {
         viewerRole="couple"
         counterpartyLabel={vendorLabel}
         eventDate={eventDate}
+        standing={threadStanding}
+        decisionPayments={decisionPayments}
+        initialView={initialView}
+        lockHandshake={lockHandshake}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (
@@ -278,5 +520,6 @@ export default async function CoupleThreadPage({ params }: Props) {
         </div>
       )}
     </section>
+    </div>
   );
 }

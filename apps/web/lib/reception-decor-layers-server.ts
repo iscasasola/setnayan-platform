@@ -9,17 +9,22 @@ import 'server-only';
  *
  * Kept separate from lib/reception-decor-layers.ts (which stays pure +
  * environment-agnostic, importable from a client component too) so THIS
- * file's Node-only bits (`sharp`, DB reads, `safeFetchImageBytes`) never leak
- * into a client bundle.
+ * file's Node-only bits (`sharp`, `node:fs`, DB reads, `safeFetchImageBytes`)
+ * never leak into a client bundle.
  */
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import sharp from 'sharp';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { safeFetchImageBytes } from './safe-image-fetch';
+import { isCompositableDecorHref } from './reception-scene';
 import {
   resolveDecorLayer,
   retintDecorLayerRGBA,
   primaryZoneTargetHex,
   PILOT_DECOR_ZONES,
+  SCENE_DECOR_ZONES,
+  knockOutSceneBackground,
   type DecorLayerCatalog,
   type DecorLayerAsset,
 } from './reception-decor-layers';
@@ -30,13 +35,16 @@ import type { PartId } from './reception-scene';
  * Read moodboard_library_assets (+ its color ranges) for the pilot zones into
  * the shape `resolveDecorLayer` expects. Public data (no auth check beyond
  * the table's own RLS): moodboard_library_assets_public_read already requires
- * approved_at IS NOT NULL, and the 10 pilot rows are seeded with approved_at
- * = NULL on purpose (see migration 20271194970382's header — generation
- * happened, but the files were never uploaded to R2 from that session), so
- * this returns an EMPTY catalog in production until a human finishes the
- * upload + approval step. `resolveDecorLayer` already treats an empty
- * catalog as "fall back to the flat SVG" — the draft/published gate IS the
- * rollout mechanism, no separate feature flag needed.
+ * approved_at IS NOT NULL.
+ *
+ * ✅ THIS RETURNS A REAL CATALOG AS OF MB14b (2026-09-05). It returned EMPTY
+ * for two days: the 10 pilot rows were seeded `approved_at = NULL` because the
+ * generating session had no R2 credentials, and MB26 then retired them when
+ * the owner ruled `media.setnayan.com` was not being set up. Migration
+ * 20271207934361 repoints all ten at `/moodboard-seed/venue_scene/...` — files
+ * this app serves itself — and publishes them. `resolveDecorLayer` still
+ * treats an empty catalog as "fall back to the flat SVG", which is what every
+ * (zone, style) outside the ten gets.
  */
 export async function fetchDecorLayerCatalog(
   supabase: SupabaseClient,
@@ -93,6 +101,90 @@ export async function fetchDecorLayerCatalog(
 }
 
 /**
+ * apps/web/public/moodboard-seed/ — the ONLY part of public/ a decor row may
+ * name (`isCompositableDecorHref` pins the `/moodboard-seed/` prefix), and so
+ * the only part of it this server function is allowed to carry.
+ *
+ * 🚨 THIS LINE USED TO BE `path.join(process.cwd(), 'public')`, AND THAT ONE
+ * LINE PUT ALL OF public/ INSIDE A SERVER FUNCTION. Next's file tracer reads
+ * `readFile(path.resolve(<root>, <anything>))` as "any file under <root> may be
+ * opened at runtime" and copies the whole directory into the function. With
+ * the root at public/, that was **951 files · 117 MB** — the demo films, the
+ * onboarding clips, every Real Story photo — none of which this code can ever
+ * read, all of which the CDN already serves. It took the mood-board function
+ * from ~135 MB to within 2 MB of Vercel's 250 MB ceiling on 2026-09-06, and on
+ * 2026-09-10 the Next.js 15.5.24 security update tipped it to **252.37 MB**
+ * and could not deploy.
+ *
+ * Rooted here instead, the tracer carries **64 files · 9.2 MB**. Measured with
+ * Next's own compiled tracer, not reasoned — and held by
+ * `lib/no-server-file-carries-public.test.ts`, which traces every server file
+ * that builds a path from `process.cwd()` and fails if any of them drags in a
+ * part of public/ it was not given.
+ */
+const SEED_PREFIX = '/moodboard-seed';
+const SEED_ROOT = path.join(process.cwd(), 'public', 'moodboard-seed');
+
+/**
+ * MB14b · 🔑 AN APP-SERVED PATH IS NOT A URL, AND `safeFetchImageBytes` SAYS SO.
+ *
+ * This function used to be one call to `safeFetchImageBytes`, which is correct
+ * for the `https://…` storage_paths every library asset carried when it was
+ * written. MB14b repoints the ten decor rows at `/moodboard-seed/…` — the same
+ * app-served shape MB24 and MB25 introduced — and `new URL('/moodboard-seed/…')`
+ * THROWS, so that helper returns null.
+ *
+ * ⚠ MEASURED, NOT REASONED: `safeFetchImageBytes('/moodboard-seed/venue_scene/
+ * backdrop/editorial-cream.svg')` returns `null`. Without this branch the
+ * migration would publish ten perfectly good rows and every zone would keep
+ * falling back to the flat SVG FOREVER, silently, with every test green —
+ * because "no bytes" and "no asset" are the same `null` to the caller. That is
+ * the whole pilot terminating in nothing for a third time.
+ *
+ * Reading it off disk is the honest fetch for a file we ship: it is in our own
+ * `public/` directory, so there is no network, no host, and no SSRF surface to
+ * guard. What there IS is path traversal, and `isCompositableDecorHref` — the
+ * same predicate `renderVenueSvg` uses before it writes an href into markup —
+ * is what refuses it. A containment check follows it; see the note inline for
+ * what each of the two actually catches, measured by deleting them one at a
+ * time rather than asserted.
+ */
+async function decorSourceBytes(storagePath: string): Promise<Uint8Array | null> {
+  if (storagePath.startsWith('/')) {
+    if (!isCompositableDecorHref(storagePath)) return null;
+    // 🪤 SABOTAGED BOTH WAYS, AND THE RESULT IS REPORTED HONESTLY.
+    // Deleting the predicate above turns the traversal test RED — only it
+    // refuses a `..` that stays INSIDE public/ and still names a real file
+    // (`…/backdrop/../backdrop/editorial-cream.svg`), which `path.resolve` +
+    // `startsWith` are both perfectly happy with.
+    //
+    // Deleting the containment check below turns NOTHING red. It is redundant
+    // TODAY, given a predicate that already pins the `/moodboard-seed/` prefix.
+    // It is kept anyway, and labelled as what it is: the thing that still holds
+    // if someone widens that prefix later — a loosened predicate is a one-line
+    // edit, and this is the line that keeps it inside moodboard-seed/. No test
+    // can show it red, and pretending otherwise would be the "guard that guards
+    // a copy" mistake in reverse.
+    // (`path.resolve` normalises, so a separate `normalize` comparison would be
+    // a check that can never fire. It is deliberately not written here.)
+    //
+    // 2026-09-10 · the root moved from public/ to public/moodboard-seed/ (see
+    // SEED_ROOT for why). The predicate already pins the prefix; the explicit
+    // test below is so a WIDENED predicate refuses a non-seed path outright
+    // instead of slicing it into something else. Same redundancy, same label.
+    if (!storagePath.startsWith(`${SEED_PREFIX}/`)) return null;
+    const abs = path.resolve(SEED_ROOT, `.${storagePath.slice(SEED_PREFIX.length)}`);
+    if (!abs.startsWith(SEED_ROOT + path.sep)) return null;
+    try {
+      return await readFile(abs);
+    } catch {
+      return null; // not committed, or renamed — fall back to the flat SVG
+    }
+  }
+  return safeFetchImageBytes(storagePath, { maxBytes: 6_000_000 });
+}
+
+/**
  * Fetch, rasterize, and retint one zone's decor image server-side, returning
  * a data: URI ready to drop straight into an `<img src>` — or null when
  * anything along the way isn't available (no catalog match, fetch failure,
@@ -108,7 +200,7 @@ export async function renderDecorLayerDataUrl(
   const resolved = resolveDecorLayer(zone, styleFamily, catalog);
   if (resolved.kind !== 'image') return null;
 
-  const bytes = await safeFetchImageBytes(resolved.asset.storagePath, { maxBytes: 6_000_000 });
+  const bytes = await decorSourceBytes(resolved.asset.storagePath);
   if (!bytes) return null;
 
   try {
@@ -125,7 +217,16 @@ export async function renderDecorLayerDataUrl(
       targetHex,
     );
 
-    const png = await sharp(Buffer.from(retinted), {
+    // RA1 · a scene zone's drawing carries its own cream room, and
+    // renderVenueSvg already has one. Knocking the background out AFTER the
+    // retint, never before: the retint's own "the background never wears the
+    // palette" guarantee is measured on the opaque file, and clearing pixels
+    // first would hide a bleed from every check that looks at this path.
+    const composited = SCENE_DECOR_ZONES.includes(zone)
+      ? knockOutSceneBackground(retinted, info.width, info.height)
+      : retinted;
+
+    const png = await sharp(Buffer.from(composited), {
       raw: { width: info.width, height: info.height, channels: 4 },
     })
       .png()

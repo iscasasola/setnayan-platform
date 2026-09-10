@@ -9,6 +9,7 @@
  */
 
 import Image from 'next/image';
+import { Spotlights, type Spotlight } from '@/app/_components/marketing/_spotlights';
 
 /**
  * ── HOW THIS SECTION IS SHAPED, AND WHY IT CHANGED ────────────────────────
@@ -59,57 +60,50 @@ import Image from 'next/image';
  * production job, not a copy change; said here rather than implied.
  */
 
-type Spotlight = {
-  chip: string;
-  t: string;
-  d: string;
-  img: string;
-  alt: string;
-};
-
-/** Six blocks. One idea, one picture, one sentence. */
+/**
+ * Six blocks. One idea, one picture, one sentence.
+ *
+ * 🔑 THE BLOCK ITSELF NOW LIVES IN `_components/marketing/_spotlights.tsx`
+ * (2026-09-05) — the owner asked for this shape on every Studio page, so it is
+ * built once and this page supplies only its words and pictures. The markup
+ * moved verbatim; nothing about this page changed on screen.
+ */
 const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Everyone shoots',
     t: 'Your guests are the crew',
     d: 'Every guest shoots from their own phone — no app, no account, just a code. You get the whole room’s view of the night, from the seats a photographer never sits in.',
-    img: '/demo/maria-jose/toast.webp',
-    alt: 'A toast, seen over the heads of the guests watching it',
+    media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A toast, seen over the heads of the guests watching it' },
   },
   {
     chip: 'Tagging',
     t: 'Every photo finds its people',
     d: 'Hold a place card in frame for one guest, or a table sign for the whole table. Those photos go straight to them — nobody types a name all night.',
-    img: '/demo/maria-jose/wall-6.webp',
-    alt: 'A printed place card on a table setting',
+    media: { kind: 'photo', src: '/demo/maria-jose/wall-6.webp', alt: 'A printed place card on a table setting' },
   },
   {
     chip: 'Snippets',
     t: 'Ten seconds of sound and movement',
     d: 'A Snippet is the toast, the laugh, the entrance — the one thing a photograph cannot keep.',
-    img: '/demo/maria-jose/firstdance.webp',
-    alt: 'A couple dancing under lights',
+    media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple dancing under lights' },
   },
   {
     chip: 'The live wall',
     t: 'The night, on the venue screen',
     d: 'The wall has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
-    img: '/demo/maria-jose/reception.webp',
-    alt: 'A reception laid out under strings of lights',
+    media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A reception laid out under strings of lights' },
   },
   {
     chip: 'Each guest’s own',
     t: 'Everybody goes home with theirs',
     d: 'Nobody gets one big pile to scroll. Each guest gets their own gallery, and can turn it into a short video set to music.',
-    img: '/demo/maria-jose/wall-8.webp',
-    alt: 'A guest, mid-laugh, at a wedding',
+    media: { kind: 'photo', src: '/demo/maria-jose/wall-8.webp', alt: 'A guest, mid-laugh, at a wedding' },
   },
   {
     chip: 'For good',
     t: 'Nothing here expires',
     d: 'No renewal, no subscription, no email a year from now saying your photos are about to go. They are simply yours.',
-    img: '/demo/maria-jose/wall-4.webp',
-    alt: 'Two guests embracing at a wedding',
+    media: { kind: 'photo', src: '/demo/maria-jose/wall-4.webp', alt: 'Two guests embracing at a wedding' },
   },
 ];
 
@@ -149,36 +143,7 @@ export function PapicFeatures() {
         Credits are the only thing you ever pay for. All of this comes with them.
       </p>
 
-      <div className="mt-10 space-y-16">
-        {SPOTLIGHTS.map((f, i) => (
-          <article key={f.t} className="sm:flex sm:items-center sm:gap-8">
-            <div
-              className={`relative aspect-[4/3] overflow-hidden rounded-2xl sm:aspect-square sm:w-[44%] sm:flex-none ${
-                // Alternate sides on wide screens so the page has a rhythm
-                // instead of six identical rows.
-                i % 2 === 1 ? 'sm:order-2' : ''
-              }`}
-            >
-              <Image
-                src={f.img}
-                alt={f.alt}
-                fill
-                sizes="(min-width:640px) 320px, 100vw"
-                className="object-cover"
-              />
-            </div>
-            <div className="mt-5 sm:mt-0">
-              <p className="inline-flex rounded-full border border-[var(--m-line)] px-3 py-1 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
-                {f.chip}
-              </p>
-              <h3 className="mt-3 font-serif text-xl leading-snug tracking-tight text-[var(--m-ink)] sm:text-2xl">
-                {f.t}
-              </h3>
-              <p className="mt-2 text-[0.98rem] leading-relaxed text-[var(--m-slate-2)]">{f.d}</p>
-            </div>
-          </article>
-        ))}
-      </div>
+      <Spotlights items={SPOTLIGHTS} />
 
       {/*
         THE BREADTH, KEPT BUT FOLDED — owner, 2026-08-29, after reading the page

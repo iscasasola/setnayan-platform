@@ -2,6 +2,13 @@ import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
+import { encodeR2Ref } from '@/lib/uploads';
+import {
+  CHAT_ATTACHMENT_MIME,
+  CHAT_ATTACHMENT_MAX_BYTES,
+  chatAttachmentLimit,
+} from '@/lib/chat-attachment-limits';
+import { R2_BUCKETS, type R2BucketName } from '@/lib/r2';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
@@ -11,32 +18,26 @@ import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
 /**
- * Small allowlist for chat attachments — images the renderer can thumbnail
- * plus PDFs / common office docs. Kept narrow on purpose (no archives, no
- * executables). Shared with the composer's `accept` attribute so the client
- * and server agree on what's postable.
+ * The allowlist and the size ceilings now live in `lib/chat-attachment-limits.ts`
+ * — pure and client-safe — because the composer used to keep its own hand-typed
+ * copy of both, under a comment admitting it. Re-exported here so every
+ * existing importer of this module is unchanged.
  */
-export const CHAT_ATTACHMENT_MIME = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-] as const;
-
-/** 25 MB hard cap on a single chat attachment. */
-export const CHAT_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+export {
+  CHAT_ATTACHMENT_MIME,
+  CHAT_ATTACHMENT_MAX_BYTES,
+} from '@/lib/chat-attachment-limits';
 
 const CHAT_ATTACHMENT_MIME_SET = new Set<string>(CHAT_ATTACHMENT_MIME);
 
+/** Is this an R2 bucket, or the local dev fallback? See the note at the ref. */
+function isR2Bucket(bucket: string): bucket is R2BucketName {
+  return (Object.values(R2_BUCKETS) as string[]).includes(bucket);
+}
+
 /** Resolved attachment metadata written onto the inserted chat_messages row. */
 type ResolvedAttachment = {
-  attachment_url: string;
+  attachment_r2_key: string;
   attachment_name: string;
   attachment_mime: string;
   attachment_size_bytes: number;
@@ -115,11 +116,15 @@ export async function sendChatMessageCore(
         message: 'That file type isn’t supported — attach an image, PDF, or a common document.',
       };
     }
-    if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
+    // The ceiling depends on WHAT was sent — a photo is compressed in the
+    // browser first, a document never is. One resolver, so the picker, the
+    // composer and this check cannot judge a file by three different limits.
+    const limit = chatAttachmentLimit(mime);
+    if (file.size > limit.maxBytes) {
       return {
         ok: false,
         code: 'attachment_invalid',
-        message: 'That file is too large — attachments are capped at 25 MB.',
+        message: limit.tooLargeMessage,
       };
     }
   }
@@ -275,6 +280,11 @@ export async function sendChatMessageCore(
   let attachment: ResolvedAttachment | null = null;
   if (hasAttachment) {
     const file = input.attachment as File;
+    // The `chat/` prefix routes to the PRIVATE bucket — see the note on
+    // ResolvedAttachment above, and the rule in lib/bucket-routing.ts. The
+    // helper is still named uploadPublicAsset (it is the one server-side
+    // uploader); what makes an object private is the bucket it lands in, not
+    // the function that put it there.
     const up = await uploadPublicAsset({
       pathPrefix: `chat/${thread.thread_id}`,
       file,
@@ -290,7 +300,17 @@ export async function sendChatMessageCore(
       };
     }
     attachment = {
-      attachment_url: up.publicUrl,
+      // The REF, never the URL. `up.publicUrl` still resolves for a public
+      // bucket and would look completely fine here — storing it is exactly the
+      // defect being fixed, so it is deliberately unused.
+      //
+      // ⚠ THE ONE EXCEPTION IS THE DEV FALLBACK. With no R2 credentials the
+      // uploader writes to Supabase Storage and hands back a bucket name that
+      // is not an R2 bucket; `encodeR2Ref` would mint an `r2://` ref that
+      // `parseStoredAsset` cannot resolve, and the file would render as a
+      // broken glyph on every local checkout. A legacy URL passes through the
+      // resolver verbatim, which is what that path is for.
+      attachment_r2_key: isR2Bucket(up.bucket) ? encodeR2Ref(up.bucket, up.key) : up.publicUrl,
       attachment_name: file.name.slice(0, 255),
       attachment_mime: file.type,
       attachment_size_bytes: file.size,

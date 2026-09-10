@@ -92,20 +92,22 @@ test('buildSeatSinkDeps: a clip records with its real durationMs (not dropped)',
     kind: 'photo' | 'clip';
     poster?: string;
     durationMs?: number;
+    capturedAtMs?: number;
   }> = [];
 
   const deps = buildSeatSinkDeps(
     'seat-tok-9',
     5_000,
-    async (token, _r2Ref, kind, posterR2Ref, durationMs) => {
-      recordArgs.push({ token, kind, poster: posterR2Ref, durationMs });
+    async (token, _r2Ref, kind, posterR2Ref, durationMs, _geo, capturedAtMs) => {
+      recordArgs.push({ token, kind, poster: posterR2Ref, durationMs, capturedAtMs });
       return { ok: true as const, count: 1, photoId: 'PHO-1' };
     },
     async () => null, // poster extractor unused here
   );
 
-  // The sink calls deps.record(r2Ref, kind, posterR2Ref?) — no duration arg.
-  await deps.record('r2://clip-1', 'clip', 'r2://poster-1');
+  // The sink calls deps.record(r2Ref, kind, posterR2Ref?, capturedAtMs?) — no
+  // duration arg (that one still rides the closure).
+  await deps.record('r2://clip-1', 'clip', 'r2://poster-1', 1_700_000_000_000);
 
   assert.equal(recordArgs.length, 1);
   const [clipRecord] = recordArgs;
@@ -114,6 +116,10 @@ test('buildSeatSinkDeps: a clip records with its real durationMs (not dropped)',
   assert.equal(clipRecord.kind, 'clip');
   assert.equal(clipRecord.poster, 'r2://poster-1');
   assert.equal(clipRecord.durationMs, 5_000); // preserved via the closure
+  // 🕐 The shutter comes from the SINK (it belongs to the file), not the
+  // closure. A drained capture must reach recordSeatCapture with the minute it
+  // was taken, never the minute the queue happened to drain.
+  assert.equal(clipRecord.capturedAtMs, 1_700_000_000_000);
 });
 
 // ── guest drain ────────────────────────────────────────────────────────────
@@ -203,4 +209,53 @@ test('drainGuestCaptureWith: a 5xx is kept for retry; a network throw is kept', 
     throw new Error('offline');
   }, guestPayload());
   assert.deepEqual(networkError, { ok: false, error: 'network' });
+});
+
+/*
+  🕐 THE QUEUE'S HALF OF THE SHUTTER DEFECT.
+
+  `captured_at_ms` has been written into the guest queue payload since that
+  queue shipped — and `drainGuestCaptureWith` never put it back on the wire. So
+  a shot that waited out a dead venue link was re-POSTed with no capture time at
+  all, and the server filed it under the minute it finally drained. A guest
+  whose phone found signal in the car park had their whole evening stack onto
+  one bar of the story's dial.
+
+  The payload's stamp is deliberately years away from any test clock, so a drain
+  that sent Date.now() — or nothing — cannot pass this by coincidence.
+*/
+test('drainGuestCaptureWith: the replayed form carries the shutter, not the drain clock', async () => {
+  let seen: FormData | null = null;
+  const shutter = 1_700_000_000_000; // 2023-11-14
+  const result = await drainGuestCaptureWith(
+    async (form) => {
+      seen = form;
+      return { ok: true, status: 200, body: { status: 'ok' } };
+    },
+    guestPayload({ captured_at_ms: shutter }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  const form = seen as unknown as FormData;
+  assert.equal(
+    form.get('captured_at_ms'),
+    String(shutter),
+    'the queued shutter time was dropped — the shot files under its drain minute',
+  );
+});
+
+test('drainGuestCaptureWith: a payload with no shutter sends no field (the server answers now())', async () => {
+  let seen: FormData | null = null;
+  await drainGuestCaptureWith(
+    async (form) => {
+      seen = form;
+      return { ok: true, status: 200, body: { status: 'ok' } };
+    },
+    guestPayload({ captured_at_ms: 0 }),
+  );
+  const form = seen as unknown as FormData;
+  // 0 is the 1970 epoch. Sending it would be a lie the server has to clean up;
+  // sending nothing is the honest "we do not know", and the RPC answers now() —
+  // exactly what every row got before this shipped.
+  assert.equal(form.get('captured_at_ms'), null);
 });

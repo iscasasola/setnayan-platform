@@ -22,6 +22,7 @@ import { digestSubWorthShowing } from '@/lib/digest-sub';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
@@ -1155,7 +1156,10 @@ export async function EventDashboard({
     Deep-links with the recommended figure so the Papic page can open on the
     right rung instead of making them work it out again.
   */
-  if (papicVerdict?.status === 'short') {
+  // 🔒 Not in the store shell: the row deep-links to /studio/papic, which
+  // middleware would bounce to /web-only there — a "Top up" that lands on
+  // "not in the app" is a dead end, not a door. See lib/store-shell.ts.
+  if (papicVerdict?.status === 'short' && !(await isStoreShellRequest())) {
     const payGroup = groupsUnordered.find((g) => g.id === 'pay');
     const papicRow: DecisionItemView = {
       id: 'papic:topup',

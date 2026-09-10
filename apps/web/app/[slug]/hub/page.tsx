@@ -762,7 +762,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // so the hub and the wedding page can never disagree about which doors show.
   const watchPanel = watchEmbed ? (
     <div className="mx-auto max-w-md">
-      <WatchLiveBlock watchLive={watchEmbed} occasion={words.occasion} />
+      <WatchLiveBlock watchLive={watchEmbed} slug={event.slug ?? slug} occasion={words.occasion} />
     </div>
   ) : null;
 

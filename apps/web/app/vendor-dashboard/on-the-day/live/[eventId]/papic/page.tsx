@@ -7,9 +7,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
-import { fetchVendorPapicAllowance } from '@/lib/vendor-papic-grants';
+import { fetchVendorPapicAllowance, fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
 import { PapicCaptureController } from '../_components/papic-capture-controller';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
+import { PortfolioCreditsCard } from '../_components/portfolio-credits-card';
+import { PortfolioAlbumSection } from '../_components/portfolio-album-section';
 
 export const metadata = { title: 'Papic capture · Event Hub' };
 
@@ -82,6 +84,15 @@ export default async function VendorPapicCapturePage({
   // means the on-the-day list they actually came from.
   const backHref = isEventDay ? back : '/vendor-dashboard/on-the-day';
 
+  // The credit readout + the portfolio album are NOT day-bound (a supplier
+  // curates their portfolio whenever they like), so this reads on every visit,
+  // not only isEventDay — the opposite scoping from `allowance` above.
+  const portfolioCredits = await fetchVendorPapicPortfolioCredits(
+    createAdminClient(),
+    profile.vendor_profile_id,
+    eventId,
+  );
+
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
       <div className="flex items-center justify-between gap-3">
@@ -120,6 +131,27 @@ export default async function VendorPapicCapturePage({
           same screen. After the day it is the whole point of the page. Read
           with the vendor's OWN client so the RLS policy stays the boundary. */}
       <OwnCapturesStrip supabase={supabase} eventId={eventId} />
+
+      {/* Papic credits + the pack upsell (G3) — reads the ONE-METER total,
+          reduced by BOTH doors (on-the-day capture above, portfolio import
+          below), so this number never disagrees with either. */}
+      <PortfolioCreditsCard
+        eventId={eventId}
+        credits={portfolioCredits.credits}
+        left={portfolioCredits.left}
+        offerPack={portfolioCredits.offerPack}
+        packPricePhp={portfolioCredits.packPricePhp}
+        packCredits={portfolioCredits.packCredits}
+      />
+
+      {/* The supplier's PRIVATE portfolio album — visibly its own section,
+          never the couple's to see, distinct storage prefix from both the
+          host gallery and the capture strip above. */}
+      <PortfolioAlbumSection
+        supabase={supabase}
+        eventId={eventId}
+        creditsLeft={portfolioCredits.left}
+      />
 
       {/* Shots guests took FOR this supplier's sponsored challenge — the only
           guest photographs a supplier may ever see (owner 2026-08-26: "the host

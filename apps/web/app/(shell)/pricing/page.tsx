@@ -204,7 +204,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
       // 2026-08-11 — it is is_active=false and drops out of resolvedGroups
       // automatically, and there is no longer a maker behind it to sell.
-      { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
+      { code: 'SEATING_3D' }, // FREE 2026-09-05 — no longer a paid row (was activated 2026-07-10)
     ],
   },
   {

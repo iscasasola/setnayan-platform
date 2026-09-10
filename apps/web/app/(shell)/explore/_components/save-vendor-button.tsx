@@ -29,7 +29,7 @@ type Props = {
 
 type LocalState =
   | { kind: 'idle' }
-  | { kind: 'saved' }
+  | { kind: 'saved'; eventName?: string | null }
   /** Signed in, but no event yet — a next step, not a failure. */
   | { kind: 'needs_event' }
   | { kind: 'error'; message: string };
@@ -57,7 +57,7 @@ export function SaveVendorButton({
     startTransition(async () => {
       const result: SaveVendorResult = await saveVendorToPicks(fd);
       if (result.status === 'ok' || result.status === 'already_saved') {
-        setState({ kind: 'saved' });
+        setState({ kind: 'saved', eventName: result.eventName });
         return;
       }
       if (result.status === 'not_signed_in') {
@@ -87,11 +87,20 @@ export function SaveVendorButton({
         setState({ kind: 'error', message: 'Vendor unavailable.' });
         return;
       }
+      // `/explore` never sends an event_id, so this branch is unreachable from
+      // here today — handled anyway rather than falling into the catch-all,
+      // because the next caller that DOES send one would otherwise be told
+      // "Save failed" for a cause the action named precisely.
+      if (result.status === 'not_your_event') {
+        setState({ kind: 'error', message: 'That is not one of your events.' });
+        return;
+      }
       setState({ kind: 'error', message: result.message ?? 'Save failed.' });
     });
   }
 
   const isSaved = state.kind === 'saved';
+  const savedEventName = state.kind === 'saved' ? (state.eventName ?? null) : null;
   const isError = state.kind === 'error';
 
   const baseClasses =
@@ -162,7 +171,17 @@ export function SaveVendorButton({
               className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
               strokeWidth={2}
             />
-            Saved
+            {/* Names the EVENT it saved into. Save is event-scoped and this
+                screen is not — the action resolves the couple's PRIMARY host
+                event and writes there (owner 2026-09-08: *"Save adds to a
+                specific event? this is a search result outside an event"*). A
+                couple planning a wedding AND a debut otherwise had no way to
+                learn which one just gained a supplier.
+
+                Falls back to the bare word when the name could not be read:
+                the save still happened, and claiming an event we cannot name
+                would be worse than not naming one. */}
+            {savedEventName ? `Saved to ${savedEventName}` : 'Saved'}
           </>
         ) : isError ? (
           <>

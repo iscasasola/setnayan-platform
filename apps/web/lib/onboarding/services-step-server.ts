@@ -31,6 +31,7 @@
  * ones, flag their payments) would be fake doors.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
@@ -106,7 +107,23 @@ export async function readServicesStepView(
       // taking the whole screen down with it.
       (async () => {
         try {
-          const r = await client
+          // 🔑 ADMIN CLIENT, NOT THE CALLER'S. `platform_settings` is PLATFORM
+          // CONFIG — the anon/authenticated roles have no business reading it,
+          // and it holds the business TIN and both bank account numbers, so
+          // widening the table to fix this would have been a leak.
+          //
+          // Measured in production: `/onboarding/wedding` is reached by an
+          // ANONYMOUS visitor, so this read went out as `anon` and PostgREST
+          // returned 401 (`42501`) at 09:36, 10:07 and 10:40 on 2026-09-07.
+          // The try/catch below then degraded to the DEFAULT discount — so
+          // nothing looked broken, and the owner's admin-set discount was
+          // silently not honoured on the one screen that advertises it.
+          //
+          // Every other reader of this table already uses the admin client
+          // (`brand-settings`, `loader-settings`, `papic/page`,
+          // `onboarding-services-orders`). This was the one that inherited the
+          // caller's authority instead.
+          const r = await createAdminClient()
             .from('platform_settings')
             .select('onboarding_discount_pct')
             .eq('id', 1)

@@ -5,18 +5,29 @@
  * doorway (#3262), contact, groups, and details all live here so the two frames
  * that present a guest render byte-identical content + actions:
  *
- *   • the mobile / below-xl right slide-in SHEET  (guest-drawer.tsx · Drawer)
+ *   • the ≥sm / below-xl right slide-in SHEET     (guest-drawer.tsx · Drawer)
+ *     — NOT reachable on a phone; its only trigger renders in the `sm:block`
+ *     desktop table. See the reach note at the top of guest-drawer.tsx.
  *   • the desktop ≥xl sticky INSPECTOR COLUMN     (guests/page.tsx · server)
  *
- * Presentation-only, no client hooks — so it renders happily inside a Server
- * Component (the inspector body is server-rendered from `?inspect=<guestId>`)
- * AND inside the client Drawer. The frame owns its own header/close affordance;
- * this body starts at the identity block. RA-10173 honesty: this renders exactly
- * the fields the P1 quick-view already showed — no new guest data is surfaced.
+ * No client hooks of its own — so it renders happily inside a Server Component
+ * (the inspector body is server-rendered from `?inspect=<guestId>`) AND inside
+ * the client Drawer. The frame owns its own header/close affordance; this body
+ * starts at the identity block. RA-10173 honesty: this renders exactly the
+ * fields the P1 quick-view already showed — no new guest data is surfaced.
+ *
+ * IT CAN NOW ACT, NOT ONLY SHOW (2026-09-06). Every OTHER guest surface can
+ * remove somebody — the desktop bulk bar, both phone densities' swipe, and the
+ * `[guestId]` page's "Remove guest". This was the one place a host could open a
+ * guest, read everything about them, and have no way to act: the only exit was
+ * "Open full details", i.e. leave the roster you were working in. It posts the
+ * SAME `softDeleteGuest` the full page posts — the RSVP-set gate and the couple
+ * block live in that action, so this adds a door, not a second rule.
  */
 
 import Link from 'next/link';
 import { ArrowRight, Download, QrCode } from 'lucide-react';
+import { RemoveGuestConfirm } from './remove-guest-confirm';
 import {
   guestDisplayName,
   guestInitials,
@@ -138,6 +149,8 @@ export function GuestDetailBody({
   const name = guestDisplayName(guest);
   const contact = guest.email ?? guest.mobile ?? null;
   const qrFileName = `qr-${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
+  // The couple can never be removed; `softDeleteGuest` refuses them server-side.
+  const isCouple = guest.role === 'bride' || guest.role === 'groom';
 
   return (
     <>
@@ -275,6 +288,33 @@ export function GuestDetailBody({
           Open full details
         </Link>
       ) : null}
+
+      {/* Remove. The couple is the foundation of the event and can never be
+          removed — `softDeleteGuest` refuses them server-side, so the button is
+          replaced by the same sentence the full detail page shows rather than
+          dangling an action that can only fail. A guest who has already RSVP'd
+          is also refused (reset them to Pending first); that message comes back
+          from the action itself, which is why it is not re-spelled here.
+          *
+          *  THE SECOND TAP IS THE GUARD (2026-09-06). This shipped hours earlier
+          *  as ONE unguarded tap on a full-width danger button directly beneath
+          *  the full-width "Open full details" — two stacked full-width targets,
+          *  the lower one destructive, on a panel opened casually mid-scan. Every
+          *  other delete path here has a guard (the swipe IS the confirm; the
+          *  desktop bulk delete has a 6s undo) and this one had none, while being
+          *  the LEAST undoable: softDeleteGuest hard-deletes the seat assignment
+          *  and only the bulk path can put a seat back. See remove-guest-confirm.tsx. */}
+      {isCouple ? (
+        <p className="mt-3 text-center text-xs text-ink/50">
+          Foundation of the event — can&rsquo;t be removed
+        </p>
+      ) : (
+        <RemoveGuestConfirm
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+        />
+      )}
       <p className="mt-3 text-[11px] text-ink/40">
         The code above is a preview. Every guest&rsquo;s default QR is free —
         branding it with your colors is an upgrade.

@@ -4,8 +4,18 @@
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row).
  *
  * Queries `vendor_profiles` for every publicly-visible non-demo vendor
- * row and emits one URL per `/v/<business_slug>` with honest per-row
- * `<lastmod>` from `updated_at`. This is the compounding-flywheel
+ * row and emits one URL per `/<business_slug>` — the BARE ROOT, which is the
+ * shop's canonical address and the one its own dashboard promises it as "your
+ * address for good". `/v/<business_slug>` still resolves and is deliberately
+ * not retired (printed QR codes and bookmarks have to survive), but it is the
+ * legacy form and is not what we advertise.
+ *
+ * ⚠ THIS PARAGRAPH USED TO SAY `/v/<business_slug>` AND WAS STALE. The emitter
+ * below has built the bare root for a long time; only the description had not
+ * caught up, and a session reading it would have "fixed" a sitemap that was
+ * already right. Read the emitter, not this.
+ *
+ * Honest per-row `<lastmod>` from `updated_at`. This is the compounding-flywheel
  * surface — every newly-verified vendor lands here within the next
  * cache cycle (1hr revalidate · future enhancement: revalidateTag
  * hook on verifyVendor server action).
@@ -23,9 +33,9 @@
  *   3. is_demo IS NOT TRUE                      — not a test-seed row
  *
  * Per v2.1 brief § 3 + CLAUDE.md tenth 2026-05-28 row: Free vendors get
- * marketplace listing only (no `/v/[slug]` microsite). Verified+ vendors
- * get the microsite. The `public_visibility = 'verified'` filter is the
- * proxy for "this vendor has a real microsite at /v/<slug>".
+ * marketplace listing only (no shop microsite). Verified+ vendors get the
+ * microsite. The `public_visibility = 'verified'` filter is the proxy for
+ * "this vendor has a real microsite".
  *
  * Failure mode: empty `<urlset>` on DB error or empty result.
  */

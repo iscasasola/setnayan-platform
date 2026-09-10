@@ -34,6 +34,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const WEB_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCAN_DIRS = ['app', 'components'];
@@ -80,7 +81,23 @@ test('a11y · no overlay claims aria-modal without managing focus', () => {
       continue; // directory may not exist in every checkout shape
     }
     for (const file of files) {
-      const src = readFileSync(file, 'utf8');
+      /*
+        🔴 COMMENTS ARE STRIPPED FIRST, AND THIS GUARD USED TO SKIP THAT STEP.
+        It scanned raw text, so a file that DELIBERATELY DOES NOT claim
+        `aria-modal` — and explains in its docblock why it must not, because it
+        is a disclosure over a page that is still live behind it — was reported
+        as an overlay making a promise it does not keep. Measured 2026-09-09
+        when `find-in-this-day.tsx` landed saying exactly that.
+
+        ⚖ AND IT CUTS THE OTHER WAY TOO, WHICH IS THE BETTER HALF. The EVIDENCE
+        markers below were also being matched inside comments, so a file that
+        rendered `aria-modal` and merely MENTIONED `useModalA11y` in a note
+        counted as wired. Prose about a construct is not the construct, in
+        either direction. `lib/strip-comments.ts` is the one stripper this
+        repo has for exactly this — see its header for what a hand-rolled
+        regex version deleted.
+      */
+      const src = stripComments(readFileSync(file, 'utf8'));
       if (!src.includes('aria-modal')) continue;
       checked += 1;
       const rel = relative(WEB_ROOT, file);
@@ -109,7 +126,7 @@ test('a11y · no overlay claims aria-modal without managing focus', () => {
 
 test('a11y · every exemption names a file that still exists and still needs it', () => {
   for (const [rel, reason] of EXEMPT) {
-    const src = readFileSync(join(WEB_ROOT, rel), 'utf8');
+    const src = stripComments(readFileSync(join(WEB_ROOT, rel), 'utf8'));
     assert.ok(
       src.includes('aria-modal'),
       `${rel} is exempted but no longer renders aria-modal — delete the exemption`,

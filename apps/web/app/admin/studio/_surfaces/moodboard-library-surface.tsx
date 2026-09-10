@@ -3,6 +3,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { LibraryEditor, type LibraryAsset } from '@/app/admin/moodboard-library/_components/library-editor';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { parseScreenFindings } from '@/lib/moodboard-screen-findings';
 
 /**
  * MoodboardLibrarySurface — the Moodboard Library body, re-homed byte-identical
@@ -26,7 +27,10 @@ export async function MoodboardLibrarySurface() {
   const { data: rows, error } = await admin
     .from('moodboard_library_assets')
     .select(
-      'asset_id, asset_type, asset_subtype, label, storage_path, source, approved_at, retired_at, created_at',
+      // MB21 · the three columns the review needs. They are REVOKED from anon
+      // and authenticated (see 20271205821681); this read is the service-role
+      // admin client, which is the only thing that may see them.
+      'asset_id, asset_type, asset_subtype, label, storage_path, source, approved_at, retired_at, created_at, screen_findings, rejected_at, rejection_reason',
     )
     .order('created_at', { ascending: false });
 
@@ -81,6 +85,9 @@ export async function MoodboardLibrarySurface() {
       approved_at: r.approved_at,
       retired_at: r.retired_at,
       created_at: r.created_at,
+      screen_findings: parseScreenFindings(r.screen_findings),
+      rejected_at: r.rejected_at,
+      rejection_reason: r.rejection_reason,
       public_url: pub.publicUrl,
       color_ranges: colorRangesByAsset.get(r.asset_id) ?? {},
     };

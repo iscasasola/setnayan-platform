@@ -484,7 +484,7 @@ export async function createWeddingEvent(formData: FormData) {
   // ON free for every new event, so the metering fence must exist from the moment
   // the event does — an event with no grant takes papic_event_pool_status()'s
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does
@@ -695,7 +695,7 @@ export async function planNextYearEvent(formData: FormData) {
   // next-year clone is a brand-new event row with its own pool — grants are never
   // copied by buildNextYearClonePayload, so without this the clone would be the
   // one unmetered event in the account. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does

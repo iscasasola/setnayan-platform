@@ -12,12 +12,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat';
-import {
-  isInquiryRevealed,
-  inquiryPlaceholderLabel,
-  inquiryCityLabel,
-  inquiryHostNoun,
-} from '@/lib/inquiry-mask.server';
+
 import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -58,15 +53,9 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
 
   const messages = await fetchMessages(admin, threadId);
   const vendorName = vendor.business_name ?? 'Demo vendor';
-  // Anonymization-until-accept (Glass PR-6b): demo mirrors production — pre-accept
-  // shows the neutral placeholder, post-accept the couple's event display_name.
-  const coupleLabel = isInquiryRevealed(thread)
-    ? (event?.display_name ?? 'Couple')
-    : inquiryPlaceholderLabel({
-        eventType: event?.event_type ?? null,
-        city: inquiryCityLabel(event?.region ?? null),
-        hostNoun: await inquiryHostNoun(event?.event_type ?? null),
-      });
+  // Demo mirrors production, which stopped masking on the owner's 2026-09-08
+  // ruling — one label, accepted or not.
+  const coupleLabel = event?.display_name ?? 'Couple';
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">

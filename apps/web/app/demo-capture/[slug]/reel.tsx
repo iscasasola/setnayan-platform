@@ -12,15 +12,33 @@ import { RICH_SCENES } from '@/app/_components/app-store/studio-card-demo';
 
 const STEP_MS = 3000; // mirrors ADVANCE_MS in studio-card-demo.tsx
 
-export function DemoCaptureReel({ slug }: { slug: string }) {
+export function DemoCaptureReel({
+  slug,
+  scene,
+  plain = false,
+}: {
+  slug: string;
+  /**
+   * Pin ONE scene instead of looping — for `scripts/capture-demo-stills.mjs`,
+   * which photographs each scene for the product pages' spotlights. A
+   * timing-based grab of a 3-second loop is a coin toss on a slow CI runner;
+   * a pinned frame is a measurement. Absent (the recorder's case), the reel
+   * loops exactly as before.
+   */
+  scene?: number;
+  /** Drop the baked caption strip. A spotlight sets its own title beside the
+   *  picture, so a second caption inside it would say the thing twice. */
+  plain?: boolean;
+}) {
   const scenes = RICH_SCENES[slug as keyof typeof RICH_SCENES];
-  const [i, setI] = useState(0);
+  const pinned = scene != null && Number.isInteger(scene) && scene >= 0;
+  const [i, setI] = useState(pinned ? scene : 0);
 
   useEffect(() => {
-    if (!scenes || scenes.length < 2) return;
+    if (pinned || !scenes || scenes.length < 2) return;
     const t = setInterval(() => setI((p) => (p + 1) % scenes.length), STEP_MS);
     return () => clearInterval(t);
-  }, [scenes]);
+  }, [pinned, scenes]);
 
   if (!scenes || scenes.length === 0) {
     return <div className="reel-root">unknown demo slug</div>;
@@ -29,7 +47,16 @@ export function DemoCaptureReel({ slug }: { slug: string }) {
   if (!f) return null;
 
   return (
-    <div className="reel-root" data-reel-ready>
+    // `data-reel-count` / `data-reel-scene` let the still capture loop exactly
+    // as many times as there are scenes, instead of guessing from the pixels
+    // (animated scenes never produce two identical frames, so "stop at the
+    // first repeat" wrote duplicates).
+    <div
+      className="reel-root"
+      data-reel-ready
+      data-reel-count={scenes.length}
+      data-reel-scene={Math.min(i, scenes.length - 1)}
+    >
       <div className="reel">
         <div key={i} className="reel-scene">
           {/* A real-screenshot-backed scene (RichFrame.image) records into the
@@ -41,10 +68,12 @@ export function DemoCaptureReel({ slug }: { slug: string }) {
             f.scene
           )}
         </div>
-        <div className="reel-caption">
-          <p className="reel-cap">{f.caption}</p>
-          {f.hint ? <p className="reel-hint">{f.hint}</p> : null}
-        </div>
+        {plain ? null : (
+          <div className="reel-caption">
+            <p className="reel-cap">{f.caption}</p>
+            {f.hint ? <p className="reel-hint">{f.hint}</p> : null}
+          </div>
+        )}
       </div>
       <style>{`
         html,body{margin:0;padding:0;overflow:hidden;background:#000;}

@@ -200,10 +200,12 @@ test('the group that pushes in arrives with motion', () => {
   );
   assert.equal(
     (SHELL.match(/className="fd-rgroup"/g) ?? []).length,
-    3,
-    'Expected exactly three animated rail groups — the context group and the ' +
-      'two it displaces (Browse by category · Studio). A group that arrives ' +
-      'without one is the only one that still snaps.',
+    6,
+    'Expected exactly six animated rail groups — the context group, Browse ' +
+      'by category, Planner, Builder, Together, and Studio. Planner/Builder/ ' +
+      'Together (added above Studio, free-tools-rail.ts) arrive the same way ' +
+      'the context group does; a group that arrives without one is the only ' +
+      'one that still snaps.',
   );
 });
 

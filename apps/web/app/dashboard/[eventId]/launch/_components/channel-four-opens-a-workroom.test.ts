@@ -13,7 +13,7 @@
  * SETS, so a "Preview" link that opens the public page in a new tab is enough.
  * The story is a thing they WORK ON for weeks with two other authors, so its
  * card carries its own same-tab door straight into the existing editor —
- * `/website/editorial`, full screen, no new route.
+ * `/story`, full screen, no new route.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,7 +38,7 @@ test('channel 4 alone gets the workroom door, and it is same-tab into the real r
   );
   assert.match(
     workroomBlock,
-    /href=\{`\$\{base\}\/website\/editorial`\}/,
+    /href=\{`\$\{base\}\/story`\}/,
     'the workroom door must point at the SHIPPED editorial route — no new page',
   );
   assert.doesNotMatch(
@@ -106,7 +106,7 @@ test('EH5 does not touch the four files PR #5012 owns', () => {
   const src = page();
   assert.doesNotMatch(
     src,
-    /from '\.\/website\/editorial\/_components\/editorial-editor'/,
+    /from '\.\.\/story\/_components\/editorial-editor'/,
     'the controller reuses the editorial ROUTE, never the editor component directly',
   );
 });

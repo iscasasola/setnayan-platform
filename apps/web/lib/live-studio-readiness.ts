@@ -97,6 +97,31 @@ export const ENCODER_NOTICE =
   'Setnayan cannot send video to YouTube for you. Your computer must be running an encoder (OBS or similar) capturing the program output window — a web browser cannot push a livestream on its own, and the phones only feed your controller.';
 
 /**
+ * 💻 S10 (2026-09-05) — THE DESKTOP APP'S OWN FLOOR, SEPARATE FROM `ENCODER_NOTICE`.
+ *
+ * `ENCODER_NOTICE` above answers "what software sends the picture out?" — OBS,
+ * today, because the native in-app encoder (`build-sessions/encoder/README.md`
+ * S1-S9) has not shipped yet. THIS sentence answers a narrower, later question:
+ * once that native encoder exists, which machines can actually run it? Measured
+ * 2026-09-05 (`S0-FINDING.md` § 4.1): WebKit throttles the encode pipeline within
+ * seconds of the window losing focus unless `backgroundThrottling: "disabled"`
+ * is set, and that setting only exists on macOS 14+ / iOS 17+ — so the floor is
+ * not a policy choice, it is what the OS allows.
+ *
+ * Rendered on `/download` (verbatim, above both download buttons — the readiness
+ * gate a visitor needs BEFORE clicking) and mirrored onto the `encoderNotice`
+ * readiness surface (`BroadcastReadiness`) so a host who later opens the desktop
+ * app sees the same floor there. Deliberately NOT merged into `ENCODER_NOTICE`
+ * or `ENCODER_BUY_NOTICE` — those two are pinned equal to each other by
+ * `the-laptop-requirement-is-disclosed.test.ts` on a DIFFERENT fact (a computer
+ * running an encoder is required at all); this one is the OS floor for
+ * Setnayan's own future encoder, true regardless of which encoder software a
+ * couple ends up using today.
+ */
+export const DESKTOP_ENCODER_READINESS_NOTICE =
+  'Works on an Apple-silicon Mac on macOS 14 or later with the Safari 26 update, or Windows 10/11 with hardware video encoding. Older machines: use OBS instead.';
+
+/**
  * ⏳ THE LEAD-TIME NOTICE — shown BEFORE a couple pays, on the buy surface.
  *
  * WHY IT EXISTS. Setnayan is apply-then-pay with **manual** reconciliation: a human

@@ -22,6 +22,7 @@ import type {
 } from '@/lib/seating-3d';
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
+import type { BookedZoneCandidate } from '@/lib/reception-suggestion-chips';
 import type { ReceptionDesign } from '@/lib/reception-scene';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { GhostBooth3D } from '@/lib/ghost-booths';
@@ -47,6 +48,27 @@ type Props = {
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
   receptionDesign: ReceptionDesign;
+  /** The couple's own inspiration photos, keyed by design part. Only the five
+   *  parts with a matching slot appear; a part with none is simply absent, and
+   *  shows no reference rather than an unrelated photo. */
+  inspirationByPart?: Record<string, string[]>;
+  /** MB15 — the room zones a supplier has AGREED to build, keyed by RECEPTION
+   *  part id, resolved on the server through `isPartFinalized`. An entry means
+   *  the chips for that zone are frozen and the panel says who agreed and when.
+   *  Absent = nothing agreed, which is the common case. */
+  finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** RV2 — booked suppliers whose trade reaches a reception zone (owner ruling
+   *  Q9, 2026-09-06). OFFERS, not settings: nothing here has been applied to
+   *  `receptionDesign`, and rendering them applies nothing. Resolved on the
+   *  server because the trade map reaches `next/headers`. */
+  bookedSuggestions?: BookedZoneCandidate[];
+  /** RV2 — suggestion keys this couple has already waved away
+   *  (`events.dismissed_room_suggestions`). */
+  dismissedSuggestions?: string[];
+  /** MB15 — `events.moodboard_theme_name`, the couple's own name for this
+   *  look. Null when they have not named one; the room then says nothing rather
+   *  than inventing a title. */
+  themeName?: string | null;
   /** `events.moodboard_style_family` — which theme family produced this board,
    *  or null when the couple hasn't applied a template. Drives the reception
    *  decor AI-image layer pilot's asset lookup (@/lib/reception-decor-layers). */

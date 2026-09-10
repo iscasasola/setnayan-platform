@@ -197,7 +197,7 @@ export async function commitOnboardingEvent(
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
   // a miss here is self-healed on the first Papic-studio render, and must never
   // cost the couple their event.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does

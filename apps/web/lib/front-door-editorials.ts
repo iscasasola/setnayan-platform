@@ -55,6 +55,8 @@ export type EditorialStory = {
   thumbUrl: string | null;
   excerpt: null;
   fromYourPeople: false;
+  /** Never a number, ever — see the field's note on `FrontDoorStory`. */
+  viewCount: null;
 };
 
 /**
@@ -147,5 +149,14 @@ export function editorialsToStories(
         so the honest answer is `false`, never a `true` nobody computed.
       */
       fromYourPeople: false as false,
+      /*
+        NEVER A NUMBER. An editorial is a couple's own wedding write-up, and
+        the design brief drew a hard privacy line here: no public view
+        counter on somebody's own day. `null` also keeps editorials OUT of
+        Trending by construction — `selectTrendingChapters` filters on
+        `kind === 'chapter'` first, but this is the field-level half of the
+        same rule, not a second gate to keep in sync.
+      */
+      viewCount: null as null,
     }));
 }

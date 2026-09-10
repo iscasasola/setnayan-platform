@@ -64,6 +64,12 @@ const GATES = [
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
   'lib/vendor-invite-actions.ts',
+  // Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
+  // it."): the vendors-list nudge (plan-budget-accordion.tsx `.invite-cta`)
+  // reads a pre-computed `needs_setnayan_invite` flag off each pick rather
+  // than asking the question itself, so THIS is where the gate actually
+  // lives — bucketVendorsByGroup stamps it onto every pick at build time.
+  'lib/wedding-plan-groups.ts',
 ] as const;
 
 /**
@@ -153,10 +159,11 @@ test('every gate CALLS the predicate — none spells its own', () => {
       `${rel} spells the old two-column gate again`,
     );
   }
-  // Five gates, and the count is asserted rather than "at least one file
-  // matched" — a file-level check cannot tell 5 from 4, and a gate that
+  // Six gates now (5 + the pick-build gate in wedding-plan-groups.ts added
+  // 2026-09-08), and the count is asserted rather than "at least one file
+  // matched" — a file-level check cannot tell 6 from 5, and a gate that
   // silently stops calling is exactly how this drifted the first time.
-  assert.equal(callSites, 5, `expected 5 call sites, found ${callSites}`);
+  assert.equal(callSites, 6, `expected 6 call sites, found ${callSites}`);
 });
 
 test('the invite helper is never called without the gate in the same file', () => {

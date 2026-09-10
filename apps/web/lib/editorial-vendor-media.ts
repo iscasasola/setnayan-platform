@@ -12,6 +12,35 @@ type Admin = ReturnType<typeof createAdminClient>;
 /** Hard cap per media type, per vendor, per event (3 photos + 3 clips). */
 export const MAX_PER_TYPE = 3;
 
+/**
+ * One `editorial_vendor_media` row as the mood-board gallery IMPORT reads it
+ * (MB11). Lives here rather than in the importing action for two reasons:
+ *
+ *   · it is the shape of a row this module already reasons about, beside
+ *     getEditorialEligibility, which is the gate that decides whether the row
+ *     may be promoted at all;
+ *   · 🪤 `gates-have-handles.db.test.ts` reports a column as HAVING A WRITER
+ *     when one file both writes the table and names the column in a
+ *     `column:` position — and a TypeScript type annotation is exactly that
+ *     spelling. Declaring this shape inside a file that also `.insert(`s made
+ *     `editorial_vendor_media.hidden_by_couple` look written, which would have
+ *     retired a baseline line recording something still TRUE: the couple's
+ *     "hide this from my story" control does not exist yet, and the column has
+ *     no writer anywhere in the repo (three readers, zero writers, measured
+ *     2026-09-04). Deleting that line to go green would have erased a real
+ *     open finding. The type lives here, where nothing writes the table.
+ */
+export type ImportableEditorialRow = {
+  media_id: string;
+  event_id: string;
+  vendor_profile_id: string;
+  still_r2_key: string;
+  caption: string | null;
+  media_type: string;
+  moderation_state: string;
+  hidden_by_couple: boolean;
+};
+
 /** One staged item the vendor submits (uploads already done client-side). */
 export type SubmitMediaItem = {
   type: 'photo' | 'clip';

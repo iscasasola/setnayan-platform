@@ -69,10 +69,16 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
       <PageMasthead title="Founder seats" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
+          {/* The "token-free vendor inquiries" clause was removed 2026-09-08:
+              answering became free for EVERY vendor when the inbox was ungated
+              (owner 2026-07-24) and token packs were retired, so it stopped
+              being something a seat confers. The comp row is still written for
+              the audit trail; it simply comps nothing. Listing it here told an
+              admin a seat buys something it no longer buys. */}
           Up to {FOUNDER_SEAT_CAP} owner-granted founder accounts. A seat means every
-          in-app feature is already paid for, vendor inquiries are token-free for the
-          vendor, and vendors see the server-asserted “Setnayan Founder” badge.
-          Vendors are still paid directly, like by any client.
+          in-app feature is already paid for, and vendors see the server-asserted
+          “Setnayan Founder” badge. Vendors are still paid directly, like by any
+          client.
         </p>
       </div>
 

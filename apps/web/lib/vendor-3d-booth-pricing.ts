@@ -34,22 +34,25 @@ export const VENDOR_3D_BOOTH_PERIOD_DAYS = 28;
  * no service-role key). Never hardcode this in UI copy — read via
  * {@link fetchVendor3dBoothPricePhp}.
  *
- * 🚨 ₱1,500 → ₱2,500 on 2026-08-27, WITH the catalog row, because a stale
- * fallback is a back door under an owner-set price: a failed read would have
- * charged the old ₱1,500 while the catalog said ₱2,500. ⛔ A SECOND COPY OF A
+ * 🚨 ₱1,500 → ₱2,500 on 2026-08-27, and ₱2,500 → ₱3,000 on 2026-09-05, each
+ * time WITH the catalog row (migration 20271205977137 for the latter), because
+ * a stale fallback is a back door under an owner-set price: a failed read would
+ * bill the old figure while the catalog says the new one. ⛔ A SECOND COPY OF A
  * CATALOG PRICE — move it in the SAME change as the migration.
- * `custom-sits-above-enterprise.db.test.ts` compares it to the live row.
+ * `fallback-prices-match-the-catalog.db.test.ts` compares it to the live row.
  *
- * ⚠ TWO PRICES GOVERN THIS PRODUCT AND WHICH ONE APPLIES IS A FLAG.
- * `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` OFF (the default) → checkout uses
- * the flat catalog price, so ₱2,500 is what a vendor pays and this fallback
- * must match it. ON → `vendor-addon-tier-pricing.ts` wins with the 2026-07-25
- * tiered matrix (`ads_3d_plan`: ₱2,000 entry / ₱1,500 growth) and the owner's
- * ₱2,500 is ignored entirely. That matrix is NOT changed here — he priced the
- * catalog row, not the matrix — but the two disagree and must be reconciled
- * before that flag is ever switched on.
+ * ✅ ONE PRICE, EVERY PAID TIER (owner 2026-09-05: "flat prices for all of
+ * them"). This block used to warn that TWO prices governed the product and a
+ * flag chose between them — the catalog ₱2,500 vs the 2026-07-25 tiered matrix
+ * (`ads_3d_plan` ₱2,000 entry / ₱1,500 growth) — and that the flag had been
+ * switched on before they were reconciled, so the owner's catalog figure was
+ * never what anybody paid. Both now say ₱3,000: the matrix bands are EQUAL
+ * (`lib/the-3d-booth-has-one-price.test.ts` pins fallback = entry = growth), so
+ * `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` no longer selects a price for this
+ * SKU in either state. The tier FLOOR is unchanged: paid plans only
+ * (BOOTH_BRANDING_MIN_TIER, owner 2026-08-29).
  */
-export const VENDOR_3D_BOOTH_FALLBACK_PHP = 2500;
+export const VENDOR_3D_BOOTH_FALLBACK_PHP = 3000;
 
 export type Vendor3dBoothPriceInputs = {
   /** Has this vendor already consumed its one-time free first cycle? */

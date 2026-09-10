@@ -8,6 +8,7 @@ import type {
   ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
 import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish-pure';
+import { WITHHELD_CARD, pinnedChannelNotice } from '@/lib/encoder/program-strings';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -422,18 +423,14 @@ function NoSignalCard({ label }: { label: string }) {
 function WithheldCard() {
   return (
     <div className="max-w-lg px-8 text-center text-white">
+      {/* Copy lives in lib/encoder/program-strings.ts — the encoder's canvas (S1) draws the
+          same words for the same state, and neither surface may carry its own literal. */}
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-white/45">
-        Live Studio
+        {WITHHELD_CARD.kicker}
       </p>
-      <h1 className="mt-3 text-xl font-semibold">Unlock to broadcast all your cameras</h1>
-      <p className="mt-3 text-sm leading-relaxed text-white/65">
-        Your free broadcast carries one camera — the channel marked ★ default in the controller.
-        Switching between cameras on air is what the Live Studio unlock buys.
-      </p>
-      <p className="mt-3 text-sm leading-relaxed text-white/45">
-        Just changed your default channel? Close this window and open it again from the
-        controller.
-      </p>
+      <h1 className="mt-3 text-xl font-semibold">{WITHHELD_CARD.title}</h1>
+      <p className="mt-3 text-sm leading-relaxed text-white/65">{WITHHELD_CARD.body}</p>
+      <p className="mt-3 text-sm leading-relaxed text-white/45">{WITHHELD_CARD.hint}</p>
     </div>
   );
 }
@@ -465,7 +462,7 @@ function PinnedChannelNotice({
       }`}
     >
       <p className="text-[11px] uppercase tracking-[0.14em] text-white/55">
-        On air: {label} · switching cameras needs the Live Studio unlock
+        {pinnedChannelNotice(label)}
       </p>
     </div>
   );

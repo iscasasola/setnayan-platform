@@ -22,14 +22,15 @@
  * mock-up, so it cannot drift from the product. Three of them happen to be
  * exactly the inputs this page is arguing about, already in the repo.
  *
- * ⚠ AUTOPLAY IS A POLICY, NOT A GUARANTEE — the lesson `_papic-film.tsx`
- * documents and this file inherits deliberately. A bare `<video autoPlay>` is
+ * ⚠ AUTOPLAY IS A POLICY, NOT A GUARANTEE. A bare `<video autoPlay>` is
  * correct until a browser refuses, and then it is a still frame with no
- * control on it: dead motion on a section whose entire job is to move. So the
- * `play()` promise is caught, and a refusal hands the viewer real controls.
+ * control on it: dead motion on a section whose entire job is to move. The
+ * player that catches the `play()` promise and hands a refusal real controls
+ * is the shared `DemoFilm` (`_components/marketing/_demo-film.tsx`) — written
+ * once, since 2026-09-05, instead of here and in `/papic` both.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { DemoFilm } from '@/app/_components/marketing/_demo-film';
 
 export type Part = {
   /** Slug under `public/add-ons/demo/` — the .mp4 and .jpg share it. */
@@ -58,56 +59,18 @@ export function PartsFilms({ parts }: { parts: ReadonlyArray<Part> }) {
   );
 }
 
+/* The clip is a 9:19 phone recording (460×972), so the frame is its own
+   ratio — nothing is cropped or letterboxed and it reads as what it is: the
+   app, running on a phone.
+
+   🔑 THIS USED TO CROP TO THE LEFT HALF, and the reason is worth keeping:
+   every clip under public/add-ons/demo shipped three quarters empty, because
+   the recorder composited a 230×486 page into a 460×972 canvas and padded
+   the rest (Playwright only ever scales a page DOWN). Fixed at the source in
+   #5109 and the clips recaptured in #5119 — measured here before the crop
+   was removed: the right half of a frame went from 3,403 bytes of flat grey
+   to 29,773 bytes of real UI. `lint-demo-capture-geometry` guards the cause,
+   so this can go back to being a plain frame. */
 function PartFilm({ slug, title }: { slug: string; title: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [needsControls, setNeedsControls] = useState(false);
-
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    let cancelled = false;
-    // `play()` REJECTS when the policy refuses. A bare call swallows that and
-    // leaves a still frame nobody can start.
-    void v
-      .play()
-      .then(() => {
-        if (!cancelled) setNeedsControls(false);
-      })
-      .catch(() => {
-        if (!cancelled) setNeedsControls(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /* The clip is a 9:19 phone recording (460×972), so the frame is its own
-     ratio — nothing is cropped or letterboxed and it reads as what it is: the
-     app, running on a phone.
-
-     🔑 THIS USED TO CROP TO THE LEFT HALF, and the reason is worth keeping:
-     every clip under public/add-ons/demo shipped three quarters empty, because
-     the recorder composited a 230×486 page into a 460×972 canvas and padded
-     the rest (Playwright only ever scales a page DOWN). Fixed at the source in
-     #5109 and the clips recaptured in #5119 — measured here before the crop
-     was removed: the right half of a frame went from 3,403 bytes of flat grey
-     to 29,773 bytes of real UI. `lint-demo-capture-geometry` guards the cause,
-     so this can go back to being a plain frame. */
-  return (
-    <div className="aspect-[460/972] w-[124px] flex-none overflow-hidden rounded-xl border border-[var(--m-line)] sm:w-[136px]">
-      <video
-        ref={ref}
-        src={`/add-ons/demo/${slug}.mp4`}
-        poster={`/add-ons/demo/${slug}.jpg`}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        controls={needsControls}
-        aria-label={`${title}, running in the app`}
-        className="h-full w-full object-cover"
-      />
-    </div>
-  );
+  return <DemoFilm slug={slug} title={title} size="part" />;
 }

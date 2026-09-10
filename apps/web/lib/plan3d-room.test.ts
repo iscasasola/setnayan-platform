@@ -102,7 +102,7 @@ test('isMoveStale: a moving peer gone silent past the window is stale', () => {
 
 test('renderRemote: a stale mover renders standing (frozen), fresh mover walks', () => {
   const base: RemotePlayer = {
-    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 1, vz: 0, h: 1.2, moving: true, recvAt: 0, present: true, greetUntil: 0,
+    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 1, vz: 0, h: 1.2, moving: true, recvAt: 0, present: true, placed: true, greetUntil: 0,
   };
   const fresh = renderRemote(base, 100);
   assert.equal(fresh.pose, 'walk');
@@ -115,7 +115,7 @@ test('renderRemote: a stale mover renders standing (frozen), fresh mover walks',
 
 test('renderRemote: waving flag reflects greetUntil vs now', () => {
   const p: RemotePlayer = {
-    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 0, vz: 0, h: 0, moving: false, recvAt: 0, present: true, greetUntil: 5000,
+    id: 'a', name: 'A', color: '#fff', x: 0, z: 0, vx: 0, vz: 0, h: 0, moving: false, recvAt: 0, present: true, placed: true, greetUntil: 5000,
   };
   assert.equal(renderRemote(p, 4999).waving, true);
   assert.equal(renderRemote(p, 5000).waving, false);
@@ -123,7 +123,18 @@ test('renderRemote: waving flag reflects greetUntil vs now', () => {
 
 // ── presence reconcile ───────────────────────────────────────────────────────
 
-const peer = (id: string, name = id, color = '#abc'): RoomPeer => ({ id, name, color });
+const peer = (id: string, name = id, color = '#abc', avatar?: unknown): RoomPeer => ({ id, name, color, ...(avatar === undefined ? {} : { avatar }) });
+
+test('reconcilePresence: a peer\'s avatar rides presence, RAW, and updates when they re-track', () => {
+  const cfg = { v: 1, outfit: 'barong' };
+  let map: RemoteMap = new Map();
+  map = reconcilePresence(map, [peer('a', 'Ana', '#abc', cfg)], 'me', 1000);
+  assert.deepEqual(map.get('a')?.avatar, cfg, 'kept raw — the renderer resolves it');
+  map = reconcilePresence(map, [peer('a', 'Ana', '#abc', 'junk')], 'me', 2000);
+  assert.equal(map.get('a')?.avatar, 'junk', 'still raw: junk reaches the ONE fallback rule, which declines it');
+  map = reconcilePresence(map, [peer('a', 'Ana')], 'me', 3000);
+  assert.equal(map.get('a')?.avatar, null, 'an older build (no field) reads as no avatar');
+});
 
 test('reconcilePresence: spawns new peers, drops self, marks left peers absent', () => {
   let map: RemoteMap = new Map();

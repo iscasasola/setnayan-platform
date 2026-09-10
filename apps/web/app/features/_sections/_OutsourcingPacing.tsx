@@ -6,8 +6,16 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // (per /Users/icecasasola/Documents/Claude/Projects/Setnayan/0015_main_website/0015_main_website.md
 // § "Replaced wholesale on 2026-05-15"). Three columns: outsourcing
 // (planner / coordinator / stylist with role-scoped access), pacing
-// (auto-generated milestones per event type), scheduling (unified calendar
-// across iterations 0006 / 0007 / 0001).
+// (auto-generated milestones per event type), scheduling (iterations 0006 /
+// 0007 / 0001).
+//
+// ⚠ SCHEDULING IS NOT "A UNIFIED CALENDAR", AND THIS LINE USED TO SAY IT WAS.
+// Corrected 2026-09-06 against shipped code. There is no single calendar
+// surface and no subscribable feed: the run-of-show lives on the schedule
+// page, vendor payment due dates come out of `/api/budget/[eventId]/ics` as a
+// download, and a confirmed appointment has its own per-row .ics. RSVP cutoffs
+// and fittings are on no calendar at all. The copy below now describes those
+// three things; `features-page-says-what-ships.test.ts` holds it there.
 //
 // Bilingual (EN + Taglish). ICONS is language-neutral and zips with
 // COPY[locale].columns by index — keep both arrays in lockstep.
@@ -53,13 +61,12 @@ const COPY: Record<
       },
       {
         title: 'Scheduling',
-        sub: 'One calendar for everything that has a date attached to it.',
-        body: 'Vendor meetings, payment deadlines, RSVP cutoffs, dress fittings, food tastings, the day-of run-of-show, all rendered into a single calendar surface. Subscribe to the .ics feed; your phone’s native calendar reflects the latest at all times. Filter by what you care about (vendors, payments, family events) and the unified view re-renders.',
+        sub: 'The day itself, and the dates that lead up to it.',
+        body: 'Your run-of-show lives on the schedule page: Setnayan proposes a shape for your event type and you adjust it until it matches your day. The dates that lead up to it export to the calendar you already use — vendor payment due dates as one .ics from the budget, each confirmed vendor meeting as its own.',
         items: [
-          'Vendor meetings · pulled from your vendor list.',
-          'Payment deadlines · pulled from your budget.',
-          'RSVP cutoffs · pulled from your guest list.',
           'Day-of run-of-show · the day, minute by minute.',
+          'Payment deadlines · one .ics from your budget.',
+          'Vendor meetings · an .ics on every confirmed booking.',
         ],
       },
     ],
@@ -94,13 +101,12 @@ const COPY: Record<
       },
       {
         title: 'Scheduling',
-        sub: 'Isang calendar para sa lahat ng may petsang nakakabit.',
-        body: 'Vendor meetings, payment deadlines, RSVP cutoffs, dress fittings, food tastings, ang day-of run-of-show, lahat nila-render sa iisang calendar surface. I-subscribe ang .ics feed; ang native calendar ng phone mo ay laging updated. I-filter ayon sa importante sa’yo (vendors, payments, family events) at nire-render ulit ang unified view.',
+        sub: 'Ang mismong araw, at ang mga petsang patungo rito.',
+        body: 'Ang run-of-show mo ay nasa schedule page: nagmumungkahi ang Setnayan ng hugis para sa uri ng event mo at ina-adjust mo ito hanggang tumugma sa araw mo. Ang mga petsang patungo rito ay nae-export sa calendar na ginagamit mo na — ang mga due date ng bayad sa vendor bilang isang .ics mula sa budget, at ang bawat kumpirmadong vendor meeting bilang sarili nitong export.',
         items: [
-          'Vendor meetings · kinuha mula sa vendor list mo.',
-          'Payment deadlines · kinuha mula sa budget mo.',
-          'RSVP cutoffs · kinuha mula sa guest list mo.',
           'Day-of run-of-show · ang araw, minuto por minuto.',
+          'Payment deadlines · isang .ics mula sa budget mo.',
+          'Vendor meetings · may .ics ang bawat kumpirmadong booking.',
         ],
       },
     ],

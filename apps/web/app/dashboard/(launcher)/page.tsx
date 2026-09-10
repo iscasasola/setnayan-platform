@@ -1234,7 +1234,7 @@ export default async function LauncherPage({
                     hasMenu={event.member_type === 'couple'}
                     storyHref={
                       storiesMeasured && canWriteStoryFor(event)
-                        ? `/dashboard/${event.event_id}/website/editorial`
+                        ? `/dashboard/${event.event_id}/story`
                         : undefined
                     }
                   />

@@ -764,9 +764,84 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which staff member acknowledged an internal ops alert. The alert is about the PLATFORM, not a person.',
   },
   {
+    table: 'event_renders',
+    column: 'created_by_user_id',
+    why: 'A Mood Board “Make it real” render (MB2). The row is read BY EVENT — it is the couple’s render, and deleting rows keyed on the author would strip the co-partner’s images because the person who pressed the button left. The uuid is the stamp of who spent the credit and is selected by no reader, carries no label and is consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. What the subject typed themselves — `note` — is exported to them by /api/profile/export before erasure; the prompt and design snapshot belong to the shared board, not to them.',
+  },
+  {
+    table: 'event_render_share_consent',
+    column: 'consented_by_user_id',
+    why: 'Who ticked “let Setnayan feature your creation” for an event (MB8). The consent is the EVENT’s, not the person’s — it governs whether that event’s renders may be published, and deleting the row because the partner who ticked it left would silently revoke a permission the couple still holds (or, worse, leave renders featured with no record of why they were allowed to be). The uuid is the stamp of who gave it: selected by no reader, shown in no label, consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. Note the withdrawal path is deliberately NOT a delete either — `consented` flips to FALSE and `withdrawn_at` is stamped — because a render featured while consent stood is a thing that happened and has to stay explainable.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'requested_by_user_id',
+    why: 'Who asked a supplier to sign off on one part of the Mood Board (MB12). The handshake belongs to the EVENT and to the SUPPLIER, both of whom are still standing after this person leaves — and the row is what freezes that part of the design, so deleting it because the partner who pressed Ask left would silently un-freeze work a supplier is already building against. The uuid is a stamp: selected by no reader, shown in no label, consulted by no RLS policy (the couple-side gate is event_members, the supplier-side gate is current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'answered_by_user_id',
+    why: 'Which member of the SUPPLIER’s team agreed to or turned down one part of a design (MB12). The agreement is the shop’s, not the individual’s — the same call editorial_vendor_media.created_by makes — and it is what a couple’s board is frozen against. Deleting it because a staff member left would release a design nobody agreed to release. Nulling de-identifies it at zero cost; the supplier’s own WORDS on a decline live in decline_reason, which is the shop’s statement about the work, not personal data about the leaver.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'reopen_requested_by_user_id',
+    why: 'Who asked the supplier to re-open a part they had already agreed to (MB12). Same shape as requested_by_user_id: an actor stamp on a row whose subjects are the event and the booking. It is also load-bearing in the other direction — an open re-open request is a question the supplier still owes an answer to, and it must not vanish because the person who asked it deleted their account.',
+  },
+  {
+    table: 'moodboard_part_finalizations',
+    column: 'reopen_answered_by_user_id',
+    why: 'Which member of the supplier’s team answered a re-open request (MB12). Same call as answered_by_user_id — the answer is the shop’s, and on a YES it is the receipt for a design that was released back to the couple.',
+  },
+  {
+    table: 'event_colour_grants',
+    column: 'granted_by_user_id',
+    why: 'Which partner flipped ON a supplier’s standing colour access (MB16). The grant belongs to the EVENT and to the BOOKING, both of which are still standing after this person leaves — and it is a LIVE permission a supplier is working under, so deleting it because the partner who pressed the switch left would silently revoke access mid-build with nothing on any screen to explain it. The uuid is a stamp: selected by no reader, shown in no label, consulted by no RLS policy (the gate is colour_access_caller_is_couple → current_couple_event_ids, and the holder’s own gate is current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_colour_grants_coordinator',
+    column: 'granted_by_user_id',
+    why: 'Same stamp on the coordinator half (MB16). ⚠ NOT the same column as `user_id` beside it — that one IS the subject and is in OWN_ROW_DELETES. This is who GRANTED, on a row about somebody else, so erasing the granter must not take away a coordinator’s live access to a wedding they are still running.',
+  },
+  {
+    table: 'event_colour_changes',
+    column: 'actor_user_id',
+    why: 'Who changed a colour on somebody’s Mood Board under a standing grant (MB16). 🔑 THE ROW IS THE COUPLE’S RECORD, NOT THE ACTOR’S — it is the entire oversight this mechanism has (there is no per-change approval), and `reject_colour_change` operates on it, so deleting it would take away the couple’s undo for a change that is still live on their board. It is also readable without the uuid: `actor_label` denormalises the shop or person name AS IT READ AT THE TIME, precisely so the log survives the booking being deleted or the person leaving. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_colour_changes',
+    column: 'reverted_by_user_id',
+    why: 'Which partner rejected a colour change (MB16). An actor stamp on the same couple-owned row. ⚠ Its CHECK is deliberately ONE-DIRECTIONAL (`reverted_by_user_id IS NULL OR reverted_at IS NOT NULL`) rather than a biconditional, precisely so this null lands: a biconditional would make ON DELETE SET NULL behave as RESTRICT and refuse the account deletion outright. A date with no author is the honest record an erased account leaves.',
+  },
+  {
     table: 'event_egift_methods',
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
+  },
+  {
+    table: 'vendor_invites',
+    column: 'invited_by_user_id',
+    why: 'Who tapped "Invite to Setnayan". MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, together with migration 20271210831005 which made the column nullable + SET NULL. The old reason read "CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it", which argued FROM the constraint to the disposition and so could never notice the constraint was wrong. It was: the row is a LIVE CLAIM CREDENTIAL held by the INVITEE and carrying THEIR email, so deleting it kills a claim link a supplier is holding and applyClaimAutoLink answers INVITE_NOT_FOUND to somebody who did nothing. The invitee’s email is third-party data this file already excludes from erasure elsewhere. The sender is de-identified either way; the delete only added a second victim. Its sibling claimed_by_user_id was already nulled here, so the table now treats both stamps alike.',
+  },
+  {
+    table: 'vendor_lock_proposals',
+    column: 'proposed_by_user_id',
+    why: 'The coordinator who raised a lock proposal. MOVED here from SUBJECT_ROW_DELETES by owner ruling 2026-09-06, with migration 20271210831005. The old reason called it "a proposal the subject personally raised" and leaned on NOT NULL + CASCADE being "the schema’s own answer" — the same circular step. The row is ADDRESSED TO THE COUPLE ("your coordinator wants to lock vendor X — confirm or dismiss") and a pending one is the ONLY thing that renders their confirm strip, so deleting it removes a live decision from their dashboard for a reason that has nothing to do with them. Nulling keeps the decision theirs and still de-identifies the coordinator.',
+  },
+  {
+    table: 'comp_grants',
+    column: 'granted_by',
+    why: 'The ADMIN who issued a comp. Added 2026-09-06 to close a gap this file had left open: the FK became ON DELETE SET NULL that morning (migration 20271208517365), but erasure ANONYMIZES IN PLACE and issues no delete, so the FK never fires on this path and the erased admin\u2019s uuid simply stayed. 🔑 A DELETE RULE AND AN ERASURE RULE ARE TWO DIFFERENT MECHANISMS AND YOU NEED BOTH — fixing one and calling it done is how the residual survived the morning it was created. The ROW is retained on the lawful-retention basis (financial record of a waived charge), so this is a column null, not a delete; the same shape as discount_code_eligible_users, where the staff stamp goes and the commercial concession stays.',
+  },
+  {
+    table: 'comp_grants',
+    column: 'approved_by',
+    why: 'The SECOND admin on a comp, where one was required. Nulled alongside granted_by for the same reason and in the same commit — clearing one admin\u2019s identity while keeping the other\u2019s would be a half-fix that reads as a decision. Already ON DELETE SET NULL since the table shipped; this is the erasure half.',
+  },
+  {
+    table: 'vendor_admin_motions',
+    column: 'proposed_by',
+    why: 'Who RAISED a motion to demote or remove another vendor admin. Owner ruling 2026-09-06, answering the DPO question this file had carried open: clear it. The motion’s value is the DECISION and the VOTES, not who raised it, and the target’s record survives either way — so retaining an erased person’s uuid buys nothing and costs a residual. The row itself must NOT be deleted: vendor_admin_motion_votes.motion_id CASCADEs off it, so deleting the motion would destroy OTHER admins’ votes (the event_delegates over-deletion in a different suit). Migration 20271210831005 made the column nullable + SET NULL, which handles a hard DELETE; this entry is what handles an ERASURE, which anonymizes in place and issues no delete. Both halves are needed — the FK alone never fires on the erasure path.',
   },
 ] as const;
 
@@ -781,11 +856,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   column: string;
   why: string;
 }> = [
-  {
-    table: 'vendor_lock_proposals',
-    column: 'proposed_by_user_id',
-    why: 'A proposal the subject personally raised. NOT NULL and ON DELETE CASCADE — the schema’s own answer is that it dies with the account; erasure just never issued the delete that would have fired it.',
-  },
   {
     table: 'vendor_feature_recommendations',
     column: 'recommended_by_user_id',
@@ -834,11 +904,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     why: 'CASCADE + NOT NULL — the offer is addressed TO this creator, so the row is about them. Its holder side is an actor stamp and is nulled instead.',
   },
   {
-    table: 'vendor_invites',
-    column: 'invited_by_user_id',
-    why: 'CASCADE + NOT NULL — the schema’s own verdict that an invitation dies with whoever sent it. The claimed side is a stamp and is nulled, so a store that already accepted keeps its record.',
-  },
-  {
     table: 'coordinator_broadcasts',
     column: 'sender_user_id',
     why: '⚠ NOT NULL with NO FK — nulling is impossible (Postgres rejects it and voids the whole statement) and nothing would cascade. The row is 1–500 chars of prose the subject typed to the couple’s guests on a day now long past; same call as chat_messages, where authored prose goes and the thread stays.',
@@ -849,6 +914,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'event_vendor_working_notes',
     column: 'author_user_id',
     why: '⚠ NOT NULL with NO FK — nulling would be rejected and would void the statement. The row is free prose the subject wrote about a booking; same call as chat_messages and coordinator_broadcasts.',
+  },
+  {
+    table: 'papic_free_grant_claims',
+    column: 'user_id',
+    why: 'CASCADE + PRIMARY KEY (so NOT NULL) — the schema\u2019s own verdict that the row dies with the account, and it is strictly 1:1 with the subject: the single fact that THIS account has used its one free Papic pool grant. Nobody else is a data subject of it. \u26a0 The consequence is deliberate and worth stating: erasing an account also erases the claim, so a re-signup starts fresh. That is the correct trade \u2014 retaining a row keyed to an erased person to deny them 50 credits later would be retaining personal data to their detriment, which is what RA 10173 forbids. The cheap reset this replaced (deleting your own event_members row, 2026-09-05) cost nothing; this one costs the whole account.',
   },
   {
     table: 'referral_codes',
@@ -938,22 +1008,42 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
 /**
  * ⚠ RESIDUAL, KNOWN AND ACCEPTED: `vendor_admin_motions.proposed_by`.
  *
- * It is CASCADE + NOT NULL like `target_user_id`, so the schema's own verdict is
- * that the motion dies with its proposer too. We deliberately do NOT delete on
- * it, because a motion is a governance record ABOUT its target — removing it
- * because the PROPOSER left would erase a third party's record of a demotion
- * that happened. That is the `event_delegates` over-deletion in a different suit.
+ * It WAS CASCADE + NOT NULL like `target_user_id`, so the schema's own verdict
+ * read as "the motion dies with its proposer too". We deliberately did NOT
+ * delete on it, because a motion is a governance record ABOUT its target —
+ * removing it because the PROPOSER left would erase a third party's record of a
+ * demotion that happened. That is the `event_delegates` over-deletion in a
+ * different suit.
  *
- * The cost: after erasure, a motion the subject proposed still carries their
- * uuid, and NOT NULL means it cannot be nulled instead. Neither option is clean.
+ * ✅ THE SCHEMA NOW AGREES, AND THE HARDER HALF OF THAT WAS NOT THE UUID.
+ * Migration 20271210831005 converted `proposed_by` to SET NULL + nullable, on
+ * the argument that `vendor_admin_motion_votes.motion_id` CASCADEs off the
+ * motion — so a hard delete of the proposer destroyed OTHER admins' votes, not
+ * merely the proposer's stamp.
+ *
+ * ⚠ BUT THE RESIDUAL BELOW IS NOT CLEARED BY THAT, AND MUST NOT BE READ AS IF
+ * IT WERE. `ON DELETE SET NULL` fires on DELETE only. RA 10173 erasure
+ * anonymizes IN PLACE and issues no delete (`purge.ts` goes through
+ * `auth.admin.updateUserById`), so the FK never fires on the erasure path and
+ * the subject's uuid still sits in `proposed_by` afterwards. What changed is
+ * that nulling is now POSSIBLE — the technical excuse is gone, the decision is
+ * not. Clearing it for real means an `AUTHOR_UUID_NULLS` entry, and that is the
+ * product/DPO call the `why` below still asks for.
+ *
  * Written down rather than quietly picked, because a silent residual is how the
  * first 78 got classified wrong.
  */
 export const KNOWN_RESIDUAL_SUBJECT_UUIDS: ReadonlyArray<{ column: string; why: string }> = [
-  {
-    column: 'vendor_admin_motions.proposed_by',
-    why: 'Deleting on it would destroy a governance record about the motion’s TARGET; NOT NULL forecloses nulling. Needs a product/DPO call on whether a proposer’s identity may be retained in a peer-governance record.',
-  },
+  // EMPTY, and that is the point: the one entry this list ever held
+  // (`vendor_admin_motions.proposed_by`) was RESOLVED on 2026-09-06 rather than
+  // re-explained. The schema half landed in migration 20271210831005 (nullable +
+  // SET NULL, so a hard delete clears the stamp instead of destroying other
+  // admins' votes) and the erasure half is now an AUTHOR_UUID_NULLS entry, which
+  // is what actually fires on an anonymize-in-place request.
+  //
+  // Keep it empty rather than deleting the export: a residual that nobody has
+  // anywhere to write down is a residual that goes unwritten, and this file's
+  // own note says a silent residual is how the first 78 got classified wrong.
 ] as const;
 
 /**
@@ -1191,6 +1281,23 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     table: 'guest_saved_vendors',
     column: 'user_id',
     why: 'The subject’s private saved-vendor list, keyed to them alone.',
+  },
+  {
+    table: 'event_colour_grants_coordinator',
+    column: 'user_id',
+    why:
+      'Standing permission for THIS PERSON to change colours on a couple’s ' +
+      'Mood Board (MB16). The row’s whole reason for existing is them — it ' +
+      'says what they, specifically, may touch — so deleting it IS the ' +
+      'erasure; keeping it would be keeping a live capability attached to an ' +
+      'account that no longer exists. 🔑 The row already disappears on a hard ' +
+      'account delete (the composite FK to event_members CASCADEs, and that ' +
+      'table CASCADEs from auth.users); this makes it a DECISION rather than ' +
+      'a side effect, which is the same call event_deletion_requests makes ' +
+      'above. ⚖ Not a shared record: the couple loses nothing they can act on ' +
+      'when a coordinator leaves — their history of what that person changed ' +
+      'lives in event_colour_changes, which is retained and de-identified ' +
+      'rather than deleted.',
   },
   {
     table: 'event_deletion_requests',

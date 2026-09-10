@@ -140,18 +140,63 @@ function extractReachLinksExpr(): string {
   return src.slice(bodyStart + 1, returnIdx);
 }
 
-function hrefsFor(vendor: { contact_email: string | null; vendor_id: string }, eventId: string) {
+function hrefsFor(
+  vendor: { contact_email: string | null; vendor_id: string; marketplace_vendor_id?: string | null },
+  eventId: string,
+  variant: 'card' | 'embed' = 'card',
+) {
   const body = extractReachLinksExpr();
   // Deliberately evaluating the real extracted source, not a hand-copied
   // reimplementation that could silently drift from it.
   const fn = new Function(
     'vendor',
     'eventId',
+    'variant',
     'encodeURIComponent',
-    `${body}\nreturn { messagesHref, workspaceHref };`,
+    `${body}\nreturn { messagesHref, workspaceHref, canOpenThread };`,
   );
-  return fn(vendor, eventId, encodeURIComponent) as { messagesHref: string; workspaceHref: string };
+  return fn(vendor, eventId, variant, encodeURIComponent) as {
+    messagesHref: string;
+    workspaceHref: string;
+    canOpenThread: boolean;
+  };
 }
+
+/* ⚠ THESE THREE PINS ARE KEPT AND RE-AIMED, NOT DELETED (2026-09-09).
+   They were written on 2026-09-02 to hold the fallback href steady, and they
+   still do — but the fallback is no longer what a marketplace supplier gets.
+   "Message" on the budget card now OPENS THAT SUPPLIER'S CONVERSATION instead
+   of landing on the list with a form to submit; `messagesHref` survives for the
+   two cases that genuinely cannot open a thread. */
+test('a supplier ON SETNAYAN gets the thread opener, not a link to the list', () => {
+  const { canOpenThread } = hrefsFor(
+    { contact_email: null, vendor_id: 'S89VEN-0000000001', marketplace_vendor_id: 'S89VPR-1' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(
+    canOpenThread,
+    true,
+    'the budget card must open the conversation for a supplier who can be messaged',
+  );
+});
+
+test('an OFF-PLATFORM supplier keeps the plain link — it cannot be messaged here', () => {
+  const { canOpenThread } = hrefsFor(
+    { contact_email: null, vendor_id: 'S89VEN-0000000001', marketplace_vendor_id: null },
+    'S89EVT-0000000001',
+  );
+  assert.equal(canOpenThread, false, 'a hand-typed supplier has no thread to open');
+});
+
+test('the workspace embed does NOT grow a second opener', () => {
+  // The workspace already ships a thread deep-link and the conversation itself.
+  const { canOpenThread } = hrefsFor(
+    { contact_email: null, vendor_id: 'S89VEN-0000000001', marketplace_vendor_id: 'S89VPR-1' },
+    'S89EVT-0000000001',
+    'embed',
+  );
+  assert.equal(canOpenThread, false, 'the embed variant must not duplicate the workspace’s own opener');
+});
 
 test('a supplier with NO contact_email links to the bare messages index — no query string at all', () => {
   const { messagesHref } = hrefsFor(
@@ -185,4 +230,18 @@ test('the workspace link always resolves, independent of contact_email', () => {
     'S89EVT-0000000001',
   );
   assert.equal(workspaceHref, '/dashboard/S89EVT-0000000001/vendors/S89VEN-0000000001/workspace');
+});
+
+test("a supplier ON SETNAYAN never has its address pre-filled — the lock copied the SHOP's email into the row", () => {
+  // Owner 2026-09-10: "our goal is to let them integrate their event with the
+  // vendor they find. not to let them communicate outside the app". A package
+  // lock copies a Setnayan shop's own email into `event_vendors.contact_email`,
+  // and the Messages page prints a prefill in plain sight. So a shop on
+  // Setnayan gets the bare index here (its real way in is the thread opener).
+  const { messagesHref } = hrefsFor(
+    { contact_email: 'shop-owner@example.com', vendor_id: 'S89VEN-0000000001', marketplace_vendor_id: 'S89VPR-1' },
+    'S89EVT-0000000001',
+  );
+  assert.equal(messagesHref, '/dashboard/S89EVT-0000000001/messages');
+  assert.ok(!messagesHref.includes('shop-owner'), "the shop's copied address reached the Messages box");
 });

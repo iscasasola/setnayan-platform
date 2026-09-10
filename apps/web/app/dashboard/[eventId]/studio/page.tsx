@@ -10,6 +10,8 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { roadmapLedeStage } from '@/lib/wedding-roadmap';
 import { addOnDetail } from '@/lib/add-ons-detail';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS } from '@/lib/store-shell';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { StudioAppRow, type RowPill } from './_components/studio-app-row';
@@ -198,7 +200,14 @@ export default async function StudioPage({ params, searchParams }: Props) {
     communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,
   }).allowed;
 
+  // 🔒 STORE SHELL SHOWS NO PAID DIGITAL FEATURE (App Review 2026-06-30,
+  // 3.1.1 via 3.1.3(b)). The hidden set is derived from the catalog and held
+  // by lib/store-shell.test.ts; the routes behind these tiles are gated in
+  // middleware. Desktop Tauri is NOT the store shell — see lib/store-shell.ts.
+  const storeShell = await isStoreShellRequest();
+
   const surfaceOk = (a: (typeof ADD_ONS)[number]) => {
+    if (storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) return false;
     if (a.surface && !surfaceEnabled(profile, a.surface)) return false;
     if (a.key === 'papic-guest') return papicPassAllowed;
     // ⚠ ONE LIVESTREAM TILE, NOT TWO. With the unified Live Studio live, the

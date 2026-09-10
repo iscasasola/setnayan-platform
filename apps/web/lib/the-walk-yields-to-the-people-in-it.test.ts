@@ -52,6 +52,7 @@ const peer = (over: Partial<RemotePlayer> & { id: string }): RemotePlayer => ({
   moving: false,
   recvAt: 1_000,
   present: true,
+  placed: true,
   greetUntil: 0,
   ...over,
 });

@@ -30,7 +30,9 @@ export type VendorInviteRow = {
   invite_id: string;
   public_id: string;
   vendor_id: string | null;
-  invited_by_user_id: string;
+  /** NULL once the sending account is deleted — the invite stays claimable by
+   *  the supplier holding the link (migration 20271210831005). */
+  invited_by_user_id: string | null;
   /** Nullable as of 2026-05-22 (auto_share_link source). NOT NULL for
    *  couple + admin sources — enforced by vendor_invites_source_vendor_consistency. */
   email: string | null;
@@ -263,7 +265,7 @@ export async function fetchClaimLandingByToken(
   if (resolvedInvite.email) {
     const { data: row } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id,business_name,contact_email')
+      .select('vendor_profile_id,business_name')
       .ilike('contact_email', resolvedInvite.email)
       .limit(1)
       .maybeSingle();
@@ -446,7 +448,7 @@ export async function lookupExistingVendorByEmail(
 ): Promise<{ vendor_profile_id: string; business_name: string } | null> {
   const { data } = await supabase
     .from('vendor_profiles')
-    .select('vendor_profile_id,business_name,contact_email')
+    .select('vendor_profile_id,business_name')
     .ilike('contact_email', email.trim())
     .limit(1)
     .maybeSingle();

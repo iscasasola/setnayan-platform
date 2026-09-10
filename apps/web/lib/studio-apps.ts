@@ -111,15 +111,89 @@ export type StudioApp = {
    * The couple's own Studio hub already filters on exactly this field.
    */
   surface?: ProfileSurface;
+  /**
+   * Where a SIGNED-IN person goes INSIDE AN EVENT when the product is not a
+   * catalogue add-on — the free planning tools the owner put on this list on
+   * 2026-09-05 (*"when they enter the event, it will move to the different
+   * control centers"*). The guest list and the marketplace have no `ADD_ONS`
+   * entry to resolve through `addOnHref`, and pointing them at the public page
+   * from inside an event would be the exact complaint the three-state rail
+   * exists to fix. Mutually exclusive with `addOnKey` in practice; the rail
+   * checks this first.
+   */
+  eventHref?: (eventId: string) => string;
+  /**
+   * TRUE ⇒ this row is a DOORWAY ONLY. It appears in the Studio group for a
+   * stranger and for a signed-in person with no event open, and DISAPPEARS the
+   * moment they step inside one.
+   *
+   * ─── WHY (owner 2026-09-05) ──────────────────────────────────────────────
+   * Verbatim: *"do not double the marketplace"* … *"Marketplace will disappear
+   * on studio once we enter an event just like guestlist"* … *"and seat plan"*.
+   *
+   * 🔑 THE DUPLICATION IS REAL AND ALREADY DOCUMENTED IN THIS REPO. Inside an
+   * event the person is handed these same three destinations twice:
+   *   · the event's own rail (`EventRailContext` via `customer-nav-config.ts`)
+   *     carries **Guests · Marketplace→`/vendors` · Seat plan** — read
+   *     `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
+   *     reason and calls a second copy *"the exact 'same destination, two
+   *     names' defect … the Studio/Suite rail once shipped precisely this
+   *     duplicate and had to be corrected."*
+   *   · and the shell's Marketplace destination row, which is gated ON being
+   *     inside an event (owner 2026-08-22: *"marketplace is best shown inside
+   *     an event, not when they just logged in"*).
+   *
+   * 🔑 SO THE GATE IS `insideEvent`, NOT `signedIn`, AND THAT IS MEASURED
+   * RATHER THAN ASSUMED. With no event open NONE of those competing rows
+   * render — the shell's Marketplace row is absent by its own gate and there is
+   * no event rail at all — so the doorway row is the only one and must stay.
+   * Dropping these on sign-in instead would delete the only door a person with
+   * no event has to the page that explains the tool.
+   *
+   * ⚠ NOT THE SAME THING AS `surface`. A surface says an event TYPE never
+   * offers this. This says the tool is offered, and the event already has a
+   * better door to it.
+   */
+  doorwayOnly?: boolean;
+  /**
+   * WHICH RAIL GROUP THIS ROW BELONGS TO. Absent ⇒ `studio`.
+   *
+   * ─── WHY (owner 2026-09-06) ──────────────────────────────────────────────
+   * Asked, with Studio standing at fourteen rows: *"should all of these be in
+   * studio or studio should only be for the ones with payment/upgrades? and we
+   * will cluster all free for life on a different cluster?"* — and, given the
+   * choice, ruled: **split by KIND, not by price.**
+   *
+   * 🔑 THE RAIL'S GROUPS HAVE ALWAYS BEEN IDENTITIES, NOT PRICES, AND THEIR OWN
+   * SUBTITLES SAY SO: Studio *"the things you make"* · Planner *"things you
+   * plan with"* · Builder *"things you book & pay with"* · Together *"things
+   * you do with people"*. Nothing in that vocabulary is about cost.
+   *
+   * 🔑 AND A PRICE-KEYED RAIL WOULD RESHUFFLE ITSELF. In the two days before
+   * this ruling the 3D Plan became free, the Custom QR became free and the
+   * monogram halved — navigation keyed to a mutable attribute moves whenever
+   * the owner reprices. Worse, three products are free-with-a-paid-upgrade
+   * (Papic and its credits, the Event Hub and its Pro, the free monogram maker
+   * and its paid animation), so each would have had to sit in both clusters.
+   *
+   * ⚠ THIS IS A GROUPING, NOT A GATE. It says nothing about who sees the row —
+   * `doorwayOnly` and `surface` still decide that, independently.
+   */
+  railGroup?: 'studio' | 'planner' | 'together';
 };
 
 /**
- * The eight, in the order the rail shows them.
+ * The nine, in the order the rail shows them.
  *
- * ⚠ ALAALA IS NOT HERE. It is the eighth public doorway but it lives in the
- * rail's ACCOUNT slot ("What is Alaala?" signed out, "Alaala" signed in), not
- * in Studio — exactly as the binding prototype has it. Adding it here would put
- * it in the list twice.
+ * ⚠ ALAALA IS NOT HERE. It is a public doorway too, but it lives in the rail's
+ * ACCOUNT slot ("What is Alaala?" signed out, "Alaala" signed in), not in
+ * Studio — exactly as the binding prototype has it. Adding it here would put it
+ * in the list twice.
+ *
+ * ⚠ AND NOT EVERY ROW HERE IS SOLD. `mood-board` is free (see its entry). The
+ * group is "the products a stranger should meet", not "the products with a
+ * price" — and nothing in this file or in `RailTool` carries a price, a tier or
+ * a lock, so a free row and a paid row render identically by construction.
  */
 export const STUDIO_APPS: readonly StudioApp[] = [
   {
@@ -210,6 +284,59 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     /*
+      ─── THE NINTH, ADDED 2026-09-03, AND THE FIRST FREE ONE ───────────────
+      Owner, looking at the Studio group in the rail: *"i do not see it."*
+
+      🔑 THIS REVERSES HALF OF THE 2026-08-21 STRUCTURE, DELIBERATELY. That
+      ruling put the NAMED PRODUCTS in this group and left *"the free parts (the
+      seat plan, the mood board, the day-of page)"* on the services hub — the
+      "All services" row `studio-rail.ts` appends. So the mood board WAS
+      reachable: Studio → All services → Mood Board. Two taps, behind a generic
+      word.
+
+      It collided with the older lock (2026-07-17/18) that names the mood board
+      one of six "always free" FIRST-CLASS doorways, which must stay *directly*
+      reachable rather than buried — and the collision got worse when the board
+      became the thing 3D Plan reads from. The paid product sits one tap away in
+      this very list; the free tool that makes it worth buying sat two taps back.
+      The owner resolved it in favour of the older lock: promote it, and leave
+      "All services" exactly where it is. This is an ADDITION, not a move.
+
+      🔑 FREE CHANGES NOTHING ABOUT THIS RECORD, AND THAT IS THE POINT. `tier:
+      'free'` and the absent `serviceKey` live on the `add-ons-catalog.ts` entry
+      this row opens, which is where the Suite grid reads a price and paints a
+      "Free" pill. The rail reads NEITHER — a `RailTool` is a name, a line, an
+      href and an optional demo marker — so promoting a free tool cannot render
+      an upsell or a lock here. Do not add one: a price on this row would be the
+      first price the rail has ever shown, on the one product that has none.
+
+      🔑 NO `surface`, MEASURED NOT ASSUMED. The `mood-board` catalogue entry
+      carries none either, so every event type offers it and the sidebar and the
+      Suite grid agree — which is exactly what `studio-menu-adapts-to-event.test.ts`
+      asserts, key by key, for all four profile shapes.
+
+      🔑 NO `demo`. `HomeOverlays` mounts no mood-board overlay, and a "try it"
+      marker on a page that cannot be tried is the fake door this file forbids.
+
+      ⚠ THE PUBLIC PAGE LANDS IN THE SAME COMMIT, and it has to:
+      `front-door-invariants.test.ts` requires every signed-out Studio row to
+      resolve to `app/(shell)/<href>/page.tsx`, and a signed-out stranger is
+      shown `href` verbatim. Pointing this row at the in-event route
+      `/dashboard/[eventId]/studio/mood-board` was the other candidate and it is
+      not available: there is no eventId to substitute for a stranger, so the
+      row would 404 for exactly the people the rail exists to introduce the
+      product to.
+    */
+    key: 'mood-board',
+    name: 'Mood Board',
+    href: '/mood-board',
+    description:
+      'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
+    railLine: 'Pick your colors once — every piece dresses to match.',
+    addOnKey: 'mood-board',
+  },
+  {
+    /*
       ─── THE EIGHTH, ADDED 2026-08-21 ──────────────────────────────────────
       Owner: *"pakanta is paid. so add this to the studio."*
 
@@ -239,6 +366,128 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
     surface: 'song',
+  },
+  {
+    /*
+      ─── THE TENTH TO TWELFTH, ADDED 2026-09-05 — THE OTHER FREE TOOLS ────
+      Owner, after the spotlight pass on the product pages: *"Also add the
+      other services. Marketplace to search for vendors with compare,
+      Guestlist, Seatplan"* — then, on the rail's behaviour: *"when logged out
+      or logged in and not inside an event, these links will direct to the
+      service description page … when they enter the event, it will move to
+      the different control centers."* Asked where the rows live (this group,
+      a reuse of the shell's Marketplace row, or a new "Plan" group), the
+      owner chose: **all three as new Studio rows.**
+
+      🔑 THAT IS THE MOOD BOARD'S SHAPE, THREE MORE TIMES. Each is FREE, each
+      has a public page (the rail hands a stranger `href` verbatim, so an
+      event-scoped address would 404 for exactly the people the row exists
+      to introduce), and each carries no price, tier or lock here — see the
+      2026-09-03 note above. `front-door-invariants.test.ts` requires the
+      page; `studio-menu-adapts-to-event.test.ts` pins the row counts.
+
+      🔑 INSIDE AN EVENT, A FREE TOOL OPENS ITS OWN ROOM. The guest list and
+      the marketplace have no `ADD_ONS` entry to resolve through `addOnHref`,
+      so they carry `eventHref` (see the type). The seat plan keeps
+      `addOnKey: 'seating'` — that catalogue entry's `surface` is what the
+      Suite grid gates on, and the sidebar must agree with it — but ALSO
+      carries `eventHref`, because `addOnHref('seating')` opens the 3D lab
+      and this row is the FREE 2D plan. The rail checks `eventHref` first.
+
+      ⚠ THE SHELL STILL HAS ITS OWN "Marketplace" DESTINATION ROW (→ /explore
+      signed in, "Find a supplier" signed out). The owner chose a Studio row
+      knowing that; whether the destination row then goes is a separate
+      decision, recorded as open in the corpus DECISION_LOG, not made here.
+    */
+    key: 'marketplace',
+    name: 'Marketplace',
+    href: '/marketplace',
+    description:
+      'Browse verified Filipino wedding vendors — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
+    railLine: 'Browse verified Filipino vendors free, and compare two side by side.',
+    eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    key: 'guest-list',
+    name: 'Guest list',
+    href: '/guest-list',
+    description:
+      'Every guest is one row — RSVP, plus-one, meal preference, role and table, with a personal QR that updates your list the moment they answer. Free with every Setnayan account.',
+    railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
+    eventHref: (eventId) => `/dashboard/${eventId}/guests`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    key: 'seat-plan',
+    name: 'Seat plan',
+    href: '/seat-plan',
+    description:
+      'Seat Plan is the free seating chart in every Setnayan wedding. Lay out your tables, drag every guest into a chair, keep the right people apart and the right groups together, then print the chart and hand it to your coordinator.',
+    railLine: 'Lay out your tables and seat every guest — free.',
+    addOnKey: 'seating',
+    surface: 'seating',
+    eventHref: (eventId) => `/dashboard/${eventId}/seating`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    /*
+      ─── AND THE LAST TWO FREE TOOLS, 2026-09-06 ──────────────────────────
+      Owner: *"add these"* — the Budget and the Schedule were the only members
+      of the free workspace (`help.ts`: schedule · budget · guest list · seat
+      plan · mood board) still without a doorway once the other three got one
+      the day before. Both are `doorwayOnly` for the same reason as those: the
+      event's own rail already carries Budget and Schedule.
+    */
+    key: 'budget',
+    name: 'Budget',
+    href: '/budget',
+    description:
+      'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
+    railLine: 'Your budget in PHP: planned, agreed, paid and owed. Free.',
+    eventHref: (eventId) => `/dashboard/${eventId}/budget`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    key: 'schedule',
+    name: 'Schedule',
+    href: '/schedule',
+    description:
+      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked vendors see the blocks they carry.',
+    railLine: 'Your wedding day, block by block, live for guests and vendors.',
+    eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
+    doorwayOnly: true,
+    railGroup: 'planner',
+  },
+  {
+    /*
+      ─── SAMAHAN, 2026-09-06 — AND IT IS NOT A STUDIO ROW ─────────────────
+      Owner: *"we also want to feature our samahan/groups. This has a feature
+      where they can share stories every hour, chat, and create events"*.
+
+      🔑 `railGroup: 'together'` — Studio is *"the things you make"* and a
+      samahan is people, which is exactly what the Together group is already
+      called: *"things you do with people"*. It is also ACCOUNT-LEVEL rather
+      than event-scoped (`dashboard/(account)/samahan/` is keyed on the user),
+      so unlike the Planner rows it is NOT `doorwayOnly`: there is no event
+      rail carrying it, and nothing to double.
+
+      ⚠ `/samahan` already existed as `/samahan/join/[token]` — the door an
+      invited person walks through — which is why the word was reserved while
+      nothing public explained what a samahan IS. The page fills that gap; the
+      join route is untouched.
+    */
+    key: 'samahan',
+    name: 'Samahan groups',
+    href: '/samahan',
+    description:
+      'Samahan is the group space in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
+    railLine: 'Your barkada, ninongs, family — chat, stories, the next reunion.',
+    railGroup: 'together',
   },
   {
     key: 'palogo',

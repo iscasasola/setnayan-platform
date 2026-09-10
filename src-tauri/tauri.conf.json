@@ -21,7 +21,8 @@
         "minHeight": 768,
         "resizable": true,
         "fullscreen": false,
-        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15 SetnayanApp/desktop"
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15 SetnayanApp/desktop",
+        "backgroundThrottling": "disabled"
       }
     ],
     "security": {
@@ -40,6 +41,22 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0"
+    },
+    "windows": {
+      "signCommand": {
+        "cmd": "pwsh",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows-codesign.ps1", "%1"]
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI1RTU0NTA1M0E3N0Y3NzIKUldSeTkzYzZCVVhsSmR1K290SDkwNDdNdVNQVWJXSHFLWnpzTHNKTXo4VnM0Qzc1Ymc3VU1KQjkK",
+      "endpoints": ["https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/desktop/latest/latest.json"]
+    }
   }
 }

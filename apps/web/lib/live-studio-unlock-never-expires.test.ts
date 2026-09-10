@@ -141,6 +141,22 @@ test('🔴 no non-test surface under app/ or lib/ still says Live Studio is pric
     // needlessly slow. "per event-day" only ever described LIVE_STUDIO in this
     // codebase (Patiktok says "per day", never "per event-day"), so the phrase
     // ALONE is specific enough without also requiring the SKU name nearby.
+    //
+    // ⚠ THAT PREMISE GAINED AN EXCEPTION ON 2026-09-03 (LS8), AND THE GUARD WAS
+    // KEPT RATHER THAN LOOSENED. `LIVE_STUDIO_HOSTED_CHANNEL` came back on sale
+    // at ₱3,000 PER DAY — genuinely per-day, deliberately, because a Setnayan
+    // channel is a scarce resource while the software unlock is not. So a
+    // Live-Studio-FAMILY SKU can now honestly be described as priced per day,
+    // and this test fired on llms.txt prose saying exactly that. The prose was
+    // reworded ("charged for each day it is used"); the assertion was NOT
+    // relaxed to allow the phrase near the hosted-channel SKU.
+    //
+    // 🔑 WHY KEEP THE STRICTER RULE: the defect it guards is a surface telling a
+    // couple their ₱2,500 one-time unlock expires. A regex that tried to tell
+    // the two SKUs apart by proximity would be the thing that quietly stops
+    // matching. If a future surface genuinely needs to say the hosted channel is
+    // "priced per day", narrowing this is a deliberate decision to make with the
+    // failure in front of you — not a phrase to slip past.
     if (!/per event-day/i.test(raw) && !/priced per day/i.test(raw)) continue;
     const stripped = stripComments(raw);
     if (/per event-day/i.test(stripped) || /priced per day/i.test(stripped)) {

@@ -8,17 +8,13 @@ import {
   ROLE_FAMILY_KEYS,
   type PaletteKey,
 } from '@/lib/mood-board';
-import {
-  seedPaletteFromColors,
-  seedPaletteFromFeel,
-  RED_GOLD_PALETTE,
-} from '@/lib/feel-palettes';
-import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import {
   RECEPTION_PARTS,
   sanitizeReceptionDesign,
   selAll,
+  venueZoneApplies,
+  type PartId,
   type ReceptionDesign,
 } from '@/lib/reception-scene';
 import {
@@ -28,8 +24,34 @@ import {
   fetchThemeTemplates,
   readMoodboardThemeDescription,
   applyThemeIntent,
+  fetchGalleryAssets,
+  applyGalleryPick,
+  fetchRenderPool,
+  applyRenderPick,
 } from './actions';
-import { PaletteEditor } from './_components/palette-editor';
+import {
+  GALLERY_SLOT_KEYS,
+  creditLine,
+  tradeLabelForCredit,
+} from '@/lib/moodboard-gallery';
+import { PaletteSection } from './_components/palette-section';
+import { PartFinalizationPanel } from './_components/part-finalization-panel';
+import {
+  cancelPartFinalization,
+  cancelPartReopen,
+  requestPartFinalization,
+  requestPartReopen,
+} from './finalization-actions';
+import {
+  eligibleSuppliersForPart,
+  finalizeBlocker,
+  partFreezesNothing,
+  type BookedSupplier,
+  type PartFinalizationRecord,
+} from '@/lib/moodboard-finalization';
+import type { FinalizationPanelPart } from './_components/part-finalization-panel';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { PaletteBoardProvider } from './_components/palette-board-context';
 import {
   MoodboardBoard,
   type BoardSection,
@@ -43,7 +65,29 @@ import { ConceptPdfButton } from './_components/concept-pdf-button';
 import { PrintablePdfButton } from './_components/printable-pdf-button';
 import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 import { ThemeStudio } from './_components/theme-studio';
+import { InfoButton } from './_components/info-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { MakeItReal } from './_components/make-it-real';
+import {
+  RENDER_PARTS,
+  renderPartById,
+  WHOLE_LOOK_PART_ID,
+  type RenderPart,
+} from '@/lib/moodboard-render-parts';
+import { readEventRenders } from '@/lib/moodboard-render-gallery';
+import { r2SignedGet } from '@/lib/r2';
+import { R2_BUCKETS } from '@/lib/r2';
+import { RENDER_BUCKET_KEY } from '@/lib/bucket-routing';
+import {
+  MOODBOARD_RENDER_PACK_SKU,
+  readMoodboardRenderConfig,
+  readMoodboardRenderBalance,
+} from '@/lib/moodboard-render-credits';
+import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
+import { pickCeremonyScene, pickFiguresByRole } from '@/lib/moodboard-board-picks';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -93,12 +137,24 @@ type RangeRow = {
 
 function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlot[] {
   const rows = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  return rows.map((r) => ({
-    slotId: r.slot_id,
-    sampledHex: r.sampled_hex,
-    toleranceDe: Number(r.tolerance_de),
-    regionLabel: r.region_label ?? undefined,
-  }));
+  // 🔑 MB25 — SORTED BY slot_id, because the ORDER IS THE COUPLE'S COLOUR ORDER.
+  // `moodboard-board.tsx` assigns `out[r.slotId] = palette[i % palette.length]`
+  // using the ARRAY INDEX i, and neither embedded select above carries an
+  // ORDER BY, so the mapping was whatever PostgREST happened to return. That
+  // was harmless while every asset had exactly ONE range. The Ceremony aisle
+  // (migration 20271206413595) is the first with two — slot 1 the florals,
+  // slot 2 the fabric — and unsorted rows would hand the couple's first
+  // ceremony colour to the aisle runner on some responses and to the flowers
+  // on others, for the same couple and the same data.
+  return rows
+    .slice()
+    .sort((a, b) => a.slot_id - b.slot_id)
+    .map((r) => ({
+      slotId: r.slot_id,
+      sampledHex: r.sampled_hex,
+      toleranceDe: Number(r.tolerance_de),
+      regionLabel: r.region_label ?? undefined,
+    }));
 }
 
 export default async function MoodBoardPage({ params }: Props) {
@@ -127,27 +183,55 @@ export default async function MoodBoardPage({ params }: Props) {
     venueFlowerRes,
     inspirationRes,
     bookedVendorRes,
+    moodboardRenderConfig,
+    moodboardRenderBalance,
+    moodboardRenderPackSku,
+    platformSettings,
+    moodboardRenderRows,
+    shareConsentRes,
+    finalizationRes,
+    bookedSupplierRes,
   ] = await Promise.all([
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type, moodboard_theme_name, moodboard_theme_description, venue_setting, ceremony_venue_setting, moodboard_style_family',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
-    // One representative figure per attire role. These are colored SVG
-    // illustrations on a no-CORS host, so they're shown as reference images
-    // beside the role's palette swatches (not canvas-recolored).
+    // One representative figure per attire role, WITH its tagged colour ranges
+    // so the board can recolour it — see the note on `attireCards` below.
+    //
+    // ⛔ The comment that used to sit here said these figures are "on a no-CORS
+    // host, so they can't be canvas-recolored". THAT WAS FALSE, and it was the
+    // only evidence anyone had for the belief. The R2 host echoes every origin
+    // we run on; re-measure it in one line:
+    //
+    //   curl -sI -H "Origin: https://www.setnayan.com" \
+    //     https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/moodboard-library/figure_attire/elegant-simple-classic/bride.svg
+    //   → 200 · Access-Control-Allow-Origin: https://www.setnayan.com
+    //
+    // What actually kept attire at stock colours was THIS SELECT: it asked for
+    // three columns and never for `moodboard_asset_color_ranges`, so
+    // `attireCards` had no `regions` to pass and `BoardCardView`'s `recolorable`
+    // was false for every attire card. A query shape, not a hosting problem.
+    // All 75 live figures already carry a range (measured on prod 2026-09-05).
     supabase
       .from('moodboard_library_assets')
-      .select('asset_subtype, label, storage_path')
+      .select(
+        `asset_subtype, label, storage_path, style_theme,
+         moodboard_asset_color_ranges ( slot_id, sampled_hex, tolerance_de, region_label )`,
+      )
       .eq('asset_type', 'figure_attire')
       .not('approved_at', 'is', null)
       .is('retired_at', null),
-    // Venue scenes + florals + their tagged color regions. These are
-    // CORS-clean (picsum / app-served), so the board auto-applies the palette
-    // to them in-browser.
+    // Venue scenes + florals + their tagged colour regions, auto-recoloured
+    // in-browser. NOTE (MB23): the two `venue_scene` rows that were live here
+    // were picsum.photos STOCK PHOTOGRAPHS and are retired by migration
+    // 20271205919528. MB25 puts a real one back — the app-served Ceremony
+    // DRAWING seeded by migration 20271206413595 — so `ceremonyRow` resolves
+    // again, now to our own artwork with two tagged regions.
     supabase
       .from('moodboard_library_assets')
       .select(
@@ -160,9 +244,20 @@ export default async function MoodBoardPage({ params }: Props) {
     // The couple's uploaded inspiration photos (per-event, from onboarding's
     // intake) — surfaced here so they can add/manage them, and so they can feed
     // the future "Make it real" render as extra references.
+    // MB10 — the credit rides along. `library_asset_id` is only set on a
+    // gallery pick, so a couple's own upload embeds nothing and costs nothing.
+    // If RLS refuses the shop (unverified, hidden) the embed comes back null
+    // and the tile renders WITHOUT a credit rather than with a guess — the
+    // photo is already on their board either way.
     supabase
       .from('event_inspiration_assets')
-      .select('slot_key, slot_position, image_url')
+      .select(
+        `slot_key, slot_position, image_url, library_asset_id,
+         asset:moodboard_library_assets (
+           asset_subtype,
+           shop:vendor_profiles ( business_name, services )
+         )`,
+      )
       .eq('event_id', eventId)
       .is('removed_at', null),
     // Booked marketplace vendors for the "Share with vendors" affordance. Mirrors
@@ -174,6 +269,49 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('marketplace_vendor_id')
       .eq('event_id', eventId)
       .not('marketplace_vendor_id', 'is', null),
+    // MB7 — "Make it real": the admin-editable render parameters (Pattern H,
+    // world-readable) and this event's real credit balance
+    // (moodboard_render_balance — ZERO ROWS means "not permitted", not a
+    // fabricated zero; see readMoodboardRenderBalance's own docblock).
+    readMoodboardRenderConfig(supabase),
+    readMoodboardRenderBalance(supabase, eventId),
+    formatV2Sku(MOODBOARD_RENDER_PACK_SKU).catch(() => null),
+    fetchPlatformSettings(supabase),
+    // MB8 — the couple's own renders. `null` means the read was REFUSED, and
+    // the gallery says so; it must never render as "no renders yet" (see
+    // readEventRenders' own docblock — this is the guest-list failure's shape).
+    readEventRenders(supabase, eventId),
+    // MB8 — the event-level "let Setnayan feature your creation" consent.
+    supabase
+      .from('event_render_share_consent')
+      .select('consented')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    // MB12 — every finalization handshake on this board. Read UNFILTERED by
+    // state on purpose: the AGREED rows are what freeze the palette, and the
+    // closed ones (declined / expired) are what let a row say "turned down —
+    // 'we cannot source that in November'" instead of quietly offering the same
+    // supplier again as though nobody had ever answered.
+    supabase
+      .from('moodboard_part_finalizations')
+      .select(
+        `finalization_id, part_id, vendor_id, state, expires_at, agreed_at,
+         declined_at, decline_reason, reopen_state, reopen_expires_at,
+         reopen_decline_reason, frozen_palette_keys, frozen_dressing_fields`,
+      )
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true }),
+    // MB12 — the suppliers who could be ASKED. Filtered to the four CONFIRMED
+    // statuses (lib/events.ts) because only a booked supplier may be asked to
+    // agree to a design — the same rule `request_part_finalization` enforces in
+    // SQL. `services` comes from the shop, which is where the category match is
+    // decided; a booking with no shop behind it has none and is correctly
+    // ineligible rather than silently allowed.
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
@@ -184,11 +322,39 @@ export default async function MoodBoardPage({ params }: Props) {
       .filter((id): id is string => Boolean(id)),
   ).size;
 
-  const inspirations: InspirationItem[] = (inspirationRes.data ?? []).map((r) => ({
-    slot_key: r.slot_key,
-    slot_position: r.slot_position,
-    image_url: r.image_url,
-  }));
+  type InspirationRow = {
+    slot_key: string;
+    slot_position: number;
+    image_url: string;
+    library_asset_id: string | null;
+    asset: {
+      asset_subtype: string | null;
+      shop: { business_name: string | null; services: string[] | null } | null;
+    } | null;
+  };
+  const inspirations: InspirationItem[] = (
+    (inspirationRes.data ?? []) as unknown as InspirationRow[]
+  ).map((r) => {
+    // The trade is resolved against the SLOT THE PHOTO WAS FILED UNDER
+    // (`asset.asset_subtype`), falling back to the board slot it sits in.
+    // Those are the same key in every honest row; keeping the asset's own
+    // value first means a photo dragged into a neighbouring cell is still
+    // credited to the trade it actually came from.
+    const shopName = r.asset?.shop?.business_name?.trim() ?? '';
+    const slotForTrade = r.asset?.asset_subtype ?? r.slot_key;
+    return {
+      slot_key: r.slot_key,
+      slot_position: r.slot_position,
+      image_url: r.image_url,
+      credit:
+        r.library_asset_id && shopName
+          ? creditLine(
+              shopName,
+              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null),
+            )
+          : null,
+    };
+  });
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
   // Through the sanitizer, not a bare cast: it is the one place the
@@ -208,7 +374,13 @@ export default async function MoodBoardPage({ params }: Props) {
   // while separate attributes keep joining with ", " as before. selAll, not
   // sel — showing only the first of two would read exactly like a couple who
   // only chose one.
-  const receptionSummary = RECEPTION_PARTS.filter((p) => p.id !== 'people').map((p) => ({
+  // A zone the venue genuinely lacks (a beach's ceiling, a garden's walls)
+  // is dropped from the summary entirely — never printed as "Not set" next
+  // to zones the couple could actually design. Same predicate the Seat
+  // Plan's drawing and 04's render brief gate on (`venueZoneApplies`).
+  const receptionSummary = RECEPTION_PARTS.filter(
+    (p) => p.id !== 'people' && venueZoneApplies(event.venue_setting, p.id),
+  ).map((p) => ({
     id: p.id,
     label: p.label,
     value: p.attributes
@@ -258,44 +430,230 @@ export default async function MoodBoardPage({ params }: Props) {
     visibleKeys.add('wedding_party');
   }
 
-  // Draft, don't blank: when the couple has NO saved palette yet, pre-fill the
-  // editor with a starter palette. For a Chinese (Tsinoy) wedding we suggest the
-  // auspicious red & gold default; otherwise we derive a starter from the wedding
-  // "feel" picked in onboarding. Display-only — the existing Save action remains
-  // the ONLY path that writes role_palette; seeded values aren't persisted until
-  // the couple explicitly saves, so this is a suggestion, never a forced override.
-  const hasSavedPalette = Object.keys(palette).length > 0;
-  const isChineseCeremony = isChineseWedding({
-    ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
-    secondary_ceremony_type:
-      (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
+  // ── MB7: "Make it real" — which RENDER_PARTS this event may offer ───────
+  // RENDER_PARTS is derived (lib/moodboard-render-parts.ts) from
+  // RECEPTION_PARTS / PALETTE_ORDER / MOODBOARD_SLOT_KEYS, so it offers every
+  // attire role the taxonomy knows — including ones this event's guest list
+  // has nobody in (e.g. Nikah Principals on a non-Muslim wedding). Room and
+  // place parts have no such presence question; attire roles are filtered to
+  // the SAME `visibleKeys` the Palette editor above already gates its own
+  // sections on, so the two surfaces can never disagree about who is in this
+  // wedding.
+  const eligibleRenderParts: RenderPart[] = RENDER_PARTS.filter(
+    (p) => p.group !== 'people' || visibleKeys.has(p.sourceKey as PaletteKey),
+  );
+
+  // ── MB12: the per-part finalization handshake ───────────────────────────
+  // A REFUSED read is not "nobody has asked anybody". `.data` is null on an
+  // error, and an empty list renders exactly like a board where no part has
+  // been signed off — the failure shape this repo has shipped twice (the guest
+  // list and the vendor workspace). So an error is logged and the panels are
+  // told, rather than silently drawing the blank state.
+  if (finalizationRes.error) {
+    console.error(
+      `[moodBoard] part finalizations unreadable for event_id=${eventId}:`,
+      finalizationRes.error.message,
+    );
+  }
+  const finalizationRecords: PartFinalizationRecord[] = (finalizationRes.data ??
+    []) as unknown as PartFinalizationRecord[];
+
+  // The shop's `services[]` is what decides the category match. Supabase types
+  // an embedded one-to-one as an object or an array depending on the inferred
+  // relationship; both are normalised here rather than cast, because a wrong
+  // guess produces an EMPTY services list — which reads as "this shop does not
+  // work in that trade" and silently hides every Ask button.
+  const bookedSuppliers: BookedSupplier[] = (bookedSupplierRes.data ?? []).map((r) => {
+    const raw = (r as { shop?: unknown }).shop;
+    const shop = Array.isArray(raw) ? raw[0] : raw;
+    return {
+      vendorId: (r as { vendor_id: string }).vendor_id,
+      name: ((r as { vendor_name: string | null }).vendor_name ?? '').trim() || 'your supplier',
+      services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(
+        Boolean,
+      ),
+    };
   });
-  const seededPalette = hasSavedPalette
-    ? {}
-    : isChineseCeremony
-      ? seedPaletteFromColors(RED_GOLD_PALETTE, Array.from(visibleKeys))
-      : seedPaletteFromFeel(
-          (event as { mood_feel_key?: string | null }).mood_feel_key,
-          Array.from(visibleKeys),
+
+  // People parts follow the SAME `visibleKeys` gate section 02 renders on, so
+  // the sign-off list and the palette editor can never disagree about who is in
+  // this wedding. Room parts follow `venueZoneApplies`, the same predicate the
+  // reception summary above already uses. Place parts ride with the room: a
+  // cake and a bar are things at the venue, not roles in the palette.
+  //
+  // 🛑 THE ELIGIBILITY IS RESOLVED HERE, ON THE SERVER, AND THAT IS LOAD-BEARING.
+  // `finalizeBlocker` / `eligibleSuppliersForPart` compose MB10's slot → trade
+  // map, which reaches lib/vendor-counts → lib/taxonomy-db → lib/supabase/server
+  // → next/headers. Calling them from the client panel fails the production
+  // build, which is the ONLY thing that can see it — `tsc` is not a bundler and
+  // `tsx --test` resolves it happily in node. MB12 shipped that chain to CI.
+  const asPanelPart = (p: RenderPart): FinalizationPanelPart => ({
+    id: p.id,
+    label: p.label,
+    blockerMessage: finalizeBlocker(p.id, bookedSuppliers)?.message ?? null,
+    eligible: eligibleSuppliersForPart(p.id, bookedSuppliers).map((s) => ({
+      vendorId: s.vendorId,
+      name: s.name,
+    })),
+    freezesNothing: partFreezesNothing(p.id),
+  });
+  const peopleFinalizationParts = eligibleRenderParts
+    .filter((p) => p.group === 'people')
+    .map(asPanelPart);
+  const roomFinalizationParts = eligibleRenderParts
+    .filter(
+      (p) =>
+        (p.group === 'room' && venueZoneApplies(event.venue_setting, p.sourceKey as PartId)) ||
+        p.group === 'places',
+    )
+    .map(asPanelPart);
+
+  // Every inspiration slot that holds at least one photo — the same
+  // `inspirations` rows InspirationBoard renders, read once here rather than
+  // re-fetched, so section 04's render gate can never see a different photo
+  // set than the couple does.
+  const inspirationPresence = Array.from(new Set(inspirations.map((i) => i.slot_key)));
+
+  // ── MB8: resolve each render's viewing URL, server-side ──────────────────
+  //
+  // Renders live in the PRIVATE bucket, so they are readable only through a
+  // short-lived presigned GET minted here. A row whose URL cannot be minted
+  // keeps `imageUrl: null`, and the gallery says "saved — reload to see it"
+  // rather than showing a broken image or, worse, treating a photograph the
+  // couple owns as if it did not exist.
+  //
+  // `partLabel` comes from the DERIVED registry, so a render of a zone added
+  // later is still labelled properly instead of showing its raw `room:foo` id.
+  const moodboardRenders =
+    moodboardRenderRows === null
+      ? null
+      : await Promise.all(
+          moodboardRenderRows.map(async (r) => ({
+            ...r,
+            partLabel:
+              r.part_id === WHOLE_LOOK_PART_ID
+                ? 'The whole look'
+                : (renderPartById(r.part_id)?.label ?? r.part_id),
+            imageUrl: r.image_key
+              ? await r2SignedGet({
+                  bucket: R2_BUCKETS[RENDER_BUCKET_KEY],
+                  key: r.image_key,
+                  expiresIn: 60 * 60,
+                }).catch(() => null)
+              : null,
+          })),
         );
-  const isSeeded = Object.keys(seededPalette).length > 0;
-  const initialPalette = isSeeded ? seededPalette : palette;
-  // True only when the editor is currently pre-filled with the Chinese red & gold
-  // default (Chinese event + nothing saved yet) — gates the small Chinese-default
-  // note above the editor. Non-Chinese events never set this, so their render is
-  // byte-identical.
-  const showChineseDefaultNote = isChineseCeremony && isSeeded;
+  const shareConsented = shareConsentRes.data?.consented === true;
+
+  const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
+  const venueLabel = isVenueSetting(venueSetting)
+    ? VENUE_SETTING_LABEL[venueSetting]
+    : 'Not set yet';
+
+  const moodboardRenderPackPlan = moodboardRenderPackSku
+    ? {
+        sku_code: MOODBOARD_RENDER_PACK_SKU,
+        name: moodboardRenderPackSku.display_name,
+        scope: 'One pack of Mood Board render credits, used across every part or the whole look.',
+        price: formatPhp(moodboardRenderPackSku.price_php),
+        unit: '',
+        priceCentavos: String(moodboardRenderPackSku.price_centavos),
+      }
+    : null;
+
+  // ── the blank-start fork (MB3, 2026-09-03) ──────────────────────────────
+  // ⚠ CORRECTED: this page used to pre-fill the editor with a starter palette
+  // (a Chinese-wedding red & gold default, or one derived from the
+  // onboarding "feel") whenever the couple had NOTHING saved yet — real hex
+  // colors, shown as if chosen, before the couple had made any decision at
+  // all. That directly contradicted the redesigned board's own on-screen
+  // promise: <TemplateGallery>'s "Start with a blank board" step says "Your
+  // board stays blank" while this page quietly filled it anyway. The owner's
+  // correction is explicit: "why can't i delete the first 3 colors. it is a
+  // requirement to have at least 3. but start with blank" — three SLOTS are
+  // structural (PALETTE_LIMITS.reception.min), three pre-chosen COLORS are
+  // not. `hasChosenMajors` (lib/mood-board.ts) is the one predicate for
+  // "has the couple chosen their majors" — every surface reads it, so none
+  // can disagree with the fork about whether the board is still blank.
+  // ⚠ This page does NOT call `hasChosenMajors` itself and pass the result
+  // down as a separate boolean — a peer session's sabotage pass found that
+  // exact shape unguarded (hard-code the boolean, every test stays green).
+  // `<ThemeStudio>` receives `palette` below and derives the predicate
+  // itself, right where it's consumed — see its own comment.
+  //
+  // The two paths that actually fill `reception` now are: (1) applying a
+  // designed theme (writes five real colors via applyMoodboardTemplate /
+  // applyThemeIntent), or (2) the couple adding their own in the palette
+  // editor below. Neither is a silent page-load side effect.
+  //
+  // Retired, not replaced in place: a proper "Setnayan AI suggests a
+  // starting palette, dismissible" affordance (the prototype's AI starter
+  // row) belongs with the palette-style engine landing in MB4/MB5, not as a
+  // half-built suggestion here.
+  const initialPalette = palette;
 
   // ── one representative figure per attire subtype (first wins) ───────────
-  const figureBySubtype: Record<string, { url: string; label: string }> = {};
-  for (const row of attireRes.data ?? []) {
-    if (!row.asset_subtype) continue;
-    if (!figureBySubtype[row.asset_subtype]) {
-      figureBySubtype[row.asset_subtype] = {
-        url: row.storage_path,
-        label: row.label,
-      };
-    }
+  type AttireRow = {
+    asset_subtype: string | null;
+    label: string;
+    storage_path: string;
+    /** `moodboard_library_assets.style_theme` — one of MOODBOARD_STYLE_FAMILIES
+     *  on all 75 live figures, and what MB28 matches the couple against. */
+    style_theme: string | null;
+    moodboard_asset_color_ranges: RangeRow[] | RangeRow | null;
+  };
+  //
+  // 🔑 A REPRESENTATIVE THAT CANNOT RECOLOUR IS THE WRONG REPRESENTATIVE.
+  // This used to be "first row wins" over a query with no ORDER BY — so which
+  // of the five style variants a couple saw was whatever Postgres happened to
+  // return. That was harmless while nothing recoloured. It is not harmless now:
+  // `modern-minimalist/bride` draws the gown in #ECEBE7, the SAME COLOUR as its
+  // own background rect (ΔE 0.0, 76.6% of the figure column — measured
+  // 2026-09-05), so no colour range can select the dress without the backdrop.
+  // Migration 20271205919528 deletes that false range rather than inventing a
+  // tolerance for it, and this prefers a variant that HAS one. First-with-ranges
+  // wins; if no variant has any, the first is still used and the card renders as
+  // a reference drawing, exactly as before.
+  //
+  // ── MB28 · AND THE COUPLE'S OWN STYLE FAMILY DECIDES WHICH ONE ────────────
+  // Each role has exactly one figure per style family (15 figures × 5
+  // families = the 75 live rows), and until now which of the five a couple saw
+  // was decided by "first row with a range", i.e. by Postgres row order. A
+  // couple who applied a `bridgerton · regal` theme saw whichever bride came
+  // back first.
+  //
+  // The family is `events.moodboard_style_family` (migration 20271197327520),
+  // and `pickFiguresByRole` (lib/moodboard-board-picks.ts) validates it through
+  // `isMoodboardStyleFamily` — the SAME validate-or-null the seating lab does
+  // before handing a family to MB14b's `resolveDecorLayer`. There is
+  // deliberately no second mapping anywhere from `mood_feel_key`, or from a
+  // theme name, to a family: a mapping that only this page knew would put the
+  // attire row and the reception room in different style families for the same
+  // couple, and neither surface would report it.
+  //
+  // 🪤 THE FAMILY NEVER OUTRANKS A COLOUR RANGE. Preference order is
+  // (family AND range) → (any range) → (first row). Preferring the family
+  // FIRST is the MB23 disease coming back by another door — see `rankFigure`.
+  // A couple with no family resolves EXACTLY as before this change.
+  const figureBySubtype: Record<
+    string,
+    { url: string; label: string; regions: ColorRangeSlot[] }
+  > = {};
+  const figurePicks = pickFiguresByRole(
+    ((attireRes.data ?? []) as AttireRow[]).map((row) => ({
+      subtype: row.asset_subtype,
+      styleTheme: row.style_theme,
+      hasRange: toRegions(row.moodboard_asset_color_ranges).length > 0,
+      row,
+    })),
+    (event as { moodboard_style_family?: string | null }).moodboard_style_family,
+  );
+  for (const [subtype, pick] of Object.entries(figurePicks)) {
+    figureBySubtype[subtype] = {
+      url: pick.row.storage_path,
+      label: pick.row.label,
+      regions: toRegions(pick.row.moodboard_asset_color_ranges),
+    };
   }
 
   // ── representative venue scenes + bouquet (first match) ─────────────────
@@ -307,11 +665,31 @@ export default async function MoodBoardPage({ params }: Props) {
     moodboard_asset_color_ranges: RangeRow[] | RangeRow | null;
   };
   const vfRows = (venueFlowerRes.data ?? []) as VFRow[];
-  const findVenue = (match: (s: string) => boolean) =>
-    vfRows.find(
-      (r) => r.asset_type === 'venue_scene' && match((r.asset_subtype || '').toLowerCase()),
-    );
-  const churchRow = findVenue((s) => s === 'church' || s === 'ceremony');
+  //
+  // ── MB28 · THE CEREMONY CARD KNOWS WHERE THE WEDDING IS ───────────────────
+  // `events.ceremony_venue_setting` has held the couple's answer since
+  // migration 20271197508087 and nothing read it, so a beach wedding and a
+  // mosque wedding were both shown MB25's church aisle. Migration
+  // 20271208519468 seeds the other eight settings as `venue_scene` rows whose
+  // `asset_subtype` is the setting string VERBATIM, and this selects on it.
+  //
+  // 🪤 THE FALLBACK IS `church`, NEVER "the first venue_scene". MB14b's ten
+  // backdrop and ceiling decor layers are `venue_scene` rows too, live, with
+  // no ORDER BY on the query above — so "any venue scene" would show a couple
+  // a draped reception ceiling labelled "Ceremony", intermittently, on row
+  // order.
+  //
+  // Both the equality match and that fallback are `pickCeremonyScene`
+  // (lib/moodboard-board-picks.ts). The decision does NOT live here, and that
+  // is deliberate: `attire-recolours-because-the-query-asks.test.ts` used to
+  // rebuild this predicate from literals parsed out of page.tsx and assert
+  // against its own copy — which is how a guard ends up guarding the copy. It
+  // now imports the real function and runs it over the real MB14b decor rows,
+  // and holds this file to calling it.
+  const ceremonyRow = pickCeremonyScene(
+    vfRows,
+    (event as { ceremony_venue_setting?: string | null }).ceremony_venue_setting,
+  );
   const bouquetRow =
     vfRows.find((r) => r.asset_type === 'florals' && r.asset_subtype === 'bridal_bouquet') ||
     vfRows.find((r) => r.asset_type === 'florals');
@@ -331,17 +709,50 @@ export default async function MoodBoardPage({ params }: Props) {
     // `resolveAttirePaletteColor` uses to dress the figure in the 3D room.
     paletteColors:
       (d.specific && palette[d.specific]?.length ? palette[d.specific] : palette[d.key]) ?? [],
+    // MB23 — the figure now recolours, exactly as `ceremonyRow`/`bouquetRow` do.
+    // The 🔑 risk this carries is the WHITE: four of the forty seeded figures
+    // had a range whose tolerance also swallowed their own opaque background
+    // rect, so the gown AND the page behind it turned burgundy (measured: 100%
+    // of the outer frame). Fixed in the DATA by migration 20271205919528, never
+    // by an override here, and pinned by
+    // `_components/the-background-never-wears-the-palette.test.ts`.
+    regions: figureBySubtype[d.subtype]!.regions,
     portrait: true,
   }));
 
+  // MB23 retired every `internet_placeholder` venue scene, which left this
+  // empty and the Ceremony card ABSENT — the correct end state for a card whose
+  // asset was a random stock photograph of a church, shown to the couple as
+  // their ceremony space "in their colors", but a temporary one.
+  //
+  // MB25 ends it. Migration 20271206413595 seeds the Ceremony DRAWING this
+  // comment was waiting for: our own Recraft V4.1 vector, app-served at
+  // `/moodboard-seed/venue_scene/church/ceremony-aisle.svg`, with TWO tagged
+  // regions — slot 1 the florals (#D98BA6 ± 10), slot 2 the fabric
+  // (#E8D9B5 ± 5). It is the first two-slot asset in the library, so
+  // `paletteColors: palette.ceremony` now spends the couple's first TWO
+  // ceremony colours rather than one. Nothing here changed to make that work;
+  // the card was always built to. Pinned by
+  // `_components/the-background-never-wears-the-palette.test.ts`.
+  //
+  // MB28 makes it NINE drawings — one per `events.ceremony_venue_setting` —
+  // seeded by migration 20271208519468 and chosen above. ⚠ EIGHT OF THE NINE
+  // HAVE TWO SLOTS; THE BEACH HAS ONE. Its arch is driftwood, 3.5 from the
+  // fabric slot in the recolour engine's metric, and `tolerance_de` is CHECKed
+  // at a minimum of 5 — so no legal tolerance separates the drapes from the
+  // trees, and the fabric slot is deliberately unseeded rather than seeded
+  // wrong (MB23's precedent, applied to a slot instead of a whole asset). This
+  // block needs no branch for that: `toRegions` returns the one range and
+  // `moodboard-board.tsx` spends only the couple's first ceremony colour, the
+  // same as every one-slot asset in the library.
   const ceremonyCards: BoardCard[] = [];
-  if (churchRow) {
+  if (ceremonyRow) {
     ceremonyCards.push({
       key: 'venue-ceremony',
       label: 'Ceremony',
-      imageUrl: churchRow.storage_path,
+      imageUrl: ceremonyRow.storage_path,
       paletteColors: palette.ceremony ?? [],
-      regions: toRegions(churchRow.moodboard_asset_color_ranges),
+      regions: toRegions(ceremonyRow.moodboard_asset_color_ranges),
     });
   }
 
@@ -384,6 +795,7 @@ export default async function MoodBoardPage({ params }: Props) {
     { href: '#palette', label: 'Palette' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
+    { href: '#make-it-real', label: 'Make it real' },
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -422,81 +834,110 @@ export default async function MoodBoardPage({ params }: Props) {
           ))}
         </nav>
 
-        {/* Overall Theme — the card that opens the canvas — and the theme
-            gallery under it. They render exactly as before; the wrapper is a
-            client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
-            DESCRIPTION can travel from the card to the gallery (page.tsx is a
-            server component and cannot hold that state itself).
-
-            No `templates` prop — the gallery asks for its own rows, ~6 at a
-            time, only once the couple has answered both narrowing questions
-            (or the reader has answered them from their sentence). See the
-            comment on the Promise.all above for why. */}
-        <ThemeStudio
+        {/* 00 (Theme) through 02 (Palette) share one client boundary — MB5's
+            live 00 → 02 derivation. `<ThemeStudio>` (00) edits the majors via
+            `<MajorsEditor>`; `<PaletteSection>` (02) derives every other
+            role from them, live, on the palette-style engine. See
+            palette-board-context.tsx's docblock for why a provider (they are
+            SIBLINGS below, not parent/child) and for the one-directional
+            rule. Inspiration (01) sits between them, matching the
+            atelier-board.html reference's linear 00→01→02 order — it doesn't
+            read this state, so it's an ordinary (untouched) child. */}
+        <PaletteBoardProvider
           eventId={eventId}
-          initialName={
-            (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
-          }
-          initialDescription={
-            (event as { moodboard_theme_description?: string | null })
-              .moodboard_theme_description ?? null
-          }
-          palette={palette}
-          receptionDesign={receptionDesign}
-          saveThemeAction={saveMoodboardTheme}
-          readAction={readMoodboardThemeDescription}
-          applyIntentAction={applyThemeIntent}
-          fetchTemplatesAction={fetchThemeTemplates}
-          applyTemplateAction={applyMoodboardTemplate}
-        />
+          initial={initialPalette}
+          finalizations={finalizationRecords}
+          saveAction={saveRolePalette}
+        >
+          {/* Overall Theme — the card that opens the canvas — and the theme
+              gallery under it. They render exactly as before; the wrapper is a
+              client boundary so a feeling+setting READ OUT OF THE COUPLE'S OWN
+              DESCRIPTION can travel from the card to the gallery (page.tsx is a
+              server component and cannot hold that state itself).
 
-        {showChineseDefaultNote ? (
-          <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
-            We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
-            Chinese wedding. Tweak it to your taste, then{' '}
-            <span className="font-medium">Save palette</span> to keep it. Nothing is saved
-            until you do.
-          </p>
-        ) : null}
+              No `templates` prop — the gallery asks for its own rows, ~6 at a
+              time, only once the couple has answered both narrowing questions
+              (or the reader has answered them from their sentence). See the
+              comment on the Promise.all above for why. */}
+          <ThemeStudio
+            eventId={eventId}
+            initialName={
+              (event as { moodboard_theme_name?: string | null }).moodboard_theme_name ?? null
+            }
+            initialDescription={
+              (event as { moodboard_theme_description?: string | null })
+                .moodboard_theme_description ?? null
+            }
+            palette={palette}
+            receptionDesign={receptionDesign}
+            saveThemeAction={saveMoodboardTheme}
+            readAction={readMoodboardThemeDescription}
+            applyIntentAction={applyThemeIntent}
+            fetchTemplatesAction={fetchThemeTemplates}
+            applyTemplateAction={applyMoodboardTemplate}
+          />
 
-        {/* Inspiration + inline palette — presented side by side in the canvas
-            flow (was a separate tab). Reuses InspirationBoard/PaletteEditor's
-            logic/props unchanged; only the surrounding layout changed. */}
-        <div className="grid gap-6 lg:grid-cols-5">
-          <section id="inspiration" className="scroll-mt-24 space-y-4 lg:col-span-3">
-            <header>
-              <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+          <section id="inspiration" className="scroll-mt-24 space-y-4">
+            <header className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-2xl font-semibold text-ink">Your inspirations</h2>
+                <InfoButton label="About inspiration">
+                  Upload up to 3 photos per category — drag one onto another slot to reorder.
+                  We pull a matching palette colour from each upload automatically, and these
+                  references will make your photo-real render match your taste, not a generic
+                  wedding.
+                </InfoButton>
+              </div>
               <p className="max-w-prose text-sm text-ink/65">
-                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit. Drag a
-                photo onto another slot to reorder. We pull a palette from each, and these
-                references will make your photo-real render match your taste, not a generic
-                wedding.
+                Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.
               </p>
             </header>
-            <InspirationBoard eventId={eventId} initial={inspirations} />
+            <InspirationBoard
+              eventId={eventId}
+              initial={inspirations}
+              gallerySlots={GALLERY_SLOT_KEYS}
+              fetchGalleryAction={fetchGalleryAssets}
+              applyGalleryAction={applyGalleryPick}
+              fetchRenderPoolAction={fetchRenderPool}
+              applyRenderPickAction={applyRenderPick}
+            />
           </section>
 
-          <section id="palette" className="scroll-mt-24 space-y-4 lg:col-span-2">
+          <section id="palette" className="scroll-mt-24 space-y-4">
             <header>
               <h2 className="text-2xl font-semibold text-ink">Palette</h2>
               <p className="text-sm text-ink/65">
-                Set each role&rsquo;s colors — the rest of the board follows.
+                Derived live from your main colours above — change a role to make it yours.
               </p>
             </header>
-            {/* For the Chinese default we surface our own accurate red & gold
-                note above, so we suppress the editor's generic "from your
-                wedding feel" hint (seeded -> false) to avoid a duplicate,
-                inaccurate message. Non-Chinese events keep seeded={isSeeded}
-                exactly as before — byte-identical. */}
-            <PaletteEditor
-              eventId={eventId}
-              initial={initialPalette}
-              seeded={isSeeded && !showChineseDefaultNote}
-              visibleKeys={Array.from(visibleKeys)}
-              saveAction={saveRolePalette}
-            />
+            <PaletteSection visibleKeys={Array.from(visibleKeys)} venueLabel={venueLabel} />
+
+            {/* MB12 — sign-off, per attire role. Sits under the editor rather
+                than inside it: the palette is what the couple DESIGNS, and this
+                is what they AGREE with a supplier. A part that has been agreed
+                stops following the main colours above, which is why the two
+                have to be visible together. */}
+            <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+              <header className="space-y-0.5">
+                <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+                <p className="max-w-prose text-xs text-ink/60">
+                  Ask the supplier who will make it to sign off on a look. Once they agree, that
+                  part stops changing when you edit your main colours — and it takes both of you
+                  to re-open it.
+                </p>
+              </header>
+              <PartFinalizationPanel
+                parts={peopleFinalizationParts}
+                records={finalizationRecords}
+                requestAction={requestPartFinalization.bind(null, eventId)}
+                cancelAction={cancelPartFinalization.bind(null, eventId)}
+                reopenAction={requestPartReopen.bind(null, eventId)}
+                cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+                emptyHint="Add your entourage to the guest list and their looks will appear here."
+              />
+            </div>
           </section>
-        </div>
+        </PaletteBoardProvider>
 
         <section id="reception" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header>
@@ -522,6 +963,26 @@ export default async function MoodBoardPage({ params }: Props) {
               Edit in Seat Plan →
             </Link>
           </div>
+
+          {/* MB12 — the same handshake, for the room and the things in it. */}
+          <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-4">
+            <header className="space-y-0.5">
+              <h3 className="text-base font-medium text-ink">Agreed with your supplier</h3>
+              <p className="max-w-prose text-xs text-ink/60">
+                Ask the stylist, florist or venue who will build it to sign off. Nothing is
+                settled until they say yes, and re-opening it takes both of you.
+              </p>
+            </header>
+            <PartFinalizationPanel
+              parts={roomFinalizationParts}
+              records={finalizationRecords}
+              requestAction={requestPartFinalization.bind(null, eventId)}
+              cancelAction={cancelPartFinalization.bind(null, eventId)}
+              reopenAction={requestPartReopen.bind(null, eventId)}
+              cancelReopenAction={cancelPartReopen.bind(null, eventId)}
+              emptyHint="Design your reception in the Seat Plan and its parts will appear here."
+            />
+          </div>
         </section>
 
         {/* "In your colors" — moved down + shrunk (2026-09-03): kept as a
@@ -538,6 +999,22 @@ export default async function MoodBoardPage({ params }: Props) {
           </header>
           <MoodboardBoard sections={sections} compact />
         </section>
+
+        <MakeItReal
+          eventId={eventId}
+          eligibleParts={eligibleRenderParts}
+          palette={palette}
+          receptionDesign={receptionDesign}
+          inspirationPresence={inspirationPresence}
+          venueSetting={venueSetting}
+          venueLabel={venueLabel}
+          config={moodboardRenderConfig}
+          balance={moodboardRenderBalance}
+          packPlan={moodboardRenderPackPlan}
+          checkoutSettings={platformSettings}
+          renders={moodboardRenders}
+          shareConsented={shareConsented}
+        />
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <header className="space-y-1">

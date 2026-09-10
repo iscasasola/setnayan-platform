@@ -187,6 +187,7 @@ export async function GET() {
     samahanMessagesRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
+    papicFreeGrantClaimsRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -195,6 +196,10 @@ export async function GET() {
     eventRemovalReasonsRes,
     eventClustersRes,
     ownCostsRes,
+    ownRendersRes,
+    ownShareConsentsRes,
+    ownColourGrantsRes,
+    ownColourChangesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -412,6 +417,17 @@ export async function GET() {
       )
       .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-06) — the subject's ONE free-Papic-pool claim
+    // (migration 20271208142357). A fact held about THIS account and nobody
+    // else: that its one free 50-credit grant has been used, and on which
+    // event. Strictly 1:1 with the subject (PRIMARY KEY on user_id), so there
+    // is no counterparty whose data this could also be. Exported rather than
+    // excluded because a person asking what we hold about them is entitled to
+    // the row that decides whether their next celebration starts with credits.
+    supabase
+      .from('papic_free_grant_claims')
+      .select('user_id, event_id, claimed_at')
+      .eq('user_id', user.id),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -557,6 +573,76 @@ export async function GET() {
       .select('cost_id, event_id, plan_group_id, label, amount_php, paid_php, due_date, note, created_at')
       .eq('created_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-03) — the "Make it real" renders the subject REQUESTED
+    // (MB2, migration 20271200273322). A render is an activity record about the
+    // person who asked for it and spent the credit, so it is theirs to see.
+    //
+    // AUTHOR-scoped for the same reason `event_costs` is: a mood board is
+    // jointly authored, and an event-scoped read would hand this subject the
+    // other partner's renders — a third-party disclosure this route must never
+    // commit.
+    //
+    // `prompt` and `design_snapshot` are DELIBERATELY OMITTED. Neither is
+    // personal data about the subject: one is the machine brief assembled from
+    // the shared board, the other is the board itself, and both belong to the
+    // event rather than to whoever pressed the button. `note` IS included —
+    // that is the subject's own words.
+    supabase
+      .from('event_renders')
+      .select('render_id, event_id, part_id, image_key, note, credits_debited, created_at, completed_at')
+      .eq('created_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (MB8) — the share-consent decisions this subject PERSONALLY made.
+    //
+    // The consent belongs to the EVENT, but the ACT of giving it is this
+    // person's: they were offered a bonus render in exchange for allowing
+    // their creations to be featured, and they answered. That answer, and when
+    // they gave or withdrew it, is exactly the kind of thing a data subject is
+    // entitled to see — and it is the only reason the table carries a uuid at
+    // all.
+    //
+    // AUTHOR-scoped, like `event_renders` above and for the same reason: an
+    // event-scoped read would disclose a consent the OTHER partner gave.
+    supabase
+      .from('event_render_share_consent')
+      .select('event_id, consented, consented_at, withdrawn_at, updated_at')
+      .eq('consented_by_user_id', user.id)
+      .order('updated_at', { ascending: true }),
+    // RA 10173 (MB16) — the standing colour access this subject HOLDS.
+    //
+    // A fact about THEM, not about the event: it says what this person, by
+    // name, may change on somebody else's Mood Board, and it persists until
+    // the couple turns it off or removes them. Somebody asking what we hold
+    // about them is entitled to see a live capability attached to their
+    // account.
+    //
+    // SUBJECT-scoped on `user_id`, not on `granted_by_user_id`: the granter is
+    // the couple, and exporting by that column would hand one partner a list
+    // of permissions the other partner gave. The vendor half
+    // (`event_colour_grants`) is deliberately NOT here — see its
+    // DELIBERATE_EXCLUSIONS entry in export-coverage-guardrail.test.ts.
+    supabase
+      .from('event_colour_grants_coordinator')
+      .select('event_id, domain, is_active, granted_at, revoked_at, updated_at')
+      .eq('user_id', user.id)
+      .order('granted_at', { ascending: true }),
+    // RA 10173 (MB16) — the colours this subject CHANGED on somebody's board.
+    //
+    // Their own activity record, and the only one of the three MB16 tables
+    // that is unambiguously about the actor. AUTHOR-scoped for the same reason
+    // `event_renders` above is: an event-scoped read would disclose what the
+    // OTHER holders on that board did.
+    //
+    // `reverted_at` is included because it is part of the same fact — "I made
+    // this change and the couple put it back" is the record, and giving them
+    // half of it would be a more misleading answer than giving them none.
+    supabase
+      .from('event_colour_changes')
+      .select(
+        'change_id, event_id, domain, target_kind, target_key, target_index, old_value, new_value, created_at, reverted_at',
+      )
+      .eq('actor_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -586,6 +672,7 @@ export async function GET() {
   const samahanMessages = listOutcome('samahan_messages', samahanMessagesRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
+  const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
@@ -605,6 +692,10 @@ export async function GET() {
   );
   const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
   const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
+  const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
+  const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
+  const ownColourGrants = listOutcome('own_colour_access_held', ownColourGrantsRes);
+  const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -674,6 +765,9 @@ export async function GET() {
     dayRequests,
     accessRequests,
     ownCosts,
+    ownRenders,
+    ownColourGrants,
+    ownColourChanges,
   ]);
 
   const exported = {
@@ -744,6 +838,7 @@ export async function GET() {
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
     coordinator_access_consents: coordinatorConsents.rows,
     marketing_share_consents: marketingShareConsents.rows,
+    papic_free_grant_claims: papicFreeGrantClaims.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
@@ -760,6 +855,18 @@ export async function GET() {
     // The costs the subject recorded themselves — author-scoped, so a shared
     // wedding budget never hands one partner the other's entries.
     own_costs_recorded: ownCosts.rows,
+    // The mood-board renders the subject asked for, author-scoped. The prompt
+    // and the design snapshot are the shared board's, not this person's.
+    own_renders_requested: ownRenders.rows,
+    // The "let Setnayan feature your creation" answers this subject gave, with
+    // the dates they gave or withdrew them. See the read above.
+    own_share_consents_given: ownShareConsents.rows,
+    // The standing colour access this subject HOLDS on other people's mood
+    // boards — a live capability attached to their account, subject-scoped.
+    own_colour_access_held: ownColourGrants.rows,
+    // The colours this subject changed under that access, and whether the
+    // couple put each one back. Author-scoped.
+    own_colour_changes_made: ownColourChanges.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     not_included: [

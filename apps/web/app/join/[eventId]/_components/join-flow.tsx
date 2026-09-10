@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
 import { JoinShell } from './join-shell';
-import { ROLE_LABELS } from '@/lib/guests';
+import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { eventWordsForEvent, type EventWords } from '@/app/[slug]/_lib/event-words';
+import { arrivalSteps, inviteReplyPath } from '@/lib/invite-arrival';
 
 /**
  * The refusal sentences, resolved from the event's OWN word for whoever is
@@ -59,11 +59,14 @@ export async function JoinFlow({
   token,
   errorKey,
   returnPath,
+  skin,
 }: {
   event: JoinFlowEvent;
   token: string;
   errorKey: string | null;
   returnPath: string;
+  /** The invite link's theme skin, from `/[slug]/invite`. The opaque /join URL passes none. */
+  skin?: DoorSkin;
 }) {
   const eventId = event.event_id;
   // JoinShell wants a non-null display_name; coerce once (renders nothing if blank).
@@ -73,8 +76,13 @@ export async function JoinFlow({
     event_date_precision: event.event_date_precision,
     venue_name: event.venue_name,
   };
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  // One resolve covers all nine sentences below, the SIGNED-OUT arm included.
+  // 🔒 NO ROLE IS OFFERED ON THIS DOOR (owner-locked 2026-06-25, built
+  // 2026-09-10): role is the HOST's field. A matched guest inherits the role the
+  // couple assigned; an unlisted one joins as `guest` and the couple refines it.
+  // The 18-role picker shipped five days BEFORE that lock (e567da125, 06-20) and
+  // was never taken down — a stranger could self-assign "Principal Sponsor".
+  //
+  // One resolve covers all eight sentences below, the SIGNED-OUT arm included.
   // This component is already an async server component holding the event id,
   // so no prop, no default and no call-site change is needed.
   //
@@ -108,18 +116,23 @@ export async function JoinFlow({
   if (!user) {
     const slug = event.slug ?? null;
     if (slug) {
-      // Already self-joined on this device → skip the form, go to the page.
+      // Already self-joined on this device → skip Name, straight to Reply: the
+      // invite link is "where they will register and update their guest
+      // profile" (owner 2026-09-10), so re-opening it means their details.
       const session = await readGuestSession();
       if (session && session.event_id === eventId) {
-        redirect(`/${slug}`);
+        redirect(inviteReplyPath(slug));
       }
       const selfAction = selfJoinAction.bind(null, eventId, token);
       return (
-        <JoinShell event={shellEvent}>
+        <JoinShell event={shellEvent} steps={arrivalSteps('name')} skin={skin}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
+          {/* DOOR 01 · NAME — one field, one action (the invite arrival,
+              lib/invite-arrival.ts). The email and "Sign in" moved to Reply,
+              where an account is the subject; the role picker is gone. */}
           <p className="text-base text-ink/70">
-            Add yourself to {event.display_name ? <span className="font-medium text-ink">{event.display_name}</span> : 'this event'} — just your
-            name, no account needed.
+            Tell us your name so {w.theOrganizer} can find you on their guest list — no
+            account needed.
           </p>
           <form action={selfAction} className="mt-6 space-y-4">
             <div className="space-y-1.5">
@@ -139,72 +152,16 @@ export async function JoinFlow({
                 Use the name {w.theOrganizer} would have on their list.
               </p>
             </div>
-            <div className="space-y-1.5">
-              <span className="block text-sm font-medium text-ink">Your role</span>
-              <p className="text-sm text-ink/70">
-                You&rsquo;re joining as a <span className="font-medium text-ink">Guest</span> — right for
-                almost everyone.
-              </p>
-              {/* The 18 ceremonial roles tuck behind a disclosure so Guest is one
-                  tap; the hidden select still submits its default "guest" when
-                  the details stay collapsed. */}
-              <details className="group">
-                <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-link underline-offset-2 hover:underline">
-                  My role is special — sponsor, bearer, entourage…
-                </summary>
-                <select
-                  name="role"
-                  required
-                  defaultValue="guest"
-                  className="input-field mt-2"
-                  aria-label="Your role"
-                >
-                  {roleSet.selfClaimableRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-ink/55">{w.TheOrganizer} can refine it later.</p>
-              </details>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-ink">
-                Email <span className="font-normal text-ink/50">(optional)</span>
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@email.com"
-                autoComplete="email"
-                className="input-field"
-              />
-              <p className="text-sm text-ink/70">
-                Add it and we&rsquo;ll email you a sign-in link, so you can open this event on
-                any device — no password needed.
-              </p>
-            </div>
-            <SubmitButton className="button-primary w-full" pendingLabel="Adding you…">
-              Add me to the guest list
+            <SubmitButton className="button-primary w-full" pendingLabel="Finding you…">
+              Continue
             </SubmitButton>
           </form>
-          <p className="mt-4 text-sm text-ink/60">
-            Have an account?{' '}
-            <Link
-              className="font-medium text-link underline-offset-2 hover:underline"
-              href={loginHref}
-            >
-              Sign in
-            </Link>{' '}
-            instead.
-          </p>
         </JoinShell>
       );
     }
     // No public page yet → fall back to the account wall.
     return (
-      <JoinShell event={shellEvent}>
+      <JoinShell event={shellEvent} skin={skin}>
         <p className="text-base text-ink/70">
           Sign in or create an account to add yourself to this event.
         </p>
@@ -236,8 +193,9 @@ export async function JoinFlow({
     redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }
 
-  // Show name + role picker. Pre-fill the name from their account so the
-  // couple's guest list can be matched against it (no public search field).
+  // Show the name field — no role, see the lock above. Pre-fill the name from
+  // their account so the couple's guest list can be matched against it (no
+  // public search field).
   const metaFirst = (user.user_metadata?.first_name as string | undefined) ?? '';
   const metaLast = (user.user_metadata?.last_name as string | undefined) ?? '';
   const defaultName =
@@ -249,7 +207,7 @@ export async function JoinFlow({
   const action = joinEventAction.bind(null, eventId, token);
 
   return (
-    <JoinShell event={shellEvent}>
+    <JoinShell event={shellEvent} skin={skin}>
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
 
       <p className="text-base text-ink/70">
@@ -280,32 +238,6 @@ export async function JoinFlow({
           <p className="text-sm text-ink/70">
             Use the name {w.theOrganizer} would have on their list.
           </p>
-        </div>
-        <div className="space-y-1.5">
-          <span className="block text-sm font-medium text-ink">Your role</span>
-          <p className="text-sm text-ink/70">
-            You&rsquo;re joining as a <span className="font-medium text-ink">Guest</span> — right for
-            almost everyone.
-          </p>
-          <details className="group">
-            <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-link underline-offset-2 hover:underline">
-              My role is special — sponsor, bearer, entourage…
-            </summary>
-            <select
-              name="role"
-              required
-              defaultValue="guest"
-              className="input-field mt-2"
-              aria-label="Your role"
-            >
-              {roleSet.selfClaimableRoles.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-ink/55">{w.TheOrganizer} can refine it later.</p>
-          </details>
         </div>
         <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Checking…">
           Continue

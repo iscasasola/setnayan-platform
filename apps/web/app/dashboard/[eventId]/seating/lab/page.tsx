@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
@@ -51,10 +52,19 @@ import {
   resolveAttirePaletteColor,
   sideAttireColor,
 } from '@/lib/mood-board';
+import { resolveDisplayPalette } from '@/lib/room-palette';
+import {
+  finalizedPartsNow,
+  type PartFinalizationRecord,
+} from '@/lib/moodboard-finalization-rows';
+import { renderPartById } from '@/lib/moodboard-render-parts';
+import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { bookedZoneCandidates } from '@/lib/reception-booked-suggestions';
+import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
+import type { BookedSupplier } from '@/lib/moodboard-finalization';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
-import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
-import { Couple3dPlanBuy } from './_components/couple-3d-plan-buy';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
@@ -78,14 +88,16 @@ export default async function SeatingLabPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet] = await Promise.all([
+  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
     fetchSceneObjects(supabase, eventId),
-    fetchBooths(supabase, eventId),
+    // brandedReader: the per-event branding RPC is service_role-only; the
+    // couple's session would be refused and every booth would draw generic.
+    fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
     fetchSigns(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
@@ -95,12 +107,41 @@ export default async function SeatingLabPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
     // Iteration 0053 P4 Unit 6: per-event-type role set for the 3D tier annotation.
     resolveRoleSetForEvent(eventId),
+    // MB15 — the finalization handshakes on this board. The Reception Designer
+    // below is the ONE editor of `events.reception_design`, so a part a supplier
+    // agreed to has to stop moving HERE, not only on the mood board's panel. Read
+    // with the same columns and the same shape the mood board reads, so both
+    // surfaces answer "is this frozen" through `isPartFinalized` and there is one
+    // predicate rather than two.
+    supabase
+      .from('moodboard_part_finalizations')
+      .select('finalization_id, part_id, vendor_id, state, agreed_at')
+      .eq('event_id', eventId),
+    // Supplier NAMES for the label. Deliberately unfiltered by status: an agreed
+    // row records who agreed, and a booking whose status later changed does not
+    // un-say it — showing "Agreed with your supplier" with no name would be a
+    // worse answer than the name on the row.
+    supabase.from('event_vendors').select('vendor_id, vendor_name').eq('event_id', eventId),
+    // RV2 — the couple's CONFIRMED bookings and the shop behind each one.
+    //
+    // 🔑 THE SAME SELECT THE FINALIZATION PANEL USES, deliberately character for
+    // character (`studio/mood-board/page.tsx`): the same table, the same
+    // embedded `vendor_profiles ( services )`, the same
+    // `CONFIRMED_VENDOR_STATUSES` filter. Two surfaces answering "which
+    // suppliers has this couple booked" from two different queries drift the
+    // first time a status is added, and the drift is INVISIBLE — the shorter
+    // list simply reads as "you have not booked anybody who does this".
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
 
   // Tables created but never dragged onto the spatial canvas have null
@@ -144,9 +185,109 @@ export default async function SeatingLabPage({ params }: Props) {
   // intent (mood-board.test.ts "wedding_party-only dresses gowns AND suits
   // identically"), NOT the old suit bucket.
   const rolePalette = sanitizeRolePalette((eventRow.data as Record<string, unknown> | null)?.role_palette);
+  // MB15 — THE PALETTE SECTION 02 ACTUALLY SHOWS. `rolePalette` is the raw
+  // JSONB, where a role the couple never hand-edited is simply ABSENT: the
+  // attire chain then fell through to `wedding_party`, then to the bride/groom
+  // side colour, and dressed a bridesmaid in a colour the board never displayed.
+  // 02 renders those roles from the derived board; the room now reads the same
+  // resolver, so the two surfaces cannot disagree. See lib/room-palette.ts.
+  const displayPalette = resolveDisplayPalette(rolePalette);
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
+
+  // The couple's own inspiration photos, keyed by the design part they belong
+  // to. Uploaded during onboarding and on the mood board, and until now read by
+  // no 3D surface at all: they picked a ceiling they loved, then chose a
+  // ceiling treatment on another screen with the photo nowhere in sight.
+  //
+  // Only the FIVE parts that have a slot appear here (see
+  // INSPIRATION_SLOT_FOR_PART) — a part with no slot gets no entry rather than
+  // an unrelated photo. RLS scopes the read to this event.
+  //
+  // ⚠ `removed_at IS NULL` IS NOT OPTIONAL, AND THIS READ SHIPPED WITHOUT IT.
+  // Every upload path replaces a cell by SOFT-DELETING the row that held it
+  // (the partial UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS
+  // NULL requires it), so an unfiltered read returns the photo the couple
+  // REPLACED alongside the one they replaced it with — and the zone strip below
+  // showed both, with nothing saying which was current. The mood board's own
+  // read (studio/mood-board/page.tsx) has always filtered; this one did not.
+  const inspirationRows = await supabase
+    .from('event_inspiration_assets')
+    .select('slot_key, slot_position, image_url')
+    .eq('event_id', eventId)
+    .is('removed_at', null)
+    .order('slot_position', { ascending: true });
+  const inspirationByPart: Record<string, string[]> = {};
+  for (const [partId, slotKey] of Object.entries(INSPIRATION_SLOT_FOR_PART)) {
+    const urls = (inspirationRows.data ?? [])
+      .filter((r) => (r as { slot_key?: string }).slot_key === slotKey)
+      .map((r) => (r as { image_url?: string }).image_url)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0);
+    if (urls.length > 0) inspirationByPart[partId] = urls;
+  }
+  // ── MB15 · A PART THE SUPPLIER AGREED TO STOPS MOVING HERE TOO ───────────
+  // The mood board's section 03 shows the handshake and links here to EDIT the
+  // design. Until now the editor it links to knew nothing about it: a couple
+  // could re-dress a ceiling their stylist had already signed off, in the only
+  // place `reception_design` is edited, and neither surface would say a word.
+  //
+  // 🔑 ONE PREDICATE. `finalizedPartsNow` reads `isPartFinalized` — the same
+  // function section 02/03's panel reads through `partFinalizationStateOf`.
+  // Resolved to RECEPTION part ids here, on the server, through the registry:
+  // `renderPartById` composes MB10's trade map on the way in, and a client
+  // component that imported it would fail the production build.
+  const vendorNameById = new Map<string, string>();
+  for (const v of vendorNameRes.data ?? []) {
+    const name = ((v as { vendor_name: string | null }).vendor_name ?? '').trim();
+    if (name) vendorNameById.set((v as { vendor_id: string }).vendor_id, name);
+  }
+  const finalizedByPart: Record<string, { vendorName: string | null; agreedAt: string | null }> = {};
+  for (const [partId, who] of finalizedPartsNow(
+    (finalizationRes.data ?? []) as unknown as PartFinalizationRecord[],
+    vendorNameById,
+  )) {
+    const part = renderPartById(partId);
+    // Only ROOM parts have a reception zone to freeze. A `people:` or `place:`
+    // agreement freezes colours, which `role_palette` already carries — it has
+    // no design chip in this editor and must not silently claim one.
+    if (!part || part.group !== 'room') continue;
+    finalizedByPart[part.sourceKey] = who;
+  }
+
+  // ── RV2 · WHAT THEY BOOKED, OFFERED TO THE ZONE IT BELONGS TO ───────────
+  // Owner ruling 2026-09-06 (Q9): a booked supplier makes their zone SUGGEST
+  // their trade; one click makes it the couple's. Nothing here writes anything
+  // — `bookedZoneCandidates` cannot produce a `ReceptionDesign` (it does not
+  // import one), and `receptionDesign` above is read from the database and
+  // handed on untouched.
+  //
+  // The shop's `services[]` decides the match, so the embedded one-to-one is
+  // normalised rather than cast — Supabase types it as an object or an array
+  // depending on the inferred relationship, and a wrong guess yields an EMPTY
+  // services list, which reads as "this shop does not work in that trade" and
+  // silently hides every chip. Same normalisation, same reason, as the
+  // finalization panel's own read.
+  const bookedSuppliers: BookedSupplier[] = (bookedSupplierRes.data ?? []).map((r) => {
+    const raw = (r as { shop?: unknown }).shop;
+    const shop = Array.isArray(raw) ? raw[0] : raw;
+    return {
+      vendorId: (r as { vendor_id: string }).vendor_id,
+      name: ((r as { vendor_name: string | null }).vendor_name ?? '').trim() || 'your supplier',
+      services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(Boolean),
+    };
+  });
+  const dismissedSuggestions = sanitizeDismissedSuggestions(
+    (eventRow.data as Record<string, unknown> | null)?.dismissed_room_suggestions,
+  );
+
+  // MB15 — THE COUPLE'S OWN NAME FOR THIS ROOM. `events.moodboard_theme_name`
+  // is what they typed on the mood board ("Coastal Dusk"); the lab has always
+  // labelled the room from `display_name` or from nothing at all. Trimmed to
+  // null so an empty string never renders as a blank heading.
+  const themeName =
+    ((eventRow.data as { moodboard_theme_name?: string | null } | null)?.moodboard_theme_name ?? '').trim() ||
+    null;
   const venueSettingRaw = (eventRow.data as Record<string, unknown> | null)?.venue_setting;
   const venueSetting = typeof venueSettingRaw === 'string' && venueSettingRaw ? venueSettingRaw : 'banquet_hall';
   // WHICH theme family produced this board (events.moodboard_style_family,
@@ -188,7 +329,7 @@ export default async function SeatingLabPage({ params }: Props) {
       attireColor:
         attire === 'neutral'
           ? null
-          : resolveAttirePaletteColor(g.role, rolePalette, sideAttireColor(rolePalette, g.side)),
+          : resolveAttirePaletteColor(g.role, displayPalette, sideAttireColor(displayPalette, g.side)),
       // LAB-ONLY meal emote source (Fable §3.6): meal_preference already rides
       // the couple-scoped fetchGuestsByEvent select (RLS scopes it to this
       // member's event, same as every guest field above) — boil it to a
@@ -359,16 +500,10 @@ export default async function SeatingLabPage({ params }: Props) {
 
   return (
     <section className="relative space-y-3">
-      {/* Couple-facing acknowledgement: "your 3D Plan upgrade was unlocked by
-          <vendor>" when a booked vendor with an active 3D Booth add-on unlocked
-          the discounted 3D Plan. Renders null when there's no vendor unlock. */}
-      <Couple3dPlanUnlockNotice eventId={eventId} />
-
-      {/* The live "Add the 3D Plan" buy CTA — flows through the same apply-then-pay
-          SEATING_3D checkout every couple SKU uses. Priced ₱1,000 when a vendor
-          unlocked it (see notice above), else ₱2,999. Renders an owned/pending/
-          unlocked state instead of a duplicate button when already purchased. */}
-      <Couple3dPlanBuy eventId={eventId} />
+      {/* No buy card. The 3D Plan is FREE for couples (owner 2026-09-05 —
+          SEATING_3D sits in FREE_FOR_ALL_SKUS). The card that stood here sold a
+          lock that was never on the door: nothing in the RPC, the route, publish
+          or this page ever checked the purchase. */}
 
       {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
           stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
@@ -382,6 +517,11 @@ export default async function SeatingLabPage({ params }: Props) {
         guests={guests}
         rolePalette={rolePalette}
         receptionDesign={receptionDesign}
+        inspirationByPart={inspirationByPart}
+        finalizedByPart={finalizedByPart}
+        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting)}
+        dismissedSuggestions={dismissedSuggestions}
+        themeName={themeName}
         styleFamily={styleFamily}
         venueSetting={venueSetting}
         monogram={monogram}

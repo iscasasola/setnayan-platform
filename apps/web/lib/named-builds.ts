@@ -96,7 +96,29 @@ export function sortSavedBuilds<T extends NamedBuildRow>(rows: ReadonlyArray<T>)
  *   • overwriteBuildId set & found → `{ mode: 'overwrite', buildId, title }`.
  *   • overwriteBuildId set but not found (stale UI) → fail-soft to create-new so
  *     a save is never silently dropped.
+ *   • NO target, but the typed name already belongs to a named build → overwrite
+ *     THAT build (owner ruling 2026-09-06: *"it should not be allowed. it should
+ *     overwrite the plan"*). Before this, `existing` was fetched and passed in but
+ *     only ever read to resolve an explicit id — the name was never compared
+ *     against it, so saving "Plan B" twice silently produced two rows both
+ *     titled "Plan B". Compare then rendered two indistinguishable columns and
+ *     Load picked by build_id, i.e. by a value the couple cannot see.
  *   • otherwise → `{ mode: 'create', title }` (a brand-new named build).
+ *
+ * Matching rules, each one load-bearing:
+ *   • Case- and whitespace-insensitive, because both sides run through
+ *     `normalizeBuildTitle` first: "garden classic" re-saves over "Garden
+ *     Classic". A couple retyping a name means the same plan; making them match
+ *     capitalization to overwrite is the bug wearing a different hat.
+ *   • A BLANK name never matches. It normalizes to null, meaning "auto-title
+ *     me" — two untitled builds are legitimately different ("Build 1", "Build
+ *     2"), so a null title always creates.
+ *   • Legacy A/B/C rows (`label !== null`) are never matched. They are fixed
+ *     slots, not named builds; typing "Plan A" must not silently overwrite the
+ *     historical A column.
+ *   • If the event already holds duplicates from before this fix, the match is
+ *     deterministic — `sortSavedBuilds` order, first row — so the same name
+ *     always resolves to the same build instead of drifting with row order.
  *
  * `title` is the normalized name (may be null → caller uses the auto title).
  */
@@ -114,5 +136,16 @@ export function planSaveAs(args: {
     ? args.existing.find((r) => r.build_id === args.overwriteBuildId)
     : undefined;
   if (target) return { mode: 'overwrite', buildId: target.build_id, title };
+
+  // No explicit target: a name that already exists overwrites its own build.
+  // Sorted first so a pre-existing duplicate resolves the same way every time.
+  if (title !== null) {
+    const key = title.toLocaleLowerCase();
+    const byName = sortSavedBuilds(args.existing).find(
+      (r) => r.label === null && normalizeBuildTitle(r.title)?.toLocaleLowerCase() === key,
+    );
+    if (byName) return { mode: 'overwrite', buildId: byName.build_id, title };
+  }
+
   return { mode: 'create', title };
 }

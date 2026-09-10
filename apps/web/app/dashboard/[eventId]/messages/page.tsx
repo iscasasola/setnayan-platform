@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { MessageSquare, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -11,8 +10,6 @@ import {
   ThreadListAvatar,
 } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
-import { FollowGate } from '@/app/_components/follow-gate';
-import { isFollowingVendor } from '@/lib/follow';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
@@ -22,15 +19,9 @@ export const metadata = { title: 'Messages' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  // `next_action` + `vendor_profile_id` are populated by `startThreadByVendorEmail`
-  // when the couple hits the iteration 0019 follow gate (anti-spam: must follow
-  // a vendor before opening a new thread). They drive the inline <FollowGate>
-  // mount below — see CLAUDE.md 2026-05-14 row 4 + 2026-05-19 row 10.
   searchParams: Promise<{
     error?: string;
     prefill_vendor_email?: string;
-    next_action?: string;
-    vendor_profile_id?: string;
   }>;
 };
 
@@ -42,72 +33,6 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const supabase = await createClient();
 
   const threads = await fetchCoupleThreads(supabase, eventId);
-
-  // Follow-gate recovery state — when `startThreadByVendorEmail` redirected us
-  // back here with `?next_action=follow&vendor_profile_id=<UUID>`, resolve the
-  // vendor's business name + contact email so the inline <FollowGate> can show
-  // brand-voice copy + arm the prefilled Message button. The follow-state
-  // re-check covers the race where the couple followed via another tab
-  // between the redirect and this render — in that case skip the gate UI.
-  // WHY: iteration 0019 follow gate is anti-spam (couples must follow before
-  // opening a new thread). The server action correctly redirects with
-  // `next_action=follow` + `vendor_profile_id` params, but this page wasn't
-  // consuming them — couple was stranded with only the generic error toast.
-  // Cross-ref CLAUDE.md 2026-05-14 row 4 + 2026-05-19 row 10 +
-  // System_Wiring_Map_2026-05-28 RED #1.
-  const showFollowGate =
-    search.next_action === 'follow' && typeof search.vendor_profile_id === 'string' && search.vendor_profile_id.length > 0;
-  let followGateVendor: { name: string; email: string | null; alreadyFollowing: boolean } | null = null;
-  if (showFollowGate && search.vendor_profile_id) {
-    // Anonymity surface fields per CLAUDE.md 2026-05-30 row — couples on
-    // the follow-gate surface see the same Free/Verified screen_name OR
-    // revealed business_name the rest of the marketplace + microsite
-    // surfaces show. Resolution via `resolveVendorDisplayName` keeps the
-    // gate copy in lock-step with VendorCard + /v/[slug].
-    const { data: vendor, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select(
-        'business_name, contact_email, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
-      )
-      .eq('vendor_profile_id', search.vendor_profile_id)
-      .maybeSingle();
-    if (vendorError) {
-      logQueryError(
-        'CoupleMessagesPage.followGateVendor',
-        vendorError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-    }
-    if (vendor) {
-      let alreadyFollowing = false;
-      try {
-        alreadyFollowing = await isFollowingVendor(supabase, user.id, search.vendor_profile_id);
-      } catch {
-        // Graceful degrade: treat lookup failure as not-following so the
-        // gate still surfaces — better to show a redundant Follow button
-        // than to silently swallow the recovery path.
-        alreadyFollowing = false;
-      }
-      const displayName = resolveVendorDisplayName({
-        business_name: vendor.business_name ?? null,
-        name_revealed_at: vendor.name_revealed_at ?? null,
-        services: vendor.services ?? null,
-        screen_name: vendor.screen_name ?? null,
-        // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
-        // lock: a VERIFIED vendor's name is never gated (any tier).
-        isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
-        is_verified: vendor.verification_state === 'verified',
-        primary_canonical_service: vendor.services?.[0] ?? null,
-        location_city: vendor.location_city ?? null,
-      });
-      followGateVendor = {
-        name: displayName.length > 0 ? displayName : 'this vendor',
-        email: vendor.contact_email ?? null,
-        alreadyFollowing,
-      };
-    }
-  }
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
   // deletes nothing — it just moves a thread out of the active list into the
@@ -218,33 +143,6 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         </p>
       ) : null}
 
-      {showFollowGate && followGateVendor && search.vendor_profile_id ? (
-        <section
-          aria-labelledby="follow-gate-heading"
-          className="sn-tile space-y-3 p-5"
-        >
-          <div className="space-y-1">
-            <h2 id="follow-gate-heading" className="sn-eye">
-              Follow first, then chat
-            </h2>
-            <p className="text-sm text-ink/80">
-              Follow{' '}
-              <span className="font-semibold text-ink">{followGateVendor.name}</span>{' '}
-              first to start a thread. You&rsquo;ll be able to message them right after.
-            </p>
-          </div>
-          <FollowGate
-            vendorProfileId={search.vendor_profile_id}
-            vendorName={followGateVendor.name}
-            vendorEmail={followGateVendor.email}
-            isAuthenticated={true}
-            initialFollowing={followGateVendor.alreadyFollowing}
-            eventId={eventId}
-            revalidatePath={`/dashboard/${eventId}/messages`}
-          />
-        </section>
-      ) : null}
-
       <section className="sn-tile p-5">
         <h2 className="sn-eye mb-3">Start a new thread</h2>
         {search.prefill_vendor_email ? (
@@ -275,8 +173,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           </SubmitButton>
         </form>
         <p className="mt-2 text-xs text-ink/55">
-          The vendor must already have a Setnayan vendor account with this email on their
-          profile. New thread or resume an existing one — Setnayan keeps one per pair.
+          Works when the email you have is the one on their Setnayan shop. New thread or
+          resume an existing one — Setnayan keeps one per pair.
         </p>
       </section>
 
@@ -289,10 +187,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           />
           <p className="text-sm font-medium text-ink">No conversations yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Start a thread with the form above. You&rsquo;ll need the vendor&rsquo;s
-            contact email — the same one they listed on their Setnayan vendor profile.
-            Already tracking a vendor on the Vendors page? Their contact email is
-            on their card.
+            {/* 🚪 Corrected 2026-09-10. This said the email is "the same one
+                they listed on their Setnayan vendor profile" and "on their
+                card" — neither shows a shop's email any more (owner: "not to let
+                them communicate outside the app"). The way to reach a shop on
+                Setnayan is its Message / Inquire button, which opens the
+                conversation here. */}
+            The easiest way to start is from the shop itself: tap Message on a
+            supplier in your Vendors list, or Inquire on any shop&rsquo;s page — the
+            conversation opens right here.
           </p>
           <div className="mt-4">
             <Link

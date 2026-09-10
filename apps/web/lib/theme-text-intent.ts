@@ -398,18 +398,26 @@ const INTENSIFIER_WEIGHT = 1.5;
  * board. Not arbitrary: every right-hand value is an exact entry in
  * WEDDING_NAMES or CSS_NAMES (the unit test proves it), and the mapping
  * prefers the curated wedding name over the CSS primary wherever both exist —
- * a couple who types "red" wants Crimson, not #FF0000. Tagalog colour words
+ * a couple who types "red" wants Carmine, not #FF0000. Tagalog colour words
  * fold into the same canonical names.
+ *
+ * 🔑 MB5: `burgundy` and `crimson` point at Garnet / Carmine, not at the
+ * words "Burgundy" / "Crimson" — `lib/color-names.ts` retired the curated
+ * "Burgundy" entry (it sat ΔE 4.1 from Garnet, i.e. one colour with two
+ * names) and its own `COLOR_NAME_ALIASES` now redirects the WORD "crimson"
+ * to Carmine even when capitalised "Crimson" is typed. Spelling the resolved
+ * name here directly — rather than the old string and letting the alias
+ * paper over it — keeps this dictionary legible on its own.
  */
 const COLOUR_WORDS: Record<string, string> = {
   // exact stocked names (self-mapping keeps one lookup path)
   ivory: 'Ivory', cream: 'Cream', blush: 'Blush', 'dusty rose': 'Dusty Rose',
-  burgundy: 'Burgundy', terracotta: 'Terracotta', rust: 'Rust', gold: 'Gold',
+  burgundy: 'Garnet', terracotta: 'Terracotta', rust: 'Rust', gold: 'Gold',
   'champagne gold': 'Champagne Gold', champagne: 'Champagne Gold', mustard: 'Mustard',
   sage: 'Sage', emerald: 'Emerald', 'forest green': 'Forest Green',
   'sky blue': 'Sky Blue', navy: 'Navy', slate: 'Slate', lavender: 'Lavender',
   plum: 'Plum', charcoal: 'Charcoal', black: 'Black', white: 'White',
-  silver: 'Silver', peach: 'Peach', coral: 'Coral', crimson: 'Crimson',
+  silver: 'Silver', peach: 'Peach', coral: 'Coral', crimson: 'Carmine',
   teal: 'Teal', olive: 'Olive', maroon: 'Maroon', beige: 'Beige', tan: 'Tan',
   khaki: 'Khaki', wheat: 'Wheat', thistle: 'Thistle', turquoise: 'Turquoise',
   'pina cream': 'Piña Cream', 'capiz pearl': 'Capiz Pearl',
@@ -417,11 +425,11 @@ const COLOUR_WORDS: Record<string, string> = {
   'banana leaf green': 'Banana Leaf Green', 'waling waling purple': 'Waling-Waling Purple',
   'bamboo tan': 'Bamboo Tan',
   // generic English → the wedding-stocked equivalent
-  red: 'Crimson', green: 'Forest Green', blue: 'Sky Blue', pink: 'Blush',
+  red: 'Carmine', green: 'Forest Green', blue: 'Sky Blue', pink: 'Blush',
   purple: 'Plum', violet: 'Violet', yellow: 'Mustard', orange: 'Terracotta',
   brown: 'Narra Brown', grey: 'Charcoal', gray: 'Charcoal', nude: 'Beige',
   // Tagalog
-  pula: 'Crimson', puti: 'White', itim: 'Black', berde: 'Forest Green',
+  pula: 'Carmine', puti: 'White', itim: 'Black', berde: 'Forest Green',
   asul: 'Sky Blue', bughaw: 'Sky Blue', dilaw: 'Mustard', ginto: 'Gold',
   ginintuan: 'Gold', rosas: 'Blush', pilak: 'Silver', kayumanggi: 'Narra Brown',
 };
@@ -436,7 +444,12 @@ const ENTRIES: IntentEntry[] = [
   {
     phrases: ['christmas', 'xmas', 'pasko', 'kapaskuhan', 'noche buena', 'yuletide', 'holiday season'],
     moods: ['festive_celebratory'],
-    colours: ['Crimson', 'Forest Green', 'Gold'],
+    // MB5: "Crimson" retired from this dictionary's outputs. Every colour
+    // here is resolved through `namedColor` at read time, and `crimson` is
+    // now a `COLOR_NAME_ALIASES` redirect to Carmine (lib/color-names.ts) —
+    // spelling it "Carmine" here keeps the literal string and the resolved
+    // name in agreement instead of relying on the alias to paper over it.
+    colours: ['Carmine', 'Forest Green', 'Gold'],
     motifs: [['ceiling', 'treatment', 'lanterns'], ['ceiling', 'treatment', 'fairy_lights']],
     note:
       'We have no Christmas-specific themes in the library yet — measured across all 2,600: “christmas”, “parol” and “pasko” appear zero times. We read this as Festive & Celebratory, in Christmas colours.',
@@ -456,13 +469,13 @@ const ENTRIES: IntentEntry[] = [
   {
     phrases: ['valentine', 'valentines', 'hearts day', 'araw ng puso'],
     moods: ['romantic_ethereal', 'festive_celebratory'],
-    colours: ['Blush', 'Crimson'],
+    colours: ['Blush', 'Carmine'], // MB5: was 'Crimson' — see the note above
   },
   {
     phrases: ['fiesta', 'pista', 'santacruzan', 'flores de mayo', 'barrio fiesta', 'handaan'],
     moods: ['festive_celebratory', 'maximalist_complex'],
     families: ['tropical heritage'],
-    colours: ['Mustard', 'Crimson', 'Emerald'],
+    colours: ['Mustard', 'Carmine', 'Emerald'], // MB5: was 'Crimson' — see the note above
     motifs: [['ceiling', 'treatment', 'lanterns'], ['tables', 'linen', 'banig']],
   },
   {

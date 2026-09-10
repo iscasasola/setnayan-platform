@@ -48,7 +48,14 @@ const EXTRA_FILES = ['app/_components/save-photo-button.tsx', 'app/_components/w
 
 const SCAN_EXTENSIONS = new Set(['.tsx', '.ts']);
 const MAX_PX = 11; // flag text-[<=11px]; 12px / text-xs and up are allowed
-const SIZE_RE = /text-\[(\d+)px\]/g;
+// 🔴 IT USED TO BE `(\d+)` AND A DECIMAL WALKED STRAIGHT PAST IT.
+// `text-[9.5px]` is not an unusual value — it is what you get copying a
+// prototype's type scale — and the check answered OK on it. Measured on a
+// deliberate sabotage: 0 → 1 occurrence of `text-[9.5px]`, the widened pattern
+// fails (exit 1) and the pattern as it shipped still passes (exit 0).
+// Widening it reports ZERO new offenders across all 222 guest-facing files, so
+// nothing was quietly grandfathered in to make this go green.
+const SIZE_RE = /text-\[(\d+(?:\.\d+)?)px\]/g;
 // A line carrying this marker is exempt (genuinely decorative, reviewer-approved).
 const INLINE_OK = 'legibility-ok';
 

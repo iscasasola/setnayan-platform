@@ -65,6 +65,34 @@ export type DoorStep = {
   current?: boolean;
 };
 
+/**
+ * A THEME SKIN — the invite link's themes (lib/invite-themes.ts, owner
+ * 2026-09-10). A skin owns what sits BEHIND and AROUND the card; it never owns
+ * the card, its 3px edge or its one action, which is what keeps five themes one
+ * product. Every slot is decoration (aria-hidden), so a skinned door reads to a
+ * screen reader exactly as the bare one does.
+ *
+ * ⛔ THIS FILE IMPORTS NO STYLESHEET FOR IT. A skin's CSS lives in the skin's own
+ * module, imported only by the route that wears it — see BUNDLE above: `main` is
+ * a hair under a locked budget, and a theme must never reach the shared chunk.
+ */
+export type DoorSkin = {
+  /** The theme's CSS scope, on the page frame. Replaces the bare door's `bg-cream`. */
+  className: string;
+  /** Custom properties the theme reads — the couple's colour, their photo. */
+  style?: React.CSSProperties;
+  /** Painted full-bleed behind the page: the couple's photo, a lattice, a veil. */
+  ground?: React.ReactNode;
+  /** Set on the card's top edge — the couple's seal. */
+  crest?: React.ReactNode;
+  /**
+   * Under the header: the hinge between the invitation (above) and the door
+   * (below). When a skin brings one, the rail moves BELOW it, so a progress rail
+   * never sits on the printed invitation itself.
+   */
+  hinge?: React.ReactNode;
+};
+
 export type DoorShellProps = {
   /** Small mono line above the title — the doorway's name. */
   eyebrow?: React.ReactNode;
@@ -86,6 +114,8 @@ export type DoorShellProps = {
   steps?: DoorStep[];
   /** Wider card for doors that carry a real form (signup-shaped, not notice-shaped). */
   width?: 'md' | 'lg';
+  /** A theme skin (the invite link only). Omit and the door is the bare door. */
+  skin?: DoorSkin;
   children?: React.ReactNode;
 };
 
@@ -102,13 +132,26 @@ export function DoorShell({
   tone = 'threshold',
   steps,
   width = 'md',
+  skin,
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
+  const rail = steps && steps.length > 1 ? <StepRail steps={steps} /> : null;
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-cream px-4 py-10 sm:px-6">
-      <div className={`w-full ${WIDTH[width]}`}>
+    <main
+      className={[
+        'relative isolate flex min-h-dvh w-full flex-col items-center justify-center px-4 py-10 sm:px-6',
+        skin ? skin.className : 'bg-cream',
+      ].join(' ')}
+      style={skin?.style}
+    >
+      {skin?.ground ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          {skin.ground}
+        </div>
+      ) : null}
+      <div className={`relative w-full ${WIDTH[width]}`}>
         {/*
           The way out. A door is often the first Setnayan page a person ever
           opens, and on a dead link it is the ONLY thing they can still do — so
@@ -124,7 +167,7 @@ export function DoorShell({
 
         <div
           className={[
-            'rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
+            'relative rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
             // Only what you can ACT on carries the action colour — the card
             // itself stays paper, exactly as the sign-in panel's own note says
             // ("repainting the whole surface would read as a different
@@ -133,7 +176,8 @@ export function DoorShell({
             threshold ? 'border-t-mulberry' : 'border-t-ink/20',
           ].join(' ')}
         >
-          {steps && steps.length > 1 ? <StepRail steps={steps} /> : null}
+          {skin?.crest ? <div aria-hidden>{skin.crest}</div> : null}
+          {skin?.hinge ? null : rail}
 
           <header className="space-y-2">
             {eyebrow ? (
@@ -161,6 +205,13 @@ export function DoorShell({
               </p>
             ) : null}
           </header>
+
+          {skin?.hinge ? (
+            <>
+              <div aria-hidden>{skin.hinge}</div>
+              {rail ? <div className="mt-6">{rail}</div> : null}
+            </>
+          ) : null}
 
           {children ? <div className="mt-6 space-y-4">{children}</div> : null}
         </div>

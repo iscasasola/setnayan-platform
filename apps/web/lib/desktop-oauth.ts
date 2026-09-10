@@ -49,7 +49,12 @@ interface TauriGlobal {
   event: TauriEvent;
 }
 
-function tauri(): TauriGlobal | null {
+/**
+ * Exported so other desktop-only modules (e.g. lib/desktop-stream-key.ts, S8)
+ * can invoke additional Tauri commands through the SAME typed accessor rather
+ * than re-declaring the `window.__TAURI__` shape a second time.
+ */
+export function tauri(): TauriGlobal | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as { __TAURI__?: TauriGlobal };
   const t = w.__TAURI__;

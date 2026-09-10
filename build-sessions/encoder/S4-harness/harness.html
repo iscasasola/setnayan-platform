@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>S4 evidence harness</title></head>
+<body>
+<pre id="log" style="font-family: ui-monospace, monospace; white-space: pre-wrap;">booting…</pre>
+<script type="module">
+/* ── the REAL, unmodified compiled output of apps/web/lib/encoder/video-encode.ts ─────── */
+
+/** Constrained Baseline L3.1 — Windows' OpenH264 SW fallback ceiling (README "OS floor"). */
+export const VIDEO_CODEC = 'avc1.42E01F';
+export const VIDEO_WIDTH = 1280;
+export const VIDEO_HEIGHT = 720;
+export const VIDEO_BITRATE = 2500000;
+export const VIDEO_FRAMERATE = 30;
+export const VIDEO_HARDWARE_ACCELERATION = 'prefer-hardware';
+export const VIDEO_ENCODER_CONFIG = {
+    codec: VIDEO_CODEC,
+    width: VIDEO_WIDTH,
+    height: VIDEO_HEIGHT,
+    bitrate: VIDEO_BITRATE,
+    framerate: VIDEO_FRAMERATE,
+    bitrateMode: 'constant',
+    latencyMode: 'realtime',
+    hardwareAcceleration: VIDEO_HARDWARE_ACCELERATION,
+    avc: { format: 'avc' },
+};
+export const KEYFRAME_INTERVAL_TICKS = 60;
+export function isKeyframeTick(tickIndex) {
+    return tickIndex % KEYFRAME_INTERVAL_TICKS === 0;
+}
+export const DRIFT_THRESHOLD_MS = 100;
+export function checkDrift(videoTsMicros, audioTsMicros) {
+    const deltaMs = Math.abs(videoTsMicros - audioTsMicros) / 1000;
+    if (deltaMs <= DRIFT_THRESHOLD_MS)
+        return null;
+    return { type: 'drift', deltaMs, videoTsMicros, audioTsMicros };
+}
+function toArrayBuffer(source) {
+    const view = ArrayBuffer.isView(source)
+        ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
+        : new Uint8Array(source);
+    return view.slice().buffer;
+}
+export function createVideoEncodeSink(callbacks) {
+    let configCaptured = false;
+    let seq = 0;
+    let chunks = 0;
+    let keyframes = 0;
+    return {
+        handle(chunk, metadata) {
+            const description = metadata?.decoderConfig?.description;
+            if (!configCaptured && description) {
+                configCaptured = true;
+                callbacks.onConfig(toArrayBuffer(description));
+            }
+            const data = new Uint8Array(chunk.byteLength);
+            chunk.copyTo(data);
+            chunks += 1;
+            if (chunk.type === 'key')
+                keyframes += 1;
+            callbacks.onChunk({
+                keyframe: chunk.type === 'key',
+                timestampMicros: chunk.timestamp,
+                seq: seq++,
+                data,
+            });
+        },
+        stats: () => ({ chunks, keyframes, configCaptured }),
+    };
+}
+export function createChunkRing(capacity) {
+    if (!Number.isInteger(capacity) || capacity < 1) {
+        throw new Error(`video-encode: ring capacity must be a positive integer, got ${capacity}`);
+    }
+    const buf = [];
+    let pushed = 0;
+    let dropped = 0;
+    return {
+        push(entry) {
+            pushed += 1;
+            if (buf.length >= capacity) {
+                buf.shift();
+                dropped += 1;
+            }
+            buf.push(entry);
+        },
+        drain() {
+            return buf.splice(0, buf.length);
+        },
+        stats: () => ({ size: buf.length, capacity, pushed, dropped }),
+    };
+}
+export function createDriftGuardedRing(ring, onDrift) {
+    let driftEvents = 0;
+    let droppedForDrift = 0;
+    return {
+        push(entry, lastAudioTsMicros) {
+            const event = checkDrift(entry.timestampMicros, lastAudioTsMicros);
+            if (event) {
+                driftEvents += 1;
+                droppedForDrift += 1;
+                onDrift(event);
+                return;
+            }
+            ring.push(entry);
+        },
+        stats: () => ({ driftEvents, droppedForDrift }),
+    };
+}
+
+/* ── the harness driver ─────────────────────────────────────────────────────────────────── */
+
+const TICK_MICROS = Math.round(1_000_000 / VIDEO_FRAMERATE); // 33333 — matches audio-clock.ts's framesToMicros grid
+const TOTAL_TICKS_ONE_HOUR = 3600 * VIDEO_FRAMERATE; // 108000 — one hour of MEDIA time, not wall time
+
+const state = {
+  tick: 0,
+  totalTicks: TOTAL_TICKS_ONE_HOUR,
+  totalBytes: 0,
+  keyframeSeqs: [],
+  badKeyframeSeqs: [],
+  driftEvents: [],
+  ringDropped: 0,
+  configCaptured: false,
+  configWidth: null,
+  configHeight: null,
+  encodeErrors: [],
+  startedAtWall: performance.now(),
+  done: false,
+  maxEncodeQueueSize: 0,
+};
+window.__s4 = state;
+
+const canvas = new OffscreenCanvas(VIDEO_WIDTH, VIDEO_HEIGHT);
+const ctx = canvas.getContext('2d', { alpha: false });
+
+function paint(tick) {
+  // Animated content — a moving bar plus per-tick noise speckle — so this is not a
+  // trivially-compressible static frame. CBR should still land near the target bitrate
+  // regardless of content complexity; that IS what bitrateMode:'constant' means.
+  const hue = (tick * 2) % 360;
+  ctx.fillStyle = `hsl(${hue}, 60%, 20%)`;
+  ctx.fillRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+  const x = (tick * 7) % VIDEO_WIDTH;
+  ctx.fillStyle = `hsl(${(hue + 180) % 360}, 80%, 55%)`;
+  ctx.fillRect(x, 0, 40, VIDEO_HEIGHT);
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px monospace';
+  ctx.fillText(`tick ${tick}`, 20, 40);
+  // A handful of pseudo-random speckles per frame so every frame differs beyond one bar.
+  for (let i = 0; i < 24; i += 1) {
+    const sx = (tick * 97 + i * 733) % VIDEO_WIDTH;
+    const sy = (tick * 53 + i * 419) % VIDEO_HEIGHT;
+    ctx.fillStyle = `hsl(${(tick + i * 15) % 360}, 70%, 50%)`;
+    ctx.fillRect(sx, sy, 6, 6);
+  }
+}
+
+const ring = createChunkRing(240);
+const guardedRing = createDriftGuardedRing(ring, (event) => {
+  state.driftEvents.push(event);
+});
+const sink = createVideoEncodeSink({
+  onConfig: (description) => {
+    state.configCaptured = true;
+  },
+  onChunk: (entry) => {
+    state.totalBytes += entry.data.byteLength;
+    if (entry.keyframe) {
+      state.keyframeSeqs.push(entry.seq);
+      if (entry.timestampMicros / TICK_MICROS % KEYFRAME_INTERVAL_TICKS !== 0) {
+        // record any keyframe that lands off the 60-tick grid (guard evidence)
+        state.badKeyframeSeqs.push(entry.seq);
+      }
+    }
+    // The SAME clock stamps audio in the real pipeline (audio-clock.ts docblock) — simulate
+    // that invariant exactly (lastAudioTsMicros === this tick's own video timestamp) so the
+    // guard is exercised for real, on real encoder output, not just in the Node unit test.
+    guardedRing.push(entry, entry.timestampMicros);
+    if (ring.stats().dropped > state.ringDropped) state.ringDropped = ring.stats().dropped;
+    ring.drain(); // a real consumer would ship these over IPC; here we just retire them
+  },
+});
+
+let encoder;
+
+function log(msg) {
+  document.getElementById('log').textContent = msg;
+  console.log(msg);
+}
+
+async function run() {
+  encoder = new VideoEncoder({
+    output: (chunk, metadata) => sink.handle(chunk, metadata),
+    error: (e) => state.encodeErrors.push(String(e)),
+  });
+  const support = await VideoEncoder.isConfigSupported(VIDEO_ENCODER_CONFIG);
+  if (!support.supported) {
+    state.done = true;
+    state.fatalError = `VIDEO_ENCODER_CONFIG not supported: ${JSON.stringify(support.config)}`;
+    log(state.fatalError);
+    return;
+  }
+  encoder.configure(VIDEO_ENCODER_CONFIG);
+
+  for (state.tick = 0; state.tick < state.totalTicks; state.tick += 1) {
+    if (encoder.encodeQueueSize > state.maxEncodeQueueSize) state.maxEncodeQueueSize = encoder.encodeQueueSize;
+    // Simple backpressure: never let more than 30 frames (1s of media) queue up.
+    while (encoder.encodeQueueSize > 30) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    paint(state.tick);
+    const timestamp = state.tick * TICK_MICROS;
+    const frame = new VideoFrame(canvas, { timestamp });
+    try {
+      encoder.encode(frame, { keyFrame: isKeyframeTick(state.tick) });
+    } finally {
+      frame.close();
+    }
+    if (state.tick % 3000 === 0) {
+      await new Promise((r) => setTimeout(r, 0)); // yield periodically so the tab stays responsive
+      log(`tick ${state.tick}/${state.totalTicks} · bytes ${state.totalBytes} · keyframes ${state.keyframeSeqs.length} · drift ${state.driftEvents.length} · elapsedWallMs ${(performance.now() - state.startedAtWall) | 0}`);
+    }
+  }
+  await encoder.flush();
+  encoder.close();
+  state.done = true;
+  state.elapsedWallMs = performance.now() - state.startedAtWall;
+  state.mediaSeconds = state.totalTicks / VIDEO_FRAMERATE;
+  state.avgKbps = (state.totalBytes * 8) / state.mediaSeconds / 1000;
+  log(`DONE ${JSON.stringify({
+    totalTicks: state.tick,
+    totalBytes: state.totalBytes,
+    keyframes: state.keyframeSeqs.length,
+    badKeyframes: state.badKeyframeSeqs.length,
+    driftEvents: state.driftEvents.length,
+    ringDropped: state.ringDropped,
+    configCaptured: state.configCaptured,
+    encodeErrors: state.encodeErrors,
+    maxEncodeQueueSize: state.maxEncodeQueueSize,
+    elapsedWallMs: state.elapsedWallMs,
+    mediaSeconds: state.mediaSeconds,
+    avgKbps: state.avgKbps,
+  }, null, 2)}`);
+}
+
+window.__s4run = run().catch((e) => {
+  state.done = true;
+  state.fatalError = String(e && e.stack || e);
+  log('FATAL: ' + state.fatalError);
+});
+</script>
+</body>
+</html>

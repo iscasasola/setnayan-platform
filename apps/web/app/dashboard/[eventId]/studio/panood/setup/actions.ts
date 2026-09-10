@@ -32,6 +32,7 @@ import {
   createYoutubeStream,
   bindYoutubeBroadcast,
   transitionYoutubeBroadcast,
+  deleteYoutubeStream,
 } from '@/lib/panood-youtube';
 
 /**
@@ -439,6 +440,10 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   const active = await getActivePanoodBroadcast(eventId);
   const closed = await completePanoodBroadcast(eventId);
   const broadcastId = closed?.broadcastId ?? active?.broadcast_id ?? null;
+  // S8: the underlying liveStream's id — deleting it (below, once we have a
+  // token) invalidates its stream key on YouTube's side, the durable half of
+  // the stream-key threat model (see lib/live-studio-encoder-claims.ts).
+  const streamIdToRevoke = closed?.streamId ?? active?.stream_id ?? null;
 
   // WAVE 9 · a broadcast created on a Setnayan pool channel must be ENDED with
   // that channel's token, not the couple's (which under the pool model does not
@@ -467,6 +472,19 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     } catch {
       // Already complete on YouTube (autoStop), or a transient error — the
       // local row is already 'complete', which is the source of truth.
+    }
+  }
+
+  // S8 — durable stream-key mitigation: delete the liveStream resource so its
+  // stream key stops working on YouTube's side, independent of whether the
+  // claim-nonce handoff was ever used for this broadcast. Best-effort, same
+  // posture as the transition above: End must succeed even if this fails.
+  if (streamIdToRevoke && accessToken) {
+    try {
+      await deleteYoutubeStream(accessToken, streamIdToRevoke);
+    } catch {
+      // Already deleted, already revoked, or a transient YouTube error — the
+      // local row is already 'complete' regardless.
     }
   }
 

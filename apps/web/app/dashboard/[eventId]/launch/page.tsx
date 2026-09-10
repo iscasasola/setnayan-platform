@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
@@ -66,7 +67,15 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 // while doing the same job; it is a redirect stub now, and this page carries
 // the name alone. `one-event-hub-door.test.ts` fails if a second surface ever
 // re-claims it.
-export const metadata = { title: 'Event Hub' };
+//
+// ✏️ THE NAME ITSELF CHANGED 2026-09-03 (LS8): "Event Hub" is the GUEST-FACING
+// SITE, and this page is the dashboard that governs it — the "Event Hub
+// CONTROLLER". The distinction is not cosmetic: the couple stands HERE looking
+// at a preview of a page their guests open SOMEWHERE ELSE, and one word for
+// both screens is what the ruling closed. The masthead below carries the same
+// name in all three phases. Route, metadata KEY and every href are unchanged —
+// this is display copy only.
+export const metadata = { title: 'Event Hub Controller' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -407,6 +416,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   });
   const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
 
+  // 🔒 The Event Hub itself is a planning surface and stays open in the store
+  // shell; only the PRO upsell — which prints a peso price for a digital SKU —
+  // is withheld (App Review 3.1.1). See lib/store-shell.ts.
+  const storeShell = await isStoreShellRequest();
+
   /*
     ─── VIEW AS ──────────────────────────────────────────────────────────────
     Owner 2026-09-02: "make sure it also has view as (they pick what each role
@@ -522,7 +536,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     The hub carried six QuickLinks. Four of its destinations are reached from
     elsewhere and were left alone — `/invitation` from the checklist, guest
     detail and the QR page; `/website/privacy` from the editorial editor;
-    `/website/editor` and `/website/editorial` already sit above. TWO were
+    `/website/editor` and `/story` already sit above. TWO were
     reachable from the hub and NOWHERE else, and folding the hub without them
     would have orphaned a shipped page each:
 
@@ -540,7 +554,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   */
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
-    { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/website/editorial` },
+    { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/story` },
     ...(eventRow?.event_type === 'wedding'
       ? [{ key: 'ourstory', label: 'Our story', hint: 'How you met, the spark, the yes', href: `${base}/website/our-story` }]
       : []),
@@ -553,10 +567,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   const phaseTitle =
     standing.phase === 'dayof'
-      ? 'Your Event Hub — today'
+      ? 'Your Event Hub Controller — today'
       : standing.phase === 'after'
-        ? 'Your Event Hub'
-        : 'Your Event Hub';
+        ? 'Your Event Hub Controller'
+        : 'Your Event Hub Controller';
 
   return (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the
@@ -676,7 +690,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   */}
                   {page.phaseParam === 'editorial' && (
                     <Link
-                      href={`${base}/website/editorial`}
+                      href={`${base}/story`}
                       className="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-800"
                     >
                       Open the workroom
@@ -708,7 +722,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             looking at and cannot have. Null — owned, unmeasured, or the day
             itself — renders nothing at all, and the cards above are UNCHANGED in
             either case. Nothing here dims, greys or locks them. */}
-        {proOffer && (
+        {proOffer && !storeShell && (
           <HubProOffer
             offer={proOffer}
             channelName={activeChannel?.name ?? null}

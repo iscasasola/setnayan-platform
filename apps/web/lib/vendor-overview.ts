@@ -4,12 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { fetchVendorThreads } from '@/lib/chat';
+import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { inquiryHostNounsByType } from '@/lib/inquiry-mask.server';
 import {
   buildInquiryCard,
   type InquiryWhatsNewCard,
@@ -402,27 +402,49 @@ export async function fetchVendorOverviewData(
     ]),
   ];
   const eventMeta = await fetchEventMeta(admin, eventIds);
-  // The organiser noun per event TYPE, for the masked inquiry cards below. The
-  // couple's identity still cannot reach the card — a type is not a person —
-  // and a type we cannot resolve yields no noun, so the card says "a host"
-  // rather than guessing a wedding.
-  const inquiryHostNouns = await inquiryHostNounsByType(
-    pendingThreads.map((t) => eventMeta.get(t.event_id)?.eventType ?? null),
-  );
-
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];
 
+  /**
+   * The couple's own first message per pending thread — ONE batched read.
+   *
+   * Granted pre-accept by the 2026-07-15 anonymisation decision (*"a vendor
+   * sees … the couple's message text"*) and already shown pre-accept on the
+   * thread page. This card was withholding it, so a supplier was asked to
+   * Accept or Decline without seeing what had been asked.
+   *
+   * ⚠ `sender_role = 'couple'` is load-bearing: a vendor auto-reply bot inserts
+   * its own row into a still-pending thread (recorded 2026-07-21), so "the
+   * earliest message" alone can be the SHOP'S OWN words quoted back at it.
+   *
+   * Fails soft — a card without an excerpt is worse than no card, but a
+   * dashboard that 500s because a preview could not be read is worse than both.
+   */
+  const firstMessageByThread = new Map<string, string>();
+  if (pendingThreads.length > 0) {
+    const { data: msgRows, error: msgErr } = await supabase
+      .from('chat_messages')
+      .select('thread_id, body, created_at, sender_role')
+      .in('thread_id', pendingThreads.map((t) => t.thread_id))
+      .eq('sender_role', 'couple')
+      .order('created_at', { ascending: true });
+    if (msgErr) {
+      logQueryError('vendorOverview.inquiryPreview', msgErr, {}, 'graceful_degrade');
+    }
+    for (const row of (msgRows ?? []) as Array<{ thread_id: string; body: string | null }>) {
+      if (!firstMessageByThread.has(row.thread_id) && row.body) {
+        firstMessageByThread.set(row.thread_id, row.body);
+      }
+    }
+  }
+
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
-    // Anonymization-until-accept (Glass PR-6b): a pending inquiry is PRE-accept,
-    // so the couple's identity must NOT surface here. `buildInquiryCard` accepts
-    // only non-identifying inputs (event type · region · date · category) — the
-    // admin-read `meta.displayName`/`venue` PII fields are deliberately NOT
-    // passed, so there is no path through which they can reach the card. The card
-    // carries a neutral `descriptor` ("A couple planning a {type} in {city}") and
-    // city/area-level `place` only. Full reveal happens after Accept (this card
-    // disappears once the thread leaves `pending`).
+    // The inquiry card names the customer. It used to accept only
+    // non-identifying inputs (type · region · date · category) and draw "A
+    // couple planning a wedding in Manila", because accepting cost a token and
+    // the name was what the token bought. The wallet is retired; owner ruling
+    // 2026-09-08. `venue` is still not passed — nothing needs it on a card.
     whatsNew.push(
       buildInquiryCard({
         threadId: t.thread_id,
@@ -431,7 +453,14 @@ export async function fetchVendorOverviewData(
         eventType: meta?.eventType ?? null,
         region: meta?.region ?? null,
         category: vendorCategory,
-        hostNoun: meta?.eventType ? (inquiryHostNouns.get(meta.eventType) ?? null) : null,
+        // WHO IS ASKING. `fetchEventMeta` is admin-scoped and has always
+        // returned this; the card threw it away and drew a placeholder.
+        displayName: meta?.displayName ?? null,
+        // Both permitted pre-accept by the 2026-07-15 decision; neither is
+        // identity. `pax_at_inquiry` already rides the thread DTO, so it costs
+        // no query.
+        paxAtInquiry: t.pax_at_inquiry ?? null,
+        messageExcerpt: firstMessageByThread.get(t.thread_id) ?? null,
       }),
     );
   }
@@ -1102,7 +1131,10 @@ async function fetchOwedThreadReplies(
     const body = row.body?.trim();
     out.push({
       threadId: row.thread_id,
-      excerpt: body ? body.slice(0, 140) : null,
+      // Through the SHIPPED shortener first, never the raw body: a generated
+      // message carries markdown a card renders literally. See
+      // `shortenGeneratedBody` — one rule, one home.
+      excerpt: body ? shortenGeneratedBody(body).slice(0, 140) : null,
       lastMessageAt: row.created_at,
     });
   }

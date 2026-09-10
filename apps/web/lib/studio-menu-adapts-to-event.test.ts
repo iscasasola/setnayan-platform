@@ -22,7 +22,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { railToolsSignedIn } from './studio-rail';
+import {
+  railToolsSignedIn,
+  railToolsSignedOut,
+  plannerDoorwayRows,
+  togetherDoorwayRows,
+} from './studio-rail';
+import { togetherRailItems } from './free-tools-rail';
 import { STUDIO_APPS } from './studio-apps';
 import { ADD_ONS, type AddOnEntry } from './add-ons-catalog';
 import { addOnOfferedForEvent } from './add-on-event-scope';
@@ -88,10 +94,24 @@ function catalogEntryFor(addOnKey: string): AddOnEntry {
   return entry;
 }
 
-/** The Suite grid's own predicate, applied to the SAME 8 products via their
- *  real catalogue entries — not a copy of the rule, the rule itself. */
+/** The Suite grid's own predicate, applied to the SAME products via their
+ *  real catalogue entries — not a copy of the rule, the rule itself.
+ *
+ *  ⚠ DOORWAY-ONLY ROWS ARE OUT OF SCOPE FOR THIS COMPARISON, and that is not a
+ *  weakening. `marketplace` · `guest-list` · `seat-plan` are public description
+ *  pages that leave the Studio group the moment an event opens (owner
+ *  2026-09-05 — see `StudioApp.doorwayOnly`), and every profile below IS an
+ *  open event. Two of them have no `ADD_ONS` entry at all, so the Suite grid
+ *  never had an opinion about them either. The parity this test protects is
+ *  "which PRODUCTS does this event type offer", and a row that is absent from
+ *  both sides by design is not a disagreement. */
 function suiteKeys(profile: EventTypeProfile): string[] {
   return STUDIO_APPS.filter((a) => {
+    // Only the Studio group is what the sidebar's Studio rows and the Suite
+    // grid are both describing. Planner and Together rows are a different
+    // group entirely (2026-09-06) and neither side lists them here.
+    if ((a.railGroup ?? 'studio') !== 'studio') return false;
+    if (a.doorwayOnly) return false;
     if (!a.addOnKey) return true; // no catalogue home — Suite has no opinion
     return addOnOfferedForEvent(catalogEntryFor(a.addOnKey), profile, null);
   })
@@ -114,14 +134,150 @@ for (const [label, profile] of [
   });
 }
 
-test('row counts match the ruling: wedding 9 · ceremonial 8 · simple_event 7 · date/hangout/travel 5', () => {
+test('row counts match the ruling: wedding 10 · ceremonial 9 · simple_event 8 · date/hangout/travel 6', () => {
+  /*
+    🔄 EACH COUNT ROSE BY EXACTLY ONE, 2026-09-03, and "exactly one" is the
+    assertion that matters. The Mood Board joined the Studio group (owner: *"i
+    do not see it"*) and it carries NO `surface`, so it is offered on every
+    event type — the only shape that moves all four numbers together. A promotion
+    that lifted some and not others would mean a surface crept in.
+
+    🔄 THREE ROWS JOINED AND THEN LEFT AGAIN, 2026-09-05, AND THE NUMBERS CAME
+    BACK TO EXACTLY WHERE THEY WERE — which is the strongest evidence the second
+    ruling is right. `marketplace` · `guest-list` · `seat-plan` were added to
+    STUDIO_APPS as public description pages that morning (10→13 · 9→12 · 8→11 ·
+    6→8), and the owner then ruled they must not appear once an event is open:
+    *"do not double the marketplace"* · *"Marketplace will disappear on studio
+    once we enter an event just like guestlist"* · *"and seat plan"*. Every
+    profile below IS an open event, so all three are gone here and the counts
+    return to 10 · 9 · 8 · 6.
+
+    🔑 THEY ARE NOT DELETED — they still render signed-out and for a signed-in
+    person with no event, which no assertion here covers because every fixture
+    in this file has an eventId. `studio-apps.test.ts` holds that half.
+  */
   const countWithShelf = (profile: EventTypeProfile) =>
     railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile }).length; // includes "All services"
 
-  assert.equal(countWithShelf(WEDDING), 9, 'wedding');
-  assert.equal(countWithShelf(CEREMONIAL), 8, 'ceremonial & party');
-  assert.equal(countWithShelf(SIMPLE_EVENT), 7, 'simple_event');
-  assert.equal(countWithShelf(DATE), 5, 'date/hangout/travel');
+  assert.equal(countWithShelf(WEDDING), 10, 'wedding');
+  assert.equal(countWithShelf(CEREMONIAL), 9, 'ceremonial & party');
+  assert.equal(countWithShelf(SIMPLE_EVENT), 8, 'simple_event');
+  assert.equal(countWithShelf(DATE), 6, 'date/hangout/travel');
+
+  // …and the free unscoped row that DOES belong inside an event is in every
+  // one of them, which is what "no surface" MEANS. Counts alone would also be
+  // satisfied by different rows.
+  for (const [label, profile] of [
+    ['wedding', WEDDING],
+    ['ceremonial', CEREMONIAL],
+    ['simple_event', SIMPLE_EVENT],
+    ['date/hangout/travel', DATE],
+  ] as const) {
+    assert.ok(
+      sidebarKeys(profile).includes('mood-board'),
+      `${label} lost the Mood Board row. It is free and unscoped — every event ` +
+        'type has one.',
+    );
+    // …and the three doorway rows are absent from every one of them. The event
+    // already carries these destinations (its own rail has Guests, Marketplace
+    // and Seat plan); a second copy is the "same destination, two names" defect.
+    for (const key of ['marketplace', 'guest-list', 'seat-plan'] as const) {
+      assert.ok(
+        !sidebarKeys(profile).includes(key),
+        `${label} still shows "${key}" in Studio inside an event — the event's ` +
+          'own rail already carries it.',
+      );
+    }
+  }
+});
+
+test('the planning doorways are still there when NO event is open — in Planner', () => {
+  /*
+    The other half of the ruling, and the one a count test cannot see: they
+    disappear INSIDE an event, they are not deleted. With no event open the
+    shell renders no Marketplace destination row (it is gated on being inside
+    an event) and there is no event rail at all — so these rows are the ONLY
+    door to the pages that explain the tools.
+
+    🔄 THEY LIVE IN PLANNER SINCE 2026-09-06, not Studio. The owner split the
+    rail by KIND rather than price, so this test moved with them — it asks
+    `plannerDoorwayRows` now, and asserts they are NOT in the Studio list, which
+    is the half that would otherwise regress silently.
+  */
+  const planner = plannerDoorwayRows(false).map((r) => r.key);
+  const studioOut = railToolsSignedOut().map((r) => r.key);
+  const studioIn = railToolsSignedIn({ eventId: null, count: 0, profile: null }).map((r) => r.key);
+
+  for (const key of ['marketplace', 'guest-list', 'seat-plan', 'budget', 'schedule'] as const) {
+    assert.ok(planner.includes(key), `"${key}" vanished from the Planner group with no event open`);
+    assert.ok(!studioOut.includes(key), `"${key}" is still a Studio row signed out — it moved to Planner`);
+    assert.ok(!studioIn.includes(key), `"${key}" is still a Studio row signed in — it moved to Planner`);
+  }
+
+  // …and inside an event Planner is empty, because the event's own rail carries
+  // all five. This is the assertion that keeps the group from doubling them.
+  assert.deepEqual(
+    plannerDoorwayRows(true),
+    [],
+    'the Planner doorways rendered inside an event — the event rail already ' +
+      'carries Marketplace, Guests, Seat plan, Budget and Schedule',
+  );
+});
+
+test('Samahan is a Together row, everywhere, and never a Studio one', () => {
+  /*
+    Owner 2026-09-06: *"we also want to feature our samahan/groups"*. It is
+    ACCOUNT-LEVEL — keyed on the person, never nested under an `[eventId]` —
+    so unlike the Planner rows it is not `doorwayOnly` and does not vanish
+    inside an event. Nothing else carries it, so there is nothing to double.
+  */
+  const together = togetherDoorwayRows(false).map((r) => r.key);
+  assert.ok(together.includes('samahan'), 'Samahan is missing from the Together group');
+  assert.ok(
+    !railToolsSignedOut().some((r) => r.key === 'samahan'),
+    'Samahan is a Studio row — it belongs in Together ("things you do with people")',
+  );
+  for (const profile of [WEDDING, DATE]) {
+    assert.ok(
+      !sidebarKeys(profile).includes('samahan'),
+      'Samahan appeared in the in-event Studio rows',
+    );
+  }
+});
+
+test('the Samahan doorway stands aside for a signed-in person — one row, not two', () => {
+  /*
+    🔴 THE DEFECT THIS PINS WAS REAL AND WAS SPOTTED ON THE LIVE FRONT DOOR
+    before it shipped. `togetherRailItems` gives a signed-in person a row named
+    **"Samahan groups"** → `/dashboard/samahan`. The doorway row is named
+    **"Samahan groups"** too → `/samahan`. Rendered together they put the
+    identical label in one group twice, pointing at two different places — the
+    "same destination, two names" defect the owner had just ruled out for the
+    Marketplace, arriving from the opposite direction.
+
+    The gate is the SESSION rather than the event, because that is what decides
+    which list carries the row. `togetherRailItems` is unconditional for a
+    signed-in person, so the doorway is never the only door once they are in.
+  */
+  assert.deepEqual(
+    togetherDoorwayRows(true),
+    [],
+    'the Samahan doorway rendered for a signed-in person, whose own Samahan ' +
+      'rows already carry that name',
+  );
+
+  // …and the two labels really are the same string, which is WHY this matters.
+  // If either is renamed the collision may be gone, but this assertion should
+  // be re-reasoned rather than deleted.
+  const doorway = togetherDoorwayRows(false).find((r) => r.key === 'samahan');
+  const own = togetherRailItems(null).find((r) => r.key === 'together-samahan');
+  assert.ok(doorway && own, 'one of the two Samahan rows disappeared');
+  assert.equal(
+    doorway!.name,
+    own!.name,
+    'the doorway and the account row no longer share a name — re-check whether ' +
+      'the signed-in gate above is still the right rule',
+  );
 });
 
 test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride their own surface', () => {

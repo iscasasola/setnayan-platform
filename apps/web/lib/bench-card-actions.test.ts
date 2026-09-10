@@ -164,11 +164,47 @@ test('an off-platform pick KEEPS build + lock (it locks via the Lock-Free path)'
 
 // ── locked cards ───────────────────────────────────────────────────────────
 
-test('a locked vendor shows none of the three — "★ Chosen" is the whole state', () => {
+/* 🔴 THIS TEST USED TO ASSERT THE DEFECT.
+   It read "a locked vendor shows none of the three" and pinned
+   `inquiry: null` — so the bench offered a couple NO WAY to open a conversation
+   with the one supplier they had actually booked, and a passing test said that
+   was correct. Rule 2's own reasoning only ever justified withholding Build and
+   Lock ("a second Lock, or an Add-to-build on a settled category, would both be
+   lies"); it said nothing about the conversation, and rules 5 and 6 had already
+   made exactly that distinction for their own cases. Corrected 2026-09-09. */
+test('a booked vendor keeps the conversation — Build and Lock are the lies, not the message', () => {
   const a = resolveBenchCardActions({
     enabled: true,
     vendor: vendor({ status: 'locked', threadId: 't-1', inquiryStatus: 'accepted' }),
     inBuild: true,
+  });
+  assert.deepEqual(a, {
+    build: null,
+    inquiry: { kind: 'check', threadId: 't-1' },
+    withdraw: null,
+    lockGroupId: null,
+  });
+});
+
+test('a booked vendor with no thread yet can still be asked', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ status: 'locked', threadId: null, inquiryStatus: null }),
+    inBuild: false,
+  });
+  assert.deepEqual(a.inquiry, { kind: 'inquire' });
+  assert.equal(a.build, null);
+  assert.equal(a.lockGroupId, null);
+});
+
+test('a booked OFF-PLATFORM pick still shows nothing — rule 4 outranks rule 2', () => {
+  // The gate on the inquiry leg is `marketplaceVendorId`, not the lock state.
+  // A manually added supplier who is not on Setnayan cannot be messaged here,
+  // and offering it would hit "This vendor can't be messaged here".
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ status: 'locked', marketplaceVendorId: null, threadId: null }),
+    inBuild: false,
   });
   assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
 });

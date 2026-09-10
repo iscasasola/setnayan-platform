@@ -97,7 +97,7 @@ const PAPIC_SCENES: RichFrame[] = [
     caption: 'Every shot lands in your gallery, instantly.',
     hint: 'You never lift a finger — it just fills up.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your gallery</div>
         <div className="flex flex-wrap gap-1 px-3">
           <span className="rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
@@ -126,7 +126,7 @@ const PAPIC_SCENES: RichFrame[] = [
     caption: 'Each guest finds the photos they’re in.',
     hint: '“Photos of you” fills through the day — theirs to keep.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="flex items-center justify-between px-3 pt-3">
           <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-terracotta">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Photos of you
@@ -246,11 +246,16 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          {/* ₱1,000 = ANIMATED_MONOGRAM. Was ₱2,499 — the retired pre-2026-07-10
-              monogram price, 2.5× the live one, found stale 2026-07-31. Declared
-              in lib/public-price-literals.ts; the daily SEO audit re-checks it
+          {/* ₱500 = ANIMATED_MONOGRAM. Repriced from ₱1,000 on 2026-09-05 by the
+              owner: the SKU lost the LED Live Background on 2026-08-11 ("that
+              half of the ₱1,000 could never be delivered") and kept its number,
+              so the figure was halved to match what it actually buys — the six
+              CSS animation signatures, on a mark whose maker is already free.
+              Before that it was ₱2,499, the retired pre-2026-07-10 price, 2.5×
+              the live one, found stale 2026-07-31. Declared in
+              lib/public-price-literals.ts; the daily SEO audit re-checks it
               against the catalog so it cannot silently drift again. */}
-          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱1,000</p>
+          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱500</p>
           <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
         </div>
       </div>
@@ -329,7 +334,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
     caption: 'See your colors on every part.',
     hint: 'Cards repaint to match your palette.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[13px] font-semibold tracking-tight">In your colors</p>
         <p className="text-[8px] text-ink/60">One picture per color decision.</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
@@ -437,10 +442,17 @@ const CUSTOM_QR_SCENES: RichFrame[] = [
         <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-ink/10 bg-white p-2 text-center">
             <QrCode aria-hidden className="mx-auto h-12 w-12 text-ink" strokeWidth={0.75} />
-            <p className="mt-1 text-[8px] font-medium">Default — free</p>
+            {/* ⚠ BOTH SIDES ARE FREE NOW (owner 2026-09-06, "keep custom QR
+                per guest free" → CUSTOM_QR_GUEST joined FREE_FOR_ALL_SKUS).
+                This pair used to read "Default — free" against an "Upgrade"
+                pill; leaving that would advertise a purchase that no longer
+                exists — the fake door this repo forbids. The comparison is
+                still worth showing: it is plain versus branded, not free
+                versus paid. */}
+            <p className="mt-1 text-[8px] font-medium">Plain</p>
           </div>
           <div className="relative rounded-lg border-2 border-terracotta bg-white p-2 text-center">
-            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Upgrade</span>
+            <span className="absolute right-1 top-1 rounded-full bg-terracotta-700 px-1 py-0.5 text-[6px] font-medium text-cream">Free</span>
             <QrCode aria-hidden className="mx-auto h-12 w-12" strokeWidth={0.75} style={{ color: MULB }} />
             <p className="mt-1 text-[8px] font-medium">Branded</p>
           </div>
@@ -453,7 +465,7 @@ const CUSTOM_QR_SCENES: RichFrame[] = [
     caption: 'Every guest, already done.',
     hint: 'Open after purchase to see them all.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex items-center gap-1.5 rounded-md bg-emerald-600/12 px-2 py-1.5">
           <Check aria-hidden className="h-3 w-3 text-emerald-700" strokeWidth={2.5} />
           <span className="text-[9px] font-medium text-emerald-800">Your branded QR cards are ready</span>
@@ -513,7 +525,7 @@ const PHOTO_DELIVERY_SCENES: RichFrame[] = [
     caption: 'Setnayan holds them till you’re ready.',
     hint: 'Tap Release to Drive when review’s done.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 py-4 text-ink">
         <div className="rounded-lg bg-emerald-600/10 p-3">
           <div className="flex items-center gap-1.5 text-emerald-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /><span className="text-[11px] font-semibold">Drive connected</span>
@@ -573,7 +585,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
     caption: 'Pick a vertical look you love.',
     hint: 'Tap a style to choose it.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
         <p className="text-[12px] font-semibold">Pick the reel templates</p>
         <div className="mt-1.5 flex gap-1">
@@ -598,7 +610,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
     caption: 'Set the length and the song.',
     hint: 'Slide the length, pick a track.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Cebu Sunrise</span>
         <div className="mt-1.5 rounded-lg border border-ink/10 bg-white p-2.5">
           <p className="text-[10px] font-medium">Render this reel</p>
@@ -718,6 +730,20 @@ const INDOOR_BLUEPRINT_SCENES: RichFrame[] = [
 ];
 
 // ── Setnayan AI — pitch → ranked matches → choose → deadlines ──
+//
+// 🖼 THE SCENES CENTRE THEMSELVES, AND THAT IS ABOUT THE STILLS AS MUCH AS THE
+// CARD. `capture-demo-stills.mjs` photographs each of these into a 460×972
+// frame, and `_spotlights.tsx` renders that frame at its full 9:19 on eight
+// public product pages. A scene that top-aligns short content therefore ships
+// a picture whose bottom two thirds are blank — which is what the owner saw on
+// /setnayan-ai and the Setnayan AI buy page (2026-09-08: "reframe it").
+//
+// ⚠ NOT THE CAPTURE BUG `lint-demo-capture-geometry.mjs` GUARDS. That one was
+// a viewport SMALLER than the frame, so content landed in the top-LEFT and the
+// right was padded too. Here the geometry is right — 460×972 in, 460×972 out,
+// content spanning the full WIDTH — and only the vertical slack is wrong. Two
+// different defects that produce a similar-looking picture; checking the width
+// is what tells them apart.
 function vendorRow(name: string, pct: string, tint: string, why: string) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white p-1.5">
@@ -748,7 +774,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
     caption: 'Your best vendors, sorted to the top.',
     hint: 'Scroll the ranked shortlist.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1">
           <Sparkles aria-hidden className="h-2.5 w-2.5 text-terracotta" strokeWidth={2} />
           <span className="font-mono text-[6px] uppercase tracking-[0.12em] text-ink/55">Matching you on</span>
@@ -797,7 +823,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
     caption: 'Every decision, with deadlines that nudge you.',
     hint: 'Tap a circle to check it off.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex justify-between font-mono text-[7px] uppercase tracking-[0.12em] text-ink/55"><span>Up next</span><span>4 of 18 done</span></div>
         <div className="mt-2 space-y-1.5">
           {[
@@ -839,7 +865,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
     caption: 'Your colors and story, automatically.',
     hint: 'Swipe the tabs to style each page.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <div className="flex gap-1">
           {['Settings', 'RSVP', 'Event', 'Editorial'].map((t, k) => (
             <span key={t} className={`rounded-full px-2 py-0.5 text-[7px] ${k === 0 ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/55'}`}>{t}</span>
@@ -917,7 +943,7 @@ const MUSIC_CREATOR_SCENES: RichFrame[] = [
     caption: 'Find the feel for your day.',
     hint: 'Tap a mood to preview.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[12px] font-semibold" style={{ fontFamily: SERIF }}>Library</p>
         <p className="text-[8px] text-ink/55">Browse by mood and feel.</p>
         <div className="mt-2 space-y-1.5">
@@ -974,7 +1000,7 @@ const PAKANTA_SCENES: RichFrame[] = [
     caption: 'A song made only for the two of you.',
     hint: 'Tap Pakanta in your services.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 py-4 text-ink">
         <div className="flex items-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(30, 26, 18,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
           <div>
@@ -1059,7 +1085,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
     caption: 'Your whole day, song by song.',
     hint: 'Scroll the timeline of moments.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <span className="w-fit rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[6px] uppercase tracking-[0.12em] text-cream">Playlist</span>
         <p className="mt-1.5 text-[13px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
         <div className="mt-2 space-y-1.5">
@@ -1109,7 +1135,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
     caption: 'Handed straight to your DJ.',
     hint: 'Books a music vendor — it syncs itself.',
     scene: (
-      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[12px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>
         <div className="mt-2 flex items-start gap-1.5 rounded-lg border px-2 py-2" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
           <Sparkles aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" strokeWidth={2} />

@@ -34,7 +34,8 @@ const PAID_PATHS = [
   'app/vendor-dashboard/team/actions.ts', // extra seat
   'app/vendor-dashboard/branches/actions.ts', // additional branch (buy + renew)
   'app/vendor-dashboard/subscription/ai-addon-actions.ts', // Vendor AI
-  'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth
+  'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)
+  'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts', // 3D Booth at ONE event (₱500)
   'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
   'app/vendor-dashboard/subscription/custom/actions.ts', // negotiated plan
   // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's
@@ -43,6 +44,10 @@ const PAID_PATHS = [
   // and the reference, and "pay to our BDO or GCash account" — naming NEITHER
   // account, with no QR carrying the amount and nowhere to send a screenshot.
   'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
+  // ⬇ ADDED 2026-09-06 (G3). A vendor buying a Papic portfolio-credit pack
+  // (₱500/100 credits, per booked event) pays real money and must land on the
+  // same one screen as every other paid buy button.
+  'app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts',
 ] as const;
 
 /**

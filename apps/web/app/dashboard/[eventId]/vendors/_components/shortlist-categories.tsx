@@ -22,7 +22,16 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -44,6 +53,13 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import {
+  STANDING_LABEL,
+  standingRollUp,
+  standingSentence,
+  type SupplierStanding,
+} from '@/lib/supplier-standing';
+import { THREAD_STAGE_LABEL } from '@/lib/vendor-thread-stage';
 import {
   BENCH_SORTS,
   BENCH_PLAIN_SORTS,
@@ -74,7 +90,17 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
+import { formatDayKeyLabel } from '@/lib/build-date-window';
+import {
+  cardDatesInlineLine,
+  cardDatesMoreLabel,
+  cardDatesPopupTitle,
+  dateOutcomeLine,
+} from '@/lib/explore-info-copy';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
+import { folderHintButtonLabel, folderHintFor } from '@/lib/category-hints';
 import {
   coverageBadgeOf,
   coverageStateOf,
@@ -102,8 +128,60 @@ import {
   lockedNamesLabel,
   lockedNamesLine,
   REMOVE_FROM_PLAN_LABEL,
+  REMOVE_FROM_PLAN_NOTE,
+  REMOVE_FROM_PLAN_CONFIRM_BODY,
+  REMOVE_FROM_PLAN_CONFIRM_CANCEL,
+  REMOVE_FROM_PLAN_CONFIRM_OK,
+  removeFromPlanConfirmTitle,
   removeFromPlanButtonLabel,
+  INLINE_MORE_FAILED,
+  INLINE_MORE_INQUIRE,
+  INLINE_MORE_INQUIRE_FAILED,
+  INLINE_MORE_LOADING,
+  INLINE_MORE_SAVE_FAILED,
+  INLINE_MORE_NOT_YOUR_EVENT,
+  INLINE_MORE_SEE_ALL,
+  INLINE_MORE_SIGNED_OUT,
+  INLINE_MORE_UNDO,
+  INLINE_MORE_UNDO_FAILED,
+  inlineMoreEmpty,
+  inlineMoreHeading,
+  inlineMoreSavedNote,
+  inlineMoreSaveLabel,
+  inlineMoreSearchPlaceholder,
+  inlineMoreSeeAllLabel,
+  inlineMoreSunkNote,
 } from '@/lib/explore-info-copy';
+import {
+  canUndoInlineSave,
+  classifyInlineMoreRow,
+  excludeBenchVendors,
+  shouldRunInlineMoreQuery,
+  toggleInlineMoreTile,
+} from '@/lib/inline-more-row';
+import {
+  inlineMoreOrderNote,
+  orderInlineMoreRow,
+} from '@/lib/inline-more-order';
+import {
+  RESET_ORDER_LABEL,
+  YOUR_ORDER_LABEL,
+  applyBenchArrangement,
+  arrangementNote,
+  hasVisibleArrangement,
+  keyboardMoveTarget,
+  pinsAfterMove,
+  type BenchPin,
+} from '@/lib/bench-arrangement';
+import {
+  resetBenchArrangement,
+  saveBenchArrangement,
+} from '../_actions/bench-arrangement';
+import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import type { CategoryVendorResult } from '../_actions/category-search';
+import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
+import { deleteVendor } from '../actions';
+import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import { planGroupForCategory } from '@/lib/wedding-plan-groups';
@@ -116,7 +194,9 @@ import {
   DOESNT_FIT_DIVIDER,
   noSharedDateBadge,
   partitionByBuildFit,
+  type BuildDateWindow,
   type ConvergenceBanner,
+  type TeamCalendarMember,
 } from '@/lib/build-date-window';
 import { BenchVendorActions } from './bench-vendor-actions';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
@@ -132,7 +212,23 @@ import {
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+  /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
+     (2026-09-09). An undefined custom property makes the declaration invalid at
+     computed-value time, so every one of those rules fell back to INHERITED ink
+     — the bench's search placeholder rendered in full-strength body ink, which
+     made an empty search box look like a box with a query already typed in it.
+     Same family as the --font-serif and --sn-warn traps this repo has
+     already paid for: rejected, not thrown, and the only symptom is an absence. */
+  --ink-faint:#6B7079;
   --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
+     wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
+     on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
+     The bench simply never used it: measured here, gold-deep on this file's own
+     gold tints is 4.18:1 and 4.33:1, and --gold-text is 7.43:1 and 7.70:1.
+     --gold-deep keeps its job as a FILL (white on it is fine); this is for
+     letters. */
+  --gold-text:var(--m-orange-deep,#5C4726);
   --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
@@ -317,8 +413,13 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
-.slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
+.slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
+/* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
+   either pairing the design review flagged, and behind no flag at all.
+   --mulberry here falls back to ink, but the GLOBAL --m-mulberry wins and is
+   the terracotta #C24E25, so this was terracotta on a 10% ink wash. #A83E19 is
+   the same hue two steps down: 5.09:1. */
+.slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
@@ -414,7 +515,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 /* 10px, not 9px: at 9px mono these read as texture rather than as the counts
    they are — the reference sets them at 10.5px. */
 .slcat .fsum .s{font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:var(--m-r-full);padding:2.5px 9px;font-weight:700;white-space:nowrap;line-height:1.5}
-.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-deep)}
+.slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-text)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
 .slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
@@ -451,7 +552,7 @@ html.dark .slcat .cat-info:hover{background:rgba(251,251,250,.08);color:#C99DB0}
 html.dark .slcat .plan-err{color:#e2b968}
 
 /* "In your plan" marker beside a category name */
-.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 /* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
    presentational chip on the venue category while its shortlist is empty */
 .slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
@@ -549,9 +650,132 @@ html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
 html.dark .slcat .cat.open .cat-ic{color:#e2b968}
 html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+/* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
+   --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
+   here; --gold and --gold-deep did not, so every gold thing on the bench kept a
+   colour chosen to read on WHITE and put it on a near-black card. Measured:
+   gold-deep on this file's own gold tints over the dark card is 2.22:1 and
+   2.32:1 — worse than the light-mode failures that started this. #E2B968 is the
+   value this stylesheet already uses for a dark-mode gold two lines above:
+   5.95:1 and 6.21:1. --gold-text is not overridden because #5C4726 is a DARK
+   ink; on a dark card it is the wrong direction entirely, so the dark rules
+   below point those two labels at the light gold instead. */
+html.dark .slcat{--gold:#E2B968;--gold-deep:#E2B968;--gold-text:#E2B968;--ink-faint:#8A8F98}
+/* The three tinted labels, in dark. Each was measured on ITS OWN tint over the
+   dark card, not on the card: a colour on a wash of itself loses about half a
+   point, which is the whole reason this family of bugs exists. */
+html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
+/* ⚠ NO DARK RULE FOR .bdg.setnayan HERE, DELIBERATELY. The rule five lines
+   down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
+   its own tint over the dark card, which passes. A rule added here would be
+   DEAD and would read to the next person as if it were doing the work. */
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
+
+/* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
+   Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
+   the considered carousel above stays the loud thing on the surface. The cards
+   themselves reuse .vcw / .vc unchanged — two rows of the same kind of
+   thing, seen at two distances. */
+.slcat .morerow{margin-top:12px;padding:11px 0 3px;border-top:1px solid var(--line-soft);animation:slcat-mr .22s cubic-bezier(.2,.7,.2,1)}
+@keyframes slcat-mr{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.slcat .morehead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 16px 9px 0}
+.slcat .morehead .mt{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.slcat .morehead .mq{flex:1 1 130px;min-width:0;padding:7px 11px;border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;appearance:none;-webkit-appearance:none}
+.slcat .morehead .mq::placeholder{color:var(--ink-soft)}
+.slcat .morehead .mq:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.slcat .morehead .seeall{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;padding:7px 12px;border:1px solid var(--line);border-radius:var(--m-r-full);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;transition:background .2s var(--ease)}
+.slcat .morehead .seeall:hover{background:rgba(30,26,18,.05)}
+
+/* The row-2 card's action pair. Save is the primary; Inquire sits beside it.
+   There is no third slot, and that absence is the constraint: no Lock, no Add
+   to build — the bench does not carry that machinery. */
+.slcat .mrc .mra{display:flex;flex-direction:column;gap:5px}
+.slcat .mrc.is-busy{opacity:.7;pointer-events:none}
+.slcat .mrb{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 10px;border-radius:var(--m-r-md);border:1px solid transparent;font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;line-height:1.3;cursor:pointer;text-align:center;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.slcat .mrb:active{transform:scale(.97)}
+.slcat .mrb:disabled{opacity:.55;cursor:default}
+.slcat .mrb.dark{background:var(--mulberry);color:#fff}
+.slcat .mrb.ghost{background:transparent;border-color:var(--line);color:var(--ink-soft)}
+.slcat .mrb.ghost:hover:not(:disabled){background:rgba(30,26,18,.05)}
+.slcat .mrsaved{font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
+
+/* Notes under the row: the loading line, the empty state, and the count of
+   sunk cards. Said once here rather than printed on every card. */
+.slcat .arrnote{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 16px 8px 0}
+/* "Your order" — the couple's own arrangement is in force on this rail. Same
+   treatment as .cat-plan, which the contrast guard already measures, so this
+   label starts life on a wash that is known to carry its own text. */
+.slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+.slcat .arrt{font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .arrb{flex:0 0 auto;padding:6px 11px;min-height:32px;border:1px solid var(--line);border-radius:var(--m-r-full);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
+.slcat .arrb:hover{background:rgba(30,26,18,.05)}
+.slcat .arrb[disabled]{opacity:.5;cursor:not-allowed}
+html.dark .slcat .arrb{color:#C99DB0}
+/* The per-card move controls, shown only while the rail is in rearrange mode.
+   The handle is the shipped proposal-maker shape (a draggable grip beside a
+   drop-target row); the two arrows are the SAME move, reachable without a mouse
+   or a touchscreen — a drag-only reorder is unreachable for a keyboard. */
+.slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
+.slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
+.slcat .arrm{display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:34px;border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);color:var(--ink);cursor:pointer;font:inherit;font-size:13px;line-height:1}
+.slcat .arrm[disabled]{opacity:.35;cursor:not-allowed}
+.slcat .vcw.is-grabbed{opacity:.45}
+.slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
+.slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
+html.dark .slcat .morehead .seeall{color:#C99DB0}
+html.dark .slcat .mrb.dark{background:#C99DB0;color:#1B1A17}
+html.dark .slcat .mrsaved{color:#7FBF9A}
+html.dark .slcat .mrerr{color:#E39A9A}
+
+/* ── A card's dates (2026-09-06) ─────────────────────────────────────────── */
+.slcat .fd-more{margin-left:6px;border:0;background:none;padding:0 2px;cursor:pointer;
+  font-family:var(--mono);font-size:9.5px;color:var(--gold-deep);text-decoration:underline;
+  text-underline-offset:2px}
+.slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:var(--m-r-xs)}
+/* --card, not --m-paper: the app-wide paper has no dark value, so this one
+   panel stayed white in dark mode while its text inherited near-white ink —
+   1.09:1, invisible. */
+.slcat .fd-pop{display:block;margin:4px 0 2px;padding:7px 9px;border:1px solid rgba(169,131,75,.35);
+  border-radius:var(--m-r-sm);background:var(--card)}
+.slcat .fd-pop-t{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--gold-text);margin-bottom:4px}
+.slcat .fd-chip{display:inline-block;margin:2px 4px 0 0;padding:1px 7px;border-radius:var(--m-r-full);
+  background:rgba(27,26,23,.06);font-family:var(--mono);font-size:9.5px}
+.slcat .fd-out{display:block;margin-top:3px;font-size:9.5px;color:var(--gold-deep)}
+
+/* ── WHERE YOU STAND ────────────────────────────────────────────────────────
+   The one line this stream adds to the card, ported from the binding prototype
+   (chat_interface_v4_2026-09-09.html, the "Couple . the bench" frame). Pushed
+   to the BOTTOM of the meta block with margin-top:auto so the sentence sits on
+   the same baseline across a rail of cards whose middles differ in height --
+   which is what makes three caterers side by side actually comparable.
+
+   COLOURS, and why these: the label and the one segment that wants the couple
+   both use --gold-text, the only gold globals.css nominated for letters
+   (#5C4726 light / #E2B968 dark). They sit on the plain card, NOT on a tint --
+   a colour on a wash of itself loses about half a point, which is how the last
+   five contrast failures on this file happened. Both pairings are pinned in
+   the-bench-is-legible.test.ts and measured in both themes. */
+.slcat .vc .stand{margin-top:auto;padding-top:6px;border-top:1px dashed var(--line);
+  font-size:10.5px;line-height:1.45;color:var(--ink-soft)}
+.slcat .vc .stand .lab{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--gold-text);margin-bottom:2px}
+.slcat .vc .stand .line{display:block}
+.slcat .vc .stand b{color:var(--ink);font-weight:600}
+.slcat .vc .stand b.need{color:var(--gold-text);font-weight:700}
+.slcat .vc .stand .sep{color:var(--ink-faint)}
+
+/* The roll-up. One line, full width, above every folder. The dot is the only
+   ornament and it is decorative -- the count is in the text, where a screen
+   reader and a colour-blind reader both get it. */
+.slcat .replied{display:flex;align-items:center;gap:.6rem;border:1px solid var(--gold);
+  border-radius:var(--m-r-md);padding:.55rem .8rem;background:var(--card);font-size:.84rem;
+  color:var(--ink);margin:0 0 14px}
+.slcat .replied .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-deep);flex:none}
+.slcat .replied b{font-weight:700}
+.slcat .replied .who{color:var(--ink-soft)}
 `;
 
 function initials(name: string): string {
@@ -561,12 +785,220 @@ function initials(name: string): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
+/**
+ * The card's date block: the mono "Free: …" line, an overflow disclosure when
+ * more than four days are free, and one sentence about what locking would do
+ * to the couple's DATE.
+ *
+ * 🔑 The outcome sentence may say "sets your date" ONLY for a single viable
+ * day — `dateOutcome` enforces that, mirroring `actions.ts`'s
+ * `viable.length === 1`. A vendor free on several days narrows; it does not
+ * settle. The binding prototype claims otherwise from a hardcoded fixture
+ * string; it is wrong, and it is not the source here.
+ */
+function CardDateBlock({
+  line,
+  dates,
+  name,
+}: {
+  line: string | null;
+  dates: { parts: CardDates | null; outcome: DateOutcome } | null;
+  name: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const parts = dates?.parts ?? null;
+  const outcome = dates?.outcome ?? null;
+  if (!line && !parts && !outcome) return null;
+  return (
+    <>
+      {parts ? (
+        <span className="freedays">
+          {cardDatesInlineLine(parts)}
+          {parts.hidden > 0 ? (
+            <button
+              type="button"
+              className="fd-more"
+              aria-expanded={open}
+              aria-label={cardDatesMoreLabel(parts.hidden, name)}
+              onClick={(e) => {
+                // The card is an InspectorTrigger — without this the popup
+                // press also opens the vendor's quick-view behind it.
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen((o) => !o);
+              }}
+            >
+              +{parts.hidden} more
+            </button>
+          ) : null}
+        </span>
+      ) : line ? (
+        <span className="freedays">{line}</span>
+      ) : null}
+      {open && parts ? (
+        <span className="fd-pop" role="group" aria-label={cardDatesPopupTitle(name)}>
+          <span className="fd-pop-t">{cardDatesPopupTitle(name)}</span>
+          {parts.all.map((d) => (
+            <span key={d} className="fd-chip">
+              {formatDayKeyLabel(d)}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {outcome ? <span className="fd-out">{dateOutcomeLine(outcome)}</span> : null}
+    </>
+  );
+}
+
+/**
+ * Long-press, module-level so one timer serves the whole bench and a second
+ * press can never leave a first one armed.
+ *
+ * ⚠ THE MOVEMENT THRESHOLD IS THE FEATURE. Without it, every swipe of the
+ * carousel that happens to linger would enter rearrange mode — which is the
+ * gesture conflict this design exists to avoid, arriving from the other side.
+ * A press that travels more than a few pixels is a scroll, and a scroll must
+ * stay a scroll.
+ */
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP_PX = 8;
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressOrigin: { x: number; y: number } | null = null;
+
+function cancelLongPress(): void {
+  if (longPressTimer !== null) clearTimeout(longPressTimer);
+  longPressTimer = null;
+  longPressOrigin = null;
+}
+
+function startLongPress(e: ReactPointerEvent, arrange: CardArrange): void {
+  // Already rearranging: the press is aimed at the controls, not at entering.
+  if (arrange.active) return;
+  // Secondary buttons are a context menu, never a rearrange.
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  cancelLongPress();
+  longPressOrigin = { x: e.clientX, y: e.clientY };
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    longPressOrigin = null;
+    arrange.onEnter();
+  }, LONG_PRESS_MS);
+}
+
+function cancelLongPressOnMove(e: ReactPointerEvent): void {
+  if (longPressTimer === null || !longPressOrigin) return;
+  const dx = Math.abs(e.clientX - longPressOrigin.x);
+  const dy = Math.abs(e.clientY - longPressOrigin.y);
+  if (dx > LONG_PRESS_SLOP_PX || dy > LONG_PRESS_SLOP_PX) cancelLongPress();
+}
+
+/**
+ * The rearrange affordances a bench card is given while its rail is in
+ * rearrange mode. Absent entirely otherwise — a card that is not being
+ * rearranged renders byte-identically to how it always has.
+ */
+export type CardArrange = {
+  /** TRUE once this rail is in rearrange mode. */
+  active: boolean;
+  /** Long-press entered rearrange mode. */
+  onEnter: () => void;
+  /** Nudge one slot. The SAME move the drag makes — see `keyboardMoveTarget`. */
+  onMove: (direction: 'left' | 'right') => void;
+  canLeft: boolean;
+  canRight: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropOn: () => void;
+  grabbed: boolean;
+  busy: boolean;
+};
+
+/**
+ * WHERE YOU STAND — the standing sentence, on the card, under the free-days
+ * line. The one addition this stream makes to a card that already renders
+ * eleven facts.
+ *
+ * ⛔ IT DECIDES NOTHING. Every segment arrives already computed by
+ * `lib/supplier-standing.ts`, and the rung's word comes from
+ * `THREAD_STAGE_LABEL` — so a stage word outside the ladder's five cannot reach
+ * a card even by a typo here, and a rung renamed on the ladder is renamed on
+ * the bench for free.
+ *
+ * ⚠ THE WHOLE SENTENCE IS ALSO THE aria-LABEL. The segments are visually
+ * distinct (quiet ink · full ink · gold for the one thing that wants the
+ * couple) and a screen reader gets none of that, so it gets the sentence.
+ */
+function CardStanding({ standing }: { standing: SupplierStanding | null }) {
+  if (!standing) return null;
+  return (
+    <span className="stand" aria-label={`${STANDING_LABEL}: ${standingSentence(standing)}`}>
+      <span className="lab" aria-hidden>
+        {STANDING_LABEL}
+      </span>
+      <span className="line" aria-hidden>
+        {standing.segments.map((seg, i) => (
+          <span key={i}>
+            {i > 0 ? <span className="sep"> · </span> : null}
+            {seg.kind === 'stage' ? (
+              <b>
+                {THREAD_STAGE_LABEL[seg.stage]}
+                {seg.amountPhp == null ? '' : ` ${formatPhp(seg.amountPhp)}`}
+              </b>
+            ) : seg.kind === 'need' ? (
+              <b className="need">{seg.text}</b>
+            ) : seg.kind === 'said' ? (
+              <b>{seg.text}</b>
+            ) : (
+              <span>{seg.text}</span>
+            )}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * THE ROLL-UP — "2 suppliers replied", one line at the top of the bench, above
+ * every folder.
+ *
+ * 🔑 THE SAME DERIVATION, COUNTED. It reads the standings the cards below it
+ * are already showing (`standingRollUp`), so it can never claim a reply no card
+ * displays. Null when nobody has replied: an always-present banner is a banner
+ * couples learn to skip.
+ */
+function BenchRollUp({ folders, standings }: { folders: ShortlistFolder[]; standings: Record<string, SupplierStanding> }) {
+  // ⚠ DEDUPED BY vendorId. A supplier can sit under more than one tile (a
+  // caterer who also does the dessert bar), and the roll-up counting them twice
+  // would say "3 suppliers replied" over two names — a number the cards below
+  // it visibly contradict.
+  const seen = new Set<string>();
+  const rollUp = standingRollUp(
+    folders
+      .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
+      .filter((v) => !seen.has(v.vendorId) && seen.add(v.vendorId))
+      .map((v) => ({ name: v.name, standing: standings[v.vendorId] ?? null })),
+  );
+  if (!rollUp) return null;
+  return (
+    <div className="replied" role="status">
+      <span className="dot" aria-hidden />
+      <span>
+        <b>{rollUp.headline}</b> <span className="who">— {rollUp.names.join(' · ')}</span>
+      </span>
+    </div>
+  );
+}
+
 function VendorCard({
   v,
   reason,
   eventId,
   tileLabel,
+  dates,
+  standing,
   actions,
+  arrange,
 }: {
   v: ShortlistVendor;
   reason?: SortReason | null;
@@ -574,11 +1006,30 @@ function VendorCard({
   /** The category label — the lock modals' "for {this}" copy. */
   tileLabel: string;
   /**
+   * What this card says about the vendor's dates: the inline list (capped at
+   * four), the overflow count, and whether locking would SETTLE the couple's
+   * date or merely narrow it. Resolved once per render by the caller, which
+   * holds the build window — recomputing it here would be a second copy of the
+   * intersection, free to drift from the banner and the sink drawn from the
+   * same window. Null ⇒ render nothing, which is the fail-open case.
+   */
+  dates?: { parts: CardDates | null; outcome: DateOutcome } | null;
+  /**
+   * Where this supplier stands, already derived on the server. Null (the common
+   * case) ⇒ nothing renders: most of the bench is suppliers the couple has
+   * never written to, and a card for a stranger must not grow a sentence about
+   * a conversation that does not exist.
+   */
+  standing?: SupplierStanding | null;
+  /**
    * Explore Replan slice D — the resolved three-action set, or null when the
    * flag is OFF / nothing applies. Null keeps the pre-replan render EXACTLY:
    * a bare `InspectorTrigger`, no wrapper element, no extra DOM.
    */
   actions?: BenchCardActions | null;
+  /** Undefined on every surface that does not rearrange (row 2's marketplace
+   *  card never does — those results are a search, not the couple's plan). */
+  arrange?: CardArrange;
 }) {
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
@@ -639,7 +1090,10 @@ function VendorCard({
         {/* PR-G1 — the vendor's own free days inside the couple's date window,
             in the bench's mono voice. Renders only when there IS a signal; a
             calendar we could not read stays silent rather than guessing. */}
-        {v.freeDaysLine ? <span className="freedays">{v.freeDaysLine}</span> : null}
+        <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
+        {/* Where you stand — the last line of the meta block, under the dates.
+            The couple's eye lands on the photo, then the name, then this. */}
+        <CardStanding standing={standing ?? null} />
       </span>
     </InspectorTrigger>
   );
@@ -659,7 +1113,68 @@ function VendorCard({
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
     // one (decision #3 — never removed, always viewable, always reversible).
-    <div className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}`}>
+    <div
+      className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}${
+        arrange?.grabbed ? ' is-grabbed' : ''
+      }`}
+      // ⚠ LONG-PRESS FIRST IS LOAD-BEARING, NOT A FLOURISH. This rail is a
+      // horizontal snap carousel, so a card that could be dragged straight away
+      // would hijack the swipe that scrolls it. The press enters a MODE;
+      // ordinary swiping keeps working until it does, and keeps working after
+      // it for every rail that is not in the mode.
+      onPointerDown={arrange ? (e) => startLongPress(e, arrange) : undefined}
+      onPointerMove={arrange ? cancelLongPressOnMove : undefined}
+      onPointerUp={arrange ? cancelLongPress : undefined}
+      onPointerCancel={arrange ? cancelLongPress : undefined}
+      onDragOver={arrange?.active ? (e) => e.preventDefault() : undefined}
+      onDrop={
+        arrange?.active
+          ? (e) => {
+              e.preventDefault();
+              arrange.onDropOn();
+            }
+          : undefined
+      }
+    >
+      {arrange?.active ? (
+        <div className="arrctl">
+          {/* The shipped drag shape (`proposal-maker.tsx`): a draggable GRIP
+              beside a drop-target row, not a draggable row. No drag library. */}
+          <span
+            className="arrh"
+            draggable
+            onDragStart={arrange.onDragStart}
+            onDragEnd={arrange.onDragEnd}
+            role="button"
+            tabIndex={-1}
+            aria-hidden
+          >
+            ⠿
+          </span>
+          {/* KEYBOARD IS NOT OPTIONAL — a drag-only reorder is unreachable
+              without a mouse or a touchscreen. These two are also the whole
+              touch route, because HTML5 drag-and-drop does not fire on touch
+              at all. */}
+          <button
+            type="button"
+            className="arrm"
+            disabled={!arrange.canLeft || arrange.busy}
+            aria-label={`Move ${v.name} earlier`}
+            onClick={() => arrange.onMove('left')}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className="arrm"
+            disabled={!arrange.canRight || arrange.busy}
+            aria-label={`Move ${v.name} later`}
+            onClick={() => arrange.onMove('right')}
+          >
+            →
+          </button>
+        </div>
+      ) : null}
       {card}
       <BenchVendorActions
         actions={actions}
@@ -784,6 +1299,120 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
   );
 }
 
+/**
+ * One card in ROW 2 — a marketplace vendor the couple has NOT shortlisted yet.
+ *
+ * It borrows row 1's `.vcw` / `.vc` chrome on purpose: the two rows are the same
+ * kind of thing seen at two distances, and a second card language would make the
+ * lower row read as a different product. What differs is the ACTIONS, and only
+ * downward: Save and Inquire, never Lock and never Add-to-build. The bench's own
+ * docblock is the authority — it is read-only about picks and "carries none of
+ * the plan-group lock/build machinery … so it can't destabilise those tabs".
+ * Saving to *considering* is exactly what row 1 displays, so it stays inside
+ * that boundary; a Lock button here would cross it.
+ */
+function InlineMoreCard({
+  v,
+  label,
+  sunk,
+  clashWith,
+  saved,
+  busy,
+  onSave,
+  onUndo,
+  onInquire,
+}: {
+  v: CategoryVendorResult;
+  label: string;
+  /**
+   * TRUE when this card shares no free day with the build. It is its OWN prop
+   * and not inferred from `clashWith`: a real clash can have no single culprit
+   * to name, and inferring sunkenness from the name would silently un-sink
+   * exactly those cards.
+   */
+  sunk: boolean;
+  /** The candidate named in the amber badge; null when there is no one culprit. */
+  clashWith: string | null;
+  saved: { eventVendorId: string; undoable: boolean } | undefined;
+  busy: boolean;
+  onSave: () => void;
+  onUndo: () => void;
+  onInquire: () => void;
+}) {
+  return (
+    <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
+      <span className="vc">
+        <span className="img">
+          {v.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={v.logoUrl} alt="" loading="lazy" />
+          ) : (
+            <span className="ini">{initials(v.name)}</span>
+          )}
+          {v.boosted ? <span className="pcorner">Featured</span> : null}
+        </span>
+        <span className="meta">
+          <span className="vn">{v.name}</span>
+          {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string,
+              and without this line a couple reads it as a fake listing. Same
+              sentence the full sheet shows, for the same reason. */}
+          {v.nameAnonymized ? (
+            <span className="freedays">Real name shown after they reply</span>
+          ) : null}
+          {v.city ? (
+            <span className="sub">
+              <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+            </span>
+          ) : null}
+          {v.rating != null ? (
+            <span className="stars">
+              <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
+              {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
+            </span>
+          ) : null}
+          {v.verified ? (
+            <span className="badges">
+              <span className="bdg verified">
+                <BadgeCheck size={9} strokeWidth={2} aria-hidden /> Verified
+              </span>
+            </span>
+          ) : null}
+          {/* Constraint 2 — the SAME badge row 1 draws, from the same function.
+              Amber, never red: the vendor is fine, it is the couple's own build
+              that has narrowed past them, and un-narrowing it is one tap away. */}
+          {sunk ? (
+            <span className="fits">
+              <span className="fit warn">
+                <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />{' '}
+                {noSharedDateBadge(clashWith)}
+              </span>
+            </span>
+          ) : null}
+        </span>
+      </span>
+      {saved ? (
+        <div className="mra">
+          <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
+          {saved.undoable ? (
+            <button type="button" className="mrb ghost" disabled={busy} onClick={onUndo}>
+              {INLINE_MORE_UNDO}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mra">
+          <button type="button" className="mrb dark" disabled={busy} onClick={onSave}>
+            <Plus size={13} strokeWidth={2} aria-hidden /> {inlineMoreSaveLabel(label)}
+          </button>
+          <button type="button" className="mrb ghost" disabled={busy} onClick={onInquire}>
+            {INLINE_MORE_INQUIRE}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ShortlistCategories({
   folders,
   eventId,
@@ -794,9 +1423,25 @@ export function ShortlistCategories({
   daysUntilWedding = null,
   excludedTiles = [],
   convergence = null,
+  buildWindow = null,
+  probeDayKeys = [],
+  teamCalendar = [],
+  benchArrangement,
+  standings = {},
 }: {
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * vendorId → where that supplier stands, derived ONCE on the server by
+   * `lib/supplier-standing.ts` and passed down. A vendor absent from this map
+   * has no conversation, and their card says nothing — which is most of the
+   * bench and is the correct answer there.
+   *
+   * ⚠ A PASS-DOWN, NEVER A SECOND DERIVATION. The owner allowed this sentence
+   * to appear in more than one place ("yes, it is fine to show it twice"); what
+   * makes that safe is that every place renders the SAME computed answer.
+   */
+  standings?: Record<string, SupplierStanding>;
   /**
    * Deep-link target (checklist "Book your caterer" → `?open=catering`). When it
    * matches a tile in `folders`, that tile's folder + the tile open on first
@@ -850,6 +1495,33 @@ export function ShortlistCategories({
    * is visible.
    */
   convergence?: ConvergenceBanner | null;
+  /**
+   * Inline "More in {category}" row (owner 2026-09-06) — the build's shared-date
+   * window, EXACTLY as row 1 was drawn from it, so row 2 sinks the same vendors.
+   *
+   * 🔑 This is a pass-down of a value the page already computed for
+   * `buildFitByVendorId` and `convergence`, never a second resolution. The row's
+   * server action deliberately does not recompute the window: one window, one
+   * classifier (`lib/inline-more-row.ts`), two rows. Null → the soft tier is not
+   * running and row 2 sinks nothing, which is precisely what row 1 does too.
+   */
+  buildWindow?: BuildDateWindow | null;
+  /** The probe window's day keys — the range the clash search runs over. */
+  probeDayKeys?: readonly string[];
+  /**
+   * The build's calendar-bearing members. `TeamCalendarMember.freeDays` is a
+   * `Set`, which is why this prop carries ARRAYS: it crosses the server→client
+   * boundary, and the Sets are rebuilt once here rather than trusted to survive
+   * serialisation.
+   */
+  teamCalendar?: readonly { vendorId: string; name: string; freeDays: readonly string[] }[];
+  /**
+   * The couple's own order, per category (owner 2026-09-09 · "per category").
+   * Read on the server from the CELEBRATION, so every host of the event sees one
+   * order — unlike the sort lens beside it, which is `persistBenchSort` in this
+   * browser's localStorage and is deliberately private.
+   */
+  benchArrangement?: Record<string, BenchPin[]>;
 }) {
   const router = useRouter();
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
@@ -909,6 +1581,24 @@ export function ShortlistCategories({
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
+  // ── The couple's own order ────────────────────────────────────────────────
+  // Seeded from the server and then held locally, so a drag redraws the rail on
+  // the frame it happens rather than after a round trip. The server action
+  // revalidates the route, so the two converge; a failed write rolls the local
+  // copy back AND says why (`arrangeError`) — a silent revert would read as the
+  // rail moving on its own, which is the exact complaint this feature answers.
+  const [pinsByTile, setPinsByTile] = useState<Record<string, BenchPin[]>>(
+    () => benchArrangement ?? {},
+  );
+  useEffect(() => {
+    setPinsByTile(benchArrangement ?? {});
+  }, [benchArrangement]);
+  /** Which category's rail is in rearrange mode — one at a time, like every
+   *  other level of this accordion. */
+  const [arrangeTile, setArrangeTile] = useState<string | null>(null);
+  const [arrangeBusyTile, setArrangeBusyTile] = useState<string | null>(null);
+  const [arrangeError, setArrangeError] = useState<string | null>(null);
+  const [grabbedCard, setGrabbedCard] = useState<string | null>(null);
   // Bench search (2026-07-10, PR-4 · S3) — a client-side filter over the ~53
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
@@ -918,6 +1608,77 @@ export function ShortlistCategories({
   // filter, so a couple can discover a vendor they haven't shortlisted.
   const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
   const [mktLoading, setMktLoading] = useState(false);
+
+  // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
+  // Owner: "when they also click the find reception button, it must show a
+  // lower row that will show other vendors for that category and a search
+  // button also" — and, decisively, "we do not want to leave the page."
+  //
+  // `CategorySearchOverlay` does not navigate, but it is position:fixed;inset:0
+  // — it COVERS the bench, which is the same feeling. So "Find {category}" now
+  // opens a second rail right under the considered carousel, and the full sheet
+  // moves behind "See all →". The sheet is NOT deleted: it owns filters and
+  // facets this row deliberately does not.
+  //
+  // Everything decidable is in `lib/inline-more-row.ts`; this block only holds
+  // the state and calls it.
+  const [moreOpen, setMoreOpen] = useState<{
+    tile: string;
+    label: string;
+    groupId: string;
+  } | null>(null);
+  const [moreQuery, setMoreQuery] = useState('');
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [moreRows, setMoreRows] = useState<CategoryVendorResult[]>([]);
+  const [moreFreeDays, setMoreFreeDays] = useState<Record<string, string[]>>({});
+  // Saves made from THIS open row: profile id → the created event_vendors row
+  // and whether it may be undone (`canUndoInlineSave` — never on a re-save).
+  const [moreSaved, setMoreSaved] = useState<
+    Record<string, { eventVendorId: string; undoable: boolean }>
+  >({});
+  // The one card mid-flight, so only ITS buttons go quiet — a save on one card
+  // must not disable the row.
+  const [moreBusy, setMoreBusy] = useState<string | null>(null);
+  const [moreError, setMoreError] = useState<string | null>(null);
+
+  // Rebuilt once per render, not per card: `TeamCalendarMember.freeDays` is a
+  // Set and the prop carries arrays (see the prop's docblock).
+  const teamCalendarMembers: TeamCalendarMember[] = useMemo(
+    () => teamCalendar.map((m) => ({ ...m, freeDays: new Set(m.freeDays) })),
+    [teamCalendar],
+  );
+  const moreFreeDaysMap = useMemo(
+    () => new Map(Object.entries(moreFreeDays)),
+    [moreFreeDays],
+  );
+
+  const openMore = (tile: string, label: string) => {
+    const next = toggleInlineMoreTile(moreOpen?.tile ?? null, tile);
+    setMoreQuery('');
+    setMoreRows([]);
+    setMoreFreeDays({});
+    setMoreSaved({});
+    setMoreError(null);
+    // Loading is raised HERE, not in the fetch effect: the effect runs after the
+    // commit, so an empty row would paint "Nothing else in this category yet"
+    // for one frame before the request it is still waiting on has even started.
+    setMoreLoading(Boolean(next));
+    setMoreOpen(next ? { ...benchSearchScopeForTile(tile), label } : null);
+  };
+
+  /**
+   * `redirect()` inside a server action signals itself by THROWING. Swallowing
+   * that throw in a catch turns "we are sending you to sign in" into "we
+   * couldn't undo that" and strands the couple on a page that will not work.
+   * `deleteVendor` redirects a signed-out caller, so its catch must let this one
+   * back out. Matched on the digest Next stamps, not on the class, which is not
+   * exported from a stable path.
+   */
+  const isRedirect = (e: unknown): boolean =>
+    typeof e === 'object' &&
+    e !== null &&
+    'digest' in e &&
+    String((e as { digest?: unknown }).digest).startsWith('NEXT_REDIRECT');
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -940,10 +1701,54 @@ export function ShortlistCategories({
   // setting, so it always starts closed and never persists), plus the in-flight
   // state and the last refusal message for add/remove.
   const [hintTile, setHintTile] = useState<string | null>(null);
+  /**
+   * The card date view, resolved ONCE per render against the SAME
+   * `buildWindow` the banner and the sink are drawn from. Recomputing the
+   * intersection inside the card would be a second copy, free to drift.
+   */
+  const dateViewFor = useCallback(
+    (v: ShortlistVendor) => {
+      const parts = cardDates({
+        freeDays: v.freeDays ?? null,
+        windowSize: buildWindow?.dayKeys.length ?? 0,
+      });
+      const viable = v.freeDays
+        ? v.freeDays.filter((d) => (buildWindow?.dayKeys ?? []).includes(d))
+        : null;
+      return {
+        parts,
+        outcome: dateOutcome({
+          viableDays: viable,
+          dateAnchored: buildWindow?.source === 'anchored',
+        }),
+      };
+    },
+    [buildWindow],
+  );
+  const [hintFolder, setHintFolder] = useState<string | null>(null);
   const [planEditing, startPlanEdit] = useTransition();
+  const { confirm, dialog: removeConfirmDialog } = useConfirm();
   const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
 
-  function removeTileFromPlan(tile: string) {
+  /**
+   * Ask before removing. The note on the button rides `title`, which is a HOVER
+   * tooltip — and on a phone there is no hover, so a touch user got no visible
+   * warning at all before their conversations were archived.
+   *
+   * The confirm is awaited OUTSIDE `startPlanEdit`: a transition cannot await,
+   * and starting one before the couple has answered would flip the row into its
+   * pending state while the dialog is still open.
+   */
+  async function removeTileFromPlan(tile: string, label: string) {
+    const ok = await confirm({
+      title: removeFromPlanConfirmTitle(label),
+      body: REMOVE_FROM_PLAN_CONFIRM_BODY,
+      confirmLabel: REMOVE_FROM_PLAN_CONFIRM_OK,
+      cancelLabel: REMOVE_FROM_PLAN_CONFIRM_CANCEL,
+      // NOT destructive: the terracotta tint means "this deletes something",
+      // and this deletes nothing. Reversibility is the message.
+    });
+    if (!ok) return;
     setPlanError(null);
     startPlanEdit(async () => {
       const res = await excludeTileFromPlan({ eventId, tile });
@@ -1127,6 +1932,22 @@ export function ShortlistCategories({
       ? 'fit'
       : sort;
 
+  // The WORDING on the chip that is currently on — quoted verbatim in row 2's
+  // "what this is ordered by" line. Read off the chips actually rendered rather
+  // than looked up in a table, because the label differs by flag ("Best fit"
+  // with the replan flag off, "Best matches" with it on) and a sentence that
+  // quotes a different word from the button the couple just pressed replaces
+  // one small lie with another.
+  const effectiveSortLabel: string = useMemo(() => {
+    const chips: { key: BenchSort; label: string }[] = replan
+      ? [
+          ...lensChips.map((c) => ({ key: c.key as BenchSort, label: c.label })),
+          ...BENCH_PLAIN_SORTS.map((p) => ({ key: p.key as BenchSort, label: p.label })),
+        ]
+      : BENCH_SORTS;
+    return chips.find((c) => c.key === effectiveSort)?.label ?? (BENCH_SORTS[0]?.label ?? 'Best fit');
+  }, [replan, lensChips, effectiveSort]);
+
   // ── Sort persistence (§13.3) ──────────────────────────────────────────────
   // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
   // the bench back to "Best fit". Stored per EVENT. Read once on mount (not
@@ -1159,6 +1980,81 @@ export function ShortlistCategories({
     }
     persistBenchSort(eventId, sort, typeof window === 'undefined' ? null : window.localStorage);
   }, [replan, eventId, sort]);
+
+  /**
+   * Move ONE card to a slot, then persist the whole of that category's pin set.
+   *
+   * 🔑 THE WHOLE SET, NOT A DELTA — `pinsAfterMove` returns it for exactly this
+   * reason: the write becomes one idempotent replacement of one category, and a
+   * card the couple has just moved off cannot be left behind by a half-applied
+   * change.
+   *
+   * ⚠ AND IT IS SCOPED TO ONE TILE THROUGHOUT. Owner: *"per category."*
+   */
+  const moveArrangedCard = useCallback(
+    (tile: string, displayed: string[], moved: string, toIndex: number) => {
+      const before = pinsByTile[tile] ?? [];
+      const next = pinsAfterMove({
+        displayed,
+        pinned: before.map((pin) => pin.vendorId),
+        moved,
+        toIndex,
+      });
+      setArrangeError(null);
+      setPinsByTile((prev) => ({ ...prev, [tile]: next }));
+      setArrangeBusyTile(tile);
+      void saveBenchArrangement({ eventId, tile, pins: next })
+        .then((res) => {
+          if (!res.ok) {
+            // Put the rail back where it was and SAY SO. A silent rollback is a
+            // rail that moves on its own.
+            setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+            setArrangeError(res.error);
+          }
+        })
+        .catch(() => {
+          setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+          setArrangeError('That order could not be saved. Please try again.');
+        })
+        .finally(() => setArrangeBusyTile(null));
+    },
+    [eventId, pinsByTile],
+  );
+
+  /** Reset — give ONE category's rail back to the lens. One category, because
+   *  that is the scope of the arrangement itself. */
+  const resetArrangedTile = useCallback(
+    (tile: string) => {
+      const before = pinsByTile[tile] ?? [];
+      setArrangeError(null);
+      setPinsByTile((prev) => ({ ...prev, [tile]: [] }));
+      setArrangeBusyTile(tile);
+      void resetBenchArrangement({ eventId, tile })
+        .then((res) => {
+          if (!res.ok) {
+            setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+            setArrangeError(res.error);
+          }
+        })
+        .catch(() => {
+          setPinsByTile((prev) => ({ ...prev, [tile]: before }));
+          setArrangeError('That order could not be reset. Please try again.');
+        })
+        .finally(() => setArrangeBusyTile(null));
+    },
+    [eventId, pinsByTile],
+  );
+
+  // Escape leaves rearrange mode. A mode with no visible way out is a trap, and
+  // the Done button is only visible while the rail is on screen.
+  useEffect(() => {
+    if (!arrangeTile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setArrangeTile(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [arrangeTile]);
 
   /** Every tile in a folder as a CoverageTile (`order` = taxonomy walk index). */
   const coverageByFolder = new Map<string, CoverageTile[]>();
@@ -1328,9 +2224,163 @@ export function ShortlistCategories({
     };
   }, [q]);
 
+  // ── Row 2's fetch ─────────────────────────────────────────────────────────
+  // On EXPAND, not on page load — the bench renders ~53 categories and none of
+  // them should cost a marketplace query until the couple asks. Re-runs when the
+  // row's own search text settles, through the SAME action, because the field
+  // filters this row rather than opening a second search surface.
+  const moreTile = moreOpen?.tile ?? null;
+  const moreGroupId = moreOpen?.groupId ?? '';
+  const moreQ = moreQuery.trim();
+  useEffect(() => {
+    if (!moreTile || !shouldRunInlineMoreQuery(moreQ)) return;
+    let cancelled = false;
+    setMoreLoading(true);
+    setMoreError(null);
+    const handle = window.setTimeout(() => {
+      fetchInlineMoreRow({ eventId, groupId: moreGroupId, tile: moreTile, query: moreQ })
+        .then((res) => {
+          if (cancelled) return;
+          setMoreRows(res.results);
+          setMoreFreeDays(res.freeDaysByProfileId);
+          setMoreLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Say so rather than showing an empty row: "nothing here" and "we
+          // could not look" are different facts and only one of them is news.
+          setMoreRows([]);
+          setMoreFreeDays({});
+          setMoreLoading(false);
+          setMoreError(INLINE_MORE_FAILED);
+        });
+      // No debounce on the initial open (empty query) — the row would sit blank
+      // for a quarter second for no reason.
+    }, moreQ ? 280 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [eventId, moreTile, moreGroupId, moreQ]);
+
+  // Save from row 2 → the couple's *considering* list, which is what row 1
+  // shows. The SAME `saveVendorToPicks` the full sheet's Add already calls; no
+  // Lock, no Add-to-build — the bench's read-only-about-picks boundary is why it
+  // cannot destabilise the Build and Lock tabs.
+  const saveFromMore = async (v: CategoryVendorResult): Promise<string | null> => {
+    const existing = moreSaved[v.vendorProfileId];
+    if (existing) return existing.eventVendorId;
+    setMoreBusy(v.vendorProfileId);
+    setMoreError(null);
+    try {
+      const fd = new FormData();
+      fd.set('vendor_profile_id', v.vendorProfileId);
+      // 🔑 THE BENCH KNOWS ITS EVENT — it is in the URL. Without this the save
+      // re-derived a "primary" event and could land the pick in a DIFFERENT
+      // wedding than the one on screen, silently. (Measured 2026-09-08: an
+      // account with two events flagged is_primary, one of them a "Movie
+      // Night", where which one won was arbitrary per request.)
+      fd.set('event_id', eventId);
+      const res = await saveVendorToPicks(fd);
+      if (res.status !== 'ok' && res.status !== 'already_saved') {
+        // Say WHICH refusal happened where we can. The catch-all sentence
+        // collapsed four distinct causes — signed out, no event, not your
+        // event, and a real database error — into one, and the action knew the
+        // difference every time.
+        setMoreError(
+          res.status === 'not_signed_in'
+            ? INLINE_MORE_SIGNED_OUT
+            : res.status === 'not_your_event'
+              ? INLINE_MORE_NOT_YOUR_EVENT
+              : INLINE_MORE_SAVE_FAILED,
+        );
+        return null;
+      }
+      setMoreSaved((cur) => ({
+        ...cur,
+        [v.vendorProfileId]: {
+          eventVendorId: res.eventVendorId,
+          undoable: canUndoInlineSave(res.status),
+        },
+      }));
+      // `saveVendorToPicks` revalidates /dashboard/[eventId], not this nested
+      // route, so nothing repaints row 1 on its own. One soft refresh, and the
+      // card the couple just saved is in the carousel above.
+      router.refresh();
+      return res.eventVendorId;
+    } catch {
+      setMoreError(INLINE_MORE_SAVE_FAILED);
+      return null;
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
+  // The undo for a mis-tap. `deleteVendor` is the shipped × the legacy
+  // accordion's cards already use; it refuses a booked row on the server, which
+  // can never be the case one tap after a save.
+  const undoFromMore = async (v: CategoryVendorResult) => {
+    const saved = moreSaved[v.vendorProfileId];
+    if (!saved?.undoable) return;
+    setMoreBusy(v.vendorProfileId);
+    setMoreError(null);
+    try {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('vendor_id', saved.eventVendorId);
+      await deleteVendor(fd);
+      setMoreSaved((cur) => {
+        const next = { ...cur };
+        delete next[v.vendorProfileId];
+        return next;
+      });
+      router.refresh();
+    } catch (e) {
+      if (isRedirect(e)) throw e;
+      setMoreError(INLINE_MORE_UNDO_FAILED);
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
+  // Inquire. A thread is opened against a SHORTLIST row (`contactShortlistVendor`
+  // resolves `event_vendors` and that read is what authorises the call), so a
+  // vendor the couple has never saved is saved first. That is not a side effect
+  // smuggled in: inquiring IS how shortlisted vendors got there, and the card
+  // says "Save to X" right beside it.
+  const inquireFromMore = async (v: CategoryVendorResult) => {
+    const vendorId = await saveFromMore(v);
+    if (!vendorId) return;
+    setMoreBusy(v.vendorProfileId);
+    try {
+      const res = await contactShortlistVendor({ eventId, vendorId });
+      if (res.status === 'ok') {
+        router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
+        return;
+      }
+      setMoreError(
+        res.status === 'not_signed_in' ? INLINE_MORE_SIGNED_OUT : INLINE_MORE_INQUIRE_FAILED,
+      );
+    } catch {
+      setMoreError(INLINE_MORE_INQUIRE_FAILED);
+    } finally {
+      setMoreBusy(null);
+    }
+  };
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
+      {/* The remove confirm. It must live INSIDE the rendered tree or
+          `confirm()` resolves against a dialog that was never mounted —
+          the hook's own docblock says so. */}
+      {removeConfirmDialog}
+      {/* THE ROLL-UP · the first thing on the bench, above the coverage strip
+          and every folder, so the couple learns there is something to read
+          before they open a single category. Owner: the sticky Picks column
+          carries at most this line; the per-supplier detail belongs on the
+          bench card, in the wide left column where they spend their time. */}
+      <BenchRollUp folders={folders} standings={standings} />
       {replan && stripTiles.length > 0 ? (
         /* Coverage Strip v2 (Explore Replan PR-B) — the SAME `.plan-strip`
            shell + the SAME `openPlan` doorway as the chip strip it upgrades;
@@ -1607,10 +2657,12 @@ export function ShortlistCategories({
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}`}
           >
+            <div className="fold-head-row" style={{ display: 'flex', alignItems: 'center' }}>
             <button
               type="button"
               className="fold-head"
               aria-expanded={folderOpen}
+              style={{ flex: 1, minWidth: 0 }}
               onClick={() => {
                 setOpenFolder(folderOpen ? null : folder.folder);
                 setOpenTile(null);
@@ -1654,6 +2706,29 @@ export function ShortlistCategories({
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
+            {/* The folder ⓘ — a SIBLING of the head button, not nested inside
+                it (buttons cannot nest), exactly as `cat-head-row` already does
+                one level down. Measured 2026-09-06: all 16 folders had no ⓘ at
+                all, so a collapsed "Specialty" or "Dining extras" told a couple
+                nothing until they expanded it. Reuses `.cat-info` so the two
+                levels look and behave identically. */}
+            <button
+              type="button"
+              className="cat-info"
+              aria-expanded={hintFolder === folder.folder}
+              aria-label={folderHintButtonLabel(folder.label)}
+              title={folderHintButtonLabel(folder.label)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setHintFolder((cur) => (cur === folder.folder ? null : folder.folder));
+              }}
+            >
+              i
+            </button>
+            </div>
+            {hintFolder === folder.folder ? (
+              <div className="hintbox">{folderHintFor(folder.folder)}</div>
+            ) : null}
             <div className="fold-collapse">
               <div className="fold-body">
                 {rowTiles.map((t) => {
@@ -1690,14 +2765,84 @@ export function ShortlistCategories({
                   // The two features compose cleanly and in this order only: the
                   // lens decides merit, the sink is a partition applied AFTER it
                   // and never a term inside the score.
-                  const rail = partitionByBuildFit(
+                  //
+                  // §S8 — PINS BEAT SORT. The couple's own order is applied to
+                  // the lens's answer, never instead of it: a card they dragged
+                  // holds its slot, everything else keeps the order the lens
+                  // gave it, and a supplier who arrives later lands in its
+                  // normal computed position among the unpinned rather than
+                  // jumping the queue. All of that is decided in
+                  // `lib/bench-arrangement.ts`; this file renders.
+                  //
+                  // The composition order is the shipped one, with one step
+                  // inserted: lens → the couple's own hand → sink the clashes.
+                  // The sink stays LAST because it is a partition over whatever
+                  // order was chosen, not a term inside it.
+                  const tilePins = pinsByTile[t.tile] ?? [];
+                  const arrangedRail = applyBenchArrangement(
                     sortWithReasons(t.vendors, effectiveSort),
+                    tilePins,
+                    (e) => e.v.vendorId,
+                  );
+                  const rail = partitionByBuildFit(
+                    arrangedRail,
                     ({ v }) =>
                       v.buildFit === 'clash'
                         ? { fits: false, clashWith: v.buildClashWith }
                         : null,
                   );
+                  // The order the couple is actually looking at — the only order
+                  // a drop index can be measured against.
+                  const railOrder = rail.fits.map(({ v }) => v.vendorId);
+                  const isArranging = arrangeTile === t.tile;
+                  const tileBusy = arrangeBusyTile === t.tile;
+                  const showsArrangement = hasVisibleArrangement(
+                    tilePins,
+                    t.vendors.map((v) => v.vendorId),
+                  );
                   const CatIcon = tileIcon(t.tile);
+                  // ── ROW 2 (owner 2026-09-06) ────────────────────────────
+                  // Built here, beside row 1, so both rows are drawn from the
+                  // SAME window in the same pass and cannot disagree about who
+                  // fits. Everything decided is decided in `lib/inline-more-row`.
+                  const moreIsOpen = moreOpen?.tile === t.tile;
+                  // THE SORT BAR NOW REACHES THIS ROW — bottom tier only (owner
+                  // 2026-09-09, "bottom tier only"). `orderInlineMoreRow` moves
+                  // ONLY the ladder's tail; relationship depth, paid placement
+                  // and top-reviews come back at the byte-identical index they
+                  // went in at, because no other index is ever written. The
+                  // decision is in `lib/inline-more-order.ts`; this file renders.
+                  //
+                  // Ordered AFTER the exclusion so the tiers the sentence names
+                  // are the tiers still on screen, and BEFORE the classifier so
+                  // it composes exactly as row 1 does: choose the order, then
+                  // sink the date clashes as a partition over it.
+                  const moreVisible = moreIsOpen
+                    ? orderInlineMoreRow(
+                        excludeBenchVendors(
+                          moreRows,
+                          t.vendors.map((v) => v.marketplaceVendorId),
+                          Object.keys(moreSaved),
+                        ),
+                        effectiveSort,
+                      )
+                    : [];
+                  const moreOrderNote = moreIsOpen
+                    ? inlineMoreOrderNote({
+                        rows: moreVisible,
+                        mode: effectiveSort,
+                        modeLabel: effectiveSortLabel,
+                      })
+                    : null;
+                  const moreClassified = moreIsOpen
+                    ? classifyInlineMoreRow({
+                        rows: moreVisible,
+                        freeDaysByProfileId: moreFreeDaysMap,
+                        window: buildWindow,
+                        members: teamCalendarMembers,
+                        probeDayKeys,
+                      })
+                    : null;
                   return (
                     <div
                       key={t.tile}
@@ -1841,6 +2986,50 @@ export function ShortlistCategories({
                               </button>
                             </div>
                           ) : t.vendors.length > 0 ? (
+                            <>
+                            {/* ── THE COUPLE'S OWN ORDER (owner 2026-09-09) ──
+                                "Your order" appears on the CATEGORY, not on the
+                                Sort by bar above, and that is the ruling rather
+                                than a layout choice: an arrangement is per
+                                category, so a global chip would claim the whole
+                                bench was hand-made when one rail is. Reset
+                                reaches exactly as far as the arrangement does —
+                                a couple who arranged their caterers three weeks
+                                ago must not lose it by tidying florists today. */}
+                            {isArranging || showsArrangement ? (
+                              <div className="arrnote">
+                                {showsArrangement && !isArranging ? (
+                                  <span className="arrl">{YOUR_ORDER_LABEL}</span>
+                                ) : null}
+                                <span className="arrt">
+                                  {isArranging
+                                    ? 'Drag a card, or use ← → to move it. Long-press any card to start.'
+                                    : arrangementNote(effectiveSortLabel)}
+                                </span>
+                                {showsArrangement ? (
+                                  <button
+                                    type="button"
+                                    className="arrb"
+                                    disabled={tileBusy}
+                                    onClick={() => resetArrangedTile(t.tile)}
+                                  >
+                                    {RESET_ORDER_LABEL}
+                                  </button>
+                                ) : null}
+                                {isArranging ? (
+                                  <button
+                                    type="button"
+                                    className="arrb"
+                                    onClick={() => setArrangeTile(null)}
+                                  >
+                                    Done
+                                  </button>
+                                ) : null}
+                                {arrangeError && (isArranging || showsArrangement) ? (
+                                  <span className="plan-err">{arrangeError}</span>
+                                ) : null}
+                              </div>
+                            ) : null}
                             <div className="rail">
                               {rail.fits.map(({ v, reason }) => (
                                 <VendorCard
@@ -1849,6 +3038,33 @@ export function ShortlistCategories({
                                   reason={reason}
                                   eventId={eventId}
                                   tileLabel={t.label}
+                                  dates={dateViewFor(v)}
+                                  arrange={{
+                                    active: isArranging,
+                                    busy: tileBusy,
+                                    grabbed: grabbedCard === v.vendorId,
+                                    onEnter: () => setArrangeTile(t.tile),
+                                    canLeft:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'left') !== null,
+                                    canRight:
+                                      keyboardMoveTarget(railOrder, v.vendorId, 'right') !== null,
+                                    onMove: (direction) => {
+                                      const to = keyboardMoveTarget(railOrder, v.vendorId, direction);
+                                      if (to === null) return;
+                                      moveArrangedCard(t.tile, railOrder, v.vendorId, to);
+                                    },
+                                    onDragStart: () => setGrabbedCard(v.vendorId),
+                                    onDragEnd: () => setGrabbedCard(null),
+                                    onDropOn: () => {
+                                      const from = grabbedCard;
+                                      setGrabbedCard(null);
+                                      if (!from || from === v.vendorId) return;
+                                      const to = railOrder.indexOf(v.vendorId);
+                                      if (to < 0) return;
+                                      moveArrangedCard(t.tile, railOrder, from, to);
+                                    },
+                                  }}
+                                  standing={standings[v.vendorId] ?? null}
                                   // Slice D — three-action card. The resolver is
                                   // pure + unit-tested; flag OFF returns nothing
                                   // and the card renders exactly as it shipped.
@@ -1872,7 +3088,8 @@ export function ShortlistCategories({
                                 {replan ? (
                                   <button
                                     type="button"
-                                    onClick={() => openSearch(t.tile, t.label)}
+                                    aria-expanded={moreIsOpen}
+                                    onClick={() => openMore(t.tile, t.label)}
                                   >
                                     {addAnother ? (
                                       <Plus size={20} strokeWidth={1.9} aria-hidden />
@@ -1927,6 +3144,8 @@ export function ShortlistCategories({
                                       reason={reason}
                                       eventId={eventId}
                                       tileLabel={t.label}
+                                    dates={dateViewFor(v)}
+                                      standing={standings[v.vendorId] ?? null}
                                       actions={resolveBenchCardActions({
                                         enabled: replan,
                                         vendor: v,
@@ -1937,6 +3156,7 @@ export function ShortlistCategories({
                                 </>
                               ) : null}
                             </div>
+                            </>
                           ) : (
                             <div className="find-set">
                               {/* Empty-category doorway — same swap as the
@@ -1947,7 +3167,8 @@ export function ShortlistCategories({
                                 <button
                                   type="button"
                                   className="fr find"
-                                  onClick={() => openSearch(t.tile, t.label)}
+                                  aria-expanded={moreIsOpen}
+                                  onClick={() => openMore(t.tile, t.label)}
                                 >
                                   <span className="fr-i">
                                     <Search size={16} strokeWidth={1.75} aria-hidden />
@@ -1974,6 +3195,113 @@ export function ShortlistCategories({
                               </button>
                             </div>
                           )}
+                          {/* ── ROW 2 · "More in {category}" (owner 2026-09-06) ──
+                              The answer to "we do not want to leave the page":
+                              a second rail directly under the considered
+                              carousel instead of a sheet that covers it. Its
+                              vendors, its order and its names all come from the
+                              SAME `searchCategoryVendors` the full sheet uses,
+                              and its shared-date sink is the SAME window row 1
+                              was drawn from. "See all →" still opens that sheet
+                              — now opt-in, and still the only place with
+                              filters and facets. */}
+                          {moreIsOpen && moreClassified ? (
+                            <div className="morerow">
+                              <div className="morehead">
+                                <span className="mt">{inlineMoreHeading(t.label)}</span>
+                                <input
+                                  className="mq"
+                                  type="search"
+                                  value={moreQuery}
+                                  onChange={(e) => setMoreQuery(e.target.value)}
+                                  placeholder={inlineMoreSearchPlaceholder(t.label)}
+                                  aria-label={inlineMoreSearchPlaceholder(t.label)}
+                                />
+                                <button
+                                  type="button"
+                                  className="seeall"
+                                  aria-label={inlineMoreSeeAllLabel(t.label)}
+                                  onClick={() => openSearch(t.tile, t.label)}
+                                >
+                                  {INLINE_MORE_SEE_ALL} <ArrowRight size={13} strokeWidth={2} aria-hidden />
+                                </button>
+                              </div>
+                              {/* THE HONEST SENTENCE (owner 2026-09-09). The
+                                  Sort by bar sits above two rows and orders the
+                                  top of this one not at all — so this row says
+                                  what it IS ordered by, and stops the bar
+                                  appearing to govern something it does not. */}
+                              {moreOrderNote ? (
+                                <div className="mrnote">
+                                  <span>{moreOrderNote}</span>
+                                </div>
+                              ) : null}
+                              {moreError ? <div className="mrerr">{moreError}</div> : null}
+                              {moreLoading &&
+                              moreClassified.fits.length === 0 &&
+                              moreClassified.clashes.length === 0 ? (
+                                <div className="mrnote">
+                                  <span>{INLINE_MORE_LOADING}</span>
+                                </div>
+                              ) : moreClassified.fits.length === 0 &&
+                                moreClassified.clashes.length === 0 ? (
+                                <div className="mrnote">
+                                  <span>{inlineMoreEmpty(moreQuery)}</span>
+                                </div>
+                              ) : (
+                                <div className="rail" aria-busy={moreLoading || undefined}>
+                                  {moreClassified.fits.map(({ row }) => (
+                                    <InlineMoreCard
+                                      key={row.vendorProfileId}
+                                      v={row}
+                                      label={t.label}
+                                      sunk={false}
+                                      clashWith={null}
+                                      saved={moreSaved[row.vendorProfileId]}
+                                      busy={moreBusy === row.vendorProfileId}
+                                      onSave={() => void saveFromMore(row)}
+                                      onUndo={() => void undoFromMore(row)}
+                                      onInquire={() => void inquireFromMore(row)}
+                                    />
+                                  ))}
+                                  {/* The same labelled divider row 1 uses. A
+                                      sunk card is lowered, never removed —
+                                      removing the clashing candidate above
+                                      brings it straight back. */}
+                                  {moreClassified.clashes.length > 0 ? (
+                                    <>
+                                      <span
+                                        className="raildiv"
+                                        role="separator"
+                                        aria-label={DOESNT_FIT_DIVIDER}
+                                      >
+                                        <span aria-hidden>{DOESNT_FIT_DIVIDER}</span>
+                                      </span>
+                                      {moreClassified.clashes.map(({ row, clashWith }) => (
+                                        <InlineMoreCard
+                                          key={row.vendorProfileId}
+                                          v={row}
+                                          label={t.label}
+                                          sunk
+                                          clashWith={clashWith}
+                                          saved={moreSaved[row.vendorProfileId]}
+                                          busy={moreBusy === row.vendorProfileId}
+                                          onSave={() => void saveFromMore(row)}
+                                          onUndo={() => void undoFromMore(row)}
+                                          onInquire={() => void inquireFromMore(row)}
+                                        />
+                                      ))}
+                                    </>
+                                  ) : null}
+                                </div>
+                              )}
+                              {moreClassified.clashes.length > 0 ? (
+                                <div className="mrnote">
+                                  <span>{inlineMoreSunkNote(moreClassified.clashes.length)}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {/* "Not needed? Remove" (PR-C · decision #6). Quiet,
                               at the foot of an OPEN category, and absent
                               entirely when the category holds a locked vendor —
@@ -1988,8 +3316,14 @@ export function ShortlistCategories({
                                   type="button"
                                   className="rmv"
                                   disabled={planEditing}
-                                  aria-label={removeFromPlanButtonLabel(t.label)}
-                                  onClick={() => removeTileFromPlan(t.tile)}
+                                  /* The note rides the aria-label and the
+                                     title, NOT an sr-only span: aria-label
+                                     OVERRIDES inner text for assistive tech,
+                                     so a hidden span inside this button would
+                                     have reached nobody at all. */
+                                  aria-label={`${removeFromPlanButtonLabel(t.label)} — ${REMOVE_FROM_PLAN_NOTE}`}
+                                  title={REMOVE_FROM_PLAN_NOTE}
+                                  onClick={() => void removeTileFromPlan(t.tile, t.label)}
                                 >
                                   {REMOVE_FROM_PLAN_LABEL}
                                 </button>

@@ -153,6 +153,18 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-events-column-grants.mjs
 
+      # Same shape, same reason, different table. 20271217955839 took table-level
+      # SELECT off `authenticated` for public.vendor_profiles (a verified shop's
+      # BIR tax identity, DTI/SEC registration number and owner's legal name were
+      # readable by every signed-in account), so a column added afterwards is born
+      # unreadable and PostgREST refuses the WHOLE query naming it. The db suite
+      # cannot see that — its before() recomputes the allowlist over the new
+      # column — so this reads the migration TEXT instead.
+      - name: Lint vendor_profiles column grants
+        id: guard_vendor_profiles_grants
+        continue-on-error: true
+        run: node apps/web/scripts/lint-vendor-profiles-column-grants.mjs
+
       # THERE IS ONE COMMENT STRIPPER. Half the guards in this repo read source
       # text and match a pattern, so each needs comments removed first — and the
       # obvious two-replace regex strips BLOCK comments FIRST, so a line comment
@@ -334,6 +346,16 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-demo-capture-geometry.mjs
 
+      # Sibling of the geometry guard, DIFFERENT defect: the geometry can be
+      # perfect (460x972 in, 460x972 out, content spanning the full width) and
+      # the picture still ship two-thirds blank, because the SCENE top-aligns
+      # short content inside a frame 2.5x its height. Baselined, so the 23 that
+      # already do are recorded and a NEW one is refused.
+      - name: Lint scene fills its frame
+        id: guard_scene_fill
+        continue-on-error: true
+        run: node apps/web/scripts/lint-scene-fills-its-frame.mjs
+
       # Fails when a migration declares a FUNCTION-LEVEL `SET` on a custom
       # `setnayan.*` parameter. Prod refuses to create such a function —
       # "permission denied to set parameter" (42501) — because that clause is
@@ -408,6 +430,58 @@ jobs:
       - name: Duplicated-rule guards
         run: pnpm --filter @setnayan/web lint:dup-rule
 
+      # ══ THE NATIVE ENCODER'S OWN TESTS ═══════════════════════════════════
+      #
+      # 42 Rust tests covering the one part of Live Studio a browser cannot do:
+      # FLV tagging and RTMPS publishing to YouTube. Three of them are guards
+      # that took real work to write and would rot in silence — sequence headers
+      # before any media tag, RTMP's extended-timestamp encoding past
+      # 16,777,215 ms (4 h 39 m 37 s, which lands INSIDE a wedding reception),
+      # and a sweep asserting no string this program emits contains the stream
+      # key. Until this step existed, nothing in CI ran a single one of them:
+      # `build-desktop.yml` was the only workflow that touched cargo, and it has
+      # been workflow_dispatch-only since 2026-06-20.
+      #
+      # IT RIDES THIS JOB BECAUSE THIS JOB IS REQUIRED. A `cargo test` job of its
+      # own would go red on the PR page and the PR would merge anyway — see this
+      # job's header for the nine guards that spent months blocking nothing.
+      #
+      # AND IT TESTS `setnayan-encoder`, NOT `setnayan-desktop`. That is the
+      # whole reason the encoder is a separate crate: `setnayan-desktop` cannot
+      # compile without tauri, and `tauri::generate_context!` cannot expand
+      # without `src-tauri/icons/*.png`, which are generated and gitignored. So
+      # testing it there would mean apt-installing libwebkit2gtk, installing
+      # node + the Tauri CLI, generating icons and compiling tauri + wry on every
+      # pull request — which is the exact cost the owner removed on 2026-06-20
+      # when the desktop builds came off push/PR triggers for "dominating GitHub
+      # Actions usage". Measured locally on a clean worktree with no icons at
+      # all: 42 tests, 41 s, no tauri in the tree.
+      #
+      # NO `if:` CONDITION, DELIBERATELY. Gating this on "did the PR touch Rust"
+      # would make it `skipped` on most PRs, and the aggregator below is
+      # fail-closed on skipped for good reason. A cached run is seconds; an
+      # uncached one is a couple of minutes on a change nobody makes weekly.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          # Keyed on the encoder's manifest and the workspace lock — NOT on
+          # src-tauri/Cargo.toml alone, which would miss a dependency bump made
+          # in the crate this step actually builds.
+          key: ${{ runner.os }}-cargo-encoder-${{ hashFiles('src-tauri/crates/encoder/Cargo.toml', 'src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-encoder-
+
+      - name: Test the native encoder
+        id: guard_encoder_tests
+        continue-on-error: true
+        run: cargo test --manifest-path src-tauri/Cargo.toml -p setnayan-encoder
+
       # ══ THE AGGREGATOR — this is what makes the guards above BLOCK ═══════
       #
       # Each guard step is `continue-on-error: true`, which rewrites its
@@ -434,6 +508,7 @@ jobs:
           RADIUS: ${{ steps.guard_radius.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
+          VENDOR_PROFILES_GRANTS: ${{ steps.guard_vendor_profiles_grants.outcome }}
           ONE_STRIPPER: ${{ steps.guard_one_stripper.outcome }}
           UI_NOTES: ${{ steps.guard_ui_notes.outcome }}
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
@@ -446,10 +521,12 @@ jobs:
           MIGRATIONS_KEPT: ${{ steps.guard_migrations_kept.outcome }}
           FONTS_LOCAL: ${{ steps.guard_fonts_local.outcome }}
           DEMO_CAPTURE: ${{ steps.guard_demo_capture.outcome }}
+          SCENE_FILL: ${{ steps.guard_scene_fill.outcome }}
           FUNCTION_LEVEL_SET: ${{ steps.guard_function_level_set.outcome }}
           LABEL_CONTRAST: ${{ steps.guard_label_contrast.outcome }}
           AUTOMERGE_HOLD: ${{ steps.guard_automerge_hold.outcome }}
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
+          ENCODER_TESTS: ${{ steps.guard_encoder_tests.outcome }}
         run: |
           failed=0
           check() {
@@ -468,6 +545,7 @@ jobs:
           check 'lint radius tokens'          "$RADIUS"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint events column grants'  "$EVENTS_GRANTS"
+          check 'lint vendor_profiles column grants'  "$VENDOR_PROFILES_GRANTS"
           check 'lint one comment stripper'   "$ONE_STRIPPER"
           check 'lint engineering notes in ui' "$UI_NOTES"
           check 'lint stacked pinned bars'   "$PINNED_BARS"
@@ -478,12 +556,14 @@ jobs:
           check 'lint server-only boundary'   "$SERVER_ONLY"
           check 'lint fonts are local'        "$FONTS_LOCAL"
           check 'lint demo-capture geometry'  "$DEMO_CAPTURE"
+          check 'lint scene fills its frame' "$SCENE_FILL"
           check 'lint migrations dir'         "$MIGRATIONS_DIR"
           check 'lint migrations kept'        "$MIGRATIONS_KEPT"
           check 'lint no function-level custom SET' "$FUNCTION_LEVEL_SET"
           check 'lint label-on-fill contrast' "$LABEL_CONTRAST"
           check 'lint auto-merge hold'        "$AUTOMERGE_HOLD"
           check 'lint stored-asset refs'      "$STORED_ASSET_REFS"
+          check 'native encoder tests'        "$ENCODER_TESTS"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'

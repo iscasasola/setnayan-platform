@@ -58,7 +58,11 @@ const ROLE_TONE: Record<VendorTeamRole, string> = {
   viewer: 'bg-ink/10 text-ink/65',
 };
 
-function nameOf(members: VendorTeamMemberWithUser[], userId: string): string {
+// A NULL proposer means the account was deleted (migration 20271210831005).
+// Say so. Falling through to the generic fallback would print a stranger's
+// placeholder for a real person who left — the repo's own render-honesty rule.
+function nameOf(members: VendorTeamMemberWithUser[], userId: string | null): string {
+  if (!userId) return 'a departed admin';
   const m = members.find((x) => x.user_id === userId);
   return m?.display_name?.trim() || m?.email || 'Admin';
 }

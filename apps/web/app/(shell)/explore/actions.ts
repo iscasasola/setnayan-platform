@@ -3,9 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
+import {
+  resolvePrimaryHostEvent,
+  recomputeReceptionAnchor,
+  userHostsEvent,
+} from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
-import { resolveVendorCategory } from '@/lib/vendor-packages';
+import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -92,38 +96,61 @@ export async function notifyWhenEventTypeLaunches(formData: FormData): Promise<N
 // ============================================================================
 
 export type SaveVendorResult =
-  | { status: 'ok'; eventVendorId: string }
-  | { status: 'already_saved'; eventVendorId: string }
+  /**
+   * `eventName` exists because Save is an EVENT-SCOPED action taken from a
+   * screen that has no event on it (owner 2026-09-08: *"Save adds to a specific
+   * event? this is a search result outside an event"*). The action resolves the
+   * couple's PRIMARY host event and writes there. That is a reasonable default
+   * and a terrible secret: a couple planning a wedding and a debut had no way to
+   * learn which one just gained a supplier. The button says it now.
+   */
+  | { status: 'ok'; eventVendorId: string; eventName: string | null }
+  | { status: 'already_saved'; eventVendorId: string; eventName: string | null }
   | { status: 'not_signed_in' }
   | { status: 'no_primary_event' }
+  /**
+   * An `event_id` was supplied and this user does not host it. Distinct from
+   * every other refusal on purpose — the caller can say "that is not your
+   * event" instead of the catch-all "we couldn't save that vendor".
+   */
+  | { status: 'not_your_event' }
   | { status: 'vendor_not_found' }
   | { status: 'error'; message: string };
 
 function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
-  // vendor_profiles.services is `text[]` that in practice holds leaf /
-  // canonical_service taxonomy strings (e.g. 'photography', 'cake_desserts'),
-  // and occasionally a raw vendor_category enum value.
-  //
-  // Pass 1 — direct enum match. Handles the rare row that already stores a
-  // coarse `vendor_category` enum value.
+  /**
+   * ── WHY THIS STOPPED USING `resolveVendorCategory` (measured 2026-09-08) ──
+   * A shop was saved to a couple's shortlist with `category = 'misc'`, so the
+   * bench's **Live Band** row — which looks for `live_band` — could not show a
+   * supplier the couple had just inquired with. The same fallback rendered
+   * "INQUIRING ABOUT: Miscellaneous" on the thread header.
+   *
+   * `resolveVendorCategory` says so in its own docblock: *"LEAF-KEYED, AND IT
+   * COVERS 52 OF 246 LIVE LEAVES … Do NOT reach for it to classify an arbitrary
+   * service — 194 live leaves land in `misc` here. Use `vendorCategoryForLeaf`
+   * below, which falls back to the leaf's BRANCH and covers all of them."* This
+   * function was reaching for exactly the one it warns about.
+   *
+   * And the owner ruled on the symptom on 2026-08-09: *"fix the taxonomy if
+   * needed. we do not like having categories under misc."*
+   *
+   * 🔑 THE VALUE IS PASSED AS BOTH LEAF AND BRANCH ON PURPOSE.
+   * `vendor_profiles.services` holds TILE IDS in production
+   * (`lib/card-kind-labeller.ts` records this), and a tile id is exactly what
+   * the branch arm wants. Measured:
+   *
+   *     live_band → band_dj    host_mc → host_emcee    cake → cake_maker
+   *     dj        → band_dj    choir   → choir         florist → florist
+   *
+   * A value that IS a canonical leaf still resolves on the leaf arm first, so
+   * correctly-stored shops are unaffected.
+   */
   for (const s of services) {
-    if (VENDOR_CATEGORIES.includes(s as VendorCategory)) {
-      return s as VendorCategory;
-    }
-  }
-  // Pass 2 — leaf → coarse mapping. The common case: 'photography' →
-  // 'photographer', 'cake_desserts' → 'cake_maker'. resolveVendorCategory
-  // returns 'misc' for anything unmapped, so take the first entry that maps
-  // to a real category. Without this pass the leaf strings never matched the
-  // enum check above and every save fell through to 'misc' (the "MISC" bug in
-  // the editorial "Team Behind the Day").
-  for (const s of services) {
-    const resolved = resolveVendorCategory(s);
+    const resolved = vendorCategoryForLeaf(s, s);
     if (resolved !== 'misc') {
       return resolved;
     }
   }
-  // Nothing mapped — generic Misc bucket.
   return 'misc';
 }
 
@@ -147,13 +174,53 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   //    models — event_members (legacy 'couple') and event_moderators
   //    (iteration 0048 multi-host invite path). See
   //    resolvePrimaryHostEvent in @/lib/events for the rule.
-  let primaryEvent: { event_id: string };
+  /**
+   * ── THE EVENT THE CALLER IS STANDING IN WINS ─────────────────────────────
+   * The bench is scoped to ONE event by its own URL. Re-deriving a "primary"
+   * event here meant a pick made on event A's bench could land in event B —
+   * silently, and correctly as far as any test was concerned.
+   *
+   * Measured 2026-09-08 on a real account holding TWO events flagged
+   * `is_primary = true` (nothing enforces one): the resolver sorts primaries
+   * first and takes `sorted[0]`, a stable sort over an unordered query, so
+   * which event won was arbitrary per request.
+   *
+   * `/explore` genuinely has no event on it, so the primary fallback stays for
+   * that caller. An id that IS supplied is a claim from a form, so it is
+   * checked — `userHostsEvent` shares its definition of "hosts" with
+   * `resolvePrimaryHostEvent`, so the two cannot disagree.
+   */
+  const requestedEventId = String(formData.get('event_id') ?? '').trim();
+
+  let primaryEvent: { event_id: string; display_name: string | null };
   try {
-    const resolved = await resolvePrimaryHostEvent(admin, user.id);
-    if (!resolved) {
+    let resolvedEventId: string | null = null;
+    if (requestedEventId) {
+      if (!(await userHostsEvent(admin, user.id, requestedEventId))) {
+        return { status: 'not_your_event' };
+      }
+      resolvedEventId = requestedEventId;
+    } else {
+      const resolved = await resolvePrimaryHostEvent(admin, user.id);
+      resolvedEventId = resolved?.event_id ?? null;
+    }
+    if (!resolvedEventId) {
       return { status: 'no_primary_event' };
     }
-    primaryEvent = { event_id: resolved.event_id };
+    const resolved = { event_id: resolvedEventId };
+    // The NAME is read here, next to the id it belongs to, so the two can never
+    // describe different events. Best-effort: a save must not fail because a
+    // label could not be read.
+    const { data: named } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', resolved.event_id)
+      .maybeSingle();
+    primaryEvent = {
+      event_id: resolved.event_id,
+      display_name:
+        (named as { display_name?: string | null } | null)?.display_name ?? null,
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown resolution error';
     return { status: 'error', message };
@@ -181,7 +248,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     .eq('marketplace_vendor_id', vendorProfileId)
     .maybeSingle();
   if (existing?.vendor_id) {
-    return { status: 'already_saved', eventVendorId: existing.vendor_id };
+    return {
+      status: 'already_saved',
+      eventVendorId: existing.vendor_id,
+      eventName: primaryEvent.display_name,
+    };
   }
 
   // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
@@ -223,7 +294,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   revalidatePath(`/v/`);
   revalidatePath(`/dashboard/${primaryEvent.event_id}`);
 
-  return { status: 'ok', eventVendorId: inserted.vendor_id };
+  return {
+    status: 'ok',
+    eventVendorId: inserted.vendor_id,
+    eventName: primaryEvent.display_name,
+  };
 }
 
 // ============================================================================

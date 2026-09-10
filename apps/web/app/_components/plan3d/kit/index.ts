@@ -140,6 +140,7 @@ export {
 } from './string-lights';
 
 export { InstancedSeatedCrowd, type SeatedInstance } from './instanced-seated-crowd';
+export { InstancedChibiCrowd } from './instanced-chibi-crowd';
 export {
   buildSitBakedLocals,
   seatRootMatrix,

@@ -138,19 +138,58 @@ test('the group scope really is narrower than the row for the categories named a
    3 · THE WIRING — the bench opens the sheet instead of leaving the page
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('the rail-end card opens the in-place sheet, it does NOT navigate away', () => {
+test('the rail-end card answers IN PLACE, it does NOT navigate away', () => {
   const src = code(BENCH);
   // BOTH rail-end labels ("Find more" / "＋ Add another X") and the empty-state
   // card go through the same doorway → two call sites.
-  const calls = src.match(/openSearch\(t\.tile, t\.label\)/g) ?? [];
+  //
+  // ── WHAT CHANGED, AND WHAT DID NOT (owner 2026-09-06) ─────────────────────
+  // The doorway used to be `openSearch` — the full-page sheet. The owner then
+  // ruled: *"we do not want to leave the page."* The sheet never navigated, but
+  // it is `position:fixed; inset:0` and COVERS the bench, which is the same
+  // feeling. So the doorway is now `openMore`, the inline row underneath the
+  // considered carousel, and the sheet moved behind "See all →".
+  //
+  // 🔑 **The invariant this test defends is unchanged and is the STRONGER one:**
+  // neither Find affordance may leave the page. What is asserted below is that
+  // both go through ONE in-place doorway and that the sheet is still reachable —
+  // opt-in, never deleted, because it owns filters and facets the row does not.
+  const calls = src.match(/openMore\(t\.tile, t\.label\)/g) ?? [];
   assert.equal(
     calls.length,
     2,
-    'the rail-end card AND the empty-category card must both call openSearch(t.tile, t.label) — ' +
+    'the rail-end card AND the empty-category card must both call openMore(t.tile, t.label) — ' +
       'reverting either to <Link href={t.exploreHref}> is the owner-reported bug (2026-07-29).',
+  );
+  // The sheet is opt-in, not gone: exactly one "See all" doorway still opens it.
+  const seeAll = src.match(/openSearch\(t\.tile, t\.label\)/g) ?? [];
+  assert.equal(
+    seeAll.length,
+    1,
+    'the full sheet must stay reachable from "See all" — it carries the filters ' +
+      'and facets the inline row deliberately does not (owner 2026-09-06).',
   );
   assert.match(src, /<CategorySearchOverlay/, 'the bench must mount the shipped overlay');
   assert.match(src, /setSearch\(\{ \.\.\.benchSearchScopeForTile\(tile\), label \}\)/);
+  // The row scopes itself the same way the sheet does — one resolver, two callers.
+  assert.match(src, /setMoreOpen\(next \? \{ \.\.\.benchSearchScopeForTile\(tile\), label \} : null\)/);
+});
+
+test('the inline row inherits the shared-date sink, it does not invent one', () => {
+  // Constraint 2 of the 2026-09-06 ruling: a row that offers vendors the row
+  // above just ruled out is worse than no row. The classifier is the pure,
+  // unit-tested one, and the window is the SAME instance row 1 was drawn from —
+  // passed down from vendors/page.tsx, never re-resolved in the row's action.
+  const src = code(BENCH);
+  assert.match(src, /classifyInlineMoreRow\(\{/, 'row 2 must classify through lib/inline-more-row');
+  assert.match(src, /window: buildWindow,/, 'row 2 must use the window the page passed down');
+  assert.match(src, /members: teamCalendarMembers,/);
+  assert.doesNotMatch(
+    code('app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts'),
+    /resolveBuildDateWindow/,
+    "the row's action must NOT resolve a second build window — one window, one " +
+      'classifier, two rows (a second copy is free to drift from row 1).',
+  );
 });
 
 test('flag OFF keeps the shipped /explore navigation, byte for byte', () => {

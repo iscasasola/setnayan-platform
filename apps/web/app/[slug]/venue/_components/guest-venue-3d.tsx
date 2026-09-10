@@ -33,7 +33,11 @@ import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import { colorFromId, remoteMovers, type RemoteMap } from '@/lib/plan3d-room';
+import { chibiHop, chibiDance, type ChibiDance } from '@/lib/figure-rig';
 import { selfFigureAvatar, guestAvatarsEnabled } from '@/lib/venue-avatars';
+import type { ChibiSeat } from '@/lib/chibi-sit';
+import { resolveGuestAvatar, type GuestAvatar } from '@/lib/guest-avatar';
+import { heritageFigureSpec, type HeritageAvatarConfig } from '@/lib/heritage-config';
 import { ChibiFigure } from '@/app/_components/plan3d/kit/chibi-figure';
 import type { ChibiAvatarConfig } from '@/lib/chibi-config';
 import {
@@ -58,7 +62,6 @@ import {
   boothApproach,
   VENUE_OBJECT_CATALOG,
   resolvePalette,
-  resolvePaletteFromRoles,
   guestAttireColor,
   type Lab3DFloor,
   type Lab3DTable,
@@ -74,6 +77,7 @@ import {
   type AgentVel,
 } from '@/lib/seating-3d';
 import type { RolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette, resolveRoomPalette } from '@/lib/room-palette';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { damp, lerpAngle } from '@/lib/figure-rig';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
@@ -87,6 +91,7 @@ import {
   EMOTE_TABLE_Y,
   EMOTE_DANCE_Y,
   InstancedSeatedCrowd,
+  InstancedChibiCrowd,
   seatedFigureMatrix,
   RUN_CLOCK_RAD_S,
   SitController,
@@ -171,6 +176,10 @@ export type VenueScene = {
   /** Cocktail / waiting room (v2 payload) — null/absent when the couple didn't enable one. */
   cocktail?: { xPct: number; yPct: number; wPct: number; hPct: number; label: string | null } | null;
   occupancy: { table: string; seats: number[] }[];
+  /** C6 — seated guests who made an avatar (cartoon configs, never photos),
+   *  under the couple's `venue_photo_visibility`, exactly like `photos`. Absent
+   *  on an older cached payload → every seat stays a mannequin. */
+  avatars?: { table: string; seatNumber: number; config: unknown }[];
   /** `avatarConfig` (v12 payload) is the VIEWER'S OWN stored
    *  `guests.avatar_config` — their chibi, resolved through
    *  `selfFigureAvatar`. Absent on any older cached payload, and null for
@@ -223,6 +232,7 @@ function GuestTable({
   occupied,
   yourSeat,
   photoBySeat,
+  avatarBySeat,
   nameBySeat,
 }: {
   table: Lab3DTable;
@@ -231,6 +241,10 @@ function GuestTable({
   occupied: Set<number> | undefined;
   yourSeat: number | null;
   photoBySeat: Map<number, string> | undefined;
+  /** C6 heritage — this table's seats that carry an avatar config (raw); a
+   *  heritage one is drawn here as an individual dressed <SeatedFigure>, the
+   *  way photo seats are. Chibi seats go to the room-level chibi crowd. */
+  avatarBySeat?: Map<number, unknown>;
   nameBySeat: Map<number, string> | undefined;
 }) {
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
@@ -318,17 +332,27 @@ function GuestTable({
           );
         }
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
+        // C6 heritage — a seated guest whose avatar is the dressed mannequin.
+        // Resolved through the ONE resolver; chibi seats are NOT drawn here
+        // (the room-level chibi crowd has them; the mannequin crowd skips both).
+        const heritageAt = (() => {
+          if (!taken || !guestAvatarsEnabled()) return null;
+          const ga = resolveGuestAvatar(avatarBySeat?.get(i), `${table.id}:${i}`, true);
+          return ga && ga.style !== 'chibi' ? ga.config : null;
+        })();
         // Neutral, ringless strangers render through the room-level
         // <InstancedSeatedCrowd> (one batch for the whole walk). Only per-guest
         // photo seats (billboard head) stay individual here.
-        if (!photoUrl) return null;
-        const spec: FigureSpec = {
-          id: `${table.id}:${i}`,
-          outfit: 'neutral',
-          outfitColor: null,
-          photoUrl,
-          statusColor: palette.table,
-        };
+        if (!photoUrl && !heritageAt) return null;
+        const spec: FigureSpec = heritageAt
+          ? heritageFigureSpec(`${table.id}:${i}`, heritageAt, palette.table)
+          : {
+              id: `${table.id}:${i}`,
+              outfit: 'neutral',
+              outfitColor: null,
+              photoUrl,
+              statusColor: palette.table,
+            };
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
             {/* chairPlacements' faceY points local +Z OUTWARD (away from the
@@ -380,6 +404,77 @@ const WALKER_BODY_R = 0.24;
  *  has no radial to push along) — module-scoped so the frame never allocates. */
 const CLAMP_PERP: Vec2 = { x: 1, z: 0 };
 
+/**
+ * THE CHIBI BOUNCES — it does not glide.
+ *
+ * The chibi rig is jointless below the neck, so `pose`/`phase` have nothing to
+ * drive and an avatar SLID across the floor while the blob ran. A leg cycle
+ * needs joints; a hop does not — it is a whole-body translate and scale, so the
+ * merge that removed the walk leaves the bounce fully available.
+ *
+ * ⚠ IT LANDS RATHER THAN FREEZING. The gait clock stops the instant the walk
+ * ends, so reading it raw would park the figure mid-air at whatever height the
+ * last frame happened to catch. `amp` eases to 0 on arrival and `chibiHop`
+ * returns exact neutral there, so the hop settles onto the floor.
+ *
+ * Reduced motion gets no bounce at all — the whole point of that setting is not
+ * to be moved at, and this is decoration, not information.
+ */
+function ChibiBounce({
+  phaseRef,
+  moving,
+  dancing = false,
+  id = 'guest-self',
+  children,
+}: {
+  phaseRef: React.MutableRefObject<number>;
+  moving: boolean;
+  /** On the dance floor and at rest — the SAME condition that puts the rig
+   *  figure into `pose="dance"`. The chibi has no limbs to swing, so it
+   *  dances with what it has (lib/figure-rig chibiDance): bounce, lean, turn,
+   *  and a head bob on the one group the rig mounts separately for this. */
+  dancing?: boolean;
+  id?: string;
+  children: React.ReactNode;
+}) {
+  const g = useRef<THREE.Group>(null);
+  const amp = useRef(0);
+  const danceAmp = useRef(0);
+  const headRef = useRef<THREE.Group | null>(null);
+  const dance = useRef<ChibiDance>({ lift: 0, scaleY: 1, scaleXZ: 1, sway: 0, turn: 0, headTilt: 0, headNod: 0 });
+  const reduced = usePrefersReducedMotion();
+  useFrame((state, delta) => {
+    const grp = g.current;
+    if (!grp) return;
+    if (reduced) {
+      grp.position.y = 0;
+      grp.scale.set(1, 1, 1);
+      grp.rotation.set(0, 0, 0);
+      return;
+    }
+    // The chibi's head group, found once: chibi-figure.tsx flags it on the
+    // figure's own root (`userData.headGroup = <group>`), one level down.
+    if (!headRef.current) {
+      grp.traverse((o) => {
+        const hg = (o.userData as { headGroup?: unknown }).headGroup;
+        if (!headRef.current && hg instanceof THREE.Group) headRef.current = hg;
+      });
+    }
+    const hopTarget = moving ? 1 : 0;
+    amp.current += (hopTarget - amp.current) * damp(0.06, delta);
+    const danceTarget = dancing && !moving ? 1 : 0;
+    danceAmp.current += (danceTarget - danceAmp.current) * damp(0.08, delta);
+    const hop = chibiHop(phaseRef.current, amp.current);
+    const d = chibiDance(id, state.clock.elapsedTime, danceAmp.current, dance.current);
+    grp.position.y = hop.lift + d.lift;
+    grp.scale.set(hop.scaleXZ * d.scaleXZ, hop.scaleY * d.scaleY, hop.scaleXZ * d.scaleXZ);
+    grp.rotation.set(0, d.turn, d.sway);
+    const head = headRef.current;
+    if (head) head.rotation.set(d.headNod, 0, d.headTilt);
+  });
+  return <group ref={g}>{children}</group>;
+}
+
 /** The guest's own avatar: auto-walks to `target`, re-paths whenever it changes. */
 function GuestAvatar({
   entrance,
@@ -396,6 +491,7 @@ function GuestAvatar({
   remotesRef,
   waveUntil = 0,
   avatar = null,
+  look = null,
   bodyHidden = false,
 }: {
   entrance: Vec2;
@@ -433,6 +529,8 @@ function GuestAvatar({
    *  by `selfFigureAvatar`, which returns null for the flag-off path and for
    *  every guest with no stored config — i.e. everyone, today. */
   avatar?: ChibiAvatarConfig | null;
+  /** Heritage: the viewer's look rides the SAME blob path on a dressed spec. */
+  look?: HeritageAvatarConfig | null;
   /** True while <SitController> owns the body. The walker stays MOUNTED and
    *  keeps tracking its position (so standing up again resumes from the seat
    *  instead of teleporting to the entrance) but draws nothing — there must
@@ -477,8 +575,11 @@ function GuestAvatar({
   // (kept below) + the separate gold seat ring GuestTable draws — not a ring
   // on the walking figure.
   const selfSpec = useMemo<FigureSpec>(
-    () => ({ id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: '' }),
-    [palette.accent],
+    () =>
+      look
+        ? heritageFigureSpec('guest-self', look, '')
+        : { id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: '' },
+    [palette.accent, look],
   );
 
   useEffect(() => {
@@ -640,7 +741,9 @@ function GuestAvatar({
       {bodyHidden ? null : (
         <>
           {avatar ? (
-            <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+            <ChibiBounce phaseRef={phaseRef} moving={!atRest} dancing={atRest && dance && !waving} id={selfSpec.id}>
+              <ChibiFigure id={selfSpec.id} config={avatar} castShadow />
+            </ChibiBounce>
           ) : (
             <Figure
               spec={selfSpec}
@@ -702,12 +805,20 @@ export default function GuestVenue3D({
   // eventId, so the single-player walk is byte-identical by default.
   const selfIdRef = useRef<string>('');
   if (!selfIdRef.current) selfIdRef.current = makeSelfId();
+  // The viewer's OWN chibi (null for everyone who never made one — the room is
+  // unchanged for them; lib/venue-avatars.test.ts pins it). Hoisted above `me`
+  // because presence now carries it (C6b): every peer draws this person as
+  // their avatar while they cross the room, not only once they sit.
+  const selfAvatar = useMemo<GuestAvatar | null>(
+    () => resolveGuestAvatar(scene.you?.avatarConfig, 'guest-self', guestAvatarsEnabled()),
+    [scene.you],
+  );
   const me = useMemo<LocalPlayer | null>(
     () =>
       PLAN3D_SHARED_ROOM_ENABLED && eventId
-        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current) }
+        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current), avatar: selfAvatar?.config ?? null }
         : null,
-    [eventId, selfName],
+    [eventId, selfName, selfAvatar],
   );
   const sharedRoom = usePlan3dRoom(eventId ?? null, me);
   const walkerPosRef = useRef<Vec2 | null>(null);
@@ -735,8 +846,19 @@ export default function GuestVenue3D({
     [scene],
   );
   const room = useMemo(() => roomSize(floor), [floor]);
+  // MB15: the RESOLVED board — majors AND palette style. The guest walk and
+  // the couple's own lab must never disagree about the colour of the room the
+  // guest is standing in, so both go through `resolveRoomPalette`.
   const palette = useMemo(
-    () => (scene.rolePalette ? resolvePaletteFromRoles(scene.rolePalette) : resolvePalette([])),
+    () => (scene.rolePalette ? resolveRoomPalette(scene.rolePalette) : resolvePalette([])),
+    [scene.rolePalette],
+  );
+  // MB15: the dress-code palette a stranger's seat colour is drawn from, with
+  // every untouched role filled in from the derived board — the same colours
+  // section 02 shows the couple. A board that never hand-edited `guest` used to
+  // reach `guestAttireColor` with nothing and dress the whole room white.
+  const attirePalette = useMemo(
+    () => (scene.rolePalette ? resolveDisplayPalette(scene.rolePalette) : null),
     [scene.rolePalette],
   );
   // Wave 2b: the couple's reception treatments + venue archetype reach the guest
@@ -857,10 +979,6 @@ export default function GuestVenue3D({
   // the whole flag-off path and for every guest who never made one — which is
   // everyone in production today, and is exactly what keeps this room
   // unchanged for them (lib/venue-avatars.test.ts pins it).
-  const selfAvatar = useMemo(
-    () => selfFigureAvatar(scene.you, 'guest-self', guestAvatarsEnabled()),
-    [scene.you],
-  );
 
   // Warm the texture cache once so the first frame paints faces, not tokens.
   useEffect(() => {
@@ -878,6 +996,70 @@ export default function GuestVenue3D({
   // purpose intact). No guest palette → null → the old white mannequin. Each
   // world matrix reproduces the exact table→seat→nudge nesting the individual
   // <SeatedFigure> used (proven in figure-sit-bake.test.ts).
+  // C6 — which seats have an avatar config. Same shape as photoByTable. Each
+  // config is re-validated by the ONE fallback rule (selfFigureAvatar), so junk
+  // from an older payload declines to the mannequin, never to a hash-rolled
+  // default — the server never invents an avatar, and neither does the room.
+  const avatarByTable = useMemo(() => {
+    const m = new Map<string, Map<number, unknown>>();
+    for (const a of scene.avatars ?? []) {
+      if (a.config == null) continue;
+      let seats = m.get(a.table);
+      if (!seats) {
+        seats = new Map<number, unknown>();
+        m.set(a.table, seats);
+      }
+      seats.set(a.seatNumber, a.config);
+    }
+    return m;
+  }, [scene.avatars]);
+
+  // THE SPLIT: a seat whose guest made an avatar is drawn by the chibi crowd;
+  // every other occupied seat stays a neutral mannequin. Both are one batch set
+  // for the whole room; the chibi half is empty until somebody opts in, and the
+  // whole thing collapses to the mannequin crowd while the chibi flag is off.
+  const chibiSeats = useMemo<ChibiSeat[]>(() => {
+    if (!guestAvatarsEnabled()) return [];
+    const out: ChibiSeat[] = [];
+    for (const t of tables) {
+      const seatsWithAvatar = avatarByTable.get(t.id);
+      if (!seatsWithAvatar || seatsWithAvatar.size === 0) continue;
+      const occupied = occByTable.get(t.id);
+      if (!occupied || occupied.size === 0) continue;
+      const chairs = chairPlacements(t.shape, t.capacity, t.linkGroupId != null);
+      const home = pctToWorld(t.xPct, t.yPct, room);
+      const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
+      const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;
+      const photoBySeat = photoByTable.get(t.id);
+      for (let i = 0; i < chairs.length; i++) {
+        if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        const ga = resolveGuestAvatar(seatsWithAvatar.get(i), `${t.id}:${i}`, true);
+        if (!ga || ga.style !== 'chibi') continue; // heritage seats are individual <SeatedFigure>s
+        const c = chairs[i]!;
+        out.push({
+          matrix: seatedFigureMatrix({ homeX: home.x, homeZ: home.z, tableFaceY, seatX: c.x, seatZ: c.z, seatFaceY: c.faceY }),
+          config: ga.config,
+        });
+      }
+    }
+    return out;
+  }, [tables, occByTable, avatarByTable, photoByTable, room, scene.you]);
+  // The seats the mannequin loop must skip — keyed exactly as above.
+  const chibiSeatKeys = useMemo(() => {
+    const s = new Set<string>();
+    if (!guestAvatarsEnabled()) return s;
+    for (const t of tables) {
+      const seatsWithAvatar = avatarByTable.get(t.id);
+      if (!seatsWithAvatar) continue;
+      for (const [i, stored] of seatsWithAvatar) {
+        // ANY resolved style leaves the mannequin crowd: chibi → the chibi
+        // crowd, heritage → an individual dressed <SeatedFigure> at the table.
+        if (resolveGuestAvatar(stored, `${t.id}:${i}`, true)) s.add(`${t.id}:${i}`);
+      }
+    }
+    return s;
+  }, [tables, avatarByTable]);
+
   const crowdSeats = useMemo<SeatedInstance[]>(() => {
     const out: SeatedInstance[] = [];
     for (const t of tables) {
@@ -890,6 +1072,7 @@ export default function GuestVenue3D({
       const photoBySeat = photoByTable.get(t.id);
       for (let i = 0; i < chairs.length; i++) {
         if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        if (chibiSeatKeys.has(`${t.id}:${i}`)) continue; // drawn by the chibi crowd
         const c = chairs[i]!;
         out.push({
           matrix: seatedFigureMatrix({
@@ -901,12 +1084,12 @@ export default function GuestVenue3D({
             seatFaceY: c.faceY,
           }),
           // Seat-keyed, NEVER guest-keyed — the whole reason this is allowed.
-          color: guestAttireColor(scene.rolePalette, `${t.id}:${i}`),
+          color: guestAttireColor(attirePalette, `${t.id}:${i}`),
         });
       }
     }
     return out;
-  }, [tables, occByTable, photoByTable, room, scene.you, scene.rolePalette]);
+  }, [tables, occByTable, photoByTable, room, scene.you, attirePalette, chibiSeatKeys]);
 
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
@@ -1161,6 +1344,7 @@ export default function GuestVenue3D({
               occupied={occByTable.get(t.id)}
               yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
               photoBySeat={photoByTable.get(t.id)}
+              avatarBySeat={avatarByTable.get(t.id)}
               nameBySeat={nameByTable.get(t.id)}
             />
           );
@@ -1197,6 +1381,8 @@ export default function GuestVenue3D({
             (in the same world space as the tables above). Photo seats + the
             viewer's own seat stay individual inside each GuestTable. */}
         <InstancedSeatedCrowd seats={crowdSeats} quality="low" />
+        {/* C6 — the seats whose guests made an avatar, as their chibis. */}
+        <InstancedChibiCrowd seats={chibiSeats} />
 
         {/* Placed venue fixtures — objects · booths · signs · cocktail room.
             quality 'low' (this surface is the phone walk) bakes every booth
@@ -1316,7 +1502,8 @@ export default function GuestVenue3D({
             posRef={walkerPosRef}
             remotesRef={remotesRef}
             waveUntil={sharedRoom.selfGreetUntil}
-            avatar={selfAvatar}
+            avatar={selfAvatar?.style === 'chibi' ? selfAvatar.config : null}
+            look={selfAvatar && selfAvatar.style !== 'chibi' ? selfAvatar.config : null}
           />
         ) : null}
 

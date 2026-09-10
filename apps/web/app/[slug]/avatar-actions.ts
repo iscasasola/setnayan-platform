@@ -35,12 +35,8 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
-import {
-  validateChibiConfig,
-  CHIBI_CONFIG_KEYS,
-  CHIBI_CONFIG_MAX_BYTES,
-  type ChibiAvatarConfig,
-} from '@/lib/chibi-config';
+import { CHIBI_CONFIG_MAX_BYTES } from '@/lib/chibi-config';
+import { validateGuestAvatar, canonicalGuestAvatar } from '@/lib/guest-avatar';
 
 export type SaveAvatarResult =
   | { ok: true }
@@ -55,10 +51,10 @@ export type SaveAvatarResult =
  * structural guarantee that no extra property can ride along, rather than a
  * guarantee that depends on the validator having been called first.
  */
-function canonicalize(config: ChibiAvatarConfig): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of CHIBI_CONFIG_KEYS) out[key] = config[key];
-  return out;
+function canonicalize(config: Record<string, unknown>): Record<string, unknown> {
+  // Style-aware whitelist (lib/guest-avatar): a chibi row keeps the chibi keys,
+  // a heritage row the heritage keys — nothing else reaches the column.
+  return canonicalGuestAvatar(config);
 }
 
 /** The guest-facing surfaces an avatar change can show on. A blank/odd slug is
@@ -102,13 +98,13 @@ export async function saveMyAvatarAction(
     return { ok: false, reason: 'invalid', problems: ['config too large'] };
   }
 
-  const problems = validateChibiConfig(config);
+  const problems = validateGuestAvatar(config);
   if (problems.length > 0) return { ok: false, reason: 'invalid', problems };
 
   const admin = createAdminClient();
   const { error } = await admin
     .from('guests')
-    .update({ avatar_config: canonicalize(config as ChibiAvatarConfig) })
+    .update({ avatar_config: canonicalize(config as Record<string, unknown>) })
     .eq('event_id', eventId)
     .eq('guest_id', session.guest_id)
     .is('deleted_at', null);

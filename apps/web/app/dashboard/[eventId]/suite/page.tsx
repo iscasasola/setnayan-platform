@@ -19,6 +19,8 @@ import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS } from '@/lib/store-shell';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -329,7 +331,16 @@ export default async function SuitePage({ params }: Props) {
   // card that isn't rendered.
   const communityId =
     (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
-  const surfaceOk = (a: AddOnEntry) => addOnOfferedForEvent(a, profile, communityId);
+  // 🔒 The Suite is the Studio hub's flag-gated twin and needs the SAME store-
+  // shell filter, or the paid tiles Studio hides simply reappear here with
+  // their peso prices (App Review 3.1.1). Applied inside `surfaceOk` so every
+  // downstream list — the grid, the recommendations, the eligible set — is
+  // covered by one predicate rather than three call sites. See
+  // lib/store-shell.ts; studio/page.tsx does the same thing.
+  const storeShell = await isStoreShellRequest();
+  const surfaceOk = (a: AddOnEntry) =>
+    !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
+    addOnOfferedForEvent(a, profile, communityId);
 
   // …and the SAME gate for the free-tools strip. It is a separate array, so it
   // needs a separate call — which is exactly why it was missed: two correct
@@ -528,13 +539,13 @@ export default async function SuitePage({ params }: Props) {
   /*
     ⭐ THE TWO WEBSITE CHIPS ARE GONE (owner ruling 2026-09-02 — "if it is the
     same then adjust"). They were "Event page" → /website/editor and
-    "Editorial" → /website/editorial, added 2026-08-14 when this card opened
+    "Editorial" → /story, added 2026-08-14 when this card opened
     the `/website` hub: the hub was the map and the chips were the shortcuts.
 
     The card now opens the Event Hub CONTROLLER (`/launch`), and the
     controller's own "set once" strip already carries BOTH of those
     destinations, by name and one tap in — "The page itself" → /website/editor
-    and "The story" → /website/editorial. A chip beside the card would be a
+    and "The story" → /story. A chip beside the card would be a
     second control for a door the card's own landing already shows, which is
     the distinction a couple can see is fake that the 2026-08-14 verdict
     existed to remove. The alternative the ruling allowed — repointing the

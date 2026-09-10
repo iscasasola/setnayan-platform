@@ -19,21 +19,73 @@
 
 import { useState, useTransition, type DragEvent } from 'react';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
+import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
 import {
-  uploadMoodboardSlot,
-  removeMoodboardSlot,
   MOODBOARD_SLOT_POSITIONS,
   type MoodboardSlotPosition,
-} from '../../../wizard-actions';
+} from '@/lib/moodboard-slots';
 import { reorderMoodboardSlot } from '../actions';
+import { GalleryPicker } from './gallery-picker';
+import { RenderPoolPicker } from './render-pool-picker';
+import type { GalleryPage } from '@/lib/moodboard-gallery';
+import type { RenderPoolPage } from '@/lib/moodboard-render-pool';
 
 export type InspirationItem = {
   slot_key: string;
   slot_position: number;
   image_url: string;
+  /**
+   * "Bloom & Vine · Florist" for a photo the couple picked out of a supplier's
+   * gallery (MB10) — resolved on the SERVER in page.tsx, so this component
+   * never pulls lib/taxonomy into the browser bundle. `null` for the couple's
+   * own uploads, which have nobody to credit, and also when the shop's row was
+   * refused at read time: the photo is already theirs either way, so the tile
+   * keeps rendering and simply names nobody rather than guessing.
+   */
+  credit?: string | null;
 };
 
-type Props = { eventId: string; initial: InspirationItem[] };
+type Props = {
+  eventId: string;
+  initial: InspirationItem[];
+  /**
+   * The slots a supplier gallery exists for — GALLERY_SLOT_KEYS, derived from
+   * MOODBOARD_SLOT_TRADES and passed in from the server. A slot with no
+   * supplying trade (`palette`) gets NO button at all rather than an empty
+   * shelf, which is the same refusal-to-guess the slot→part bridge makes.
+   */
+  gallerySlots?: readonly string[];
+  fetchGalleryAction?: (input: { slotKey: string; offset?: number }) => Promise<GalleryPage>;
+  applyGalleryAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    slotPosition: number;
+    assetId: string;
+  }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
+  /**
+   * MB9 — the THIRD source: renders other couples chose to share, browsable as
+   * reference photos. Unlike the supplier gallery there is no per-slot
+   * eligibility list, because every slot has at least the whole-look renders as
+   * a legitimate reference; the pool's own emptiness is the honest gate, and
+   * the picker says so in words.
+   *
+   * ⛔ SAVING ONE COSTS NOTHING AND CANNOT TRIGGER A RENDER. These props reach
+   * `fetchRenderPool` / `applyRenderPick` in actions.ts, which touch no credit
+   * table and no provider. Rendering is section 04's job, at full price, every
+   * time (owner 2026-09-03).
+   */
+  fetchRenderPoolAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    offset?: number;
+  }) => Promise<RenderPoolPage>;
+  applyRenderPickAction?: (input: {
+    eventId: string;
+    slotKey: string;
+    slotPosition: number;
+    renderId: string;
+  }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
+};
 
 const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }[] }> = [
   {
@@ -67,16 +119,44 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
 ];
 
 const key = (slot: string, pos: number) => `${slot}:${pos}`;
-type Tile = { url: string } | 'uploading' | undefined;
+type Tile = { url: string; credit?: string | null } | 'uploading' | undefined;
 
-export function InspirationBoard({ eventId, initial }: Props) {
+export function InspirationBoard({
+  eventId,
+  initial,
+  gallerySlots,
+  fetchGalleryAction,
+  applyGalleryAction,
+  fetchRenderPoolAction,
+  applyRenderPickAction,
+}: Props) {
   const [tiles, setTiles] = useState<Record<string, Tile>>(() => {
     const m: Record<string, Tile> = {};
-    for (const it of initial) m[key(it.slot_key, it.slot_position)] = { url: it.image_url };
+    for (const it of initial) {
+      m[key(it.slot_key, it.slot_position)] = {
+        url: it.image_url,
+        credit: it.credit ?? null,
+      };
+    }
     return m;
   });
   const [error, setError] = useState<string | null>(null);
+  const [openGallerySlot, setOpenGallerySlot] = useState<string | null>(null);
+  const [openPoolSlot, setOpenPoolSlot] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  /**
+   * Which of a slot's three cells are free. Read off the SAME `tiles` state the
+   * grid paints from, so the picker can never offer to fill a cell the couple
+   * is looking at a photo in.
+   */
+  function emptyPositionsFor(slot: string): number[] {
+    return MOODBOARD_SLOT_POSITIONS.filter((pos) => !tiles[key(slot, pos)]);
+  }
+
+  const galleryWired = Boolean(fetchGalleryAction && applyGalleryAction);
+  const gallerySlotSet = new Set(gallerySlots ?? []);
+  const poolWired = Boolean(fetchRenderPoolAction && applyRenderPickAction);
 
   async function onFile(slot: string, pos: number, file: File | undefined) {
     if (!file) return;
@@ -92,7 +172,9 @@ export function InspirationBoard({ eventId, initial }: Props) {
       fd.set('palette_json', JSON.stringify(palette));
       const res = await uploadMoodboardSlot(fd);
       if (res.status === 'ok' && res.image_url) {
-        setTiles((t) => ({ ...t, [key(slot, pos)]: { url: res.image_url! } }));
+        // The couple's own photo — nobody to credit, and `null` says so
+        // rather than inheriting whatever the cell held before.
+        setTiles((t) => ({ ...t, [key(slot, pos)]: { url: res.image_url!, credit: null } }));
       } else {
         setTiles((t) => ({ ...t, [key(slot, pos)]: undefined }));
         setError(res.message ?? 'Upload failed — try again.');
@@ -172,9 +254,95 @@ export function InspirationBoard({ eventId, initial }: Props) {
                     />
                   ))}
                 </div>
+                {/* The door into the supplier gallery. Only for slots a trade
+                    actually supplies, and only once the actions are wired —
+                    a button that cannot fetch is worse than no button. */}
+                {galleryWired && gallerySlotSet.has(slot.k) ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGallerySlot((prior) => (prior === slot.k ? null : slot.k))
+                    }
+                    aria-expanded={openGallerySlot === slot.k}
+                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
+                  >
+                    {openGallerySlot === slot.k
+                      ? 'Hide supplier photos'
+                      : 'Browse supplier photos'}
+                  </button>
+                ) : null}
+                {/* MB9's door. Every slot gets it — a whole-look render is a
+                    legitimate reference for any part of the room — and the
+                    label says what it costs, which is nothing. */}
+                {poolWired ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenPoolSlot((prior) => (prior === slot.k ? null : slot.k))
+                    }
+                    aria-expanded={openPoolSlot === slot.k}
+                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
+                  >
+                    {openPoolSlot === slot.k
+                      ? 'Hide shared renders'
+                      : 'Browse shared renders'}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
+          {/* Rendered under the GROUP, not inside the grid cell: the picker is
+              a six-photo grid of its own and a 2-column tile cannot hold it. */}
+          {galleryWired &&
+          openGallerySlot !== null &&
+          group.slots.some((s) => s.k === openGallerySlot) ? (
+            <GalleryPicker
+              eventId={eventId}
+              slotKey={openGallerySlot}
+              slotLabel={
+                group.slots.find((s) => s.k === openGallerySlot)?.label ?? openGallerySlot
+              }
+              emptyPositions={emptyPositionsFor(openGallerySlot)}
+              fetchAction={fetchGalleryAction!}
+              applyAction={applyGalleryAction!}
+              onSaved={(pos, url, credit) => {
+                // The credit the picker just showed is the credit the tile now
+                // carries — the same string handed across, not a second
+                // derivation. The board reflects the save without a reload,
+                // and a reload re-resolves the identical line in page.tsx.
+                const saved = openGallerySlot;
+                if (!saved) return;
+                setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit } }));
+              }}
+              onClose={() => setOpenGallerySlot(null)}
+            />
+          ) : null}
+          {/* Rendered under the GROUP for the same reason the supplier picker
+              is: it is a six-photo grid of its own and a 2-column tile cannot
+              hold it. */}
+          {poolWired &&
+          openPoolSlot !== null &&
+          group.slots.some((s) => s.k === openPoolSlot) ? (
+            <RenderPoolPicker
+              eventId={eventId}
+              slotKey={openPoolSlot}
+              slotLabel={
+                group.slots.find((s) => s.k === openPoolSlot)?.label ?? openPoolSlot
+              }
+              emptyPositions={emptyPositionsFor(openPoolSlot)}
+              fetchAction={fetchRenderPoolAction!}
+              applyAction={applyRenderPickAction!}
+              onSaved={(pos, url) => {
+                // No credit line: a shared render names no shop, and the
+                // couple who made it is deliberately not identified — the pool
+                // returns nothing that would say whose wedding it was.
+                const saved = openPoolSlot;
+                if (!saved) return;
+                setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit: null } }));
+              }}
+              onClose={() => setOpenPoolSlot(null)}
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -263,6 +431,16 @@ function SlotTile({
         >
           ×
         </button>
+        {/* 🔑 THE END OF THE CHAIN. A supplier's photo carries its shop on the
+            BOARD, not only in the picker it was chosen from — otherwise the
+            credit lasts exactly as long as the modal and the couple can never
+            answer "whose bouquet was that?" a week later. Absent for the
+            couple's own uploads, which have nobody to credit. */}
+        {tile.credit ? (
+          <span className="absolute inset-x-0 bottom-0 truncate bg-ink/65 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-cream">
+            {tile.credit}
+          </span>
+        ) : null}
       </div>
     );
   }

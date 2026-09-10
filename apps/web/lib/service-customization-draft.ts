@@ -859,7 +859,7 @@ export function serviceWizardSteps(opts: {
   const steps: WizardStep[] = [
     { id: 'what', label: 'What you offer' },
     { id: 'price', label: 'Pricing' },
-    { id: 'perk', label: 'Setnayan Exclusive' },
+    { id: 'perk', label: 'Setnayan gift' },
     { id: 'extras', label: 'Value & media' },
   ];
   if (opts.customizationEnabled) {

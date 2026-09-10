@@ -25,6 +25,7 @@ import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildPapicGeoFields, type PapicGeoInput } from '@/lib/papic-geo';
+import { capturedAtIso } from '@/lib/papic-capture-minute';
 import {
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
@@ -43,6 +44,7 @@ import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
+import { papicSeatCapturePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { captureWindowState } from '@/lib/papic-window';
 import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 
@@ -254,6 +256,10 @@ export async function recordSeatCapture(
   posterR2Key?: string,
   durationMs?: number,
   geo?: PapicGeoInput,
+  /** 🕐 The shutter instant, from the device that took it. Optional and last:
+   *  a caller that does not know (the dashboard's add-to-library import) sends
+   *  nothing and the row falls to the upload minute, exactly as before. */
+  capturedAtMs?: number,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -336,6 +342,29 @@ export async function recordSeatCapture(
     return { ok: false, error: 'not_your_seat' };
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
+
+  // 🔒 THE FILE MUST BE THIS CAMERA'S OWN (2026-09-10). The keys arrive as
+  // arguments and the row goes in through the SERVICE ROLE, so nothing else
+  // asks where they point — and the full-resolution sweep later DELETES whatever
+  // `r2_object_key` names, with the admin client, on a clock. A claimer handing
+  // this action a stranger's key (another couple's photo, a supplier's ID in the
+  // private bucket) would have had it recorded as their own capture and then
+  // destroyed. `/api/upload`'s seat branch mints every legitimate key under this
+  // seat's folder, so a ref outside it is refused — terminal, because retrying
+  // the same key can never succeed. See papicSeatCapturePolicy.
+  {
+    const seatPolicy = papicSeatCapturePolicy(
+      seat.event_id as string,
+      seat.seat_id as string,
+      typeof seat.seat_index === 'number' ? seat.seat_index : null,
+    );
+    if (
+      !parseClientRef(cleanKey, seatPolicy) ||
+      (cleanPoster !== null && !parseClientRef(cleanPoster, seatPolicy))
+    ) {
+      return { ok: false, error: 'missing_input' };
+    }
+  }
 
   // Per-camera seats (sku_code PAPIC_CAMERA_*) have their OWN paid-gate + daily
   // quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip the
@@ -611,6 +640,32 @@ export async function recordSeatCapture(
     return { ok: false, error: 'unavailable' };
   }
 
+  /*
+    🕐 THE SHUTTER RIDES THIS CALL, as `p_captured_at` — the same
+    client-supplied / server-validated shape as the p_geo_* arguments, and for
+    the same reason: only the device that took the picture knows the minute, and
+    nothing it says is trusted. `public.papic_capture_minute` refuses a future
+    time and a clock from before the celebration existed, and answers now() in
+    either case, so a wrong clock costs a shot its exact minute and never the
+    shot. null means "you decide", which is what every row got before 20271214644139.
+
+    ⚠ AND THERE IS DELIBERATELY NO SIGNATURE-FALLBACK RUNG, which is a departure
+    from the guest route's ladder. Two measured reasons, not one assumption:
+
+      • `deploy-prod.yml` applies migrations BEFORE it triggers the Vercel deploy
+        hook (gate step printed "✅ Configured" on the 2026-09-08 main runs), so
+        the window where this code is live and the migration is not does not
+        exist on this pipeline;
+      • and if it did, the 42883 falls to the refusal below as 'unavailable',
+        which is NOT in PAPIC_TERMINAL_ERRORS — the capture UI queues the shot
+        and a later drain lands it. Nothing is lost by waiting.
+
+    A rung would therefore buy nothing, and would cost the ONE-CALL-SITE property
+    that `app/papic/the-meter-is-the-only-door.test.ts` exists to hold: exactly
+    one `writer.rpc('papic_record_seat_capture')` in this file, on the
+    service-role client. That guard is about money safety and outranks a
+    convenience retry.
+  */
   {
     const { data: recorded, error: recordError } = await writer.rpc(
       'papic_record_seat_capture',
@@ -633,6 +688,8 @@ export async function recordSeatCapture(
         p_geo_lon: geoFields.geo_lon ?? null,
         p_geo_accuracy_m: geoFields.geo_accuracy_m ?? null,
         p_geo_unavailable: geoFields.geo_unavailable ?? null,
+        // 🕐 The shutter — see the note above this block.
+        p_captured_at: capturedAtIso(capturedAtMs),
       },
     );
 
@@ -871,7 +928,7 @@ export async function persistSeatClipWebCopy(
     // resolving it by token doubles as the auth check.
     const { data: seat } = await supabase
       .from('paparazzi_seats')
-      .select('seat_id, revoked_at, claimer_user_id')
+      .select('seat_id, event_id, revoked_at, claimer_user_id')
       .eq('claim_qr_token', cleanToken)
       .maybeSingle();
     if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
@@ -900,6 +957,16 @@ export async function persistSeatClipWebCopy(
     }
     // Idempotent: a web copy already landed for this clip — don't overwrite it.
     if (photo.clip_web_r2_key) return { ok: true, already: true };
+
+    // 🔒 THE WEB COPY MUST BE THIS CAMERA'S OWN FILE (2026-09-10) — the client
+    // uploads it through the same seat presign, so it lands under this seat's
+    // folder; anything else is refused before it is stored. The database holds
+    // the same line (a restrictive policy on papic_photos in migration
+    // 20271219262486_every_cleanup_delete_is_pinned), and the cleanup sweeps refuse to
+    // delete a key outside the event's folder whatever gets stored.
+    if (!parseClientRef(cleanClipWeb, papicSeatCapturePolicy(seat.event_id as string, seat.seat_id as string, null))) {
+      return { ok: false, error: 'not_this_seats_file' };
+    }
 
     // POSTER-TRAP guard (parity with the guest route): never persist a web key
     // equal to the poster/display still or the raw video — that would collide the

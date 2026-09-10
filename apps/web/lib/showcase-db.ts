@@ -37,11 +37,12 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  EDITORIAL_EXCLUDED_EVENT_TYPES,
   UNNAMED_EDITORIAL_LABEL,
+  withEditorialEventTypes,
 } from '@/lib/editorial-event-types';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStoryCover } from '@/lib/story-cover';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 
@@ -61,30 +62,6 @@ export type ShowcaseVendorCredit = {
   slug: string;
   logoUrl: string | null;
 };
-
-/**
- * Apply the KIND exclusion to an events query — the one filter that replaced
- * five hardcoded `.eq('event_type', 'wedding')` calls.
- *
- * 🔑 IT ADDS NOTHING WHEN THE EXCLUSION SET IS EMPTY, which is the point: with
- * no ruling in force every celebration is eligible, so the query must not
- * constrain the type at all. Filtering in SQL rather than after the read is
- * load-bearing — an excluded row dropped in JS would still have consumed one of
- * the `limit` slots and silently shortened the shelf.
- *
- * Structurally typed over `.not()` so it composes with whichever query builder
- * stage it is handed, without importing Supabase's internal builder types.
- */
-function withEditorialEventTypes<Q extends { not(c: string, o: string, v: string): Q }>(
-  query: Q,
-): Q {
-  if (EDITORIAL_EXCLUDED_EVENT_TYPES.length === 0) return query;
-  return query.not(
-    'event_type',
-    'in',
-    `(${EDITORIAL_EXCLUDED_EVENT_TYPES.join(',')})`,
-  );
-}
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
@@ -217,14 +194,22 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       is_sample?: boolean | null;
       landing_page_hero_image_url?: string | null;
       landing_page_hero_video_r2_key?: string | null;
+      story_cover_kind?: string | null;
+      story_cover_ref?: string | null;
       showcase_featured_at?: string | null;
       showcase_feature_rank?: number | null;
     };
 
+    // ⚠ EVERY COLUMN NAMED HERE MUST BE ONE `authenticated` MAY SELECT — this
+    // read runs on the admin client, but `public.events` revokes table-level
+    // SELECT and re-grants a per-column allowlist, and an ungranted column
+    // makes PostgREST refuse the WHOLE query rather than omit the column.
+    // `story_cover_kind` / `story_cover_ref` were granted by their own
+    // migration (verified in prod 2026-09-09).
     const FEATURED_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank';
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, showcase_featured_at, showcase_feature_rank';
     const LEGACY_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key';
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref';
 
     // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
     // featured-first. Skipped entirely when no real couple has consented yet.
@@ -450,10 +435,54 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         monogramColor: e.monogram_color ?? null,
         featured: e.showcase_featured_at != null,
         featureRank: e.showcase_feature_rank ?? null,
-        // Resolve r2:// / relative refs to a display URL; plain http passes through.
-        heroImageUrl: e.landing_page_hero_image_url
-          ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
-          : null,
+        /*
+          THE COVER LEADS THE CARD (`02` §6 · 08 step 1.5). The host's chosen
+          cover, re-checked at read time — a capture that has since been vetoed,
+          or a supplier frame that has since been withdrawn, resolves to null and
+          this falls straight back to the living hero, which is what every card
+          showed before there was a cover at all.
+
+          ⚠ `monogram` RESOLVES TO A NULL KEY ON PURPOSE. It is drawn, not
+          fetched, and the shelf card already draws the couple's mark when it has
+          no photo — so "no image URL" is exactly the right answer here.
+        */
+        heroImageUrl: await (async () => {
+          /*
+            🔑 A COVER THAT FAILS COSTS THE COVER, NEVER THE SHELF. This whole
+            builder sits inside a `try { … } catch { return []; }`, so an
+            exception raised here does not lose one card's picture — it returns
+            an EMPTY ARRAY and the entire Real Stories shelf renders as "no
+            couple has published yet". That is this repo's named disease: a
+            failure that is byte-identical to emptiness, on a page whose whole
+            job is to look populated.
+
+            So the cover is resolved in its own try, and any failure falls
+            through to the living hero — the picture this card showed before
+            covers existed. Same rule the room freeze keeps ("a freeze that
+            failed must cost the freeze, never the room").
+          */
+          let cover: Awaited<ReturnType<typeof resolveStoryCover>> = null;
+          try {
+            cover = await resolveStoryCover(admin, e.event_id, e);
+          } catch {
+            cover = null;
+          }
+          if (cover) {
+            try {
+              // A `monogram` cover resolves to a null key ON PURPOSE — it is
+              // drawn from the couple's mark, and this card already draws that
+              // when it has no photo. So "no URL" is the right answer, not a
+              // reason to fall back.
+              return cover.key ? await displayUrlForStoredAsset(cover.key) : null;
+            } catch {
+              /* fall through to the living hero */
+            }
+          }
+          // Resolve r2:// / relative refs to a display URL; plain http passes through.
+          return e.landing_page_hero_image_url
+            ? await displayUrlForStoredAsset(e.landing_page_hero_image_url)
+            : null;
+        })(),
         // The couple's baked "living hero" boomerang (Living Hero Studio), if set
         // — plays forward→reverse on the realstories card with the still as poster.
         // SEC-6 (D16): unscreened couple-uploaded clip — gated off public

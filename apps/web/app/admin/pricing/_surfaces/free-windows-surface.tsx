@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -15,6 +16,8 @@ import {
   setFreeWindowActive,
   deleteFreeWindow,
 } from './free-windows-actions';
+import { FREE_WINDOW_CREATE_ERROR_COPY } from './free-windows-copy';
+import { isVendorDealAudience } from '@/lib/promo-free-windows';
 
 /**
  * Catalog Studio · Free windows tab — admin-scheduled "these services are free
@@ -39,6 +42,16 @@ type PromoRow = {
   is_active: boolean;
   show_banner: boolean;
   created_at: string;
+  deal_length_days: number | null;
+  event_date_from: string | null;
+  event_date_to: string | null;
+};
+
+const AUDIENCE_LABEL: Record<string, string> = {
+  all_couples: 'all couples',
+  all_vendors: 'all verified vendors',
+  new_verified_vendors: 'vendors who register + get verified in the window',
+  segment: 'segment (not built)',
 };
 
 type Status = 'live' | 'scheduled' | 'ended' | 'inactive';
@@ -69,15 +82,17 @@ const fmtDateTime = (iso: string) =>
     timeZone: 'Asia/Manila',
   }).format(new Date(iso));
 
-const CREATE_ERROR_COPY: Record<string, string> = {
-  title: 'Give the announcement a title.',
-  skus: 'Pick at least one service to make free.',
-  starts: 'Set a valid start date and time.',
-  ends: 'Set a valid end date and time.',
-  order: 'The end must be after the start.',
-  tier: 'Pick which paid tier to give vendors for free.',
-  db: 'Could not save the free window. Please try again.',
-};
+/** 'YYYY-MM-DD' → 'Dec 25, 2026'. Plain calendar day, no timezone conversion
+ * (a Date parsed from a bare date string at midnight UTC would print the
+ * PREVIOUS day in a negative-offset zone — force UTC on the formatter so the
+ * date-only column always reads back as the day it says). */
+const fmtDay = (dateOnly: string) =>
+  new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${dateOnly}T00:00:00Z`));
 
 type Props = {
   searchParams: Promise<{
@@ -98,7 +113,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
     admin
       .from('promo_free_windows')
       .select(
-        'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at',
+        'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at, deal_length_days, event_date_from, event_date_to',
       )
       .order('created_at', { ascending: false }),
     fetchV2CustomerCatalog(),
@@ -170,7 +185,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
       )}
       {sp.createError && (
         <p className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-          {CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the free window.'}
+          {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the free window.'}
         </p>
       )}
       {sp.error && (
@@ -235,6 +250,36 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           </label>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Only for events dated <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              type="date"
+              name="event_date_from"
+              className="input-field w-full"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              through <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              type="date"
+              name="event_date_to"
+              className="input-field w-full"
+            />
+          </label>
+        </div>
+        <p className="-mt-2 text-xs text-ink/50">
+          Leave both blank to free these services for <strong>any event</strong>
+          (unchanged). Set one or both to restrict the freebie to couples whose
+          event date falls in that range — inclusive; use the same date in both
+          fields for one specific date. An event with no locked date yet does
+          not qualify for a date-restricted window.
+        </p>
+
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-ink/80">
             Services to make free
@@ -268,6 +313,20 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           )}
         </fieldset>
 
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-ink/80">
+            Reason <span className="text-ink/45">(logged, min. 10 characters)</span>
+          </span>
+          <input
+            name="reason"
+            required
+            minLength={10}
+            maxLength={240}
+            placeholder="e.g. Launch promo — Papic free for December weddings"
+            className="input-field w-full"
+          />
+        </label>
+
         <label className="flex items-center gap-2 text-sm text-ink/80">
           <input
             type="checkbox"
@@ -293,8 +352,12 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           New free window · <span className="text-ink/60">for vendors</span>
         </h2>
         <p className="text-xs text-ink/55">
-          Gives <strong>every vendor</strong> a paid tier&rsquo;s features for free
-          during the window (a tier upgrade, not a ₱0 plan). Reverts when it ends.
+          Gives <strong>every verified vendor</strong> a paid tier&rsquo;s features for
+          free during the window (a tier upgrade, not a ₱0 plan). Reverts when it
+          ends. Unverified and pending vendors get nothing. For a deal aimed at
+          vendors who register and get verified inside a window, or one each vendor
+          keeps for a set number of days, use the Deals section on{' '}
+          <Link href="/admin/gifts" className="underline underline-offset-2">Gifts</Link>.
           Note: while paid vendor billing is still off for launch, all vendors
           already have every feature — this only bites once paid tiers go live.
         </p>
@@ -344,6 +407,19 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             </span>
             <input type="datetime-local" name="ends_at" required className="input-field w-full" />
           </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-ink/80">
+              Reason <span className="text-ink/45">(logged, min. 10 characters)</span>
+            </span>
+            <input
+              name="reason"
+              required
+              minLength={10}
+              maxLength={240}
+              placeholder="e.g. Launch month — every verified vendor tries Pro"
+              className="input-field w-full"
+            />
+          </label>
         </div>
 
         <label className="flex items-center gap-2 text-sm text-ink/80">
@@ -360,7 +436,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
             Create vendor free window
           </SubmitButton>
-          <span className="text-xs text-ink/50">Audience: all vendors.</span>
+          <span className="text-xs text-ink/50">Audience: all verified vendors.</span>
         </div>
       </form>
 
@@ -393,11 +469,23 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     <p className="mt-1 text-xs text-ink/55">
                       {fmtDateTime(row.starts_at)} → {fmtDateTime(row.ends_at)}
                       {' · '}
-                      {row.audience_type === 'all_vendors' ? 'all vendors' : 'all couples'}
+                      {AUDIENCE_LABEL[row.audience_type] ?? row.audience_type}
+                      {row.deal_length_days
+                        ? ` · each keeps it ${row.deal_length_days} days`
+                        : ''}
+                      {row.event_date_from || row.event_date_to
+                        ? row.event_date_from && row.event_date_to
+                          ? row.event_date_from === row.event_date_to
+                            ? ` · only for events dated ${fmtDay(row.event_date_from)}`
+                            : ` · only for events dated ${fmtDay(row.event_date_from)} – ${fmtDay(row.event_date_to)}`
+                          : row.event_date_from
+                            ? ` · only for events dated ${fmtDay(row.event_date_from)} onward`
+                            : ` · only for events dated through ${fmtDay(row.event_date_to!)}`
+                        : ''}
                       {row.show_banner ? ' · banner on' : ' · banner off'}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {row.audience_type === 'all_vendors' ? (
+                      {isVendorDealAudience(row.audience_type) ? (
                         <span className="inline-flex rounded-md bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium capitalize text-terracotta-700">
                           Vendors → {row.promoted_vendor_tier ?? '—'} tier, free
                         </span>

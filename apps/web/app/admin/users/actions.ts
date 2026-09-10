@@ -6,9 +6,8 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
-import { parseStoredAsset } from '@/lib/uploads';
-import { r2Delete } from '@/lib/r2';
-import { deletePublicAsset } from '@/lib/storage';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { CleanupDeleteRefused, planCleanupDelete } from '@/lib/cleanup-delete-scope';
 import { eraseUserAccount, type ErasureIo } from '@/lib/erasure/purge';
 import {
   serializeTempPasswordFlash,
@@ -36,29 +35,22 @@ const TEMP_PASSWORD_FLASH_TTL_SECONDS = 120;
  */
 function erasureIo(): ErasureIo {
   return {
-    // Only `r2://bucket/key` refs from the current upload flow are removed; a
-    // legacy/external URL is left (it may not even be ours). r2Delete is
-    // idempotent on a missing key.
-    deleteStoredAsset: async (ref) => {
-      const asset = parseStoredAsset(ref);
-      if (asset?.kind === 'r2') await r2Delete({ bucket: asset.bucket, key: asset.key });
-    },
-    // Chat attachments store a PUBLIC R2 URL rather than an `r2://` ref, so they
-    // need the URL-shaped round-trip.
+    // Only `r2://bucket/key` refs are ever deleted; a legacy/external URL is
+    // left (it may not even be ours). r2Delete is idempotent on a missing key.
     //
-    // ⚠ THROW ON A REPORTED NON-DELETION (2026-07-26). `deletePublicAsset`
-    // never throws — by design, for the settings callers that just want a
-    // best-effort cleanup. That silently disabled erasure's whole audit path:
-    // `purgeUserAuthoredChat` wraps this in try/catch to write a
-    // `chat-attachment-r2-delete` failure row, and with a function that cannot
-    // fail, the catch was unreachable and every miss went unrecorded. Now the
-    // outcome comes back as data and this adapter converts it into the throw
-    // the purge is already written to audit — matching `r2Delete` above, which
-    // throws and is audited correctly. The adapter is the right place for the
-    // conversion: erasure needs the failure, the other five callers do not.
-    deletePublicAssetUrl: async (url) => {
-      const res = await deletePublicAsset({ publicUrl: url });
-      if (!res.ok) throw new Error(`${res.reason}: ${res.message}`);
+    // 🔒 AND ONLY WHEN THE OBJECT IS THE ROW'S OWN (2026-09-10). The purge hands
+    // over the scope of the row it read the ref from; `planCleanupDelete` holds
+    // the ref to that row's folder. Every column erasure reads is one its
+    // subject could write, so without this a person could put a stranger's key
+    // on their own row, ask to be erased, and have our admin client delete the
+    // stranger's file. A refusal THROWS — the purge already wraps every call in
+    // an audited catch, so the refusal lands in the erasure audit as a failure
+    // row rather than vanishing.
+    deleteStoredAsset: async (ref, scope) => {
+      if (typeof ref !== 'string' || !ref.trim().startsWith('r2://')) return;
+      const decision = planCleanupDelete(ref, scope);
+      if (!decision.ok) throw new CleanupDeleteRefused(scope.label, decision.reason);
+      await executeCleanupDelete(decision.target);
     },
     revokeAllSessions,
   };
@@ -439,6 +431,19 @@ export async function confirmUserEmail(formData: FormData) {
 }
 
 /**
+ * Where an `issueCompGrant` form came from, for the optional `return_to`
+ * field. Allowlist, not a bare passthrough — mirrors
+ * app/admin/vendors/actions.ts's `wantsGiftsReturn` / free-windows-actions.ts's
+ * `RETURN_TARGETS`, so a form field can never become an open redirect.
+ * `/admin/gifts` is the only surface that posts here besides `/admin/users`
+ * (this action's own page) and `/admin/accounts?tab=users` (which does not
+ * set this field, so it is unaffected).
+ */
+function wantsGiftsReturn(formData: FormData): boolean {
+  return String(formData.get('return_to') ?? '').trim() === '/admin/gifts';
+}
+
+/**
  * Issue a comp grant against a target user account.
  *
  * Why this action exists
@@ -488,6 +493,12 @@ export async function issueCompGrant(formData: FormData) {
   const { adminUserId } = await requireAdmin();
 
   const targetUserId = formData.get('user_id');
+  // Optional (2026-09-05, migration 20271205612762): scope the grant to ONE
+  // event the target hosts, instead of every event on their account. Blank
+  // means "every event", preserving every pre-existing call site's behavior.
+  const eventIdRaw = formData.get('event_id');
+  const eventId =
+    typeof eventIdRaw === 'string' && eventIdRaw.trim().length > 0 ? eventIdRaw.trim() : null;
   const scopeRaw = formData.get('scope');
   // Checkboxes submit one value per checked service under the same name — use
   // getAll. Falls back gracefully if the form still sends a single string
@@ -590,6 +601,28 @@ export async function issueCompGrant(formData: FormData) {
     );
   }
 
+  // event_id is never trusted bare — the entitlement functions also re-check
+  // host membership at read time, but a grant scoped to an event this target
+  // doesn't even host is a silently-dead row, and an admin who typed the
+  // wrong event_id deserves an error, not a comp that quietly does nothing.
+  let eventDisplayName: string | null = null;
+  if (eventId) {
+    const { data: hostRow, error: hostErr } = await admin
+      .from('event_members')
+      .select('event_id, events(display_name)')
+      .eq('event_id', eventId)
+      .eq('user_id', targetUserId)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (hostErr) throw new Error(`Event host check failed: ${hostErr.message}`);
+    if (!hostRow) {
+      throw new Error('That event is not hosted by this user — pick one of their own events.');
+    }
+    eventDisplayName =
+      (hostRow as unknown as { events: { display_name: string } | null }).events
+        ?.display_name ?? null;
+  }
+
   // Insert the grant. `public_id` defaults to generate_public_id('C')
   // per the schema. `approved_by` stays NULL for V1 — the two-admin
   // gate ships V1.x. retail_value > ₱10K rows still INSERT but get
@@ -599,6 +632,7 @@ export async function issueCompGrant(formData: FormData) {
     .from('comp_grants')
     .insert({
       user_id: targetUserId,
+      event_id: eventId,
       source: 'external_promo',
       scope: scopeRaw,
       scoped_skus: scopedSkus,
@@ -624,6 +658,8 @@ export async function issueCompGrant(formData: FormData) {
       grant_public_id: inserted.public_id,
       target_user_id: targetUserId,
       target_email: target.email ?? null,
+      event_id: eventId,
+      event_display_name: eventDisplayName,
       scope: scopeRaw,
       scoped_skus_count: scopedSkus?.length ?? 0,
       retail_value_centavos: retailValueCentavos,
@@ -647,9 +683,19 @@ export async function issueCompGrant(formData: FormData) {
   // Surface large-grant warning in the success banner via the existing
   // transient-query-param pattern from resetUserPassword.
   const needsReview = (retailValueCentavos ?? 0) > 10_000 * 100;
+  const scopeNote = scopeRaw === 'all_services' ? 'every Setnayan service' : `${scopedSkus?.length ?? 0} scoped services`;
+  const eventNote = eventDisplayName ? ` on "${eventDisplayName}" only` : ' across every event they host';
   const banner = needsReview
     ? `Comp grant ${inserted.public_id} issued — flag for owner+spouse co-approval (exceeds ₱10,000 · two-admin primitive lands V1.x)`
-    : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeRaw === 'all_services' ? 'every Setnayan service' : `${scopedSkus?.length ?? 0} scoped services`}`;
+    : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeNote}${eventNote}`;
+
+  // Optional `return_to=/admin/gifts` — a grant made FROM the gifts console
+  // lands back there instead of /admin/users. /admin/users reads its OWN
+  // `grant_banner` + `expand` params, which this default keeps unchanged.
+  if (wantsGiftsReturn(formData)) {
+    revalidatePath('/admin/gifts');
+    redirect(`/admin/gifts?banner=${encodeURIComponent(banner)}`);
+  }
   redirect(
     `/admin/users?expand=${encodeURIComponent(targetUserId)}&grant_banner=${encodeURIComponent(banner)}`,
   );

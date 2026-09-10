@@ -286,7 +286,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-account",
     route: "/explore",
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Suppliers (2026-09-06).
+    // ⚠ Keep this comment SHORT: `front-door-invariants.test.ts` scans at most
+    // 400 chars from this key to its label. A longer note broke that guard.
+    label: "Suppliers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Store",
@@ -386,10 +389,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
-    // owner: "just use Marketplace so it is easier to understand").
-    // Slot key + route unchanged throughout.
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
+    label: "Your Team",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -427,10 +429,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    // Label lineage: Explore → Merkado (2026-07) → Marketplace (2026-07-27,
-    // owner: "just use Marketplace so it is easier to understand").
-    // Slot key + route unchanged throughout.
-    label: "Marketplace",
+    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
+    label: "Your Team",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -580,7 +581,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/launch",
-    label: "Event Hub",
+    label: "Event Hub Controller",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Globe",
@@ -617,7 +618,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
   // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
   // the editorial maker is a door INSIDE the controller ("The story", S5), and
-  // the DESKTOP rail keeps its own /website/editorial row, which
+  // the DESKTOP rail keeps its own /story row, which
   // `a-finished-event-shows-its-summary.test.ts` holds open. That guard exists
   // because the maker was orphaned once already: before the after-phase roster
   // took a `phase` argument it "appeared in no menu at all."
@@ -673,7 +674,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/launch",
-    label: "Event Hub",
+    label: "Event Hub Controller",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Globe",

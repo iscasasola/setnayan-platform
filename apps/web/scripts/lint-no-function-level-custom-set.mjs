@@ -64,6 +64,28 @@ const FUNCTION_LEVEL_SET = /^[ \t]*SET[ \t]+setnayan\.[a-z_]+[ \t]*(TO|=)/gim;
  * handled. `[^;]*?` keeps the match inside a single statement so an unrelated
  * later `SET` cannot be dragged in.
  */
+/**
+ * 🔴 AND THE CREATE FORM NEED NOT BE ON ITS OWN LINE. `FUNCTION_LEVEL_SET`
+ * above is anchored with `^`, justified by the comment "it is always on its own
+ * line at statement level". That is an assumption about FORMATTING, and nothing
+ * in this repo enforces migration formatting — Postgres accepts the whole
+ * `CREATE FUNCTION … SET setnayan.x TO 'on' AS $fn$ … $fn$;` on one line.
+ *
+ * Proven 2026-09-07 by mutation-testing every blocking guard: the SAME
+ * statement, split across lines, went red; written on one line, went green.
+ *
+ * 🔑 THE FILE ALREADY KNEW THIS LESSON ONE PATTERN LOWER — `ALTER_LEVEL_SET`
+ * exists precisely because "a guard that catches one spelling of a trap teaches
+ * you that the trap is handled", and it is NOT line-anchored. The CREATE half
+ * never got the same treatment.
+ *
+ * Scoped to the SIGNATURE region: `(?:(?!\bAS\b)[^;])*?` stops at the body
+ * delimiter, so a legal `SET LOCAL setnayan.x` inside a body — which this guard
+ * deliberately only warns about — cannot be dragged into a failure.
+ */
+const CREATE_LEVEL_SET =
+  /\bCREATE[ \t]+(?:OR[ \t]+REPLACE[ \t]+)?(?:FUNCTION|PROCEDURE)\b(?:(?!\bAS\b)[^;])*?\bSET[ \t]+setnayan\.[a-z_]+[ \t]*(?:TO|=)/gis;
+
 const ALTER_LEVEL_SET =
   /\bALTER[ \t]+(FUNCTION|PROCEDURE|ROUTINE|ROLE|USER|DATABASE)\b[^;]*?\bSET[ \t]+setnayan\.[a-z_]+/gis;
 
@@ -89,6 +111,7 @@ for (const file of files) {
 
   const rejected = [
     ...code.matchAll(FUNCTION_LEVEL_SET),
+    ...code.matchAll(CREATE_LEVEL_SET),
     ...code.matchAll(ALTER_LEVEL_SET),
   ].sort((a, b) => a.index - b.index);
 

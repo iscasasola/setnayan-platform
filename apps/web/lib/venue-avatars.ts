@@ -17,10 +17,14 @@
  * against the shipped spec over the whole input matrix.
  *
  * Two independent switches both collapse this to the old behaviour:
- *   1. `NEXT_PUBLIC_FIGURE_CHIBI` unset (the DEFAULT, and the only state
- *      production has ever been in) — nothing resolves, whatever the payload
- *      carries.
- *   2. No stored `avatar_config` — every guest today.
+ *   1. `NEXT_PUBLIC_FIGURE_CHIBI` unset (the code DEFAULT) — nothing resolves,
+ *      whatever the payload carries.
+ *      ⚠ THIS LINE USED TO SAY "the only state production has ever been in".
+ *      FALSE since 2026-08-31: the flag is `"true"` in Vercel Production
+ *      (pulled with `vercel env pull` 2026-09-05), the maker at /[slug]/avatar
+ *      is reachable, and a guest's own figure DOES resolve. A flag's default in
+ *      code is not its value in production — read the env, not this comment.
+ *   2. No stored `avatar_config` — every guest who has not opened the maker.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * 🚧 SCOPE: THE VIEWER'S OWN FIGURE ONLY — and why

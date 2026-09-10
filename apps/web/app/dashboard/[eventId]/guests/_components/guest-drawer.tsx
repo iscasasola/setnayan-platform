@@ -1,10 +1,25 @@
 'use client';
 
 /**
- * guest-drawer.tsx — the mobile / below-xl QUICK-VIEW guest SHEET (Living Roster
+ * guest-drawer.tsx — the ≥sm / below-xl QUICK-VIEW guest SHEET (Living Roster
  * P1) and its per-row trigger. Opening a roster row's quick-view slides this
- * read-only sheet in over the roster; the full detail/edit route stays (a "Open
- * full details" link at the foot). This is the in-context glance.
+ * sheet in over the roster; the full detail/edit route stays (a "Open full
+ * details" link at the foot). This is the in-context glance.
+ *
+ * ⚠ IT IS NOT REACHABLE ON A PHONE, despite what this line said until
+ * 2026-09-06 ("the mobile / below-xl … SHEET"). The ONLY thing that opens it is
+ * `QuickViewButton`, and the only place that renders is `DesktopRow` — which
+ * lives inside the roster's `hidden … sm:block` table. Below `sm` (640px) that
+ * table is `display:none`, so a phone has ZERO triggers and a row tap goes
+ * straight to `/guests/[guestId]` instead. Measured on the shipped page:
+ * 0 visible triggers at 375px, 4 at 768px.
+ *
+ * 🔑 The comment cost real time the day it was corrected: a session reasoned
+ * about a destructive control in this sheet as a PHONE hazard — "a panel opened
+ * casually while scanning on a phone" — and overstated its severity, because
+ * the file's own name for itself was taken as evidence of where it renders. A
+ * component does not decide its own reach; its MOUNT does.
+ * `the-quick-view-is-not-on-phones.test.ts` now pins that mount.
  *
  * Inspector P2 (2026-07-15): the SHEET is now one of TWO frames over the SAME
  * `GuestDetailBody` — on desktop (≥xl) a row instead SELECTS into the sticky
@@ -100,7 +115,7 @@ export function QuickViewButton({
   );
 }
 
-// ── host (mobile / below-xl sheet) ─────────────────────────────────────────
+// ── host (≥sm / below-xl sheet · see the reach note at the top) ────────────
 
 export function GuestDrawerHost({
   eventId,

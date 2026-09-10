@@ -70,6 +70,13 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
+  isMoodboardSlotKey,
+  isMoodboardSlotPosition,
+  MOODBOARD_SLOT_POSITIONS,
+  type MoodboardSlotKey,
+  type MoodboardSlotPosition,
+} from '@/lib/moodboard-slots';
+import {
   parseWizardState,
   WIZARD_TASKS,
   type WizardState,
@@ -1674,63 +1681,19 @@ export async function completeDraftGuestListTask(
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-const MOODBOARD_SLOT_KEYS = [
-  'venue',
-  'reception_venue',
-  'backdrop',
-  'tunnel',
-  'stage',
-  'table',
-  'ceiling',
-  'flowers',
-  'cocktail',
-  'cake',
-  'overall',
-  'palette',
-  'groom',
-  'bride',
-  'principal_sponsor',
-  'entourage',
-  'parents',
-  'guests',
-] as const;
+// The 18-slot vocabulary moved to `lib/moodboard-slots.ts` (MB2) so the derived
+// render-part registry can read it without importing a 'use server' module.
+// Still ONE list — this file consumes it rather than restating it.
 
-type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
-
-/**
- * How many photos one slot holds. Owner, 2026-09-03, on how couples actually
- * use this: *"most of the time, they upload more that 1 design … it usually is
- * 1-3 designs"* — so the original 2-photo cap (20260627000000) cut off the top
- * of the real range and is widened to 3 here.
- *
- * ⚠ ONE SOURCE OF TRUTH, ON PURPOSE. This cap was previously spelled SIX times
- * — the DB CHECK, two server-action validators, two copies of a `1 | 2` return
- * type, and a `[1, 2]` in the tile grid — with nothing tying them together.
- * Five of the six FAIL LOUDLY when they disagree; the sixth does not, and that
- * is the one that matters: `listMoodboardSlots`'s row filter SILENTLY DROPS any
- * position outside its list, so a widened DB + a stale filter would store the
- * couple's third photo and then never render it — an upload that reports
- * success and shows nothing, the exact shape of failure this repo has shipped
- * before. Widen HERE and every gate moves together.
- */
-export const MOODBOARD_SLOT_POSITIONS = [1, 2, 3] as const;
-export type MoodboardSlotPosition = (typeof MOODBOARD_SLOT_POSITIONS)[number];
-export const MOODBOARD_MAX_PHOTOS_PER_SLOT = MOODBOARD_SLOT_POSITIONS.length;
-
-function isMoodboardSlotPosition(value: unknown): value is MoodboardSlotPosition {
-  return (MOODBOARD_SLOT_POSITIONS as readonly number[]).includes(Number(value));
-}
+// The per-slot PHOTO CAP moved to `lib/moodboard-slots.ts` alongside the slot
+// keys (MB10), for the reason documented there: this is a `'use server'` module
+// and Next refuses to build when another server module imports a non-function
+// value out of one. Still ONE list — this file consumes it.
 
 /** Human-readable list for error copy — "1, 2 or 3", derived, never typed out. */
 const SLOT_POSITION_HINT = MOODBOARD_SLOT_POSITIONS.slice(0, -1).join(', ') +
   ` or ${MOODBOARD_SLOT_POSITIONS[MOODBOARD_SLOT_POSITIONS.length - 1]}`;
 
-function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {
-  return (
-    typeof value === 'string' &&
-    (MOODBOARD_SLOT_KEYS as readonly string[]).includes(value)
-  );
-}
 
 function validatePalette6(raw: unknown): string[] {
   if (!Array.isArray(raw) || raw.length !== 6) {

@@ -9,6 +9,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
 import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
@@ -1361,6 +1362,53 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
   return { published: stamped?.length ?? 0 };
 }
 
+// Take the plan back down. The MISSING HALF of publishSeating, and the reason
+// it had to exist: `event_floor_plan.published_at IS NOT NULL` is the ONLY
+// condition `public_venue_scene` checks before it serves the room, the tables,
+// the booths and which seats are taken (20270224160000_public_venue_scene.sql —
+// a draft plan gets `{published:false}` and nothing else). Publishing stamped
+// it; NOTHING in the codebase had ever cleared it, so a couple who published
+// once could not make their reception private again. The only escape was
+// flipping the whole celebration to private, which also takes down their
+// landing page — a far bigger hammer than "not yet, actually".
+//
+// 🔑 THIS CLEARS THE PUBLIC GATE ONLY, AND DELIBERATELY LEAVES THE PRINT PACK
+// ALONE. `event_tables.qr_published_at` records that a table's sign sheet was
+// run off; those signs are already standing at the venue and their qr_tokens
+// are never re-rolled (publishSeating's own contract). Un-stamping them would
+// state something untrue — that the pack was never printed — to undo something
+// it has no bearing on. A guest scanning a printed sign still reaches their
+// seat; what stops is the public 3D walk.
+//
+// UPDATE, never upsert: no row means nothing was ever published, and writing
+// one to say "not published" is a row nobody asked for. RLS scopes the write to
+// the couple. Returns whether a published row was actually found, so the editor
+// can tell "taken down" from "it already wasn't up".
+export async function unpublishSeating(formData: FormData): Promise<{ wasPublished: boolean }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: cleared, error } = await supabase
+    .from('event_floor_plan')
+    .update({ published_at: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .not('published_at', 'is', null)
+    .select('event_id');
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { wasPublished: (cleared?.length ?? 0) > 0 };
+}
+
 // Rename a table (the per-table popup's inline rename). Mirrors
 // updateTableRotation: a single guarded UPDATE under the couple's RLS.
 // `table_label` already exists — no schema change. Trim + 1–64 chars, matching
@@ -2241,6 +2289,71 @@ export async function saveReceptionDesign(
   // the Mood Board shows the compact read-only summary — revalidate both.
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+/**
+ * RV2 — the couple waves a booked-supplier suggestion away, and it stays away.
+ *
+ * Owner ruling 2026-09-06 (Q9): a zone whose trade the couple has already
+ * booked OFFERS that treatment; one click makes it theirs, and their
+ * `reception_design` is never written without that click. Dismissing is the
+ * other half — an offer they have answered with "no" must not come back.
+ *
+ * 🛑 THIS FUNCTION CANNOT CHANGE THE ROOM, AND THAT IS ITS WHOLE DESIGN.
+ * It writes ONE column, `dismissed_room_suggestions`, and it does not take a
+ * `ReceptionDesign`, construct one, or call `saveReceptionDesign`. The
+ * invariant RV2 exists to hold — "showing a chip and dismissing a chip leave
+ * the saved room byte-identical" — is therefore structural rather than
+ * careful: there is no code path from here to that column. Keeping the list
+ * inside `reception_design` (as the brief suggested) would have made the same
+ * promise rest on a diff nobody re-reads, and would additionally have been
+ * DELETED on the next save, because `sanitizeReceptionDesign` keeps only known
+ * part -> attribute -> option triples. See the migration header.
+ *
+ * ⚠ `mood_board_updated_at` IS DELIBERATELY NOT TOUCHED. Waving away an offer
+ * is not a change to the board, and stamping it would tell every surface that
+ * reads that timestamp — and the couple — that their design moved when it did
+ * not. That is the same false claim in miniature that the whole ruling is
+ * against.
+ *
+ * Read-modify-write rather than a jsonb append: the list is a handful of short
+ * strings, `sanitizeDismissedSuggestions` is the same total boundary the reader
+ * uses, and a lost concurrent dismissal costs one re-tap of a chip.
+ */
+export async function dismissRoomSuggestion(eventId: string, dismissKey: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const key = dismissKey.trim();
+  // A blank or absurd key is a bug in the caller, not something to persist —
+  // and an unbounded string here would let the column grow without limit.
+  if (!key || key.length > 200) return;
+
+  // RLS enforces host-only writes on their own events via event_members — the
+  // SAME path `saveReceptionDesign` above relies on. No new policy is needed
+  // because this is not a new surface, only a new column on the same row.
+  const current = await supabase
+    .from('events')
+    .select('dismissed_room_suggestions')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (current.error) throw new Error(current.error.message);
+
+  const kept = sanitizeDismissedSuggestions(
+    (current.data as { dismissed_room_suggestions?: unknown } | null)?.dismissed_room_suggestions,
+  );
+  if (kept.includes(key)) return; // already dismissed — write nothing at all
+
+  const { error } = await supabase
+    .from('events')
+    .update({ dismissed_room_suggestions: [...kept, key] })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
 }
 
 /**

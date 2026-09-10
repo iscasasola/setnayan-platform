@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
+import { SavedPhotoMarker } from './saved-photo-marker';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { haptic } from '@/lib/haptics';
 import { formatPhp, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
@@ -93,6 +94,11 @@ const CSS = `
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
 .csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 26, 18,.12);border:1px solid rgba(30, 26, 18,.25)}
 .csov .r .badge.rel-1{font-weight:600;color:var(--gold-on-tint);background:rgba(169,131,75,.18);border:1px solid rgba(169,131,75,.35)}
+/* MB10 — "You saved N of their photos". Mulberry, the same voice as the
+   primary action, because it is the strongest reason on the card to tap. */
+.csov .r .badge.saved-photos{font-weight:600;color:#fff;background:var(--mulberry);border:1px solid var(--mulberry)}
+/* MB10 — the tally read died. Quiet, once, above the list. */
+.csov .tally-warn{font-family:var(--sans);font-size:12px;line-height:1.4;color:var(--ink-soft);border:1px dashed var(--line);border-radius: var(--m-r-md);padding:10px 12px;margin-bottom:12px}
 .csov .r .sub .faraway{color:#9a6a00}
 .csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius: var(--m-r-md);background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}
 .csov .farther-btn:active{border-color:var(--gold);color:var(--gold-deep)}
@@ -198,6 +204,15 @@ export function CategorySearchOverlay({
   const [maxKm, setMaxKm] = useState<number | null>(null);
   const [results, setResults] = useState<CategoryVendorResult[]>([]);
   const [hasCoords, setHasCoords] = useState(false);
+  /**
+   * MB10 — TRUE when `searchCategoryVendors` could not read the saved-photo
+   * tally, so every row's count is `null`. Said ONCE, here, instead of a
+   * "couldn't check" badge beside twenty shops. A dead read that renders as a
+   * clean "you saved none of theirs" is this repo's signature defect; the
+   * absence of a badge is not a claim, but a header that never mentions the
+   * failure is.
+   */
+  const [savedTallyFailed, setSavedTallyFailed] = useState(false);
   // §4 edge-#2 empty state (dormant unless an admin seeded last_minute_start):
   // the group is fully in its last-minute zone and Setnayan AI is off, so generic
   // search is empty — swap the bare copy for a capability-framed unlock CTA.
@@ -267,6 +282,7 @@ export function CategorySearchOverlay({
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
+        setSavedTallyFailed(res.savedPhotoTallyFailed === true);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
         setBudgetRaise(res.budgetPressure === true);
         setBudgetEstimate(res.budgetEstimate ?? null);
@@ -442,6 +458,17 @@ export function CategorySearchOverlay({
         <div className="meta">
           <div className="vn">{r.name}</div>
           <div className="sub">
+            {/* 🔑 MB10 · THE FAR END OF THE SUPPLIER GALLERY CHAIN, AND THE
+                REASON SUPPLIERS UPLOAD AT ALL. Reads `r.savedGalleryPhotoCount`
+                — the per-shop tally measured by `searchCategoryVendors` — NEVER
+                a constant and never a count recomputed here. It sits FIRST in
+                the badge row on purpose: "you already love their work" outranks
+                distance and stars for deciding who to talk to.
+                Its guard is `the-saved-photo-marker-reaches-the-render.test.ts`,
+                which pins this exact mount because a correct query and a
+                correct badge can both pass their own tests while the line
+                between them is quietly cut. */}
+            <SavedPhotoMarker count={r.savedGalleryPhotoCount} />
             {r.relationshipDepth >= 1 ? (
               <span
                 className={`badge ${
@@ -622,6 +649,13 @@ export function CategorySearchOverlay({
                 results is one we worked out, not one they chose. It takes
                 precedence over the raise-your-budget nudge below: telling
                 somebody to raise a budget they never set is nonsense. */}
+            {savedTallyFailed ? (
+              <p className="tally-warn" role="status">
+                We couldn&rsquo;t check which of your saved inspiration photos came
+                from these suppliers just now — the &ldquo;you saved their
+                photos&rdquo; note may be missing below.
+              </p>
+            ) : null}
             {budgetEstimate ? (
               <div className="budget-nudge">
                 <p className="lead">We&rsquo;re matching on an estimate</p>

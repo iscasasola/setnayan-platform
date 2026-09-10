@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
+import { Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -47,6 +47,10 @@ import {
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import {
+  toServiceCard,
+  type ServiceShowcaseMedia,
+} from '@/lib/service-card-view-model';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
@@ -219,8 +223,10 @@ type PublicVendorRow = {
   hq_latitude: number | null;
   hq_longitude: number | null;
   website: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
+  // public and signed-out-readable; a field it never fetches can never be
+  // printed, serialized into a client prop or put in structured data by a later
+  // edit. The shop keeps both in My Shop. See `lib/no-door-out-of-the-app.test.ts`.
   public_visibility: VendorPublicVisibility;
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
@@ -361,9 +367,9 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
   const legacySelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
   let { data, error } = await admin
     .from('vendor_profiles')
@@ -662,7 +668,6 @@ function PlatformIcon({ platform }: { platform: VideoPlatform }) {
 }
 
 /** Display URLs for one service card's showcase media. */
-type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
 /**
  * Showcase media per active service (couple-side serves payoff, 2026-07-03) —
@@ -1273,6 +1278,10 @@ export async function renderVendorBySlug({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  /** The shop's own account is looking at its own page. Fails CLOSED: the
+   *  fallback select carries no `user_id`, so a degraded read is a stranger. */
+  const viewerOwnsShop =
+    user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
   let coupleEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
@@ -2228,25 +2237,33 @@ export async function renderVendorBySlug({
                   {vendor.location_city}
                 </span>
               ) : null}
-              {/* Contact links surface only for verified (bookable) vendors —
-                  coming-soon profiles are read-only previews per 0022 § 2.1c. */}
-              {bookable && vendor.contact_email ? (
-                <a
-                  href={`mailto:${vendor.contact_email}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_email}
-                </a>
-              ) : null}
-              {bookable && vendor.contact_phone ? (
-                <a
-                  href={`tel:${vendor.contact_phone.replace(/\s/g, '')}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_phone}
-                </a>
+              {/*
+                🚪 NO DOOR OUT OF THE APP (owner 2026-09-10, verbatim: "our goal is
+                to let them integrate their event with the vendor they find. not
+                to let them communicate outside the app").
+
+                This row used to print the shop's email as a `mailto:` and its
+                phone as a `tel:` — to ANYONE, signed out included — one scroll
+                above an Inquire section saying the reply comes in the Setnayan
+                inbox. A couple who found a shop here and emailed it booked
+                off-platform: no booking fee, no in-app record, no lock, no price
+                freeze, no protection for either side.
+
+                What stands in their place says HOW you reach this shop — here —
+                so the row never reads as two items that silently went missing.
+                It is deliberately a STATEMENT, not a second link: the way in is
+                the Inquire button a few centimetres below (or the hero's, or the
+                desktop rail's), and a second control to the same anchor that close
+                is the duplicate the owner already ruled out on 2026-08-06
+                (`one-inquire-button.test.ts`).
+                `lib/no-door-out-of-the-app.test.ts` fails if a contact scheme or
+                a contact field comes back to any couple-facing or public surface.
+              */}
+              {bookable ? (
+                <span className="inline-flex items-center gap-1">
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Replies in your Setnayan inbox
+                </span>
               ) : null}
               {vendor.website ? (
                 <a
@@ -2260,6 +2277,17 @@ export async function renderVendorBySlug({
                 </a>
               ) : null}
             </div>
+            {/* The shop previewing itself learns WHY its email and phone are not
+                here, instead of reading their absence as a broken page. Only the
+                owning account ever renders this line; the values stay in My Shop
+                (and this page no longer fetches them at all). */}
+            {viewerOwnsShop ? (
+              <p className="max-w-2xl text-xs text-ink/60">
+                Only you see this note: your email and phone are not shown to couples.
+                They message you here on Setnayan, and every reply, quote and booking
+                stays with their event.
+              </p>
+            ) : null}
             {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
                 On desktop the sticky Inquire rail carries these too.
@@ -2568,7 +2596,7 @@ export async function renderVendorBySlug({
                         idx === 0 ? 'text-2xl' : 'text-lg'
                       }`}
                     >
-                      {story.coupleNames}
+                      {story.hostNames}
                     </p>
                     <p className="mt-1 text-sm text-ink/60">
                       {[story.city, story.dateLabel].filter(Boolean).join(' · ')}
@@ -2809,30 +2837,32 @@ export async function renderVendorBySlug({
                 vendor surfaces as e.g. "Manila Wedding Photographer"
                 instead of leaking the real name through the
                 contact-info section. */}
+            {/*
+              🚪 THIS PROSE USED TO GATE ON `vendor.contact_email` AND TO CONTRADICT
+              ITSELF. With an address on file it said "Identity stays masked until
+              you choose to share" — one scroll below a header that had already
+              printed the shop's email and phone, and a promise about the COUPLE's
+              identity that the owner retired on 2026-09-08 ("we do not need to
+              hide anything, since no more tokens" — a shop now sees who is asking).
+              Without an address it said the shop "hasn't published a contact
+              email yet", as if an email were how you reach them. It is not: both
+              composers below are in-app and never read the address. So the
+              sentence now keys on the only thing that decides whether a couple
+              can ask here — whether a composer renders — and says only what is
+              true of the in-app path.
+            */}
             {bookable ? (
-              vendor.contact_email ? (
-                showInquiryComposer || anonComposerServices.length > 0 ? (
-                  // A composer renders below — don't send them to a "dashboard"
-                  // an eventless visitor doesn't have (the contradiction the
-                  // review flagged). Speak to the composer instead.
-                  <>
-                    Send{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> an
-                    inquiry below — they&rsquo;ll reply in your Setnayan inbox.
-                    Identity stays masked until you choose to share.
-                  </>
-                ) : (
-                  <>
-                    Already a Setnayan couple? Start a thread directly with{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> from
-                    your dashboard using the contact email above. Identity stays masked
-                    until you choose to share.
-                  </>
-                )
+              showInquiryComposer || anonComposerServices.length > 0 ? (
+                <>
+                  Send <span className="font-medium text-ink">{displayLabel}</span> an
+                  inquiry below — they&rsquo;ll reply in your Setnayan inbox, and the
+                  conversation stays with your event.
+                </>
               ) : (
                 <>
-                  {displayLabel} is on Setnayan but hasn&rsquo;t published a contact
-                  email yet. Check back soon.
+                  <span className="font-medium text-ink">{displayLabel}</span>{' '}
+                  hasn&rsquo;t listed a service you can ask about yet. Check back soon —
+                  when they do, you&rsquo;ll message them right here on Setnayan.
                 </>
               )
             ) : (
@@ -3292,9 +3322,6 @@ function ServicesPricingSection({
   );
 }
 
-/** Max inclusions listed before we collapse the rest into "+N more included". */
-const SERVICE_CARD_INCLUSION_LIMIT = 3;
-
 /**
  * One `event_vendor_preferences` row → the composer's pre-fill shape.
  *
@@ -3331,159 +3358,6 @@ function toSavedRequirements(
  * discount, FREE inclusions (with their stated worth), and "not included"
  * expectation flags so couples see the value + the caveats before quoting.
  */
-function toServiceCard(
-  row: VendorServiceRow,
-  inclusions: VendorServiceInclusion[] | undefined,
-  discounts: VendorServiceDiscount[] | undefined,
-  serves: string | undefined,
-  showcase: ServiceShowcaseMedia | undefined,
-  /** Council #6: when true the vendor opted to hide public prices — every peso
-   *  amount below is suppressed (labels/inclusions still show; only figures go). */
-  hidePrices: boolean,
-  /** Viewing couple's event date (ISO YYYY-MM-DD) or null — picks the
-   *  early-booking ladder tier (owner-locked 2026-07-27). */
-  coupleEventDate: string | null,
-  /** The render's single clock (injected — never Date.now() down here). */
-  now: Date,
-  /** This card's compiled record, or null when the flag is off. */
-  cardRecord: CompiledCardRecord | null,
-  /** Shop-wide trusted rating for the record block, or null. */
-  cardRecordRating: CardRecordRating | null,
-  /** `serviceDetailsEnabled()` — gates the details-sheet-only payload below, so
-   *  the flag-OFF card ships exactly the bytes it ships today. */
-  detailsEnabled: boolean,
-): ServiceCard {
-  // ⚠ MUST read the vendor's own title first. This card is what the
-  // maker's live preview promises "exactly what couples see" — a card
-  // authored with a name (or the maker's own kind-derived default) must
-  // show that name, not silently fall back to the bare category. And for
-  // a CUSTOM category the fallback must go through `displayServiceLabel`,
-  // never the raw stored key — see its own docblock on why a couple must
-  // never be shown a database key on this exact card.
-  const label = row.title?.trim() || displayServiceLabel(row.category);
-  const priceLabel =
-    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
-      ? `from ${formatPhp(row.starting_price_php)}`
-      : 'Inquire';
-
-  // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
-  // the per-guest rate (+ the min floor when set); per-hour shows the base
-  // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
-  // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
-  // above is untouched.
-  const isCrewMeals = row.category === 'crew_meals';
-  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
-  let priceDetail: string | null = null;
-  if (hidePrices) {
-    // Vendor hid prices — no per-pax/per-hour rate breakdown.
-    priceDetail = null;
-  } else if (
-    row.pricing_basis === 'per_pax' &&
-    row.per_pax_price_php !== null &&
-    row.per_pax_price_php > 0
-  ) {
-    const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
-  } else if (
-    row.pricing_basis === 'per_hour' &&
-    row.hour_base_php !== null &&
-    row.hour_base_php > 0
-  ) {
-    const base =
-      row.min_hours !== null && row.min_hours > 0
-        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
-        : formatPhp(row.hour_base_php);
-    const extra =
-      row.extra_hour_php !== null && row.extra_hour_php > 0
-        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
-        : '';
-    priceDetail = `${base}${extra}`;
-  }
-
-  // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers). Suppressed when the vendor
-  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
-  //
-  // Early-booking LADDER (owner-locked 2026-07-27): when the viewer is a couple
-  // with an event date, that date picks the tier and the badge names it
-  // ("Booked 6+ months ahead · −10%"); rungs they are too late for are dropped.
-  // Anonymous viewers see the ladder advertised as "Save up to 15% booking
-  // early". Display only — the quote still happens in chat.
-  const best = hidePrices
-    ? null
-    : pickBestDiscount(discounts, row.starting_price_php, {
-        eventDate: coupleEventDate,
-        now,
-      });
-
-  // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
-  // peso worth). Trim to a few; the overflow surfaces as "+N more".
-  const allInclusions = (inclusions ?? []).map((inc) =>
-    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
-      ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
-      : inc.label,
-  );
-  const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
-  const inclusionsMore = Math.max(0, allInclusions.length - shownInclusions.length);
-
-  // Crew / meta line (unchanged behaviour).
-  const crewParts: string[] = [];
-  if (row.crew_size !== null && row.crew_size > 0) {
-    crewParts.push(`${row.crew_size} crew on-site`);
-  }
-  if (row.crew_meal_required && !isCrewMeals) {
-    crewParts.push('crew meal required');
-  }
-
-  // "Not included" expectation flags — feed the couple's budget + set
-  // expectations before the quote (0007 budget line items).
-  const notIncluded: string[] = [];
-  if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
-  if (!row.transport_included) {
-    notIncluded.push(
-      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
-        ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
-        : 'Transport not included',
-    );
-  }
-
-  return {
-    id: row.vendor_service_id,
-    label,
-    priceLabel,
-    meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
-    discountLabel: best?.label ?? null,
-    inclusions: shownInclusions,
-    inclusionsMore,
-    // ── Details-sheet-only payload ────────────────────────────────────────
-    // A CONDITIONAL SPREAD, not `: []` / `: null` defaults. "Flag off ⇒
-    // byte-identical" has to cover the serialized RSC payload the browser
-    // downloads, not just the rendered DOM — shipping two extra keys per card
-    // to every anonymous visitor would quietly break that contract. With the
-    // flag off these keys are ABSENT, so the card streams exactly the bytes it
-    // streams today. Pinned by `service-details-dark.test.ts`.
-    ...(detailsEnabled
-      ? {
-          publicId: row.public_id,
-          // The sheet is the one place the "+N more included" tail is readable.
-          inclusionsFull: allInclusions,
-        }
-      : {}),
-    notIncluded,
-    priceDetail,
-    serves: serves ?? null,
-    photos: showcase?.photos ?? [],
-    videoUrl: showcase?.videoUrl ?? null,
-    // A card with no history shows NOTHING new — the record only exists once
-    // this card has actually been booked (owner: a zero-history card must not
-    // advertise its emptiness).
-    record: cardRecordHasSomethingToSay(cardRecord) ? cardRecord : null,
-    recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
-  };
-}
-
 // Min-N floor for the public "saved by N" chip — a count below this stays
 // hidden so a tiny number never de-anonymizes or reads as vanity (owner default
 // 2026-07-02: favorites public / viewers vendor-only; behavioral-data min-N lock).

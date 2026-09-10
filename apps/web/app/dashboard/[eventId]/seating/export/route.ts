@@ -63,7 +63,7 @@ export async function GET(
   // writer, moodboard-chapters.tsx, was dead code with zero real callers — so
   // this PDF's "moodboard" mode silently rendered an empty palette for every
   // real couple) to events.role_palette, the live source every other
-  // mood-board surface (palette-editor, the 3D Plan, the vendor mood-board
+  // mood-board surface (palette-section, the 3D Plan, the vendor mood-board
   // view) already reads. Flattens every role's colors into one deduped list —
   // this export has no per-role layout, so it only needs "the couple's colors".
   const palette = sanitizeRolePalette(event.role_palette ?? {});

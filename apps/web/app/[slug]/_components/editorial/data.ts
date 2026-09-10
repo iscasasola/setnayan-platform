@@ -42,6 +42,7 @@ import {
 } from '@/lib/vendor-recommendations';
 import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { storyDayWindow, manilaDayOf, allocateChapterCounts } from '@/lib/story-day-window';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -209,6 +210,20 @@ export type ImpactMetrics = {
 // (fail-closed) — the words are still approved, so the card renders text-only.
 export type KwentoQuote = {
   body: string;
+  /**
+   * The MINUTE this belongs to — the anchor capture's `captured_at`, verbatim.
+   *
+   * 🔑 THE STORY FILES EVERYTHING UNDER THE MOMENT IT HAPPENED. Without this,
+   * a voice can only ever be shown in a wall of voices at the bottom of the
+   * page — never beside the minute it is about, which is the whole design.
+   * It is the anchor's shutter time, not the moment the words were typed:
+   * somebody writes their wish on the drive home, and it still belongs to the
+   * first dance.
+   *
+   * Null when the anchor did not resolve (blocked, hidden, or never gated) —
+   * the words are still approved and still render, just not under a minute.
+   */
+  atIso: string | null;
   author: string | null;
   role: string | null;
   media: { type: 'photo' | 'clip'; url: string; posterUrl?: string | null } | null;
@@ -309,6 +324,20 @@ export { readCustomColumns };
 // on the samples and resolves to [] for real events.
 /** One answered challenge on the story: the question, and what they did about it. */
 export type ChallengeAnswer = {
+  /**
+   * The MINUTE this belongs to — the anchor capture's `captured_at`, verbatim.
+   *
+   * 🔑 THE STORY FILES EVERYTHING UNDER THE MOMENT IT HAPPENED. Without this,
+   * a voice can only ever be shown in a wall of voices at the bottom of the
+   * page — never beside the minute it is about, which is the whole design.
+   * It is the anchor's shutter time, not the moment the words were typed:
+   * somebody writes their wish on the drive home, and it still belongs to the
+   * first dance.
+   *
+   * Null when the anchor did not resolve (blocked, hidden, or never gated) —
+   * the words are still approved and still render, just not under a minute.
+   */
+  atIso: string | null;
   /** The question as a READER should see it — tokens already resolved. */
   prompt: string;
   mediaType: 'photo' | 'clip';
@@ -356,6 +385,21 @@ export type ChapterMedia = {
 // supporting photos.
 export type DayChapter = {
   time: string | null;
+  /**
+   * The lead medium's `captured_at`, verbatim — the raw instant behind `time`.
+   *
+   * 🔑 `time` IS A SENTENCE, NOT A TIME. It is "4:12 in the afternoon", already
+   * formatted, already in the venue's words — and the story's clock has to
+   * PLACE this chapter: which Manila calendar day it belongs to, where on that
+   * day's segment its bar sits, how wide the gap to the next minute is, and
+   * which broadcast session it is timecoded into. Every one of those is
+   * arithmetic on an instant, and parsing it back out of a kicker is the shape
+   * that puts a 1 a.m. capture on the wrong day.
+   *
+   * Null for the legacy curated-essay path, which carries no timeline identity
+   * — exactly like `leadId`, and for the same reason.
+   */
+  atIso: string | null;
   title: string | null;
   writeUp: string | null;
   leadId: string | null;
@@ -387,12 +431,30 @@ export type EditorialData = {
    *  the sample (whose detail page owns its own share bar). */
   slug: string | null;
   eventDate: string | null; // ISO
+  /**
+   * Last day of a multi-day event, inclusive (`events.event_end_date`).
+   *
+   * 🔑 IT WAS ALREADY BEING READ AND THROWN AWAY. `loadEditorialData` selects
+   * it to bound the timeline (08 step 0.4) and then dropped it on the floor,
+   * so every consumer that needs to know how many days this celebration
+   * covers — the story's clock draws ONE SEGMENT PER CALENDAR DAY — would
+   * have had to ask the database a second time and could have got a
+   * different answer. Null = a single day.
+   */
+  eventEndDate: string | null;
   eventDateFormatted: string | null; // en-PH long form
-  // Masthead dateline: this wedding's number within its AWARDS CYCLE (the Nth
-  // Setnayan wedding of the cycle, by date). The edition year runs Nov 18 → Nov
-  // 17; Volume (Vol. I = the Nov-18-2026 cycle) is derived from the date at
-  // render. Null when it can't be counted → falls back to No. 1.
+  /**
+   * The masthead dateline, STAMPED AT PUBLISH and never recomputed
+   * (`event_editorial.edition_no` / `edition_volume`). Null before publish, and
+   * null for a published story whose count was refused — the masthead then reads
+   * "Vol. I" alone rather than guessing a number onto a keepsake.
+   *
+   * ⚠ `editionNo` counts WEDDINGS in the awards cycle. What it should count for
+   * a debut is owner question Q5, still open — see `lib/story-edition.ts`.
+   */
   editionNo: number | null;
+  /** The stamped Volume. Null → derive it from the date (`editionVolume()`). */
+  editionVolume: number | null;
   venueName: string | null;
   venueCity: string | null;
   venueAddress: string | null;
@@ -456,6 +518,24 @@ export type EditorialData = {
   // who shot the day with Papic gets a real gallery even with zero manual
   // uploads. Falls back to our_photos exactly as before when Papic is empty.
   galleryPhotos: string[];
+  /**
+   * THE SAME PAPIC CAPTURES AS `galleryPhotos`, CARRYING THE SHUTTER TIME.
+   *
+   * 🔑 IT IS NOT A SECOND READ. Every row here comes from `papicRows` and
+   * `papicClipRows`, which this loader already resolved for the gallery and the
+   * timeline — the URL was being kept and the instant thrown away, exactly as
+   * `eventEndDate` was before S9. The index (`lib/story-index.ts`) files each
+   * capture under the minute it was taken and under an hour chip, and neither
+   * is answerable from a URL.
+   *
+   * ⚠ THE COUPLE'S OWN UPLOADS ARE NOT IN IT, and that is deliberate: an
+   * uploaded file carries no shutter time, so filing it under a minute would be
+   * inventing one. They still render in the gallery section below the clock.
+   *
+   * OPTIONAL so the six curated samples need no edit — absent reads as "this
+   * loader did not carry times", never as "there were none".
+   */
+  galleryCaptures?: Array<{ url: string; atMs: number | null }>;
   // "The 10 moments" / photo-essay spread. Display URLs auto-filled from the
   // day's clean Papic captures when the curated event_editorial.essay_photo_ids
   // list is empty (the normal case — it has no writer yet). A best-effort spread,
@@ -570,6 +650,16 @@ function asString(v: unknown): string | null {
 
 function asObject(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/**
+ * A stored counting number, or null. Used for the stamped edition, where 0 and
+ * a non-number must both read as "no number" rather than as "No. 0" — the
+ * masthead's own rule is that the number appears only when it is real.
+ */
+function asPositiveInt(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
 }
 
 /** Pull a city-ish token out of a free-text venue name/address. */
@@ -750,7 +840,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const { data, error } = await admin
       .from('events')
       .select(
-        'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key',
+        'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, pakanta_song_r2_key, event_end_date',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -767,7 +857,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       const { data } = await admin
         .from('events')
         .select(
-          'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos',
+          'event_id, slug, event_type, display_name, event_date, venue_name, venue_address, monogram_text, monogram_color, love_story, special_message, together_since, story_tone, story_language, landing_page_hero_image_url, landing_page_hero_video_r2_key, our_photos, photo_wall_photos, event_end_date',
         )
         .eq('event_id', eventId)
         .maybeSingle();
@@ -780,31 +870,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
   const displayName = asString(event.display_name) ?? 'The Wedding';
   const eventDate = asString(event.event_date);
+  const eventEndDate = asString(event.event_end_date);
 
-  // Edition No. — this wedding's number within its AWARDS CYCLE. The edition
-  // year runs Nov 18 → Nov 17 (Vol. I = Nov 18 2026 → Nov 17 2027), so the count
-  // window starts on the cycle's Nov-18 (not Jan 1). Counts the Setnayan
-  // weddings in this cycle up to and including this date.
-  // Best-effort: a missing date / failed count → null → masthead shows No. 1.
-  let editionNo: number | null = null;
-  if (eventDate) {
-    try {
-      const [y, m, d] = eventDate.split('-').map(Number);
-      if (y && m && d) {
-        const onOrAfterCutoff = m > 11 || (m === 11 && d >= 18); // Nov 18+
-        const cycleStartYear = onOrAfterCutoff ? y : y - 1;
-        const { count } = await admin
-          .from('events')
-          .select('event_id', { count: 'exact', head: true })
-          .eq('event_type', 'wedding')
-          .gte('event_date', `${cycleStartYear}-11-18`)
-          .lte('event_date', eventDate);
-        if (typeof count === 'number' && count > 0) editionNo = count;
-      }
-    } catch {
-      editionNo = null;
-    }
-  }
+  // The event's OWN days (Manila calendar), bounding every "the day"/"the
+  // timeline" read below — 03 §3 · 08 steps 0.2 + 0.4. `null` only when the
+  // event carries no event_date at all, in which case the timeline reads stay
+  // unbounded (today's pre-existing behaviour) rather than silently emptying.
+  const dayWindow = storyDayWindow(eventDate, eventEndDate);
 
   const venueName = asString(event.venue_name);
   const venueAddress = asString(event.venue_address);
@@ -822,7 +894,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const { data } = await admin
       .from('event_editorial')
       .select(
-        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at',
+        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at, edition_volume, edition_no',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -837,6 +909,27 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // ⚠ FAILS CLOSED. An absent row, or a value this build does not recognise,
   // reads as 'draft' — show nobody — never as 'everyone'. See the module.
   const audience = storyAudienceOf(asString(editorial?.status));
+
+  /*
+    ── THE EDITION NUMBER IS READ, NOT COUNTED (`03` §2.4, fixed in 08 step 1.6)
+    🔴 THIS USED TO RECOMPUTE ON EVERY RENDER — it counted the weddings in the
+    awards cycle up to this event's date, on each load — so the number printed
+    under the words "theirs forever" MOVED whenever somebody else's wedding
+    landed in the same cycle with an earlier date. A couple published as No. 4
+    and came back to No. 5, and a keepsake printed on either day disagreed with
+    the page.
+
+    It is now stamped once, at publish, by `lib/story-edition.ts`, and the
+    database refuses to move it. Here it is only read.
+
+    ⚠ NULL IS THE HONEST ANSWER, NOT A ZERO TO PAPER OVER. A story that has never
+    been published has no number and the masthead reads "Vol. I" alone
+    (`mastheadEdition`) — which is exactly what it did before publish anyway.
+    Nothing here invents a "No. 1" for an unstamped story: that number would be
+    a guess printed on a keepsake.
+  */
+  const editionNo = asPositiveInt(editorial?.edition_no);
+  const editionVolume = asPositiveInt(editorial?.edition_volume);
 
   // 3. Guest counts (best-effort).
   let guests = 0;
@@ -1064,13 +1157,22 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   };
   let papicClipRows: PapicClipRow[] = [];
   try {
-    const { data: rows, error } = await admin
+    let clipQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    // Bound to the event's OWN days (03 §3 · 08 steps 0.2 + 0.4). Cameras may
+    // shoot up to 6 months before the event (PAPIC_CAPTURE_MONTHS_BEFORE);
+    // without this bound a prenup/despedida shoot can fill the whole cap and
+    // the day itself never appears in the timeline. No bound applied when the
+    // event carries no event_date (dayWindow null) — unchanged prior behaviour.
+    if (dayWindow) {
+      clipQuery = clipQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data: rows, error } = await clipQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(rows)) {
@@ -1102,16 +1204,31 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // ('clean' only). Lightweight rows only (photo_id, key, captured_at, + the
   // moderation_state used by the client-side gate) — buckets are built from these
   // FIRST, and only the ≤3 media each chapter uses get presigned later.
+  //
+  // 🚨 THE BUG THIS BLOCK USED TO BE (03 §3 · 08 steps 0.2 + 0.4). This read had
+  // NO lower bound on captured_at. Papic cameras may start shooting up to
+  // PAPIC_CAPTURE_MONTHS_BEFORE (6) months before the event — a ~100-capture
+  // prenup/despedida shoot filled all 48 rows and the wedding day itself never
+  // appeared. Fixed by bounding to `dayWindow` (the event's own Manila days —
+  // see lib/story-day-window.ts). Not fixed by raising the cap: presigning
+  // hundreds of URLs to discard most of them is the shape that made the gallery
+  // slow (see EDITORIAL_CHALLENGE_ANSWER_CAP's comment for the same lesson).
   type TimelinePhotoRow = { photoId: string; key: string; capturedAt: string | null };
   let timelinePhotoRows: TimelinePhotoRow[] = [];
   try {
-    const { data: rows, error } = await admin
+    let timelineQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      timelineQuery = timelineQuery
+        .gte('captured_at', dayWindow.startIso)
+        .lte('captured_at', dayWindow.endIso);
+    }
+    const { data: rows, error } = await timelineQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(rows)) {
@@ -1412,6 +1529,21 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     new Set([...coupleGalleryPhotos, ...manualGalleryPhotos, ...papicGalleryUrls]),
   );
 
+  // The same Papic captures, with the instant each was SHOT — for the index's
+  // eleventh job, filing every capture under its own minute (`01` §3.6). Built
+  // from rows already in hand; nothing is queried twice. Clips come from the
+  // timeline read, which is bounded to the event's own days by design (`08`
+  // step 0.2) — so a clip shot at the prenup is in the cover's count and not in
+  // this list, and the index says how many it is showing rather than claiming
+  // the cover's number for a shorter grid.
+  const galleryCaptures: Array<{ url: string; atMs: number | null }> = [];
+  for (const r of papicRows) {
+    const url = papicUrlByPhotoId.get(r.photoId);
+    if (!url) continue;
+    const t = r.capturedAt ? Date.parse(r.capturedAt) : Number.NaN;
+    galleryCaptures.push({ url, atMs: Number.isFinite(t) ? t : null });
+  }
+
   // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
   // only when the couple availed the LIVE_WALL SKU. Same resolver as the
   // gallery. Best-effort: a missing activation table just hides the section.
@@ -1452,6 +1584,15 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       )
       .eq('event_id', eventId)
       .eq('moderation_state', 'clean')
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). Until the desk
+      // shipped there was no host decision on this table at all: the only lever
+      // was `hidden_by_couple`, DEFAULT FALSE — shown unless hidden — and it has
+      // never had a writer, so a supplier's frame published itself. `status` is
+      // born 'pending' and the host chooses it in at the desk.
+      // ⚠ BOTH filters are kept, not one: belt and braces, so losing either
+      // still leaves the other. That is this file's own house style (see the
+      // challenge-answer read below, which filters server-side AND in memory).
+      .eq('status', 'approved')
       .eq('hidden_by_couple', false)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
@@ -1753,29 +1894,61 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     return { lead, supporting };
   };
 
+  // 08 step 0.4 — MULTI-DAY: split rawTimeline by its own Manila calendar day
+  // FIRST, then decile-split each day's items separately. A flat decile split
+  // across the whole (possibly multi-day) timeline can put a day-1 evening item
+  // and a day-2 morning item in the SAME bucket whenever a decile boundary
+  // happens to fall between them — so a day-2 capture could still lead (or
+  // support) a chapter whose kicker/title reads as day 1. Splitting by day
+  // first makes that structurally impossible: no chapter's `media` ever spans
+  // two different `manilaDayOf` values. Days are visited in Manila-calendar
+  // order (rawTimeline is already captured_at ASC, so grouping preserves it).
+  const dayGroups: RawTimelineItem[][] = [];
+  {
+    const byDay = new Map<string, RawTimelineItem[]>();
+    const dayOrder: string[] = [];
+    for (const it of rawTimeline) {
+      const day = manilaDayOf(it.tsRaw) ?? ' untimed'; // untimed sinks last, own group
+      let group = byDay.get(day);
+      if (!group) {
+        group = [];
+        byDay.set(day, group);
+        dayOrder.push(day);
+      }
+      group.push(it);
+    }
+    for (const day of dayOrder) dayGroups.push(byDay.get(day)!);
+  }
+
+  const perDayChapterCounts = allocateChapterCounts(
+    dayGroups.map((g) => g.length),
+    EDITORIAL_DAY_CHAPTER_CAP,
+  );
+
   const plans: ChapterPlan[] = [];
-  if (rawTimeline.length > 0) {
-    if (rawTimeline.length < 4) {
-      // Too few media to bucket meaningfully → one chapter per item.
-      for (const it of rawTimeline) {
+  dayGroups.forEach((group, dayIdx) => {
+    if (group.length === 0) return;
+    if (group.length < 4) {
+      // Too few media in this day to bucket meaningfully → one chapter/item.
+      for (const it of group) {
         const p = planChapter([it]);
         if (p) plans.push(p);
       }
-    } else {
-      // Even time-order split into ≤10 buckets (same decile approach as the essay
-      // sampler). Only emit non-empty buckets → never an empty frame.
-      const n = rawTimeline.length;
-      const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
-      for (let i = 0; i < chapterCount; i += 1) {
-        const start = Math.floor((i * n) / chapterCount);
-        const end = Math.floor(((i + 1) * n) / chapterCount);
-        if (end > start) {
-          const p = planChapter(rawTimeline.slice(start, end));
-          if (p) plans.push(p);
-        }
+      return;
+    }
+    // Even time-order split into this day's share of the shared cap (same
+    // decile approach as the essay sampler, now scoped to one day).
+    const n = group.length;
+    const chapterCount = Math.max(1, Math.min(perDayChapterCounts[dayIdx] ?? 1, n));
+    for (let i = 0; i < chapterCount; i += 1) {
+      const start = Math.floor((i * n) / chapterCount);
+      const end = Math.floor(((i + 1) * n) / chapterCount);
+      if (end > start) {
+        const p = planChapter(group.slice(start, end));
+        if (p) plans.push(p);
       }
     }
-  }
+  });
 
   // Presign ONLY the media the plans actually chose (≤3/chapter). One R2 key can
   // appear once; de-dup the resolve set. Reuse the already-presigned gallery URLs
@@ -1845,6 +2018,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .filter((m): m is ChapterMedia => Boolean(m));
       autoChapters.push({
         time: formatClockKicker(p.lead.tsRaw),
+        atIso: p.lead.tsRaw,
         // The couple named this moment months ago. A chapter whose lead photo
         // falls inside "Ceremony" is called Ceremony, not "Moment 3". A photo in
         // the gaps keeps `null`, exactly as every chapter did before.
@@ -1888,6 +2062,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       // `time`/`leadId` are null (curated URLs carry no timeline identity here).
       dayChapters = essayPhotos.map((url) => ({
         time: null,
+        atIso: null,
         title: null,
         writeUp: null,
         leadId: null,
@@ -1901,6 +2076,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     // essay as chapters (matches prior behaviour).
     dayChapters = essayPhotos.map((url) => ({
       time: null,
+      atIso: null,
       title: null,
       writeUp: null,
       leadId: null,
@@ -1985,6 +2161,11 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('completion_id, mission_id, capture_id, guest_id, created_at')
       .eq('event_id', eventId)
       .eq('consent_to_share', true)
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). `consent_to_share`
+      // is the GUEST's yes; before the desk it was the ONLY yes, so an answer
+      // reached the public story without the host ever being asked. Both are
+      // required now and neither substitutes for the other.
+      .eq('status', 'approved')
       .not('capture_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);
@@ -2004,7 +2185,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .from('papic_guest_captures')
         .select(
           'capture_id, media_type, display_r2_key, clip_web_r2_key, poster_r2_key, ' +
-            'moderation_state, hidden_at, consent_to_public',
+            'moderation_state, hidden_at, consent_to_public, captured_at',
         )
         .in('capture_id', captureIds)
         .is('hidden_at', null)
@@ -2053,6 +2234,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
               organizer: organizerNoun,
               eventWord: eventNoun,
             }),
+            atIso: asString(cap.captured_at),
             mediaType: isClip ? 'clip' : 'photo',
             url,
             posterUrl: isClip
@@ -2118,7 +2300,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
       // A resolved anchor's raw media (r2 keys + type), keyed by anchor id. Only
       // rows that PASS the public gate for their table land here.
-      type AnchorMedia = { type: 'photo' | 'clip'; key: string; posterKey: string | null };
+      type AnchorMedia = {
+        type: 'photo' | 'clip';
+        key: string;
+        posterKey: string | null;
+        /** The anchor's shutter time — see `KwentoQuote.atIso`. */
+        capturedAt: string | null;
+      };
       const photoAnchors = new Map<string, AnchorMedia>();
       const captureAnchors = new Map<string, AnchorMedia>();
 
@@ -2130,7 +2318,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         try {
           const { data: pRows } = await admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type, moderation_state')
+            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type, moderation_state, captured_at')
             .eq('event_id', eventId)
             .in('photo_id', Array.from(photoAnchorIds))
             .is('hidden_at', null)
@@ -2154,7 +2342,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
             // still approved, but the opted-out guest's media never renders.
             const shown = publicKeyForCapture(consentVeto, id, key);
             if (!id || !shown) continue;
-            photoAnchors.set(id, { type, key: shown, posterKey: asString(p.poster_r2_key) });
+            photoAnchors.set(id, {
+              type,
+              key: shown,
+              posterKey: asString(p.poster_r2_key),
+              capturedAt: asString(p.captured_at),
+            });
           }
         } catch {
           // table/column absent → these anchors resolve to text-only
@@ -2171,7 +2364,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         try {
           const { data: cRows } = await admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type, moderation_state')
+            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type, moderation_state, captured_at')
             .eq('event_id', eventId)
             .in('capture_id', Array.from(captureAnchorIds))
             .eq('consent_to_public', true)
@@ -2196,7 +2389,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
                   })
                 : asString(c.display_r2_key) ?? asString(c.r2_object_key);
             if (!id || !key) continue;
-            captureAnchors.set(id, { type, key, posterKey: asString(c.poster_r2_key) });
+            captureAnchors.set(id, {
+              type,
+              key,
+              posterKey: asString(c.poster_r2_key),
+              capturedAt: asString(c.captured_at),
+            });
           }
         } catch {
           // table/column absent → these anchors resolve to text-only
@@ -2224,6 +2422,18 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         });
       }
 
+      /** The anchor's shutter time, whether or not its media resolved. */
+      const anchorMinute = (table: string | null, id: string | null): string | null => {
+        if (!id) return null;
+        const a =
+          table === 'papic_photos'
+            ? photoAnchors.get(id)
+            : table === 'papic_guest_captures'
+              ? captureAnchors.get(id)
+              : undefined;
+        return a?.capturedAt ?? null;
+      };
+
       const resolveAnchor = (
         table: string | null,
         id: string | null,
@@ -2250,6 +2460,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         const guestId = asString(r.guest_id);
         kwentoQuotes.push({
           body,
+          atIso: anchorMinute(asString(r.source_table), asString(r.source_id)),
           author: guestId ? nameByGuest.get(guestId) ?? null : null,
           role: null,
           media: resolveAnchor(asString(r.source_table), asString(r.source_id)),
@@ -2468,8 +2679,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     firstNames: deriveFirstNames(displayName),
     slug: asString(event.slug),
     eventDate,
+    eventEndDate,
     eventDateFormatted: formatPhDate(eventDate),
     editionNo,
+    editionVolume,
     venueName,
     venueCity,
     venueAddress,
@@ -2500,6 +2713,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     reviews,
     servicesAvailed,
     galleryPhotos,
+    galleryCaptures,
     essayPhotos,
     dayChapters,
     song,
@@ -2567,6 +2781,24 @@ export async function loadEditorialChaptersForEditor(
   // they'd name a moment that the public recap withholds). Fail CLOSED.
   const consentVeto = await loadConsentVetoedPapicIds(admin, eventId);
 
+  // The event's own days (03 §3 · 08 steps 0.2 + 0.4) — SAME bound the public
+  // loader applies, so a leadId the couple curates here always exists in the
+  // public dayChapters it's meant to target (this function's own header:
+  // "so leadIds line up exactly"). Best-effort: an unresolvable event_date
+  // leaves the timeline reads below unbounded, matching the public loader's
+  // same fallback.
+  let dayWindow: ReturnType<typeof storyDayWindow> = null;
+  try {
+    const { data: ev } = await admin
+      .from('events')
+      .select('event_date, event_end_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    dayWindow = storyDayWindow(asString(ev?.event_date), asString(ev?.event_end_date));
+  } catch {
+    dayWindow = null;
+  }
+
   // Current overrides (from draft_json). Read even when there are no cards, so the
   // editor can drop stale ones on the next save.
   let overrides: ChapterOverride[] = [];
@@ -2585,13 +2817,17 @@ export async function loadEditorialChaptersForEditor(
   type Row = { photoId: string; key: string; posterKey: string | null; capturedAt: string | null; kind: 'photo' | 'clip' };
   const rows: Row[] = [];
   try {
-    const { data, error } = await admin
+    let photoQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      photoQuery = photoQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data, error } = await photoQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(data)) {
@@ -2607,13 +2843,17 @@ export async function loadEditorialChaptersForEditor(
     // no photos
   }
   try {
-    const { data, error } = await admin
+    let clipQuery = admin
       .from('papic_photos')
       .select('photo_id, r2_object_key, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (dayWindow) {
+      clipQuery = clipQuery.gte('captured_at', dayWindow.startIso).lte('captured_at', dayWindow.endIso);
+    }
+    const { data, error } = await clipQuery
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(data)) {
@@ -2675,21 +2915,48 @@ export async function loadEditorialChaptersForEditor(
       first,
     );
   };
+  // Per-day split (08 step 0.4) — mirrors the public loader exactly: a decile
+  // split across the WHOLE (possibly multi-day) row set can merge a day-1 and
+  // a day-2 item into one bucket at a boundary; grouping by manilaDayOf first
+  // makes that impossible, and keeps leadIds identical to the public builder's.
+  const dayGroups: Row[][] = [];
+  {
+    const byDay = new Map<string, Row[]>();
+    const dayOrder: string[] = [];
+    for (const r of rows) {
+      const day = manilaDayOf(r.capturedAt) ?? ' untimed';
+      let group = byDay.get(day);
+      if (!group) {
+        group = [];
+        byDay.set(day, group);
+        dayOrder.push(day);
+      }
+      group.push(r);
+    }
+    for (const day of dayOrder) dayGroups.push(byDay.get(day)!);
+  }
+  const perDayChapterCounts = allocateChapterCounts(
+    dayGroups.map((g) => g.length),
+    EDITORIAL_DAY_CHAPTER_CAP,
+  );
   const leads: Row[] = [];
-  if (rows.length < 4) {
-    for (const r of rows) leads.push(r);
-  } else {
-    const n = rows.length;
-    const chapterCount = Math.min(EDITORIAL_DAY_CHAPTER_CAP, n);
+  dayGroups.forEach((group, dayIdx) => {
+    if (group.length === 0) return;
+    if (group.length < 4) {
+      for (const r of group) leads.push(r);
+      return;
+    }
+    const n = group.length;
+    const chapterCount = Math.max(1, Math.min(perDayChapterCounts[dayIdx] ?? 1, n));
     for (let i = 0; i < chapterCount; i += 1) {
       const start = Math.floor((i * n) / chapterCount);
       const end = Math.floor(((i + 1) * n) / chapterCount);
       if (end > start) {
-        const lead = pickLead(rows.slice(start, end));
+        const lead = pickLead(group.slice(start, end));
         if (lead) leads.push(lead);
       }
     }
-  }
+  });
 
   // The same run-of-show the public page names its chapters from, so the
   // editor's placeholder and the visitor's page cannot say different things.
@@ -2922,8 +3189,10 @@ function mariaAndJuan(): EditorialData {
     firstNames: 'Maria & Juan',
     slug: null, // sample has no real event row → editorial render skips the share bar (the /realstories/[slug] detail page owns it)
     eventDate: '2026-02-14',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-02-14'),
     editionNo: 1,
+    editionVolume: 1,
     venueName: 'a garden estate overlooking Taal',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -3011,6 +3280,7 @@ function mariaAndJuan(): EditorialData {
     dayChapters: [
       {
         time: '11:20 in the morning',
+        atIso: '2026-02-14T11:20:00+08:00',
         title: 'The Getting Ready',
         writeUp:
           'The suite smelled of gardenias and hairspray. Maria sat still while her ninang pinned the last sprig into place, and for one quiet minute nobody said anything at all — the calm before a very loud, very happy afternoon.',
@@ -3022,6 +3292,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '2:38 in the afternoon',
+        atIso: '2026-02-14T14:38:00+08:00',
         title: 'The Garden March',
         writeUp:
           'The path was lined white with blooms and the whole lawn rose at once. She walked it slowly, on her father’s arm, past every face that had ever mattered — and by the time she reached Juan, neither of them was hiding the tears.',
@@ -3032,6 +3303,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '3:04 in the afternoon',
+        atIso: '2026-02-14T15:04:00+08:00',
         title: 'The Vows',
         writeUp:
           'They traded promises in a near-whisper, foreheads almost touching. The front rows swore they could hear the kiss. Taal held the light behind them like a held breath, and then everyone was on their feet.',
@@ -3043,6 +3315,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '7:12 in the evening',
+        atIso: '2026-02-14T19:12:00+08:00',
         title: 'The First Dance',
         writeUp:
           'Under strings of warm light they danced to the kundiman that has followed them since a despedida in Quezon City. Slow, unhurried, foreheads together again — the same two people, a lifetime further in.',
@@ -3053,6 +3326,7 @@ function mariaAndJuan(): EditorialData {
       },
       {
         time: '9:47 in the evening',
+        atIso: '2026-02-14T21:47:00+08:00',
         title: 'The Money Dance',
         writeUp:
           'Titos and titas pinned bills to the couple while the band played faster and faster. Somebody’s lolo out-danced everyone half his age. The lawn was pure noise and light, and nobody was in any hurry for the day to end.',
@@ -3072,9 +3346,9 @@ function mariaAndJuan(): EditorialData {
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
     ],
     kwentoQuotes: [
-      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
-      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, media: null },
-      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
+      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', atIso: '2026-02-14T14:38:00+08:00', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
+      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', atIso: '2026-02-14T15:04:00+08:00', author: 'Kuya Marco', role: null, media: null },
+      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', atIso: '2026-02-14T19:12:00+08:00', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
     ],
     watchFilmEmbedUrl: null,
     films: [],
@@ -3091,8 +3365,10 @@ function jackAndJill(): EditorialData {
     firstNames: 'Jack & Jill',
     slug: null,
     eventDate: '2026-04-18',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-04-18'),
     editionNo: 3,
+    editionVolume: 1,
     venueName: 'a west-facing cove on the Cebu coast',
     venueCity: 'Cebu',
     venueAddress: 'Cebu',
@@ -3193,8 +3469,10 @@ function johnAndJane(): EditorialData {
     firstNames: 'John & Jane',
     slug: null,
     eventDate: '2026-03-07',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-03-07'),
     editionNo: 2,
+    editionVolume: 1,
     venueName: 'a rooftop terrace above the Manila skyline',
     venueCity: 'Manila',
     venueAddress: 'Makati, Metro Manila',
@@ -3295,8 +3573,10 @@ function peterAndMary(): EditorialData {
     firstNames: 'Peter & Mary',
     slug: null,
     eventDate: '2026-05-23',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-23'),
     editionNo: 5,
+    editionVolume: 1,
     venueName: 'a ridge-top estate garden in Tagaytay',
     venueCity: 'Tagaytay',
     venueAddress: 'Tagaytay, Cavite',
@@ -3398,8 +3678,10 @@ function jackAndRose(): EditorialData {
     firstNames: 'Jack & Rose',
     slug: null,
     eventDate: '2026-05-09',
+    eventEndDate: null,
     eventDateFormatted: formatPhDate('2026-05-09'),
     editionNo: 4,
+    editionVolume: 1,
     venueName: 'a pine-forest clearing in the Cordilleras',
     venueCity: 'Baguio',
     venueAddress: 'Baguio, Benguet',
@@ -3509,8 +3791,10 @@ function sofiaReyes(): EditorialData {
     firstNames: 'Sofia Reyes',
     slug: null, // sample has no real event row → editorial render skips the share bar
     eventDate: '2026-03-14',
+    eventEndDate: '2026-03-15',
     eventDateFormatted: formatPhDate('2026-03-14'),
     editionNo: 6,
+    editionVolume: 1,
     venueName: 'a grand ballroom in the heart of Makati',
     venueCity: 'Makati',
     venueAddress: 'Makati, Metro Manila',
@@ -3607,6 +3891,7 @@ function sofiaReyes(): EditorialData {
     dayChapters: [
       {
         time: '6:40 in the evening',
+        atIso: '2026-03-14T18:40:00+08:00',
         title: 'The Staircase Entrance',
         writeUp:
           'The doors opened on the first chord and Sofia came down the staircase in the rose-gold gown her lola helped choose. Two hundred people rose without being asked to — the night’s first, unplanned standing ovation.',
@@ -3617,6 +3902,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '7:25 in the evening',
+        atIso: '2026-03-14T19:25:00+08:00',
         title: 'The Eighteen Roses',
         writeUp:
           'Her father first, then grandfathers, uncles, cousins, and the family friends who taught her to bike, to swim, to drive. Each rose came with a dance and a sentence or two — some rehearsed, the best ones not.',
@@ -3627,6 +3913,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '8:10 in the evening',
+        atIso: '2026-03-14T20:10:00+08:00',
         title: 'The Cotillion',
         writeUp:
           'Eight couples, three months of Sunday rehearsals, one waltz that broke into a track nobody over forty recognized and everybody under twenty knew by heart. It brought the entire ballroom to its feet.',
@@ -3637,6 +3924,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '9:05 in the evening',
+        atIso: '2026-03-14T21:05:00+08:00',
         title: 'The Eighteen Candles',
         writeUp:
           'The women who raised her — mother, lola, titas, teachers, her best friend since grade two — each lit a candle and left a wish. By the twelfth, half the ballroom had given up pretending they weren’t crying.',
@@ -3647,6 +3935,7 @@ function sofiaReyes(): EditorialData {
       },
       {
         time: '12:20 past midnight',
+        atIso: '2026-03-15T00:20:00+08:00',
         title: 'The Last Dance',
         writeUp:
           'The formal program ended at eleven; nobody left. The last picture of the night is Sofia — barefoot, crown slightly crooked — dancing with her lola to a song older than both of them put together.',
@@ -3664,9 +3953,9 @@ function sofiaReyes(): EditorialData {
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
     kwentoQuotes: [
-      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
-      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, media: null },
-      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
+      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', atIso: '2026-03-14T18:40:00+08:00', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
+      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', atIso: '2026-03-14T20:10:00+08:00', author: 'Bea', role: null, media: null },
+      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', atIso: '2026-03-14T19:25:00+08:00', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
     ],
     watchFilmEmbedUrl: null,
     films: [],

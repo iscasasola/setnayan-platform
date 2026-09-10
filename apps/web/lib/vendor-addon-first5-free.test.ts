@@ -10,7 +10,6 @@ import {
   vendorInFirst5Window,
 } from './vendor-addon-first5-free';
 import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
-import { VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES } from './vendor-3d-plan-unlock';
 
 /**
  * "Free until your 6th booking" (owner-locked 2026-07-25) on the two
@@ -127,13 +126,3 @@ test('a malformed value never shortens a live window', () => {
   assert.equal(nonStackingFreeExpiry('garbage', '2026-08-22T00:00:00.000Z'), '2026-08-22T00:00:00.000Z');
 });
 
-// ── drift guard: our committed-status set must match the platform's ─────────
-
-test('COMMITTED_BOOKING_STATUSES matches the shared booked-status set', () => {
-  // If these ever diverge, "inside the first 5" here stops meaning "fee waived"
-  // in booking_fee_open_lock_charge, and vendors get billed inconsistently.
-  assert.deepEqual(
-    [...COMMITTED_BOOKING_STATUSES].sort(),
-    [...VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES].sort(),
-  );
-});

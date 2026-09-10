@@ -23,6 +23,7 @@ import {
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
+import { capturedAtIso, parseCapturedAtMs } from '@/lib/papic-capture-minute';
 
 // POST /api/papic/guest-capture
 //
@@ -297,6 +298,16 @@ export async function POST(req: Request) {
   // couple's approval). Default OFF: a missing flag never opts a guest in.
   const sharePublicly = form.get('share_publicly') === '1';
 
+  // 🕐 THE SHUTTER — read on ingest, never asked and never surfaced (owner,
+  // 2026-09-07: "when we get the photos and snippets, we know. but the guest
+  // does not need to know"). The camera stamps it at the grab and the offline
+  // drain replays it, so a shot that spent six hours waiting for signal is
+  // still filed under the minute it was taken rather than the minute it landed.
+  // Absent or malformed → null → the RPC answers now(), which is what every row
+  // got before this shipped. Nothing here refuses a capture.
+  const capturedAtMs = parseCapturedAtMs(form.get('captured_at_ms'));
+  const capturedAtIsoValue = capturedAtIso(capturedAtMs);
+
   // Optional on-device face descriptors (best-effort) — the phone detected faces
   // + computed their 128-d vectors and sent only those; the face IMAGE stayed on
   // the device. Parsed defensively: a malformed/oversized field just disables
@@ -508,13 +519,15 @@ export async function POST(req: Request) {
   // its LIMIT from us; it reads the couple's own table. Migration
   // 20271184624871.
   //
-  // Graceful-degrade: if a newer signature isn't deployed yet, retry the 6-arg,
-  // then the 3-arg, then the 2-arg so the capture still records.
+  // Graceful-degrade: if a newer signature isn't deployed yet, retry the 7-arg,
+  // then the 6-arg, then the 3-arg, then the 2-arg so the capture still records.
   // ⚠ THE 6-ARG RUNG IS THE DEPLOY-WINDOW RUNG AND IT IS NOT DECORATION. Vercel
   // and the migration workflow both fire on a push to main and race; for the
   // minutes where this code is live and 20271184624871 is not, the 7-arg call
   // 42883s. Without this rung it would fall straight to shapes that cannot
   // carry media_type — recording every clip of that window as a photo.
+  // 🕐 The 8-arg rung is the same rung for 20271214644139: during ITS window the
+  // capture records with its upload minute instead of not recording at all.
   let { data, error } = await admin.rpc('papic_record_guest_capture', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
@@ -523,7 +536,19 @@ export async function POST(req: Request) {
     p_duration_ms: durationMs,
     p_poster_r2_key: posterRef,
     p_points_cost: cost,
+    p_captured_at: capturedAtIsoValue,
   });
+  if (error && /p_captured_at|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
+      p_guest_id: session.guest_id,
+      p_r2_object_key: r2Ref,
+      p_consent_to_public: sharePublicly,
+      p_media_type: mediaType,
+      p_duration_ms: durationMs,
+      p_poster_r2_key: posterRef,
+      p_points_cost: cost,
+    }));
+  }
   if (error && /p_points_cost|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
     ({ data, error } = await admin.rpc('papic_record_guest_capture', {
       p_guest_id: session.guest_id,

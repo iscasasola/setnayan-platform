@@ -582,7 +582,17 @@ test('no deferred migration lands after the last migration that writes what it w
  * postcondition, not against a hand-typed second copy of the catalog.
  * -------------------------------------------------------------------------- */
 
-/** The eight rungs `20271171000513_the_owner_price_sheet_2026_08_27.sql` asserts about itself. */
+/**
+ * The eight rungs `20271171000513_the_owner_price_sheet_2026_08_27.sql` asserts
+ * about itself — as they stand at the END of the replay, i.e. after every LATER
+ * owner reprice too. This table is the latest owner figure per rung, not a
+ * frozen copy of one sheet: the invariant is that the replay ends where the
+ * newest writer says, never on an older seed replayed last.
+ *
+ *   · vendor_3d_booth ₱2,500 → ₱3,000 on 2026-09-05 ("flat prices for all of
+ *     them", migration 20271205977137). Moved here in the SAME PR as the row,
+ *     exactly like the fallback constant it pairs with.
+ */
 const OWNER_PRICE_SHEET_2026_08_27: Array<[string, number]> = [
   ['solo_vendor_monthly', 1000],
   ['pro_vendor_monthly', 2500],
@@ -591,7 +601,7 @@ const OWNER_PRICE_SHEET_2026_08_27: Array<[string, number]> = [
   ['pro_vendor_annual', 26000],
   ['enterprise_vendor_annual', 104000],
   ['vendor_additional_branch', 1000],
-  ['vendor_3d_booth', 2500],
+  ['vendor_3d_booth', 3000], // 2026-09-05, migration 20271205977137
 ];
 
 test('the replay ends on the owner price sheet, not on a 2026-05-30 seed', async () => {

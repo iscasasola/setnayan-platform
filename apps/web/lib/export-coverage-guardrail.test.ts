@@ -177,6 +177,24 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-09-04 with the table itself (MB16) ──
+  event_colour_grants:
+    'The VENDOR half of the standing colour grant. Its only subject-identifying ' +
+    'column is `granted_by_user_id` — which partner flipped the switch — and the ' +
+    'row is about a BOOKING on an EVENT, not about that person: it says a shop ' +
+    'may adjust florals, and it goes on saying so after either partner leaves. ' +
+    'The account holder is not its data subject; the SHOP is, and a shop is not ' +
+    'a person with an RA 10173 right against us here. ' +
+    '⚖ THE COORDINATOR HALF IS DIFFERENT AND IS EXPORTED: ' +
+    '`event_colour_grants_coordinator.user_id` names a PERSON and says what ' +
+    'they, specifically, may change — a live capability attached to their ' +
+    'account — so the route reads it scoped to `user_id`. The two tables were ' +
+    'split for referential reasons (a booking vs a membership) and it turns out ' +
+    'the RA 10173 answer differs across the same seam. ' +
+    '⚠ What the subject DID under this grant is not hidden by this exclusion: ' +
+    '`event_colour_changes` is exported, author-scoped, so every colour they ' +
+    'actually changed is in the file.',
+
   // ⚠ REWRITTEN 2026-08-22 — THE TABLE IS GONE, AND THE OLD REASON ENDED IN A
   // PROMISE THAT WOULD NOW BE FALSE: "the subject can see and reset the link on
   // My Events at any time, which is the surface that right belongs on." That
@@ -201,6 +219,33 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'a live access key in it turns a privacy right into a disclosure risk. The ' +
     'celebrations the feed described are exported in full from `events` and ' +
     '`event_members` regardless.',
+  // ── added 2026-09-04 with the table itself (MB12) ──
+  moodboard_part_finalizations:
+    'Not the account holder\u2019s data to export. A row is a HANDSHAKE between ' +
+    'a celebration and a SHOP about one part of a design \u2014 "will you build ' +
+    'this ceiling as drawn?" \u2014 and its four `*_user_id` columns ' +
+    '(requested_by / answered_by / reopen_requested_by / reopen_answered_by) ' +
+    'are ACTOR STAMPS, the same call `event_stage_notes` and ' +
+    '`vendor_payment_asks` make for the same shape. No reader selects one: the ' +
+    'couple is shown the SHOP answering and the shop is shown the COUPLE ' +
+    'asking, never a named person on either side, and no RLS policy consults ' +
+    'them (the couple gate is event_members, the supplier gate is ' +
+    'current_vendor_event_vendor_ids). Exporting the row to a shop staffer ' +
+    'would hand one employee a record of somebody else\u2019s wedding design; ' +
+    'exporting it to a co-partner would hand them a supplier\u2019s commercial ' +
+    'answer as though it were their own personal data. ' +
+    'THE CONTENT IS NOT THE SUBJECT\u2019S EITHER. `design_snapshot` is the ' +
+    'COUPLE\u2019S BOARD, already exported in full from `events.role_palette`; ' +
+    '`decline_reason` / `reopen_decline_reason` are the SHOP\u2019S statement ' +
+    'about the work ("we cannot source that peony in November"), which belongs ' +
+    'to the business, not to whoever typed it. ' +
+    'STATED PLAINLY RATHER THAN LEFT IMPLIED: the COUPLE is a data subject of ' +
+    'this row on the event axis, and this exclusion does not answer their side. ' +
+    'It sits with every other event-scoped supplier record \u2014 bookings, ' +
+    'change orders, the payment ledger, payment asks \u2014 none of which the ' +
+    'export reaches today, and belongs with them the day that whole class is ' +
+    'covered, not as a special case. The erasure verdict for the four stamps is ' +
+    'separately written down in AUTHOR_UUID_NULLS (lib/erasure/coverage.ts).',
   // ── added 2026-08-28 with the table itself (S4) ──
   vendor_payment_asks:
     'Not the account holder’s data to export, on the axis this guardrail ' +

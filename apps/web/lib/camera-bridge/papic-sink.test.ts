@@ -37,7 +37,12 @@ function makeStill(): CapturedFile {
   return { ...makeClip(), kind: 'still', mimeType: 'image/jpeg', durationMs: undefined };
 }
 
-type RecordCall = { r2Ref: string; kind: 'photo' | 'clip'; posterR2Ref?: string };
+type RecordCall = {
+  r2Ref: string;
+  kind: 'photo' | 'clip';
+  posterR2Ref?: string;
+  capturedAtMs?: number;
+};
 
 /** Happy-path deps that log every call; tweak per test. */
 function makeDeps(overrides: Partial<PapicSinkDeps> = {}) {
@@ -56,8 +61,8 @@ function makeDeps(overrides: Partial<PapicSinkDeps> = {}) {
       puts.push({ uploadUrl, contentType, byteLength: bytes.byteLength });
       return true;
     },
-    record: async (r2Ref, kind, posterR2Ref) => {
-      records.push({ r2Ref, kind, posterR2Ref });
+    record: async (r2Ref, kind, posterR2Ref, capturedAtMs) => {
+      records.push({ r2Ref, kind, posterR2Ref, capturedAtMs });
       return { ok: true, count: records.length };
     },
     ...overrides,
@@ -184,4 +189,46 @@ test('posterUploadMeta derives a -poster.jpg JPEG next to the clip name', () => 
   });
   // Sits beside the clip's own name (same capturedAtMs stem).
   assert.equal(captureUploadMeta(clip).filename, 'bridge-42.webm');
+});
+
+/*
+  🕐 THE SHUTTER SURVIVES THE DELIVERY.
+
+  `CapturedFile` has carried the real capture instant since S0 — a DSLR's own
+  clock, or the phone's at the grab — and `deps.record` took three arguments,
+  none of them it. So every bridge capture, and every capture drained out of the
+  offline queue, was filed under the minute its bytes finished arriving. At a
+  venue with patchy signal that put a 2 PM photograph on the 8 PM bar of the
+  story's dial.
+
+  The assertion is deliberately made with a shutter time far in the past and
+  nothing else in the file near it: a sink that passed `Date.now()`, or dropped
+  the argument, cannot pass by coincidence.
+*/
+test('deliverCapture hands the shutter instant to record, not the delivery clock', async () => {
+  const { deps, records } = makeDeps();
+  const shutter = 1_700_000_000_000; // 2023-11-14, hours from any test clock
+  const result = await deliverCapture(deps, makeStill(), { seatIndex: 1 });
+
+  assert.equal(result.ok, true);
+  assert.equal(records.length, 1);
+  assert.equal(
+    records[0]!.capturedAtMs,
+    makeStill().capturedAtMs,
+    'the file\'s own capturedAtMs must reach record()',
+  );
+  assert.notEqual(
+    records[0]!.capturedAtMs,
+    undefined,
+    'record() was called without a shutter time — the capture will file under its upload minute',
+  );
+
+  // And a file that waited: same delivery, a much older shutter, unchanged.
+  const late = makeDeps();
+  await deliverCapture(late.deps, makeClip({ capturedAtMs: shutter }), { seatIndex: 1 });
+  assert.equal(
+    late.records[0]!.capturedAtMs,
+    shutter,
+    'a capture that sat in the queue must keep the minute it was taken',
+  );
 });

@@ -255,7 +255,7 @@ export function EditorialPanel({
       </ul>
       {ownsPro ? (
         <Link
-          href={`/dashboard/${eventId}/website/editorial`}
+          href={`/dashboard/${eventId}/story`}
           className="mt-2 inline-flex items-center rounded-full bg-ink px-3.5 py-1.5 text-[0.7rem] font-semibold text-cream hover:bg-ink/90"
         >
           Open the editor&rsquo;s desk →

@@ -14,6 +14,34 @@
 export const VENDOR_TIERS = ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const;
 export type VendorTier = (typeof VENDOR_TIERS)[number];
 
+/**
+ * The tiers an admin may SET on one vendor from a dropdown — the list
+ * `setVendorTier` validates against, and the list both tier `<select>`s are
+ * built from. ONE constant, because the two used to disagree.
+ *
+ * 🚨 THE BUG THIS EXISTS TO END (found by a post-merge audit 2026-09-05). The
+ * dropdowns on /admin/gifts and /admin/vendors/[id]/plan were built from
+ * `VENDOR_TIERS` (six options) while `setVendorTier` validated against its own
+ * private four — so choosing **Solo**, the cheapest paid tier and the natural
+ * comp, threw `Invalid tier.` as an unhandled server-action error: the form
+ * contents lost, the vendor unchanged, and nothing on screen explaining why.
+ * Same for Custom. A list you can pick from and a list that is accepted must be
+ * the same list, so now they are literally the same constant.
+ *
+ * `solo` IS settable: it is a real `tier_state` enum value (migration
+ * 20270221294989), `solo_vendor_monthly` is a live catalogue SKU, and a cohort
+ * deal can already promote vendors to it (`PROMOTABLE_VENDOR_TIERS`). Denying
+ * it to a single named vendor was an accident, not a decision.
+ *
+ * `custom` is deliberately NOT here, and that is a decision. The Custom tier is
+ * a bespoke arrangement assembled from its own `vendor_custom_*` line items;
+ * stamping `tier_state = 'custom'` from a dropdown would leave a vendor on a
+ * plan whose contents nobody configured. `PROMOTABLE_VENDOR_TIERS` excludes it
+ * for the same reason. It is set through the custom-plan surface, not here.
+ */
+export const VENDOR_TIER_SETTABLE = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
+export type SettableVendorTier = (typeof VENDOR_TIER_SETTABLE)[number];
+
 // Video calls REMOVED 2026-06-09 (owner). ChatLevel is text-only now — no
 // 'chat_video'; Enterprise chat == Pro/Verified. The 2026-05-16 "video
 // meetings retired" lock stands.
@@ -86,6 +114,36 @@ export interface TierCaps {
   importCustomerTokenCost: number;
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
+  /**
+   * BACK-CATALOGUE photos the shop may put into the couple-facing moodboard
+   * supplier gallery (MB11), PER CATEGORY (MB19) — the field used to be named
+   * `galleryBackCatalogPhotos` and counted ACCOUNT-WIDE, which was a lie
+   * nothing went red over: the number in this field means "photos per
+   * category", so the name says so. A SECOND, SMALLER ladder that sits
+   * ALONGSIDE `portfolioPhotos` and never replaces it — the two answer
+   * different questions and the owner sized them separately:
+   *
+   *   · `portfolioPhotos` = how much of your shop YOUR OWN page may show.
+   *   · `galleryBackCatalogPhotosPerCategory` = how much of your archive, IN
+   *     EACH inspiration category, we push into OTHER people's inspiration
+   *     boards. A shop holding 20 Flowers photos may still upload to Tables.
+   *
+   * Only BACK-CATALOGUE counts — a photo delivered on a celebration the shop
+   * was actually booked for (`moodboard_library_assets.source_event_id IS NOT
+   * NULL`) is never rationed, at any tier or category.
+   *
+   * 🔑 OWNER DECISION 2026-09-04: back-catalogue uploads are OPEN TO EVERY
+   * TIER, free included, capped at 20 per vendor PER CATEGORY they cover —
+   * "all their previous work can be uploaded to us, until we have enough data
+   * of our own." This retires the earlier PRO 20 / ENTERPRISE 100
+   * account-wide ladder (MB11 brief, 2026-09-03) — free/verified/solo used to
+   * read 0 here and could not back-catalogue at all.
+   *
+   * Enforced as a check on NEW INSERTS only (see the server action), so rows
+   * created under a looser ladder are grandfathered by construction and no
+   * rescue migration is ever needed.
+   */
+  galleryBackCatalogPhotosPerCategory: number;
   /**
    * Eligible to be tagged in editorial (the showcase credit chip — logo +
    * /v/[slug] link). RETIRED AS A TIER DISTINCTION 2026-07-16 (owner-ratified
@@ -235,6 +293,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: false,
     importCustomerTokenCost: 0,
     portfolioPhotos: 30,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
@@ -290,6 +349,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
@@ -326,6 +386,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     // Solo buys ENHANCED SEO + GEO (§ 8): local/entity structured data on top of
@@ -364,6 +425,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 100,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Pro buys AEO — the machine-answerable offer graph AI answer engines quote
@@ -404,6 +466,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Enterprise · Custom buy the TOP sitemap priority band on top of AEO
@@ -446,6 +509,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 300,
+    galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
     // Enterprise · Custom buy the TOP sitemap priority band on top of AEO

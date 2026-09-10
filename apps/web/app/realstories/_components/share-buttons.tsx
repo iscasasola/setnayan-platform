@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Link2, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link2, Check, Share2 } from 'lucide-react';
 
 /**
  * ShareButtons — one-tap sharing for a Real Story editorial.
@@ -37,6 +37,36 @@ export function ShareButtons({
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  /*
+    ── THE NATIVE SHARE SHEET — AND WHY THERE IS NO "MESSENGER" BUTTON ────────
+    `01_The_Story.md` §9 asks for Messenger in the share set. Measured 2026-09-09:
+    there is NO Facebook app id anywhere in this repo or its env names (only
+    NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED, which is sign-in), and the web Messenger
+    send-dialog REQUIRES one. The alternative, an `fb-messenger://` link, does
+    nothing at all on a desktop browser.
+
+    ⇒ A LITERAL MESSENGER BUTTON WOULD BE A FAKE DOOR on the surface most people
+    read this page from. What actually reaches Messenger — and Viber, and
+    Instagram, and every other app the reader already has — is the phone's own
+    share sheet. So that is what ships, FEATURE-DETECTED, so it never renders as
+    a dead control where it cannot work.
+
+    🔑 When a Facebook app id exists, a direct Messenger button becomes possible
+    and this comment is the place to start. Not before.
+  */
+  const [canShareNatively, setCanShareNatively] = useState(false);
+  useEffect(() => {
+    setCanShareNatively(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
+
+  async function shareNatively() {
+    try {
+      await navigator.share({ title, url });
+    } catch {
+      // The reader dismissed the sheet, or the browser refused it. Both are
+      // ordinary; the Facebook, Pinterest and copy paths are still right here.
+    }
+  }
 
   const fbHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
   const pinHref =
@@ -66,7 +96,7 @@ export function ShareButtons({
       'inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-terracotta';
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink/45">
+        <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink/60">
           Share
         </span>
         <button
@@ -85,6 +115,16 @@ export function ShareButtons({
         >
           <PinterestGlyph />
         </button>
+        {canShareNatively ? (
+          <button
+            type="button"
+            onClick={shareNatively}
+            aria-label="Share this story with an app on your phone"
+            className={iconBtn}
+          >
+            <Share2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={copyLink}
@@ -107,7 +147,7 @@ export function ShareButtons({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+      <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
         Share
       </span>
       <button

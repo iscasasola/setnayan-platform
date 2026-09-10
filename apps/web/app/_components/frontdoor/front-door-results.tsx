@@ -22,7 +22,8 @@
  *
  * ─── WHAT CHANGED, AND WHAT DELIBERATELY DID NOT ─────────────────────────
  * The answers now render HERE, in the front door's own body, in the front
- * door's own card family — the same shelf the chips above filter. Nothing
+ * door's own card family — the same cards New uploads and Trending render.
+ * Nothing
  * about the marketplace's search changed: /explore keeps its own box, its
  * word-bridge, its filters and all 192 categories, and every results page
  * carries one row handing the typed words straight to it.

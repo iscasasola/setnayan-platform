@@ -74,6 +74,17 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import { isBudgetBuildEnabled } from '@/lib/budget-build';
+import { computeLockImpact, type LockImpact } from '@/lib/lock-impact';
+import {
+  lockedGroupIdsFromVendorRows,
+  lockImpactTeams,
+  savedPlansFromBuildRows,
+  sunkVendors,
+  type ImpactBuildRow,
+  type ImpactVendorRow,
+} from '@/lib/lock-impact-inputs';
+import { resolveProbeWindow } from '@/lib/build-date-window';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -555,6 +566,26 @@ export type FinalizeVendorResult =
       vendorName: string;
       resultingDate: string; // 'YYYY-MM-DD'
       dateLabel: string; // "Saturday, September 12, 2027"
+      // Owner ruling 2026-09-06 — what ELSE this lock costs, carried on the
+      // SAME gate so the couple answers one question, not two in a row. NULL
+      // when the announcement is off (see resolveLockImpact) or the lock costs
+      // nothing; the modal then renders exactly the date sentence it always has.
+      impact: LockImpact | null;
+    }
+  // Owner ruling 2026-09-06: *"announce that the following builds are no longer
+  // possible for you, and these services are no longer possible once you lock
+  // this vendor."* This lock kills something but does NOT set the date, so the
+  // date gate never fires and nothing else would have said so. The UI opens the
+  // same confirm modal; on confirm it re-calls with confirm_lock_impact=1.
+  //
+  // ⚠ ONLY EVER RETURNED WITH A NON-EMPTY IMPACT. A confirm that always fires
+  // gets clicked through unread, which would make the announcement worse than
+  // not shipping it — `computeLockImpact().isEmpty` is the gate, not a hint.
+  | {
+      status: 'lock_will_cost';
+      vendorId: string;
+      vendorName: string;
+      impact: LockImpact;
     }
   | { status: 'not_signed_in' }
   | { status: 'not_secured' }
@@ -685,6 +716,166 @@ async function buildHardSingleConflict(
   };
 }
 
+/**
+ * What does locking this vendor COST the couple? — owner ruling 2026-09-06.
+ *
+ * Returns NULL for "say nothing", which is the answer in every case where a
+ * warning would be a guess or a lie:
+ *
+ *  • **The announcement is off.** It rides `isExploreReplanEnabled()` — and that
+ *    is a correctness gate, not a rollout habit. With the flag OFF, Load applies
+ *    every pick a snapshot holds (`build-compare.tsx` only calls
+ *    `planPicksToApply` when `replan` is true) so a lock costs a saved plan
+ *    NOTHING, and the soft convergence tier never runs so no vendor is ever
+ *    sunk. Warning about either would describe a product the couple is not
+ *    using. `isBudgetBuildEnabled()` joins it because saved plans and the bench
+ *    both live inside the Build takeover.
+ *  • **The press is only an ASK.** Under the lock handshake a marketplace press
+ *    writes `lock_request_state='pending'` and NOT `status='contracted'`, so no
+ *    category is settled, no plan becomes un-loadable and the date window does
+ *    not move. Announcing losses at request time would be the same defect
+ *    §6.1 keeps out of the date gate: acting on a supplier's answer before they
+ *    have given one.
+ *  • **A read failed.** Every read here aborts the whole computation rather
+ *    than degrading to an empty list. That is not the "reads are honest"
+ *    pattern — it is the opposite failure that matters here: a refused
+ *    `event_vendors` read would make `lockedGroupIds` empty, which makes plans
+ *    that DIED THREE LOCKS AGO look newly killed by this one. Under-warning is
+ *    recoverable; naming a casualty that isn't one is not.
+ *
+ * Cost: four small reads plus the SAME batched `getBatchVendorAvailableDays`
+ * the bench uses, on a deliberate, rare press. It re-reads `events` rather than
+ * threading state through the hardened date gate below — one indexed row, for
+ * not touching a gate that guards the couple's wedding date.
+ */
+async function resolveLockImpact(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  eventId: string;
+  targetVendorId: string;
+  /** The plan group this lock settles. Null ⇒ nothing to settle, no impact. */
+  groupId: string | null;
+  /** True when this press is a handshake REQUEST, not a booking. */
+  handshakeAsk: boolean;
+  /** True once the couple has already answered this modal. */
+  alreadyConfirmed: boolean;
+}): Promise<LockImpact | null> {
+  if (args.handshakeAsk || args.alreadyConfirmed || !args.groupId) return null;
+  if (!isExploreReplanEnabled() || !isBudgetBuildEnabled()) return null;
+
+  try {
+    const [{ data: evRow, error: evErr }, { data: vendorRows, error: vendorErr }] =
+      await Promise.all([
+        args.supabase
+          .from('events')
+          .select('event_date, event_date_precision, date_candidates')
+          .eq('event_id', args.eventId)
+          .maybeSingle(),
+        args.supabase
+          .from('event_vendors')
+          .select('vendor_id, vendor_name, category, status, marketplace_vendor_id')
+          .eq('event_id', args.eventId)
+          .is('archived_at', null),
+      ]);
+    if (evErr || vendorErr || !Array.isArray(vendorRows)) return null;
+
+    const [{ data: buildRows, error: buildErr }, { data: pickRows, error: pickErr }] =
+      await Promise.all([
+        args.supabase
+          .from('budget_builds')
+          .select('build_id, label, title, created_at, snapshot')
+          .eq('event_id', args.eventId),
+        args.supabase
+          .from('event_build_picks')
+          .select('vendor_id')
+          .eq('event_id', args.eventId),
+      ]);
+    // A refused saved-plans read is the couple's own work reading as absent —
+    // the exact shape `page.tsx` calls out. Here it would UNDER-report, so we
+    // say nothing at all rather than "this lock is free" on missing evidence.
+    if (buildErr || pickErr || !Array.isArray(buildRows) || !Array.isArray(pickRows)) {
+      return null;
+    }
+
+    const rows: ImpactVendorRow[] = vendorRows.map((r) => ({
+      vendorId: r.vendor_id as string,
+      name: (r.vendor_name as string | null) ?? 'Your vendor',
+      category: (r.category as string | null) ?? null,
+      status: (r.status as string | null) ?? null,
+      profileId: (r.marketplace_vendor_id as string | null) ?? null,
+    }));
+
+    // ── The plans half ──────────────────────────────────────────────────────
+    const lockedGroupIds = lockedGroupIdsFromVendorRows(rows);
+    const savedPlans = savedPlansFromBuildRows(buildRows as unknown as ImpactBuildRow[]);
+
+    // ── The services half ───────────────────────────────────────────────────
+    // Computed with `build-date-window.ts` — the module the bench renders from
+    // — twice: as things stand, and with this vendor folded in as locked. The
+    // DIFF is what this lock costs. When no probe window resolves (a committed
+    // day, or a year-precision date), both sets are empty and the services half
+    // is simply absent — never guessed.
+    const probe = resolveProbeWindow({
+      eventDate: (evRow as { event_date?: string | null } | null)?.event_date ?? null,
+      precision:
+        (evRow as { event_date_precision?: string | null } | null)?.event_date_precision ?? null,
+      candidates: Array.isArray((evRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((evRow as { date_candidates: unknown[] }).date_candidates.filter(
+            (c): c is string => typeof c === 'string',
+          ))
+        : null,
+    });
+
+    let sunkBefore: ReturnType<typeof sunkVendors> = [];
+    let sunkAfter: ReturnType<typeof sunkVendors> = [];
+    if (probe && !probe.anchored) {
+      const profileIds = [
+        ...new Set(rows.map((r) => r.profileId).filter((p): p is string => !!p)),
+      ];
+      if (profileIds.length > 0) {
+        const [ys, ms, ds] = probe.rangeStart.split('-').map(Number);
+        const [ye, me, de] = probe.rangeEnd.split('-').map(Number);
+        const availByProfile = await getBatchVendorAvailableDays(
+          createAdminClient(),
+          profileIds,
+          new Date(ys ?? 1970, (ms ?? 1) - 1, ds ?? 1),
+          new Date(ye ?? 1970, (me ?? 1) - 1, de ?? 1),
+        );
+        // Clip to the probe window, exactly as the page does — a profile the
+        // helper could not answer for stays ABSENT, never an empty set (which
+        // would read as "free nowhere" and sink a vendor on a calendar flake).
+        const probeKeys = new Set(probe.dayKeys);
+        const freeDaysByProfileId = new Map<string, ReadonlySet<string>>();
+        for (const [profileId, days] of availByProfile) {
+          freeDaysByProfileId.set(
+            profileId,
+            new Set([...days].filter((k) => probeKeys.has(k))),
+          );
+        }
+        const { membersBefore, membersAfter, bench } = lockImpactTeams({
+          rows,
+          candidateVendorIds: (pickRows as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
+          freeDaysByProfileId,
+          targetVendorId: args.targetVendorId,
+        });
+        sunkBefore = sunkVendors({ probe, members: membersBefore, bench });
+        sunkAfter = sunkVendors({ probe, members: membersAfter, bench });
+      }
+    }
+
+    return computeLockImpact({
+      groupId: args.groupId,
+      lockedGroupIds,
+      savedPlans,
+      sunkBefore,
+      sunkAfter,
+    });
+  } catch {
+    // A calendar or PostgREST flake must never block a lock the couple wants,
+    // and must never fabricate a casualty. Say nothing.
+    return null;
+  }
+}
+
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
@@ -703,6 +894,12 @@ export async function finalizeVendor(
   // this vendor (which narrows their candidates to one) also finalizes the date.
   const confirmDateLockRaw = formData.get('confirm_date_lock');
   const confirmDateLock = confirmDateLockRaw === '1' || confirmDateLockRaw === 'true';
+  // Set by the lock-impact confirmation (owner 2026-09-06) — the couple has
+  // been shown which saved plans and which bench vendors this lock closes, and
+  // said go ahead. `confirm_date_lock` counts too: that modal carries the same
+  // lists, so answering it answers this. Two flags, one consent.
+  const confirmLockImpactRaw = formData.get('confirm_lock_impact');
+  const confirmLockImpact = confirmLockImpactRaw === '1' || confirmLockImpactRaw === 'true';
   // No-Show Downpayment Protection — set when the couple ticked the reservation-
   // terms acknowledgement in the lock gate. Drives the acknowledgement snapshot.
   const ackTermsRaw = formData.get('acknowledge_reservation_terms');
@@ -925,6 +1122,26 @@ export async function finalizeVendor(
   // So: no counterparty ⇒ keep today's direct lock, byte-identical.
   const handshakeAsk = isLockHandshakeEnabled() && !!targetVendor.marketplace_vendor_id;
 
+  // ── What does this lock COST? (owner 2026-09-06) ─────────────────────────
+  // *"of course adjustments on the saved build will change when a vendor is
+  // locked, and announce that the following builds are no longer possible for
+  // you, and these services are no longer possible once you lock this vendor."*
+  //
+  // Both consequences were already REAL and already computed — `isPlanLoadable`
+  // has been silently disabling the Load button, and the convergence tier has
+  // been silently sinking bench cards. They were just never said before the
+  // couple committed. Resolved HERE, once, so the date gate below can carry the
+  // lists on its own confirm rather than showing a second modal after it.
+  // NULL ⇒ announce nothing; see resolveLockImpact for every reason it can be.
+  const lockImpact = await resolveLockImpact({
+    supabase,
+    eventId,
+    targetVendorId: vendorId,
+    groupId,
+    handshakeAsk,
+    alreadyConfirmed: confirmLockImpact || confirmDateLock,
+  });
+
   // ── Candidate-date narrowing gate (date-as-output, force-to-one) ─────────
   // If the couple has NOT yet locked a wedding date but committed candidate
   // dates at onboarding, locking this marketplace vendor narrows those
@@ -1002,10 +1219,32 @@ export async function finalizeVendor(
             vendorName: targetVendor.vendor_name as string,
             resultingDate: forcedDateKey,
             dateLabel: formatCandidateDate(forcedDateKey),
+            // One modal, both facts. A couple told "this sets your date", then
+            // told "and it closes these plans" on a second screen, is being
+            // asked to re-decide something they just decided.
+            impact: lockImpact && !lockImpact.isEmpty ? lockImpact : null,
           };
         }
       }
     }
+  }
+
+  // ── The announcement, when the date gate did NOT fire ────────────────────
+  // Owner ruling 2026-09-06 (asked which locks should warn): EVERY lock that
+  // kills something, not only the date-setting one. Silent when a lock costs
+  // nothing — `isEmpty` is what keeps this from becoming a nag, and a nag is
+  // clicked through without reading.
+  //
+  // Placed after the date gate so a date-setting lock shows ONE modal carrying
+  // both, and before every write so the couple can still say no. Nothing has
+  // been written at this point.
+  if (lockImpact && !lockImpact.isEmpty) {
+    return {
+      status: 'lock_will_cost',
+      vendorId,
+      vendorName: targetVendor.vendor_name as string,
+      impact: lockImpact,
+    };
   }
 
   // No-Show Downpayment Protection — reservation-terms acknowledgement gate.

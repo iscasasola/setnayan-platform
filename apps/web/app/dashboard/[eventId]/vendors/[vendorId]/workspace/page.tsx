@@ -13,8 +13,14 @@
 //
 // Supersedes the vendor-first layout from the 2026-05-22 owner directive.
 // Section order: service hero · what's included · order & payment status +
-// payments · conversation · documents · schedules · marketplace info ·
-// costing (host's 3-line total) · your notes · bring-vendor-onto-Setnayan.
+// payments · conversation · COLOUR ACCESS (MB16) · documents · schedules ·
+// marketplace info · costing (host's 3-line total) · your notes ·
+// bring-vendor-onto-Setnayan.
+//
+// MB16's card sits after Conversation on purpose: giving somebody standing
+// permission to change your colours is a RELATIONSHIP decision, not a
+// paperwork one, so it belongs beside the conversation rather than filed with
+// the contracts.
 //
 // Unit boundary: event_vendors.*_php are PESOS; the vendor_packages /
 // event_vendor_packages / vendor_package_items *_centavos columns are CENTAVOS.
@@ -82,6 +88,16 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { ColourAccessCard } from './_components/colour-access-card';
+import {
+  laneForVendorCategory,
+  type ColourChangeRow,
+  type ColourDomain,
+} from '@/lib/colour-access';
+import {
+  setVendorColourAccess,
+  rejectColourChange,
+} from '@/app/dashboard/[eventId]/colour-access-actions';
 import { PaymentAsksCard } from './_components/payment-asks-card';
 
 /** One open payment ask, as PostgREST returns it (NUMERIC arrives as a string). */
@@ -152,6 +168,7 @@ import {
 // while NEXT_PUBLIC_PEOPLE_CONNECTIONS !== '1' — production-inert. Fed the true
 // vendor_profiles id (ev.marketplace_vendor_id), never the event_vendors PK.
 import { TrustedCircleBadge } from '../../_components/trusted-circle-badge';
+import { ContactShortlistVendorButton } from '../../_components/contact-shortlist-vendor-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   deriveBookingContractState,
@@ -173,6 +190,7 @@ import { markThreadRead, sendChatMessage } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -969,6 +987,46 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const categoryLabel =
     (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
 
+  // ── MB16 · colour access for this booking ────────────────────────────────
+  // The lane comes from the CATEGORY, resolved by the same map
+  // `public.colour_domains_for_category` uses — this is the display half; the
+  // write half is in SQL and refuses independently of anything decided here.
+  const colourLane: ColourDomain[] = laneForVendorCategory(ev.category);
+  let colourAccessOn = false;
+  let colourChanges: ColourChangeRow[] = [];
+  if (colourLane.length > 0) {
+    const [{ data: grantRows, error: grantErr }, { data: changeRows, error: changeErr }] =
+      await Promise.all([
+        supabase
+          .from('event_colour_grants')
+          .select('domain, is_active')
+          .eq('event_id', eventId)
+          .eq('vendor_id', ev.vendor_id),
+        supabase
+          .from('event_colour_changes')
+          .select(
+            'change_id, domain, target_kind, target_key, target_index, old_value, new_value, actor_kind, actor_label, vendor_id, created_at, reverted_at',
+          )
+          .eq('event_id', eventId)
+          .eq('vendor_id', ev.vendor_id)
+          .order('created_at', { ascending: false })
+          .limit(12),
+      ]);
+    // ⚠ A REFUSED READ IS NOT "OFF" AND IS NOT "NO CHANGES YET". Both render
+    // identically to the real thing — the couple would be shown a switch that
+    // says Off for a supplier who can still write, and an empty log for a
+    // supplier who has changed six colours. Logged rather than swallowed; the
+    // card still renders, because hiding it would be a third wrong answer.
+    if (grantErr) {
+      logQueryError('VendorWorkspace.colourGrants', grantErr, { eventId }, 'graceful_degrade');
+    }
+    if (changeErr) {
+      logQueryError('VendorWorkspace.colourChanges', changeErr, { eventId }, 'graceful_degrade');
+    }
+    colourAccessOn = ((grantRows ?? []) as { is_active: boolean }[]).some((r) => r.is_active);
+    colourChanges = (changeRows ?? []) as ColourChangeRow[];
+  }
+
   // Service-scoped hero: package name is the service title; the category is the
   // fallback when this pick isn't tied to a locked package (manual/off-platform).
   const serviceTitle = packageHeader?.name ?? categoryLabel;
@@ -1262,7 +1320,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               {paidSoFarFormatted ?? '—'}
             </dd>
           </div>
-          {ev.contact_email || ev.contact_phone ? (
+          {/* 🚪 ONLY THE CONTACT THE COUPLE TYPED THEMSELVES (owner 2026-09-10:
+              "not to let them communicate outside the app"). A package lock
+              COPIES the shop's own email and phone into this row
+              (vendors/packages/actions.ts), so on a marketplace-linked row this
+              cell would print a Setnayan shop's number — the door out the
+              public page used to hold. Such a supplier is reached through the
+              Conversation panel instead. An OFF-platform supplier has no
+              in-app channel at all, so the couple's own note stays. */}
+          {isOffPlatformSupplier(ev) && (ev.contact_email || ev.contact_phone) ? (
             <div className="col-span-2 sm:col-span-1">
               <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Contact
@@ -1715,16 +1781,25 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </>
             ) : (
               <>
+                {/* 🔴 THIS TOLD THE COUPLE TO SEND THE FIRST NOTE AND THEN SENT
+                    THEM WHERE THEY COULD NOT. The link went to the conversation
+                    list, where starting one means typing an email address the
+                    couple has never been shown. This branch already KNOWS the
+                    supplier is on Setnayan (`ev.marketplace_vendor_id`) and
+                    that no thread exists yet — which is exactly the shipped
+                    button's job: it resolves or creates the thread and lands on
+                    it. Dedupes on the chat_threads UNIQUE(event_id,
+                    vendor_profile_id) index, so it can never make a second. */}
                 <p className="text-xs text-ink/65">
-                  You haven&rsquo;t started a chat with {displayName} yet. Open
-                  Messages to send the first note.
+                  You haven&rsquo;t started a chat with {displayName} yet.
                 </p>
-                <Link
-                  href={`/dashboard/${eventId}/messages`}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  Go to Messages
-                </Link>
+                <ContactShortlistVendorButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  label="Send the first note"
+                  pendingLabel="Opening…"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-terracotta/30 bg-cream px-3 py-2 text-xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                />
               </>
             )
           ) : (
@@ -1735,6 +1810,30 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </p>
           )}
         </section>
+  );
+
+  const colourAccessSection = (
+    <ColourAccessCard
+      vendorId={ev.vendor_id}
+      displayName={displayName}
+      /* The prototype reads "Florist · booked for your reception". The half
+         after the dot is not derivable — a booking records no ceremony-vs-
+         reception scope — so it says the true thing instead of the specific
+         one. Inventing "reception" would be wrong for every ceremony-only
+         supplier on the platform. */
+      tradeLine={`${categoryLabel} · booked for this celebration`}
+      lane={colourLane}
+      isOn={colourAccessOn}
+      changes={colourChanges}
+      isCoordinatorBooking={ev.category === 'planner_coordinator'}
+      hostsHref={`/dashboard/${eventId}/hosts`}
+      /* `.bind` rather than an inline closure: a Server Action passed to a
+         client component has to be an action reference, and binding the
+         eventId keeps the client's call signature to the two things it
+         actually knows. */
+      setAccessAction={setVendorColourAccess.bind(null, eventId)}
+      rejectAction={rejectColourChange.bind(null, eventId)}
+    />
   );
 
   const documentsSection = (
@@ -1942,6 +2041,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             reviewsData={marketplaceReviewsData}
             vendorBusinessName={displayName}
             vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
+            /* The in-app way to reach them, where the Contact card used to
+               offer their phone and email — the SAME two controls the
+               Conversation panel uses, so there is still one mechanism. */
+            reach={
+              chatThread ? (
+                <Link
+                  href={conversationHref}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Message {displayName}
+                </Link>
+              ) : (
+                <ContactShortlistVendorButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  label={`Message ${displayName}`}
+                  pendingLabel="Opening…"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline disabled:opacity-60"
+                  wrapperClassName=""
+                />
+              )
+            }
             reviewLinkHref={
               ev.status === 'delivered' || ev.status === 'complete'
                 ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`
@@ -2107,7 +2229,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       ) : null;
 
-  const claimSection =
+  const claimContent =
       needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
         <section
           aria-labelledby="claim-invite-heading"
@@ -2236,6 +2358,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       ) : null;
 
+  // Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
+  // it."). Stable anchor so the vendors-list nudge
+  // (plan-budget-accordion.tsx `.invite-cta`) can deep-link straight to
+  // whichever of the four claim-state sections above is currently showing,
+  // instead of dropping the couple at the top of this long page. `null` when
+  // none of the four branches matched (e.g. the invite already expired with
+  // no re-lock) — no id renders, and there is nothing to scroll a link to.
+  const claimSection = claimContent ? <div id="invite-vendor">{claimContent}</div> : null;
+
   // ------------------------------------------------------------------------
   // Flag OFF — the current long-scroll page, byte-identical to before: the
   // same section variables, in the same order, inside the same wrappers (incl.
@@ -2252,6 +2383,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {statusSection}
         <div className="grid gap-5 lg:grid-cols-2">
           {conversationSection}
+          {colourAccessSection}
           {documentsSection}
           {proposalsCard}
           {schedulesSection}
@@ -2433,6 +2565,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       }
       const blockState = await getThreadBlockState(thread, user.id, 'couple');
       const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
+      // PR-H · booked, or merely asked? Couple's own session; RLS is the gate.
+      const chatLockHandshake = await fetchThreadLockHandshake(supabase, {
+        eventId,
+        vendorProfileId: thread.vendor_profile_id,
+      });
       const coupleMsgCount = initialMessages.filter(
         (m) => m.sender_role === 'couple',
       ).length;
@@ -2478,6 +2615,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             currentUserId={user.id}
             viewerRole="couple"
             counterpartyLabel={displayName}
+            lockHandshake={chatLockHandshake}
           />
           {blockState.blockedByMe || blockState.blockedByThem ? (
             <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
@@ -2608,6 +2746,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       node: (
         <div className="space-y-6">
           {coupleCompletionSection}
+          {colourAccessSection}
           {includedSection}
           {choicesSection}
           {addOnsSection}

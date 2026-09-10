@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>S0 probe — local origin control</title>
+  </head>
+  <body>
+    <!-- S0 spike CONTROL page. Built in with
+           cargo tauri build --debug --no-bundle --config '{"build":{"frontendDist":"./probe/local-shell"}}'
+         so the webview stays on tauri://localhost instead of redirecting to setnayan.com.
+         The probe evaluates here only with SETNAYAN_PROBE_ORIGIN=any. This is the WEAKER
+         origin the S0 prompt warns about — used solely as a control for the IPC-body question. -->
+    <p>S0 probe control page (tauri://localhost). Do not close.</p>
+  </body>
+</html>

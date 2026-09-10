@@ -44,7 +44,19 @@ import {
  * via the admin "Rescan all" backfill.
  */
 
-export type RepostSurface = 'service_primary' | 'portfolio';
+/**
+ * Which vendor-owned image pool a hash came from.
+ *
+ * `moodboard_library` added by MB11 (2026-09-04) — the couple-facing supplier
+ * gallery, which is the one PUBLICLY-READABLE bucket that had no theft scan on
+ * it at all. Migration 20271202522764 widens the matching CHECK constraints on
+ * vendor_image_hashes.surface and vendor_image_flags.flagged_surface /
+ * source_surface; without it every write here would violate the check, be
+ * swallowed by this module's own best-effort catch, and record NOTHING — a
+ * theft scan that silently stores no hashes looks exactly like a clean
+ * marketplace.
+ */
+export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library';
 
 // Fallback only — the live threshold is admin-managed via the "Repost-watch
 // match sensitivity" field on /admin/settings (platform_settings
@@ -152,6 +164,21 @@ export async function hashAndScanVendorImages(args: {
   vendorProfileId: string;
   refs: ReadonlyArray<string | null | undefined>;
   surface: RepostSurface;
+  /**
+   * Bytes the CALLER already holds, keyed by ref. MB11: the moodboard-library
+   * upload has just watermarked and written these exact bytes, so re-fetching
+   * them over the network to hash them would be a second round-trip for an
+   * image that is already in memory — and the moodboard bucket is Supabase
+   * Storage, not R2, so `fetchAssetBytes` below would have to route a public
+   * URL through the SSRF-guarded path to reach it.
+   *
+   * 🔑 STILL AUTHORITATIVE. The trust rule this module was built on is that a
+   * hostile reposter controls the BROWSER, so a CLIENT-supplied hash can be
+   * spoofed. These bytes are not client-supplied: they are the server's own
+   * post-watermark buffer, the identical bytes it then stored. A ref with no
+   * entry here falls back to fetching, exactly as before.
+   */
+  bytesByRef?: Readonly<Record<string, Uint8Array>>;
 }): Promise<void> {
   const { vendorProfileId, surface } = args;
   const refs = Array.from(
@@ -206,7 +233,7 @@ export async function hashAndScanVendorImages(args: {
     }
 
     for (const ref of toHash) {
-      const bytes = await fetchAssetBytes(ref);
+      const bytes = args.bytesByRef?.[ref] ?? (await fetchAssetBytes(ref));
       if (!bytes) continue; // unreachable / non-image → skip cleanly
       const phash = await computePHash(bytes);
       if (phash === null) continue; // undecodable → skip cleanly

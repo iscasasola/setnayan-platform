@@ -35,6 +35,7 @@ import {
   AMENDMENT_ITEM_KINDS,
   type AmendmentItemKind,
 } from '@/lib/proposal-amendments';
+import { revalidationTarget } from '@/lib/return-path';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -220,7 +221,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
   }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -446,7 +447,7 @@ export async function createChangeRequestFromChat(formData: FormData): Promise<v
   await insertChangeRequest(supabase, ctx!, eventVendorId!, fields!, body);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -488,7 +489,7 @@ export async function respondChangeRequestFromChat(formData: FormData): Promise<
   await notifyChangeCounterparty(ctx!, (co as { title?: string } | null)?.title ?? 'Request', decision === 'accept' ? 'accepted' : 'declined');
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -533,7 +534,7 @@ export async function counterChangeRequestFromChat(formData: FormData): Promise<
   await insertChangeRequest(supabase, ctx!, eventVendorId!, fields!, body);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -703,7 +704,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
   );
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -742,7 +743,7 @@ export async function respondAmendmentFromChat(formData: FormData): Promise<void
   }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -793,7 +794,7 @@ export async function counterAmendmentFromChat(formData: FormData): Promise<void
   );
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -821,7 +822,7 @@ export async function markAmendmentItemDelivered(formData: FormData): Promise<vo
     .is('delivered_at', null);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -1035,7 +1036,7 @@ export async function lockDeal(formData: FormData): Promise<void> {
   }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);

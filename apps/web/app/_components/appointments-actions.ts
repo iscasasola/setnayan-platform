@@ -31,6 +31,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import type { NotificationType } from '@/lib/notifications';
 import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { revalidationTarget } from '@/lib/return-path';
 
 function str(v: FormDataEntryValue | null, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -227,7 +228,7 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
     });
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }
 
@@ -277,7 +278,7 @@ export async function respondAppointment(formData: FormData): Promise<void> {
     | null;
   // Act only on a live proposal you did NOT author.
   if (!appt || appt.status !== 'proposed' || appt.initiated_by === actorRole) {
-    revalidatePath(returnPath);
+    revalidatePath(revalidationTarget(returnPath));
     redirect(returnPath);
   }
 
@@ -349,7 +350,7 @@ export async function respondAppointment(formData: FormData): Promise<void> {
     }
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }
 
@@ -391,6 +392,6 @@ export async function cancelAppointment(formData: FormData): Promise<void> {
     });
   }
 
-  revalidatePath(returnPath);
+  revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
 }

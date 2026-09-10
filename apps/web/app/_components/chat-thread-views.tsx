@@ -1,11 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import {
   DECISIONS_EMPTY,
-  DECISION_VOICE,
   decisionStageWord,
   type DecisionEntry,
+  type DecisionReply,
 } from '@/lib/thread-decisions';
+import { respondAppointment } from './appointments-actions';
+import { respondAmendmentFromChat } from './negotiation-actions';
+import { SubmitButton } from './submit-button';
+import { formatPhp } from '@/lib/vendors';
 import { THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
 import { STANDING_LABEL, standingSentence, type SupplierStanding } from '@/lib/supplier-standing';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
@@ -39,7 +44,8 @@ import type { SharedFileEntry } from '@/lib/chat-shared-files';
  * single-column, and nothing here is hidden below a breakpoint.
  */
 
-export type ThreadView = 'all' | 'decisions' | 'files';
+import type { ThreadView } from '@/lib/thread-view';
+export type { ThreadView } from '@/lib/thread-view';
 
 const VIEW_HINT: Record<ThreadView, string> = {
   all: 'Decisions hides the chatter and shows only the cards — each with where it stands now.',
@@ -148,16 +154,46 @@ function StandingLine({
   );
 }
 
+/**
+ * Server actions a reply may need that are NOT shared chat actions.
+ *
+ * The payment and guest-count replies are the SUPPLIER's, and their actions
+ * live beside the supplier's thread page (`pay-confirm-actions.ts`,
+ * `pax-actions.ts`). They arrive as props from that page instead of being
+ * imported here, so this shared component stays free of any one route — and
+ * so the couple's page, which never receives those replies, cannot offer them.
+ */
+export type SupplierReplyActions = {
+  confirmPayment: (formData: FormData) => Promise<void>;
+  applySurcharge: (formData: FormData) => Promise<void>;
+  holdPrice: (formData: FormData) => Promise<void>;
+};
+
+/** Everything a reply form must post, identical to the stream's own cards. */
+export type ReplyContext = {
+  threadId: string;
+  eventId: string;
+  vendorProfileId: string;
+  /**
+   * Where the reply lands. ALREADY CARRIES `?view=decisions`, so answering the
+   * other side keeps you on Decisions instead of dropping you into the chat.
+   */
+  returnPath: string;
+  supplierActions?: SupplierReplyActions;
+};
+
 export function DecisionsPanel({
   entries,
   standing,
   counterpartyLabel,
   needsYouCount,
+  reply,
 }: {
   entries: readonly DecisionEntry[];
   standing: SupplierStanding | null;
   counterpartyLabel: string;
   needsYouCount: number;
+  reply: ReplyContext;
 }) {
   return (
     <div className="space-y-2">
@@ -176,7 +212,7 @@ export function DecisionsPanel({
       ) : (
         <ol className="space-y-2">
           {entries.map((e) => (
-            <DecisionCard key={e.key} entry={e} />
+            <DecisionCard key={e.key} entry={e} ctx={reply} />
           ))}
         </ol>
       )}
@@ -184,7 +220,7 @@ export function DecisionsPanel({
   );
 }
 
-function DecisionCard({ entry }: { entry: DecisionEntry }) {
+function DecisionCard({ entry, ctx }: { entry: DecisionEntry; ctx: ReplyContext }) {
   const stageWord = decisionStageWord(entry);
   return (
     <li
@@ -194,7 +230,7 @@ function DecisionCard({ entry }: { entry: DecisionEntry }) {
       ].join(' ')}
     >
       <p className="flex flex-wrap items-baseline gap-x-2 text-[0.7rem] uppercase tracking-wide text-ink/55">
-        {DECISION_VOICE[entry.kind].label}
+        {entry.kindLabel}
         <span className="font-normal normal-case tracking-normal text-ink/40">
           {entry.sentLabel}
         </span>
@@ -226,8 +262,153 @@ function DecisionCard({ entry }: { entry: DecisionEntry }) {
           {entry.now.text}
         </span>
       </p>
+
+      {entry.reply ? <ReplyControls reply={entry.reply} ctx={ctx} /> : null}
     </li>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * The two looks, lifted from the stream's own cards so a reply here and the
+ * same reply in the chat are visibly the same act — but 44px tall, because
+ * Decisions is the phone's surface and the chat cards' 36px sits under the
+ * touch target. Primary is the CTA colour; decline is quiet ink, never red.
+ */
+const PRIMARY =
+  'inline-flex min-h-[44px] items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600';
+const QUIET =
+  'inline-flex min-h-[44px] items-center rounded-lg border border-ink/15 px-3.5 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]';
+
+/**
+ * THE REPLY — one of four existing actions, or a link.
+ *
+ * Every form posts exactly the fields the stream's own card for that kind
+ * posts, to the same action, so there is ONE way to answer each request and
+ * this view is only a second door to it. The action re-checks, server-side,
+ * that the caller is the party allowed to answer.
+ */
+function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext }) {
+  switch (reply.kind) {
+    case 'meeting': {
+      const hidden = (
+        <>
+          <input type="hidden" name="appointment_id" value={reply.appointmentId} />
+          <input type="hidden" name="event_id" value={ctx.eventId} />
+          <input type="hidden" name="vendor_profile_id" value={ctx.vendorProfileId} />
+          <input type="hidden" name="return_path" value={ctx.returnPath} />
+          <input type="hidden" name="label" value={reply.label} />
+        </>
+      );
+      return (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <form action={respondAppointment}>
+            {hidden}
+            <input type="hidden" name="decision" value="confirm" />
+            <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
+              Confirm
+            </SubmitButton>
+          </form>
+          <form action={respondAppointment}>
+            {hidden}
+            <input type="hidden" name="decision" value="decline" />
+            <SubmitButton className={QUIET} pendingLabel="Declining…">
+              Decline
+            </SubmitButton>
+          </form>
+        </div>
+      );
+    }
+
+    case 'adjustment': {
+      const hidden = (
+        <>
+          <input type="hidden" name="thread_id" value={ctx.threadId} />
+          <input type="hidden" name="amendment_id" value={reply.amendmentId} />
+          {/* ⚠ this action reads `return_to`, the meeting one `return_path` */}
+          <input type="hidden" name="return_to" value={ctx.returnPath} />
+        </>
+      );
+      return (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <form action={respondAmendmentFromChat}>
+            {hidden}
+            <input type="hidden" name="decision" value="accept" />
+            <SubmitButton className={PRIMARY} pendingLabel="Accepting…">
+              Accept
+            </SubmitButton>
+          </form>
+          <form action={respondAmendmentFromChat}>
+            {hidden}
+            <input type="hidden" name="decision" value="decline" />
+            <SubmitButton className={QUIET} pendingLabel="Declining…">
+              Decline
+            </SubmitButton>
+          </form>
+        </div>
+      );
+    }
+
+    case 'payment': {
+      // Supplier-only. Absent actions ⇒ no button, never a button that fails.
+      const act = ctx.supplierActions?.confirmPayment;
+      if (!act) return null;
+      return (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <form action={act}>
+            <input type="hidden" name="payment_id" value={reply.paymentId} />
+            <input type="hidden" name="thread_id" value={ctx.threadId} />
+            <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
+              Confirm received
+            </SubmitButton>
+          </form>
+        </div>
+      );
+    }
+
+    case 'guest_count': {
+      const apply = ctx.supplierActions?.applySurcharge;
+      const hold = ctx.supplierActions?.holdPrice;
+      if (!apply || !hold) return null;
+      const hidden = (
+        <>
+          <input type="hidden" name="event_vendor_id" value={reply.eventVendorId} />
+          <input type="hidden" name="thread_id" value={ctx.threadId} />
+        </>
+      );
+      const s = reply.surchargePhp;
+      return (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <form action={apply}>
+            {hidden}
+            <SubmitButton className={PRIMARY} pendingLabel="Applying…">
+              {s != null && s !== 0
+                ? `Apply ${s > 0 ? '+' : '−'}${formatPhp(Math.abs(s))}`
+                : 'Apply the new count'}
+            </SubmitButton>
+          </form>
+          <form action={hold}>
+            {hidden}
+            <SubmitButton className={QUIET} pendingLabel="Holding…">
+              Hold the price
+            </SubmitButton>
+          </form>
+        </div>
+      );
+    }
+
+    case 'quote_review':
+      // ⚖ A LINK, NOT AN ACCEPT. Accepting books the supplier; the couple
+      // reviews the whole proposal first, exactly as the chat's card sends them.
+      return (
+        <div className="mt-2.5">
+          <Link href={`/proposals/${reply.publicId}`} className={PRIMARY}>
+            Review &amp; accept →
+          </Link>
+        </div>
+      );
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */

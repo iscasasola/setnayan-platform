@@ -33,7 +33,7 @@ couple's copy of the view cannot drift from the supplier's.
 
 ### Three measured findings that changed the build
 
-1. **A reschedule destroyed the old time.** `respondToAppointment`'s
+1. **A reschedule destroyed the old time.** `respondAppointment`'s
    `propose_new` overwrote `scheduled_at` in place, posted no message, and
    `event_appointments` had no history — so "shows the old time struck through"
    was undrawable from the database. New nullable column

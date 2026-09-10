@@ -89,22 +89,40 @@ type DecisionVoice = {
    * A meeting, a payment, an adjustment and a guest-count change all happen
    * INSIDE a rung without moving it, so they carry a dated sentence instead.
    *
-   * 🔑 This is a capability, not a convention: `resolveNow` refuses to attach a
+   * 🔑 This is a capability, not a convention: `pill()` refuses to attach a
    * stage to a kind whose voice says it cannot wear one, so a future kind
    * cannot grow a pill by having a plausible-looking status. "Needs you" is
    * never a pill either — it is an outline and a count, never a sixth word.
    */
   canWearStagePill: boolean;
-  /** The kind's own word, at the head of the entry. */
-  label: string;
+  /**
+   * The kind's own word, at the head of the entry — PER READER.
+   *
+   * ⚠ A label is a sentence with a subject in it, and the subject turns around
+   * with the reader exactly the way "waiting on you" does. Rendering this view
+   * on the couple's phone (2026-09-10) showed their own payment headed
+   * **"Payment logged by the couple"** — true on the supplier's screen, and on
+   * the couple's a stranger describing them in the third person. The `now`
+   * lines were already viewer-aware; the labels were one static string each.
+   */
+  label: Record<DecisionViewer, string>;
 };
 
 export const DECISION_VOICE: Record<DecisionKind, DecisionVoice> = {
-  quote: { canWearStagePill: true, label: 'Quote' },
-  meeting: { canWearStagePill: false, label: 'Meeting' },
-  adjustment: { canWearStagePill: false, label: 'Adjustment' },
-  payment: { canWearStagePill: false, label: 'Payment logged by the couple' },
-  guest_count: { canWearStagePill: false, label: 'Guest count changed' },
+  quote: { canWearStagePill: true, label: { couple: 'Quote', vendor: 'Quote' } },
+  meeting: { canWearStagePill: false, label: { couple: 'Meeting', vendor: 'Meeting' } },
+  adjustment: {
+    canWearStagePill: false,
+    label: { couple: 'Adjustment', vendor: 'Adjustment' },
+  },
+  payment: {
+    canWearStagePill: false,
+    label: { couple: 'Payment you logged', vendor: 'Payment logged by the couple' },
+  },
+  guest_count: {
+    canWearStagePill: false,
+    label: { couple: 'Guest count changed', vendor: 'Guest count changed' },
+  },
 };
 
 /** Who is reading. The same entries, but "waiting on you" points one way. */
@@ -131,10 +149,60 @@ export type DecisionNow = {
   wasText: string | null;
 };
 
+/**
+ * WHAT THE READER CAN DO ABOUT AN ENTRY, RIGHT HERE.
+ *
+ * Owner, 2026-09-10: *"the vendor and customer will either approve the request
+ * of the other one."* So an entry that is waiting on the reader carries the
+ * reply to it, and the reader answers without leaving the view.
+ *
+ * ── 🔑 THE INVARIANT: A REPLY EXISTS IF AND ONLY IF `now.needsYou` ──────────
+ * The side being ASKED gets the buttons; the side that ASKED gets none, and
+ * reads "waiting on them" instead. That is the whole of the owner's sentence,
+ * and it is enforced by deriving both from the same branch below rather than
+ * by two rules that happen to agree today. A test asserts it over every kind,
+ * every status and both readers.
+ *
+ * ── EVERY REPLY IS AN ACTION THAT ALREADY EXISTS ────────────────────────────
+ * Nothing here is new behaviour. Each variant names the server action the
+ * existing card in the stream already posts to, with the same fields:
+ *
+ *   meeting      → `respondAppointment`        (confirm | decline)
+ *   adjustment   → `respondAmendmentFromChat`  (accept  | decline)
+ *   payment      → `confirmVendorPayment`      (supplier only)
+ *   guest_count  → `acceptPaxSurcharge` / `declinePaxSurcharge` (supplier only)
+ *   quote        → a LINK to `/proposals/<public id>`, not an action
+ *
+ * Every one of those actions re-checks, server-side, that the caller is the
+ * party allowed to answer — so a button shown to the wrong reader would still
+ * be refused. The invariant above is about not SHOWING it, not about security.
+ *
+ * ⚖ WHY A QUOTE GETS A LINK AND NOT AN "ACCEPT" BUTTON. Accepting a quote books
+ * the supplier. The product has no inline accept anywhere — the chat's own
+ * quote card says "Review & accept" and opens the full proposal — because the
+ * couple should see what they are agreeing to before they agree to it. A
+ * one-tap booking on a summary line, beside three smaller approvals, would be
+ * the easiest button on the screen to press by accident.
+ *
+ * ⚠ AND THERE IS NO "NOT RECEIVED" FOR A PAYMENT. The design drew one. The
+ * product has only `confirmVendorPayment`; nothing records a dispute. A button
+ * with no action behind it would be worse than none, so the supplier gets
+ * "Confirm received" and the payment otherwise keeps waiting, as it does today.
+ */
+export type DecisionReply =
+  /** `label` feeds the other side's notification ("Meeting declined: Tasting"). */
+  | { kind: 'meeting'; appointmentId: string; label: string }
+  | { kind: 'adjustment'; amendmentId: string }
+  | { kind: 'payment'; paymentId: string }
+  | { kind: 'guest_count'; eventVendorId: string; surchargePhp: number | null }
+  | { kind: 'quote_review'; publicId: string };
+
 export type DecisionEntry = {
   /** Stable within a thread: `${kind}:${id}`. React key and test handle. */
   key: string;
   kind: DecisionKind;
+  /** The kind's word for THIS reader — see `DecisionVoice.label`. */
+  kindLabel: string;
   /** When it entered the conversation — THE SORT KEY. Oldest to newest. */
   atMs: number;
   /** The entry's own headline, e.g. "Garden Buffet · 150 guests". */
@@ -142,6 +210,8 @@ export type DecisionEntry = {
   /** "sent 22 Aug" — when it was announced, kept small beside the title. */
   sentLabel: string;
   now: DecisionNow;
+  /** Non-null exactly when `now.needsYou` — see `DecisionReply`. */
+  reply: DecisionReply | null;
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -238,6 +308,8 @@ function waitingLabel(fromMs: number, nowMs: number): string {
  */
 export type QuoteFact = {
   proposalId: string;
+  /** `vendor_proposals.public_id` — the `/proposals/<id>` the couple reviews at. */
+  publicId: string;
   /** When the announcing message landed. */
   announcedAtMs: number;
   title: string;
@@ -254,7 +326,7 @@ export type QuoteFact = {
  * `20270713200000_event_appointments.sql`).
  *
  * 🔑 `previousScheduledAtMs` IS THE WHOLE REASON A MOVED MEETING CAN BE SHOWN.
- * `respondToAppointment`'s `propose_new` branch OVERWRITES `scheduled_at` in
+ * `respondAppointment`'s `propose_new` branch OVERWRITES `scheduled_at` in
  * place and posts no message, so before this column the old time was destroyed
  * the instant someone proposed a new one — and "shows the old time struck
  * through" was undrawable from the database, however the design drew it.
@@ -424,7 +496,20 @@ function meetingNow(m: MeetingFact, f: ThreadDecisionFacts): DecisionNow {
       // Single-winner: whoever proposed the time on the row now is waiting for
       // the other side. `initiatedBy` is flipped to the responder by
       // `propose_new`, so this stays correct across any number of counters.
-      const waitingOnViewer = m.initiatedBy != null && m.initiatedBy !== f.viewer;
+      //
+      // ⚖ A ROW WITH NO RECORDED PROPOSER CAN BE ANSWERED BY EITHER SIDE —
+      // because that is what the SERVER allows, and the server is the
+      // authority. `respondAppointment` refuses only when
+      // `initiated_by === actorRole`; with `initiated_by` NULL that is never
+      // true, so both parties may confirm and the first answer wins. The
+      // chat's own card agrees (`canAct = status === 'proposed' && !isProposer`).
+      //
+      // This read `initiatedBy != null && …` until 2026-09-10 and so offered
+      // the reply to NEITHER side — one door said "answer it", the other said
+      // nothing. The column is nullable (every current writer sets it; older
+      // or externally-written rows need not). Contrast `raisedBy` on an
+      // adjustment, which is NOT NULL, so its guard below never bites.
+      const waitingOnViewer = m.initiatedBy !== f.viewer;
       const head = now ? `${moved ? 'New time ' : ''}${now}` : 'Time proposed';
       return {
         stage: null,
@@ -526,10 +611,11 @@ export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[
     entries.push({
       key: `quote:${q.proposalId}`,
       kind: 'quote',
+      kindLabel: DECISION_VOICE.quote.label[facts.viewer],
       atMs: q.announcedAtMs,
       title: q.totalPhp != null ? `${q.title} · ${formatPhp(q.totalPhp)}` : q.title,
       sentLabel: sentLabel(q.announcedAtMs),
-      now: quoteNow(q, facts),
+      ...withReply(quoteNow(q, facts), { kind: 'quote_review', publicId: q.publicId }),
     });
   }
 
@@ -537,10 +623,15 @@ export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[
     entries.push({
       key: `meeting:${m.appointmentId}`,
       kind: 'meeting',
+      kindLabel: DECISION_VOICE.meeting.label[facts.viewer],
       atMs: m.announcedAtMs,
       title: m.title,
       sentLabel: sentLabel(m.announcedAtMs),
-      now: meetingNow(m, facts),
+      ...withReply(meetingNow(m, facts), {
+        kind: 'meeting',
+        appointmentId: m.appointmentId,
+        label: m.title,
+      }),
     });
   }
 
@@ -548,13 +639,14 @@ export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[
     entries.push({
       key: `adjustment:${a.amendmentId}`,
       kind: 'adjustment',
+      kindLabel: DECISION_VOICE.adjustment.label[facts.viewer],
       atMs: a.announcedAtMs,
       title:
         a.deltaPhp != null
           ? `${a.title} · ${a.deltaPhp >= 0 ? '+' : '−'}${formatPhp(Math.abs(a.deltaPhp))}`
           : a.title,
       sentLabel: sentLabel(a.announcedAtMs),
-      now: adjustmentNow(a, facts),
+      ...withReply(adjustmentNow(a, facts), { kind: 'adjustment', amendmentId: a.amendmentId }),
     });
   }
 
@@ -563,10 +655,11 @@ export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[
     entries.push({
       key: `payment:${p.paymentId}`,
       kind: 'payment',
+      kindLabel: DECISION_VOICE.payment.label[facts.viewer],
       atMs: p.loggedAtMs,
       title: parts.join(' · '),
       sentLabel: sentLabel(p.loggedAtMs),
-      now: paymentNow(p, facts),
+      ...withReply(paymentNow(p, facts), { kind: 'payment', paymentId: p.paymentId }),
     });
   }
 
@@ -578,16 +671,33 @@ export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[
     entries.push({
       key: `guest_count:${g.id}`,
       kind: 'guest_count',
+      kindLabel: DECISION_VOICE.guest_count.label[facts.viewer],
       atMs: g.changedAtMs,
-      title: `Now planning for ${g.livePax} — you quoted ${g.quotedPax}${delta}`,
+      // "you quoted" is the supplier's own number; read by the couple it is
+      // theirs, so the subject turns around like every other label here.
+      title: `Now planning for ${g.livePax} — ${facts.viewer === 'vendor' ? 'you' : 'they'} quoted ${g.quotedPax}${delta}`,
       sentLabel: sentLabel(g.changedAtMs),
-      now: guestCountNow(g, facts),
+      ...withReply(guestCountNow(g, facts), {
+        kind: 'guest_count',
+        eventVendorId: g.id,
+        surchargePhp: g.surchargePhp,
+      }),
     });
   }
 
   return entries.sort(
     (a, b) => a.atMs - b.atMs || a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key),
   );
+}
+
+/**
+ * 🔑 THE ONE PLACE A REPLY IS ATTACHED — and the reason the invariant cannot
+ * drift. The reply is offered precisely when the `now` line says the entry is
+ * waiting on this reader, because it reads the same boolean the `now` line was
+ * built with. There is no second rule about who may answer.
+ */
+function withReply(now: DecisionNow, reply: DecisionReply): Pick<DecisionEntry, 'now' | 'reply'> {
+  return { now, reply: now.needsYou ? reply : null };
 }
 
 /** "sent 22 Aug", or just the date when there is none. */

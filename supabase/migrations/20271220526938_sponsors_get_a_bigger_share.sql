@@ -315,13 +315,14 @@ BEGIN
     RAISE EXCEPTION 'papic_guest_spend_ceiling: expected exactly one overload, found %', v_cnt;
   END IF;
 
+  -- ⚠ Each needle is a DECISION the body makes, not a name it happens to read:
+  -- a column name in the SELECT survives the arm that uses it being deleted.
   v_def := pg_get_functiondef('public.papic_guest_spend_ceiling(uuid)'::regprocedure);
-  IF v_def NOT LIKE '%papic_guest_spend_ceilings c%'
-     OR v_def NOT LIKE '%papic_guest_spend_ceiling_released_at%'
-     OR v_def NOT LIKE '%INTERVAL ''2 hours''%'
-     OR v_def NOT LIKE '%papic_event_guest_headcount%'
-     OR v_def NOT LIKE '%GREATEST(%1,%'
-     OR v_def NOT LIKE '%papic_share_weight%' THEN
+  IF v_def NOT LIKE '%IF v_named IS NOT NULL THEN%RETURN v_named;%'
+     OR v_def NOT LIKE '%IF v_released IS NOT NULL THEN%RETURN NULL;%'
+     OR v_def NOT LIKE '%NOW() >= v_auto_at THEN%RETURN NULL;%'
+     OR v_def NOT LIKE '%papic_event_guest_headcount(v_event_id)%'
+     OR v_def NOT LIKE '%GREATEST(%1,%(v_heads + v_extra)%* COALESCE(v_weight, 1)%' THEN
     RAISE EXCEPTION 'papic_guest_spend_ceiling lost an arm (named, release, late release, headcount, floor or sponsor weight)';
   END IF;
 END;

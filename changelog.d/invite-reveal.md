@@ -35,4 +35,9 @@ Known and unchanged: the Event Hub replays its reveal on every load (nothing
 records that a guest has seen it), so a guest who arrives by the invite link
 meets the opening on door 01 and again when door 03 hands them into the hub.
 
+**Also fixed — a sentence #5403 made untrue.** The host's *Invite your guests* page still said a
+guest "signs in, and picks their role". Since the three doors (#5403, live 2026-09-10) a guest gives
+only their name, there is no role picker, and signing in is optional — the email they give on the
+reply door becomes their sign-in. The page now says so.
+
 SPEC IMPACT: None — builds the 2026-09-10 decision already logged with #5403.

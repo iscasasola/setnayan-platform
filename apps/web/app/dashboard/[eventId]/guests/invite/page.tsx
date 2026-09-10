@@ -157,9 +157,9 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
           <Send className="h-6 w-6 text-terracotta" /> Invite your guests
         </h1>
         <p className="text-sm text-ink/60">
-          One link for everyone. A guest opens it, signs in, and picks their role — we match
-          them to your list automatically, or send you a request to confirm. Nobody sees your
-          guest list.
+          One link for everyone. A guest opens it and gives their name — we find them on your
+          list, or add them and ask you to confirm. They reply, and the email they give becomes
+          how they sign in. Nobody sees your guest list.
         </p>
       </header>
 

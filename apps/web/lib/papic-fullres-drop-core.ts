@@ -7,6 +7,14 @@
 import type { R2BucketName, R2HeadResult } from '@/lib/r2';
 // Pure, dependency-free helpers (no `server-only`) — safe to import here.
 import { clipWebKeyDistinct, isClipRow } from '@/lib/papic-display-ref';
+import {
+  papicGuestCaptureScope,
+  papicSeatCaptureScope,
+  papicVendorCaptureScope,
+  planCleanupDelete,
+  type CleanupDecision,
+  type CleanupScope,
+} from '@/lib/cleanup-delete-scope';
 
 /** Free full-res window before OUR R2 original is dropped (owner 2026-07-11). */
 export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
@@ -62,16 +70,28 @@ export const CLIP_WEB_MIN_BYTES = 1024;
 
 const MS_PER_DAY = 86_400_000;
 
-// Mirror of R2_BUCKETS (lib/r2.ts) — kept as literals so this module is pure. If
-// a bucket name ever changes there, update here (a drift guard test could pin it).
+// Mirror of R2_BUCKETS.media (lib/r2.ts) — a literal so this module is pure. The
+// `R2BucketName` annotation is type-checked against lib/r2's union, so a rename
+// there fails this file's typecheck instead of drifting.
 const MEDIA_BUCKET: R2BucketName = 'setnayan-media';
-const KNOWN_BUCKETS: readonly string[] = [
-  'setnayan-media',
-  'setnayan-thread-files',
-  'setnayan-vendor-contracts',
-  'setnayan-samples',
-  'setnayan-vendor-verification',
-];
+
+/**
+ * 🔒 THE ONLY BUCKET A PAPIC CAPTURE LIVES IN — and so the only one this module
+ * will resolve a ref into (2026-09-10).
+ *
+ * This list used to name ALL FIVE buckets. The sweep that permanently deletes
+ * couples' originals resolves every candidate through `resolveOriginalRef`, so
+ * a forged `r2_object_key` of `r2://setnayan-vendor-verification/vendors/<victim>/…`
+ * resolved to a deletable `{ bucket, key }` — a supplier's government ID, from a
+ * job with no admin step in it. Every Papic writer (seat branch of
+ * `/api/upload`, the guest route, the supplier route, the derivative writer)
+ * files into media; nothing Papic has ever written names another bucket.
+ *
+ * ⚠ The bucket half is not enough on its own — media holds every couple's
+ * photographs. The DELETE goes through `planPapicOriginalDelete`, which also
+ * pins the row's own tenant folder.
+ */
+const KNOWN_BUCKETS: readonly string[] = [MEDIA_BUCKET];
 
 export type DropCandidate = {
   r2_object_key: string;
@@ -386,10 +406,15 @@ export function isDriveDeferred(r2ObjectKey: string, state: DriveCopyState): boo
 }
 
 /**
- * Resolve r2_object_key → {bucket, key} for deletion. Legacy raw keys live in the
- * `media` bucket (where papic originals upload); an `r2://bucket/key` ref carries
- * its own bucket. Returns null for anything we can't cleanly resolve — the sweep
- * then declines to delete (never delete blindly).
+ * Resolve a Papic key → {bucket, key}. Legacy raw keys live in the `media`
+ * bucket (where papic originals upload); an `r2://bucket/key` ref carries its
+ * own bucket, which must be media (see KNOWN_BUCKETS). Returns null for anything
+ * we can't cleanly resolve.
+ *
+ * ⚠ NOT A DELETE AUTHORIZATION. It says where a ref points, not whose it is. The
+ * sweep reads it for the web-copy HEAD (a read) and the same-object check; the
+ * DELETE of an original goes through `planPapicOriginalDelete`, which adds the
+ * row's own tenant folder.
  */
 export function resolveOriginalRef(
   r2ObjectKey: string,
@@ -483,6 +508,19 @@ export type PapicDropItem = DropCandidate & {
    * re-introducing the same dead control. Do NOT put the `?` back.
    */
   preserved_at: string | null;
+  /**
+   * papic_guest_captures.guest_id — the guest capture's TENANT. Its key is
+   * `papic/guest/<guest_id>/…`, so without this the delete cannot ask whether
+   * the object is the row's own. REQUIRED for the same reason as preserved_at:
+   * a mapper that forgets it must fail to compile, not silently widen.
+   * null on the other two tables.
+   */
+  guest_id: string | null;
+  /**
+   * vendor_papic_captures.vendor_profile_id — with event_id, the supplier
+   * capture's tenant (`papic/vendor-<id>/event-<id>/…`). null elsewhere.
+   */
+  vendor_profile_id: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -508,6 +546,8 @@ export function seatPhotoItem(r: Row): PapicDropItem {
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
     preserved_at: asStr(r.preserved_at),
+    guest_id: null,
+    vendor_profile_id: null,
   };
 }
 
@@ -530,6 +570,8 @@ export function guestPhotoItem(r: Row): PapicDropItem {
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
     preserved_at: asStr(r.preserved_at),
+    guest_id: asStr(r.guest_id),
+    vendor_profile_id: null,
   };
 }
 
@@ -569,6 +611,8 @@ export function vendorPhotoItem(r: Row): PapicDropItem {
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
     preserved_at: asStr(r.preserved_at),
+    guest_id: null,
+    vendor_profile_id: asStr(r.vendor_profile_id),
   };
 }
 
@@ -595,6 +639,8 @@ export function seatClipItem(r: Row): PapicDropItem {
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
     preserved_at: asStr(r.preserved_at),
+    guest_id: null,
+    vendor_profile_id: null,
   };
 }
 
@@ -620,5 +666,53 @@ export function guestClipItem(r: Row): PapicDropItem {
     full_res_dropped_at: asStr(r.full_res_dropped_at),
     orig_bytes: asNum(r.orig_bytes),
     preserved_at: asStr(r.preserved_at),
+    guest_id: asStr(r.guest_id),
+    vendor_profile_id: null,
   };
+}
+
+// ============================================================================
+// THE DELETE IS PINNED TO THE ROW'S OWN FOLDER (2026-09-10).
+//
+// `runFullResDropSweep` is ON by default, runs with the ADMIN client from the
+// admin layout's after() and from cron, and deletes permanently from an
+// unversioned bucket. Its candidate key comes from columns a non-admin could
+// choose: a couple held UPDATE on their own photo's `r2_object_key`, a supplier
+// held INSERT/UPDATE on their capture's keys, and a camera's claimer could hand
+// any key to the recording action. Resolving that key to "some known bucket"
+// and deleting it let one account delete another's objects — cross-tenant,
+// cross-bucket, on a clock, with nobody pressing anything.
+//
+// So a candidate is deleted only when its key sits under the folder the row's
+// OWN writer files it in. The write side is narrowed too (migration
+// 20271219…_every_cleanup_delete_is_pinned + the recording actions); this is the
+// half that holds even if a future writer forgets.
+// ============================================================================
+
+/** Where THIS candidate's objects may live — its event, its guest, or its supplier-and-event. */
+export function papicDropScope(
+  it: Pick<PapicDropItem, 'table' | 'event_id' | 'guest_id' | 'vendor_profile_id'>,
+): CleanupScope {
+  switch (it.table) {
+    case 'papic_photos':
+      return papicSeatCaptureScope(it.event_id);
+    case 'papic_guest_captures':
+      return papicGuestCaptureScope(it.guest_id);
+    case 'vendor_papic_captures':
+      return papicVendorCaptureScope(it.vendor_profile_id, it.event_id);
+    default:
+      // An unrecognised table has no tenant rule, so nothing of it is deletable.
+      return papicSeatCaptureScope(null);
+  }
+}
+
+/**
+ * MAY THE SWEEP DELETE THIS CANDIDATE'S FULL-RES ORIGINAL? The one gate between
+ * a stored `r2_object_key` and an R2 delete. Refused ⇒ keep the original, do not
+ * stamp the row, count it.
+ */
+export function planPapicOriginalDelete(
+  it: Pick<PapicDropItem, 'table' | 'event_id' | 'guest_id' | 'vendor_profile_id' | 'r2_object_key'>,
+): CleanupDecision {
+  return planCleanupDelete(it.r2_object_key, papicDropScope(it));
 }

@@ -99,6 +99,7 @@ export function ChatOfferedServiceCard({
       includesLine: c.includesLine,
       notIncluded: c.notIncluded,
       hasExclusive: c.hasExclusive,
+      givesSetnayanGift: c.givesSetnayanGift,
       hasCover: c.coverUrl !== null,
     };
     return (

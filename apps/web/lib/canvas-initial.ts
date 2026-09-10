@@ -30,7 +30,16 @@ export type CanvasInitial = {
   sourceWasOtherCategory: boolean;
 
   title: string;
-  exclusivePerkText: string;
+  /**
+   * Whether the copied card said yes to the Setnayan gift.
+   *
+   * ⚖ THE RETIRED FREE TEXT IS DELIBERATELY NOT CARRIED. `exclusive_perk_text`
+   * still exists and two live cards still promise through it, but it is no
+   * longer editable anywhere — so copying that prose onto a NEW card would mint
+   * a promise its owner can neither see nor withdraw. The yes/no copies; the
+   * prose stays with the card that made it.
+   */
+  includesSetnayanGift: boolean;
   coverageId: string;
   crewSize: string;
   recommendedLeadTimeMonths: string;

@@ -138,6 +138,7 @@ function service(): VendorServiceRow {
     last_minute_end_months: null,
     last_minute_surcharge_pct: null,
     daily_capacity: null,
+    includes_setnayan_gift: false,
     exclusive_perk_text: null,
     base_pax: null,
     coverage_id: null,

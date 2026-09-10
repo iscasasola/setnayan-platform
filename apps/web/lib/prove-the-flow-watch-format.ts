@@ -66,6 +66,18 @@ export type ChangeOrderRow = {
   status: string | null;
 };
 
+/**
+ * An `event_vendor_line_items` row with `is_change_delta = TRUE` — a change
+ * agreed after the lock, written beside the agreed total by an accepted change
+ * order OR (since 2026-09-11) by a new Deal locked in chat. The Deal path has
+ * NO change-order row, so a watcher that looked only at change orders would
+ * report a real Deal change as "nothing changed".
+ */
+export type ChangeLineRow = {
+  label: string | null;
+  amount_php: number | string | null;
+};
+
 function peso(n: number | string | null | undefined): string {
   if (n == null) return '—';
   const num = typeof n === 'string' ? Number(n) : n;
@@ -158,21 +170,34 @@ export function describeLock(ev: EventVendorRow): string {
   return `Status is "${ev.status}"${state}. ${total}, ${linked}.`;
 }
 
-/** Step 11 (B2): a price change after lock must show BOTH numbers, never replace one. */
+/**
+ * Step 11 (B2): a price change after lock must show BOTH numbers, never replace one.
+ *
+ * Since 2026-09-11 the booked total (`total_cost_php`) stays at what was agreed
+ * at the lock and every later change is its own CHANGE line beside it, so the
+ * healthy shape is: "Agreed total ₱100,000 · change beside it −₱15,000 · agreed
+ * total now ₱85,000". `changeLines` is optional so a run against a database
+ * without the column (before B2 merged) still reads.
+ */
 export function describeChangeTrail(
   ev: EventVendorRow,
   changeOrders: ChangeOrderRow[],
   originalTotalPhp: number | null,
+  changeLines: ChangeLineRow[] = [],
 ): string {
   if (!ev) return 'No booking to check a price change against.';
   const isNegative = ev.total_cost_php != null && Number(ev.total_cost_php) < 0;
-  if (changeOrders.length === 0 && originalTotalPhp == null && !isNegative) {
+  if (changeOrders.length === 0 && changeLines.length === 0 && originalTotalPhp == null && !isNegative) {
     return 'No price change has been recorded since the lock.';
   }
   const lines: string[] = [];
   if (originalTotalPhp != null && ev.total_cost_php != null) {
     const current = Number(ev.total_cost_php);
-    if (Math.abs(current - originalTotalPhp) > 0.01 && changeOrders.length === 0) {
+    if (
+      Math.abs(current - originalTotalPhp) > 0.01 &&
+      changeOrders.length === 0 &&
+      changeLines.length === 0
+    ) {
       lines.push(
         `⚠ DEFECT: the booked total moved from ${peso(originalTotalPhp)} to ${peso(current)} with ` +
           'no change-order row explaining it — the old number was REPLACED, not shown beside the new one.',
@@ -184,6 +209,21 @@ export function describeChangeTrail(
     lines.push(
       `Change order (${c.status}, raised by the ${c.raised_by ?? '?'}): ${sign} of ${peso(Math.abs(Number(c.delta_amount_php ?? 0)))}.`,
     );
+  }
+  if (changeLines.length > 0) {
+    const base = Number(ev.total_cost_php ?? 0);
+    const sum = changeLines.reduce((acc, l) => acc + (Number(l.amount_php) || 0), 0);
+    const each = changeLines
+      .map((l) => {
+        const n = Number(l.amount_php) || 0;
+        return `${n < 0 ? '−' : '+'}${peso(Math.abs(n))} ("${l.label ?? 'change'}")`;
+      })
+      .join(', ');
+    lines.push(
+      `Agreed total ${peso(base)} · change${changeLines.length === 1 ? '' : 's'} beside it: ${each} · ` +
+        `agreed total now ${peso(base + sum)}.`,
+    );
+    if (base + sum < 0) lines.push('⚠ DEFECT: the agreed total after the changes is NEGATIVE.');
   }
   if (isNegative) {
     lines.push('⚠ DEFECT: the booked total is NEGATIVE.');

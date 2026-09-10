@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6635
+# facts: 6636
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4871
+#   col       4872
 #   policy    910
 #   view      9
 #   func      255
@@ -1894,6 +1894,7 @@ col	public.event_vendor_line_items.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.created_at	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.due_date	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.event_id	anon=SIU authenticated=SIU
+col	public.event_vendor_line_items.is_change_delta	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.label	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.line_item_id	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.sort_order	anon=SIU authenticated=SIU

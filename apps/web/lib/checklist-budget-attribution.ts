@@ -35,10 +35,18 @@
  */
 
 import { bucketForVendor, OTHER_BUCKET } from './budget-truth';
+import { agreedTotalNow, type ChangeLineRow } from './agreed-total-and-its-changes';
 
 /** The columns `computeBudgetHealth` actually selects. */
 export type CommittedVendorRow = {
   total_cost_php: number | null;
+  /**
+   * The booking's line items, embedded in the same read (`CHANGE_LINES_EMBED`).
+   * Only the `is_change_delta` ones count — a change agreed after the lock
+   * rides on `total_cost_php` (owner 2026-09-11, "Show the total now").
+   * Optional: a caller that does not load them gets the headline alone.
+   */
+  change_lines?: ChangeLineRow[] | null;
   transport_php?: number | null;
   food_allowance_php?: number | null;
   covers_plan_groups?: string[] | null;
@@ -56,10 +64,14 @@ export type CommittedAttribution = {
   recoveredCount: number;
 };
 
-/** total_cost_php + transport_php + food_allowance_php, in integer centavos. */
+/**
+ * The agreed total NOW (total_cost_php + changes since the lock, through the one
+ * rule the budget uses) + transport_php + food_allowance_php, in integer
+ * centavos.
+ */
 export function vendorCostCentavos(v: CommittedVendorRow): number {
   const sum =
-    Number(v.total_cost_php ?? 0) +
+    Number(agreedTotalNow(v.total_cost_php, v.change_lines) ?? 0) +
     Number(v.transport_php ?? 0) +
     Number(v.food_allowance_php ?? 0);
   return Number.isFinite(sum) ? Math.round(sum * 100) : 0;

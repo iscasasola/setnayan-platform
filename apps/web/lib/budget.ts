@@ -9,6 +9,11 @@ import {
   readPricingSnapshot,
   snapshotChargeLines,
 } from './package-pricing-snapshot';
+import {
+  resolveAgreedTotal,
+  splitVendorLines,
+  sumAmountPhp,
+} from './agreed-total-and-its-changes';
 
 export type LineItemRow = {
   line_item_id: string;
@@ -19,6 +24,17 @@ export type LineItemRow = {
   due_date: string | null;
   sort_order: number;
   created_at: string;
+  /**
+   * `event_vendor_line_items.is_change_delta` (migration 20271218458148).
+   * FALSE/absent = a BREAKDOWN line, which stands in for the supplier's
+   * headline. TRUE = a settled change-order delta, which RIDES ON TOP of it.
+   * Owner 2026-09-09: "Both, shown separately."
+   *
+   * Optional in the TYPE because two other modules build `LineItemRow`-shaped
+   * rows from their own narrower selects; `splitVendorLines` reads `=== true`,
+   * so an absent value keeps today's meaning.
+   */
+  is_change_delta?: boolean | null;
 };
 
 export type PaymentRow = {
@@ -128,6 +144,15 @@ export type VendorBudgetSummary = {
   lineItems: LineItemRow[];
   payments: PaymentRow[];
   itemizedTotal: number;
+  /**
+   * The agreed price BEFORE any change agreed after the lock — `basePart` of
+   * `resolveAgreedTotal`, so `itemizedTotal === agreedBeforeChanges + Σ change
+   * lines` by construction (the same expression, not a second sum). The card
+   * prints it above the "Changes you both agreed" lines so a couple sees the
+   * ₱100,000 they agreed, the −₱15,000 beside it, and the ₱85,000 it now is —
+   * owner 2026-09-09, "Both, shown separately".
+   */
+  agreedBeforeChanges: number;
   paidTotal: number;
   remaining: number;
   /**
@@ -563,7 +588,7 @@ export async function fetchVendorBudgetSummary(
       .maybeSingle(),
     supabase
       .from('event_vendor_line_items')
-      .select('line_item_id,event_id,vendor_id,label,amount_php,due_date,sort_order,created_at')
+      .select('line_item_id,event_id,vendor_id,label,amount_php,due_date,sort_order,created_at,is_change_delta')
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .order('sort_order', { ascending: true })
@@ -594,18 +619,21 @@ export async function fetchVendorBudgetSummary(
   const vendorControlledItems = pricing?.items ?? [];
 
   const vendorControlledTotal = vendorControlledItems.reduce((acc, item) => acc + item.amount_php, 0);
-  const manualItemized = myLineItems.reduce((acc, li) => acc + Number(li.amount_php), 0);
-  const headline = Number(vendor.total_cost_php ?? 0);
-  let itemizedTotal: number;
-  if (vendorControlledTotal > 0 && manualItemized > 0) {
-    itemizedTotal = vendorControlledTotal + manualItemized;
-  } else if (vendorControlledTotal > 0) {
-    itemizedTotal = vendorControlledTotal;
-  } else if (manualItemized > 0) {
-    itemizedTotal = manualItemized;
-  } else {
-    itemizedTotal = headline;
-  }
+
+  // ── A CHANGE RIDES ON THE AGREED TOTAL (owner 2026-09-09) ────────────────
+  // The cascade that used to live here is now `resolveAgreedTotal`, shared with
+  // `fetchBudgetSnapshot` below and with `lib/budget-truth.ts`. It was three
+  // copies; two of them had never inherited R12, and none of them could tell a
+  // settled change-order delta from an itemisation — so accepting a −₱15,000
+  // reduction on a ₱100,000 supplier reported −₱15,000, not ₱85,000.
+  const { breakdown, changes } = splitVendorLines(myLineItems);
+  const agreed = resolveAgreedTotal({
+    headline: Number(vendor.total_cost_php ?? 0),
+    catalogue: vendorControlledTotal,
+    breakdown: sumAmountPhp(breakdown),
+    changes: sumAmountPhp(changes),
+  });
+  const itemizedTotal = agreed.agreed;
   const paidTotal = myPayments.reduce((acc, p) => acc + Number(p.amount_php), 0);
 
   return {
@@ -613,6 +641,7 @@ export async function fetchVendorBudgetSummary(
     lineItems: myLineItems,
     payments: myPayments,
     itemizedTotal,
+    agreedBeforeChanges: agreed.basePart,
     paidTotal,
     remaining: Math.max(0, itemizedTotal - paidTotal),
     paymentsMeasured,
@@ -680,7 +709,7 @@ export async function fetchBudgetSnapshot(
       .order('created_at', { ascending: true }),
     supabase
       .from('event_vendor_line_items')
-      .select('line_item_id,event_id,vendor_id,label,amount_php,due_date,sort_order,created_at')
+      .select('line_item_id,event_id,vendor_id,label,amount_php,due_date,sort_order,created_at,is_change_delta')
       .eq('event_id', eventId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
@@ -735,23 +764,22 @@ export async function fetchBudgetSnapshot(
       (acc, item) => acc + item.amount_php,
       0,
     );
-    const manualItemized = myLineItems.reduce((acc, li) => acc + Number(li.amount_php), 0);
-    const headline = Number(vendor.total_cost_php ?? 0);
 
-    // Itemized total — vendor-controlled items take precedence; manual
-    // items add on top (rare, but handled cleanly when both exist);
-    // headline total_cost_php is the legacy fallback for vendors with
-    // neither source.
-    let itemizedTotal: number;
-    if (vendorControlledTotal > 0 && manualItemized > 0) {
-      itemizedTotal = vendorControlledTotal + manualItemized;
-    } else if (vendorControlledTotal > 0) {
-      itemizedTotal = vendorControlledTotal;
-    } else if (manualItemized > 0) {
-      itemizedTotal = manualItemized;
-    } else {
-      itemizedTotal = headline;
-    }
+    // Itemized total — vendor-controlled items take precedence; the couple's own
+    // BREAKDOWN lines stand in for the headline; the headline is the fallback.
+    // And a settled CHANGE-ORDER delta rides on top of whichever of those won,
+    // instead of being mistaken for a breakdown and deleting it (owner
+    // 2026-09-09, "Both, shown separately"). ONE cascade, shared with
+    // `fetchVendorBudgetSummary` above and `lib/budget-truth.ts` — this was the
+    // second of three hand-copied versions.
+    const { breakdown, changes } = splitVendorLines(myLineItems);
+    const agreed = resolveAgreedTotal({
+      headline: Number(vendor.total_cost_php ?? 0),
+      catalogue: vendorControlledTotal,
+      breakdown: sumAmountPhp(breakdown),
+      changes: sumAmountPhp(changes),
+    });
+    const itemizedTotal = agreed.agreed;
 
     const paidTotal = myPayments.reduce((acc, p) => acc + Number(p.amount_php), 0);
     return {
@@ -759,6 +787,7 @@ export async function fetchBudgetSnapshot(
       lineItems: myLineItems,
       payments: myPayments,
       itemizedTotal,
+      agreedBeforeChanges: agreed.basePart,
       paidTotal,
       remaining: Math.max(0, itemizedTotal - paidTotal),
       // Honest BY CONSTRUCTION, not by flag: this loader THROWS on any of the

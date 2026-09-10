@@ -100,7 +100,7 @@ test('every messages link keys off `prefill_vendor_email`, not a marketplace-onl
   const messagesHrefs = [...src.matchAll(/\/messages[^`\n]*`/g)].map((m) => m[0]);
   assert.ok(
     messagesHrefs.length >= 2,
-    `expected at least 2 messages hrefs (the unconditional Message link + the pending-pricing nudge), found ${messagesHrefs.length}.`,
+    `expected at least 2 messages hrefs (SupplierReachLinks' prefilled and bare fallbacks), found ${messagesHrefs.length}.`,
   );
   for (const href of messagesHrefs) {
     assert.doesNotMatch(
@@ -109,6 +109,39 @@ test('every messages link keys off `prefill_vendor_email`, not a marketplace-onl
       `a messages link still keys off vendorMarketplaceId, which is NULL for off-platform suppliers: ${href}`,
     );
   }
+});
+
+/* 💬 N2 item 2 (2026-09-11). The pending-pricing nudge rendered only for a
+   supplier ON Setnayan ('pending' needs a marketplace id), and since 2026-09-10
+   such a supplier's copied address is never prefilled — so "Ask them for
+   pricing" could only ever land on the bare Messages LIST. It is the shipped
+   thread opener now, the same one "Message" uses. */
+test('"Ask them for pricing" opens the conversation — it never lands on the Messages list', () => {
+  const src = source();
+  const at = src.indexOf('function LineItemSection');
+  assert.ok(at >= 0, 'LineItemSection was renamed or removed — teach this guard the new shape.');
+  const next = src.indexOf('\nfunction ', at + 1);
+  const body = src.slice(at, next > 0 ? next : src.length);
+
+  // ANCHOR: the nudge still exists, or every assertion below passes over nothing.
+  const label = body.indexOf('label="Ask them for pricing"');
+  assert.ok(label >= 0, 'the "Ask them for pricing" nudge is gone — re-anchor this guard');
+  const opener = body.lastIndexOf('<ContactShortlistVendorButton', label);
+  assert.ok(
+    opener >= 0 && body.slice(opener, label).indexOf('/>') === -1,
+    '"Ask them for pricing" is no longer the thread opener',
+  );
+  assert.equal(
+    (body.match(/\/messages/g) ?? []).length,
+    0,
+    'LineItemSection links to the Messages list again — for a supplier on Setnayan that ' +
+      'can never prefill, so the couple is dropped on a list instead of the conversation.',
+  );
+  assert.equal(
+    (src.match(/vendorContactEmail/g) ?? []).length,
+    0,
+    'the dead prefill prop is back — a Setnayan shop\'s address has no business reaching this section',
+  );
 });
 
 test('the workspace link addresses the real per-vendor route', () => {

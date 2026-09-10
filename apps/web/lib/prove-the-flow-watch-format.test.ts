@@ -174,3 +174,25 @@ test('describeChangeTrail: B2 defect — negative booked total', () => {
   const s = describeChangeTrail(ev, [], null);
   assert.match(s, /NEGATIVE/);
 });
+
+test('describeChangeTrail: a new Deal after the lock — the agreed total AND the change beside it (owner example)', () => {
+  // ₱100,000 agreed at the lock; a new Deal in chat takes ₱15,000 off. The Deal
+  // path has NO change-order row, so the change line is the only evidence.
+  const ev = { vendor_id: 'v1', status: 'contracted', total_cost_php: 100000, linked_vendor_profile_id: 'vp1', selection_match_rank: 1, lock_request_state: 'agreed' };
+  const s = describeChangeTrail(
+    ev,
+    [],
+    100000,
+    [{ label: 'New deal agreed in chat (price lowered)', amount_php: -15000 }],
+  );
+  assert.doesNotMatch(s, /DEFECT/);
+  assert.match(s, /Agreed total ₱100,000/);
+  assert.match(s, /−₱15,000/);
+  assert.match(s, /agreed total now ₱85,000/);
+});
+
+test('describeChangeTrail: a change line that takes the agreed total below zero is a defect', () => {
+  const ev = { vendor_id: 'v1', status: 'contracted', total_cost_php: 10000, linked_vendor_profile_id: 'vp1', selection_match_rank: 1, lock_request_state: 'agreed' };
+  const s = describeChangeTrail(ev, [], null, [{ label: 'x', amount_php: -15000 }]);
+  assert.match(s, /NEGATIVE/);
+});

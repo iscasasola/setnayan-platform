@@ -99,6 +99,11 @@ import { CountUp } from '@/app/_components/count-up';
 import { ExpandCard } from './expand-card';
 import { JourneyRail } from '../progress/_components/journey-rail';
 import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shortlist-offer';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -362,7 +367,13 @@ export async function EventDashboard({
       try {
         return await supabase
           .from('event_vendors')
-          .select('vendor_id, vendor_name, category, status, total_cost_php, marketplace_vendor_id')
+          // The change lines ride in the SAME query (owner 2026-09-11, "Show the
+          // total now"): the committed figure is the agreed total NOW, not the
+          // price the lock wrote. A refused embed refuses the whole read, which
+          // `vendorsMeasured` below already reports honestly.
+          .select(
+            `vendor_id, vendor_name, category, status, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+          )
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
@@ -782,6 +793,7 @@ export async function EventDashboard({
     status: string | null;
     total_cost_php: number | string | null;
     marketplace_vendor_id: string | null;
+    change_lines?: ChangeLineRow[] | null;
   }>;
 
   // ---- "Meanwhile" — a vendor delivered something the couple hasn't opened ---
@@ -821,7 +833,9 @@ export async function EventDashboard({
   }, 0);
   const contractedVendorsTotalPhp = eventVendors.reduce<number>((acc, row) => {
     if (!CONFIRMED_VENDOR_SET.has(row.status ?? '')) return acc;
-    const cost = row.total_cost_php !== null ? Number(row.total_cost_php) : 0;
+    // The agreed total NOW — the lock's price plus every change agreed since,
+    // through the one rule the budget uses. ₱100,000 − ₱15,000 commits ₱85,000.
+    const cost = agreedTotalNow(row.total_cost_php, row.change_lines) ?? 0;
     return acc + (Number.isFinite(cost) ? cost : 0);
   }, 0);
   const committedCentavos = Math.round(

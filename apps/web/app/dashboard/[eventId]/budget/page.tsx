@@ -13,11 +13,13 @@ import {
   type BudgetLiveSummary,
 } from '@/lib/budget';
 import { resolveEventMoney, bucketLabel, type EventMoney } from '@/lib/budget-truth';
+
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import {
   budgetStripMoney,
   budgetLiveSummaryMoney,
   vendorsToItemize,
+  legacyCommittedVendorsPhp,
 } from '@/lib/budget-page-money';
 import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
@@ -255,13 +257,16 @@ export default async function BudgetPage({ params }: Props) {
     const v = r.confirmed_total_php ?? r.requested_total_php ?? 0;
     return acc + (Number.isFinite(Number(v)) ? Number(v) : 0);
   }, 0);
-  const contractedVendorsTotalPhp = snapshot.vendors.reduce((acc, s) => {
-    if (!CONFIRMED_STATUS_SET.has(s.vendor.status as string)) {
-      return acc;
-    }
-    const cost = s.vendor.total_cost_php !== null ? Number(s.vendor.total_cost_php) : 0;
-    return acc + (Number.isFinite(cost) ? cost : 0);
-  }, 0);
+  // ── AND THE CHANGES AGREED SINCE (owner 2026-09-09) ──────────────────────
+  // The arithmetic moved to `legacyCommittedVendorsPhp` so it can be tested:
+  // a number that lives inside a page cannot be. It sums each confirmed
+  // supplier's headline PLUS the change-order deltas settled against them —
+  // because a change accepted after the lock never moves `total_cost_php`, so
+  // without that term this strip kept printing the pre-change figure while the
+  // supplier's own card printed the new one, on the same screen.
+  const contractedVendorsTotalPhp = legacyCommittedVendorsPhp(snapshot.vendors, (status) =>
+    CONFIRMED_STATUS_SET.has(status),
+  );
   const committedPhpTotal = paidOrdersTotalPhp + contractedVendorsTotalPhp;
 
   // BUD-2 · R1. Strip, live card and vendor list stop being three different

@@ -31,7 +31,10 @@ import { isBudgetTruthEnabled } from './budget-truth-flag';
 import {
   attributeCommitted,
   groupsCarryingMoney,
+  type CommittedVendorRow,
 } from './checklist-budget-attribution';
+import { CHANGE_LINES_EMBED } from './agreed-total-and-its-changes';
+import { logQueryError } from './supabase/error-detect';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -184,13 +187,26 @@ export async function computeBudgetHealth(
   // A vendor is "committed" when status is contracted | deposit_paid | delivered | complete.
   // total_cost_php + transport_php + food_allowance_php = full vendor cost.
   // covers_plan_groups links a vendor row to additional plan groups it satisfies.
-  const { data: vendors } = await supabase
+  //
+  // The booking's change lines ride in the SAME read, so a supplier's committed
+  // cost is the agreed total NOW, not the price the lock wrote (owner
+  // 2026-09-11, "Show the total now"). `vendorCostCentavos` folds them.
+  const { data: vendors, error: vendorsError } = await supabase
     .from('event_vendors')
-    .select('total_cost_php, transport_php, food_allowance_php, covers_plan_groups, status, category')
+    .select(
+      `total_cost_php, transport_php, food_allowance_php, covers_plan_groups, status, category, ${CHANGE_LINES_EMBED}`,
+    )
     .eq('event_id', eventId)
     .in('status', [...COMMITTED_STATUSES]);
+  if (vendorsError) {
+    // A refused read must not pass for "nothing committed" silently — it still
+    // degrades to [] (the card falls back to market ranges), but it is reported.
+    logQueryError('computeBudgetHealth (committed event_vendors)', vendorsError, {
+      event_id: eventId,
+    });
+  }
 
-  const committedVendors = vendors ?? [];
+  const committedVendors = (vendors ?? []) as CommittedVendorRow[];
 
   // Build a map: plan_group_id → total committed centavos.
   //

@@ -727,8 +727,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       total_cost_php: v.total_cost_php,
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
-      contact_email: v.contact_email,
-      contact_phone: v.contact_phone,
+      // No contact_email / contact_phone: nothing downstream reads them, and this
+      // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
       marketplace_vendor_id: v.marketplace_vendor_id,
       marketplace_business_name: mk?.name ?? null,
       marketplace_logo_url: mk?.logo ?? null,

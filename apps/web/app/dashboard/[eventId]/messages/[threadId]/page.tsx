@@ -94,7 +94,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select(
-      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
+      'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();

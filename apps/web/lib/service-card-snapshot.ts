@@ -27,7 +27,20 @@ export type Snapshot = {
   discountBadge: string | null;
   includesLine: string | null;
   notIncluded: string[];
+  /**
+   * The card SAYS it includes something extra, through the retired free-text
+   * field. Kept because two live cards still promise through it — see
+   * `givesSetnayanGift` for why the two are not one boolean.
+   */
   hasExclusive: boolean;
+  /**
+   * The supplier said YES to the Setnayan gift — Papic credits, sized from the
+   * booking fee (owner 2026-09-09). Deliberately SEPARATE from `hasExclusive`:
+   * that one is prose a supplier typed, this one is a promise Setnayan bills
+   * them for, and collapsing them would put a costed promise on two live cards
+   * whose owners never made it.
+   */
+  givesSetnayanGift: boolean;
   hasCover: boolean;
 };
 
@@ -144,6 +157,8 @@ export function readSnapshot(fd: FormData): Snapshot {
     includesLine,
     notIncluded,
     hasExclusive: String(fd.get('exclusive_perk_text') ?? '').trim().length > 0,
+    // Checkbox: `'on'` exactly, same rule as crew_meal_included below.
+    givesSetnayanGift: fd.get('includes_setnayan_gift') === 'on',
     hasCover: String(fd.get('primary_photo_r2_key') ?? '').trim().length > 0,
   };
 }
@@ -163,6 +178,7 @@ export type StoredServiceCard = {
   transport_included?: boolean | null;
   transport_flat_fee_php?: number | null;
   exclusive_perk_text?: string | null;
+  includes_setnayan_gift?: boolean | null;
   primary_photo_r2_key?: string | null;
 };
 
@@ -218,6 +234,7 @@ export function snapshotFromService(
   put(fd, 'transport_flat_fee_php', card.transport_flat_fee_php);
   put(fd, 'exclusive_perk_text', card.exclusive_perk_text);
   put(fd, 'primary_photo_r2_key', card.primary_photo_r2_key);
+  if (card.includes_setnayan_gift) fd.append('includes_setnayan_gift', 'on');
   if (card.crew_meal_included) fd.append('crew_meal_included', 'on');
   if (card.transport_included) fd.append('transport_included', 'on');
 

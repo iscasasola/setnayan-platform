@@ -15,7 +15,7 @@
  * owns that colour now and gets it right; see its header note.
  */
 import Link from 'next/link';
-import { DoorShell } from '@/app/_components/door/door-shell';
+import { DoorShell, type DoorStep } from '@/app/_components/door/door-shell';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 
 export type JoinShellEvent = {
@@ -29,9 +29,15 @@ export type JoinShellEvent = {
 /** Shared centered card chrome for every /join step (role, claim, verify, pending). */
 export function JoinShell({
   event,
+  steps,
   children,
 }: {
   event: JoinShellEvent;
+  /**
+   * The invite arrival's rail (lib/invite-arrival.ts) — Name · Reply · Enter.
+   * Optional: the opaque /join steps that are not part of the arrival carry none.
+   */
+  steps?: DoorStep[];
   children: React.ReactNode;
 }) {
   return (
@@ -39,6 +45,7 @@ export function JoinShell({
       eyebrow="You're invited"
       title={event?.display_name || 'Event invite'}
       meta={event ? joinDoorMeta(event) : undefined}
+      steps={steps}
     >
       {children}
     </DoorShell>

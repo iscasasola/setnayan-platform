@@ -61,7 +61,22 @@ const NEXT_DIR = join(WEB_ROOT, '.next');
 // knowing before anyone treats a +0.5KB reading here as "the bundle grew".
 // The ceiling is still a real ceiling — it moved by the measured amount and no
 // more, so the next regression fails exactly as it should.
-const MAX_SHARED_GZIP_BYTES = 201 * 1024;
+//
+// 202KB — raised by 1KB on 2026-09-10 for the Next.js 15.5.21 → 15.5.24
+// security release (#5397). `DECISION_LOG.md` 2026-09-10 (deploy headroom).
+//
+// 🔑 NONE OF THE GROWTH IS OURS. That PR changes two files — the `next`
+// version in package.json and the lockfile — so every byte that moved is
+// framework code. MEASURED, CI bundle-size job, main (a692363) vs #5397:
+//     app-router shared chunk   44.9 → 45.8KB  (+0.9)
+//     pages-router main         39.4 → 39.6KB  (+0.2)
+//     framework 58.6 · app core 53.2 · webpack 3.9 · main-app 0.4 — same size
+//     TOTAL                    200.5 → 201.5KB  (+1.0)
+// Paying for Next's bytes by trimming ours would hide the cause, and refusing
+// them would hold back a critical-rated security fix over a KPI it moves by
+// 0.25%. Same rule as above: the ceiling moves by the measured amount and no
+// more, leaving the same 0.5KB of headroom main had before the bump.
+const MAX_SHARED_GZIP_BYTES = 202 * 1024;
 
 function fail(message, details = []) {
   console.error(`\n❌ ${message}`);

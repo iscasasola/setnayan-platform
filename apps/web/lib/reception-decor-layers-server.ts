@@ -100,8 +100,30 @@ export async function fetchDecorLayerCatalog(
   return catalog;
 }
 
-/** apps/web/public/ — what actually serves a `/moodboard-seed/...` path. */
-const PUBLIC_ROOT = path.join(process.cwd(), 'public');
+/**
+ * apps/web/public/moodboard-seed/ — the ONLY part of public/ a decor row may
+ * name (`isCompositableDecorHref` pins the `/moodboard-seed/` prefix), and so
+ * the only part of it this server function is allowed to carry.
+ *
+ * 🚨 THIS LINE USED TO BE `path.join(process.cwd(), 'public')`, AND THAT ONE
+ * LINE PUT ALL OF public/ INSIDE A SERVER FUNCTION. Next's file tracer reads
+ * `readFile(path.resolve(<root>, <anything>))` as "any file under <root> may be
+ * opened at runtime" and copies the whole directory into the function. With
+ * the root at public/, that was **951 files · 117 MB** — the demo films, the
+ * onboarding clips, every Real Story photo — none of which this code can ever
+ * read, all of which the CDN already serves. It took the mood-board function
+ * from ~135 MB to within 2 MB of Vercel's 250 MB ceiling on 2026-09-06, and on
+ * 2026-09-10 the Next.js 15.5.24 security update tipped it to **252.37 MB**
+ * and could not deploy.
+ *
+ * Rooted here instead, the tracer carries **64 files · 9.2 MB**. Measured with
+ * Next's own compiled tracer, not reasoned — and held by
+ * `lib/no-server-file-carries-public.test.ts`, which traces every server file
+ * that builds a path from `process.cwd()` and fails if any of them drags in a
+ * part of public/ it was not given.
+ */
+const SEED_PREFIX = '/moodboard-seed';
+const SEED_ROOT = path.join(process.cwd(), 'public', 'moodboard-seed');
 
 /**
  * MB14b · 🔑 AN APP-SERVED PATH IS NOT A URL, AND `safeFetchImageBytes` SAYS SO.
@@ -140,13 +162,19 @@ async function decorSourceBytes(storagePath: string): Promise<Uint8Array | null>
     // TODAY, given a predicate that already pins the `/moodboard-seed/` prefix.
     // It is kept anyway, and labelled as what it is: the thing that still holds
     // if someone widens that prefix later — a loosened predicate is a one-line
-    // edit, and this is the line that keeps it inside public/. No test can show
-    // it red, and pretending otherwise would be the "guard that guards a copy"
-    // mistake in reverse.
+    // edit, and this is the line that keeps it inside moodboard-seed/. No test
+    // can show it red, and pretending otherwise would be the "guard that guards
+    // a copy" mistake in reverse.
     // (`path.resolve` normalises, so a separate `normalize` comparison would be
     // a check that can never fire. It is deliberately not written here.)
-    const abs = path.resolve(PUBLIC_ROOT, `.${storagePath}`);
-    if (!abs.startsWith(PUBLIC_ROOT + path.sep)) return null;
+    //
+    // 2026-09-10 · the root moved from public/ to public/moodboard-seed/ (see
+    // SEED_ROOT for why). The predicate already pins the prefix; the explicit
+    // test below is so a WIDENED predicate refuses a non-seed path outright
+    // instead of slicing it into something else. Same redundancy, same label.
+    if (!storagePath.startsWith(`${SEED_PREFIX}/`)) return null;
+    const abs = path.resolve(SEED_ROOT, `.${storagePath.slice(SEED_PREFIX.length)}`);
+    if (!abs.startsWith(SEED_ROOT + path.sep)) return null;
     try {
       return await readFile(abs);
     } catch {

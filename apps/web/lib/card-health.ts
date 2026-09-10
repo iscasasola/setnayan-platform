@@ -28,7 +28,7 @@
  * § "NEUTRALISATION".
  *
  * ── WHERE THE RULES COME FROM (nothing here is invented) ───────────────────
- * • price + Setnayan Exclusive — `unmetPublishRequirements`
+ * • price — `unmetPublishRequirements`
  *   (lib/service-publish-gate.ts), the SAME function the two server actions and
  *   the `enforce_service_publish_gate` database trigger ask. This module holds
  *   no copy of that rule.
@@ -52,7 +52,7 @@
 import { autoName, findVendorTextViolation } from './service-text-integrity';
 import {
   PUBLISH_COACH_MESSAGE,
-  exclusiveIsSet,
+  type PublishRequirement,
   unmetPublishRequirements,
 } from './service-publish-gate';
 import { isFollowUp, lineStateOf, type LineState } from './service-customization-draft';
@@ -109,7 +109,6 @@ export type CardHealthSnapshot = {
    */
   hasPrice: boolean;
   title: string;
-  exclusiveText: string;
   /**
    * Inclusion labels and discount conditions, in submitted order.
    *
@@ -226,21 +225,24 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
       message: 'Add a cover photo — required to publish.',
     });
   }
-  // The price and the Setnayan Exclusive are not this module's opinion — they
-  // are THE publish gate, asked of the one function the server actions and the
+  // The price is not this module's opinion — it is
+  // THE publish gate, asked of the one function the server actions and the
   // database trigger also ask (lib/service-publish-gate.ts). Adding a
   // requirement there lights it up here with no edit; that is the point.
-  const REQUIREMENT_SHEET: Record<'price' | 'exclusive', CardHealthSheet> = {
+  //
+  // 🔑 KEYED ON `PublishRequirement`, NOT ON A HAND-TYPED UNION. The comment
+  // above promises that adding a requirement lights it up here with no edit —
+  // which was only true of the loop, not of these two tables. Typing them off
+  // the shared union makes the compiler keep that promise in both directions,
+  // and it is what caught them when the Setnayan gift left the list.
+  const REQUIREMENT_SHEET: Record<PublishRequirement, CardHealthSheet> = {
     price: 'price',
-    exclusive: 'excl',
   };
-  const REQUIREMENT_CODE: Record<'price' | 'exclusive', string> = {
+  const REQUIREMENT_CODE: Record<PublishRequirement, string> = {
     price: 'no_price',
-    exclusive: 'no_exclusive',
   };
   for (const requirement of unmetPublishRequirements({
     hasPrice: snapshot.hasPrice,
-    hasExclusive: exclusiveIsSet(snapshot.exclusiveText),
   })) {
     blockers.push({
       code: REQUIREMENT_CODE[requirement],
@@ -273,11 +275,6 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
     // 'Inclusion N', 'Discount N conditions', 'Customization line N option M'.
     // The vendor reads the same sentence here and in a server bounce.
     { code: 'text_title', sheet: 'title', fields: [{ field: 'Title', value: snapshot.title }] },
-    {
-      code: 'text_exclusive',
-      sheet: 'excl',
-      fields: [{ field: 'Setnayan Exclusive', value: snapshot.exclusiveText }],
-    },
     {
       code: 'text_inclusions',
       sheet: 'custom', // the InclusionsEditor lives in "What couples get"

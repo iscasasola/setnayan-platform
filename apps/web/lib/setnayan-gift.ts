@@ -198,3 +198,39 @@ export function giftQuoteLine(
     ? `Includes a Setnayan gift — you get ${n} free Papic photos for your celebration.`
     : `Includes your Setnayan gift — your couple gets ${n} free Papic photos.`;
 }
+
+/** ₱ + thousands, 0 decimals when whole — mirror of SQL `booking_fee_php_text`. */
+function pesoText(centavos: number): string {
+  const php = Math.round(centavos) / 100;
+  const whole = Number.isInteger(php);
+  return (
+    '₱' +
+    new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
+    }).format(php)
+  );
+}
+
+/**
+ * The clause a SUPPLIER reads on their booking-fee bill when it carries the
+ * gift — appended right after "Setnayan booking fee (<schedule>)". Pesos are
+ * right HERE: it is the supplier's own bill, and they are paying the gift. The
+ * couple is only ever told photographs.
+ *
+ *   " ₱2,500 + your Setnayan gift for your couple: 1,429 free Papic photos, ₱1,000"
+ *
+ * Mirror of SQL `setnayan_gift_bill_clause` (the amended-order minter); the db
+ * test asserts the two produce the same text.
+ */
+export function setnayanGiftBillClause(
+  feeCentavos: number,
+  giftCredits: number,
+  giftCentavos: number,
+): string {
+  const photos = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(giftCredits);
+  return (
+    ` ${pesoText(feeCentavos)} + your Setnayan gift for your couple: ` +
+    `${photos} free Papic photos, ${pesoText(giftCentavos)}`
+  );
+}

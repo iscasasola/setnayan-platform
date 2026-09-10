@@ -6,6 +6,7 @@ import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 // so importing it from this `.server.ts` file is fine in both directions.
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { setnayanGiftBillClause } from '@/lib/setnayan-gift';
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -37,7 +38,16 @@ export type CollectBookingFeeResult =
   | { status: 'zero_fee'; chargeId: string }
   | { status: 'order_exists'; chargeId: string; orderId: string }
   | { status: 'no_payer'; chargeId: string }
-  | { status: 'ordered'; chargeId: string; orderId: string; referenceCode: string; amountPhp: number };
+  | {
+      status: 'ordered';
+      chargeId: string;
+      orderId: string;
+      referenceCode: string;
+      /** What the supplier pays: the booking fee PLUS any Setnayan gift. */
+      amountPhp: number;
+      /** Free Papic photos this bill buys the couple (0 = no gift). */
+      giftCredits: number;
+    };
 
 /** 'SN' + 8 uppercase hex — the shared reference-code shape (createOrder / ai-addon). */
 function generateReferenceCode(): string {
@@ -116,13 +126,30 @@ export async function collectBookingFeeAtLock(
   }
 
   // Resolve the (vendor, event) + the VENDOR user as payer.
-  const { data: charge } = await admin
+  // ⚠ THE GIFT RIDES ON THIS ROW. The charge sizes its own Setnayan gift
+  // (trigger `booking_fee_charges_size_the_gift`, migration 20271222508050):
+  // 40% of the fee, proportional along the live Papic ladder, capped at 50,000
+  // credits — ADDED to the bill, never deducted from the fee. A refused read
+  // here must not mint a fee-only order for a supplier who chose the gift, so
+  // an `error` is a skip (the next acknowledge re-attempts), never a ₱0 gift.
+  const { data: charge, error: chargeReadError } = await admin
     .from('booking_fee_charges')
-    .select('event_id, vendor_profile_id')
+    .select('event_id, vendor_profile_id, gift_credits, gift_centavos')
     .eq('charge_id', chargeId)
     .maybeSingle();
-  const eventId = (charge as { event_id?: string } | null)?.event_id ?? null;
-  const vendorProfileId = (charge as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+  if (chargeReadError || !charge) {
+    return { status: 'skipped', reason: chargeReadError?.message ?? 'charge_unread' };
+  }
+  const chargeRow = charge as {
+    event_id?: string | null;
+    vendor_profile_id?: string | null;
+    gift_credits?: number | string | null;
+    gift_centavos?: number | string | null;
+  };
+  const eventId = chargeRow.event_id ?? null;
+  const vendorProfileId = chargeRow.vendor_profile_id ?? null;
+  const giftCredits = Math.max(0, Math.trunc(Number(chargeRow.gift_credits) || 0));
+  const giftCentavos = giftCredits > 0 ? Math.max(0, Math.round(Number(chargeRow.gift_centavos) || 0)) : 0;
 
   let payerUserId: string | null = null;
   if (vendorProfileId) {
@@ -137,7 +164,8 @@ export async function collectBookingFeeAtLock(
   // ops to resolve once the vendor claims; never strand the lock.
   if (!payerUserId) return { status: 'no_payer', chargeId };
 
-  const amountPhp = Math.round(res.amount_charged_centavos) / 100;
+  const feeCentavos = Math.round(res.amount_charged_centavos);
+  const amountPhp = (feeCentavos + giftCentavos) / 100;
   const referenceCode = generateReferenceCode();
 
   // Vendor-payer order on the manual QR rail. `vendor_`-prefixed service_key →
@@ -165,7 +193,10 @@ export async function collectBookingFeeAtLock(
       user_id: payerUserId,
       vendor_profile_id: vendorProfileId,
       service_key: serviceKey,
-      description: `Setnayan booking fee (${bookingFeeScheduleSummary(liveSchedule)}) — up for verification, confirmation within 24 hrs`,
+      description:
+        `Setnayan booking fee (${bookingFeeScheduleSummary(liveSchedule)})` +
+        (giftCredits > 0 ? setnayanGiftBillClause(feeCentavos, giftCredits, giftCentavos) : '') +
+        ' — up for verification, confirmation within 24 hrs',
       requested_total_php: amountPhp,
       status: 'submitted',
       reference_code: referenceCode,
@@ -197,7 +228,7 @@ export async function collectBookingFeeAtLock(
     return { status: 'skipped', reason: pErr.message };
   }
 
-  return { status: 'ordered', chargeId, orderId, referenceCode, amountPhp };
+  return { status: 'ordered', chargeId, orderId, referenceCode, amountPhp, giftCredits };
 }
 
 /**

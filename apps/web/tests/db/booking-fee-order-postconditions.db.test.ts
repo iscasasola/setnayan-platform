@@ -864,3 +864,67 @@ test('flag OFF → writes NOTHING: no charge, no order, no payment', async () =>
   assert.ok(armed.status === 'ordered');
   assert.equal((await ordersForCharge(armed.chargeId)).length, 1);
 });
+
+/* ── 10 · THE SETNAYAN GIFT RIDES ON THE BILL (C1 · 20271222508050) ─────────*/
+
+test('a card that said YES to the gift → the order is fee + gift and names the photos', async () => {
+  const { vendorProfileId } = await newVendor('gift@postcond.test');
+  await warmPastFree5(vendorProfileId, 'gift');
+  const card = await db.query<{ vendor_service_id: string }>(
+    `INSERT INTO public.vendor_services
+       (vendor_profile_id, category, starting_price_php, includes_setnayan_gift, is_active)
+     VALUES ($1, 'photographer', 40000, true, false) RETURNING vendor_service_id`,
+    [vendorProfileId],
+  );
+  const eventId = await newEvent('gift-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 50_000);
+  await db.query(`UPDATE public.event_vendors SET service_id = $2 WHERE vendor_id = $1`, [
+    evId,
+    card.rows[0]!.vendor_service_id,
+  ]);
+
+  const res = await collect(evId);
+  assert.equal(res.status, 'ordered');
+  assert.ok(res.status === 'ordered');
+  const feePhp = bookingFeePhp(50_000); // ₱2,500
+  const giftPhp = Math.floor(feePhp * 100 * 0.4) / 100; // 40% of the fee, ₱1,000
+  assert.equal(res.giftCredits, 1_429, '₱50,000 → 1,429 free photos');
+  assert.equal(res.amountPhp, feePhp + giftPhp, 'the supplier pays fee + gift');
+
+  // The fee column stays the fee — the gift rides beside it.
+  const [charge] = await chargesFor(evId);
+  assert.equal(charge!.amount, Math.round(feePhp * 100));
+
+  const [order] = await ordersForCharge(res.chargeId);
+  assert.ok(order);
+  assert.equal(Number(order.requested_total_php), feePhp + giftPhp);
+  assert.match(order.description, /\+ your Setnayan gift for your couple: 1,429 free Papic photos, ₱1,000/);
+  assert.match(order.description, /^Setnayan booking fee \(/);
+
+  const [payment] = await paymentsLinkedToChargeOrder(res.chargeId);
+  assert.equal(Number(payment!.amount_php), feePhp + giftPhp, 'the payment row asks for the same total');
+});
+
+test('a card that said NO → the bill is exactly the fee, byte-for-byte as before', async () => {
+  const { vendorProfileId } = await newVendor('nogift@postcond.test');
+  await warmPastFree5(vendorProfileId, 'nogift');
+  const card = await db.query<{ vendor_service_id: string }>(
+    `INSERT INTO public.vendor_services
+       (vendor_profile_id, category, starting_price_php, includes_setnayan_gift, is_active)
+     VALUES ($1, 'photographer', 40000, false, false) RETURNING vendor_service_id`,
+    [vendorProfileId],
+  );
+  const eventId = await newEvent('nogift-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 50_000);
+  await db.query(`UPDATE public.event_vendors SET service_id = $2 WHERE vendor_id = $1`, [
+    evId,
+    card.rows[0]!.vendor_service_id,
+  ]);
+  const res = await collect(evId);
+  assert.ok(res.status === 'ordered');
+  assert.equal(res.giftCredits, 0);
+  assert.equal(res.amountPhp, bookingFeePhp(50_000));
+  const [order] = await ordersForCharge(res.chargeId);
+  assert.doesNotMatch(order!.description, /Setnayan gift/);
+  assert.match(order!.description, /^Setnayan booking fee \(.*\) — up for verification, confirmation within 24 hrs$/);
+});

@@ -210,9 +210,9 @@ test('…nor finish, fail (refund) or attach a copy to the COUPLE’s IN-FLIGHT 
     let refused = 0;
     for (const who of NON_COUPLE) {
       await asUser(F[who]);
-      const fin = (await db.query<{ v: boolean }>(`SELECT public.moodboard_finish_render($1, $2) AS v`, [id, own])).rows[0]!.v;
-      const fail = (await db.query<{ v: boolean }>(`SELECT public.moodboard_fail_render($1, 'x') AS v`, [id])).rows[0]!.v;
-      const att = (
+      const fin: boolean = (await db.query<{ v: boolean }>(`SELECT public.moodboard_finish_render($1, $2) AS v`, [id, own])).rows[0]!.v;
+      const fail: boolean = (await db.query<{ v: boolean }>(`SELECT public.moodboard_fail_render($1, 'x') AS v`, [id])).rows[0]!.v;
+      const att: boolean = (
         await db.query<{ v: boolean }>(`SELECT public.moodboard_attach_gallery_copy($1, $2) AS v`, [id, `render-gallery/${F.eventId}/${id}.jpg`])
       ).rows[0]!.v;
       await reset();

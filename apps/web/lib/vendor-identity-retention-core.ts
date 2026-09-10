@@ -276,3 +276,79 @@ export function planVerificationScrub(
   }
   return { deletes, refused, clear: inScope };
 }
+
+// ============================================================================
+// APPLYING A PLAN — injected I/O, so the WHOLE per-row behaviour (what is
+// deleted, what is cleared, what is counted) is a unit test with fake deps,
+// not a source scan of the sweep. `lib/vendor-identity-retention.ts` supplies
+// the admin client and `executeCleanupDelete`, and nothing else.
+// ============================================================================
+
+export type RowOutcome = {
+  deleted: number;
+  deleteFailed: number;
+  refused: number;
+  /** The pointer write ran and succeeded. */
+  scrubbed: boolean;
+  /** The pointer write ran and failed — the row survives to the next pass. */
+  writeFailed: boolean;
+};
+
+type ApplyDeps = {
+  /** Delete ONE planned target. Throws on failure. */
+  deleteObject(target: PlannedDelete): Promise<void>;
+  onDeleteError?(err: unknown): void;
+};
+
+async function deleteAll(targets: readonly PlannedDelete[], deps: ApplyDeps) {
+  let deleted = 0;
+  let failed = 0;
+  // The objects first — a cleared pointer must never orphan a file.
+  for (const target of targets) {
+    try {
+      await deps.deleteObject(target);
+      deleted += 1;
+    } catch (err) {
+      failed += 1;
+      deps.onDeleteError?.(err);
+    }
+  }
+  return { deleted, failed };
+}
+
+/** One decided application: delete its own identity uploads, then scrub only those slots. */
+export async function applyApplicationScrub(
+  row: { vendor_profile_id: string | null; doc_uploads: unknown },
+  deps: ApplyDeps & {
+    writeDocUploads(next: Record<string, unknown>): Promise<{ ok: boolean }>;
+  },
+): Promise<RowOutcome & { refusedSlots: string[] }> {
+  const plan = planApplicationScrub(row);
+  const { deleted, failed } = await deleteAll(plan.deletes, deps);
+  const base = { deleted, deleteFailed: failed, refused: plan.refused, refusedSlots: plan.refusedSlots };
+  // Every identity slot was refused — nothing to clear; the row survives to the
+  // next run so the refusal keeps being reported.
+  if (plan.scrubbedSlots.length === 0) return { ...base, scrubbed: false, writeFailed: false };
+  const { ok } = await deps.writeDocUploads(plan.nextDocUploads);
+  return { ...base, scrubbed: ok, writeFailed: !ok };
+}
+
+/** One decided `vendor_verifications` row: delete its own files, then null ONLY those columns. */
+export async function applyVerificationScrub(
+  row: { vendor_profile_id: string | null } & Partial<Record<VerificationKeyColumn, string | null>>,
+  deps: ApplyDeps & {
+    clearColumns(patch: Partial<Record<VerificationKeyColumn, null>>): Promise<{ ok: boolean }>;
+  },
+): Promise<RowOutcome & { refusedColumns: VerificationKeyColumn[] }> {
+  const plan = planVerificationScrub(row);
+  const { deleted, failed } = await deleteAll(plan.deletes, deps);
+  const base = { deleted, deleteFailed: failed, refused: plan.refused.length, refusedColumns: plan.refused };
+  // Every column on this row was refused — there is nothing to clear, and the
+  // row survives to the next run so the refusal keeps being reported.
+  if (plan.clear.length === 0) return { ...base, scrubbed: false, writeFailed: false };
+  // 🔑 Built from plan.clear ONLY: a refused column is never nulled.
+  const patch: Partial<Record<VerificationKeyColumn, null>> = {};
+  for (const col of plan.clear) patch[col] = null;
+  const { ok } = await deps.clearColumns(patch);
+  return { ...base, scrubbed: ok, writeFailed: !ok };
+}

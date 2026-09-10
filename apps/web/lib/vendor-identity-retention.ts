@@ -5,9 +5,9 @@ import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import {
   IDENTITY_VERIFICATION_COLUMNS,
   VENDOR_IDENTITY_RETENTION_DAYS,
+  applyApplicationScrub,
+  applyVerificationScrub,
   hasIdentityUploads,
-  planApplicationScrub,
-  planVerificationScrub,
   vendorIdentityIsPastRetention,
 } from '@/lib/vendor-identity-retention-core';
 
@@ -160,47 +160,44 @@ async function sweepApplications(
     summary.eligible += 1;
     if (dryRun) continue;
 
-    // 🔒 Only the vendor's OWN objects, per slot all-or-nothing — see
-    // planApplicationScrub. A slot holding a refused ref is kept whole.
-    const plan = planApplicationScrub(row);
-    if (plan.refused > 0) {
-      summary.assetsRefused += plan.refused;
-      console.warn(
-        '[vendor-identity-retention] REFUSED application ref(s) outside the vendor’s own folder — objects AND pointers kept',
-        { applicationId: row.application_id, slots: plan.refusedSlots },
-      );
-    }
-
-    // The objects first — a cleared pointer must never orphan a file.
-    for (const target of plan.deletes) {
-      try {
-        await executeCleanupDelete(target);
-        summary.assetsDeleted += 1;
-      } catch (err) {
-        summary.assetsFailed += 1;
+    // 🔒 Only the vendor's OWN objects, per slot all-or-nothing — the whole
+    // per-row behaviour is applyApplicationScrub (-core.ts, unit-tested with
+    // fake deps). This file supplies the admin client and the executor only.
+    const outcome = await applyApplicationScrub(row, {
+      deleteObject: executeCleanupDelete,
+      onDeleteError: (err) =>
         console.warn('[vendor-identity-retention] object delete failed (continuing)', {
           applicationId: row.application_id,
           error: err instanceof Error ? err.message : String(err),
-        });
-      }
+        }),
+      writeDocUploads: async (next) => {
+        const { error: upErr } = await admin
+          .from('vendor_verification_applications')
+          .update({ doc_uploads: next })
+          .eq('application_id', row.application_id);
+        if (upErr) {
+          console.warn('[vendor-identity-retention] scrub failed', {
+            applicationId: row.application_id,
+            error: upErr.message,
+          });
+        }
+        return { ok: !upErr };
+      },
+    });
+    summary.assetsDeleted += outcome.deleted;
+    summary.assetsFailed += outcome.deleteFailed;
+    if (outcome.refused > 0) {
+      summary.assetsRefused += outcome.refused;
+      console.warn(
+        '[vendor-identity-retention] REFUSED application ref(s) outside the vendor’s own folder — objects AND pointers kept',
+        { applicationId: row.application_id, slots: outcome.refusedSlots },
+      );
     }
-
-    // Every identity slot was refused — nothing to clear; the row survives to
-    // the next run so the refusal keeps being reported.
-    if (plan.scrubbedSlots.length === 0) continue;
-
-    const { error: upErr } = await admin
-      .from('vendor_verification_applications')
-      .update({ doc_uploads: plan.nextDocUploads })
-      .eq('application_id', row.application_id);
-    if (upErr) {
+    if (outcome.writeFailed) {
       summary.failed += 1;
-      console.warn('[vendor-identity-retention] scrub failed', {
-        applicationId: row.application_id,
-        error: upErr.message,
-      });
       continue;
     }
+    if (!outcome.scrubbed) continue;
     summary.scrubbed += 1;
   }
 }
@@ -252,54 +249,48 @@ async function sweepVerifications(
     // ── DEFENCE IN DEPTH behind migration 20271218766967 ────────────────────
     // These columns had no writer and, until that migration, a forgeable INSERT
     // lane — so the string here could name ANY object in ANY of the five
-    // buckets. planVerificationScrub admits only the private verification
-    // bucket under the row's own vendor folder.
-    const plan = planVerificationScrub(row);
-
+    // buckets. applyVerificationScrub (-core.ts) admits only the private
+    // verification bucket under the row's own vendor folder, and never nulls a
+    // column it refused (nulling it would leave the object retained past its
+    // declared period with nothing left pointing at it — the RA 10173 failure
+    // this job exists to fix).
+    const outcome = await applyVerificationScrub(row, {
+      deleteObject: executeCleanupDelete,
+      onDeleteError: (err) =>
+        console.warn('[vendor-identity-retention] object delete failed (continuing)', {
+          verificationId: row.verification_id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      clearColumns: async (patch) => {
+        const { error: upErr } = await admin
+          .from('vendor_verifications')
+          .update(patch)
+          .eq('verification_id', row.verification_id);
+        if (upErr) {
+          console.warn('[vendor-identity-retention] key clear failed', {
+            verificationId: row.verification_id,
+            error: upErr.message,
+          });
+        }
+        return { ok: !upErr };
+      },
+    });
+    summary.assetsDeleted += outcome.deleted;
+    summary.assetsFailed += outcome.deleteFailed;
     // 🔑 REFUSED, AND SAID SO. A refusal nobody can see is indistinguishable
-    // from a delete that happened. The pointer is deliberately NOT cleared
-    // below (plan.clear never contains a refused column): nulling it would leave
-    // the object retained past its declared period with nothing left pointing at
-    // it, which is the RA 10173 failure this job exists to fix.
-    for (const col of plan.refused) {
+    // from a delete that happened.
+    for (const col of outcome.refusedColumns) {
       summary.assetsRefused += 1;
       console.warn(
         '[vendor-identity-retention] REFUSED an out-of-scope ref — object AND pointer both kept',
         { verificationId: row.verification_id, column: col },
       );
     }
-
-    for (const target of plan.deletes) {
-      try {
-        await executeCleanupDelete(target);
-        summary.assetsDeleted += 1;
-      } catch (err) {
-        summary.assetsFailed += 1;
-        console.warn('[vendor-identity-retention] object delete failed (continuing)', {
-          verificationId: row.verification_id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    // Every column on this row was refused — there is nothing to clear, and the
-    // row survives to the next run so the refusal keeps being reported.
-    if (plan.clear.length === 0) continue;
-
-    const patch: Record<string, null> = {};
-    for (const col of plan.clear) patch[col] = null;
-    const { error: upErr } = await admin
-      .from('vendor_verifications')
-      .update(patch)
-      .eq('verification_id', row.verification_id);
-    if (upErr) {
+    if (outcome.writeFailed) {
       summary.failed += 1;
-      console.warn('[vendor-identity-retention] key clear failed', {
-        verificationId: row.verification_id,
-        error: upErr.message,
-      });
       continue;
     }
+    if (!outcome.scrubbed) continue;
     summary.scrubbed += 1;
   }
 }

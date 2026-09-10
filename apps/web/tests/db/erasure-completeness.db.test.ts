@@ -147,6 +147,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { createPgliteRestClient, type PgliteRestClient } from './pglite-postgrest';
 import { eraseUserAccount, type ErasureIo } from '../../lib/erasure/purge';
+import { refBelongsToRow, type CleanupScope } from '../../lib/cleanup-delete-scope';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -154,7 +155,8 @@ let rest: PgliteRestClient;
 
 /** Everything the erasure handed to storage for deletion. */
 let deletedStoredAssets: string[] = [];
-let deletedPublicUrls: string[] = [];
+/** Every hand-over WITH the scope the purge built for it (2026-09-10). */
+let handedOver: Array<{ ref: string; scope: CleanupScope }> = [];
 let sessionRevokedFor: string[] = [];
 
 const SUBJECT = '2a000000-0000-4000-8000-000000000001';
@@ -172,17 +174,18 @@ const OUTSIDER_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000002';
 
 const SUBJECT_EMAIL = 'leaving.person@example.com';
 const CENOMAR_REF = 'PSA-CENOMAR-2026-0099887';
-const SELFIE_REF = 'r2://setnayan-media/faces/subject-selfie.jpg';
-const PAPERWORK_REF = 'r2://setnayan-media/paperwork/cenomar-scan.pdf';
-const PROFILE_PHOTO_REF = 'r2://setnayan-media/profile/subject.jpg';
-const CHAT_ATTACHMENT_URL = 'https://media.setnayan.com/chat/thread-1/contract-draft.pdf';
+const SELFIE_REF = `r2://setnayan-media/events/${EVENT}/guest-selfies/${SUBJECT_GUEST}/subject-selfie.jpg`;
+const PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar_partner_1/cenomar-scan.pdf`;
+const PROFILE_PHOTO_REF = `r2://setnayan-media/profile-photo/${SUBJECT}/subject.jpg`;
+// The private-bucket ref every attachment written since 2026-09-09 carries.
+const CHAT_ATTACHMENT_REF = `r2://setnayan-thread-files/chat/${THREAD}/contract-draft.pdf`;
 
 // ── the CO-PARTNER'S civil-registry documents · MUST SURVIVE ────────────────
 // The whole point of per-partner scoping. These belong to the person who is
 // STAYING; an event-wide purge destroyed them, and nothing brings a PSA
 // document back.
 const PARTNER_CENOMAR_REF = 'PSA-CENOMAR-2026-0044556';
-const PARTNER_PAPERWORK_REF = 'r2://setnayan-media/paperwork/partner-cenomar-scan.pdf';
+const PARTNER_PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar_partner_2/partner-cenomar-scan.pdf`;
 // A per-partner document nobody attributed, and a JOINT one that by definition
 // has no single subject. Both must survive: an unattributable row is not ours
 // to destroy.
@@ -190,13 +193,13 @@ const UNATTRIBUTED_PSA_REF = 'PSA-BIRTH-2026-0011223';
 const JOINT_LICENCE_REF = 'LGU-ML-2026-0055';
 
 // ── vendor verification: the heaviest identity documents in the product ─────
-const GOV_ID_REF = 'r2://setnayan-vendor-verification/leaving-shop/government-id.jpg';
-const DTI_REF = 'r2://setnayan-vendor-verification/leaving-shop/dti-certificate.pdf';
+const GOV_ID_REF = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/government-id.jpg`;
+const DTI_REF = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/dti-certificate.pdf`;
 // Nested one array deep — the shape a known-key read would silently miss.
-const PORTFOLIO_REF_A = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-1.jpg';
-const PORTFOLIO_REF_B = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-2.jpg';
+const PORTFOLIO_REF_A = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/portfolio-1.jpg`;
+const PORTFOLIO_REF_B = `r2://setnayan-media/vendors/${VENDOR_PROFILE}/portfolio/portfolio-2.jpg`;
 // Another vendor's government ID, on the same table. MUST SURVIVE.
-const OUTSIDER_GOV_ID_REF = 'r2://setnayan-vendor-verification/outsider-shop/government-id.jpg';
+const OUTSIDER_GOV_ID_REF = `r2://setnayan-vendor-verification/vendors/${OUTSIDER_VENDOR_PROFILE}/verification/government-id.jpg`;
 
 const SUBJECT_DOC_UPLOADS = {
   government_id: { r2_key: GOV_ID_REF, uploaded_at: '2026-02-01T00:00:00Z' },
@@ -231,11 +234,9 @@ const SEEDED_WIZARD_STATE = {
 };
 
 const io: ErasureIo = {
-  deleteStoredAsset: async (ref) => {
+  deleteStoredAsset: async (ref, scope) => {
     deletedStoredAssets.push(ref);
-  },
-  deletePublicAssetUrl: async (url) => {
-    deletedPublicUrls.push(url);
+    handedOver.push({ ref, scope });
   },
   revokeAllSessions: async (userId) => {
     sessionRevokedFor.push(userId);
@@ -397,10 +398,10 @@ before(async () => {
     VALUES ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}');
 
     INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, sender_user_id,
-                                      sender_role, body, attachment_url, attachment_name)
+                                      sender_role, body, attachment_r2_key, attachment_name)
     VALUES
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
-       'Here is our budget and the guest list.', '${CHAT_ATTACHMENT_URL}', 'contract-draft.pdf'),
+       'Here is our budget and the guest list.', '${CHAT_ATTACHMENT_REF}', 'contract-draft.pdf'),
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
        'Adding my notes on the menu.', NULL, NULL);
 
@@ -955,7 +956,7 @@ test('2g · vendor_profiles — the columns lost to name-drift are now scrubbed'
 test('2h · chat — the subject’s own messages AND their R2 attachments are gone', async () => {
   assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [SUBJECT]), 0);
   assert.ok(
-    deletedPublicUrls.includes(CHAT_ATTACHMENT_URL),
+    deletedStoredAssets.includes(CHAT_ATTACHMENT_REF),
     'the chat attachment object was not handed to storage — deleting the row alone leaves the file ' +
       'addressable with nothing left to say it was theirs',
   );
@@ -1149,7 +1150,40 @@ test('3l · what fail-closed KEPT is audit-logged, not silently dropped', async 
 test('3d · the co-partner’s chat message and the thread survive', async () => {
   assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [PARTNER]), 1);
   assert.equal(await count(`SELECT count(*) FROM public.chat_threads WHERE thread_id = $1`, [THREAD]), 1);
-  assert.equal(deletedPublicUrls.length, 1, 'more attachments were deleted than the subject authored');
+  assert.equal(
+    deletedStoredAssets.filter((r) => r.includes('/chat/')).length,
+    1,
+    'more attachments were deleted than the subject authored',
+  );
+});
+
+test('3d′ · every file erasure hands to storage is held to THE ROW IT CAME FROM (2026-09-10)', () => {
+  // The adapter deletes a ref only when planCleanupDelete admits it under the
+  // scope handed over with it. So the property worth pinning is that the purge
+  // builds each scope from the right row: the subject's own objects are admitted,
+  // and another tenant's object — the thing a subject could have written onto
+  // their own row before asking to be erased — is not.
+  assert.ok(handedOver.length >= 8, `only ${handedOver.length} hand-overs — the purge stopped handing files over?`);
+  for (const { ref, scope } of handedOver) {
+    assert.equal(
+      refBelongsToRow(ref, scope),
+      true,
+      `${ref} was handed over under ${scope.label}, which refuses it — the real adapter would keep the subject’s own file`,
+    );
+  }
+  const strangers = [
+    OUTSIDER_GOV_ID_REF,
+    `r2://setnayan-media/vendors/${OUTSIDER_VENDOR_PROFILE}/logo/logo.png`,
+    `r2://setnayan-media/events/${EVENT}/guest-selfies/${OUTSIDER}/selfie.jpg`,
+    'r2://setnayan-vendor-contracts/paperwork/2b000000-0000-4000-8000-000000000099/psa/scan.pdf',
+    'r2://setnayan-thread-files/chat/2d000000-0000-4000-8000-000000000099/a.pdf',
+    'r2://setnayan-media/profile-photo/2a000000-0000-4000-8000-000000000099/p.png',
+  ];
+  for (const { scope } of handedOver) {
+    for (const stranger of strangers) {
+      assert.equal(refBelongsToRow(stranger, scope), false, `${scope.label} would delete ${stranger}`);
+    }
+  }
 });
 
 test('3e · other people’s rows are untouched', async () => {

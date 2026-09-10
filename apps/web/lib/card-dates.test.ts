@@ -112,12 +112,18 @@ const BENCH = stripComments(BENCH_RAW);
 test('source · the card renders the date block, on BOTH rails', () => {
   assert.match(BENCH, /function CardDateBlock\(/, 'the date block is gone');
   assert.match(BENCH, /<CardDateBlock/, 'the card no longer renders it');
+  // EVERY VendorCard call site passes dates — counted, not hard-coded. This
+  // read "exactly 2" until 2026-09-11, when the HARD tier's sunk rail added a
+  // third call site (fits · "Doesn't fit your build" · "Not available"); a
+  // fixed number is a claim about how many rails exist, not about whether each
+  // one carries its dates, and it would have passed a fourth site that forgot.
+  const sites = (BENCH.match(/<VendorCard\b/g) ?? []).length;
   const wired = BENCH.match(/dates=\{dateViewFor\(v\)\}/g) ?? [];
+  assert.ok(sites >= 3, `expected the fits rail and both sunk rails; found ${sites} VendorCard sites`);
   assert.equal(
     wired.length,
-    2,
-    'both VendorCard call sites must pass dates — the fits rail AND the sunk ' +
-      `rail. Found ${wired.length}.`,
+    sites,
+    `every VendorCard call site must pass dates. ${sites} sites, ${wired.length} with dates.`,
   );
 });
 

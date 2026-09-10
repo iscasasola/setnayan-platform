@@ -47,6 +47,8 @@ import {
   TeamSavePlan,
 } from './team-controls';
 import { TeamSummaryChip } from './team-summary-chip';
+import type { BlockedLockReason } from '@/lib/bench-card-actions';
+import { BLOCKED_LOCK_ROW, CANT_LOCK_YET_HEADING } from '@/lib/explore-info-copy';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 const pesoFromPhp = (php: number | null) =>
@@ -75,6 +77,7 @@ export function BuildLocked({
   currentPlan,
   savedBuilds,
   reviewStatusByVendorId,
+  lockBlockedByVendorId,
 }: {
   model: PlanBudgetModel;
   eventId: string;
@@ -103,6 +106,14 @@ export function BuildLocked({
    * nothing to press. The couple was invited to review and handed a wall.
    */
   reviewStatusByVendorId?: ReadonlyMap<string, 'open' | 'submitted'>;
+  /**
+   * Build picks that cannot be locked right now, and why — the CARD's own
+   * answer (`resolveBenchCardActions` → `blockedLockReason`), computed once in
+   * the page. Owner 2026-09-11: a supplier who declined, or whose calendar shows
+   * the day taken, loses Lock — so this list must not offer "Lock to confirm"
+   * for them either. Absent/empty (flag off) ⇒ every pick renders as it shipped.
+   */
+  lockBlockedByVendorId?: ReadonlyMap<string, BlockedLockReason>;
   /** Categories the quote-fill row can offer. Empty (or absent) → no row. */
   quoteFillable?: ReadonlyArray<FillableCategory>;
   /** For the relocated "Save current as a plan" (§3 item 6). Flag-ON only. */
@@ -153,6 +164,15 @@ export function BuildLocked({
       }),
     ),
   );
+
+  // Owner 2026-09-11 — the card's own verdict decides which picks are lockable.
+  // One map, computed in the page from `resolveBenchCardActions`, so this list
+  // and the card cannot disagree. Every pick stays in exactly one of the two.
+  const readyRows = toLockRows.filter((r) => !lockBlockedByVendorId?.has(r.vendorId));
+  const blockedRows = toLockRows.flatMap((r) => {
+    const blocked = lockBlockedByVendorId?.get(r.vendorId);
+    return blocked ? [{ ...r, blocked }] : [];
+  });
 
   // ── PR-E · "Still needs your decision" ────────────────────────────────────
   // One walk of the model into the pure resolver's input shape. Locked-ness
@@ -259,7 +279,7 @@ export function BuildLocked({
             </h3>
             <span className="text-xs text-ink/55">{pesoFromPhp(toLockTotal)} in your build</span>
           </div>
-          {toLockRows.map((r) => (
+          {readyRows.map((r) => (
             <div
               key={`${r.groupId}-${r.vendorId}`}
               className="rounded-xl border border-ink/10 bg-cream px-4 py-3"
@@ -320,6 +340,38 @@ export function BuildLocked({
               />
             </div>
           ))}
+          {/* Owner 2026-09-11 — in the build, but NOT lockable: not available on
+              the date, or the supplier declined. Listed, never dropped (they are
+              still in the couple's build and its total), with the one control
+              that fixes it — Remove — and no "Lock to confirm". */}
+          {blockedRows.length > 0 ? (
+            <div className="space-y-2 pt-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+                {CANT_LOCK_YET_HEADING}
+              </p>
+              {blockedRows.map((r) => (
+                <div
+                  key={`${r.groupId}-${r.vendorId}-blocked`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-ink/15 px-4 py-3"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
+                    <span className="block text-xs text-ink/60">
+                      {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
+                    </span>
+                  </span>
+                  {replan ? (
+                    <TeamRemoveCandidate
+                      eventId={eventId}
+                      groupId={r.groupId as string}
+                      vendorId={r.vendorId}
+                      vendorName={r.name}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {replan ? (
             <div className="flex justify-end pt-0.5">
               <TeamClearCandidates eventId={eventId} />

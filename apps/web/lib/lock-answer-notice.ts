@@ -68,15 +68,19 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
   }),
   slot_full: () => ({
     tone: 'refused',
-    text: 'You are already fully booked for that time slot, so you cannot take this one as well. Free up the slot or open more capacity first.',
+    text: 'That time slot is already full on that date, so this booking cannot be added to it. Raise the slot\u2019s capacity in your calendar if you can take more, or turn this one down.',
   }),
   not_verified: () => ({
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',
   }),
   fully_booked: () => ({
+    // Mirrors the database's own HINT on `free_tier_booking_cap`, read out of
+    // production: a free shop holds a fixed number of live bookings at once.
+    // No number is printed here — the cap is decided in SQL and a second copy
+    // of it would drift.
     tone: 'refused',
-    text: 'Your current plan has run out of bookings, so this one cannot be taken. Upgrade your plan to keep accepting work.',
+    text: 'You are holding as many live bookings at once as a free shop can. Finish one of your current events to free a slot, or move to a paid plan to take on more.',
   }),
   error: () => ({
     tone: 'refused',

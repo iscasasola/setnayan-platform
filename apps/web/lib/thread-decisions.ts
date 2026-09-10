@@ -584,7 +584,13 @@ function guestCountNow(g: GuestCountFact, f: ThreadDecisionFacts): DecisionNow {
         ? `Waiting for you · ${stillReads}`
         : `Waiting for them · ${stillReads}`,
     needsYou: f.viewer === 'vendor',
-    wasText: `${g.quotedPax} guests`,
+    // ⚠ NO STRIKE-THROUGH. A struck value means "no longer true", and the
+    // quoted count IS still true — the line beside it says so, and it stays
+    // true until the supplier answers. #5372 struck "150 guests" here while
+    // printing "the quote still reads 150 guests" in the same line; rendering
+    // the supplier's phone (2026-09-10) is what showed it. The title already
+    // carries both numbers ("Now planning for 170 — you quoted 150").
+    wasText: null,
   };
 }
 

@@ -58,6 +58,13 @@ chat after every tap. Switching uses `replaceState`, so Back leaves the thread.
    were one static string; they now turn around with the reader like the Now
    lines do. Found by rendering the phone, not by reading the code.
 
+5. **The guest-count card struck through a number that was still true.** It
+   showed ~~150 guests~~ beside "the quote still reads 150 guests" — a
+   strike-through claims "no longer so", and the quoted count stays true until
+   the supplier answers. Introduced in #5372; found by rendering the supplier's
+   phone. Removed, with a guard that no card strikes through a value its own
+   Now line still asserts.
+
 ### Correction to the previous PR
 
 #5372's comments named the appointment action `respondToAppointment`; it is

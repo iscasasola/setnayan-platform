@@ -812,3 +812,24 @@ test('a meeting with no recorded proposer can be answered by either side — as 
     assert.deepEqual(e.reply, { kind: 'meeting', appointmentId: 'a1', label: 'Tasting' });
   }
 });
+
+test('no card strikes through a value its own Now line says is still true', () => {
+  // A strike-through is a claim: "this is no longer so". The guest-count card
+  // once struck "150 guests" beside "the quote still reads 150 guests".
+  for (const { label, entry } of everyEntry()) {
+    const was = entry.now.wasText;
+    if (was == null) continue;
+    assert.ok(
+      !entry.now.text.includes(was),
+      `${label}: strikes "${was}" while the Now line still asserts it — "${entry.now.text}"`,
+    );
+  }
+  // And the fixture must contain a real strike-through, or this passes vacuously.
+  const moved = only(buildThreadDecisions(facts({
+    meetings: [{
+      appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting', scheduledAtMs: SUN_27,
+      previousScheduledAtMs: SAT_26, status: 'confirmed', initiatedBy: 'couple',
+    }],
+  })));
+  assert.ok(moved.now.wasText, 'the moved meeting lost its strike-through — this guard is now vacuous');
+});

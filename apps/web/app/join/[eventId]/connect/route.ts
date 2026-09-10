@@ -80,7 +80,11 @@ export async function GET(
       .eq('event_id', eventId)
       .maybeSingle();
     const slug = (event?.slug as string | null)?.trim();
-    if (slug) dest = thenReply ? inviteReplyPath(slug) : `/${slug}`;
+    if (slug) dest = `/${slug}`;
+    // From the invite arrival's Reply door: back to that door, not on to the
+    // site. A separate line on purpose — the one above is pinned by
+    // an-invited-person-is-recognised.test.ts and stays byte-identical.
+    if (slug && thenReply) dest = inviteReplyPath(slug);
   }
 
   // Set-password gate (owner directive): a passwordless email-link account is

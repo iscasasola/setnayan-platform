@@ -78,7 +78,7 @@ export async function JoinFlow({
   // The 18-role picker shipped five days BEFORE that lock (e567da125, 06-20) and
   // was never taken down — a stranger could self-assign "Principal Sponsor".
   //
-  // One resolve covers all nine sentences below, the SIGNED-OUT arm included.
+  // One resolve covers all eight sentences below, the SIGNED-OUT arm included.
   // This component is already an async server component holding the event id,
   // so no prop, no default and no call-site change is needed.
   //

@@ -44,14 +44,16 @@ import {
   type ChatAmendmentData,
   type AmendmentItemView,
 } from './chat-amendment-card';
+import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
   ThreadViewSwitch,
   DecisionsPanel,
   FilesPanel,
-  type ThreadView,
+  type SupplierReplyActions,
 } from './chat-thread-views';
+import { withThreadView, type ThreadView } from '@/lib/thread-view';
 import {
   buildThreadDecisions,
   decisionsNeedingYou,
@@ -114,6 +116,28 @@ type Props = {
    */
   decisionPayments?: readonly PaymentFact[];
   decisionGuestCounts?: readonly GuestCountFact[];
+  /**
+   * PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+   * Resolved on the SERVER by `fetchThreadLockHandshake` — it cannot be fetched
+   * here, because a supplier cannot read `event_vendors` through their own
+   * session (every policy on that table is couple- or moderator-scoped). Read
+   * only by the locked-amendment line.
+   *
+   * ⚠ ABSENT MEANS UNKNOWN, NEVER "LOCKED". A mount site that forgets this prop
+   * degrades to "Price agreed and frozen at this amount." — true everywhere —
+   * rather than claiming a booking that may not exist.
+   */
+  lockHandshake?: ThreadLockHandshake | null;
+  /**
+   * Which third is showing on first paint — the page reads `?view=` on the
+   * server and passes it here, so a Decisions link never flashes the chat.
+   */
+  initialView?: ThreadView;
+  /**
+   * The supplier's own reply actions (payment · guest count). Passed ONLY by
+   * the supplier's page; the couple never receives those replies.
+   */
+  supplierReplyActions?: SupplierReplyActions;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -129,6 +153,9 @@ export function ChatMessageStream({
   standing = null,
   decisionPayments = [],
   decisionGuestCounts = [],
+  lockHandshake = null,
+  initialView = 'all',
+  supplierReplyActions,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -357,7 +384,23 @@ export function ChatMessageStream({
   // ---------------------------------------------------------------------------
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
-  const [view, setView] = useState<ThreadView>('all');
+  const [view, setViewState] = useState<ThreadView>(initialView);
+
+  /**
+   * Switching views rewrites the URL IN PLACE — `replaceState`, not a
+   * navigation. No server round trip, no history entry per tap (Back should
+   * leave the conversation, not step back through All · Decisions · All), and
+   * a reload or a shared link reopens the same third.
+   */
+  const setView = useCallback((next: ThreadView) => {
+    setViewState(next);
+    try {
+      const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.history.replaceState(window.history.state, '', withThreadView(here, next));
+    } catch {
+      // A blocked history API costs the URL, never the view itself.
+    }
+  }, []);
 
   /**
    * THE MERGE — three sources, one timeline.
@@ -384,6 +427,7 @@ export function ChatMessageStream({
         if (!card) return null;
         return {
           proposalId: m.proposal_id as string,
+          publicId: card.publicId,
           announcedAtMs: ms(m.created_at) ?? 0,
           title: card.title,
           totalPhp: Math.round(card.totalCentavos / 100),
@@ -736,6 +780,24 @@ export function ChatMessageStream({
             standing={standing}
             counterpartyLabel={counterpartyLabel}
             needsYouCount={needsYouCount}
+            reply={{
+              threadId,
+              eventId: messages[0]?.event_id ?? '',
+              vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+              // 🔑 THE REPLY LANDS BACK ON DECISIONS. Every reply action ends
+              // in redirect(return_path); without the view in it, answering
+              // the other side would drop you into the full chat after every
+              // tap. The actions revalidate the bare route (lib/return-path.ts)
+              // and redirect to this.
+              returnPath: withThreadView(
+                viewerRole === 'couple' && messages[0]
+                  ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+                  : `/vendor-dashboard/messages/${threadId}`,
+                'decisions',
+              ),
+              eventDate,
+              supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+            }}
           />
         </div>
       ) : view === 'files' ? (
@@ -848,6 +910,8 @@ export function ChatMessageStream({
                     viewerRole={viewerRole}
                     threadId={threadId}
                     returnPath={returnPathFor(m)}
+                    counterpartyLabel={counterpartyLabel}
+                    lockHandshake={lockHandshake}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">

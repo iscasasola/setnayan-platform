@@ -75,6 +75,7 @@ test('a quote sent in August and accepted in September reads as accepted, not as
       quotes: [
         {
           proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
           announcedAtMs: AUG_22, // announced six weeks before "now"
           title: 'Garden Buffet · 150 guests',
           totalPhp: 187_500,
@@ -99,6 +100,7 @@ test('a quote sent in August and accepted in September reads as accepted, not as
 test('an unanswered quote is the couple’s to answer and the supplier’s to wait for', () => {
   const open = {
     proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
     announcedAtMs: SEP_05,
     title: 'Garden Buffet',
     totalPhp: 187_500,
@@ -230,6 +232,7 @@ test('the two page sections interleave with the message cards by date', () => {
       quotes: [
         {
           proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
           announcedAtMs: AUG_22,
           title: 'Garden Buffet',
           totalPhp: 187_500,
@@ -410,6 +413,7 @@ test('a quote wears only ladder words, and only where it moved the stage', () =>
         quotes: [
           {
             proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
             announcedAtMs: AUG_22,
             title: 'Garden Buffet',
             totalPhp: 187_500,
@@ -532,6 +536,7 @@ test('a date is rendered in Manila, whatever the machine thinks the day is', () 
       quotes: [
         {
           proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
           announcedAtMs: AUG_22,
           title: 'Garden Buffet',
           totalPhp: 1,
@@ -550,6 +555,7 @@ test('a missing date prints nothing rather than "Invalid Date"', () => {
       quotes: [
         {
           proposalId: 'p1',
+    publicId: 'S89P-ABCDEFGHJK',
           announcedAtMs: AUG_22,
           title: 'Garden Buffet',
           totalPhp: null,
@@ -567,4 +573,263 @@ test('an empty conversation produces no entries and nothing needing anyone', () 
   const entries = buildThreadDecisions(facts());
   assert.deepEqual(entries, []);
   assert.equal(decisionsNeedingYou(entries), 0);
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * 8 · EACH SIDE ANSWERS THE OTHER'S REQUEST (owner, 2026-09-10)
+ *
+ * "the vendor and customer will either approve the request of the other one."
+ * The side being ASKED gets the reply; the side that ASKED gets none.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const VIEWERS: DecisionViewer[] = ['couple', 'vendor'];
+const PROPOSERS = ['couple', 'vendor', null] as const;
+
+/** Every entry the module can build, across every status, proposer and reader. */
+function everyEntry(): Array<{ label: string; entry: DecisionEntry }> {
+  const out: Array<{ label: string; entry: DecisionEntry }> = [];
+  for (const viewer of VIEWERS) {
+    for (const status of QUOTE_STATUSES) {
+      out.push({
+        label: `${viewer}/quote/${status}`,
+        entry: only(buildThreadDecisions(facts({
+          viewer,
+          quotes: [{
+            proposalId: 'p1', publicId: 'S89P-ABCDEFGHJK', announcedAtMs: AUG_22,
+            title: 'Garden Buffet', totalPhp: 187_500, status, decidedAtMs: SEP_01,
+          }],
+        }))),
+      });
+    }
+    for (const status of MEETING_STATUSES) {
+      for (const initiatedBy of PROPOSERS) {
+        out.push({
+          label: `${viewer}/meeting/${status}/by-${initiatedBy}`,
+          entry: only(buildThreadDecisions(facts({
+            viewer,
+            meetings: [{
+              appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting',
+              scheduledAtMs: SUN_27, previousScheduledAtMs: null, status, initiatedBy,
+            }],
+          }))),
+        });
+      }
+    }
+    for (const status of AMENDMENT_STATUSES) {
+      for (const raisedBy of PROPOSERS) {
+        out.push({
+          label: `${viewer}/adjustment/${status}/by-${raisedBy}`,
+          entry: only(buildThreadDecisions(facts({
+            viewer,
+            adjustments: [{
+              amendmentId: 'm1', announcedAtMs: AUG_22, title: 'Dessert table',
+              deltaPhp: 12_000, status, decidedAtMs: null, raisedBy,
+            }],
+          }))),
+        });
+      }
+    }
+    for (const confirmedAtMs of [null, SEP_08]) {
+      out.push({
+        label: `${viewer}/payment/${confirmedAtMs ? 'confirmed' : 'open'}`,
+        entry: only(buildThreadDecisions(facts({
+          viewer,
+          payments: [{
+            paymentId: 'pay1', loggedAtMs: SEP_05, amountPhp: 50_000, method: 'GCash',
+            label: null, confirmedAtMs, ofTotalPhp: 187_500,
+          }],
+        }))),
+      });
+    }
+    out.push({
+      label: `${viewer}/guest_count`,
+      entry: only(buildThreadDecisions(facts({
+        viewer,
+        guestCounts: [{
+          id: 'ev1', changedAtMs: SEP_08, livePax: 170, quotedPax: 150, surchargePhp: 25_000,
+        }],
+      }))),
+    });
+  }
+  return out;
+}
+
+test('🔑 a reply is offered if and only if the card is waiting on the reader', () => {
+  const all = everyEntry();
+  // Guard against a vacuous pass: the fixture must contain BOTH halves.
+  assert.ok(all.some((x) => x.entry.reply != null), 'no entry offered a reply at all');
+  assert.ok(all.some((x) => x.entry.reply == null), 'every entry offered a reply');
+
+  for (const { label, entry } of all) {
+    assert.equal(
+      entry.reply != null,
+      entry.now.needsYou,
+      `${label}: reply=${entry.reply?.kind ?? 'none'} but needsYou=${entry.now.needsYou} — ` +
+        'a button with no request behind it, or a request with no way to answer it',
+    );
+  }
+});
+
+test('the side that asked gets no button — the side that was asked does', () => {
+  // A meeting time the SUPPLIER proposed: the couple answers it, the supplier waits.
+  const meeting = (viewer: DecisionViewer) =>
+    only(buildThreadDecisions(facts({
+      viewer,
+      meetings: [{
+        appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting',
+        scheduledAtMs: SUN_27, previousScheduledAtMs: null, status: 'proposed',
+        initiatedBy: 'vendor',
+      }],
+    })));
+  assert.deepEqual(meeting('couple').reply, { kind: 'meeting', appointmentId: 'a1', label: 'Tasting' });
+  assert.equal(meeting('vendor').reply, null);
+
+  // An adjustment the COUPLE raised: now it is the supplier's to answer.
+  const adj = (viewer: DecisionViewer) =>
+    only(buildThreadDecisions(facts({
+      viewer,
+      adjustments: [{
+        amendmentId: 'm1', announcedAtMs: AUG_22, title: 'Dessert table',
+        deltaPhp: 12_000, status: 'proposed', decidedAtMs: null, raisedBy: 'couple',
+      }],
+    })));
+  assert.deepEqual(adj('vendor').reply, { kind: 'adjustment', amendmentId: 'm1' });
+  assert.equal(adj('couple').reply, null);
+});
+
+test('once answered, nobody is offered the button again', () => {
+  // The single-winner actions refuse a second answer; the view must not offer one.
+  for (const status of ['confirmed', 'done', 'cancelled']) {
+    for (const viewer of VIEWERS) {
+      const e = only(buildThreadDecisions(facts({
+        viewer,
+        meetings: [{
+          appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting',
+          scheduledAtMs: SUN_27, previousScheduledAtMs: null, status, initiatedBy: 'vendor',
+        }],
+      })));
+      assert.equal(e.reply, null, `${viewer}/${status} still offered a reply`);
+    }
+  }
+});
+
+test('a quote is answered by REVIEWING it, never by a one-tap accept', () => {
+  const couple = only(buildThreadDecisions(facts({
+    viewer: 'couple',
+    quotes: [{
+      proposalId: 'p1', publicId: 'S89P-ABCDEFGHJK', announcedAtMs: SEP_05,
+      title: 'Garden Buffet', totalPhp: 187_500, status: 'sent', decidedAtMs: null,
+    }],
+  })));
+  // A link to the full proposal, keyed by the public id the /proposals page uses.
+  assert.deepEqual(couple.reply, { kind: 'quote_review', publicId: 'S89P-ABCDEFGHJK' });
+
+  // The supplier sent it; they wait. No button on their side at all.
+  const vendor = only(buildThreadDecisions(facts({
+    viewer: 'vendor',
+    quotes: [{
+      proposalId: 'p1', publicId: 'S89P-ABCDEFGHJK', announcedAtMs: SEP_05,
+      title: 'Garden Buffet', totalPhp: 187_500, status: 'sent', decidedAtMs: null,
+    }],
+  })));
+  assert.equal(vendor.reply, null);
+});
+
+test('money the couple logged, and a headcount change, are answered by the supplier only', () => {
+  const pay = (viewer: DecisionViewer) => only(buildThreadDecisions(facts({
+    viewer,
+    payments: [{
+      paymentId: 'pay1', loggedAtMs: SEP_05, amountPhp: 50_000, method: 'GCash',
+      label: null, confirmedAtMs: null, ofTotalPhp: 187_500,
+    }],
+  })));
+  assert.deepEqual(pay('vendor').reply, { kind: 'payment', paymentId: 'pay1' });
+  assert.equal(pay('couple').reply, null);
+
+  const pax = (viewer: DecisionViewer) => only(buildThreadDecisions(facts({
+    viewer,
+    guestCounts: [{
+      id: 'ev1', changedAtMs: SEP_08, livePax: 170, quotedPax: 150, surchargePhp: 25_000,
+    }],
+  })));
+  assert.deepEqual(pax('vendor').reply, {
+    kind: 'guest_count', eventVendorId: 'ev1', surchargePhp: 25_000,
+  });
+  assert.equal(pax('couple').reply, null);
+});
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * 9 · A LABEL HAS A SUBJECT, AND IT TURNS AROUND WITH THE READER
+ * ──────────────────────────────────────────────────────────────────────── */
+
+test('the couple is never described to themselves in the third person', () => {
+  const pay = (viewer: DecisionViewer) => only(buildThreadDecisions(facts({
+    viewer,
+    payments: [{
+      paymentId: 'pay1', loggedAtMs: SEP_05, amountPhp: 50_000, method: 'GCash',
+      label: null, confirmedAtMs: null, ofTotalPhp: 187_500,
+    }],
+  })));
+  // Found by RENDERING the couple's phone, 2026-09-10 — not by reading the code.
+  assert.equal(pay('couple').kindLabel, 'Payment you logged');
+  assert.equal(pay('vendor').kindLabel, 'Payment logged by the couple');
+  assert.doesNotMatch(pay('couple').kindLabel, /the couple/i);
+});
+
+test('"you quoted" belongs to whoever is reading', () => {
+  const g = (viewer: DecisionViewer) => only(buildThreadDecisions(facts({
+    viewer,
+    guestCounts: [{
+      id: 'ev1', changedAtMs: SEP_08, livePax: 170, quotedPax: 150, surchargePhp: 25_000,
+    }],
+  })));
+  assert.match(g('vendor').title, /— you quoted 150/);
+  assert.match(g('couple').title, /— they quoted 150/);
+});
+
+test('every kind has a label for both readers', () => {
+  for (const k of Object.keys(DECISION_VOICE) as DecisionKind[]) {
+    for (const v of VIEWERS) {
+      assert.ok(DECISION_VOICE[k].label[v]?.trim(), `${k} has no label for ${v}`);
+    }
+  }
+});
+
+test('a meeting with no recorded proposer can be answered by either side — as the server allows', () => {
+  // `respondAppointment` refuses only when initiated_by === the actor's role, so
+  // a NULL proposer is answerable by both, and the chat's own card offers both.
+  // Decisions used to offer it to neither: two doors to one request, disagreeing.
+  for (const viewer of VIEWERS) {
+    const e = only(buildThreadDecisions(facts({
+      viewer,
+      meetings: [{
+        appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting',
+        scheduledAtMs: SUN_27, previousScheduledAtMs: null, status: 'proposed',
+        initiatedBy: null,
+      }],
+    })));
+    assert.equal(e.now.needsYou, true, `${viewer} could not answer a proposer-less meeting`);
+    assert.deepEqual(e.reply, { kind: 'meeting', appointmentId: 'a1', label: 'Tasting' });
+  }
+});
+
+test('no card strikes through a value its own Now line says is still true', () => {
+  // A strike-through is a claim: "this is no longer so". The guest-count card
+  // once struck "150 guests" beside "the quote still reads 150 guests".
+  for (const { label, entry } of everyEntry()) {
+    const was = entry.now.wasText;
+    if (was == null) continue;
+    assert.ok(
+      !entry.now.text.includes(was),
+      `${label}: strikes "${was}" while the Now line still asserts it — "${entry.now.text}"`,
+    );
+  }
+  // And the fixture must contain a real strike-through, or this passes vacuously.
+  const moved = only(buildThreadDecisions(facts({
+    meetings: [{
+      appointmentId: 'a1', announcedAtMs: AUG_22, title: 'Tasting', scheduledAtMs: SUN_27,
+      previousScheduledAtMs: SAT_26, status: 'confirmed', initiatedBy: 'couple',
+    }],
+  })));
+  assert.ok(moved.now.wasText, 'the moved meeting lost its strike-through — this guard is now vacuous');
 });

@@ -1,6 +1,7 @@
 'use server';
 
 import { after } from 'next/server';
+import { titleCase } from '@/lib/personalized-menu';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -576,7 +577,13 @@ async function revealExclusivePerks(args: {
         category: string;
         exclusive_perk_text: string;
       }) => {
-        const label = s.title?.trim() || s.category;
+        // 🔴 THE FALLBACK REACHED A PERSON. Both production cards carry a NULL
+        // title, so this fell through to the raw column and a supplier read
+        // "live_band" on their own dashboard. Same family as the 187 raw option
+        // keys fixed on 2026-08-20 (`1st_birthday`, `ninong`, `cord_yugal`).
+        // The missing titles are their own fix; this makes the fallback safe
+        // even when one is missing again.
+        const label = s.title?.trim() || titleCase(s.category);
         return {
           thread_id: args.threadId,
           event_id: args.eventId,

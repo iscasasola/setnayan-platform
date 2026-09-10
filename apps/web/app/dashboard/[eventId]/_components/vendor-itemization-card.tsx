@@ -220,7 +220,9 @@ export function VendorItemizationCard({
           lineItems={lineItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
-          vendorContactEmail={vendor.contact_email}
+          // 🚪 Only an OFF-platform supplier's couple-typed address (see prefillEmail
+          // in SupplierReachLinks below for why).
+          vendorContactEmail={vendor.marketplace_vendor_id ? null : vendor.contact_email}
           suggestTotalPhp={itemizedTotal}
         />
         <PaymentSection
@@ -372,8 +374,9 @@ export function VendorItemizationCard({
  * `?vendor=` with nothing after it, which the messages page never even reads
  * (it reads `prefill_vendor_email`, not `vendor`).
  *
- * The message link prefills from `event_vendors.contact_email` when the
- * supplier has one, and degrades to the plain messages index when they don't
+ * The message link prefills from `event_vendors.contact_email` only for an
+ * OFF-platform supplier (a Setnayan shop's copied address is never pre-filled,
+ * 2026-09-10 — see `prefillEmail` below), and degrades to the plain messages index when they don't
  * — `contact_email` is nullable with no default (see
  * `20260513100000_iteration_0006_vendors.sql`), and measured live on
  * 2026-09-02 every one of the 45 `event_vendors` rows in production has it
@@ -408,8 +411,20 @@ function SupplierReachLinks({
      marketplace id; an off-platform row a couple typed in by hand cannot be
      messaged here at all, and offering it would return "This vendor can't be
      messaged here". That row keeps the plain link. */
-  const messagesHref = vendor.contact_email
-    ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(vendor.contact_email)}`
+  /* 🚪 THE PREFILL IS ONLY EVER THE ADDRESS THE COUPLE TYPED for a supplier who
+     is NOT on Setnayan (owner 2026-09-10: "our goal is to let them integrate
+     their event with the vendor they find. not to let them communicate outside
+     the app"). A package lock COPIES a Setnayan shop's own email into
+     `event_vendors` (vendors/packages/actions.ts), and the Messages page prints
+     a prefill in plain sight as the value of its "start a thread" box — so
+     keying on `contact_email` alone handed the couple the shop's address. A
+     shop on Setnayan is reached through its conversation instead (the Message
+     button below, or its workspace). Same predicate as `canOpenThread`, and as
+     the LineItemSection prop above; written inline because the reach test
+     evaluates this body as-is. */
+  const prefillEmail = vendor.marketplace_vendor_id ? null : vendor.contact_email?.trim() || null;
+  const messagesHref = prefillEmail
+    ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(prefillEmail)}`
     : `/dashboard/${eventId}/messages`;
   const canOpenThread = variant === 'card' && vendor.marketplace_vendor_id != null;
   const workspaceHref = `/dashboard/${eventId}/vendors/${vendor.vendor_id}/workspace`;

@@ -436,7 +436,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   let registrationNumberOnFile = false;
   try {
     const { data, error } = await supabase
-      .from('vendor_profiles')
+      // `vendor_profiles_self` (migration 20271217955839), never the table:
+      // `registration_number_raw` is off `authenticated`'s column allowlist, and
+      // the catch below SWALLOWS the 42501 — read off the table this probe would
+      // report "not on file" for a shop that HAS one, forever, and the gate then
+      // asks the supplier for a number we are already holding.
+      .from('vendor_profiles_self')
       .select('registration_number_raw')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();

@@ -9,8 +9,15 @@ import {
   identityUploadsSubset,
   scrubIdentityUploads,
   vendorIdentityIsPastRetention,
+  VERIFICATION_IDENTITY_BUCKET,
+  verificationRefIsInScope,
 } from './vendor-identity-retention-core';
 import { collectStoredAssetRefs } from './erasure/coverage';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DECIDED = '2026-01-01T00:00:00.000Z';
@@ -124,5 +131,93 @@ test('a retired slot still holding a legacy file IS swept', () => {
   assert.deepEqual(
     collectStoredAssetRefs(identityUploadsSubset({ live_selfie: { r2_key: 'r2://b/selfie.jpg' } })),
     ['r2://b/selfie.jpg'],
+  );
+});
+
+/* ==========================================================================
+ * THE SWEEP MAY ONLY DELETE OUT OF THE VERIFICATION BUCKET
+ * (defence in depth behind migration 20271218766967)
+ *
+ * These columns had NO writer in the repo while `authenticated` held a
+ * table-level INSERT grant and a self-insert policy that constrained only
+ * `vendor_profile_id`. A forged row could name any object in any bucket, and
+ * the sweep runs on the admin client, so RLS protects nothing on the target.
+ * ========================================================================== */
+
+test('THE EXPLOIT REF IS REFUSED: a public-media object cannot be deleted by this sweep', () => {
+  // The exact string the forged row would carry — a shop logo key of the shape
+  // published in our own page source inside a presigned URL.
+  assert.equal(
+    verificationRefIsInScope(
+      'r2://setnayan-media/vendors/8f14e45f-ceea-467a-9f2a-1c2d3e4f5a6b/logo/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-logo.png',
+    ),
+    false,
+    'A vendor-verification retention job would delete an object out of the ' +
+      'PUBLIC media bucket. That is the reported vulnerability.',
+  );
+});
+
+test('every bucket that is not the verification bucket is refused', () => {
+  // All five names in R2_BUCKETS. Four must be refused; only the private
+  // verification bucket is this job's business.
+  for (const bucket of [
+    'setnayan-media',
+    'setnayan-thread-files',
+    'setnayan-vendor-contracts',
+    'setnayan-samples',
+  ]) {
+    assert.equal(
+      verificationRefIsInScope(`r2://${bucket}/vendors/v1/government-id.jpg`),
+      false,
+      `${bucket} must be refused`,
+    );
+  }
+  assert.equal(
+    verificationRefIsInScope('r2://setnayan-vendor-verification/vendors/v1/government-id.jpg'),
+    true,
+    'The legitimate ref must still be deleted — a rule that refuses everything ' +
+      'strands identity documents past their declared retention.',
+  );
+});
+
+test('a near-miss bucket name does not slip through on a prefix', () => {
+  // `startsWith` on the bucket alone would admit these. The trailing slash in
+  // the compared prefix is what stops them.
+  assert.equal(verificationRefIsInScope('r2://setnayan-vendor-verification-evil/k.jpg'), false);
+  assert.equal(verificationRefIsInScope('r2://setnayan-vendor-verificationX/k.jpg'), false);
+});
+
+test('a bare bucket ref names no object and is refused', () => {
+  assert.equal(verificationRefIsInScope('r2://setnayan-vendor-verification/'), false);
+  assert.equal(verificationRefIsInScope('r2://setnayan-vendor-verification'), false);
+});
+
+test('a legacy URL is refused — it is the other half of the same primitive', () => {
+  // `parseStoredAsset` classifies anything without an `r2://` scheme as
+  // `legacy_url` and hands it to `deletePublicAsset`, which resolves R2 public
+  // URLs too. A bare http ref must not reach it from these columns.
+  assert.equal(verificationRefIsInScope('https://cdn.setnayan.com/vendors/v1/logo.png'), false);
+  assert.equal(verificationRefIsInScope('vendors/v1/logo.png'), false);
+});
+
+test('nothing, blank and non-strings are refused rather than crashing the sweep', () => {
+  assert.equal(verificationRefIsInScope(null), false);
+  assert.equal(verificationRefIsInScope(undefined), false);
+  assert.equal(verificationRefIsInScope('   '), false);
+  assert.equal(verificationRefIsInScope(42 as unknown as string), false);
+});
+
+test('the bucket literal still matches R2_BUCKETS.vendorVerification', () => {
+  // `lib/r2.ts` is `server-only`, which is NOT installed in this repo, so it
+  // cannot be imported by a node:test. Read the constant out of the source
+  // instead — the point is that the literal in the pure module can never drift
+  // from the constant it mirrors.
+  const r2 = readFileSync(resolve(HERE, 'r2.ts'), 'utf8');
+  assert.match(
+    r2,
+    new RegExp(`vendorVerification:\\s*'${VERIFICATION_IDENTITY_BUCKET}'`),
+    `R2_BUCKETS.vendorVerification no longer equals '${VERIFICATION_IDENTITY_BUCKET}'. ` +
+      'The sweep would now refuse EVERY ref and silently stop deleting identity ' +
+      'documents — a retention gap that looks exactly like a quiet week.',
   );
 });

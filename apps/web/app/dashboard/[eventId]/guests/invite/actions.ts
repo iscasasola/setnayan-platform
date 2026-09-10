@@ -33,6 +33,9 @@ import { randomBytes } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
 
 export type RegenerateInviteQrResult =
   | { ok: true }
@@ -96,4 +99,41 @@ export async function regenerateInviteQr(
   revalidatePath(`/dashboard/${eventId}/guests/invite`);
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true };
+}
+
+/**
+ * Save the invite link's theme (lib/invite-themes.ts · owner 2026-09-10).
+ *
+ * Couple-only, like everything else on this page (`assertCouple`). A Pro theme
+ * also needs Event Hub Pro RIGHT NOW — re-checked here, server-side, because the
+ * picker's disabled radio is a courtesy and a crafted post is not. The write goes
+ * through the admin client after those checks: `events.invite_theme` carries a
+ * SELECT grant only (migration 20271219583821), so no session write grant
+ * widens the surface for a writer that does not need one.
+ *
+ * Unready skins are refused, so a crafted post cannot save a theme that would
+ * only render as House.
+ */
+export async function setInviteTheme(eventId: string, formData: FormData): Promise<void> {
+  try {
+    await assertCouple(eventId);
+  } catch {
+    redirect(`/dashboard/${eventId}`);
+  }
+  const raw = formData.get('invite_theme');
+  if (!isInviteThemeId(raw) || !INVITE_THEMES[raw].ready) {
+    redirect(`/dashboard/${eventId}/guests/invite`);
+  }
+  const theme = raw as InviteThemeId;
+  const admin = createAdminClient();
+  if (INVITE_THEMES[theme].tier === 'pro') {
+    const ownsPro = await eventCoupleWebsiteProActive(admin, eventId);
+    if (!ownsPro) redirect(`/dashboard/${eventId}/studio/website-pro`);
+  }
+  const { error } = await admin.from('events').update({ invite_theme: theme }).eq('event_id', eventId);
+  if (error) {
+    redirect(`/dashboard/${eventId}/guests/invite?theme=error`);
+  }
+  revalidatePath(`/dashboard/${eventId}/guests/invite`);
+  redirect(`/dashboard/${eventId}/guests/invite?theme=saved`);
 }

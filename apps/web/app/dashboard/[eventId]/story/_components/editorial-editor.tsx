@@ -8,6 +8,8 @@
 // ============================================================================
 
 import { useMemo, useState } from 'react';
+
+import { StoryRail, type StoryStep, type StoryStepKey } from './story-rail';
 import Link from 'next/link';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { eventNoun } from '@/lib/event-noun';
@@ -246,6 +248,18 @@ function ProUpsellLine({ eventId, children }: { eventId: string; children: React
   );
 }
 
+/**
+ * The rail's Publish chip — the rung the story is on now, in the rung's own word.
+ * Kept beside the editor rather than invented in the rail: the rail must not learn a second
+ * vocabulary for a fact this file already owns.
+ */
+const AUDIENCE_CHIP: Record<string, string> = {
+  draft: 'Draft',
+  event: 'Guests',
+  published: 'Live',
+  taken_back: 'Taken back',
+};
+
 export function EditorialEditor({
   eventId,
   slug,
@@ -270,6 +284,7 @@ export function EditorialEditor({
   deskPercentDecided = 0,
   hasBeenPublished = false,
   publishConsentAt = null,
+  desk = null,
   cover = null,
   whatsNext = null,
 }: {
@@ -358,6 +373,8 @@ export function EditorialEditor({
    * resolve them (an unproved host, a refused read). A missing step is
    * honest; a step full of invented options is not.
    */
+  /** The desk, rendered by the page (it needs a server read) and shown as step one. */
+  desk?: React.ReactNode;
   cover?: React.ReactNode;
   whatsNext?: React.ReactNode;
 }) {
@@ -469,6 +486,12 @@ export function EditorialEditor({
   // as on the way out — a draft written by an older build, or by hand, must not
   // put the editor into a mode it cannot render.
   const [theme, setThemeState] = useState<StoryTheme>(() => sanitizeStoryTheme(initial.theme));
+
+  /*
+    WHICH STEP IS OPEN — the thirteenth piece of state, and the only one the rail owns.
+    `desk` first, exactly as the prototype opens (`<section class="panel on" id="p-desk">`).
+  */
+  const [step, setStep] = useState<StoryStepKey>('desk');
   const setTheme = (next: StoryTheme) => {
     setThemeState(next);
     setDirty(true);
@@ -703,8 +726,64 @@ export function EditorialEditor({
   const linkCard =
     'flex items-center justify-between gap-3 rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm transition hover:border-burgundy/40 hover:bg-burgundy/5';
 
+  /*
+    THE RAIL'S CHIPS SAY ONLY WHAT WE ALREADY KNOW. Every value here is read from state or from a
+    prop the page already computed — nothing is recounted for the rail, because two places
+    counting one thing is how they come to disagree.
+  */
+  const railSteps: StoryStep[] = [
+    {
+      key: 'desk',
+      label: 'The desk',
+      chip: deskOpenCount > 0 ? String(deskOpenCount) : null,
+      hot: deskOpenCount > 0,
+    },
+    { key: 'story', label: 'The story', chip: null },
+    {
+      key: 'theme',
+      label: 'Theme',
+      /*
+       * ⚠ 'board', not 'auto'. The prototype's rail chip reads "Auto" and I typed the mode as
+       * `'auto'` from that word — the typecheck refused it. The shipped vocabulary is
+       * `StoryThemeMode = 'board' | 'own' | 'neutral'` (lib/story-theme.ts). The chip keeps the
+       * prototype's WORD and the code keeps the app's NAME; a comparison against a value the
+       * union does not contain is always false, and would have shown "Neutral" forever.
+       */
+      chip: theme.mode === 'board' ? 'Auto' : theme.mode === 'own' ? 'Yours' : 'Neutral',
+    },
+    { key: 'cover', label: 'Cover', chip: null },
+    { key: 'next', label: 'What\u2019s next', chip: 'Optional' },
+    { key: 'publish', label: 'Publish', chip: AUDIENCE_CHIP[form.audience] ?? null },
+  ];
+
+  /*
+    ⚠ `hidden`, NEVER `{step === 'x' && …}`. The story, theme and publish panels share ONE unsaved
+    form — twelve pieces of state, no autosave, saved only on a publish-rung press — so unmounting
+    a panel would throw away everything the host had typed the moment they tapped another step,
+    silently, with `dirty` still true. `service-wizard.tsx` in this same app already states the
+    rule: "All step sections live in the DOM (so every field submits); only the active one is
+    shown." The prototype does the same thing with `.panel{display:none}`.
+  */
+  const panel = (key: StoryStepKey) => ({ hidden: step !== key, 'aria-hidden': step !== key });
+
   return (
-    <div className="space-y-6">
+    <div className="min-[1000px]:grid min-[1000px]:grid-cols-[214px_minmax(0,1fr)] min-[1000px]:items-start min-[1000px]:gap-7">
+      <StoryRail
+        steps={railSteps}
+        active={step}
+        onSelect={(k) => {
+          setStep(k);
+          // The prototype's own last line in `show()`. A step opened half-scrolled reads as a
+          // page that did not change.
+          if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
+        }}
+        percentDecided={deskPercentDecided}
+      />
+
+      <div className="space-y-6">
+      <div {...panel('desk')}>{desk}</div>
+
+      <div {...panel('story')} className="space-y-6">
       {/* Bring-in inputs (existing piece-editors) */}
       <section className={card}>
         <h2 className="font-display text-lg italic text-ink">What goes in</h2>
@@ -1382,6 +1461,9 @@ export function EditorialEditor({
         </div>
       </section>
 
+      </div>
+
+      <div {...panel('theme')}>
       {/*
         THEME (08 step 1.4) — after "What shows" because that is where it falls
         in the six steps (the desk · the story · THEME · cover · what's next ·
@@ -1396,6 +1478,8 @@ export function EditorialEditor({
         onChange={setTheme}
       />
 
+      </div>
+
       {/*
         COVER (08 step 1.5) then WHAT'S NEXT (08 step 1.7) — the fourth and fifth
         of the six steps, in the order `02` §1 sets them: the desk · the story ·
@@ -1409,9 +1493,10 @@ export function EditorialEditor({
         known by, and whether anything follows it, BEFORE they decide who may
         read it — and the publish rung below is the last press on the page.
       */}
-      {cover}
-      {whatsNext}
+      <div {...panel('cover')}>{cover}</div>
+      <div {...panel('next')}>{whatsNext}</div>
 
+      <div {...panel('publish')} className="space-y-6">
       {/*
         ═══ PUBLISH — 08 step 1.6 · design `02` §8 · prototype "PUBLISH" panel ══
 
@@ -1719,6 +1804,8 @@ export function EditorialEditor({
           ) : null}
         </section>
       ) : null}
+      </div>
+      </div>
     </div>
   );
 }

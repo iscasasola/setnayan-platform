@@ -21,6 +21,7 @@ import {
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
+import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-arrival';
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
@@ -101,16 +102,21 @@ export async function submitRsvp(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
+  // Posted by the invite arrival's Reply door (lib/invite-arrival.ts). A KEYWORD,
+  // never a path: every destination below is built from the slug the DATABASE
+  // returns, so no form can steer where this action sends anyone.
+  const toInvite = isInviteReturn(formData.get('return_to'));
   const session = await readGuestSession();
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
-    // Session got out of sync — kick them back to the slug landing.
+    // Session got out of sync — kick them back to the slug landing (or, from
+    // the arrival, back to its first door, where they can find themselves again).
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? `/${ev.slug}` : '/');
+    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
   }
 
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;
@@ -305,6 +311,8 @@ export async function submitRsvp(
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
+    // From the invite arrival, back to the Reply door to try again.
+    if (toInvite && evFail?.slug) redirect(`${inviteReplyPath(evFail.slug)}?rsvp=error`);
     redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
   }
 
@@ -690,6 +698,11 @@ export async function submitRsvp(
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.
   const outcome = answerRefused ? 'refused' : replyLocked ? 'details' : 'ok';
+  // From the invite arrival the reply's next door is Enter (door 03) — one tap
+  // from the Event Hub. The site's own line below is left BYTE-IDENTICAL: its
+  // guard (only-the-answer-freezes.test.ts, "replying lands the guest on the
+  // event hub") pins it, and adding a branch ahead of it re-points no guard.
+  if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
   redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
 }
 

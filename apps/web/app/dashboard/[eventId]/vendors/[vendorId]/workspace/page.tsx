@@ -190,6 +190,7 @@ import { markThreadRead, sendChatMessage } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -1319,7 +1320,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               {paidSoFarFormatted ?? '—'}
             </dd>
           </div>
-          {ev.contact_email || ev.contact_phone ? (
+          {/* 🚪 ONLY THE CONTACT THE COUPLE TYPED THEMSELVES (owner 2026-09-10:
+              "not to let them communicate outside the app"). A package lock
+              COPIES the shop's own email and phone into this row
+              (vendors/packages/actions.ts), so on a marketplace-linked row this
+              cell would print a Setnayan shop's number — the door out the
+              public page used to hold. Such a supplier is reached through the
+              Conversation panel instead. An OFF-platform supplier has no
+              in-app channel at all, so the couple's own note stays. */}
+          {isOffPlatformSupplier(ev) && (ev.contact_email || ev.contact_phone) ? (
             <div className="col-span-2 sm:col-span-1">
               <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Contact
@@ -2032,6 +2041,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             reviewsData={marketplaceReviewsData}
             vendorBusinessName={displayName}
             vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
+            /* The in-app way to reach them, where the Contact card used to
+               offer their phone and email — the SAME two controls the
+               Conversation panel uses, so there is still one mechanism. */
+            reach={
+              chatThread ? (
+                <Link
+                  href={conversationHref}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                >
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Message {displayName}
+                </Link>
+              ) : (
+                <ContactShortlistVendorButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  label={`Message ${displayName}`}
+                  pendingLabel="Opening…"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline disabled:opacity-60"
+                  wrapperClassName=""
+                />
+              )
+            }
             reviewLinkHref={
               ev.status === 'delivered' || ev.status === 'complete'
                 ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`
@@ -2533,6 +2565,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       }
       const blockState = await getThreadBlockState(thread, user.id, 'couple');
       const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
+      // PR-H · booked, or merely asked? Couple's own session; RLS is the gate.
+      const chatLockHandshake = await fetchThreadLockHandshake(supabase, {
+        eventId,
+        vendorProfileId: thread.vendor_profile_id,
+      });
       const coupleMsgCount = initialMessages.filter(
         (m) => m.sender_role === 'couple',
       ).length;
@@ -2578,6 +2615,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             currentUserId={user.id}
             viewerRole="couple"
             counterpartyLabel={displayName}
+            lockHandshake={chatLockHandshake}
           />
           {blockState.blockedByMe || blockState.blockedByThem ? (
             <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">

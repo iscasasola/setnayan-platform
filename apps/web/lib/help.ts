@@ -178,7 +178,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'sign-up-as-vendor',
         title: 'Sign up as a vendor',
-        body: 'Same form, pick "Vendor" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email — couples find you by the contact email you set there.',
+        body: 'Same form, pick "Vendor" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
       {
         slug: 'create-an-event',
@@ -359,7 +359,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'start-thread-with-vendor',
         title: 'Start a thread with a vendor',
-        body: "On the Messages tab, type the vendor's contact email. If they have a Setnayan vendor profile with that email, Setnayan creates a thread between you both. Re-opening a thread between the same event + vendor resumes the existing conversation — no duplicates. Only couples can open new threads — vendors reply to threads couples started.",
+        body: "Tap Message on a supplier in your Vendors list, or Inquire on any shop's page — Setnayan opens the conversation for you, and the shop replies in your Messages. Everything you agree stays with your event. (If you already know the email on a shop's Setnayan profile, you can also type it on the Messages tab.) Re-opening a thread between the same event + vendor resumes the existing conversation — no duplicates. Only couples can open new threads — vendors reply to threads couples started.",
       },
       {
         slug: 'identity-masking',

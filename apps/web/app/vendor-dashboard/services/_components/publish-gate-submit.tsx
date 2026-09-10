@@ -39,7 +39,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   PUBLISH_COACH_MESSAGE,
-  exclusiveIsSet,
   priceIsSet,
   unmetPublishRequirements,
   type PublishRequirement,
@@ -66,14 +65,12 @@ export function PublishGateSubmit({
 
     const read = () => {
       const price = (form.elements.namedItem('starting_price_php') as HTMLInputElement | null)?.value;
-      const perk = (form.elements.namedItem('exclusive_perk_text') as HTMLInputElement | null)?.value;
       // `priceIsSet` takes a number; an empty box and a non-numeric box are both
       // "no price". NaN must not read as a set price.
       const n = price === undefined || price.trim() === '' ? null : Number(price);
       setUnmet(
         unmetPublishRequirements({
           hasPrice: priceIsSet(Number.isFinite(n as number) ? (n as number) : null),
-          hasExclusive: exclusiveIsSet(perk ?? null),
         }),
       );
     };

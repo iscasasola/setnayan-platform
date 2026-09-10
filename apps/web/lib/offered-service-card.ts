@@ -69,6 +69,7 @@ type ServiceRow = {
   transport_included: boolean | null;
   transport_flat_fee_php: number | null;
   exclusive_perk_text: string | null;
+  includes_setnayan_gift: boolean | null;
   primary_photo_r2_key: string | null;
   showcase_video_r2_key: string | null;
 };
@@ -76,7 +77,8 @@ type ServiceRow = {
 const SERVICE_COLS =
   'vendor_service_id,vendor_profile_id,title,category,pricing_basis,starting_price_php,' +
   'per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,' +
-  'transport_included,transport_flat_fee_php,exclusive_perk_text,primary_photo_r2_key,' +
+  'transport_included,transport_flat_fee_php,exclusive_perk_text,includes_setnayan_gift,' +
+  'primary_photo_r2_key,' +
   'showcase_video_r2_key';
 
 

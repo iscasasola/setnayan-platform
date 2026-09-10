@@ -1278,9 +1278,10 @@ export async function VendorServicesManager({
                           photosCurrent={svc.showcase_photo_r2_keys}
                           displayUrls={showcaseDisplayUrls}
                         />
-                        <ExclusivePerkField
+                        <SetnayanGiftField
                           idPrefix={svc.vendor_service_id}
-                          perkDefault={svc.exclusive_perk_text ?? undefined}
+                          giftOn={svc.includes_setnayan_gift === true}
+                          legacyPerkText={svc.exclusive_perk_text ?? undefined}
                         />
                         <div className="flex items-center justify-between">
                           {/* Trigger only — the delete ConfirmForm is a SIBLING
@@ -1300,7 +1301,8 @@ export async function VendorServicesManager({
                             Delete
                           </button>
                           {/* The gate, on the button. A LIVE card whose price
-                              or Setnayan Exclusive is blank cannot be saved —
+                              is blank cannot be saved — the Setnayan gift left
+                              this gate on 2026-09-09 and is now optional —
                               the trigger would refuse it and the vendor would
                               see a generic error instead of the sentence the
                               database wrote for them. A DRAFT is never blocked;
@@ -1746,7 +1748,7 @@ function AddServiceForm({
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
       <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
-      <ExclusivePerkField idPrefix={`new-${addCategory}`} />
+      <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Cancel
@@ -1910,48 +1912,89 @@ const DISCOUNT_TYPE_LABELS: Record<string, string> = {
 // ── Child-list DB rows → editor drafts (Phase 3b) ────────────────────────────
 // The fetched rows carry ISO/number values; the editors take string-typed draft
 // rows. These map one to the other (dates → YYYY-MM-DD for <input type="date">).
-/** "Setnayan Exclusive" perk field. Required to publish; optional for drafts. */
-function ExclusivePerkField({
+/**
+ * The Setnayan gift — a yes or a no, and the retired free text shown back.
+ *
+ * ── WHAT CHANGED, AND WHY BOTH HALVES ARE HERE (owner 2026-09-09) ──────────
+ * This was a 500-character free-text box. The gift is now ONE thing — Papic
+ * credits — sized at 40% of the booking fee, capped at the 50,000-credit rung,
+ * and computed from a price that does not exist while a card is advertised. So
+ * there is no amount to set and no product to pick: *"it is either a yes or a
+ * no"*. The control is a pair of radios.
+ *
+ * 🔑 THE OLD TEXT IS STILL SHOWN, READ-ONLY, WHEN A CARD HAS ONE. Retiring it
+ * as the CONTROL is not the same as deleting it as DATA: the two cards live in
+ * production when this shipped promise "Free 1-hour extension for Setnayan
+ * couples" and "FREE", and those promises are still live in chat. A supplier
+ * who can no longer see what their own card says would have no way to know what
+ * they are still bound to.
+ *
+ * ⚠ RADIOS, NOT A CHECKBOX. An unchecked checkbox submits nothing, and the save
+ * RPC treats a MISSING key as "leave the stored value alone" — the rule that
+ * stops this retirement from erasing those two rows. A radio pair always sends
+ * one value, so "no" is a real answer rather than an absence.
+ */
+function SetnayanGiftField({
   idPrefix,
-  perkDefault,
+  giftOn,
+  legacyPerkText,
 }: {
   idPrefix: string;
-  perkDefault?: string;
+  giftOn: boolean;
+  legacyPerkText?: string;
 }) {
   return (
     <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}>
       <div className="flex items-center gap-2">
         <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
         <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Setnayan Exclusive
+          Setnayan gift
         </p>
         <span
           className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
           style={{ background: 'var(--m-paper)', color: 'var(--m-orange-2)' }}
         >
-          Required to publish
+          Optional
         </span>
       </div>
       <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-        A hidden perk you offer exclusively to couples who book through Setnayan.
-        It&rsquo;s revealed in-chat only after the vendor accepts the inquiry.
-        It&rsquo;s contractually binding once revealed — so make it meaningful.
+        Say yes and every couple who books this card gets free Papic photos for their
+        celebration — a real Setnayan product, given in your name. How many is worked out from
+        your booking fee and appears on the quote, so there is nothing here to set. It is added
+        to your lock bill beside the fee, capped at 40% of it.
       </p>
-      <Field
-        label="Exclusive perk"
-        htmlFor={`${idPrefix}-excl-perk`}
-        help="Cannot be blank if you want to publish (activate) this service."
-      >
-        <input
-          id={`${idPrefix}-excl-perk`}
-          name="exclusive_perk_text"
-          type="text"
-          maxLength={500}
-          placeholder="e.g. Free 1-hour extension · Complimentary styling session · Waived travel fee within 30 km"
-          defaultValue={perkDefault ?? ''}
-          className="input-field"
-        />
-      </Field>
+      <fieldset className="flex gap-2">
+        <legend className="sr-only">Include a Setnayan gift</legend>
+        {[
+          { value: 'on', label: 'Yes, include it', on: true },
+          { value: 'off', label: 'No, not on this card', on: false },
+        ].map((opt) => (
+          <label
+            key={opt.value}
+            className="flex min-h-[44px] flex-1 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm"
+            style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-paper)', color: 'var(--m-ink)' }}
+          >
+            <input
+              type="radio"
+              name="includes_setnayan_gift"
+              id={`${idPrefix}-gift-${opt.value}`}
+              value={opt.value}
+              defaultChecked={giftOn === opt.on}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </fieldset>
+      {legacyPerkText?.trim() ? (
+        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+          <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+            This card also still promises:
+          </span>{' '}
+          &ldquo;{legacyPerkText.trim()}&rdquo; — your own wording, from before the gift became a
+          yes/no. It is still revealed in chat and still binding. It can no longer be edited here;
+          ask Setnayan to change or remove it.
+        </p>
+      ) : null}
     </div>
   );
 }

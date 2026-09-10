@@ -931,8 +931,16 @@ export type PlanCardPick = {
   total_cost_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO `contact_email` / `contact_phone` HERE, ON PURPOSE (2026-09-10).
+  // Nothing that reads a pick ever used them, and this type is serialized into
+  // the couple's Vendors page as a CLIENT prop (`PlanBudgetAccordion`'s
+  // `model`) — so every supplier row's email and phone rode along in the page
+  // payload. On a package-locked marketplace row those are the SHOP's own
+  // details, copied in by the lock. Owner 2026-09-10: "our goal is to let them
+  // integrate their event with the vendor they find. not to let them
+  // communicate outside the app". `bucketVendorsByGroup` no longer copies them
+  // across; the optional input fields below are left for callers that pass raw
+  // rows, and are never forwarded.
   /**
    * DIY parity (2026-06-11): host-authored "what's included" lines for a
    * manual vendor's package. Flows to Compare's expandable inclusions. Absent
@@ -997,7 +1005,7 @@ export type PlanCardPick = {
   /**
    * 2026-05-22 owner directive — manual vendor photo URL takes PRIORITY 1
    * when the host attached a manual contact. Photo source is
-   * `event_manual_vendors.photo_r2_key` → r2PublicUrl(). NULL on
+   * `event_manual_vendors.photo_r2_key` → publicUrlForStoredAsset(). NULL on
    * marketplace picks (no manual_vendor link) and on manual picks
    * where the host skipped the photo upload. Falls through to
    * service_primary_photo_url → marketplace_logo_url → initials.
@@ -1140,7 +1148,7 @@ export type EventVendorRowInput = {
   /**
    * Resolved public URL for the linked manual vendor's photo (when
    * the host uploaded one at create-time). Source path is
-   * `event_manual_vendors.photo_r2_key` → `r2PublicUrl()` in the
+   * `event_manual_vendors.photo_r2_key` → `publicUrlForStoredAsset()` in the
    * dashboard page.tsx data fetch (NOT a raw R2 key, so consumers can
    * hand it straight to next/image). NULL when no photo OR when the
    * row is not manual-vendor-linked.
@@ -1168,7 +1176,7 @@ export type EventVendorRowInput = {
   /**
    * Finalized-card-service-photo refinement (2026-05-22, follow-up on PR
    * #341). Public URL for `vendor_services.primary_photo_r2_key` —
-   * resolved via `r2PublicUrl()` in the dashboard page.tsx data fetch
+   * resolved via `publicUrlForStoredAsset()` in the dashboard page.tsx data fetch
    * (NOT a raw R2 key, so consumers can hand it straight to next/image).
    *
    * Priority 1 on the locked-state avatars. `null` when (a) the
@@ -1361,8 +1369,6 @@ export function bucketVendorsByGroup(
       total_cost_php: toNum(v.total_cost_php ?? null),
       deposit_paid_php: toNum(v.deposit_paid_php ?? null),
       notes: v.notes ?? null,
-      contact_email: v.contact_email ?? null,
-      contact_phone: v.contact_phone ?? null,
       host_inclusions: v.host_inclusions ?? null,
       compatibility_issue: computeCompatibilityIssue(
         v,

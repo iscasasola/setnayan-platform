@@ -692,11 +692,12 @@ export async function EventDashboard({
     return `/event-types/${eventType}.webp`;
   })();
   const ownHeroSrc = await (async () => {
-    const stored = (event.landing_page_hero_image_url as string | null) ?? null;
+    // The website hero is couple-writable: held to the public bucket before it
+    // can be signed (lib/site-media-ref.ts).
+    const stored = siteMediaServeRef(event.landing_page_hero_image_url);
     if (!stored) return null;
     try {
-      // Held to the public bucket before signing (lib/site-media-ref.ts).
-      return renderableImageSrc(await displayUrlForStoredAsset(siteMediaServeRef(stored)));
+      return renderableImageSrc(await displayUrlForStoredAsset(stored));
     } catch {
       return null;
     }

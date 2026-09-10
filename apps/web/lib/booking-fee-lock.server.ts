@@ -185,6 +185,11 @@ export async function collectBookingFeeAtLock(
   // above describes, one level up. Falls back to the locked schedule on a
   // failed read, never to silence.
   const liveSchedule = await getBookingFeeSchedule(admin);
+  // The gift's clause (" ₱2,500 + your Setnayan gift for your couple: 1,429
+  // free Papic photos, ₱1,000") sits between the schedule and the SLA, and is
+  // '' when there is no gift — so a gift-free bill reads exactly as before.
+  const giftClause =
+    giftCredits > 0 ? setnayanGiftBillClause(feeCentavos, giftCredits, giftCentavos) : '';
 
   const { data: orderRow, error: oErr } = await admin
     .from('orders')
@@ -193,10 +198,7 @@ export async function collectBookingFeeAtLock(
       user_id: payerUserId,
       vendor_profile_id: vendorProfileId,
       service_key: serviceKey,
-      description:
-        `Setnayan booking fee (${bookingFeeScheduleSummary(liveSchedule)})` +
-        (giftCredits > 0 ? setnayanGiftBillClause(feeCentavos, giftCredits, giftCentavos) : '') +
-        ' — up for verification, confirmation within 24 hrs',
+      description: `Setnayan booking fee (${bookingFeeScheduleSummary(liveSchedule)})${giftClause} — up for verification, confirmation within 24 hrs`,
       requested_total_php: amountPhp,
       status: 'submitted',
       reference_code: referenceCode,

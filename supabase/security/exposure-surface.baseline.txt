@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6617
+# facts: 6622
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
 #   col       4860
-#   policy    904
+#   policy    909
 #   view      9
 #   func      255
 #
@@ -3118,7 +3118,7 @@ col	public.papic_photos.couple_approved_for_showcase	anon=S authenticated=SU
 col	public.papic_photos.created_at	anon=S authenticated=SU
 col	public.papic_photos.device_model	anon=S authenticated=SU
 col	public.papic_photos.display_bytes	anon=S authenticated=SU
-col	public.papic_photos.display_r2_key	anon=S authenticated=SU
+col	public.papic_photos.display_r2_key	anon=S authenticated=S
 col	public.papic_photos.drive_transferred_at	anon=S authenticated=SU
 col	public.papic_photos.event_id	anon=S authenticated=SU
 col	public.papic_photos.expires_at	anon=S authenticated=SU
@@ -3139,21 +3139,21 @@ col	public.papic_photos.orig_bytes	anon=S authenticated=SU
 col	public.papic_photos.paparazzi_seat_id	anon=S authenticated=SU
 col	public.papic_photos.photo_id	anon=S authenticated=SU
 col	public.papic_photos.photo_type	anon=S authenticated=SU
-col	public.papic_photos.poster_r2_key	anon=S authenticated=SU
+col	public.papic_photos.poster_r2_key	anon=S authenticated=S
 col	public.papic_photos.preserved_at	anon=S authenticated=SU
-col	public.papic_photos.r2_object_key	anon=S authenticated=SU
+col	public.papic_photos.r2_object_key	anon=S authenticated=S
 col	public.papic_photos.safe_display_r2_key	anon=S authenticated=S
 col	public.papic_photos.safe_thumb_r2_key	anon=S authenticated=S
 col	public.papic_photos.safe_tile_r2_key	anon=S authenticated=S
 col	public.papic_photos.size_bytes	anon=S authenticated=SU
 col	public.papic_photos.superseded_at	anon=S authenticated=SU
 col	public.papic_photos.thumb_bytes	anon=S authenticated=SU
-col	public.papic_photos.thumb_r2_key	anon=S authenticated=SU
+col	public.papic_photos.thumb_r2_key	anon=S authenticated=S
 col	public.papic_photos.tile_bytes	anon=S authenticated=S
 col	public.papic_photos.tile_r2_key	anon=S authenticated=S
 col	public.papic_photos.wall_hidden_at	anon=S authenticated=SU
 col	public.papic_photos.wall_hidden_by_guest_id	anon=S authenticated=S
-col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=SU
+col	public.papic_photos.wall_safe_r2_key	anon=S authenticated=S
 col	public.papic_photos.width_px	anon=S authenticated=SU
 col	public.papic_seat_day_usage.created_at	anon=- authenticated=SIU
 col	public.papic_seat_day_usage.event_id	anon=- authenticated=SIU
@@ -5967,6 +5967,7 @@ policy	public.papic_photos|papic_photos_claimer_update	mode=PERMISSIVE cmd=UPDAT
 policy	public.papic_photos|papic_photos_couple_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.papic_photos|papic_photos_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=NULL
 policy	public.papic_photos|papic_photos_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_photos.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
+policy	public.papic_photos|papic_photos_keys_stay_in_their_event	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=true check=((clip_web_r2_key IS NULL) OR (starts_with(clip_web_r2_key, (('r2://setnayan-media/papic/event-'::text || (event_id)::text) || '/'::text)) AND (clip_web_r2_key !~ '(^|/)\.{1,2}(/|$)'::text)))
 policy	public.papic_photos|papic_photos_moderator_photos_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'photos'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
 policy	public.papic_seat_day_usage|papic_seat_day_usage_claimer_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM paparazzi_seats ps WHERE ((ps.seat_id = papic_seat_day_usage.seat_id) AND (ps.claimer_user_id = auth.uid())))) check=NULL
 policy	public.papic_seat_day_usage|papic_seat_day_usage_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_seat_day_usage.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type))))) check=(is_admin() OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_seat_day_usage.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'couple'::member_type)))))
@@ -6230,6 +6231,8 @@ policy	public.vendor_packages|vendor_packages_owner_write	mode=PERMISSIVE cmd=AL
 policy	public.vendor_packages|vendor_packages_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_active = true) check=NULL
 policy	public.vendor_packages|vendor_packages_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_papic_capture_grants|vendor_papic_grants_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
+policy	public.vendor_papic_captures|vendor_papic_captures_keys_stay_in_their_folder_insert	mode=RESTRICTIVE cmd=INSERT roles=anon,authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM unnest(ARRAY[vendor_papic_captures.r2_object_key, vendor_papic_captures.poster_r2_key, vendor_papic_captures.display_r2_key, vendor_papic_captures.thumb_r2_key, vendor_papic_captures.tile_r2_key]) k(ref) WHERE ((k.ref IS NOT NULL) AND (NOT ((starts_with(k.ref, (((('r2://setnayan-media/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text)) OR starts_with(k.ref, (((('r2://setnayan-media/derivatives/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text))) AND (k.ref !~ '(^|/)\.{1,2}(/|$)'::text)))))))
+policy	public.vendor_papic_captures|vendor_papic_captures_keys_stay_in_their_folder_update	mode=RESTRICTIVE cmd=UPDATE roles=anon,authenticated using=true check=(NOT (EXISTS ( SELECT 1 FROM unnest(ARRAY[vendor_papic_captures.r2_object_key, vendor_papic_captures.poster_r2_key, vendor_papic_captures.display_r2_key, vendor_papic_captures.thumb_r2_key, vendor_papic_captures.tile_r2_key]) k(ref) WHERE ((k.ref IS NOT NULL) AND (NOT ((starts_with(k.ref, (((('r2://setnayan-media/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text)) OR starts_with(k.ref, (((('r2://setnayan-media/derivatives/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text))) AND (k.ref !~ '(^|/)\.{1,2}(/|$)'::text)))))))
 policy	public.vendor_papic_captures|vendor_papic_captures_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((nsfw_checked = true) AND (consent_basis <> 'pending_dpo_ruling'::text) AND (hidden_at IS NULL) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = vendor_papic_captures.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.vendor_papic_captures|vendor_papic_captures_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
@@ -6351,6 +6354,8 @@ policy	public.vendor_tool_bundles|vendor_tool_bundles_self_read	mode=PERMISSIVE 
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) OR is_admin()) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = auth.uid())))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))
+policy	public.vendor_verification_applications|vendor_verification_applications_refs_are_own_insert	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM jsonb_path_query(COALESCE(vendor_verification_applications.doc_uploads, '{}'::jsonb), 'strict $.**'::jsonpath) d(node) WHERE ((jsonb_typeof(d.node) = 'string'::text) AND starts_with(lower(regexp_replace((d.node #>> '{}'::text[]), '^[^0-9A-Za-z]+'::text, ''::text)), 'r2:'::text) AND (NOT ((starts_with((d.node #>> '{}'::text[]), (('r2://setnayan-vendor-verification/vendors/'::text || (vendor_verification_applications.vendor_profile_id)::text) || '/verification/'::text)) OR starts_with((d.node #>> '{}'::text[]), (('r2://setnayan-media/vendors/'::text || (vendor_verification_applications.vendor_profile_id)::text) || '/'::text))) AND ((d.node #>> '{}'::text[]) !~ '(^|/)\.{1,2}(/|$)'::text)))))))
+policy	public.vendor_verification_applications|vendor_verification_applications_refs_are_own_update	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=true check=(NOT (EXISTS ( SELECT 1 FROM jsonb_path_query(COALESCE(vendor_verification_applications.doc_uploads, '{}'::jsonb), 'strict $.**'::jsonpath) d(node) WHERE ((jsonb_typeof(d.node) = 'string'::text) AND starts_with(lower(regexp_replace((d.node #>> '{}'::text[]), '^[^0-9A-Za-z]+'::text, ''::text)), 'r2:'::text) AND (NOT ((starts_with((d.node #>> '{}'::text[]), (('r2://setnayan-vendor-verification/vendors/'::text || (vendor_verification_applications.vendor_profile_id)::text) || '/verification/'::text)) OR starts_with((d.node #>> '{}'::text[]), (('r2://setnayan-media/vendors/'::text || (vendor_verification_applications.vendor_profile_id)::text) || '/'::text))) AND ((d.node #>> '{}'::text[]) !~ '(^|/)\.{1,2}(/|$)'::text)))))))
 policy	public.vendor_verifications|vendor_verifications_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verifications.vendor_profile_id) AND (vp.user_id = auth.uid())))) check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=is_admin() check=NULL
 policy	public.vendor_web_dossiers|vendor_web_dossiers_admin_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=is_admin()

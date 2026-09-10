@@ -22,6 +22,15 @@ import {
   referencedKeysFrom,
   verificationDeleteVerdict,
   verificationDeletionBlockReason,
+  VERIFICATION_REFERENCE_SOURCES,
+  collectPlainStringsDetailed,
+  collectReferencedKeysDetailed,
+  documentReferenceCount,
+  readReferenceSource,
+  referenceSelectColumns,
+  type ReferenceQueryClient,
+  type ReferenceQueryResult,
+  type ReferenceSource,
 } from './verification-docs';
 import { buildSlotValue } from './vendor-verification-slots';
 
@@ -352,12 +361,29 @@ test('the set carries BOTH the raw value and the resolved bare key', () => {
 });
 
 test('widening the WALK alone is not enough — the listing holds bare keys', () => {
-  // The half-fix: pull `.r2_key` out and insert it as-is. Still deletable.
-  const halfFixed = new Set([ref(DTI)]);
+  // A live document belonging to SOMEBODY ELSE, so the round-3 canary (which
+  // refuses everything when no reference is shaped like a file in this bucket)
+  // is not what is doing the work here. This test is about the MATCH.
+  const CONTROL = 'vendors/other-shop/verification/bank_account_proof.pdf';
+  // The half-fix: pull `.r2_key` out and insert it as-is. Still deletable — a
+  // full `r2://` ref never equals the bare key the listing hands back.
+  const halfFixed = new Set([ref(DTI), CONTROL]);
   assert.equal(isDeletableVerificationDoc(DTI, halfFixed), true);
-  // The whole fix.
-  const whole = new Set(referencedKeysFrom({ dti_certificate: { r2_key: ref(DTI) } }));
+  // The whole fix carries BOTH forms, so the match lands.
+  const whole = new Set([...referencedKeysFrom({ dti_certificate: { r2_key: ref(DTI) } }), CONTROL]);
   assert.equal(isDeletableVerificationDoc(DTI, whole), false);
+});
+
+test('R3-1 · and a set of nothing but unresolved refs is refused OUTRIGHT', () => {
+  // The same half-fix without the control: no reference in the set is shaped
+  // like a file in this bucket, which is what a broken reference reader looks
+  // like. Round 3's canary fires on the COUNT OF DOCUMENT REFERENCES, so this
+  // state — which used to score a live document `left_over` — is now refused
+  // before the per-file match is even reached.
+  const halfFixed = new Set([ref(DTI)]);
+  assert.notEqual(halfFixed.size, 0);
+  assert.equal(documentReferenceCount(halfFixed), 0);
+  assert.equal(isDeletableVerificationDoc(DTI, halfFixed), false);
 });
 
 test('a value neither form recognises is kept raw and can still mark a file in use', () => {
@@ -367,11 +393,15 @@ test('a value neither form recognises is kept raw and can still mark a file in u
   assert.equal(isDeletableVerificationDoc(weird.trim(), keys), false);
 });
 
-test('collectPlainStrings keeps every NON-ref string, at any depth, trimmed', () => {
+test('collectPlainStrings keeps every NON-ref string, at any depth, raw AND trimmed', () => {
+  // Both forms, and only ever added. The trimmed form matches a stored value
+  // written with stray whitespace; the RAW form matches an object key that
+  // genuinely ends in one. Keeping only the trimmed one made this module's own
+  // "kept raw" claim broader than its mechanism — round 3, finding 6.
   const found = new Set(
     collectPlainStrings({ a: [' x ', { b: 'y' }], c: null, d: '', e: ref(GOV) }),
   );
-  assert.deepEqual([...found].sort(), ['x', 'y']);
+  assert.deepEqual([...found].sort(), [' x ', 'x', 'y']);
 });
 
 test('the two halves of the union are each load-bearing', () => {
@@ -537,36 +567,40 @@ test('FINDING 2 · a shape with no derivable key is kept raw, and that is SAID, 
 // axis over: a SUCCESSFUL read returning an INCOMPLETE set, feeding an
 // IRREVERSIBLE delete.
 
-test('FINDING 3 · a page that comes back exactly FULL is never the end', () => {
-  // The cap's signature. A limit that is never asked past looks identical to a
-  // table that happens to hold exactly that many rows.
-  let calls = 0;
-  return readAllPages(
-    async () => {
-      calls += 1;
-      return { rows: Array.from({ length: 4 }, (_, i) => ({ i })), error: null };
-    },
-    { pageSize: 4, maxPages: 3 },
-  ).then((r) => {
-    assert.equal(calls, 3, 'a full page must be followed by a request for the next one');
-    assert.equal(r.complete, false, 'a read that never reached a short page is NOT complete');
-  });
-});
+// A server that holds `total` rows and refuses to hand over more than `cap` of
+// them at a time — PostgREST's row cap, which is project configuration and
+// cannot be read from a session.
+const fakeRows = (total: number, cap: number) => {
+  const windows: [number, number][] = [];
+  const fetchPage = async (from: number, to: number) => {
+    windows.push([from, to]);
+    const want = Math.min(to - from + 1, cap);
+    const rows = Array.from({ length: Math.max(0, Math.min(want, total - from)) }, (_, i) => ({
+      i: from + i,
+    }));
+    return { rows, error: null, total };
+  };
+  return { fetchPage, windows };
+};
 
-test('FINDING 3 · only a SHORT page proves the end', async () => {
-  const pages = [4, 4, 1];
-  let n = 0;
-  const r = await readAllPages(
-    async () => ({ rows: Array.from({ length: pages[n++] ?? 0 }, (_, i) => ({ i })), error: null }),
-    { pageSize: 4, maxPages: 50 },
-  );
+test('FINDING 3 · completeness is proved against the server COUNT, not a page shape', async () => {
+  const { fetchPage } = fakeRows(8, 1000);
+  const r = await readAllPages(fetchPage, { pageSize: 4, maxPages: 50 });
   assert.equal(r.complete, true);
-  assert.equal(r.rows.length, 9, 'every page must be kept, not just the last');
-  assert.equal(n, 3, 'and it must stop at the short page rather than reading forever');
+  assert.equal(r.rows.length, 8, 'every page must be kept, not just the last');
 });
 
-test('FINDING 3 · an empty first page is a complete read of an empty table', async () => {
-  const r = await readAllPages(async () => ({ rows: [], error: null }), { pageSize: 4 });
+test('FINDING 3 · an exactly-full LAST page is still the end, because the count says so', async () => {
+  // The old rule needed a SHORT page to stop, so a table holding exactly a
+  // whole number of pages was read one extra time. The count settles it.
+  const { fetchPage, windows } = fakeRows(8, 1000);
+  const r = await readAllPages(fetchPage, { pageSize: 4, maxPages: 50 });
+  assert.equal(r.complete, true);
+  assert.equal(windows.length, 2, 'the count is reached at page 2; there is no third request');
+});
+
+test('FINDING 3 · an empty table is a complete read', async () => {
+  const r = await readAllPages(async () => ({ rows: [], error: null, total: 0 }), { pageSize: 4 });
   assert.deepEqual(r, { rows: [], error: null, complete: true });
 });
 
@@ -576,12 +610,58 @@ test('FINDING 3 · a page that errors stops the read and is NOT complete', async
     async () => {
       n += 1;
       return n === 1
-        ? { rows: [{ a: 1 }, { a: 2 }], error: null }
+        ? { rows: [{ a: 1 }, { a: 2 }], error: null, total: 99 }
         : { rows: null, error: 'vendor_verifications: permission denied' };
     },
     { pageSize: 2, maxPages: 9 },
   );
   assert.equal(r.error, 'vendor_verifications: permission denied');
+  assert.equal(r.complete, false);
+});
+
+// ── ROUND 3 · FINDING 4 — A SHORT PAGE WAS NOT PROOF OF THE END ─────────────
+//
+// The first repair paged until a page came back shorter than `pageSize`. That is
+// sound only while `pageSize` is strictly BELOW the server's row cap — and the
+// cap is project configuration, absent from `pg_db_role_setting`, unreadable
+// from any session. A reviewer probed it: cap 3 against pageSize 4 produced ONE
+// call and `complete: true`. Silent truncation feeding an irreversible delete —
+// the original bug restored behind the guard written to prevent it.
+
+test('R3-4 · a server cap BELOW the page size no longer ends the read early', async () => {
+  const { fetchPage, windows } = fakeRows(10, 3);
+  const r = await readAllPages(fetchPage, { pageSize: 4, maxPages: 50 });
+  assert.equal(r.complete, true, 'a capped read must still be able to finish');
+  assert.equal(r.rows.length, 10, 'and it must not skip a single row');
+  assert.deepEqual(
+    (r.rows as { i: number }[]).map((x) => x.i),
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+  );
+  // The window must advance by rows ACTUALLY collected, never by a fixed
+  // stride — a fixed stride is what skips rows under a cap.
+  assert.deepEqual(windows, [
+    [0, 3],
+    [3, 6],
+    [6, 9],
+    [9, 12],
+  ]);
+});
+
+test('R3-4 · a read that reports NO count can never call itself complete', async () => {
+  // Fail closed. A read that cannot prove it finished is treated exactly like
+  // one that failed.
+  const r = await readAllPages(async () => ({ rows: [{ a: 1 }], error: null }), {
+    pageSize: 4,
+    maxPages: 3,
+  });
+  assert.equal(r.complete, false);
+});
+
+test('R3-4 · a page that returns nothing before the count is reached is NOT complete', async () => {
+  const r = await readAllPages(async () => ({ rows: [], error: null, total: 7 }), {
+    pageSize: 4,
+    maxPages: 3,
+  });
   assert.equal(r.complete, false);
 });
 
@@ -690,7 +770,7 @@ test('5 · a failed LISTING switches deletion off as well', () => {
     verificationDeletionBlockReason({
       referenceError: null,
       referencesComplete: true,
-      referenceKeyCount: 3,
+      documentReferenceCount: 3,
       listingError: 'the bucket could not be listed',
       objectCount: 0,
     }),
@@ -757,9 +837,10 @@ test('the server module decides nothing — it fetches and delegates', () => {
   const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
   const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   for (const helper of [
-    'collectReferencedKeys(',
+    'collectReferencedKeysDetailed(',
     'buildVerificationDocsReportFrom(',
-    'readAllPages(',
+    'readReferenceSource(',
+    'VERIFICATION_REFERENCE_SOURCES',
   ]) {
     assert.ok(stripped.includes(helper), `${helper} must be where the decision comes from`);
   }
@@ -768,9 +849,18 @@ test('the server module decides nothing — it fetches and delegates', () => {
     /typeof value === 'string'/,
     'the string-only filter is the bug; it must not come back',
   );
-  // Both reference SELECTs must be RANGED. An unbounded one is finding 3.
-  const ranges = stripped.match(/\.range\(/g) ?? [];
-  assert.equal(ranges.length, 1, 'the one shared reader ranges; a second, unranged query is the bug');
+  // 🔴 ROUND 3 · the query itself must NOT be built here any more. Both
+  // mutations that stayed green at 55/55 — the shifted range window and the
+  // deleted `.order()` — were possible only because this untestable module
+  // built its own query. It has none now, and these three absences are what
+  // keeps it that way.
+  for (const built of ['.range(', '.order(', '.select(']) {
+    assert.equal(
+      stripped.includes(built),
+      false,
+      `${built} must be built in the pure module, where a fake client can record it`,
+    );
+  }
   assert.doesNotMatch(
     stripped,
     /referencesComplete: true/,
@@ -778,3 +868,311 @@ test('the server module decides nothing — it fetches and delegates', () => {
   );
 });
 
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 3 · THE ROOT CAUSE — the REAL select shape and the REAL range window
+// were exercised by NOTHING
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Every reference test above hands `readAllPages` a stub that ignores its
+// arguments, so three separate defects lived in the query the server module
+// built for itself and none of them could be caught:
+//   · S-A — `fetchPage(from, from + pageSize - 1)` shifted to
+//     `fetchPage(from + 1, from + pageSize)`. The FIRST row of the table is
+//     never read; its five documents read `left_over` with Delete beside them,
+//     and the read still reports `complete: true`. Suite GREEN, 55/55.
+//   · S-F — `.order(pkColumn, { ascending: true })` DELETED, the very line the
+//     code's own comment calls "what makes paging meaningful". GREEN, 55/55.
+//   · The primary key in the SELECT list — see the canary tests below.
+// The query is built in the pure module now, so a fake client can record what
+// was actually asked for.
+
+type Recorded = {
+  table: string;
+  columns: string;
+  count: 'exact';
+  orderBy: string;
+  ascending: boolean;
+  windows: [number, number][];
+};
+
+/**
+ * A fake Supabase client that RECORDS the query and serves rows out of an
+ * array, honouring a row cap the way PostgREST does.
+ */
+function recordingClient(
+  rowsByTable: Record<string, unknown[]>,
+  opts?: { cap?: number },
+): { client: ReferenceQueryClient; log: Recorded[] } {
+  const log: Recorded[] = [];
+  const cap = opts?.cap ?? 1000;
+  const client: ReferenceQueryClient = {
+    from(table: string) {
+      return {
+        select(columns: string, options: { count: 'exact' }) {
+          return {
+            order(column: string, orderOptions: { ascending: boolean }) {
+              return {
+                range(from: number, to: number): PromiseLike<ReferenceQueryResult> {
+                  const existing = log.find((entry) => entry.table === table);
+                  const entry =
+                    existing ??
+                    (log.push({
+                      table,
+                      columns,
+                      count: options.count,
+                      orderBy: column,
+                      ascending: orderOptions.ascending,
+                      windows: [],
+                    }),
+                    log[log.length - 1]!);
+                  entry.windows.push([from, to]);
+                  const all = rowsByTable[table] ?? [];
+                  const want = Math.min(to - from + 1, cap);
+                  return Promise.resolve({
+                    data: all.slice(from, from + Math.max(0, want)),
+                    error: null,
+                    count: all.length,
+                  });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  return { client, log };
+}
+
+const VERIFICATIONS = VERIFICATION_REFERENCE_SOURCES[0] as ReferenceSource;
+const APPLICATIONS = VERIFICATION_REFERENCE_SOURCES[1] as ReferenceSource;
+
+// ── R3-1 · THE PR DISARMED ITS OWN CANARY ──────────────────────────────────
+//
+// Round 2 added the primary key to both reference SELECTs (to order by it) and
+// handed the WHOLE ROW to the fold. `collectPlainStrings` keeps every string at
+// any depth, so ONE ordinary `vendor_verifications` row whose five `*_r2_key`
+// columns are all NULL yielded a set of size 1 — its own UUID. The gate is
+// `referenceKeyCount === 0 && objectCount > 0`, so it did not fire, and the page
+// offered Delete on a live government ID with verdict `ok`.
+// Measured, executing both shapes:
+//   MAIN's select shape   -> keyCount=0, gate FIRES,     govDeletable=false
+//   BRANCH's select shape -> keyCount=1, gate DOES NOT FIRE, govDeletable=TRUE
+// The gate's entire stated job is to catch "the reference reader collected
+// nothing" — the original defect this branch exists to fix. From the first
+// verification row onward it could never fire again.
+
+const PK = '11111111-2222-4333-8444-555555555555';
+const ALL_NULL_ROW = {
+  dti_certificate_r2_key: null,
+  bir_2303_r2_key: null,
+  mayors_permit_r2_key: null,
+  government_id_r2_key: null,
+  bank_account_proof_r2_key: null,
+};
+
+test('R3-1 · the reference SELECT projects NO primary key — only reference columns', () => {
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    const columns = referenceSelectColumns(source);
+    assert.equal(
+      columns.includes(source.pkColumn),
+      false,
+      `${source.table} must not project ${source.pkColumn} — its UUID inflates the reference set`,
+    );
+    assert.ok(columns.length > 0, `${source.table} must project something`);
+  }
+  assert.equal(
+    referenceSelectColumns(VERIFICATIONS),
+    'dti_certificate_r2_key, bir_2303_r2_key, mayors_permit_r2_key, government_id_r2_key, bank_account_proof_r2_key',
+  );
+  assert.equal(referenceSelectColumns(APPLICATIONS), 'doc_uploads');
+});
+
+test('R3-1 · and the QUERY asks for exactly that — recorded off a fake client', async () => {
+  const { client, log } = recordingClient({ vendor_verifications: [ALL_NULL_ROW] });
+  await readReferenceSource(client, VERIFICATIONS, { pageSize: 500 });
+  const entry = log[0]!;
+  assert.equal(entry.table, 'vendor_verifications');
+  assert.equal(entry.columns.includes('verification_id'), false, 'the PK is back in the SELECT');
+  assert.equal(entry.count, 'exact', 'completeness is proved against the server count');
+});
+
+test('R3-1 · an all-NULL verification row collects NOTHING, so the canary can still fire', async () => {
+  const { client } = recordingClient({ vendor_verifications: [ALL_NULL_ROW] });
+  const read = await readReferenceSource(client, VERIFICATIONS, { pageSize: 500 });
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1, 'the row was read');
+  const { keys } = collectReferencedKeysDetailed(read.rows);
+  assert.equal(keys.size, 0, 'a row that names no document must contribute no key');
+  const reason = verificationDeletionBlockReason({
+    referenceError: null,
+    referencesComplete: read.complete,
+    documentReferenceCount: documentReferenceCount(keys),
+    listingError: null,
+    objectCount: 1,
+  });
+  assert.equal(reason, EMPTY_REFERENCE_SET_REASON, 'the canary must still fire');
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+test('R3-1 · the canary counts DOCUMENT references, so no stray string can inflate it', () => {
+  // Defence in depth, and the real lesson: a set can be non-empty for reasons
+  // that protect nothing. Even if a PK, a timestamp or a referee's name found
+  // its way back into the fold, the gate must still fire.
+  const junk = new Set([PK, '2026-09-20T02:00:00Z', 'a referee named Ana']);
+  assert.notEqual(junk.size, 0, 'the set IS non-empty — that is the whole trap');
+  assert.equal(documentReferenceCount(junk), 0);
+  assert.equal(
+    verificationDeletionBlockReason({
+      referenceError: null,
+      referencesComplete: true,
+      documentReferenceCount: documentReferenceCount(junk),
+      listingError: null,
+      objectCount: 1,
+    }),
+    EMPTY_REFERENCE_SET_REASON,
+  );
+  assert.equal(isDeletableVerificationDoc(GOV, junk), false, 'and nothing may be deleted');
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: junk,
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'inuse',
+    'the delete ACTION must refuse it too — the page is not the gate',
+  );
+});
+
+test('R3-1 · a REAL document reference still counts, so nothing above disarmed the feature', () => {
+  const live = new Set([DTI, PK]);
+  assert.equal(documentReferenceCount(live), 1);
+  assert.equal(isDeletableVerificationDoc(GOV, live), true);
+});
+
+test('R3-1 · a walk that hits its depth ceiling fails CLOSED instead of silently shrinking', () => {
+  // A truncated walk returns a SMALLER set — the dangerous direction. It used
+  // to stop silently, and a reviewer used exactly that to score a LIVE document
+  // `left_over` with `pageOffersDelete = true`.
+  const deep = { a: { b: { c: { d: { e: { f: { g: { h: { i: { j: ref(GOV) } } } } } } } } } };
+  const shallow = { doc: { r2_key: ref(GOV) } };
+  assert.equal(collectPlainStringsDetailed(shallow).truncated, false);
+  assert.equal(collectReferencedKeysDetailed([shallow]).truncated, false);
+  assert.equal(collectReferencedKeysDetailed([deep]).truncated, true, 'the ceiling must be SAID');
+  const reason = verificationDeletionBlockReason({
+    referenceError: null,
+    // What the server does with a truncated walk: `complete && !truncated`.
+    referencesComplete: true && !collectReferencedKeysDetailed([deep]).truncated,
+    documentReferenceCount: 5,
+    listingError: null,
+    objectCount: 1,
+  });
+  assert.equal(reason, REFERENCES_INCOMPLETE_REASON);
+});
+
+// ── R3-2 · THE RANGE WINDOW (S-A) ──────────────────────────────────────────
+
+test('R3-2 · every range window is exact, and the FIRST row is never skipped', async () => {
+  const rows = Array.from({ length: 9 }, (_, i) => ({
+    ...ALL_NULL_ROW,
+    government_id_r2_key: ref(`vendors/v${i}/verification/government_id.jpg`),
+  }));
+  const { client, log } = recordingClient({ vendor_verifications: rows });
+  const read = await readReferenceSource(client, VERIFICATIONS, { pageSize: 4 });
+  assert.deepEqual(
+    log[0]!.windows,
+    [
+      [0, 3],
+      [4, 7],
+      [8, 11],
+    ],
+    'a window shifted by one row skips the first row of the table',
+  );
+  assert.equal(read.rows.length, 9);
+  const { keys } = collectReferencedKeysDetailed(read.rows);
+  assert.ok(
+    keys.has('vendors/v0/verification/government_id.jpg'),
+    "the FIRST row's document fell out of the reference set",
+  );
+  assert.equal(isDeletableVerificationDoc('vendors/v0/verification/government_id.jpg', keys), false);
+});
+
+// ── R3-3 · THE ORDERING (S-F) ──────────────────────────────────────────────
+
+test('R3-3 · the read is ORDERED by the primary key, ascending', async () => {
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    const { client, log } = recordingClient({ [source.table]: [] });
+    await readReferenceSource(client, source, { pageSize: 4 });
+    assert.equal(log[0]!.orderBy, source.pkColumn, `${source.table} lost its stable order`);
+    assert.equal(log[0]!.ascending, true);
+  }
+});
+
+test('R3-3 · and a capped server is read to the end through the real query path', async () => {
+  const rows = Array.from({ length: 10 }, (_, i) => ({
+    ...ALL_NULL_ROW,
+    government_id_r2_key: ref(`vendors/w${i}/verification/government_id.jpg`),
+  }));
+  const { client } = recordingClient({ vendor_verifications: rows }, { cap: 3 });
+  const read = await readReferenceSource(client, VERIFICATIONS, { pageSize: 4 });
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 10, 'a cap below the page size must not truncate the read');
+});
+
+test('R3-3 · a failed page names its table and stops the read', async () => {
+  const client: ReferenceQueryClient = {
+    from: (table: string) => ({
+      select: () => ({
+        order: () => ({
+          range: () =>
+            Promise.resolve({
+              data: null,
+              error: { message: 'permission denied' },
+              count: null,
+            } as ReferenceQueryResult),
+        }),
+      }),
+    }),
+  };
+  const read = await readReferenceSource(client, VERIFICATIONS, { pageSize: 4 });
+  assert.equal(read.error, 'vendor_verifications: permission denied');
+  assert.equal(read.complete, false);
+});
+
+// ── R3-5 · THE TWO HALVES DIVIDE THE JOB ON THE SAME TEST ──────────────────
+
+test('R3-5 · the bare literal "r2://" lands in exactly ONE half, not neither', () => {
+  // Half one includes on `startsWith('r2://') && length > 5`; half two used to
+  // exclude on `startsWith('r2://')` alone, so this one value fell through both
+  // (measured: half1=0 half2=0). Harmless in itself — a five-character scheme
+  // can never equal a `vendors/…` key — but the comment claimed the predicates
+  // were identical, and a comment that overstates a safety property is the
+  // failure this repo keeps paying for.
+  const value = 'r2://';
+  const half2 = collectPlainStrings({ slot: value });
+  assert.deepEqual(half2, [value], 'the shorter-than-a-scheme value must be kept by half two');
+  // And a real ref still belongs to half one only.
+  assert.deepEqual(collectPlainStrings({ slot: ref(GOV) }), []);
+});
+
+// ── R3-6 · THE "KEPT RAW" CLAIM IS TRUE NOW ────────────────────────────────
+
+test('R3-6 · a value equal to a key that ENDS IN A SPACE keeps its raw form', () => {
+  const spaced = `${GOV} `;
+  const forms = referenceCandidateForms(spaced);
+  assert.ok(forms.includes(spaced), 'the untrimmed value must survive');
+  assert.ok(forms.includes(GOV), 'and the trimmed one, as before');
+  const keys = new Set(referencedKeysFrom({ government_id: { r2_key: spaced } }));
+  assert.ok(keys.has(spaced));
+  assert.equal(isDeletableVerificationDoc(spaced, keys), false);
+});
+
+test('R3-6 · a protocol-relative //host/key resolves to its key', () => {
+  const value = `//media.setnayan.com/${GOV}`;
+  const forms = referenceCandidateForms(value);
+  assert.ok(forms.includes(GOV), 'the host must not be kept as part of the key');
+  assert.ok(forms.includes(value), 'and the raw value still survives — this only ever adds');
+});

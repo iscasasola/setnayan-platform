@@ -99,27 +99,57 @@ export const EMPTY_REFERENCE_SET_REASON =
  * extra string in the set can at worst refuse a delete. A missing one erases an
  * identity document with no undo. Every judgement call here goes the first way.
  */
-export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
+export function collectPlainStringsDetailed(
+  raw: unknown,
+  maxDepth = 8,
+): { strings: string[]; truncated: boolean } {
   const found = new Set<string>();
+  let truncated = false;
   const walk = (value: unknown, depth: number): void => {
-    if (depth > maxDepth || value === null || value === undefined) return;
+    if (value === null || value === undefined) return;
+    // 🚨 A WALK THAT STOPS AT A DEPTH RETURNS A **SMALLER** SET, WHICH IS THE
+    // DANGEROUS DIRECTION ON THIS PAGE — fewer references means more documents
+    // labelled "left over" with an irreversible Delete beside them. It used to
+    // stop silently. It now SAYS it stopped, and the caller fails closed: a
+    // truncated walk makes the whole reference read incomplete, which switches
+    // deletion off page-wide. 8 is deep enough for every shape `buildSlotValue`
+    // writes (3 at most), and "deep enough for the shapes we know" is exactly
+    // the claim that must not be trusted silently for a shape nobody has
+    // written yet.
+    if (depth > maxDepth) {
+      truncated = true;
+      return;
+    }
     if (typeof value === 'string') {
       // 🚨 THE EXCLUSION IS COMPUTED ON THE **RAW** STRING, ON PURPOSE, AND
       // MUST STAY THAT WAY. `collectStoredAssetRefs` — the other half — decides
-      // what it owns with `value.startsWith('r2://')` on the raw string. This
-      // half used to exclude on `value.trim().startsWith('r2://')`, which is a
-      // WIDER test than the one that includes, so the gap between them was a
-      // hole neither half covered: measured, `" r2://<bucket>/<key>"` with ONE
-      // leading space came back half1=0 half2=0, landed in no set at all, and
-      // the government ID it names was classified `left_over` with Delete
-      // beside it. `\n` and `\t` behaved identically; a TRAILING space was
-      // always fine.
+      // what it owns with `value.startsWith('r2://') && value.length >
+      // 'r2://'.length` on the raw string. This half used to exclude on
+      // `value.trim().startsWith('r2://')`, which is a WIDER test than the one
+      // that includes, so the gap between them was a hole neither half covered:
+      // measured, `" r2://<bucket>/<key>"` with ONE leading space came back
+      // half1=0 half2=0, landed in no set at all, and the government ID it
+      // names was classified `left_over` with Delete beside it.
+      // 🪤 AND THE FIRST REPAIR LEFT A SMALLER GAP OF THE SAME SHAPE: it
+      // dropped the `.trim()` but not the LENGTH clause, so the bare literal
+      // `"r2://"` was excluded here and not included there (measured: half1=0
+      // half2=0). Harmless — a five-character scheme can never equal a
+      // `vendors/…` object key — but the comment claimed the two predicates
+      // were computed identically, and they were not. They are now, character
+      // for character.
       // 🔑 TWO PREDICATES THAT DIVIDE ONE JOB MUST BE COMPUTED ON THE SAME
-      // STRING. Whichever way they disagree, one side is a silent hole.
-      if (value.startsWith('r2://')) return;
+      // STRING BY THE SAME TEST. Whichever way they disagree, one side is a
+      // silent hole.
+      if (value.startsWith('r2://') && value.length > 'r2://'.length) return;
+      // Both forms are kept, and only ever added. The trimmed form is what
+      // matches a stored value written with stray whitespace; the RAW form is
+      // what matches an object key that genuinely ends in a space. Keeping only
+      // the trimmed one made the "kept raw" claim overstated — unreachable in
+      // practice (`sanitizeFilename` maps everything outside `[a-zA-Z0-9._-]`
+      // to `-`), but a claim broader than its mechanism is what this repo keeps
+      // paying for.
+      if (value.length > 0) found.add(value);
       const t = value.trim();
-      // Leaving genuine refs to the other half is what makes both halves
-      // load-bearing: gut either one and a shape stops being found.
       if (t.length > 0) found.add(t);
       return;
     }
@@ -132,7 +162,12 @@ export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
     }
   };
   walk(raw, 0);
-  return [...found];
+  return { strings: [...found], truncated };
+}
+
+/** Every plain string, discarding the truncation signal. Prefer the detailed form. */
+export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
+  return collectPlainStringsDetailed(raw, maxDepth).strings;
 }
 
 /**
@@ -180,19 +215,32 @@ export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
  * walk that covers the shapes it cannot see. Union, never intersection: a ref
  * either half finds is a ref that counts, and gutting either goes RED.
  */
-export function referencedKeysFrom(raw: unknown): string[] {
+export function referencedKeysDetailedFrom(raw: unknown): {
+  keys: string[];
+  truncated: boolean;
+} {
   const out = new Set<string>();
+  const plain = collectPlainStringsDetailed(raw);
   const candidates = new Set<string>([
     // Half one: every `r2://` ref, at any depth. The erasure sweep's own walk.
     ...collectStoredAssetRefs(raw),
     // Half two: everything that walk cannot see — a bare key, a legacy URL, or
     // any shape nobody has written yet.
-    ...collectPlainStrings(raw),
+    ...plain.strings,
   ]);
   for (const candidate of candidates) {
     for (const form of referenceCandidateForms(candidate)) out.add(form);
   }
-  return [...out];
+  // ⚠ `collectStoredAssetRefs` has a depth ceiling of its own and no way to
+  // report it. Our walk carries the same ceiling over the same value, so if
+  // ours stopped short, theirs did too — this flag stands for both, and the
+  // caller turns it into `complete: false`.
+  return { keys: [...out], truncated: plain.truncated };
+}
+
+/** Every key this value could be naming, discarding the truncation signal. */
+export function referencedKeysFrom(raw: unknown): string[] {
+  return referencedKeysDetailedFrom(raw).keys;
 }
 
 /**
@@ -228,6 +276,13 @@ export function referenceCandidateForms(candidate: string): string[] {
   const out = new Set<string>();
   const value = candidate.trim();
   if (value.length === 0) return [];
+  // The UNTRIMMED value first. `trim()` on both sides used to be the only form
+  // kept, which silently dropped the one shape it claimed to protect: a stored
+  // value equal to an object key that ends in a space. Unreachable in practice
+  // — `sanitizeFilename` in `/api/upload` maps everything outside
+  // `[a-zA-Z0-9._-]` to `-` and keys are minted server-side — but this function
+  // ONLY EVER ADDS, so making the claim true costs one line.
+  if (candidate.length > 0) out.add(candidate);
   out.add(value);
 
   // 2 · the scheme, case-insensitively.
@@ -241,11 +296,19 @@ export function referenceCandidateForms(candidate: string): string[] {
   const unslashed = bare.replace(/^\/+/, '');
   if (unslashed.length > 0) out.add(unslashed);
 
-  // 4 · a legacy http(s) URL. `URL` throws on anything that is not one, which
-  // is the cheapest way to ask "is this a URL" without a regex that guesses.
-  if (/^https?:\/\//i.test(value)) {
+  // 4 · a legacy http(s) URL, or a protocol-relative `//host/key`. `URL` throws
+  // on anything that is not one, which is the cheapest way to ask "is this a
+  // URL" without a regex that guesses. A protocol-relative value is given a
+  // scheme rather than being left to fall through to form 3, where the leading
+  // slashes strip to `host/key` and the host is wrongly kept as part of the key.
+  const urlish = /^https?:\/\//i.test(value)
+    ? value
+    : value.startsWith('//')
+      ? `https:${value}`
+      : null;
+  if (urlish !== null) {
     try {
-      const parsed = new URL(value);
+      const parsed = new URL(urlish);
       let path = parsed.pathname.replace(/^\/+/, '');
       try {
         path = decodeURIComponent(path);
@@ -284,12 +347,23 @@ export function referenceCandidateForms(candidate: string): string[] {
  * here; it makes no decision of its own, so there is nothing left there for a
  * source-match to have to stand in for.
  */
-export function collectReferencedKeys(sources: Iterable<unknown>): Set<string> {
+export function collectReferencedKeysDetailed(sources: Iterable<unknown>): {
+  keys: Set<string>;
+  truncated: boolean;
+} {
   const keys = new Set<string>();
+  let truncated = false;
   for (const source of sources) {
-    for (const key of referencedKeysFrom(source)) keys.add(key);
+    const got = referencedKeysDetailedFrom(source);
+    for (const key of got.keys) keys.add(key);
+    if (got.truncated) truncated = true;
   }
-  return keys;
+  return { keys, truncated };
+}
+
+/** The folded set, discarding the truncation signal. */
+export function collectReferencedKeys(sources: Iterable<unknown>): Set<string> {
+  return collectReferencedKeysDetailed(sources).keys;
 }
 
 /**
@@ -309,35 +383,192 @@ export function collectReferencedKeys(sources: Iterable<unknown>): Set<string> {
  * one axis over: a SUCCESSFUL read returning an INCOMPLETE set, feeding an
  * IRREVERSIBLE delete.**
  *
- * ⛔ Raising a limit is the same bug with a bigger number. This pages to
- * exhaustion and ASSERTS it got there: a page that comes back exactly full is
- * never the end — the next page is fetched, and only a SHORT page proves the
- * end. If the ceiling is reached first, `complete` is false and the caller must
- * fail closed.
+ * ── 🛑 A SHORT PAGE IS NOT PROOF OF THE END, AND THIS USED TO ASSUME IT WAS ──
+ * The first repair paged until a page came back SHORTER than `pageSize` and
+ * called that the end. That is only sound while `pageSize` is strictly BELOW
+ * the server's row cap — and the cap is PROJECT CONFIGURATION. It is not in
+ * `pg_db_role_setting`, so no session can read it, and a reviewer probed the
+ * consequence directly: with a cap of 3 against a `pageSize` of 4, the very
+ * first capped page came back short and the read declared itself COMPLETE.
+ * Silent truncation, feeding an irreversible delete — the original bug
+ * restored, behind the guard written to prevent it.
+ *
+ * ⚖ **SO COMPLETENESS IS NOT INFERRED FROM A PAGE'S SHAPE ANY MORE. IT IS
+ * PROVED AGAINST THE SERVER'S OWN EXACT COUNT** (`{ count: 'exact' }`), which
+ * PostgREST reports in `Content-Range` for the WHOLE match regardless of how
+ * many rows it was willing to hand over. The read is complete when the rows
+ * collected reach that number, and never otherwise. That is a proof that does
+ * NOT depend on knowing the cap:
+ *   · cap ≥ pageSize → each page fills, the count is reached, complete.
+ *   · cap < pageSize → each page comes back short, the NEXT page starts at the
+ *     number of rows actually collected (never at a fixed stride), and the
+ *     count is still reached. Nothing is skipped and nothing is assumed.
+ *   · no count reported → `complete: false`. FAIL CLOSED. A read that cannot
+ *     prove it finished is treated exactly like one that failed.
+ *   · a page that returns zero rows before the count is reached → also
+ *     `complete: false`, because that is what a cap of zero, a filter change or
+ *     a mid-read shrink looks like.
+ *
+ * ⛔ Raising a limit is the same bug with a bigger number.
+ *
+ * ⚠ HONEST LIMIT, stated rather than implied: this is OFFSET paging over a
+ * stable `.order()`. A row deleted between two pages shifts the window and can
+ * drop a row from the read — under-collection, the dangerous direction. The
+ * count check narrows it (a shrink is usually visible as a lower total) but
+ * does not eliminate it. Keyset paging on the primary key would, and it needs
+ * the primary key in the projection, which is exactly what finding 1 says must
+ * not be folded into the reference set. If this table ever grows past one page
+ * in practice, that is the change to make — with the PK read into a variable
+ * and kept OUT of the fold.
  *
  * `fetchPage` is injected so this is testable by behaviour rather than by
  * reading the server module's source.
  */
 export async function readAllPages(
-  fetchPage: (from: number, to: number) => Promise<{ rows: unknown[] | null; error: string | null }>,
+  fetchPage: (
+    from: number,
+    to: number,
+  ) => Promise<{ rows: unknown[] | null; error: string | null; total?: number | null }>,
   opts?: { pageSize?: number; maxPages?: number },
 ): Promise<{ rows: unknown[]; error: string | null; complete: boolean }> {
   const pageSize = Math.max(1, opts?.pageSize ?? 500);
   const maxPages = Math.max(1, opts?.maxPages ?? 200);
   const rows: unknown[] = [];
+  let total: number | null = null;
 
   for (let page = 0; page < maxPages; page += 1) {
-    const from = page * pageSize;
-    const { rows: got, error } = await fetchPage(from, from + pageSize - 1);
+    // The next window starts at what has ACTUALLY been collected, never at
+    // `page * pageSize`. That is what makes a server cap below `pageSize`
+    // harmless instead of silent.
+    const from = rows.length;
+    const { rows: got, error, total: reported } = await fetchPage(from, from + pageSize - 1);
     if (error) return { rows, error, complete: false };
+    if (typeof reported === 'number') total = reported;
     const batch = got ?? [];
     rows.push(...batch);
-    // A SHORT page is the only proof of the end. An exactly-full page is what a
-    // cap looks like, so it is never treated as the end.
-    if (batch.length < pageSize) return { rows, error: null, complete: true };
+    if (total !== null && rows.length >= total) return { rows, error: null, complete: true };
+    // No progress and the count not reached: a cap of zero, or the table moved
+    // under us. Either way this is not the end, and saying so is the point.
+    if (batch.length === 0) return { rows, error: null, complete: false };
   }
 
   return { rows, error: null, complete: false };
+}
+
+/**
+ * WHERE THE REFERENCES LIVE — the two sources, as data.
+ *
+ * 🔴 **THE PRIMARY KEY IS DELIBERATELY NOT IN `referenceColumns`, AND THAT IS
+ * THE WHOLE POINT OF THIS TYPE.** A round of this branch put `verification_id`
+ * and `application_id` into the SELECT (to order by them) and then handed the
+ * WHOLE ROW to the fold. `collectPlainStrings` keeps every string at any depth,
+ * so each row's PK UUID was collected as though it were a document reference —
+ * and the empty-reference-set gate, which counts what the fold produced, could
+ * never fire again from the first verification row onward.
+ *
+ * ⚖ PostgREST orders by a column whether or not it is projected, so the PK
+ * never needed to be in the SELECT at all. `pkColumn` is the ORDER; the SELECT
+ * is `referenceColumns` and nothing else.
+ */
+export type ReferenceSource = {
+  /** The table to read. */
+  table: 'vendor_verifications' | 'vendor_verification_applications';
+  /** The stable order. Ordered by, never selected — see above. */
+  pkColumn: 'verification_id' | 'application_id';
+  /** ONLY the columns that can carry a document reference. */
+  referenceColumns: readonly string[];
+};
+
+export const VERIFICATION_REFERENCE_SOURCES: readonly ReferenceSource[] = [
+  {
+    table: 'vendor_verifications',
+    pkColumn: 'verification_id',
+    referenceColumns: [
+      'dti_certificate_r2_key',
+      'bir_2303_r2_key',
+      'mayors_permit_r2_key',
+      'government_id_r2_key',
+      'bank_account_proof_r2_key',
+    ],
+  },
+  {
+    table: 'vendor_verification_applications',
+    pkColumn: 'application_id',
+    referenceColumns: ['doc_uploads'],
+  },
+];
+
+/** The SELECT list for one source. Reference columns only — never the PK. */
+export function referenceSelectColumns(source: ReferenceSource): string {
+  return source.referenceColumns.join(', ');
+}
+
+/** What one reference page's query resolves to. Shaped like postgrest-js. */
+export type ReferenceQueryResult = {
+  data: unknown[] | null;
+  error: { message: string } | null;
+  count?: number | null;
+};
+
+/**
+ * The smallest slice of the Supabase client this module needs.
+ *
+ * 🛡 **THE QUERY IS BUILT HERE, IN THE PURE MODULE, BECAUSE IT IS A DEFECT
+ * SURFACE AND IT WAS UNGUARDED.** While it lived in
+ * `verification-docs-server.ts` — a module that opens with `import 'server-only'`
+ * and which no `node:test` can load — two mutations against it stayed GREEN at
+ * 55/55: shifting the range window by one row (`from, from + pageSize - 1` →
+ * `from + 1, from + pageSize`), which silently skips the FIRST row of the table
+ * and offers its five documents for deletion; and DELETING the `.order()` the
+ * code's own comment calls "what makes paging meaningful". Every test injected
+ * a `fetchPage` stub that ignored its arguments, so the real window and the
+ * real ordering were exercised by nothing.
+ * 🔑 The answer to an untestable module is to SPLIT THE RULE OUT of it, not to
+ * match a longer string. A fake client can now record the table, the columns,
+ * the count option, the order and every range window, and assert all five.
+ */
+export type ReferenceQueryClient = {
+  from(table: string): {
+    select(
+      columns: string,
+      options: { count: 'exact' },
+    ): {
+      order(
+        column: string,
+        options: { ascending: boolean },
+      ): {
+        range(from: number, to: number): PromiseLike<ReferenceQueryResult>;
+      };
+    };
+  };
+};
+
+/** One page of one reference source, with the server's exact total. */
+export async function fetchReferencePage(
+  client: ReferenceQueryClient,
+  source: ReferenceSource,
+  from: number,
+  to: number,
+): Promise<{ rows: unknown[] | null; error: string | null; total: number | null }> {
+  const res = await client
+    .from(source.table)
+    .select(referenceSelectColumns(source), { count: 'exact' })
+    .order(source.pkColumn, { ascending: true })
+    .range(from, to);
+  return {
+    rows: (res.data ?? null) as unknown[] | null,
+    error: res.error ? `${source.table}: ${res.error.message}` : null,
+    total: res.count ?? null,
+  };
+}
+
+/** One reference source, read to exhaustion and proved against its own count. */
+export async function readReferenceSource(
+  client: ReferenceQueryClient,
+  source: ReferenceSource,
+  opts?: { pageSize?: number; maxPages?: number },
+): Promise<{ rows: unknown[]; error: string | null; complete: boolean }> {
+  return readAllPages((from, to) => fetchReferencePage(client, source, from, to), opts);
 }
 
 /**
@@ -404,6 +635,14 @@ export function classifyVerificationDocs(
  *
  * 🪤 AND AN EMPTY REFERENCE SET IS NOT DELETABLE EITHER. See the body.
  */
+export function documentReferenceCount(referenced: ReadonlySet<string>): number {
+  let n = 0;
+  for (const key of referenced) {
+    if (parseVerificationKey(key).vendorProfileId !== null) n += 1;
+  }
+  return n;
+}
+
 export function isDeletableVerificationDoc(
   key: string,
   referenced: ReadonlySet<string>,
@@ -414,7 +653,20 @@ export function isDeletableVerificationDoc(
   // is exactly how this page shipped — two sources, neither able to produce a
   // single key, no error raised by either. Refuse. The cost is an admin who
   // cannot tidy up; the alternative cost is a stranger's passport photo.
-  if (referenced.size === 0) return false;
+  // 🔴 **SET SIZE WAS THE WRONG NUMBER, AND MEASURING IT IS WHAT DISARMED THIS
+  // GATE ONCE ALREADY.** A round of this branch added each table's PRIMARY KEY
+  // to the reference SELECT; `collectPlainStrings` keeps every string at any
+  // depth, so one ordinary `vendor_verifications` row whose five `*_r2_key`
+  // columns were all NULL yielded a set of size 1 — its own UUID — and this
+  // gate, whose entire job is to catch "the reference reader collected
+  // nothing", could never fire again. Measured: branch keyCount=1
+  // gateFires=false govDeletable=TRUE; the same row without the PK gave
+  // keyCount=0 gateFires=true.
+  // 🔑 A SET CAN BE NON-EMPTY FOR REASONS THAT PROTECT NOTHING. Count what the
+  // gate MEANS — references that are shaped like a document in this bucket —
+  // so no unrelated column can inflate it. Counting fewer things only ever
+  // refuses a delete, which is the safe direction on this page.
+  if (documentReferenceCount(referenced) === 0) return false;
   if (referenced.has(key)) return false;
   const { vendorProfileId } = parseVerificationKey(key);
   return vendorProfileId !== null;
@@ -498,14 +750,20 @@ export const LISTING_FAILED_REASON =
 export function verificationDeletionBlockReason(input: {
   referenceError: string | null;
   referencesComplete: boolean;
-  referenceKeyCount: number;
+  /**
+   * How many collected references are shaped like a document in THIS bucket —
+   * NOT the size of the set. See `documentReferenceCount`: a set can be
+   * non-empty for reasons that protect nothing, and measuring set size is what
+   * disarmed this gate once already.
+   */
+  documentReferenceCount: number;
   listingError: string | null;
   objectCount: number;
 }): string | null {
   if (input.referenceError !== null) return input.referenceError;
   if (!input.referencesComplete) return REFERENCES_INCOMPLETE_REASON;
   if (input.listingError !== null) return LISTING_FAILED_REASON;
-  if (input.referenceKeyCount === 0 && input.objectCount > 0) return EMPTY_REFERENCE_SET_REASON;
+  if (input.documentReferenceCount === 0 && input.objectCount > 0) return EMPTY_REFERENCE_SET_REASON;
   return null;
 }
 
@@ -524,7 +782,7 @@ export function buildVerificationDocsReportFrom(input: {
   const blockReason = verificationDeletionBlockReason({
     referenceError: input.referenceError,
     referencesComplete: input.referencesComplete,
-    referenceKeyCount: input.keys.size,
+    documentReferenceCount: documentReferenceCount(input.keys),
     listingError: input.listingError,
     objectCount: input.objects.length,
   });

@@ -4,9 +4,11 @@ import { R2_BUCKETS, r2List } from '@/lib/r2';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   VERIFICATION_PREFIX,
+  VERIFICATION_REFERENCE_SOURCES,
   buildVerificationDocsReportFrom,
-  collectReferencedKeys,
-  readAllPages,
+  collectReferencedKeysDetailed,
+  readReferenceSource,
+  type ReferenceQueryClient,
   type VerificationDocsReport,
 } from '@/lib/verification-docs';
 
@@ -17,63 +19,38 @@ import {
  * ── THIS MODULE DECIDES NOTHING, ON PURPOSE ─────────────────────────────────
  * It opens with `import 'server-only'`, which is not installed here, so no
  * `node:test` can load it — anything it decides can only ever be guarded by
- * reading its source as text, and two such guards were proven decorative by an
- * adversarial reviewer: one kept both asserted call sites and threw their
- * results away (`keys.add(key)` 2 → 0, suite green), the other replaced the
- * block-reason expression while leaving both asserted literals in place (gate
- * gone, suite green). BOTH of those decisions now live in `verification-docs.ts`
- * where a test can CALL them. What is left here is fetching, and fetching only.
- * 🔑 The answer to an untestable module is to split the rule out of it, never
- * to match a longer string. Keep it that way — a condition added to this file
- * is a condition nothing can guard.
+ * reading its source as text, and FOUR such guards have now been proven
+ * decorative by reviewers. Two in round 2: one kept both asserted call sites
+ * and threw their results away (`keys.add(key)` 2 → 0, suite green), the other
+ * replaced the block-reason expression while leaving both asserted literals in
+ * place (gate gone, suite green). Two more in round 3, against the paging this
+ * module used to build for itself: the range window was shifted by one row
+ * (skipping the FIRST row of the table, offering its five documents for
+ * deletion) and the `.order()` was DELETED, and the suite stayed GREEN at 55/55
+ * for both — because every test injected a `fetchPage` stub that ignored its
+ * arguments, so the real window and the real ordering were exercised by
+ * nothing.
+ *
+ * 🔑 THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING. The table names, the SELECT columns, the ordering,
+ * the range arithmetic, the completeness proof, the fold and every gate now
+ * live in `verification-docs.ts`, where a test CALLS them and a fake client
+ * records what the query asked for. What is left here is a client, a bucket
+ * listing, and two function calls. Keep it that way — a condition added to this
+ * file is a condition nothing can guard.
  *
  * ── FAIL CLOSED, LOUDLY ─────────────────────────────────────────────────────
- * If either reference source cannot be read, or cannot be read TO THE END, this
- * returns `referencesComplete: false` and the page refuses to offer deletion at
- * all. A partial reference set would mark a LIVE government ID as left over —
- * and the button next to that label is irreversible.
+ * If either reference source cannot be read, or cannot be read TO THE END, or
+ * the walk over a stored value hit its depth ceiling, this returns
+ * `referencesComplete: false` and the page refuses to offer deletion at all. A
+ * partial reference set would mark a LIVE government ID as left over — and the
+ * button next to that label is irreversible.
  */
 
 export type { VerificationDocsReport };
 
 /** How many rows one reference page asks for. See `readAllPages`. */
 const REFERENCE_PAGE_SIZE = 500;
-
-/**
- * Read one reference table to exhaustion.
- *
- * 🔴 **THE `.range()` LOOP IS THE POINT, NOT A TIDY-UP.** Neither of these
- * SELECTs used to carry a `.limit()`, a `.range()` or a count, while PostgREST
- * caps the rows it returns (Supabase's documented default for that setting is
- * 1000). A capped read comes back LARGE, NON-EMPTY and INCOMPLETE with
- * `error: null` — past the error gate and past the empty-set gate — and every
- * document belonging to a row beyond the cap is then offered for permanent
- * deletion.
- *
- * ⚖ `.order()` on the primary key is what makes paging meaningful: without a
- * stable order, two pages can return the same row and miss another.
- */
-async function readReferenceTable(
-  table: 'vendor_verifications' | 'vendor_verification_applications',
-  pkColumn: 'verification_id' | 'application_id',
-  columns: string,
-): Promise<{ rows: unknown[]; error: string | null; complete: boolean }> {
-  const admin = createAdminClient();
-  return readAllPages(
-    async (from, to) => {
-      const { data, error } = await admin
-        .from(table)
-        .select(columns)
-        .order(pkColumn, { ascending: true })
-        .range(from, to);
-      return {
-        rows: (data ?? null) as unknown[] | null,
-        error: error ? `${table}: ${error.message}` : null,
-      };
-    },
-    { pageSize: REFERENCE_PAGE_SIZE },
-  );
-}
 
 /**
  * Every R2 key the database still points at.
@@ -83,6 +60,9 @@ async function readReferenceTable(
  *   · `vendor_verification_applications.doc_uploads` — jsonb slot → VALUE, for
  *     an intake still in progress. Skipping this one would mark a vendor's
  *     half-finished upload as rubbish while they are still filling the form.
+ * Both are described as DATA in `VERIFICATION_REFERENCE_SOURCES`, projecting
+ * ONLY the columns that can carry a reference — see that constant for why the
+ * primary key must never join them.
  *
  * 🚨 **THIS FUNCTION USED TO COLLECT NOTHING AT ALL, FROM EITHER SOURCE.** It
  * kept `Object.values(...)` entries that were `typeof === 'string'`, and no
@@ -101,33 +81,23 @@ async function referencedKeys(): Promise<{
   error: string | null;
   complete: boolean;
 }> {
-  const verifications = await readReferenceTable(
-    'vendor_verifications',
-    'verification_id',
-    'verification_id, dti_certificate_r2_key, bir_2303_r2_key, mayors_permit_r2_key, government_id_r2_key, bank_account_proof_r2_key',
-  );
-  if (verifications.error) {
-    return { keys: new Set(), error: verifications.error, complete: false };
+  const client = createAdminClient() as unknown as ReferenceQueryClient;
+
+  const rows: unknown[] = [];
+  let complete = true;
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    const read = await readReferenceSource(client, source, { pageSize: REFERENCE_PAGE_SIZE });
+    if (read.error) return { keys: new Set(), error: read.error, complete: false };
+    rows.push(...read.rows);
+    complete = complete && read.complete;
   }
 
-  const applications = await readReferenceTable(
-    'vendor_verification_applications',
-    'application_id',
-    'application_id, doc_uploads',
-  );
-  if (applications.error) {
-    return { keys: new Set(), error: applications.error, complete: false };
-  }
+  // Whole rows go in. The projection is already reference-columns-only, so the
+  // walk finds every `*_r2_key` and the jsonb blob without naming one — a sixth
+  // column is covered the day it is added to `VERIFICATION_REFERENCE_SOURCES`.
+  const { keys, truncated } = collectReferencedKeysDetailed(rows);
 
-  // The whole row goes in for the columns table (the walk finds every `*_r2_key`
-  // without naming one, so a sixth column is covered the day it is added), and
-  // the jsonb blob goes in for the applications table.
-  const keys = collectReferencedKeys([
-    ...verifications.rows,
-    ...applications.rows.map((row) => (row as { doc_uploads?: unknown }).doc_uploads),
-  ]);
-
-  return { keys, error: null, complete: verifications.complete && applications.complete };
+  return { keys, error: null, complete: complete && !truncated };
 }
 
 /** The set of referenced keys, for a delete action to re-derive at press time. */

@@ -177,7 +177,9 @@ test('🔑 8 · erasure deletes the private files too', () => {
   // assertion stayed GREEN. A guard that matches its own explanation guards
   // nothing.
   assert.ok(
-    /\.select\('attachment_url, attachment_r2_key'\)/.test(purge),
+    // (2026-09-10: the select also reads `thread_id` — the tenant the delete is
+    // now pinned to, see lib/cleanup-delete-scope.ts chatAttachmentScope.)
+    /\.select\('thread_id, attachment_url, attachment_r2_key'\)/.test(purge),
     'erasure reads only the legacy column — every file the person sent would survive them',
   );
   // ⚠ The filter moved OUT of the query (a `.or()` there took forty db tests

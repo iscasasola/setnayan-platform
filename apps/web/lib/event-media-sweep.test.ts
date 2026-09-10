@@ -17,6 +17,11 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
+import {
+  PAPIC_KEY_COLUMNS,
+  VENDOR_CAPTURE_KEY_COLUMNS,
+  planEventMediaDeletes,
+} from './event-media-sweep-core';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SWEEP = resolve(HERE, 'event-media-sweep.ts');
@@ -27,19 +32,37 @@ const MENU = resolve(
 );
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
-test('the sweep can only ever name the media bucket', () => {
-  // 🔒 A SAFETY BOUNDARY, NOT A FILTER. The other four buckets hold things this
-  // action has no ruling to destroy: chat attachments (owner ruled KEEP),
-  // signed supplier contracts, the couple's paperwork scans, and suppliers'
-  // government IDs. A stored ref is just a string — if one ever pointed outside
-  // `media`, the sweep must decline rather than obey it.
-  assert.match(
-    read(SWEEP),
-    /if \(bucket !== R2_BUCKETS\.media\) return;/,
-    'The media-bucket pin is gone. A ref pointing at thread-files or ' +
-      'vendor-contracts would now be obeyed, and those are not this action’s ' +
-      'to delete.',
-  );
+/* The rule is proved by CALLING the planner (2026-09-10). These used to be
+ * source pins on the collector (`if (bucket !== R2_BUCKETS.media) return;`);
+ * the decision now lives in lib/event-media-sweep-core.ts, pure, and the
+ * bucket half was never enough — media holds every couple's photographs. */
+const E = 'e1000000-0000-4000-8000-000000000001';
+const E2 = 'e1000000-0000-4000-8000-000000000002';
+const V = 'f1000000-0000-4000-8000-000000000001';
+const planned = (p: ReturnType<typeof planEventMediaDeletes>) =>
+  p.deletes.map((d) => `${d.bucket}/${d.key}`).sort();
+
+test('the sweep can only ever name the media bucket — AND only this celebration’s folders in it', () => {
+  // 🔒 A SAFETY BOUNDARY, NOT A FILTER. Chat attachments (owner ruled KEEP),
+  // contracts, paperwork scans and government IDs live in the other buckets.
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [
+      {
+        r2_object_key: `r2://setnayan-vendor-verification/vendors/${V}/verification/gov.png`,
+        display_r2_key: `r2://setnayan-thread-files/chat/t/a.pdf`,
+        thumb_r2_key: `r2://setnayan-vendor-contracts/paperwork/${E}/x.pdf`,
+        // Media, but ANOTHER couple's photograph and a supplier's logo — the
+        // bucket pin alone would have obeyed both.
+        poster_r2_key: `r2://setnayan-media/papic/event-${E2}/seat-s/a.jpg`,
+        tile_r2_key: `r2://setnayan-media/vendors/${V}/logo/l.png`,
+      },
+    ],
+    captures: [],
+    event: { site_bg_music_r2_key: `r2://setnayan-media/events/${E2}/site-music/a.mp3` },
+  });
+  assert.deepEqual(p.deletes, [], 'a ref outside this celebration’s own folders was planned for deletion');
+  assert.equal(p.refused, 6);
 });
 
 test('chat attachments are never swept — the owner ruled KEEP', () => {
@@ -58,33 +81,54 @@ test('chat attachments are never swept — the owner ruled KEEP', () => {
 });
 
 test('all SEVEN papic keys are collected, not just the original', () => {
-  const src = read(SWEEP);
-  for (const col of [
-    'r2_object_key',
-    'display_r2_key',
-    'thumb_r2_key',
-    'poster_r2_key',
-    'tile_r2_key',
-    'wall_safe_r2_key',
-    'clip_web_r2_key',
-  ]) {
-    assert.match(
-      src,
-      new RegExp(`'${col}'`),
-      `${col} is not collected. Deleting only the original leaves the ` +
-        'photograph fetchable at a derivative address — the same defect one ' +
-        'layer down.',
-    );
+  const photo: Record<string, string> = {};
+  for (const col of PAPIC_KEY_COLUMNS) {
+    photo[col] = `r2://setnayan-media/${col === 'r2_object_key' ? '' : 'derivatives/'}papic/event-${E}/seat-s/${col}.bin`;
   }
+  assert.equal(PAPIC_KEY_COLUMNS.length, 7);
+  const p = planEventMediaDeletes({ eventId: E, photos: [photo], captures: [], event: null });
+  assert.equal(
+    p.deletes.length,
+    7,
+    'a derivative is not collected — the photograph stays fetchable at a derivative address',
+  );
 });
 
 test('a bare key with no r2:// prefix is refused, never guessed into a bucket', () => {
-  assert.match(
-    read(SWEEP),
-    /if \(!bucket\) return;/,
-    'A ref without an explicit bucket is being placed in one by assumption. ' +
-      'Guessing is how a sweep deletes somebody else’s object.',
-  );
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [{ r2_object_key: `papic/event-${E}/seat-s/a.jpg` }],
+    captures: [],
+    event: { landing_page_hero_image_url: 'https://cdn.example.com/hero.jpg' },
+  });
+  assert.deepEqual(p.deletes, []);
+  assert.equal(p.refused, 2);
+});
+
+test('the celebration’s own files ARE planned — photos, derivatives and site media', () => {
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [
+      {
+        r2_object_key: `r2://setnayan-media/papic/event-${E}/seat-s/a.jpg`,
+        display_r2_key: `r2://setnayan-media/derivatives/papic/event-${E}/seat-s/a.jpg.display.avif`,
+      },
+    ],
+    captures: [],
+    event: {
+      site_bg_music_r2_key: `r2://setnayan-media/events/${E}/site-music/a.mp3`,
+      pakanta_song_r2_key: `r2://setnayan-media/events/${E}/pakanta-song/s.mp3`,
+      our_photos: [`r2://setnayan-media/events/${E}/our-photos/1.jpg`, { r2_key: `r2://setnayan-media/events/${E}/our-photos/1.jpg` }],
+    },
+  });
+  assert.deepEqual(planned(p), [
+    `setnayan-media/derivatives/papic/event-${E}/seat-s/a.jpg.display.avif`,
+    `setnayan-media/events/${E}/our-photos/1.jpg`,
+    `setnayan-media/events/${E}/pakanta-song/s.mp3`,
+    `setnayan-media/events/${E}/site-music/a.mp3`,
+    `setnayan-media/papic/event-${E}/seat-s/a.jpg`,
+  ], 'the celebration’s own files are not being removed — the owner’s 2026-08-20 ruling is broken');
+  assert.equal(p.refused, 0);
 });
 
 test('the files are collected BEFORE the delete', () => {
@@ -139,39 +183,34 @@ test('the confirmation says the photos are gone for good', () => {
 });
 
 test('a supplier’s own captures are swept too — the rows cascade, the files do not', () => {
+  // `vendor_papic_captures.event_id` is ON DELETE CASCADE, so the rows go with
+  // the celebration and take the only record of which objects those were. The
+  // owner's 2026-08-20 ruling did not say "except the ones a supplier took".
   const src = read(SWEEP);
-  // `vendor_papic_captures.event_id` is ON DELETE CASCADE, so deleting the
-  // celebration removes every row — and with the rows go the only records of
-  // which objects those photographs were. Leaving the files behind is the worst
-  // of both: the couple is told their photographs are gone, and they are not.
-  //
-  // The owner's 2026-08-20 ruling did not say "except the ones a supplier
-  // took", and supplier captures land in the couple's own gallery — which is
-  // exactly what that ruling was about.
-  assert.match(
-    src,
-    /\.from\('vendor_papic_captures'\)/,
-    'A supplier’s captures at this celebration are no longer collected. Their ' +
-      'rows cascade away on delete, so the files become permanently orphaned ' +
-      'and the couple is told photographs are gone that still exist.',
-  );
-  // Both stored addresses, not just the original: a clip's poster is a second
-  // fetchable copy of the same moment — the defect the seven-key test above
-  // exists for, one table across.
-  assert.match(
-    src,
-    /const VENDOR_CAPTURE_KEY_COLUMNS = \['r2_object_key', 'poster_r2_key'\] as const;/,
-    'A capture key column was dropped. A clip poster left behind is the ' +
-      'photograph still being there, just at a different address.',
-  );
-  // …and it must be collected BEFORE the delete, like everything else here —
-  // after the cascade there is nothing left to read.
   const collectorStart = src.indexOf('export async function collectEventMediaRefs');
   const captureRead = src.indexOf(".from('vendor_papic_captures')");
   assert.ok(
     collectorStart > -1 && captureRead > collectorStart,
     'the capture read must sit inside the collector, which runs before the delete',
   );
+  assert.deepEqual([...VENDOR_CAPTURE_KEY_COLUMNS], ['r2_object_key', 'poster_r2_key']);
+  // Behaviour: pinned to supplier AND celebration.
+  const base = `r2://setnayan-media/papic/vendor-${V}/event-${E}/cap-1`;
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [],
+    captures: [
+      { vendor_profile_id: V, r2_object_key: `${base}.mp4`, poster_r2_key: `${base}-poster.jpg` },
+      // The same supplier's capture at ANOTHER celebration, forged onto this row.
+      { vendor_profile_id: V, r2_object_key: `r2://setnayan-media/papic/vendor-${V}/event-${E2}/cap-9.jpg` },
+    ],
+    event: null,
+  });
+  assert.deepEqual(planned(p), [
+    `setnayan-media/papic/vendor-${V}/event-${E}/cap-1-poster.jpg`,
+    `setnayan-media/papic/vendor-${V}/event-${E}/cap-1.mp4`,
+  ]);
+  assert.equal(p.refused, 1);
 });
 
 test('a refused capture read is not an empty one', () => {

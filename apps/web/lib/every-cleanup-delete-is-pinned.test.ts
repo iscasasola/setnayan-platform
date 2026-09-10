@@ -207,10 +207,16 @@ test('the cleanup jobs actually delete THROUGH the executor, not merely avoid th
     'app/[slug]/actions.ts',
     'app/dashboard/[eventId]/guests/[guestId]/actions.ts',
   ]) {
-    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    // Import lines removed first: an import that is never USED is exactly the
+    // shape of a job that stopped going through the executor. A use is a call
+    // OR the executor handed over as the delete dependency.
+    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'))
+      .split('\n')
+      .filter((l) => !/^\s*import\b/.test(l) && !/^\s*}\s*from\s/.test(l))
+      .join('\n');
     assert.match(
       code,
-      /\b(executeCleanupDelete|cleanupDelete)\s*\(/,
+      /\b(executeCleanupDelete|cleanupDelete)\s*\(|:\s*executeCleanupDelete\b/,
       `${rel} no longer calls the executor — either it stopped deleting (say so) or it found another road.`,
     );
   }

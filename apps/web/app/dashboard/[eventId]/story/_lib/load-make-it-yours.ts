@@ -2,6 +2,7 @@ import 'server-only';
 
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { PoolItem, ResolvedArrangement, RunOfShowMoment } from '@/lib/story-arrangement';
+import type { LoadedArrangement } from '@/lib/story-arrangement-store';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { loadArrangementForHost } from './load-arrangement';
 
@@ -80,7 +81,17 @@ const withoutKeys = (p: PoolItem): PoolItem => ({ ...p, stillKey: null, playKey:
 export async function loadMakeItYours(eventId: string): Promise<MakeItYoursInput | null> {
   const loaded = await loadArrangementForHost(eventId);
   if (!loaded) return null;
+  return makeItYoursInputFrom(loaded, displayUrlForStoredAsset);
+}
 
+/**
+ * The browser's copy of one read — split from the read itself so the whole of this shaping is
+ * the same code however the arrangement was loaded.
+ */
+export async function makeItYoursInputFrom(
+  loaded: LoadedArrangement,
+  sign: (key: string) => Promise<string | null>,
+): Promise<MakeItYoursInput> {
   // The pool is every capture this host may see: those on a page, and those in the tray.
   const pool: PoolItem[] = [];
   const seen = new Set<string>();
@@ -114,7 +125,7 @@ export async function loadMakeItYours(eventId: string): Promise<MakeItYoursInput
     pool.map(async (p) => {
       let url: string | null = null;
       try {
-        url = p.stillKey ? await displayUrlForStoredAsset(p.stillKey) : null;
+        url = p.stillKey ? await sign(p.stillKey) : null;
       } catch {
         url = null;
       }

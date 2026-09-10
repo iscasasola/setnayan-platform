@@ -95,9 +95,15 @@ type Toast = { msg: string; live: boolean; n: number; on: boolean };
 export function MakeItYours({
   eventId,
   input,
+  save = saveArrangement,
 }: {
   eventId: string;
   input: MakeItYoursInput;
+  /**
+   * The one write. The Story Maker passes nothing and gets step 3's action; it is a prop only so a
+   * real-browser drive can put the same component in front of a store it controls.
+   */
+  save?: typeof saveArrangement;
 }): ReactElement {
   const world: MakeItYoursWorld = useMemo(
     () => ({ runOfShow: input.runOfShow, pool: input.pool }),
@@ -214,7 +220,7 @@ export function MakeItYours({
     setSaveState('saving');
     let result: Awaited<ReturnType<typeof saveArrangement>>;
     try {
-      result = await saveArrangement(
+      result = await save(
         eventId,
         storedFromResolved(stateRef.current),
         versionRef.current,
@@ -230,6 +236,13 @@ export function MakeItYours({
         return;
       }
       setSaveError(null);
+      /*
+        🔴 "SAVED" ONLY WHEN NOTHING NEWER IS WAITING. Found driving the editor at 390: a drag
+        landed while the previous change's save was on the wire; that save came back and said
+        "Saved" — for a page whose newest change was still sitting in its 400ms timer. A host who
+        trusted it and reloaded lost the drag. The waiting change's own save will say "Saved".
+      */
+      if (saveTimer.current) return;
       setSaveState('saved');
       return;
     }
@@ -241,7 +254,7 @@ export function MakeItYours({
     setSaveError(result.message);
     setSaveState('failed');
     if (pending.current) void flush();
-  }, [eventId, unreadable]);
+  }, [eventId, unreadable, save]);
 
   const scheduleSave = useCallback(() => {
     setSaveState('saving');
@@ -249,13 +262,23 @@ export function MakeItYours({
     saveTimer.current = setTimeout(() => void flush(), SAVE_AFTER_MS);
   }, [flush]);
 
-  // A tab put away with a change still waiting is saved now, not in 400ms that may never come.
+  /*
+    A tab put away — or left — with a change still waiting is saved NOW, not in 400ms that may
+    never come. Never a "leave this page?" box: that is a pop-up, and the owner ruled them out.
+  */
   useEffect(() => {
+    const now = () => {
+      if (saveTimer.current) void flush();
+    };
     const onHide = () => {
-      if (document.visibilityState === 'hidden' && saveTimer.current) void flush();
+      if (document.visibilityState === 'hidden') now();
     };
     document.addEventListener('visibilitychange', onHide);
-    return () => document.removeEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', now);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', now);
+    };
   }, [flush]);
 
   /* ══ THE MESSAGE, AND THE UNDO THAT BELONGS TO THE ACTION ═══════════════════════════════════ */
@@ -307,8 +330,13 @@ export function MakeItYours({
     const u = undoRef.current;
     if (!u || busy.current || Date.now() >= u.until) return;
     undoRef.current = null;
+    // After another tab won, an Undo would change a page that can no longer be saved.
+    if (conflictRef.current) {
+      showHint(conflictRef.current);
+      return;
+    }
     u.fn();
-  }, []);
+  }, [showHint]);
 
   const withUndo = useCallback(
     (msg: string, snapshot: ResolvedArrangement, snapSel: string | null) => {

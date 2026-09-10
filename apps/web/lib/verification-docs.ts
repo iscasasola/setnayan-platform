@@ -571,6 +571,74 @@ export async function readReferenceSource(
   return readAllPages((from, to) => fetchReferencePage(client, source, from, to), opts);
 }
 
+/** What one reference source's read resolved to. The shape `readReferenceSource` returns. */
+export type ReferenceRead = {
+  rows: unknown[];
+  error: string | null;
+  complete: boolean;
+};
+
+/**
+ * Fold every source's READ into one reference set, one error and one verdict on
+ * completeness.
+ *
+ * 🛡 **THIS LIVES HERE BECAUSE IT IS THE LAST THING THE UNTESTABLE MODULE STILL
+ * DECIDED, AND ALL THREE OF ITS CONDITIONS WERE UNGUARDED.** Round 3 moved the
+ * query, the fold and every gate out of `verification-docs-server.ts` — and then
+ * put these three lines back into it. Measured on that branch, each sabotage
+ * applied and counted, the suite GREEN at 72/72 every time:
+ *   · `if (read.error) return …` → `if (false) return …` — needle 1 → 0,
+ *     `if (false) return` 0 → 1. A refused query stops raising, and its zero
+ *     rows are folded in as though the table were empty.
+ *   · `complete = complete && read.complete;` → `complete = complete;` — needle
+ *     1 → 0, added 0 → 1. A capped, short or count-less read is declared
+ *     complete, and the partial reference set feeds the irreversible delete.
+ *   · `complete: complete && !truncated` → `complete: complete` — needle 1 → 0,
+ *     added 0 → 1. A depth-truncated walk returns a SHORT reference set calling
+ *     itself complete, and every document past the ceiling is offered for
+ *     permanent deletion.
+ * None of the three could be caught, because the file they sat in opens with
+ * `import 'server-only'` and no `node:test` can load it. Its own docblock had
+ * already said so: *"a condition added to this file is a condition nothing can
+ * guard."*
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING** — third time on this page. The server module now
+ * awaits each source and hands the reads here; it decides nothing.
+ *
+ * All three arms fail CLOSED, and the order matters: an error wins outright and
+ * returns an EMPTY set, so no caller can mistake a partial read for a small one.
+ */
+export function foldReferenceReads(reads: Iterable<ReferenceRead>): {
+  keys: Set<string>;
+  error: string | null;
+  complete: boolean;
+} {
+  const rows: unknown[] = [];
+  let complete = true;
+  for (const read of reads) {
+    // 1 · A source that RAISED. Return nothing at all rather than a partial
+    // set: an empty set from a refused query is byte-identical to "nothing
+    // points at this", which is the bug this whole page exists to kill, so the
+    // error travels with it and gate 1 refuses on the error, not on the size.
+    if (read.error) return { keys: new Set(), error: read.error, complete: false };
+    rows.push(...read.rows);
+    // 2 · A source that SUCCEEDED but stopped early. No error exists for gate 1
+    // to trip on, so completeness has to carry it. One incomplete source makes
+    // the whole read incomplete — never the other way round.
+    complete = complete && read.complete;
+  }
+
+  // Whole rows go in. The projection is already reference-columns-only, so the
+  // walk finds every `*_r2_key` and the jsonb blob without naming one — a sixth
+  // column is covered the day it is added to `VERIFICATION_REFERENCE_SOURCES`.
+  const { keys, truncated } = collectReferencedKeysDetailed(rows);
+
+  // 3 · A walk that hit its depth ceiling. Same danger, third route in: the set
+  // is SMALLER than the truth and nothing raised.
+  return { keys, error: null, complete: complete && !truncated };
+}
+
 /**
  * Pull the vendor id and document slot out of a key.
  *
@@ -634,6 +702,35 @@ export function classifyVerificationDocs(
  * it, which means we cannot be confident we know what it is.
  *
  * 🪤 AND AN EMPTY REFERENCE SET IS NOT DELETABLE EITHER. See the body.
+ */
+/**
+ * How many collected references are shaped like a document in THIS bucket.
+ *
+ * ⚠ **HONEST CEILING, DECIDED RATHER THAN INHERITED — THIS COUNT IS STILL
+ * INFLATABLE, NARROWLY, AND THAT IS ACCEPTED ON PURPOSE.** `social_media` holds
+ * a platform → link map, and `referenceCandidateForms` rule 4 derives a key
+ * from any `http(s)` path at its first `vendors/`. So a stored link like
+ * `https://anything/vendors/x/verification/y` yields a `vendors/…` form and is
+ * counted here — inflating gate 4's number without protecting a real file.
+ *
+ * ⚖ **NARROWING IT WAS CONSIDERED AND REFUSED, for a reason worth more than the
+ * narrowing.** To tell "derived by slicing a URL path" from "stored as a key"
+ * needs PROVENANCE, and the fold is deliberately FLAT so that a sixth reference
+ * column is covered the day it is added. Threading a second, provenance-bearing
+ * set out of the fold, through the server module and into the report builder
+ * would add new wiring at exactly the seam this page keeps being bitten by —
+ * `buildVerificationDocsReportFrom`'s argument list, where counting
+ * `input.keys.size` instead of this function was itself sabotaged GREEN.
+ * **Buying a narrower backstop with a wider unguarded seam is a bad trade.**
+ *
+ * ⚖ What bounds the residual risk: gate 4 is a BACKSTOP, not the primary gate.
+ * The primary gate is `referenced.has(key)`, which is an EXACT match and cannot
+ * be inflated by anything. For the inflation to reach a person, the reference
+ * reader has to be broken AND a stored link has to carry a verification-shaped
+ * path — and even then only files whose keys are absent from the set are
+ * affected. `docs-inflation` in the test file pins this behaviour so the
+ * ceiling is STATED, not implied, and so that narrowing it later is a
+ * deliberate act with a failing test to notice.
  */
 export function documentReferenceCount(referenced: ReadonlySet<string>): number {
   let n = 0;
@@ -795,6 +892,113 @@ export function buildVerificationDocsReportFrom(input: {
     listingError: input.listingError,
     truncated: input.listingTruncated,
   };
+}
+
+/**
+ * ROUND 5 · READ **EVERY** REFERENCE SOURCE, AND FOLD THEM.
+ *
+ * 🔴 **THIS LOOP IS THE WORST SEAM THIS PAGE HAS HAD, AND IT SAT IN THE
+ * UNTESTABLE MODULE FOR FOUR ROUNDS.** `for (const source of
+ * VERIFICATION_REFERENCE_SOURCES)` lived in `verification-docs-server.ts`,
+ * which opens with `import 'server-only'` — a module no `node:test` can load —
+ * so nothing could ask whether both sources were actually read. Two independent
+ * reviewers found it. Measured, the sabotage applied and counted:
+ *   · `VERIFICATION_REFERENCE_SOURCES` → `VERIFICATION_REFERENCE_SOURCES.slice(0, 1)`
+ *     — needle 1 → 0, added 0 → 1, suite **GREEN at 85/85**.
+ * That drops `vendor_verification_applications.doc_uploads`, the in-progress
+ * intake source — **whose absence IS the original defect this whole page was
+ * built to fix.** Harm driven end to end rather than argued: with one legacy
+ * row carrying a real key (so the empty-set canary stays quiet) plus one
+ * in-progress application holding a government ID, the sabotaged build reported
+ * that government ID `left_over` with verdict `ok` and a permanent Delete
+ * beside it, against an UNVERSIONED bucket. It poisons BOTH halves at once,
+ * because the delete action re-derives through this same function and so AGREES
+ * with the wrong page instead of catching it.
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING** — fourth time on this page, and this time the
+ * WIRING went with the rule. The loop is here, the sources are not injectable
+ * (an override would just move the seam back one level), and a fake client
+ * records which tables were asked for. `R5 · every reference source is actually
+ * read` is that assertion.
+ */
+export async function readAllReferenceSources(
+  client: ReferenceQueryClient,
+  opts?: { pageSize?: number; maxPages?: number },
+): Promise<{ keys: Set<string>; error: string | null; complete: boolean }> {
+  const reads: ReferenceRead[] = [];
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    reads.push(await readReferenceSource(client, source, opts));
+  }
+  return foldReferenceReads(reads);
+}
+
+/** What the server half has to supply: a database client and a bucket listing. */
+export type VerificationDocsDeps = {
+  client: ReferenceQueryClient;
+  listObjects: () => Promise<{
+    objects: { key: string; size: number; lastModified: Date | null }[];
+    truncated: boolean;
+  }>;
+  pageSize?: number;
+  maxPages?: number;
+};
+
+/**
+ * ROUND 5 · THE WHOLE REPORT, ASSEMBLED HERE.
+ *
+ * 🛡 The server module used to hold the reference read, the listing `try/catch`
+ * and the argument object handed to `buildVerificationDocsReportFrom`. Every
+ * one of those was a decision wearing a wiring costume, and three of them were
+ * sabotaged GREEN at 85/85 by reviewers:
+ *   · `return foldReferenceReads(reads)` → destructure and re-shape it, with
+ *     `complete: folded.complete || reads.length > 0`. Needle 1 → 0, added
+ *     0 → 1. **GREEN.** The N10/N11/N12 defect class restored one level out —
+ *     and `||` misses every literal a deny-list could name.
+ *   · `referencesComplete: complete` → `referencesComplete: Boolean(1)`. Needle
+ *     1 → 0, added 0 → 1. **GREEN**, one token away from the literal
+ *     `referencesComplete: true` that round 3's bill was written to catch.
+ *   · `referenceError,` → `referenceError: null,`. Needle 1 → 0, added 0 → 1.
+ *     **GREEN.** Gate 1 never fires; only gate 2 caught it, so this one fails
+ *     closed by luck rather than by design.
+ * All three are gone: there is no destructuring, no object literal and no
+ * `try/catch` left in that file to aim at. The listing failure is turned into
+ * `listingError` HERE, where a test calls it.
+ *
+ * ⚖ `listObjects` is injected for exactly the reason `fetchPage` is: the R2
+ * client is `server-only`, so a rule kept beside it is a rule nothing can call.
+ */
+export async function buildVerificationDocsReportWith(
+  deps: VerificationDocsDeps,
+): Promise<VerificationDocsReport> {
+  const {
+    keys,
+    error: referenceError,
+    complete,
+  } = await readAllReferenceSources(deps.client, {
+    pageSize: deps.pageSize,
+    maxPages: deps.maxPages,
+  });
+
+  let objects: { key: string; size: number; lastModified: Date | null }[] = [];
+  let listingTruncated = false;
+  let listingError: string | null = null;
+  try {
+    const listed = await deps.listObjects();
+    objects = listed.objects;
+    listingTruncated = listed.truncated;
+  } catch (err) {
+    listingError = err instanceof Error ? err.message : 'the bucket could not be listed';
+  }
+
+  return buildVerificationDocsReportFrom({
+    keys,
+    referenceError,
+    referencesComplete: complete,
+    objects,
+    listingError,
+    listingTruncated,
+  });
 }
 
 /** Human bytes, matching the website-media page's phrasing. */

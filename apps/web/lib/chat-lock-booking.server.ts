@@ -249,10 +249,14 @@ export async function bookVendorAtChatLock(
   // read just above found THIS booking row through the couple's own RLS.
   //
   // ⚠ THE FEE BASE STILL MOVES WITH THE PRICE — THE OWNER'S 2026-09-09 RULING.
-  // `booking_fee_open_lock_charge` now reads `total_cost_php` + the change
-  // lines, so the fee charged at the supplier's payment acknowledgement is on
-  // the renegotiated price (what they booked at); after it, the order is
-  // already minted and idempotent, so the fee does not move at all.
+  // `booking_fee_open_lock_charge` and `booking_fee_rederive_lock_fee` now read
+  // `total_cost_php` + the change lines, and a change line fires the same
+  // re-derive a `total_cost_php` move always fired. So a fee not yet charged is
+  // charged on the renegotiated price (what they booked at), and one already
+  // charged is re-derived exactly as before — pending updated in place, paid
+  // topped up or credited, never rewritten. (The line that used to stand here
+  // said a minted fee "does not move at all"; the re-derive trigger of
+  // 20270930120000 made that false long before this change.)
   if (action === 'refresh_fee_only') {
     const { data: changed, error: repriceErr } = await admin.rpc('record_agreed_price_change', {
       p_event_id: eventId,

@@ -56,7 +56,7 @@
 --   0 line items linked by settled_line_item_id) · 18 line items over 12
 --   suppliers, all 12 with Σ(lines) = total_cost_php · 0 package anchors ·
 --   0 locked deals (proposal_amendments.locked_at) · 0 locked threads. So § 5
---   and § 6 below also move no number that exists today.
+--   to § 7 below also move no number that exists today.
 --
 -- ⚠ GRANTS ARE TABLE-LEVEL ON THIS TABLE (verified in prod: `authenticated` and
 -- `anon` hold SELECT/INSERT/UPDATE at TABLE level, not per column), so the new
@@ -84,6 +84,8 @@
 --   § 6 · `booking_fee_open_lock_charge` reads the agreed total INCLUDING its
 --         changes, so the 2026-09-09 owner ruling "the fee base moves with the
 --         price" survives the price no longer moving `total_cost_php`.
+--   § 7 · `booking_fee_rederive_lock_fee` reads the same base, and a change line
+--         fires the re-derive a `total_cost_php` move always fired.
 -- ============================================================================
 
 ALTER TABLE public.event_vendor_line_items
@@ -457,9 +459,10 @@ COMMENT ON FUNCTION public.record_agreed_price_change(UUID, UUID, NUMERIC) IS
 -- ⇒ The base is now `total_cost_php + Σ change lines`, floored at zero — the
 -- same "agreed total" § 5 measures against. This ALSO means a change order
 -- accepted BEFORE the acknowledgement now moves the fee base, which it never
--- did; by the same ruling that is right (it is what they booked at). After the
--- acknowledgement nothing moves: the charge is minted and every re-call reuses
--- it (the idempotent branch below is unchanged).
+-- did; by the same ruling that is right (it is what they booked at). Once the
+-- charge is minted this function only ever REUSES it (the idempotent branch
+-- below is unchanged); a later change reaches the minted charge through the
+-- re-derive in § 7, exactly as a `total_cost_php` move always has.
 --
 -- 🔢 Nothing already charged is touched: 0 change orders and 0 locked deals
 -- exist in production (measured 2026-09-11), and a minted charge is reused, not
@@ -633,3 +636,268 @@ END;
 $function$;
 
 -- CREATE OR REPLACE keeps the existing grants (service_role only, measured live 2026-09-11).
+
+-- ============================================================================
+-- § 7 · …AND A CHANGE AFTER THE FEE WAS CHARGED RE-DERIVES IT, as a price move
+--       always has.
+--
+-- `event_vendors_booking_fee_rederive` (20270930120000) re-derives a booking's
+-- fee whenever `total_cost_php` moves on a booked row: a PENDING charge is
+-- updated in place, a PAID one gets an `amendment_delta` or a credit note —
+-- never a rewrite. The post-lock Deal reached that trigger by moving
+-- `total_cost_php`; § 5 no longer moves it, so the same re-derive must also
+-- fire when a CHANGE line lands, and must read the same base as § 6.
+--
+--   · `booking_fee_rederive_lock_fee` — the LIVE body (identical to
+--     20271013541380's with comments stripped, compared 2026-09-11) with ONE
+--     change: its `amount_centavos` is the agreed total including changes.
+--   · a fail-soft AFTER trigger on change lines, the twin of
+--     `booking_fee_on_event_vendor_price_change` — a fee hiccup must never undo
+--     the change the two of them agreed; it logs a WARNING and the next price
+--     move re-derives. No charge on the booking (fee off, free-5, import) → the
+--     re-derive returns a no-op, exactly as today.
+--
+-- ⚠ A NEW EFFECT, SURFACED NOT HIDDEN: an accepted CHANGE ORDER now moves the
+-- fee too (before this it moved no money anywhere but the couple's budget). By
+-- the 2026-09-09 ruling that is right — it is part of what they booked at — and
+-- production holds 0 change orders and 0 fee charges on a changed booking.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.booking_fee_rederive_lock_fee(p_event_vendor_id uuid, p_schedule_version text DEFAULT booking_fee_schedule_version())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ev             RECORD;
+  v_primary        RECORD;
+  v_ledger         RECORD;
+  v_new_total      BIGINT;
+  v_new_fee        BIGINT;
+  v_paid_total     BIGINT;
+  v_delta          BIGINT;
+  v_overpaid       BIGINT;
+  v_existing_delta RECORD;
+  v_delta_id       UUID;
+  v_stale          RECORD;
+BEGIN
+  SELECT vendor_id, event_id, marketplace_vendor_id AS vpid, status,
+         -- § 7 · THE ONE CHANGE: the agreed total INCLUDING the changes agreed
+         -- since (is_change_delta lines), floored at zero — the same base
+         -- booking_fee_open_lock_charge reads (§ 6).
+         GREATEST(
+           COALESCE(round((
+             COALESCE(total_cost_php, 0)
+             + COALESCE((SELECT SUM(li.amount_php)
+                           FROM public.event_vendor_line_items li
+                          WHERE li.vendor_id = p_event_vendor_id
+                            AND li.is_change_delta), 0)
+           ) * 100)::BIGINT, 0),
+           0
+         ) AS amount_centavos
+    INTO v_ev
+    FROM public.event_vendors
+    WHERE vendor_id = p_event_vendor_id;
+  IF NOT FOUND THEN RETURN jsonb_build_object('action', 'no_booking'); END IF;
+
+  -- The FLAG/DARK gate: only a booking that already carries a primary charge (i.e.
+  -- one locked while the fee was on) is ever re-derived. No charge → nothing to do.
+  SELECT charge_id, ledger_id, status, amount_charged_centavos, proposal_amount_centavos
+    INTO v_primary
+    FROM public.booking_fee_charges
+    WHERE event_vendor_id = p_event_vendor_id AND kind = 'primary'
+      AND status IN ('pending', 'paid', 'waived_import', 'waived_free5')
+    ORDER BY created_at
+    LIMIT 1;
+  IF NOT FOUND THEN RETURN jsonb_build_object('action', 'no_charge'); END IF;
+
+  SELECT is_free_booking INTO v_ledger
+    FROM public.booking_fee_ledger WHERE ledger_id = v_primary.ledger_id;
+
+  -- Free-5 bookings never accrue a fee — the frozen courtesy wins at any total.
+  IF COALESCE(v_ledger.is_free_booking, false) OR v_primary.status = 'waived_free5' THEN
+    RETURN jsonb_build_object('action', 'free_noop');
+  END IF;
+  -- Import-attributed (free-forever) bookings likewise never bill.
+  IF v_primary.status = 'waived_import' THEN
+    RETURN jsonb_build_object('action', 'import_noop');
+  END IF;
+
+  v_new_total := v_ev.amount_centavos;
+  v_new_fee   := public.booking_fee_centavos(v_new_total);
+
+  -- Keep the ledger high-water mark honest (harmless audit field).
+  UPDATE public.booking_fee_ledger
+    SET highest_declared_centavos =
+          GREATEST(COALESCE(highest_declared_centavos, 0), v_new_total),
+        updated_at = NOW()
+    WHERE ledger_id = v_primary.ledger_id;
+
+  -- ── PENDING primary (unpaid) → update in place ──────────────────────────────
+  IF v_primary.status = 'pending' THEN
+    IF v_primary.amount_charged_centavos = v_new_fee
+       AND v_primary.proposal_amount_centavos = v_new_total THEN
+      RETURN jsonb_build_object('action', 'pending_noop');
+    END IF;
+
+    IF v_new_fee <= 0 THEN
+      -- Amended down to ₱0 / barter → nothing to collect. Clear + cancel the order.
+      UPDATE public.booking_fee_charges
+        SET amount_charged_centavos = 0, computed_fee_centavos = 0,
+            proposal_amount_centavos = v_new_total,
+            status = 'paid', paid_at = NOW(), expires_at = NULL, updated_at = NOW()
+        WHERE charge_id = v_primary.charge_id;
+      PERFORM public.booking_fee_upsert_vendor_order(v_primary.charge_id);
+      RETURN jsonb_build_object('action', 'pending_cleared_zero',
+        'charge_id', v_primary.charge_id);
+    END IF;
+
+    UPDATE public.booking_fee_charges
+      SET amount_charged_centavos = v_new_fee, computed_fee_centavos = v_new_fee,
+          proposal_amount_centavos = v_new_total, updated_at = NOW()
+      WHERE charge_id = v_primary.charge_id;
+    PERFORM public.booking_fee_upsert_vendor_order(v_primary.charge_id);
+    RETURN jsonb_build_object('action', 'pending_updated',
+      'charge_id', v_primary.charge_id, 'amount_charged_centavos', v_new_fee);
+  END IF;
+
+  -- ── PAID primary (settled) → reconcile with a delta or a credit, never rewrite ─
+  -- Everything already PAID for this booking (primary + any settled deltas).
+  SELECT COALESCE(SUM(amount_charged_centavos), 0) INTO v_paid_total
+    FROM public.booking_fee_charges
+    WHERE event_vendor_id = p_event_vendor_id AND status = 'paid'
+      AND kind IN ('primary', 'amendment_delta');
+
+  v_delta := v_new_fee - v_paid_total;
+
+  IF v_delta > 0 THEN
+    -- Underpaid → open / adjust the single pending supplementary delta.
+    SELECT charge_id, amount_charged_centavos INTO v_existing_delta
+      FROM public.booking_fee_charges
+      WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_delta'
+        AND status = 'pending'
+      LIMIT 1;
+
+    -- A prior overpayment credit is now stale (we owe more) → zero it.
+    UPDATE public.booking_fee_charges
+      SET credit_centavos = 0, updated_at = NOW()
+      WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_credit'
+        AND COALESCE(credit_centavos, 0) <> 0;
+
+    -- ⚠ DELIBERATELY NOT `IF FOUND AND …`. FOUND is reset by EVERY statement, so
+    -- by the time control reaches this line it reflects the credit-zeroing UPDATE
+    -- five lines up — NOT the `SELECT … INTO v_existing_delta` it looks like it is
+    -- guarding. That UPDATE matches 0 rows whenever no credit note exists (the
+    -- common case), which made FOUND false, skipped this update-in-place branch
+    -- despite a pending delta existing, and dropped through to the INSERT below —
+    -- where it violated booking_fee_charges_one_pending_delta_per_event_vendor and
+    -- the fail-soft trigger swallowed the 23505 into a WARNING. The stale delta
+    -- then survived at its OLD amount and Setnayan under-billed the difference.
+    -- `v_existing_delta.charge_id IS NOT NULL` is the correct and sufficient test:
+    -- it is exactly what the SELECT … INTO was for, and it cannot be clobbered by
+    -- an intervening statement. (Fixed 2026-07-27; introduced by 20270930120000.)
+    IF v_existing_delta.charge_id IS NOT NULL THEN
+      IF v_existing_delta.amount_charged_centavos = v_delta THEN
+        RETURN jsonb_build_object('action', 'delta_noop', 'delta_centavos', v_delta);
+      END IF;
+      UPDATE public.booking_fee_charges
+        SET amount_charged_centavos = v_delta, computed_fee_centavos = v_new_fee,
+            proposal_amount_centavos = v_new_total, updated_at = NOW()
+        WHERE charge_id = v_existing_delta.charge_id;
+      PERFORM public.booking_fee_upsert_vendor_order(v_existing_delta.charge_id);
+      RETURN jsonb_build_object('action', 'delta_updated',
+        'delta_centavos', v_delta, 'charge_id', v_existing_delta.charge_id);
+    END IF;
+
+    INSERT INTO public.booking_fee_charges
+      (ledger_id, proposal_id, event_vendor_id, source, kind, parent_charge_id,
+       vendor_profile_id, event_id, proposal_amount_centavos, computed_fee_centavos,
+       amount_charged_centavos, schedule_version, status, expires_at)
+    VALUES
+      (v_primary.ledger_id, NULL, p_event_vendor_id, 'lock', 'amendment_delta',
+       v_primary.charge_id, v_ev.vpid, v_ev.event_id, v_new_total, v_new_fee,
+       v_delta, p_schedule_version, 'pending', NOW() + INTERVAL '7 days')
+    RETURNING charge_id INTO v_delta_id;
+    PERFORM public.booking_fee_upsert_vendor_order(v_delta_id);
+    RETURN jsonb_build_object('action', 'delta_opened',
+      'delta_centavos', v_delta, 'charge_id', v_delta_id);
+
+  ELSIF v_delta < 0 THEN
+    -- Overpaid → cancel any outstanding delta, record a credit note (NO refund).
+    v_overpaid := -v_delta;
+    FOR v_stale IN
+      SELECT charge_id FROM public.booking_fee_charges
+        WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_delta'
+          AND status = 'pending'
+    LOOP
+      UPDATE public.booking_fee_charges
+        SET status = 'expired', expires_at = NOW(), updated_at = NOW()
+        WHERE charge_id = v_stale.charge_id;
+      PERFORM public.booking_fee_upsert_vendor_order(v_stale.charge_id);
+    END LOOP;
+
+    UPDATE public.booking_fee_charges
+      SET credit_centavos = v_overpaid, computed_fee_centavos = v_new_fee,
+          proposal_amount_centavos = v_new_total, updated_at = NOW()
+      WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_credit';
+    IF NOT FOUND THEN
+      INSERT INTO public.booking_fee_charges
+        (ledger_id, proposal_id, event_vendor_id, source, kind, parent_charge_id,
+         vendor_profile_id, event_id, proposal_amount_centavos, computed_fee_centavos,
+         amount_charged_centavos, credit_centavos, schedule_version, status, paid_at)
+      VALUES
+        (v_primary.ledger_id, NULL, p_event_vendor_id, 'lock', 'amendment_credit',
+         v_primary.charge_id, v_ev.vpid, v_ev.event_id, v_new_total, v_new_fee,
+         0, v_overpaid, p_schedule_version, 'paid', NOW());
+    END IF;
+    RETURN jsonb_build_object('action', 'credit_recorded', 'credit_centavos', v_overpaid);
+
+  ELSE
+    -- Exactly reconciled → cancel any dangling delta, zero any stale credit.
+    FOR v_stale IN
+      SELECT charge_id FROM public.booking_fee_charges
+        WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_delta'
+          AND status = 'pending'
+    LOOP
+      UPDATE public.booking_fee_charges
+        SET status = 'expired', expires_at = NOW(), updated_at = NOW()
+        WHERE charge_id = v_stale.charge_id;
+      PERFORM public.booking_fee_upsert_vendor_order(v_stale.charge_id);
+    END LOOP;
+    UPDATE public.booking_fee_charges
+      SET credit_centavos = 0, updated_at = NOW()
+      WHERE event_vendor_id = p_event_vendor_id AND kind = 'amendment_credit'
+        AND COALESCE(credit_centavos, 0) <> 0;
+    RETURN jsonb_build_object('action', 'reconciled_exact');
+  END IF;
+END;
+$function$;
+
+-- CREATE OR REPLACE keeps the existing grants (service_role only, measured live 2026-09-11).
+
+CREATE OR REPLACE FUNCTION public.booking_fee_on_change_line()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF (TG_OP <> 'DELETE' AND NEW.is_change_delta)
+     OR (TG_OP <> 'INSERT' AND OLD.is_change_delta) THEN
+    BEGIN
+      PERFORM public.booking_fee_rederive_lock_fee(COALESCE(NEW.vendor_id, OLD.vendor_id));
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'booking_fee_rederive_lock_fee failed for event_vendor % (change line): %',
+        COALESCE(NEW.vendor_id, OLD.vendor_id), SQLERRM;
+    END;
+  END IF;
+  RETURN NULL; -- AFTER trigger — return value ignored.
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.booking_fee_on_change_line() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS event_vendor_line_items_booking_fee_rederive ON public.event_vendor_line_items;
+CREATE TRIGGER event_vendor_line_items_booking_fee_rederive
+  AFTER INSERT OR UPDATE OR DELETE ON public.event_vendor_line_items
+  FOR EACH ROW EXECUTE FUNCTION public.booking_fee_on_change_line();

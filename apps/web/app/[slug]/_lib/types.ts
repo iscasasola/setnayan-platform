@@ -307,6 +307,8 @@ export type GuestPapicCamera = {
   /** Shots left in the shared pot, or null when this celebration has no pot. */
   poolRemaining: number | null;
   poolLow: boolean;
+  /** Her number is a sponsor's bigger share — see `GuestQuota.sponsorShare`. */
+  sponsorShare: boolean;
   eventStyle: PapicStyle;
   faceMode: PapicFaceMode;
 };

@@ -5,6 +5,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import {
   Sparkles,
   CalendarClock,
@@ -694,7 +695,8 @@ export async function EventDashboard({
     const stored = (event.landing_page_hero_image_url as string | null) ?? null;
     if (!stored) return null;
     try {
-      return renderableImageSrc(await displayUrlForStoredAsset(stored));
+      // Held to the public bucket before signing (lib/site-media-ref.ts).
+      return renderableImageSrc(await displayUrlForStoredAsset(siteMediaServeRef(stored)));
     } catch {
       return null;
     }

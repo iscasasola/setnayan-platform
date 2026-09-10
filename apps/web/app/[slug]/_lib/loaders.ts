@@ -47,6 +47,7 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
 import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
@@ -417,8 +418,14 @@ export const loadMedia = cache(
     // a photo via /dashboard/[eventId]/website/hero-photo (migration
     // 20260605020000); otherwise returns null and both renderers fall back to
     // the monogram-only hero.
+    //
+    // 🔒 Every couple-writable website ref below goes through `siteMediaServeRef`
+    // first: the resolver signs ANY bucket it is named, and this page is public,
+    // so a value naming a private bucket (payment proofs, chat files, IDs) must
+    // resolve to nothing — never to a signed link. The database refuses such a
+    // value too (events_site_media_names_only_the_public_bucket).
     const heroPhotoUrl = await displayUrlForStoredAsset(
-      event.landing_page_hero_image_url,
+      siteMediaServeRef(event.landing_page_hero_image_url),
     );
 
     // Hero video + background music chrome (Increment B · §6.2). The video, when
@@ -432,7 +439,7 @@ export const loadMedia = cache(
     // goes through the same screen-and-seal spine as std_media. The still photo
     // (already its poster) shows instead. See lib/guest-hero-video.ts.
     const heroVideoUrl = await displayUrlForStoredAsset(
-      heroVideoRefForGuests(event.landing_page_hero_video_r2_key),
+      siteMediaServeRef(heroVideoRefForGuests(event.landing_page_hero_video_r2_key)),
     );
     // The couple's song plays whenever they've ENABLED it + set a track
     // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
@@ -441,7 +448,7 @@ export const loadMedia = cache(
     // ignores anyway, was blocking it even after upload.)
     const bgMusicUrl =
       event.site_bg_music_enabled && event.site_bg_music_r2_key
-        ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
+        ? await displayUrlForStoredAsset(siteMediaServeRef(event.site_bg_music_r2_key))
         : null;
 
     // Step-1 Save-the-Date background (events.std_background). Realistic → the
@@ -455,7 +462,9 @@ export const loadMedia = cache(
             // full-resolution original — the full-bleed CSS background otherwise
             // streams multiple MB and loads slowly on phones. Falls back to the
             // original on any error. See lib/std-bg-image.
-            await displayUrlForStdBackground(stdBackground.value)
+            // (and it READS the original to make that variant — so the ref is
+            // held to the public bucket before anything is fetched).
+            await displayUrlForStdBackground(siteMediaServeRef(stdBackground.value))
           : null;
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
@@ -546,12 +555,9 @@ export const loadMedia = cache(
     // renders nothing. Each ref goes through displayUrlForStoredAsset, which
     // presigns `r2://` refs AND passes plain http(s)/relative URLs through
     // unchanged — so seeded/legacy URLs (e.g. /demo/...) render too, matching how
-    // the hero photo already tolerates legacy URLs.
-    const ourPhotoRefs = Array.isArray(event.our_photos)
-      ? event.our_photos.filter(
-          (r): r is string => typeof r === 'string' && r.trim().length > 0,
-        )
-      : [];
+    // the hero photo already tolerates legacy URLs. 🔒 Held to the public
+    // bucket first (siteMediaServeRefs), like the hero above.
+    const ourPhotoRefs = siteMediaServeRefs(event.our_photos);
     const ourPhotoUrls = (
       await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
     ).filter((u): u is string => Boolean(u));

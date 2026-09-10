@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { StoryCoverKind } from '@/lib/story-cover';
 
@@ -67,7 +68,10 @@ export async function loadCoverCandidates(args: {
 
   // ── ① The living hero — the picture all three surfaces inherit today ───────
   if (heroImageRef) {
-    const previewUrl = await displayUrlForStoredAsset(heroImageRef).catch(() => null);
+    // The website hero is couple-writable: held to the public bucket first.
+    const previewUrl = await displayUrlForStoredAsset(siteMediaServeRef(heroImageRef)).catch(
+      () => null,
+    );
     items.push({
       kind: 'hero',
       ref: null,

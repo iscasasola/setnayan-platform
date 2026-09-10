@@ -50,16 +50,27 @@ test('the dark-launched Camera Bridge shape is accepted ONLY for this seat’s o
 });
 
 test('WIRING: recordSeatCapture refuses a foreign key BEFORE the service-role RPC writes it', () => {
+  // A wiring pin, named as one — the RULE is proved above by calling it. It
+  // matches the WHOLE refusal statement, not a name: a pin that only asks
+  // whether `!parseClientRef(cleanKey, seatPolicy)` appears stays green under
+  // `if (false && !parseClientRef(…))`, which is the decorative-guard shape this
+  // change exists to retire.
   const HERE = dirname(fileURLToPath(import.meta.url));
   const src = stripComments(readFileSync(resolve(HERE, '../app/papic/actions.ts'), 'utf8'));
-  const check = src.indexOf('!parseClientRef(cleanKey, seatPolicy)');
-  const posterCheck = src.indexOf('!parseClientRef(cleanPoster, seatPolicy)');
+  const refusal =
+    /if \(\s*!parseClientRef\(cleanKey, seatPolicy\) \|\|\s*\(cleanPoster !== null && !parseClientRef\(cleanPoster, seatPolicy\)\)\s*\) \{\s*return \{ ok: false, error: 'missing_input' \};/;
+  const m = refusal.exec(src);
+  assert.ok(m, 'recordSeatCapture no longer refuses a raw OR poster key outside the seat’s own folder');
+  const policy = /const seatPolicy = papicSeatCapturePolicy\(\s*seat\.event_id as string,\s*seat\.seat_id as string,/.exec(src);
+  assert.ok(policy, 'the seat policy is no longer built from THIS seat’s event and seat');
   const rpc = src.indexOf("writer.rpc(\n      'papic_record_seat_capture'");
-  assert.ok(check > 0 && posterCheck > 0, 'recordSeatCapture no longer holds the raw AND poster keys to the seat');
   assert.ok(rpc > 0, 'the recording RPC call moved — re-point this pin');
-  assert.ok(check < rpc && posterCheck < rpc, 'the key check runs after the row is already written');
-  assert.ok(
-    src.includes('!parseClientRef(cleanClipWeb, papicSeatCapturePolicy('),
-    'persistSeatClipWebCopy no longer holds the web copy to the seat',
-  );
+  assert.ok(policy.index < m.index && m.index < rpc, 'the key check runs after the row is already written');
+
+  const clip =
+    /if \(!parseClientRef\(cleanClipWeb, papicSeatCapturePolicy\(seat\.event_id as string, seat\.seat_id as string, null\)\)\) \{\s*return \{ ok: false, error: 'not_this_seats_file' \};/;
+  const c = clip.exec(src);
+  assert.ok(c, 'persistSeatClipWebCopy no longer refuses a web copy outside the seat’s own folder');
+  const write = src.indexOf('.update({ clip_web_r2_key: cleanClipWeb');
+  assert.ok(write > 0 && c.index < write, 'the web-copy check runs after the key is stored');
 });

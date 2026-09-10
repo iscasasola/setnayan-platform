@@ -40,6 +40,15 @@ export type PoolAcquireResult =
   | { status: 'error'; message: string };
 
 /**
+ * The Named Calendars kill-switch, read in ONE place: the lock resolves a card's
+ * pools with it, and the bench search passes the same value to
+ * `service_cards_unbookable_on` so both answer from the same pools (H6).
+ */
+export function namedCalendarsEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+}
+
+/**
  * Resolve every pool a booked service spans: its own leaf category plus
  * each linked "comes with" category (bundles lock both schedules — owner
  * verbatim 2026-06-12). Merged categories resolve to the same pool_id, so
@@ -58,8 +67,7 @@ export async function resolvePoolIdsForService(
   // backfilled 2026-06-21, conservation check = 0 orphans), so a service's
   // calendar pool == its category pool → identical pool_ids + acquire downstream.
   // Kill-switch: NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false reverts to category pools.
-  const namedCalendars =
-    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+  const namedCalendars = namedCalendarsEnabled();
 
   const poolIds = new Set<string>();
 

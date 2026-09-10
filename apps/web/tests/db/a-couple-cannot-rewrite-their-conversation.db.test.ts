@@ -153,6 +153,9 @@ before(async () => {
   // The couple follows the stranger's shop, so a NEW thread to it passes the
   // follow gate — the insert refusals below are then the guard, not the gate.
   await db.query(`INSERT INTO public.vendor_follows (follower_user_id, vendor_profile_id) VALUES ($1, $2)`, [F.couple, F.strangerVendorId]);
+  // …and the thread's own shop, as every inquiry path makes them (the follow gate
+  // is a RESTRICTIVE INSERT policy, checked on an upsert's proposed row too).
+  await db.query(`INSERT INTO public.vendor_follows (follower_user_id, vendor_profile_id) VALUES ($1, $2)`, [F.couple, F.vendorId]);
 });
 
 after(async () => {

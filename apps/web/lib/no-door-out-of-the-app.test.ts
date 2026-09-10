@@ -69,6 +69,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { buildPlanBudgetModel } from './vendors-plan-budget';
 
 const WEB = path.join(import.meta.dirname, '..');
 
@@ -104,21 +105,64 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string }> = n
     },
   ],
   [
-    'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx',
-    {
-      count: 1,
-      why:
-        'Passed as a PROP, never printed: it prefills the in-app "start a conversation" ' +
-        'form on the Messages page — a route INTO the app, not out of it.',
-    },
-  ],
-  [
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
     {
       count: 1,
       why:
         'The contact the COUPLE typed for an OFF-platform supplier (no Setnayan ' +
         'profile, so no in-app channel exists). Gated off for a marketplace-linked row.',
+    },
+  ],
+]);
+
+/**
+ * SHOP_CONTACT_READ_BILL — Rule 3. Files reachable from a couple/public entry
+ * point that READ `vendor_profiles` AND carry a column list naming
+ * `contact_email` / `contact_phone`, with the exact number of such lists.
+ *
+ * 🔑 WHY THIS RULE EXISTS: Rules 1 and 2 look at what is PRINTED. Two of the
+ * exits this change closed were never printed at all — the public page fetched
+ * the shop's address for every visitor, and the couple's Vendors page carried
+ * every supplier's email and phone inside a client prop (the page payload). A
+ * value that is never fetched cannot leak by any route, so the read itself is
+ * what needs a reason. Each line below is server-side and says why.
+ */
+const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'app/dashboard/[eventId]/vendors/packages/actions.ts',
+    {
+      count: 1,
+      why:
+        'A server action: a package lock copies the shop\'s email/phone into the booking ' +
+        'row so the coordinator broadcast can email that supplier. Never returned to the ' +
+        'page; every couple-facing reader of that row is gated to off-platform suppliers.',
+    },
+  ],
+  [
+    'lib/vendor-activity.ts',
+    {
+      count: 1,
+      why:
+        'The stats recompute reads the whole profile to score its completeness (is an ' +
+        'email on file?). It returns scores, never the row, so nothing reaches a page.',
+    },
+  ],
+  [
+    'lib/vendor-email-triggers.ts',
+    {
+      count: 1,
+      why:
+        'Resolves where to send an email TO the shop (a new inquiry, a status change). ' +
+        'Setnayan is the sender and no email here is addressed to a couple.',
+    },
+  ],
+  [
+    'app/dashboard/[eventId]/vendors/page.tsx',
+    {
+      count: 1,
+      why:
+        'Server-side only: matches a legacy row whose email the COUPLE typed to a shop ' +
+        'profile id (a Map key). The address it reads is one the couple already wrote.',
     },
   ],
 ]);
@@ -305,7 +349,111 @@ test('Rule 2 — a contact field is printed only where the bill says why, at the
   assert.deepEqual(problems, [], problems.join('\n'));
 });
 
+/**
+ * Rule 3 — a `.from('vendor_profiles')` chain whose `.select(…)` names a contact
+ * field. The chain runs to the statement's end (`;`), so a sibling query on
+ * `event_vendors` in the same file is NOT counted — that row is the couple's
+ * own record, governed by Rule 2. A select held in a module constant
+ * (`.select(fullSelect)`, the public shop page's own shape) is resolved to the
+ * constant's literal, including a `+`-joined one.
+ */
+const FROM_VENDOR_PROFILES_RE = /\.from\(\s*['"`]vendor_profiles['"`]\s*\)/g;
+const SELECT_ARG_RE = /\.select\(\s*(?:(['"`])([\s\S]*?)\1|([A-Za-z_$][\w$]*))/;
+const CONTACT_FIELD_RE = /\bcontact_(?:email|phone)\b/;
+
+function constantLiteral(src: string, name: string): string {
+  const m = new RegExp(`\\bconst\\s+${name}\\b[^=]*=\\s*([^;]*);`).exec(src);
+  return m ? m[1] : '';
+}
+
+function shopContactReads(src: string): number {
+  let n = 0;
+  for (const m of src.matchAll(new RegExp(FROM_VENDOR_PROFILES_RE.source, 'g'))) {
+    const rest = src.slice(m.index + m[0].length);
+    const semi = rest.indexOf(';');
+    const chain = semi === -1 ? rest : rest.slice(0, semi);
+    const sel = SELECT_ARG_RE.exec(chain);
+    if (!sel) continue;
+    const cols = sel[3] ? constantLiteral(src, sel[3]) : sel[2];
+    if (CONTACT_FIELD_RE.test(cols)) n += 1;
+  }
+  return n;
+}
+
+test('Rule 3 — a shop\'s contact is READ from vendor_profiles only where the bill says why', () => {
+  const actual = new Map<string, number>();
+  for (const [f, src] of STRIPPED) {
+    const n = shopContactReads(src);
+    if (n > 0) actual.set(f, n);
+  }
+  const problems: string[] = [];
+  for (const [f, n] of actual) {
+    const billed = SHOP_CONTACT_READ_BILL.get(f);
+    if (!billed) {
+      problems.push(
+        `NEW  ${f} reads a shop's email/phone off vendor_profiles ${n}× — a couple or public ` +
+          'surface should never fetch what it must never show. Drop the column, or bill it with a reason.',
+      );
+    } else if (billed.count !== n) problems.push(`MOVED ${f}: bill says ${billed.count}, found ${n}`);
+  }
+  for (const [f, billed] of SHOP_CONTACT_READ_BILL) {
+    if (!actual.has(f)) {
+      problems.push(`STALE ${f} is on the bill (${billed.count}) but reads none — delete its line`);
+    }
+  }
+  assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+test('Rule 3 matches the shapes it claims to', () => {
+  // A regex that cannot match is not a negative result — prove each shape bites.
+  const vp = "supabase.from('vendor_profiles')";
+  assert.equal(shopContactReads(`${vp}.select('website,contact_email,public_visibility').eq('a', b);`), 1);
+  assert.equal(shopContactReads(`${vp}\n  .select('contact_phone')\n  .maybeSingle();`), 1);
+  assert.equal(
+    shopContactReads(`const fullSelect =\n  'a,contact_phone,b';\nawait admin.from('vendor_profiles').select(fullSelect).ilike('s', x);`),
+    1,
+  );
+  // A filter naming the column is not a read; neither is a sibling event_vendors query.
+  assert.equal(shopContactReads(`${vp}.select('id').ilike('contact_email', x);`), 0);
+  assert.equal(
+    shopContactReads(`${vp}.select('id');\nsupabase.from('event_vendors').select('vendor_id, contact_email');`),
+    0,
+  );
+});
+
+test("the couple's Vendors-page model carries no supplier email or phone (it is a CLIENT prop)", () => {
+  // BEHAVIOURAL, not source-matching. This model is handed to a 'use client'
+  // component, so every field on it is in the page payload whether or not any
+  // JSX prints it. A package lock copies a Setnayan shop's own email and phone
+  // into the booking row, so a field that merely rides along is still a door out.
+  const EMAIL = 'shop-owner-door@example.test';
+  const PHONE = '+63 917 555 0199';
+  const model = buildPlanBudgetModel({
+    vendorRows: [
+      {
+        vendor_id: 'v-1',
+        vendor_name: 'A Setnayan shop',
+        category: 'venue',
+        status: 'contracted',
+        contact_email: EMAIL,
+        contact_phone: PHONE,
+        marketplace_vendor_id: 'vp-1',
+      },
+    ],
+    estimatedBudgetCentavos: 50_000_000,
+    daysUntilWedding: 120,
+    ceremonyType: null,
+    venueSetting: null,
+  });
+  const payload = JSON.stringify(model);
+  // Anti-vacuity: the row really did make it into the model.
+  assert.ok(payload.includes('A Setnayan shop'), 'the fixture row never reached the model — this test proves nothing');
+  assert.ok(!payload.includes(EMAIL), "the shop's email rides in the Vendors page payload");
+  assert.ok(!payload.includes(PHONE), "the shop's phone rides in the Vendors page payload");
+});
+
 test('the bill and the exclusions carry reasons', () => {
   for (const [f, b] of CONTACT_TEXT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
+  for (const [f, b] of SHOP_CONTACT_READ_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const t of STAFF_OR_SHOP_OWN_TREES) assert.ok(t.why.length > 20, `${t.prefix} has no reason`);
 });

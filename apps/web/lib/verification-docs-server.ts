@@ -4,91 +4,116 @@ import { R2_BUCKETS, r2List } from '@/lib/r2';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   VERIFICATION_PREFIX,
-  classifyVerificationDocs,
-  type VerificationDoc,
+  VERIFICATION_REFERENCE_SOURCES,
+  buildVerificationDocsReportFrom,
+  collectReferencedKeysDetailed,
+  readReferenceSource,
+  type ReferenceQueryClient,
+  type VerificationDocsReport,
 } from '@/lib/verification-docs';
 
 /**
  * The server half: read what the database still points at, read what is really
- * in the bucket, and hand the pure classifier both.
+ * in the bucket, and hand the pure module both.
+ *
+ * ── THIS MODULE DECIDES NOTHING, ON PURPOSE ─────────────────────────────────
+ * It opens with `import 'server-only'`, which is not installed here, so no
+ * `node:test` can load it — anything it decides can only ever be guarded by
+ * reading its source as text, and FOUR such guards have now been proven
+ * decorative by reviewers. Two in round 2: one kept both asserted call sites
+ * and threw their results away (`keys.add(key)` 2 → 0, suite green), the other
+ * replaced the block-reason expression while leaving both asserted literals in
+ * place (gate gone, suite green). Two more in round 3, against the paging this
+ * module used to build for itself: the range window was shifted by one row
+ * (skipping the FIRST row of the table, offering its five documents for
+ * deletion) and the `.order()` was DELETED, and the suite stayed GREEN at 55/55
+ * for both — because every test injected a `fetchPage` stub that ignored its
+ * arguments, so the real window and the real ordering were exercised by
+ * nothing.
+ *
+ * 🔑 THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING. The table names, the SELECT columns, the ordering,
+ * the range arithmetic, the completeness proof, the fold and every gate now
+ * live in `verification-docs.ts`, where a test CALLS them and a fake client
+ * records what the query asked for. What is left here is a client, a bucket
+ * listing, and two function calls. Keep it that way — a condition added to this
+ * file is a condition nothing can guard.
  *
  * ── FAIL CLOSED, LOUDLY ─────────────────────────────────────────────────────
- * If either reference source cannot be read, this returns `referencesComplete:
- * false` and the page refuses to offer deletion at all. A partial reference set
- * would mark a LIVE government ID as left over — and the button next to that
- * label is irreversible. Better a page that says "I could not check" than one
- * that quietly under-counts.
+ * If either reference source cannot be read, or cannot be read TO THE END, or
+ * the walk over a stored value hit its depth ceiling, this returns
+ * `referencesComplete: false` and the page refuses to offer deletion at all. A
+ * partial reference set would mark a LIVE government ID as left over — and the
+ * button next to that label is irreversible.
  */
 
-export type VerificationDocsReport = {
-  docs: VerificationDoc[];
-  /** Both reference sources were read. Deletion is refused when false. */
-  referencesComplete: boolean;
-  /** Why the references are incomplete, for the page to show verbatim. */
-  referenceError: string | null;
-  /** The bucket could not be listed at all. */
-  listingError: string | null;
-  truncated: boolean;
-};
+export type { VerificationDocsReport };
+
+/** How many rows one reference page asks for. See `readAllPages`. */
+const REFERENCE_PAGE_SIZE = 500;
 
 /**
  * Every R2 key the database still points at.
  *
- * TWO sources, and both must succeed:
+ * TWO sources, and both must be read in full:
  *   · `vendor_verifications` — five `*_r2_key` columns.
- *   · `vendor_verification_applications.doc_uploads` — jsonb slot → key, for an
- *     intake still in progress. Skipping this one would mark a vendor's
+ *   · `vendor_verification_applications.doc_uploads` — jsonb slot → VALUE, for
+ *     an intake still in progress. Skipping this one would mark a vendor's
  *     half-finished upload as rubbish while they are still filling the form.
+ * Both are described as DATA in `VERIFICATION_REFERENCE_SOURCES`, projecting
+ * ONLY the columns that can carry a reference — see that constant for why the
+ * primary key must never join them.
+ *
+ * 🚨 **THIS FUNCTION USED TO COLLECT NOTHING AT ALL, FROM EITHER SOURCE.** It
+ * kept `Object.values(...)` entries that were `typeof === 'string'`, and no
+ * writer in this codebase has ever produced one — `buildSlotValue` wraps every
+ * shape in an object or an array, and the five columns have no writer at all.
+ * So the set came back EMPTY with `error: null`, which the page and the delete
+ * action both read as "nothing points at this file", and the first real
+ * government ID a supplier uploaded would have been offered for permanent
+ * deletion. Production is empty today; that is the only reason it never fired.
+ *
+ * ⚖ Every value goes through the SAME pure helper, columns and jsonb alike, so
+ * a writer appearing on either source is covered on the day it ships.
  */
-async function referencedKeys(): Promise<{ keys: Set<string>; error: string | null }> {
-  const admin = createAdminClient();
-  const keys = new Set<string>();
+async function referencedKeys(): Promise<{
+  keys: Set<string>;
+  error: string | null;
+  complete: boolean;
+}> {
+  const client = createAdminClient() as unknown as ReferenceQueryClient;
 
-  const { data: verifications, error: vErr } = await admin
-    .from('vendor_verifications')
-    .select(
-      'dti_certificate_r2_key, bir_2303_r2_key, mayors_permit_r2_key, government_id_r2_key, bank_account_proof_r2_key',
-    );
-  if (vErr) {
-    return { keys, error: `vendor_verifications: ${vErr.message}` };
-  }
-  for (const row of verifications ?? []) {
-    for (const value of Object.values(row as Record<string, unknown>)) {
-      if (typeof value === 'string' && value.trim().length > 0) keys.add(value.trim());
-    }
+  const rows: unknown[] = [];
+  let complete = true;
+  for (const source of VERIFICATION_REFERENCE_SOURCES) {
+    const read = await readReferenceSource(client, source, { pageSize: REFERENCE_PAGE_SIZE });
+    if (read.error) return { keys: new Set(), error: read.error, complete: false };
+    rows.push(...read.rows);
+    complete = complete && read.complete;
   }
 
-  const { data: applications, error: aErr } = await admin
-    .from('vendor_verification_applications')
-    .select('doc_uploads');
-  if (aErr) {
-    return { keys, error: `vendor_verification_applications: ${aErr.message}` };
-  }
-  for (const row of applications ?? []) {
-    const uploads = (row as { doc_uploads?: unknown }).doc_uploads;
-    if (uploads && typeof uploads === 'object') {
-      for (const value of Object.values(uploads as Record<string, unknown>)) {
-        if (typeof value === 'string' && value.trim().length > 0) keys.add(value.trim());
-      }
-    }
-  }
+  // Whole rows go in. The projection is already reference-columns-only, so the
+  // walk finds every `*_r2_key` and the jsonb blob without naming one — a sixth
+  // column is covered the day it is added to `VERIFICATION_REFERENCE_SOURCES`.
+  const { keys, truncated } = collectReferencedKeysDetailed(rows);
 
-  return { keys, error: null };
+  return { keys, error: null, complete: complete && !truncated };
 }
 
 /** The set of referenced keys, for a delete action to re-derive at press time. */
 export async function referencedVerificationKeys(): Promise<{
   keys: Set<string>;
   error: string | null;
+  complete: boolean;
 }> {
   return referencedKeys();
 }
 
 export async function buildVerificationDocsReport(): Promise<VerificationDocsReport> {
-  const { keys, error: referenceError } = await referencedKeys();
+  const { keys, error: referenceError, complete } = await referencedKeys();
 
   let objects: { key: string; size: number; lastModified: Date | null }[] = [];
-  let truncated = false;
+  let listingTruncated = false;
   let listingError: string | null = null;
   try {
     const listed = await r2List({
@@ -96,16 +121,17 @@ export async function buildVerificationDocsReport(): Promise<VerificationDocsRep
       prefix: VERIFICATION_PREFIX,
     });
     objects = listed.objects;
-    truncated = listed.truncated;
+    listingTruncated = listed.truncated;
   } catch (err) {
     listingError = err instanceof Error ? err.message : 'the bucket could not be listed';
   }
 
-  return {
-    docs: classifyVerificationDocs(objects, keys).sort((a, b) => a.key.localeCompare(b.key)),
-    referencesComplete: referenceError === null,
+  return buildVerificationDocsReportFrom({
+    keys,
     referenceError,
+    referencesComplete: complete,
+    objects,
     listingError,
-    truncated,
-  };
+    listingTruncated,
+  });
 }

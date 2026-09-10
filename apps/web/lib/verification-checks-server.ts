@@ -100,6 +100,13 @@ export type ChecksInput = {
   vendorProfileId: string;
   businessName: string | null;
   docUploads: unknown;
+  /**
+   * Set by a caller whose READ of the checklist failed, as opposed to one that
+   * read it and found it empty. The two are the same value from the outside
+   * (`{}`), and conflating them reports "nothing filed" for a shop whose
+   * documents we simply could not see.
+   */
+  docUploadsUnreadable?: boolean;
   contactEmail: string | null;
   contactPhone: string | null;
   hqAddress: string | null;
@@ -223,8 +230,10 @@ export async function buildVerificationChecks(
   input: ChecksInput,
 ): Promise<VerificationChecksReport> {
   let uploads: DocUploadMap = {};
-  let docUploadsUnreadable = false;
-  if (input.docUploads == null) {
+  let docUploadsUnreadable = input.docUploadsUnreadable === true;
+  if (docUploadsUnreadable) {
+    uploads = {};
+  } else if (input.docUploads == null) {
     // A never-started application has no map. That is not "unreadable" — it is
     // an empty checklist, and the required-documents check should say so.
     uploads = {};
@@ -317,4 +326,97 @@ export async function buildVerificationChecks(
 
   const results = runVerificationChecks(facts);
   return { results, summary: summariseChecks(results), documents };
+}
+
+// ---------------------------------------------------------------------------
+// The evidence snapshot a grant records about itself
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the desk's checks for a SHOP, finding its latest application if it has one.
+ *
+ * 🔴 THE CASE THIS EXISTS FOR IS THE ONE PRODUCTION IS ACTUALLY IN. Measured
+ * 2026-09-09: both live shops are `verified` with every identity column NULL,
+ * the only verification application ever created is still a `draft` with two
+ * empty slots, and the single `vendor_visibility_change` audit row timestamp
+ * matches one shop's `last_verified_at` to the tenth of a second. The badge has
+ * only ever been granted by the visibility button — which never had an
+ * application to read. So a shop with NO application is a first-class input
+ * here, not an error: the checks run against an empty checklist and say so.
+ */
+export async function buildVerificationChecksForVendor(
+  vendorProfileId: string,
+): Promise<VerificationChecksReport | null> {
+  try {
+    const admin = createAdminClient();
+    const { data: vendor, error: vErr } = await admin
+      .from('vendor_profiles')
+      .select(
+        'vendor_profile_id, business_name, contact_email, contact_phone, hq_address, registration_number_raw, registration_number_needs_review, in_business_since_year, experience_verified_at',
+      )
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (vErr || !vendor) return null;
+
+    // The latest application, if there is one. A read failure is NOT an empty
+    // checklist — it degrades the document checks to manual, which is what
+    // `docUploadsUnreadable` means.
+    const { data: app, error: aErr } = await admin
+      .from('vendor_verification_applications')
+      .select('doc_uploads, contact_email_confirmed_at, contact_phone_confirmed_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const v = vendor as Record<string, unknown>;
+    return await buildVerificationChecks({
+      vendorProfileId,
+      businessName: (v.business_name as string | null) ?? null,
+      docUploads: (app?.doc_uploads as unknown) ?? {},
+      docUploadsUnreadable: Boolean(aErr),
+      contactEmail: (v.contact_email as string | null) ?? null,
+      contactPhone: (v.contact_phone as string | null) ?? null,
+      hqAddress: (v.hq_address as string | null) ?? null,
+      contactEmailConfirmedAt: (app?.contact_email_confirmed_at as string | null) ?? null,
+      contactPhoneConfirmedAt: (app?.contact_phone_confirmed_at as string | null) ?? null,
+      registrationNumberRaw: (v.registration_number_raw as string | null) ?? null,
+      registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
+      inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,
+      experienceVerifiedAt: (v.experience_verified_at as string | null) ?? null,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What a badge grant writes into its own audit row about the evidence behind it.
+ *
+ * ⚖ THIS RECORDS; IT DOES NOT REFUSE. Offered "refuse with an override", the
+ * owner did not take it — he answered with the automation. So the grant still
+ * goes through, and what changes is that six months later the row says whether
+ * anybody had checked anything. Today the answer would be "no", on both live
+ * shops, and nothing anywhere records that.
+ *
+ * Returns a small object, never null — an audit row that cannot say what the
+ * checks found must still say THAT, or a missing key reads as "all clear".
+ */
+export async function verificationEvidenceSnapshot(
+  vendorProfileId: string,
+): Promise<Record<string, unknown>> {
+  const report = await buildVerificationChecksForVendor(vendorProfileId);
+  if (!report) {
+    return { checks_ran: false, note: 'The automatic checks could not run for this shop.' };
+  }
+  return {
+    checks_ran: true,
+    total: report.summary.total,
+    passed: report.summary.passed,
+    mismatched: report.summary.mismatched,
+    manual: report.summary.manual,
+    all_clear: report.summary.allClear,
+    mismatched_checks: report.results.filter((r) => r.outcome === 'mismatch').map((r) => r.key),
+    manual_checks: report.results.filter((r) => r.outcome === 'manual').map((r) => r.key),
+  };
 }

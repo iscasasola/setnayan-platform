@@ -54,6 +54,7 @@ import {
   markVendorContactConfirmed,
   rejectApplication,
   rejectVendor,
+  openApplicationDocument,
   runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
@@ -67,6 +68,22 @@ import {
 } from '@/lib/vendor-deep-search';
 import { DeepSearchChat } from './_components/deep-search-chat';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  buildVerificationChecks,
+  buildVerificationChecksForVendor,
+  type VerificationChecksReport,
+} from '@/lib/verification-checks-server';
+import {
+  grantWarning,
+  sortForReview,
+  summaryLine,
+  type CheckResult,
+} from '@/lib/verification-checks';
+import { BYPASS_WINDOW_DAYS, bypassState } from '@/lib/verification-bypass';
+import {
+  grantVerificationBypass,
+  revokeVerificationBypass,
+} from '@/app/admin/vendors/verification-bypass-actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -557,6 +574,40 @@ async function ApplicationsSurface({
     },
   }));
 
+  // ── THE DESK'S CHECKS, ONE REPORT PER APPLICATION ────────────────────────
+  // Owner 2026-09-09: *"we need to be informed which on the verification needs
+  // manual checking. the rest will be automatic … we want an automation to also
+  // tell us if there are mismatches."* THE UNIT IS THE CHECK — four clean and
+  // one mismatch is four-fifths done, and the reviewer opens only the fifth.
+  //
+  // Run here rather than inside the card so the fan-out is visible and bounded:
+  // this is one storage HEAD per filed document, and the queue reads up to 200
+  // applications. `buildVerificationChecks` never throws — a shop with
+  // malformed JSONB comes back as manual marks, not as a 500 on the whole queue.
+  const checksMap: Record<string, VerificationChecksReport> = {};
+  const checkReports = await Promise.all(
+    fullRows.map(async (r) => ({
+      id: r.application_id,
+      report: await buildVerificationChecks({
+        vendorProfileId: r.vendor_profile_id,
+        businessName: r.vendor.business_name,
+        docUploads: r.doc_uploads,
+        contactEmail: r.vendor.contact_email,
+        contactPhone: r.vendor.contact_phone,
+        hqAddress: r.vendor.hq_address,
+        contactEmailConfirmedAt:
+          contactConfirmations[r.application_id]?.contact_email_confirmed_at ?? null,
+        contactPhoneConfirmedAt:
+          contactConfirmations[r.application_id]?.contact_phone_confirmed_at ?? null,
+        registrationNumberRaw: r.vendor.registrationNumberRaw,
+        registrationNumberNeedsReview: r.vendor.registrationNumberNeedsReview,
+        inBusinessSinceYear: r.vendor.inBusinessSinceYear,
+        experienceVerifiedAt: r.vendor.experienceVerifiedAt,
+      }),
+    })),
+  );
+  for (const { id, report } of checkReports) checksMap[id] = report;
+
   // Post-demotion re-verification fee, resolved from service_catalog (retired
   // inactive by the 20260702 migration → ₱0 / "Free"). Never hardcoded so the
   // demoted-vendor card can't advertise a fee that no longer exists.
@@ -594,6 +645,7 @@ async function ApplicationsSurface({
                   }
                   validateContacts={validateContacts}
                   dossierRow={dossierMap[r.vendor_profile_id] ?? null}
+                  checks={checksMap[r.application_id] ?? null}
                 />
               </li>
             ))}
@@ -705,11 +757,14 @@ function ApplicationCard({
   confirmation,
   validateContacts,
   dossierRow,
+  checks,
 }: {
   application: ApplicationRow;
   confirmation: ContactConfirmation;
   validateContacts: VendorValidateContacts;
   dossierRow: DossierRow | null;
+  /** null when the checks could not be built at all — the card says so. */
+  checks: VerificationChecksReport | null;
 }) {
   const completeCount = countCompleteSlots(application.doc_uploads);
   const slaTone = computeSlaTone(
@@ -830,9 +885,14 @@ function ApplicationCard({
         </p>
       ) : null}
 
+      <CheckResultsBlock checks={checks} />
+
+      {/* ⚠ This summary said "12-doc checklist" for months while DOC_SLOTS held
+          EIGHT — four slots were pruned on 2026-07-03 and the label was not.
+          Derived from the array now, so it cannot drift again. */}
       <details className="rounded-md border border-ink/10 bg-cream/60">
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
-          12-doc checklist
+          {DOC_SLOTS.length}-item checklist
         </summary>
         <ul className="space-y-2 px-3 pb-3 text-xs">
           {DOC_SLOTS.map((slot) => {
@@ -851,6 +911,11 @@ function ApplicationCard({
                   </span>
                   <span className="font-medium">{slot.label}</span>
                 </div>
+                <SlotDocuments
+                  applicationId={application.application_id}
+                  slotKey={slot.key}
+                  documents={checks?.documents ?? []}
+                />
                 <SlotDetail slotKey={slot.key} value={v} />
               </li>
             );
@@ -900,7 +965,7 @@ function ApplicationCard({
 
       <DeepSearchBlock application={application} dossierRow={dossierRow} />
 
-      <ActionRow application={application} />
+      <ActionRow application={application} checks={checks} />
     </article>
   );
 }
@@ -1202,6 +1267,180 @@ function CategoryMatchBadge({
 }
 
 /**
+ * THE DESK — one line per check, mismatches first.
+ *
+ * ── WHAT THE OWNER ASKED FOR, AND WHAT THIS IS NOT ──────────────────────────
+ * *"we need to be informed which on the verification needs manual checking. the
+ * rest will be automatic unless all needs manual. we want an automation to also
+ * tell us if there are mismatches."* (2026-09-09)
+ *
+ * So there is **no overall verdict anywhere in this block**, deliberately. A
+ * single "ready / not ready" pill is the thing a tired reviewer reads instead of
+ * the ten results underneath it, and it would quietly re-create the one-click
+ * approval this desk exists to give evidence to.
+ *
+ * 🔑 A MISMATCH SHOWS BOTH VALUES AND BOTH SOURCES. "Needs review" makes the
+ * human redo the check the machine already did; naming the two sides means they
+ * open one document and finish.
+ *
+ * 🔒 Three outcomes, three different jobs:
+ *   · MISMATCH — something disagrees. Read it, then open the paper.
+ *   · FOR YOU  — nobody has decided this. Split again by `alwaysHuman`, because
+ *                "a person was always going to do this" and "a source did not
+ *                answer just now" are different problems and only one of them
+ *                is a fault.
+ *   · CLEAR    — the machine confirmed it. Collapsed by default; the whole
+ *                point is that the reviewer does not spend attention here.
+ */
+function CheckResultsBlock({ checks }: { checks: VerificationChecksReport | null }) {
+  if (!checks) {
+    return (
+      <p className="rounded-md border border-warn-400/50 bg-warn-50/60 px-3 py-2 text-xs text-warn-700">
+        The automatic checks could not run for this shop. Everything below is unchecked — treat
+        the whole application as manual.
+      </p>
+    );
+  }
+  const ordered = sortForReview(checks.results);
+  const attention = ordered.filter((r) => r.outcome !== 'pass');
+  const clear = ordered.filter((r) => r.outcome === 'pass');
+
+  return (
+    <section className="rounded-md border border-ink/10 bg-white/60 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Automatic checks
+        </p>
+        <p className="text-xs font-medium text-ink/80">{summaryLine(checks.summary)}</p>
+      </div>
+
+      {attention.length > 0 ? (
+        <ul className="mt-2 space-y-2">
+          {attention.map((r) => (
+            <CheckLine key={r.key} result={r} />
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-success-700">
+          Nothing here needs you — every check the machine can make came back clean.
+        </p>
+      )}
+
+      {clear.length > 0 ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[11px] text-ink/55">
+            {clear.length} check{clear.length === 1 ? '' : 's'} already clear
+          </summary>
+          <ul className="mt-1 space-y-1 pl-1">
+            {clear.map((r) => (
+              <li key={r.key} className="text-[11px] text-success-700">
+                <span className="font-medium">{r.label}</span>
+                <span className="text-ink/60"> — {r.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+function CheckLine({ result }: { result: CheckResult }) {
+  const isMismatch = result.outcome === 'mismatch';
+  const tone = isMismatch
+    ? 'border-danger-400/50 bg-danger-50/50'
+    : 'border-ink/15 bg-ink/[0.02]';
+  return (
+    <li className={`rounded-md border px-3 py-2 ${tone}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${
+            isMismatch
+              ? 'border border-danger-400/60 bg-danger-50 text-danger-700'
+              : 'border border-ink/20 bg-white text-ink/70'
+          }`}
+        >
+          {isMismatch ? 'mismatch' : result.alwaysHuman ? 'always yours' : 'for you'}
+        </span>
+        <span className="text-xs font-medium text-ink">{result.label}</span>
+      </div>
+      <p className="mt-1 text-[11px] text-ink/75">{result.detail}</p>
+
+      {result.disagreement ? (
+        <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+          {[result.disagreement.left, result.disagreement.right].map((side, i) => (
+            <div key={i} className="rounded-md border border-ink/10 bg-white/80 px-2 py-1.5">
+              <dt className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink/50">
+                {side.label}
+              </dt>
+              <dd className="mt-0.5 break-words text-[11px] font-medium text-ink">{side.value}</dd>
+              <dd className="mt-0.5 break-words text-[10px] text-ink/55">from {side.source}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {result.reason ? (
+        <p className="mt-1 text-[11px] text-ink/60">{result.reason}</p>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * 🔴 THE REVIEWER CAN OPEN THE PAPER. Until this shipped they could not open a
+ * single document from this queue — the drawer showed a tick per slot and the
+ * only opener in the product lived on a storage-hygiene page listing raw R2
+ * keys with no idea which application they belonged to. An automated mismatch
+ * report that escalates to a human who cannot see the document has escalated to
+ * nowhere, which is why the two halves had to ship together.
+ *
+ * The link is minted by a server action (120 seconds, `attachment` disposition,
+ * key re-derived from the application) — never rendered into the page. A
+ * presigned URL sitting in the HTML of a queue listing 200 shops is 200
+ * long-lived links to government IDs in one document.
+ */
+function SlotDocuments({
+  applicationId,
+  slotKey,
+  documents,
+}: {
+  applicationId: string;
+  slotKey: string;
+  documents: ReadonlyArray<{
+    slotKey: string;
+    r2Key: string;
+    existsInStorage: boolean | null;
+  }>;
+}) {
+  const mine = documents.filter((d) => d.slotKey === slotKey);
+  if (mine.length === 0) return null;
+  return (
+    <ul className="ml-7 flex flex-wrap gap-1.5">
+      {mine.map((d, i) => (
+        <li key={d.r2Key}>
+          <form action={openApplicationDocument}>
+            <input type="hidden" name="application_id" value={applicationId} />
+            <input type="hidden" name="slot_key" value={slotKey} />
+            <input type="hidden" name="r2_key" value={d.r2Key} />
+            <SubmitButton
+              pendingLabel="Opening…"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-ink/20 bg-white px-2 text-[11px] text-ink/75 hover:bg-ink/5"
+            >
+              {/* A file we KNOW is missing must not offer a plain "Open" — the
+                  reviewer would press it, get nothing, and blame the browser. */}
+              {d.existsInStorage === false
+                ? `Open ${mine.length > 1 ? i + 1 : ''} — file missing`
+                : `Open${mine.length > 1 ? ` ${i + 1}` : ''}`}
+            </SubmitButton>
+          </form>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * Reviewer-facing detail for the three structured vendor slots (owner
  * 2026-07-03 field redesign): the client references (name · contact · event ·
  * date), the social/website links, and the portfolio COUNT. These read from the
@@ -1265,7 +1504,42 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
   return null;
 }
 
-function ActionRow({ application }: { application: ApplicationRow }) {
+/** What every grant does to the shop, said the same way wherever it is offered. */
+const GRANT_CONSEQUENCE =
+  'Approving flips this vendor to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they are notified.';
+
+/**
+ * The sentence the grant dialog shows, warning first.
+ *
+ * A `null` report is NOT "clean" — it is "the checks did not run", which is the
+ * one state that most deserves to be said out loud before a badge is handed
+ * over. `grantWarning` already treats a zero-check summary that way, so an
+ * absent report is fed one rather than being quietly skipped.
+ */
+function grantDialogMessage(checks: VerificationChecksReport | null): string {
+  const warning = grantWarning(
+    checks?.summary ?? {
+      total: 0,
+      passed: 0,
+      mismatched: 0,
+      manual: 0,
+      allManual: false,
+      allClear: false,
+    },
+  );
+  return warning
+    ? `${warning} ${GRANT_CONSEQUENCE}`
+    : `Every automatic check came back clean. ${GRANT_CONSEQUENCE}`;
+}
+
+function ActionRow({
+  application,
+  checks,
+}: {
+  application: ApplicationRow;
+  checks: VerificationChecksReport | null;
+}) {
+  const approveMessage = grantDialogMessage(checks);
   const isPendingOrReview =
     application.status === 'pending_review' ||
     application.status === 'in_review';
@@ -1295,7 +1569,14 @@ function ActionRow({ application }: { application: ApplicationRow }) {
           title="Approve this application?"
           confirmLabel="Approve → Verified"
           destructive={false}
-          message="Approving flips this vendor to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they're notified."
+          /* ⚖ THE WARNING DOES NOT REFUSE, AND THAT IS THE OWNER'S CALL TO
+             CHANGE. Offered "refuse with an override" on 2026-09-09 he did not
+             take it — he asked for the automation instead. What this sentence
+             buys is that nobody can press Approve while BELIEVING the paper was
+             checked, because the dialog says in the same breath what was not.
+             When he rules that it should hard-refuse, the refusal goes in
+             `approveApplication` and this is already the message it refuses with. */
+          message={approveMessage}
         >
           <input
             type="hidden"
@@ -1458,6 +1739,49 @@ async function VisibilitySurface({
   // something fetchable inside it. Indexed by position.
   const logoDisplayUrls = await Promise.all(vendors.map((v) => resolveDisplayUrl(v.logo_url)));
 
+  // 🔴 THIS SURFACE'S APPROVE BUTTON IS THE ONE THAT HAS ISSUED EVERY BADGE
+  // PRODUCTION HAS EVER GRANTED — measured 2026-09-09: two shops, both verified,
+  // every identity column NULL, and the single `vendor_visibility_change` audit
+  // row matching one shop's `last_verified_at` to the tenth of a second. The
+  // applications queue below has never decided anything. So the checks belong
+  // HERE at least as much as they belong there, and a shop with no application
+  // at all is the normal input rather than an edge case.
+  const visibilityChecks = await Promise.all(
+    vendors.map((v) => buildVerificationChecksForVendor(v.vendor_profile_id)),
+  );
+
+  // ── THE THIRD WAY TO GRANT THIS BADGE, AND UNTIL NOW THE ONLY UNREACHABLE ONE ──
+  // `grantVerificationBypass` shipped merged on 2026-09-07 with the owner's
+  // rulings attached (same badge · no cap · documents due in six months) and
+  // NEVER GOT A SCREEN: measured, its only references in the whole repo were its
+  // own test and the generated admin-jobs inventory, and `vendor_verification_
+  // bypasses` holds zero rows. A fence over the two buttons and not over this
+  // would not be a fence — and a vouch is the MOST accountable of the three
+  // doors (a mandatory reason, an audit row, a deadline the sweep enforces),
+  // so leaving it unreachable pushed every real vouch through the door that
+  // carries none of that. Soft probe: a pre-migration DB degrades to no rows.
+  const bypassMap: Record<string, { expiresAt: string | null; expiredAt: string | null }> = {};
+  if (vendors.length > 0) {
+    const { data: bypassRows } = await admin
+      .from('vendor_verification_bypasses')
+      .select('vendor_profile_id, expires_at, expired_at')
+      .in(
+        'vendor_profile_id',
+        vendors.map((v) => v.vendor_profile_id),
+      )
+      .then((r) => (r.error ? { data: null } : r));
+    for (const row of (bypassRows ?? []) as Array<{
+      vendor_profile_id: string;
+      expires_at: string | null;
+      expired_at: string | null;
+    }>) {
+      bypassMap[row.vendor_profile_id] = {
+        expiresAt: row.expires_at ?? null,
+        expiredAt: row.expired_at ?? null,
+      };
+    }
+  }
+
   return (
     <>
       <VisibilityTabs current={statusParam ?? 'hidden'} />
@@ -1478,7 +1802,12 @@ async function VisibilitySurface({
         <ul className="grid gap-3 sm:grid-cols-2">
           {vendors.map((v, i) => (
             <li key={v.vendor_profile_id}>
-              <VerifyCard vendor={v} logoDisplayUrl={logoDisplayUrls[i] ?? null} />
+              <VerifyCard
+                vendor={v}
+                logoDisplayUrl={logoDisplayUrls[i] ?? null}
+                checks={visibilityChecks[i] ?? null}
+                bypass={bypassMap[v.vendor_profile_id] ?? null}
+              />
             </li>
           ))}
         </ul>
@@ -1532,15 +1861,135 @@ function VisibilityTabs({ current }: { current: string }) {
   );
 }
 
+/**
+ * VOUCH FOR A SHOP — the third grant door, given the screen it never had.
+ *
+ * ── WHY THIS IS A MOUNT, NOT A NEW FEATURE ──────────────────────────────────
+ * `grantVerificationBypass` merged on 2026-09-07 (PR #5298) carrying the
+ * owner's own rulings — **same badge** a couple sees, **no cap** on how many may
+ * run, documents owed in six months — and then had no caller anywhere in the
+ * product. Measured before this shipped: its only references in the repo were
+ * its own unit test and the generated admin-jobs inventory, and its table held
+ * zero rows. A fix nobody can reach is no fix.
+ *
+ * 🔑 AND MOUNTING IT IS THE FENCE, NOT A HOLE IN ONE. Of the three ways to hand
+ * out this badge, the vouch is the ONLY one that demands a written reason, sets
+ * a deadline, and has a sweep that withdraws the listing when the deadline
+ * passes unmet. Leaving it unreachable did not prevent vouching — it pushed
+ * every real vouch through the plain Approve button, which records none of that
+ * and expires never. That is exactly how production ended up with two verified
+ * shops and no paperwork.
+ *
+ * ⚠ The reason is enforced SERVER-SIDE (≥ 8 characters, stored on the audit
+ * row). `required` here is a courtesy to the person typing, never the control.
+ */
+function VouchControls({
+  vendorProfileId,
+  businessName,
+  vouch,
+}: {
+  vendorProfileId: string;
+  businessName: string | null;
+  vouch: ReturnType<typeof bypassState>;
+}) {
+  if (vouch.kind === 'active' || vouch.kind === 'satisfied') {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+            vouch.kind === 'satisfied'
+              ? 'border-success-400/60 bg-success-50 text-success-700'
+              : vouch.urgent
+                ? 'border-danger-400/60 bg-danger-50 text-danger-700'
+                : 'border-ink/25 bg-ink/5 text-ink/70'
+          }`}
+          title={
+            vouch.kind === 'satisfied'
+              ? 'Vouched for, and the documents landed. The deadline no longer applies.'
+              : 'Listed on Setnayan’s word. The listing is withdrawn automatically if the documents miss the deadline.'
+          }
+        >
+          {vouch.kind === 'satisfied'
+            ? 'Vouched · papers in'
+            : `Vouched · ${vouch.daysLeft}d left`}
+        </span>
+        <ConfirmForm
+          action={revokeVerificationBypass}
+          title="Withdraw this listing now?"
+          confirmLabel="Withdraw"
+          message={`${businessName || 'This shop'} stops showing to couples immediately. Their documents are still owed — this only takes back the listing you vouched for.`}
+        >
+          <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
+          <SubmitButton
+            pendingLabel="Withdrawing…"
+            className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+          >
+            Withdraw vouch
+          </SubmitButton>
+        </ConfirmForm>
+      </div>
+    );
+  }
+
+  return (
+    <details className="relative">
+      <summary className="inline-flex h-9 cursor-pointer items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70">
+        Vouch for them…
+      </summary>
+      <form
+        action={grantVerificationBypass}
+        className="absolute right-0 z-10 mt-2 w-80 space-y-2 rounded-md border border-ink/15 bg-cream p-3 shadow-lg"
+      >
+        <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
+        <p className="text-[11px] leading-relaxed text-ink/70">
+          Lists {businessName || 'this shop'} now on Setnayan&rsquo;s word, with their documents
+          due in {BYPASS_WINDOW_DAYS} days. Couples see the same badge as a fully checked shop
+          — miss the deadline and the listing comes down by itself.
+        </p>
+        <label className="block text-xs text-ink/65">
+          Why are you vouching for them?
+          <textarea
+            name="reason"
+            required
+            minLength={8}
+            rows={3}
+            className="mt-1 w-full rounded-md border border-ink/20 bg-white px-2 py-1 text-xs text-ink"
+            placeholder="Worked their last three weddings with us; owner known personally."
+          />
+        </label>
+        <SubmitButton
+          pendingLabel="Vouching…"
+          className="button-primary h-9 w-full px-3 text-xs"
+        >
+          Vouch → Verified
+        </SubmitButton>
+      </form>
+    </details>
+  );
+}
+
 function VerifyCard({
   vendor,
   logoDisplayUrl,
+  checks,
+  bypass,
 }: {
   vendor: VendorVisibilityRow;
   // Already resolved by the async parent — never `vendor.logo_url` raw.
   logoDisplayUrl: string | null;
+  /** null when the checks could not run — treated as "unchecked", not "clean". */
+  checks: VerificationChecksReport | null;
+  /** The shop's vouch row, when it is listed on Setnayan's word. */
+  bypass: { expiresAt: string | null; expiredAt: string | null } | null;
 }) {
   const visibility = parseVisibility(vendor.public_visibility);
+  const vouch = bypassState({
+    expiresAt: bypass?.expiresAt ?? null,
+    // The desk does not re-read the applications table per card; a shop whose
+    // documents landed has its deadline CLEARED by the sweep, so a live
+    // `expires_at` is itself the signal that they have not.
+    documentsApproved: false,
+  });
   const slug = vendor.business_slug ?? null;
   return (
     <article className="sn-row flex h-full flex-col gap-3 p-4">
@@ -1574,6 +2023,8 @@ function VerifyCard({
         ) : null}
       </div>
 
+      <CheckResultsBlock checks={checks} />
+
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {visibility !== 'verified' ? (
           <ConfirmForm
@@ -1581,7 +2032,21 @@ function VerifyCard({
             title="Make this vendor public?"
             confirmLabel="Approve → Verified"
             destructive={false}
-            message="This makes the vendor publicly bookable on the marketplace (visibility → Verified) and notifies them."
+            /* ⚖ WARNS, DOES NOT REFUSE — the owner's ruling to make (see
+               `grantDialogMessage`). What it removes is the possibility of
+               pressing this while believing somebody had checked the paper. */
+            message={`${
+              grantWarning(
+                checks?.summary ?? {
+                  total: 0,
+                  passed: 0,
+                  mismatched: 0,
+                  manual: 0,
+                  allManual: false,
+                  allClear: false,
+                },
+              ) ?? 'Every automatic check came back clean.'
+            } This makes the vendor publicly bookable on the marketplace (visibility → Verified) and notifies them.`}
           >
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <SubmitButton pendingLabel="Approving…" className="button-primary h-9 px-3 text-xs">
@@ -1589,6 +2054,12 @@ function VerifyCard({
             </SubmitButton>
           </ConfirmForm>
         ) : null}
+
+        <VouchControls
+          vendorProfileId={vendor.vendor_profile_id}
+          businessName={vendor.business_name}
+          vouch={vouch}
+        />
         {visibility !== 'hidden' ? (
           <ConfirmForm
             action={rejectVendor}

@@ -12,13 +12,19 @@
  * finds a shop on Setnayan and then emails or phones it books off-platform: no
  * booking fee, no in-app record, no lock, no price freeze, no protection for
  * either side. Measured on `origin/main` the day the principle was set, TWO
- * surfaces broke it:
+ * surfaces printed an exit and three more carried one unprinted:
  *
  *   • the PUBLIC shop page (`/v/[slug]`, also served at the bare `/{slug}`)
  *     printed every bookable shop's email as `mailto:` and its phone as `tel:`,
  *     readable signed out — one scroll above an Inquire section promising the
  *     conversation happens in the Setnayan inbox;
- *   • the supplier card INSIDE the couple's own dashboard offered the same two.
+ *   • the supplier card INSIDE the couple's own dashboard offered the same two;
+ *   • the workspace's summary printed the booking row's contact, which a package
+ *     lock fills with the SHOP's own email and phone;
+ *   • the budget card pre-filled that copied address into the Messages page's
+ *     "start a thread" box, in plain sight;
+ *   • the couple's Vendors page carried every supplier's email and phone in a
+ *     client prop — never printed, but in the page payload.
  *
  * ── HOW THE FILE SET IS CHOSEN — DERIVED, NEVER HAND-LISTED ─────────────────
  * A hand-listed guard is a list of the places somebody thought of, and the next
@@ -47,8 +53,21 @@
  *            directions: a new file fails, and a file that stops printing one
  *            fails until its line is deleted, so the bill can only shrink on
  *            purpose.
+ *   Rule 3 · A `.from('vendor_profiles')` chain whose select names
+ *            `contact_email` / `contact_phone` (a select held in a module
+ *            constant is resolved) — outside SHOP_CONTACT_READ_BILL, exact in
+ *            both directions. A value a page never FETCHES cannot leak by any
+ *            route; the public shop page used to fetch both for every visitor.
+ *   Rule 4 · BEHAVIOURAL: the couple's Vendors-page model — a CLIENT prop, so
+ *            every field is in the page payload even if nothing prints it —
+ *            carries no supplier email or phone.
  *
  * ── WHAT IT DOES NOT COVER, said rather than buried ─────────────────────────
+ *   • Serialization in general. Rule 4 pins the one client payload measured to
+ *     carry the fields; another server→client prop built from a raw booking
+ *     row would not be seen. `.from(<variable>)` is not resolved by Rule 3.
+ *   • Contact details INSIDE a chat message or a quote's free text — that is
+ *     `lib/chat-contact-filter.ts`'s job, not this guard's.
  *   • The DATABASE. `vendor_profiles.contact_email` is SELECT-granted to `anon`
  *     and `contact_phone` to `authenticated`, under a public-read row policy
  *     for every verified shop — measured in prod 2026-09-10. So the values are

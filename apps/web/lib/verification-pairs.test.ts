@@ -18,6 +18,7 @@ import {
   type PairField,
   type PaperRead,
 } from './verification-pairs';
+import { stripComments } from './strip-comments';
 import { LOCKED_IDENTITY_FIELD_KEYS } from './vendor-corrections';
 import { DOC_SLOTS, REQUIRED_DOC_SLOT_KEYS, isSlotComplete } from './vendor-verification';
 
@@ -136,9 +137,7 @@ test('nothing on the page claims a QR was verified — the QR is a link anyone c
     }
     scanned += 1;
     // Strip comments — a docblock EXPLAINING why we never say it is not a claim.
-    const stripped = src
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .replace(/^\s*\/\/.*$/gm, ' ');
+    const stripped = stripComments(src);
     for (const forbidden of [/QR\s+(verified|checked|confirmed)/i, /verified\s+(the\s+)?QR/i]) {
       assert.ok(!forbidden.test(stripped), `${f} claims the QR was checked`);
     }

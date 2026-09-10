@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from './strip-comments';
 import { PAIR_COLUMNS, VERIFICATION_PAIRS } from './verification-pairs';
 import { LOCKED_IDENTITY_FIELD_KEYS } from './vendor-corrections';
 
@@ -30,11 +31,6 @@ function read(path: string): string {
   const src = readFileSync(path, 'utf8');
   assert.ok(src.length > 400, `${path} is empty or missing`);
   return src;
-}
-
-/** Comments explaining a rule are not the rule. Strip before matching. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 }
 
 test('the identity read names every column the pairs type — a missing one reads as never typed', () => {

@@ -24,10 +24,11 @@ import {
   type DocUpload,
 } from '@/lib/vendor-verification';
 import {
-  saveRegistrationNumberInline,
   updateDocUploadInline,
   type InlineDocsPayload,
 } from '../inline-docs-actions';
+import { VerifyPairs } from './verify-pairs';
+import { PAIR_SLOT_KEYS } from '@/lib/verification-pairs';
 import { REGISTRATION_NUMBER_TAKEN_MESSAGE } from '@/lib/vendor-registration-number';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -40,6 +41,13 @@ import { useSaveLoader } from '@/components/sd-loader';
  * stepper, never as a document card. Each upload auto-saves via
  * `updateDocUploadInline`; the 4 REQUIRED docs carry a "Required" chip.
  */
+/**
+ * The optional items — DERIVED by subtracting the four paired papers from the
+ * vendor's own slots, never hand-listed. A fifth required paper would move
+ * itself out of this list; a hand-written list would silently render it twice.
+ */
+const OPTIONAL_DOC_SLOTS = VENDOR_DOC_SLOTS.filter((s) => !PAIR_SLOT_KEYS.has(s.key));
+
 export function DocsBody({
   payload,
   vendorProfileId,
@@ -63,15 +71,24 @@ export function DocsBody({
         </p>
       ) : null}
 
-      <RegistrationNumberInput
-        currentRaw={payload.registrationNumberRaw}
-        needsReview={payload.registrationNumberNeedsReview}
-        locked={locked}
-        onSaved={onSaved}
-      />
+      {/* ── THE FOUR REQUIRED PAPERS, each beside the details it proves ──
+          Owner 2026-09-09, ported from prototypes/shop_verification_2026-09-09.html.
+          The standalone "Government registration number" box that used to sit
+          here is GONE — it is the same column as the number beside the
+          registration certificate, and two boxes for one number is the drift
+          the pairs exist to remove. Its uniqueness claim is unchanged. */}
+      <VerifyPairs payload={payload} vendorProfileId={vendorProfileId} onSaved={onSaved} />
 
+      {/* ── The three OPTIONAL items — untouched, still today's cards. ── */}
+      <div className="space-y-2">
+        <p
+          className="font-mono text-[10px] uppercase tracking-[0.15em]"
+          style={{ color: '#6E6A62' }}
+        >
+          Optional — these strengthen your shop, none of them hold you up
+        </p>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {VENDOR_DOC_SLOTS.map((slot) => {
+        {OPTIONAL_DOC_SLOTS.map((slot) => {
           const complete = isSlotComplete(slot.key, payload.docMap[slot.key]);
           return (
             <li key={slot.key}>
@@ -100,116 +117,7 @@ export function DocsBody({
           );
         })}
       </ul>
-    </div>
-  );
-}
-
-/**
- * Government registration number capture — the anti-farm identity field. The
- * vendor types their BIR TIN / DTI / SEC / Mayor's-Permit number; the server
- * normalizes it and claims it against a partial-UNIQUE index so no second shop
- * can register the same identity to re-farm launch perks. A collision does NOT
- * hard-block: the submission is accepted + flagged for admin review, and the
- * vendor sees {@link REGISTRATION_NUMBER_TAKEN_MESSAGE}.
- */
-function RegistrationNumberInput({
-  currentRaw,
-  needsReview,
-  locked,
-  onSaved,
-}: {
-  currentRaw: string | null;
-  needsReview: boolean;
-  locked: boolean;
-  onSaved: () => void;
-}) {
-  const toast = useToast();
-  const [value, setValue] = useState(currentRaw ?? '');
-  const [flagged, setFlagged] = useState(needsReview);
-  const [pending, start] = useTransition();
-
-  const save = () => {
-    start(async () => {
-      const fd = new FormData();
-      fd.set('registration_number', value);
-      const res = await saveRegistrationNumberInline(null, fd);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setFlagged(res.needsReview);
-      if (res.needsReview) {
-        toast.error(REGISTRATION_NUMBER_TAKEN_MESSAGE);
-      } else {
-        toast.success('Registration number saved.');
-      }
-      onSaved();
-    });
-  };
-
-  const dirty = value.trim() !== (currentRaw ?? '').trim();
-
-  return (
-    <div
-      className="rounded-lg border p-3"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-bg-2, transparent)' }}
-    >
-      <p
-        className="font-mono text-[10px] uppercase tracking-[0.15em]"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        Required
-      </p>
-      <label
-        htmlFor="registration_number"
-        className="mt-0.5 block text-sm font-medium"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        Government registration number
-      </label>
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Your BIR TIN, DTI, SEC, or Mayor&apos;s-Permit number — this ties your shop to one
-        registered business so perks can&apos;t be farmed with duplicate accounts.
-      </p>
-      {locked ? (
-        <p className="mt-2 text-xs" style={{ color: 'var(--m-slate)' }}>
-          {currentRaw ? `On file: ${currentRaw}` : 'Not submitted'}
-        </p>
-      ) : (
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            id="registration_number"
-            name="registration_number"
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-            value={value}
-            disabled={pending}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="e.g. 123-456-789-000"
-            className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-          />
-          <button
-            type="button"
-            onClick={save}
-            disabled={pending || !dirty || value.trim().length === 0}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--m-ink)', color: 'var(--m-paper, #fff)' }}
-          >
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
-            Save
-          </button>
-        </div>
-      )}
-      {flagged ? (
-        <p
-          className="mt-2 rounded-md border border-dashed p-2 text-xs"
-          style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-        >
-          {REGISTRATION_NUMBER_TAKEN_MESSAGE}
-        </p>
-      ) : null}
+      </div>
     </div>
   );
 }

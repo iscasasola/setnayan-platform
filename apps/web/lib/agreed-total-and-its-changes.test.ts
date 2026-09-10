@@ -28,16 +28,24 @@
  *      function, and this file fails if a fourth cascade appears.
  *   6. Only the two SECURITY DEFINER functions may author a change delta, and the couple’s
  *      surface shows it separately with no delete control.
+ *   7. ONE PRICE EVERYWHERE (owner 2026-09-11, "Show the total now"). Every file
+ *      that reads `total_cost_php` is on a roster: it shows the agreed total NOW
+ *      through `agreedTotalNow`, or it hands the row to one that does, or it is
+ *      named as something other than a price shown to a person. A new reader
+ *      fails here until someone decides which.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  agreedTotalNow,
+  fetchChangeLinesByVendor,
   resolveAgreedTotal,
   splitVendorLines,
   sumAmountPhp,
+  withAgreedTotalNow,
 } from '@/lib/agreed-total-and-its-changes';
 import {
   computeEventMoney,
@@ -575,4 +583,372 @@ test('the lock notice comes from lockFreezeLine, and only a real booking says "D
   const toCouple = lockFreezeLine({ state: 'requested', viewerRole: 'couple', priceFrozen: true });
   const toSupplier = lockFreezeLine({ state: 'requested', viewerRole: 'vendor', priceFrozen: true });
   assert.notEqual(toCouple.text, toSupplier.text, 'both people read the same sentence again');
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7 · ONE PRICE EVERYWHERE — owner 2026-09-11, "Show the total now"
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Shown the budget reading "Agreed price before changes ₱100,000 · New deal
+// agreed in chat (price lowered) −₱15,000 · Agreed total now ₱85,000", the
+// owner ruled that every OTHER screen — the couple's supplier list, the event
+// home's committed figure, the Decisions payments line, the supplier's own
+// figures — shows ₱85,000. Only the budget and the per-supplier page draw the
+// breakdown.
+
+test('agreedTotalNow is the budget’s own number on the headline branch', () => {
+  const lines = [
+    { amount_php: -15_000, is_change_delta: true },
+    // A BREAKDOWN line itemises the ₱100,000 — never added to it.
+    { amount_php: 60_000, is_change_delta: false },
+    { amount_php: '40000.00', is_change_delta: null },
+  ];
+  assert.equal(agreedTotalNow(100_000, lines), 85_000);
+  assert.equal(agreedTotalNow('100000.00', lines), 85_000, 'PostgREST NUMERIC arrives as a string');
+  assert.equal(
+    agreedTotalNow(100_000, lines),
+    resolveAgreedTotal({
+      headline: 100_000,
+      catalogue: 0,
+      breakdown: 0,
+      changes: sumAmountPhp(splitVendorLines(lines).changes),
+    }).agreed,
+    'agreedTotalNow grew its own arithmetic',
+  );
+  assert.equal(agreedTotalNow(100_000, null), 100_000, 'no lines loaded → the headline, as before');
+  assert.equal(agreedTotalNow(null, []), null, '"no price yet" must stay null, not become ₱0');
+  assert.equal(agreedTotalNow(null, [{ amount_php: 5_000, is_change_delta: true }]), 5_000);
+});
+
+test('withAgreedTotalNow folds only the rows that have a change, and never mutates', () => {
+  const rows = [
+    { vendor_id: 'a', total_cost_php: 100_000 as number | null, category: 'photo' },
+    { vendor_id: 'b', total_cost_php: 50_000 as number | null, category: 'film' },
+  ];
+  const byVendor = new Map([['a', [{ amount_php: -15_000, is_change_delta: true }]]]);
+  const out = withAgreedTotalNow(rows, byVendor);
+  assert.equal(out[0]!.total_cost_php, 85_000);
+  assert.equal(out[1]!.total_cost_php, 50_000);
+  assert.equal(out[1], rows[1], 'an unchanged row should pass through as-is');
+  assert.equal(rows[0]!.total_cost_php, 100_000, 'the loaded row was mutated');
+});
+
+test('fetchChangeLinesByVendor reads only change lines, groups them, and reports a refusal', async () => {
+  const calls: Array<[string, unknown]> = [];
+  const fake = (result: { data: unknown[] | null; error: { message: string } | null }) =>
+    ({
+      from: (t: string) => {
+        calls.push(['from', t]);
+        const b = {
+          select: (c: string) => (calls.push(['select', c]), b),
+          eq: (c: string, v: unknown) => (calls.push([`eq:${c}`, v]), b),
+          then: (res: (r: typeof result) => unknown) => Promise.resolve(result).then(res),
+        };
+        return b;
+      },
+    }) as never;
+  const ok = await fetchChangeLinesByVendor(
+    fake({
+      data: [
+        { vendor_id: 'a', amount_php: -15_000, is_change_delta: true },
+        { vendor_id: 'a', amount_php: 2_000, is_change_delta: true },
+        { vendor_id: 'b', amount_php: 500, is_change_delta: true },
+      ],
+      error: null,
+    }),
+    'e1',
+  );
+  assert.equal(ok.error, null);
+  assert.equal(ok.byVendor.get('a')!.length, 2);
+  assert.deepEqual(calls.find(([k]) => k === 'eq:is_change_delta'), ['eq:is_change_delta', true]);
+  assert.deepEqual(calls.find(([k]) => k === 'eq:event_id'), ['eq:event_id', 'e1']);
+  const refused = await fetchChangeLinesByVendor(fake({ data: null, error: { message: 'nope' } }), 'e1');
+  assert.equal(refused.error, 'nope', 'a refused read passed for "no changes"');
+  assert.equal(refused.byVendor.size, 0);
+});
+
+// ── The roster ─────────────────────────────────────────────────────────────
+
+const WEB = join(HERE, '..');
+const rel = (abs: string) => relative(WEB, abs).split(sep).join('/');
+
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) sourceFiles(p, out);
+    else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) out.push(p);
+  }
+  return out;
+}
+
+/** Every non-test source under app/, lib/ and components/, comments stripped. */
+const SOURCES: ReadonlyMap<string, string> = new Map(
+  ['app', 'lib', 'components'].flatMap((d) =>
+    sourceFiles(join(WEB, d)).map((f) => [rel(f), stripComments(readFileSync(f, 'utf8'))] as const),
+  ),
+);
+const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
+/** THE SET — derived from the source, never typed: every file that reads the column. */
+const READERS = new Set([...SOURCES].filter(([, src]) => /total_cost_php/.test(src)).map(([f]) => f));
+
+const AGREED_NOW = /\bagreedTotalNow\s*\(/;
+const EMBED = /\$\{CHANGE_LINES_EMBED\}/;
+const PAGE_READ = /\bfetchChangeLinesByVendor\s*\(/;
+const FOLD_ROWS = /\bwithAgreedTotalNow\s*\(/;
+
+/**
+ * SHOWS THE TOTAL NOW. Each needle is counted EXACTLY — dropping one call (or
+ * the embed that feeds it) goes red — and so is `total_cost_php` itself, so a
+ * NEW raw read added to one of these files must be looked at, not waved past.
+ */
+const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column: number; what: string }> = {
+  'app/dashboard/[eventId]/_components/event-dashboard.tsx': {
+    what: 'event home — the committed figure',
+    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    column: 3,
+  },
+  'app/dashboard/[eventId]/vendors/page.tsx': {
+    what: 'the couple’s supplier list, plan budget, “remaining”, build guard',
+    needles: [[AGREED_NOW, 1], [PAGE_READ, 1]],
+    column: 8,
+  },
+  'app/dashboard/[eventId]/date-selection/page.tsx': {
+    what: 'date picker — the shortlist budget range',
+    needles: [[FOLD_ROWS, 1], [PAGE_READ, 1]],
+    column: 4,
+  },
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': {
+    what: 'per-supplier page — hero price and the Costing total (draws the change too)',
+    needles: [[AGREED_NOW, 1]],
+    column: 7,
+  },
+  'app/dashboard/[eventId]/vendors/actions.ts': {
+    what: 'lock — the downpayment and the payment plan amounts',
+    needles: [[AGREED_NOW, 2], [EMBED, 2]],
+    column: 11,
+  },
+  'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
+    what: 'build-from-quotes — the price each quote is ranked at',
+    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    column: 4,
+  },
+  'lib/thread-decision-sources.server.ts': {
+    what: 'Decisions — "₱50,000 of ₱X", both sides of the thread',
+    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    column: 3,
+  },
+  'lib/checklist-budget.ts': {
+    what: 'checklist budget — committed per plan group (folded in checklist-budget-attribution)',
+    needles: [[EMBED, 1]],
+    column: 1,
+  },
+  'lib/checklist-budget-attribution.ts': {
+    what: 'checklist budget — the per-supplier cost',
+    needles: [[AGREED_NOW, 1]],
+    column: 2,
+  },
+  'lib/budget-page-money.ts': {
+    what: 'budget page — the flag-OFF Committed strip',
+    needles: [[AGREED_NOW, 1]],
+    column: 2,
+  },
+  'lib/budget.ts': {
+    what: 'budget card (draws the breakdown) — resolveAgreedTotal, twice',
+    needles: [[/\bresolveAgreedTotal\s*\(/, 2]],
+    column: 4,
+  },
+  'lib/budget-truth.ts': {
+    what: 'budget resolver (draws the breakdown) — resolveAgreedTotal',
+    needles: [[/\bresolveAgreedTotal\s*\(/, 1]],
+    column: 6,
+  },
+  'lib/agreed-total-and-its-changes.ts': {
+    what: 'THE RULE ITSELF',
+    needles: [[/export function agreedTotalNow\s*\(/, 1]],
+    column: 3,
+  },
+};
+
+/**
+ * HANDS THE ROW ON. These read `total_cost_php` off a row somebody else loaded.
+ * Each is safe ONLY because every caller of its entry function either folds the
+ * change lines first or reads no price at all — checked below, by caller.
+ */
+const PASSES_THROUGH: Record<string, string> = {
+  'lib/wedding-plan-groups.ts': 'bucketVendorsByGroup copies the row’s price onto each pick',
+  'lib/shortlist-taxonomy.ts': 'buildShortlistFolders prices the shortlist from vendorRows',
+  'lib/vendors-plan-budget.ts': 'buildPlanBudgetModel rolls up each pick’s price',
+  'lib/vendors.ts':
+    'fetchEventVendors returns the raw row (HONEST SHOP’s file); computeVendorStats has no caller',
+};
+/** entry function → its callers: the ones that FOLD first, and the ones that read no price. */
+const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }> = {
+  fetchEventVendors: {
+    folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'app/dashboard/[eventId]/date-selection/page.tsx'],
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'lib/event-preload.ts'],
+  },
+  buildShortlistFolders: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
+  buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
+  bucketVendorsByGroup: {
+    folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],
+    readsNoPrice: ['lib/setnayan-ai-cockpit.ts', 'lib/todays-one-thing.ts'],
+  },
+  computeVendorStats: { folds: [], readsNoPrice: [] },
+};
+
+/** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
+const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
+    'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':
+    'WRITES a chat quote into the Service price field — the headline the couple edits',
+  'app/dashboard/[eventId]/budget/actions.ts':
+    'suggest-a-split runs only when the supplier has NO line item at all, so there is no change line to add',
+  'app/dashboard/[eventId]/vendors/packages/actions.ts': 'WRITES the package total at lock (CLEANUPS’ file)',
+  'app/vendor-dashboard/messages/[threadId]/pax-actions.ts':
+    'WRITES a guest-count surcharge into the headline it adjusts',
+  'lib/chat-lock-booking.server.ts':
+    'WRITES the lock price; a post-lock Deal goes through record_agreed_price_change, never over it',
+  'lib/reusable-bookings.server.ts': 'WRITES a reused quote as a new booking’s headline',
+  'lib/pax.ts': 'a NULL check only — "is there a committed price at all"; the figure shown is the surcharge',
+  'lib/plausibility-scanner.ts': 'admin fraud screen — declared prices as market samples, not a booking total',
+  'lib/verified-median-read.ts': 'a market median over many couples’ declared prices, not any one booking',
+  'lib/setnayan-ai-activity.ts':
+    'selected for the cockpit’s lock counts; nothing it feeds reads the price (setnayan-ai-cockpit, todays-one-thing)',
+  'lib/setnayan-ai-snapshot.ts': 'selected, never read — the AI’s money comes from resolveEventMoney',
+  'lib/prove-the-flow-watch-format.ts':
+    'the T1 watcher’s report to the orchestrator — a test instrument that computes independently on purpose',
+};
+
+test('the roster is derived from the code, and every reader of total_cost_php is on it exactly once', () => {
+  // ANCHOR: a walker that found nothing would pass everything below vacuously.
+  assert.ok(SOURCES.size > 500, `only ${SOURCES.size} source files found — the walker is broken`);
+  assert.ok(READERS.size >= 25, `only ${READERS.size} readers found — the match is broken`);
+
+  const rosters = [SHOWS_TOTAL_NOW, PASSES_THROUGH, NOT_A_PRICE_SHOWN].map((r) => new Set(Object.keys(r)));
+  for (const f of READERS) {
+    const on = rosters.filter((r) => r.has(f)).length;
+    assert.equal(
+      on,
+      1,
+      on === 0
+        ? `${f} reads event_vendors.total_cost_php and is on no roster. If a person sees that ` +
+            'number, it must be the agreed total NOW (owner 2026-09-11, "Show the total now"): ' +
+            'load the change lines (CHANGE_LINES_EMBED, or fetchChangeLinesByVendor once per page) ' +
+            'and print agreedTotalNow(…). If it is not a price anyone sees, add it to ' +
+            'NOT_A_PRICE_SHOWN with the reason.'
+        : `${f} is on ${on} rosters — pick one.`,
+    );
+  }
+  for (const r of rosters) {
+    for (const f of r) {
+      assert.ok(
+        READERS.has(f),
+        `${f} is on a roster but no longer reads total_cost_php (or moved) — take it off, ` +
+          'so the roster cannot rot into a list of permissions nobody checks.',
+      );
+    }
+  }
+});
+
+test('every screen on the roster shows the agreed total NOW — needles counted exactly', () => {
+  for (const [f, { needles, column, what }] of Object.entries(SHOWS_TOTAL_NOW)) {
+    const src = SOURCES.get(f);
+    assert.ok(src, `${f} (${what}) is missing`);
+    for (const [re, n] of needles) {
+      assert.equal(
+        count(src!, re),
+        n,
+        `${f} (${what}): expected ${n}× ${re.source}. Without it this screen prints the price ` +
+          'the lock wrote, not the agreed total now.',
+      );
+    }
+    assert.equal(
+      count(src!, /total_cost_php/),
+      column,
+      `${f} (${what}) now reads total_cost_php ${count(src!, /total_cost_php/)}× (was ${column}). ` +
+        'If the new read shows a price, route it through agreedTotalNow; then update the count.',
+    );
+  }
+});
+
+test('a row handed on is folded first — every caller of a pass-through entry is accounted for', () => {
+  const call = (fn: string) => new RegExp(`\\b${fn}\\s*\\(`);
+  for (const [fn, { folds, readsNoPrice }] of Object.entries(ENTRY_CALLERS)) {
+    const callers = [...SOURCES]
+      .filter(([, src]) => call(fn).test(src.replace(new RegExp(`function\\s+${fn}\\s*[(<]`, 'g'), '')))
+      .map(([f]) => f)
+      .sort();
+    assert.deepEqual(
+      callers,
+      [...folds, ...readsNoPrice].sort(),
+      `${fn}'s callers changed. A new caller that shows a price must fold the change lines ` +
+        '(fetchChangeLinesByVendor + agreedTotalNow) before it prints; one that shows none goes ' +
+        'in readsNoPrice.',
+    );
+    for (const f of folds) {
+      const src = SOURCES.get(f)!;
+      assert.ok(
+        AGREED_NOW.test(src) || FOLD_ROWS.test(src) || PASSES_THROUGH[f],
+        `${f} calls ${fn} but never folds the change lines`,
+      );
+    }
+    for (const f of readsNoPrice) {
+      assert.ok(!READERS.has(f), `${f} was listed as reading no price, but it reads total_cost_php`);
+    }
+  }
+  for (const f of Object.keys(PASSES_THROUGH)) assert.ok(READERS.has(f));
+});
+
+// ── The supplier's own figures (SQL) ───────────────────────────────────────
+
+const MIGRATIONS_DIR = join(HERE, '../../../supabase/migrations');
+/**
+ * The change-line subquery, whitespace-normalised: the ONE form, in every SQL
+ * body. The booking is named `ev.vendor_id` in a row scan and
+ * `p_event_vendor_id` where the fee re-derive already holds the id — the only
+ * permitted difference.
+ */
+const CHANGE_SUBQUERY =
+  /COALESCE\(\(SELECT SUM\(li\.amount_php\) FROM public\.event_vendor_line_items li WHERE li\.vendor_id = (?:ev\.vendor_id|p_event_vendor_id) AND li\.is_change_delta\), 0\)/g;
+const norm = (sql: string) => sql.replace(/--[^\n]*/g, '').replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+
+function latestBodyOf(fn: string): { file: string; body: string } {
+  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+  let last: { file: string; body: string } | null = null;
+  for (const file of files) {
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    const re = new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\s*\\(`, 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql))) {
+      const open = sql.indexOf('$function$', m.index);
+      const close = sql.indexOf('$function$', open + 10);
+      if (open < 0 || close < 0) continue;
+      last = { file, body: sql.slice(open + 10, close) };
+    }
+  }
+  assert.ok(last, `no migration defines public.${fn}`);
+  return last!;
+}
+
+test('the supplier’s My Performance figures and the booking fee read ONE change-line form', () => {
+  // The number each LATEST body must carry: every summed/averaged price.
+  const expected: Record<string, number> = {
+    vendor_booking_monthly_series: 1,
+    vendor_booking_daily_series: 1,
+    vendor_source_attribution: 1,
+    vendor_deal_size: 2,
+    booking_fee_open_lock_charge: 1,
+    booking_fee_rederive_lock_fee: 1,
+  };
+  for (const [fn, n] of Object.entries(expected)) {
+    const { file, body } = latestBodyOf(fn);
+    assert.equal(
+      (norm(body).match(CHANGE_SUBQUERY) ?? []).length,
+      n,
+      `public.${fn} (latest: ${file}) no longer adds the change lines to total_cost_php ` +
+        `${n}× in the one shared form. The supplier would see the lock-time price.`,
+    );
+  }
 });

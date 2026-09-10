@@ -63,7 +63,7 @@
 
 import type { EventMoney } from './budget-truth';
 import type { BudgetLiveSummary, VendorBudgetSummary } from './budget';
-import { splitVendorLines, sumAmountPhp } from './agreed-total-and-its-changes';
+import { agreedTotalNow } from './agreed-total-and-its-changes';
 
 /**
  * The three stats the "Current commitments" strip renders.
@@ -213,9 +213,9 @@ export function legacyCommittedVendorsPhp(
 ): number {
   return vendors.reduce((acc, s) => {
     if (!isConfirmed((s.vendor.status ?? '') as string)) return acc;
-    const raw = s.vendor.total_cost_php;
-    const cost = raw !== null && raw !== undefined ? Number(raw) : 0;
-    const changesPhp = sumAmountPhp(splitVendorLines(s.lineItems).changes);
-    return acc + (Number.isFinite(cost) ? cost : 0) + changesPhp;
+    // The agreed total NOW, through the one rule every single-number screen uses
+    // (it reads only the CHANGE lines of `lineItems`, never the breakdown).
+    const cost = agreedTotalNow(s.vendor.total_cost_php, s.lineItems) ?? 0;
+    return acc + (Number.isFinite(cost) ? cost : 0);
   }, 0);
 }

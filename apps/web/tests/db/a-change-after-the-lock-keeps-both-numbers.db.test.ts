@@ -35,6 +35,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 import {
+  agreedTotalNow,
   resolveAgreedTotal,
   splitVendorLines,
   sumAmountPhp,
@@ -444,4 +445,95 @@ test('a change after the fee was charged re-derives it, as a price move always d
     [w.evId],
   );
   assert.equal(count.rows[0]!.n, 1, 'a change minted a second charge instead of re-deriving the one');
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6 · ONE PRICE EVERYWHERE (owner 2026-09-11, "Show the total now")
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Every screen other than the budget card and the per-supplier page shows ONE
+// number: the agreed total NOW. In the app that is `agreedTotalNow`; on the
+// supplier's My Performance page it is four SQL readers, re-signed by
+// 20271221806689. Both are proved here on the owner's worked example, on a
+// real booking, after a real post-lock Deal.
+
+test('the one-number screens read ₱85,000 — the same number the budget card ends on', async () => {
+  const w = await bookedAt('one-price', 100_000);
+  await recordDeal(w, 85_000);
+  const s = await stateOf(w.evId);
+  // What the embed hands a screen: the headline and the booking's line items.
+  assert.equal(
+    agreedTotalNow(s.headline, s.lines),
+    85_000,
+    'a one-number screen still prints the price the lock wrote',
+  );
+  assert.equal(agreedTotalNow(s.headline, s.lines), agreedOf(s).agreed, 'two rules, two numbers');
+});
+
+test('the supplier\'s own figures read the agreed total now, not the lock-time price', async () => {
+  const w = await bookedAt('perf', 100_000);
+  await recordDeal(w, 85_000);
+  await reset();
+  const owner = await db.query<{ user_id: string }>(
+    `SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [w.vpid],
+  );
+  // AS THE SUPPLIER: every one of these is ownership-gated and raises for anyone else.
+  await asUser(owner.rows[0]!.user_id);
+  const monthly = await db.query<{ n: number; rev: string }>(
+    `SELECT COALESCE(SUM(booking_count), 0)::int AS n, COALESCE(SUM(revenue_php), 0)::text AS rev
+       FROM public.vendor_booking_monthly_series($1)`,
+    [w.vpid],
+  );
+  const daily = await db.query<{ n: number; rev: string }>(
+    `SELECT COALESCE(SUM(booking_count), 0)::int AS n, COALESCE(SUM(revenue_php), 0)::text AS rev
+       FROM public.vendor_booking_daily_series($1)`,
+    [w.vpid],
+  );
+  const bySource = await db.query<{ priced: number; rev: string }>(
+    `SELECT COALESCE(SUM(priced_count), 0)::int AS priced, COALESCE(SUM(revenue_php), 0)::text AS rev
+       FROM public.vendor_source_attribution($1)`,
+    [w.vpid],
+  );
+  const deals = await db.query<{ n: number; avg: string; total: string }>(
+    `SELECT booked_priced_count AS n, avg_contract_php::text AS avg, total_contract_php::text AS total
+       FROM public.vendor_deal_size($1)`,
+    [w.vpid],
+  );
+  await reset();
+
+  assert.equal(monthly.rows[0]!.n, 1, 'the booking fell out of the monthly series');
+  assert.equal(Number(monthly.rows[0]!.rev), 85_000, 'monthly revenue is the lock-time ₱100,000');
+  assert.equal(daily.rows[0]!.n, 1, 'the booking fell out of the daily series');
+  assert.equal(Number(daily.rows[0]!.rev), 85_000, 'daily revenue is the lock-time ₱100,000');
+  assert.equal(bySource.rows[0]!.priced, 1, 'a priced booking stopped counting as priced');
+  assert.equal(Number(bySource.rows[0]!.rev), 85_000, 'revenue by source is the lock-time ₱100,000');
+  assert.equal(deals.rows[0]!.n, 1);
+  assert.equal(Number(deals.rows[0]!.avg), 85_000, 'average deal size is the lock-time ₱100,000');
+  assert.equal(Number(deals.rows[0]!.total), 85_000, 'total contracted is the lock-time ₱100,000');
+});
+
+test('a booking with no price stays unpriced on the supplier\'s figures', async () => {
+  const w = await bookedAt('perf-unpriced', null);
+  await reset();
+  const owner = await db.query<{ user_id: string }>(
+    `SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [w.vpid],
+  );
+  await asUser(owner.rows[0]!.user_id);
+  const deals = await db.query<{ n: number; total: string }>(
+    `SELECT booked_priced_count AS n, total_contract_php::text AS total
+       FROM public.vendor_deal_size($1)`,
+    [w.vpid],
+  );
+  const bySource = await db.query<{ booked: number; priced: number }>(
+    `SELECT COALESCE(SUM(booking_count), 0)::int AS booked, COALESCE(SUM(priced_count), 0)::int AS priced
+       FROM public.vendor_source_attribution($1)`,
+    [w.vpid],
+  );
+  await reset();
+  assert.equal(deals.rows[0]!.n, 0, 'an unpriced booking was counted as priced');
+  assert.equal(Number(deals.rows[0]!.total), 0);
+  assert.equal(bySource.rows[0]!.booked, 1);
+  assert.equal(bySource.rows[0]!.priced, 0, 'an unpriced booking was counted as priced');
 });

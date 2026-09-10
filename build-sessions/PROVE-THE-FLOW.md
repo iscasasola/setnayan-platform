@@ -32,6 +32,51 @@ same rot. Run § 1 before you act on anything here.
 | **Supplier** | the owner, at his own keyboard | `Saysay Live Band & Hosting (FIXTURE)` |
 | **Couple** | **also the owner**, at his own keyboard | event `Cale & Ice` |
 
+### § 0a · THE ROUND-1 TEST USES A DIFFERENT COUPLE — read this before touching `Cale & Ice`
+
+**As of 2026-09-10 there is a committed build plan for this test**, in the spec corpus, not
+this repo: `WHATS_NEXT_Build_Plan_2026-09-10.md` + its session prompts
+`WHATS_NEXT_Build_Plan_PROMPTS_2026-09-10.md`
+(`~/Documents/Claude/Projects/Setnayan/`). **Read that register before resuming — it supersedes
+the "just reply in the thread" plan below wherever the two disagree**, because it found five
+things that would make the walk lie to the owner even after the supplier finally replies.
+
+Round 1 of the live test does **not** use `Cale & Ice` — that event's couple is the owner's
+own `is_internal = TRUE` account (see the caveat below: it proves nothing about payment) and
+already has an accepted thread with the supplier, so re-running there skips the accept step
+the owner wants to feel. Round 1 uses:
+
+| side | account | why |
+|---|---|---|
+| Supplier | `testnayan2@test.com` — `Saysay Live Band & Hosting (FIXTURE)`, Solo until 2027-07-30, 2 nameless cards (`live_band` ₱35,000, `host_mc` ₱40,000), no photos, `verified` | the real test shop, not the owner's own `SetnaProd` |
+| Couple | `testnayan4@test.com` — one wedding, `Ana & Miguel`, **no date yet** (the owner sets one first) | exactly one event, so Inquire cannot mis-file it; non-internal, so paywalls actually gate |
+
+Round 2 (fold 5 — deliberately adding a shop to one of several events) needs a couple with
+**two** ongoing events; neither test account has that yet — the owner adds a second event to
+`testnayan3@test.com` or `testnayan4@test.com` before that round.
+
+**Five things break the walk today, and a session is fixing each — check before you drive
+any step past where the fix would matter:**
+
+| step | breaks as | fixed by | re-check |
+|---|---|---|---|
+| publish a card | still demands a Setnayan-gift value the owner ruled optional | `A1` — PR [#5373](https://github.com/iscasasola/setnayan-platform/pull/5373) | `gh pr view 5373 --json state,mergedAt` |
+| "🔒 Lock this deal" in chat, before a formal quote | locks nobody, freezes a NULL price, tells both sides "Deal locked" | `A2` (no PR yet as of 2026-09-10) | grep `negotiation-actions.ts` for a refusal path |
+| accept a formal quote | page says "Accepted on `<date>`" and stops — no next step | `A4` (no PR yet) | open `/proposals/[publicId]` after accepting |
+| a shop's cards on the couple's list | nameless — reads as its category, not a name | `B1` — PR [#5387](https://github.com/iscasasola/setnayan-platform/pull/5387) | `gh pr view 5387 --json state,mergedAt` |
+| change price after a lock | replaces the number instead of showing both; a cut can bill negative | `B2` — PR [#5390](https://github.com/iscasasola/setnayan-platform/pull/5390), **owner looks before merge (money)** | `gh pr view 5390 --json state,mergedAt` |
+| a locked shop's place on the list | sorts like a candidate, not first in its group | `A5` — cherry-pick of `e67420406e` (no PR yet) | `git cherry origin/main <branch>` |
+| contact info visible before a lock | a stranger can email/call a shop straight off its public page | `#5404` (auto-merge armed, not this test's own session) | `gh pr view 5404 --json state,mergedAt` |
+
+**Do not run round 1 until all seven show MERGED and production `/api/health`'s version has
+each merge commit as an ancestor** (`git merge-base --is-ancestor <merge-sha> <served-sha>`).
+Running earlier just re-discovers these same five defects one keystroke at a time — which is
+useful only as confirmation, never as the record of "the test ran."
+
+The owner's one-page prep-and-tap script is in the spec corpus:
+`Test_Script_Live_Two_Sided_2026-09-10.md` — it extends `TEST_SCRIPT_E2E_2026-07-27.md`
+rather than replacing it (that file's five accounts, ground rules and cleanup SQL still hold).
+
 🛑 **THE COUPLE SIDE IS AN INTERNAL ADMIN ACCOUNT — CARRY THIS CAVEAT INTO ANY RESULT.**
 Measured 2026-09-08: the couple on `Cale & Ice` is `Ice Casasola`, `account_type = 'admin'`,
 **`is_internal = TRUE`**, and the same user **also owns a vendor shop**. `is_internal` is

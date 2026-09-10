@@ -62,12 +62,16 @@
 -- membership through the couple's session, which sees it for PUBLISHED shops
 -- only; the bench search lists published shops only, so the two agree there.
 --
--- ── PRIVACY ─────────────────────────────────────────────────────────────────
--- Same shape as vendors_blocked_on_date (owner-picked privacy model,
--- 2026-07-11): only the refused (card, date) pairs come back — no labels, no
--- counts, no capacities, no other dates. Granted to `authenticated` only, and
--- the inputs are CAPPED (≤ 100 cards, ≤ 31 dates) so it cannot be used as an
--- availability oracle over the whole marketplace in one call.
+-- ── PRIVACY: SERVER-ONLY ────────────────────────────────────────────────────
+-- EXECUTE is held by `service_role` alone — revoked from PUBLIC, anon AND
+-- authenticated. Granted to signed-in users, any account could call
+-- /rest/v1/rpc/service_cards_unbookable_on over arbitrary card ids and read a
+-- month of any supplier's refused days per call (orchestrator review of #5434,
+-- 2026-09-11). So the bench search calls it from server code with the admin
+-- client and sends the browser only its verdict — a supplier shown or not —
+-- never a (card, date) pair. Even so it returns only the refused pairs (no
+-- labels, counts or capacities) and the inputs stay CAPPED (≤ 100 cards,
+-- ≤ 31 dates).
 --
 -- Guards: apps/web/tests/db/a-full-card-leaves-bench-search.db.test.ts (the
 -- behaviour, seeded) · apps/web/lib/h6-mirrors-the-booking-path.test.ts (parity
@@ -256,12 +260,13 @@ COMMENT ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) 
   'acquire_service_time_slot (locked day · every slot full). Whitelist days and '
   'vendor_services.daily_capacity are deliberately not refusals (see migration '
   'header). Pool resolution is a read-only mirror of resolve_schedule_pool, '
-  'which would otherwise CREATE pools. Capped at 100 cards and 31 dates; returns '
-  'no labels or counts. Used by the bench search to hide cards with no booking '
-  'left (owner 2026-09-11, register H6).';
+  'which would otherwise CREATE pools. Server-only (service_role); capped at 100 '
+  'cards and 31 dates; returns no labels or counts. Used by the bench search to '
+  'hide suppliers with no booking left (owner 2026-09-11, register H6).';
 
-REVOKE ALL ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) FROM anon;
-GRANT EXECUTE ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) TO authenticated;
+-- Server-only. Name every role: Supabase's default privileges give anon and
+-- authenticated their own EXECUTE entries, which REVOKE ... FROM PUBLIC misses.
+REVOKE ALL ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) TO service_role;
 
 COMMIT;

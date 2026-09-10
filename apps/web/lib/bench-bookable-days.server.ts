@@ -15,16 +15,17 @@ import {
  * The cards judged are the ones the search itself prices a supplier from: in
  * the searched categories, active, and bookable on their own (a linked-only
  * card is a component of another card, never booked alone). The refusals are
- * asked through the COUPLE'S session — the function is granted to signed-in
- * callers only — with the same Named Calendars switch the lock reads, so the
- * search and the lock resolve the same pools.
+ * asked with the ADMIN client: the function is server-only (service_role), so a
+ * signed-in browser can never read another supplier's full days — the caller
+ * only ever returns which suppliers stay on the list. The same Named Calendars
+ * switch the lock reads is passed, so the search and the lock resolve the same
+ * pools. The caller must have already checked the couple is on the event.
  *
  * FAILS OPEN. Any error → nobody is hidden. A supplier wrongly left on the list
  * costs the couple a message; a supplier wrongly hidden costs them a supplier
  * who could have said yes.
  */
 export async function findSuppliersWithNoBookingLeft(args: {
-  session: SupabaseClient;
   admin: SupabaseClient;
   supplierIds: readonly string[];
   canonicals: readonly string[];
@@ -57,7 +58,7 @@ export async function findSuppliersWithNoBookingLeft(args: {
 
     const refused = new Set<string>();
     for (const batch of inBatches(cards, UNBOOKABLE_MAX_CARDS)) {
-      const { data, error } = await args.session.rpc('service_cards_unbookable_on', {
+      const { data, error } = await args.admin.rpc('service_cards_unbookable_on', {
         p_service_ids: batch,
         p_dates: days,
         p_named_calendars: namedCalendarsEnabled(),

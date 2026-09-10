@@ -758,11 +758,13 @@ export async function searchCategoryVendors(input: {
 
   // H6 · no booking left on the couple's date → leaves the BENCH search. The
   // down-rank above stays for everything else; this only runs when the bench
-  // asks for it, and fails open (lib/bench-bookable-days.server).
+  // asks for it, and fails open (lib/bench-bookable-days.server). The refusals
+  // are read server-side with the admin client (the RPC is service_role-only);
+  // only the filtered list below ever reaches the browser. Membership was
+  // already proven by the RLS-bounded events read above.
   const noBookingLeft =
     input.hideUnbookable === true
       ? await findSuppliersWithNoBookingLeft({
-          session: supabase,
           admin,
           supplierIds: ids,
           canonicals,

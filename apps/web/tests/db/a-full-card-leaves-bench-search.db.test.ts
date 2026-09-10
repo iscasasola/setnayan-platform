@@ -23,8 +23,9 @@
  *
  * The named cases below are the same facts written out, so a failure reads as
  * a sentence rather than a diff of 126 verdicts. Then the privacy and safety
- * properties: the function writes nothing, refuses anon, caps its inputs, and
- * returns only (card, date).
+ * properties: the function writes nothing, answers the server alone (never
+ * anon, never a signed-in browser), caps its inputs, and returns only
+ * (card, date).
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -585,25 +586,24 @@ test('the inputs are capped — 100 cards and 31 days, no more', async () => {
   await refusedBy(Array.from({ length: 100 }, () => card.A), october());
 });
 
-test('only signed-in callers may ask; anon is refused', async () => {
-  await db.exec(`SET ROLE anon`);
-  try {
-    await assert.rejects(
-      db.query(`SELECT * FROM public.service_cards_unbookable_on($1::uuid[], $2::date[])`, [
-        [card.A],
-        [DAY.poolFull],
-      ]),
-      /permission denied/,
-    );
-  } finally {
-    await db.exec(`RESET ROLE`);
+test('only the server may ask — anon and signed-in callers are refused, service_role answers', async () => {
+  // Granted to signed-in users, any account could read a month of any
+  // supplier's full days over arbitrary card ids (orchestrator review, #5434).
+  const call = () =>
+    db.query(`SELECT * FROM public.service_cards_unbookable_on($1::uuid[], $2::date[])`, [[card.A], [DAY.poolFull]]);
+  for (const role of ['anon', 'authenticated'] as const) {
+    if (role === 'authenticated') await setAuthUid(db, coupleUid);
+    await db.exec(`SET ROLE ${role}`);
+    try {
+      await assert.rejects(call(), /permission denied/, `${role} was allowed to call it`);
+    } finally {
+      await db.exec(`RESET ROLE`);
+      await setAuthUid(db, null);
+    }
   }
-  await db.exec(`SET ROLE authenticated`);
+  await db.exec(`SET ROLE service_role`);
   try {
-    const r = await db.query(`SELECT * FROM public.service_cards_unbookable_on($1::uuid[], $2::date[])`, [
-      [card.A],
-      [DAY.poolFull],
-    ]);
+    const r = await call();
     assert.equal(r.rows.length, 1);
   } finally {
     await db.exec(`RESET ROLE`);

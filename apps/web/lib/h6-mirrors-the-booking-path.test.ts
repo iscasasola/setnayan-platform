@@ -24,7 +24,8 @@
  *      couples' bookings through the COUPLE'S session and so, under RLS, never
  *      sees one. The day that gate can see them, it starts refusing, and the
  *      mirror must learn daily_capacity. (The RLS half is pinned in the db test.)
- *   5. THE CALLERS — only the bench asks to hide; everyone else is unchanged.
+ *   5. THE CALLERS — only the bench asks to hide; everyone else is unchanged;
+ *      and only server code, with the admin client, ever calls the mirror.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -296,13 +297,27 @@ test('MUTATION · every predicate fails the audit when removed from either side'
   assert.ok(auditMirror({ ...real, mirror: withCapacity }).includes('mirror reads daily_capacity (see the tripwire)'));
 });
 
-test('the mirror never writes and cannot be called by anon', () => {
+test('the mirror never writes, and only the server may call it', () => {
   const sql = stripSqlComments(readFileSync(join(MIGRATIONS, mirror.file), 'utf8'));
   assert.doesNotMatch(mirror.body, /\b(INSERT|UPDATE|DELETE)\b|resolve_schedule_pool\s*\(/);
   assert.match(sql, /\bSTABLE\b/);
-  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${MIRROR_FN}\\([^)]*\\) FROM anon`));
-  assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${MIRROR_FN}\\([^)]*\\) TO authenticated`));
-  assert.doesNotMatch(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${MIRROR_FN}\\([^)]*\\) TO (anon|PUBLIC)`));
+  const sig = `public\\.${MIRROR_FN}\\([^)]*\\)`;
+  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION ${sig} FROM PUBLIC, anon, authenticated;`));
+  assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION ${sig} TO service_role;`));
+  const grants = [...sql.matchAll(new RegExp(`GRANT [^;]* ON FUNCTION ${sig} TO ([^;]+);`, 'g'))].map((m) => m[1]!.trim());
+  assert.deepEqual(grants, ['service_role'], 'a signed-in browser must never be able to call it');
+});
+
+test('only server code calls it, with the admin client', () => {
+  const callers: string[] = [];
+  for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    if (src.includes(`'${MIRROR_FN}'`)) callers.push(relative(WEB, file));
+  }
+  assert.deepEqual(callers, ['lib/bench-bookable-days.server.ts']);
+  const server = tsSource('lib/bench-bookable-days.server.ts');
+  assert.match(server, new RegExp(`args\\.admin\\.rpc\\(\\s*'${MIRROR_FN}'`));
+  assert.doesNotMatch(server, /session/, 'the refusals are never read through, or returned to, the browser session');
 });
 
 // ── 3 · THE POOLS ─────────────────────────────────────────────────────────

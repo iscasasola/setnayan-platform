@@ -121,8 +121,11 @@ before(async () => {
 });
 
 after(async () => {
-  await db?.exec('RESET ROLE').catch(() => {});
-  await replay?.close?.();
+  if (!db) return;
+  await db.exec('RESET ROLE').catch(() => {});
+  // Close the PGlite handle, not the replay result — `ReplayResult` has no
+  // `close`. Same teardown as orders-payments-insert-revoke.db.test.ts.
+  await db.close?.();
 });
 
 /* ── 0 · META — without this the whole file can pass vacuously ─────────────── */

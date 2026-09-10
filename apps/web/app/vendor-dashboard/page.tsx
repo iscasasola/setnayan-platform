@@ -43,6 +43,11 @@ import { manilaToday } from '@/lib/std-views';
 import { formatPhp } from '@/lib/vendors';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
+  lockAgreeNotice,
+  lockDeclineNotice,
+  type LockAnswerNotice,
+} from '@/lib/lock-answer-notice';
+import {
   shopFindability,
   findabilityNotice,
 } from '@/lib/vendor-shop-findable';
@@ -145,12 +150,31 @@ const DEPOSIT_ANSWER_NOTICE: Record<string, string> = {
 export default async function VendorOverviewPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ deposit_answer?: string }>;
+  searchParams?: Promise<{
+    deposit_answer?: string;
+    lock_agree?: string;
+    lock_decline?: string;
+    competing?: string;
+  }>;
 }) {
   const search = (await searchParams) ?? {};
   const depositAnswer = search.deposit_answer
     ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
     : null;
+
+  // ── THE ANSWER TO A BOOKING ASK, SAID OUT LOUD ───────────────────────────
+  // `vendorAgreeToLock` / `vendorDeclineLock` have always redirected here with
+  // the RPC's own status in the query string, and until now NOTHING READ IT:
+  // every one of the refusals `vendor_agree_to_lock` can return landed as a
+  // page reload with the request card still sitting there. Success is
+  // self-evident (the card disappears); every failure looked like a dead
+  // button. The sentences live in `lib/lock-answer-notice.ts`, and a db test
+  // fails if the RPC learns a status that has no sentence.
+  const competing = Number.parseInt(search.competing ?? '', 10);
+  const lockAnswer: LockAnswerNotice | null =
+    lockAgreeNotice(search.lock_agree, {
+      competing: Number.isFinite(competing) ? competing : null,
+    }) ?? lockDeclineNotice(search.lock_decline);
   const supabase = await createClient();
   const {
     data: { user },
@@ -406,6 +430,33 @@ export default async function VendorOverviewPage({
       {/* Spotlight Award — celebratory banner, shown only when this vendor holds
           at least one current-period award (empty list renders nothing). */}
       <SpotlightAwardBanner awards={spotlightAwards} />
+
+      {/* The outcome of a booking ask answered ON this page. A refusal here is
+          the whole point: without it the supplier presses Agree, is refused,
+          and sees the same page with the same card and no explanation. */}
+      {lockAnswer ? (
+        <div
+          role="status"
+          className="sn-tile mb-6 flex items-start gap-3 p-4 text-sm text-ink/80"
+        >
+          {lockAnswer.tone === 'refused' ? (
+            <AlertTriangle
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--m-blush-deep)' }}
+            />
+          ) : (
+            <Info
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--sn-gold-700)' }}
+            />
+          )}
+          <p>{lockAnswer.text}</p>
+        </div>
+      ) : null}
 
       {/* The outcome of an answer given ON this page, said where it was given. */}
       {depositAnswer ? (

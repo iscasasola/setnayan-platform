@@ -190,6 +190,7 @@ import { markThreadRead, sendChatMessage } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -2533,6 +2534,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       }
       const blockState = await getThreadBlockState(thread, user.id, 'couple');
       const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
+      // PR-H · booked, or merely asked? Couple's own session; RLS is the gate.
+      const chatLockHandshake = await fetchThreadLockHandshake(supabase, {
+        eventId,
+        vendorProfileId: thread.vendor_profile_id,
+      });
       const coupleMsgCount = initialMessages.filter(
         (m) => m.sender_role === 'couple',
       ).length;
@@ -2578,6 +2584,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             currentUserId={user.id}
             viewerRole="couple"
             counterpartyLabel={displayName}
+            lockHandshake={chatLockHandshake}
           />
           {blockState.blockedByMe || blockState.blockedByThem ? (
             <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">

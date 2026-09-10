@@ -41,6 +41,7 @@ import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
@@ -630,6 +631,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   });
   const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
 
+  // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+  // A supplier CANNOT read `event_vendors` through their own session — all four
+  // policies on that table are couple- or moderator-scoped — so this uses the
+  // admin client already in scope, narrowed to (this event × THIS shop's own
+  // profile), the same pair the thread-ownership check above already proved.
+  // Three handshake columns; no money, no guest data, no schedule.
+  const lockHandshake = await fetchThreadLockHandshake(paxAdmin, {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+  });
+
   /**
    * ⛔ NO STANDING SENTENCE ON THIS SIDE, ON PURPOSE.
    *
@@ -1096,6 +1108,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         standing={threadStanding}
         decisionPayments={decisionPayments}
         decisionGuestCounts={decisionGuestCounts}
+        lockHandshake={lockHandshake}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

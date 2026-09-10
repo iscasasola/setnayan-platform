@@ -18,6 +18,13 @@
  * on read rather than on anyone remembering — the cron-free pattern owner-locked
  * 2026-05-14 and already used by Live Studio and Papic sessions.
  *
+ * ⚖ A MISSED DEADLINE COSTS THE BADGE, NOT THE LISTING (owner, 2026-09-11 ·
+ * Q4 + Q5). A grant writes its deadline into `next_renewal_due_at`, which the
+ * badge reads (`lib/verified-badge.ts`); past it the badge is off and the shop
+ * stays findable and bookable. The expiry sweep that used to live in this file
+ * would have HIDDEN the shop instead — it had no caller, so it never ran — and
+ * it now lives in `lib/verified-badge-sweep.ts` without the hide.
+ *
  * ── THIS IS ALSO THE WRITE PATH `public_visibility` NEVER HAD ───────────────
  * Measured 2026-09-07: three admin surfaces READ `public_visibility` and not one
  * could write it — `/admin/vendors/[id]/edit` literally selects the column and
@@ -31,7 +38,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { bypassExpiryFrom, mustWithdraw } from '@/lib/verification-bypass';
+import { bypassExpiryFrom } from '@/lib/verification-bypass';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 
 /**
@@ -68,6 +75,14 @@ function str(fd: FormData, k: string): string {
  * Writes `verification_state` AND `public_visibility` together — a shop that is
  * verified but hidden is exactly the dead end this feature exists to close, and
  * setting one without the other would recreate it.
+ *
+ * 🔴 AND `last_verified_at` + `next_renewal_due_at` IN THE SAME UPDATE. Until
+ * 2026-09-11 this wrote the state alone — and `vendor_profiles_verified_requires_
+ * stamp` (a CHECK, enforced on every UPDATE) refuses `verified` with a NULL
+ * `last_verified_at`. So vouching for any shop that had never been verified
+ * FAILED with a constraint error; the button had never been pressed in
+ * production (zero vouch rows). The stamp is "the day Setnayan vouched"; the
+ * deadline is the vouch's own, and it is what the badge reads.
  */
 export async function grantVerificationBypass(formData: FormData): Promise<void> {
   const { adminUserId } = await requireAdmin();
@@ -99,7 +114,13 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   // end this feature exists to close.
   const { error } = await admin
     .from('vendor_profiles')
-    .update({ verification_state: 'verified', public_visibility: 'verified' })
+    .update({
+      verification_state: 'verified',
+      public_visibility: 'verified',
+      last_verified_at: grantedAt.toISOString(),
+      next_renewal_due_at: expiresAt,
+      updated_at: grantedAt.toISOString(),
+    })
     .eq('vendor_profile_id', vendorId);
   if (error) throw new Error(error.message);
 
@@ -170,72 +191,4 @@ export async function revokeVerificationBypass(formData: FormData): Promise<void
   });
   revalidatePath('/admin/accounts');
   revalidatePath('/explore');
-}
-
-/**
- * THE SWEEP — expiry enforced by live traffic, never by a scheduler.
- *
- * Fired from `after()` on admin and marketplace surfaces. Reads only rows whose
- * deadline has already passed (the partial index covers exactly this), then asks
- * `mustWithdraw` — the same pure rule the vendor's own countdown reads, so the
- * screen and the sweep can never disagree.
- *
- * 🔑 A shop whose DOCUMENTS LANDED during the window is never withdrawn, even
- * with a stale deadline on the row: the bypass was a bridge and they crossed it.
- */
-export async function sweepExpiredVerificationBypasses(): Promise<number> {
-  const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
-
-  const { data: due, error } = await admin
-    .from('vendor_verification_bypasses')
-    .select('vendor_profile_id, expires_at')
-    .not('expires_at', 'is', null)
-    .lt('expires_at', nowIso)
-    .limit(50);
-  if (error || !due?.length) return 0;
-
-  let withdrawn = 0;
-  for (const row of due) {
-    const { count } = await admin
-      .from('vendor_verification_applications')
-      .select('*', { count: 'exact', head: true })
-      .eq('vendor_profile_id', row.vendor_profile_id)
-      .eq('status', 'approved');
-
-    const documentsApproved = (count ?? 0) > 0;
-    if (
-      !mustWithdraw({
-        expiresAt: row.expires_at as string | null,
-        documentsApproved,
-      })
-    ) {
-      // Documents landed — clear the deadline rather than withdraw them.
-      if (documentsApproved) {
-        await admin
-          .from('vendor_verification_bypasses')
-          .update({ expires_at: null, updated_at: nowIso })
-          .eq('vendor_profile_id', row.vendor_profile_id);
-      }
-      continue;
-    }
-
-    await admin
-      .from('vendor_profiles')
-      .update({ public_visibility: 'hidden' })
-      .eq('vendor_profile_id', row.vendor_profile_id);
-    await admin
-      .from('vendor_verification_bypasses')
-      .update({ expires_at: null, expired_at: nowIso, updated_at: nowIso })
-      .eq('vendor_profile_id', row.vendor_profile_id);
-
-    await admin.from('admin_audit_log').insert({
-      action: 'vendor_verification_bypass_expired',
-      target_id: row.vendor_profile_id,
-      actor_user_id: null,
-      metadata: { deadline: row.expires_at },
-    });
-    withdrawn += 1;
-  }
-  return withdrawn;
 }

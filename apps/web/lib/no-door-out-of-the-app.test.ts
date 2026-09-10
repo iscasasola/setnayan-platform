@@ -112,7 +112,8 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
  * expression, with the EXACT count. Each is the COUPLE'S OWN typed record or a
  * destination that brings someone INTO the app, never a shop's door out.
  */
-const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate: RegExp }> =
+  new Map([
   [
     'app/dashboard/[eventId]/hosts/page.tsx',
     {
@@ -121,6 +122,8 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string }> = n
         "A BOOKED coordinator's address, shown as the destination of the in-app " +
         'delegate invite that brings them INTO the event (booked-only: the booking ' +
         'already happened on Setnayan).',
+      // The reason claims "booked-only" — so the bill proves it.
+      gate: /\.eq\('category', 'planner_coordinator'\)\s*\.in\('status', \['contracted', 'deposit_paid', 'delivered', 'complete'\]\)/,
     },
   ],
   [
@@ -130,6 +133,9 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string }> = n
       why:
         'The contact the COUPLE typed for an OFF-platform supplier (no Setnayan ' +
         'profile, so no in-app channel exists). Gated off for a marketplace-linked row.',
+      // The reason claims the gate — so the bill proves it. A lock copies the SHOP's
+      // email and phone into this row; without the gate the cell prints them.
+      gate: /\{isOffPlatformSupplier\(ev\) && \(ev\.contact_email \|\| ev\.contact_phone\) \?/,
     },
   ],
 ]);
@@ -285,6 +291,13 @@ function dynamicSchemes(src: string): string[] {
 
 /** Rule 2 — a contact field rendered as a JSX expression. */
 const CONTACT_TEXT_RE = /\{\s*[\w?.!]*\bcontact_?(?:email|phone)\b\s*(?:\?\?[^{}]*)?\}/gi;
+/**
+ * Rule 2, second shape — a contact field interpolated into a template string:
+ * a URL (`?prefill_vendor_email=${encodeURIComponent(v.contact_email)}` put the
+ * shop's copied address into a visible Messages box), or copy. Counted into the
+ * SAME bill: printing it through a template is still printing it.
+ */
+const CONTACT_TEMPLATE_RE = /\$\{[^}]*\bcontact_?(?:email|phone)\b[^}]*\}/gi;
 
 function count(src: string, re: RegExp): number {
   return [...src.matchAll(new RegExp(re.source, re.flags))].length;
@@ -313,6 +326,13 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx', // the couple's supplier card
     'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
     'app/v/[slug]/_components/service-details-sheet.tsx',
+    'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
+    'app/(shell)/explore/page.tsx', // the marketplace
+    'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', // a supplier's workspace
+    'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx', // the budget card
+    'app/dashboard/[eventId]/messages/page.tsx', // where a prefill lands, in plain sight
+    'app/dashboard/[eventId]/vendors/page.tsx', // the Vendors page (its model is a client prop)
+    'lib/tours.ts', // the couple's first-run tour copy
   ]) {
     assert.ok(STRIPPED.has(f), `${f} is no longer reached from a couple/public entry point`);
   }
@@ -351,7 +371,7 @@ test('Rule 1 matches the shapes it claims to, and exempts only a constant', () =
 test('Rule 2 — a contact field is printed only where the bill says why, at the exact count', () => {
   const actual = new Map<string, number>();
   for (const [f, src] of STRIPPED) {
-    const n = count(src, CONTACT_TEXT_RE);
+    const n = count(src, CONTACT_TEXT_RE) + count(src, CONTACT_TEMPLATE_RE);
     if (n > 0) actual.set(f, n);
   }
   const problems: string[] = [];
@@ -359,6 +379,9 @@ test('Rule 2 — a contact field is printed only where the bill says why, at the
     const billed = CONTACT_TEXT_BILL.get(f);
     if (!billed) problems.push(`NEW  ${f} prints a contact field ${n}× and is not on the bill`);
     else if (billed.count !== n) problems.push(`MOVED ${f}: bill says ${billed.count}, found ${n}`);
+    else if (!billed.gate.test(STRIPPED.get(f) ?? '')) {
+      problems.push(`UNGATED ${f}: the bill's reason names a gate the code no longer has`);
+    }
   }
   for (const [f, billed] of CONTACT_TEXT_BILL) {
     if (!actual.has(f)) {
@@ -398,6 +421,15 @@ function shopContactReads(src: string): number {
   }
   return n;
 }
+
+test('Rule 2 matches the shapes it claims to', () => {
+  const n = (src: string) => count(src, CONTACT_TEXT_RE) + count(src, CONTACT_TEMPLATE_RE);
+  assert.equal(n('<p>{c.contact_email}</p>'), 1);
+  assert.equal(n('<dd>{ev.contact_phone ?? ev.contact_email}</dd>'), 1);
+  assert.equal(n("<input value={c.contact_email ?? ''} />"), 1);
+  assert.equal(n('`/m?prefill_vendor_email=${encodeURIComponent(vendor.contact_email)}`'), 1);
+  assert.equal(n('<p>{vendor.website}</p>'), 0);
+});
 
 test('Rule 3 — a shop\'s contact is READ from vendor_profiles only where the bill says why', () => {
   const actual = new Map<string, number>();
@@ -469,6 +501,19 @@ test("the couple's Vendors-page model carries no supplier email or phone (it is 
   assert.ok(payload.includes('A Setnayan shop'), 'the fixture row never reached the model — this test proves nothing');
   assert.ok(!payload.includes(EMAIL), "the shop's email rides in the Vendors page payload");
   assert.ok(!payload.includes(PHONE), "the shop's phone rides in the Vendors page payload");
+});
+
+test('no couple-facing or public surface still promises the retired sentences', () => {
+  // The shop page said "Identity stays masked until you choose to share" one
+  // scroll below the shop's printed email and phone, and the tour said to reach
+  // a shop "by their contact email". Both are promises the product no longer
+  // makes. Comments are stripped, so the notes recording the correction do not count.
+  const RETIRED = [/identity stays masked/i, /by their contact email/i, /contact email above/i, /contact email is\s+on their card/i];
+  const hits: string[] = [];
+  for (const [f, src] of STRIPPED) {
+    for (const re of RETIRED) if (re.test(src)) hits.push(`${f}  →  ${re.source}`);
+  }
+  assert.deepEqual(hits, [], hits.join('\n'));
 });
 
 test('the bill and the exclusions carry reasons', () => {

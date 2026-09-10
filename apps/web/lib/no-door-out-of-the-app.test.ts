@@ -119,11 +119,19 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
     {
       count: 2,
       why:
-        "A BOOKED coordinator's address, shown as the destination of the in-app " +
-        'delegate invite that brings them INTO the event (booked-only: the booking ' +
-        'already happened on Setnayan).',
-      // The reason claims "booked-only" — so the bill proves it.
-      gate: /\.eq\('category', 'planner_coordinator'\)\s*\.in\('status', \['contracted', 'deposit_paid', 'delivered', 'complete'\]\)/,
+        "A BOOKED, OFF-PLATFORM coordinator's own address, shown as the " +
+        'destination of the in-app delegate invite that brings them INTO the ' +
+        'event — there is no other channel for them yet. A marketplace-linked ' +
+        "(Setnayan) coordinator's row never reaches this print: N2 " +
+        '(2026-09-11) found that contact_email on THAT row is the shop\'s own ' +
+        'account email, copied in by a package lock, not a business contact ' +
+        'they chose to share — so it is routed to their existing chat thread ' +
+        'instead (see promotableOnPlatform below, which prints no contact field).',
+      // The reason claims BOTH the booked-only query filter AND the
+      // off-platform split feed the print — so the bill proves both. Without
+      // the isOffPlatformSupplier split, a marketplace-linked coordinator's
+      // own account email would print here again (the original N2 defect).
+      gate: /\.eq\('category', 'planner_coordinator'\)\s*\.in\('status', \['contracted', 'deposit_paid', 'delivered', 'complete'\]\)[\s\S]*const promotableOffPlatform = promotable\.filter\(\(c\) => isOffPlatformSupplier\(c\)\);[\s\S]*promotableOffPlatform\.map\(\(c\) => \(/,
     },
   ],
   [

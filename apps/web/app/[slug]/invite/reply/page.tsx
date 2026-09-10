@@ -13,6 +13,7 @@ import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
 import { submitInviteReply } from '../actions';
+import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      'event_id, public_id, slug, display_name, event_type, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at',
+      `event_id, public_id, slug, display_name, event_type, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -85,10 +86,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase] = await Promise.all([
+  const [words, faceMode, supabase, look] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolvePapicFaceMode(admin, event.event_id as string),
     createClient(),
+    loadInviteLook(event),
   ]);
   const {
     data: { user },
@@ -167,6 +169,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
       })}
       steps={arrivalSteps('reply')}
       width="lg"
+      skin={look.skin}
     >
       {user && seatIsLinked ? (
         <p className="text-sm text-ink/70">

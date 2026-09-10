@@ -7,6 +7,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { arrivalSteps, INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
+import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: "You're in", robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select('event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name')
+    .select(`event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}`)
     .ilike('slug', slug)
     .maybeSingle();
   if (eventError) {
@@ -81,6 +82,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             }
           : null;
 
+  const look = await loadInviteLook(event);
   const role = ((guest.role as GuestRole | null) ?? 'guest') as GuestRole;
   const unlisted = guest.entry_source === 'self_added_unlisted';
 
@@ -94,6 +96,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         venue_name: event.venue_name as string | null,
       })}
       steps={arrivalSteps('enter')}
+      skin={look.skin}
     >
       {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
 

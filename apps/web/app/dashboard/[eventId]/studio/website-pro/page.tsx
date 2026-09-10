@@ -83,6 +83,7 @@ const BENEFITS = [
   'Background music and a video across the top of your Event Hub.',
   'Your own photo gallery on your Event Hub — your engagement or pre-wedding photos.',
   'Your own colours for the page and its buttons.',
+  'A Pro theme for your invite link — it opens on your own photo, in your colour.',
   'The Setnayan mark taken off everywhere your guests see it — the page, the printable version, your story and the recap.',
 ];
 

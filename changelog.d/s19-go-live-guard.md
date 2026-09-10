@@ -29,7 +29,7 @@ never a silent pass" — and never a gate. `PROBE_SLOW_MS = 500` is the healthy
 max, so ordinary traffic never trips the note.
 
 The envelope reaches `decideIngestHealth` as provenance only; that decider
-already refuses to let it change a state. 18 new tests; 7 mutations, each proved
+already refuses to let it change a state. 17 new tests (11 guard, 6 bus); 7 mutations, each proved
 to turn the suite red — including S5's original "refuse anything but Raw" rule,
 and a snapshot-stability break that would hang the controller in a
 `useSyncExternalStore` render loop.

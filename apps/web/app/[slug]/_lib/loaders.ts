@@ -1165,6 +1165,7 @@ export const loadGuestContext = cache(
           capApplies: quota.capApplies,
           poolRemaining: quota.poolRemaining,
           poolLow: quota.poolLow,
+          sponsorShare: quota.sponsorShare,
           eventStyle: asPapicStyle(
             (styleRow as { papic_style?: string } | null)?.papic_style,
           ),

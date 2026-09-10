@@ -87,7 +87,9 @@ export function VerifySection({
   // docs in yet, the Documents step starts OPEN — the vendor lands on exactly
   // what to do next.
   const [openStep, setOpenStep] = useState<1 | 2 | null>(() =>
-    profileComplete && !verify.requiredDocsIn && !submitted ? 1 : null,
+    // A verified shop lands straight on its papers — it has no profile step
+    // left to finish, and the papers are the only thing being asked of it.
+    (isVerified || profileComplete) && !verify.requiredDocsIn && !submitted ? 1 : null,
   );
   const toggle = (s: 1 | 2) => setOpenStep((cur) => (cur === s ? null : s));
 
@@ -105,11 +107,26 @@ export function VerifySection({
     wasComplete.current = profileComplete;
   }, [profileComplete, submitted, isVerified]);
 
-  // Verified → the section collapses to its terminal reward state.
-  if (isVerified) {
-    return (
-      <section id="get-verified" className="space-y-3">
-        <h2 className="sn-sec">Verification</h2>
+  const step1Done = verify.requiredDocsIn;
+  const step2Done = Boolean(verify.emailConfirmedAt && verify.phoneConfirmedAt);
+  const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0);
+
+  return (
+    <section ref={sectionRef} id="get-verified" className="space-y-3">
+      <h2 className="sn-sec">{isVerified ? 'Verification' : 'Get verified'}</h2>
+
+      {/* ── A VERIFIED SHOP KEEPS ITS BADGE **AND** IS ASKED FOR ITS PAPERS.
+          Until 2026-09-09 this branch RETURNED here: the whole section
+          collapsed to this one card the moment a shop was verified. Measured
+          on production that day, BOTH shops are verified with every identity
+          column NULL, and one of them was holding a `draft` application it
+          could no longer reach. Owner ruling: Setnayan keeps the papers behind
+          every badge. ⛔ No deadline is set and the badge is never threatened —
+          whether a verified shop that never sends its papers eventually loses
+          it was NOT ruled on. Submitting is safe for them by construction:
+          `PENDING_REVIEW_ADVANCEABLE` deliberately excludes 'verified', so the
+          badge stays through the review window. ── */}
+      {isVerified ? (
         <div
           className="flex items-start gap-3 rounded-2xl border p-5"
           style={{
@@ -117,7 +134,12 @@ export function VerifySection({
             background: 'color-mix(in srgb, var(--m-sage-deep) 8%, rgba(255,255,255,.72))',
           }}
         >
-          <BadgeCheck aria-hidden className="h-6 w-6 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-sage-deep)' }} />
+          <BadgeCheck
+            aria-hidden
+            className="h-6 w-6 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: 'var(--m-sage-deep)' }}
+          />
           <div className="space-y-1">
             <p className="text-sm font-semibold" style={{ color: 'var(--m-sage-deep)' }}>
               You&rsquo;re verified
@@ -128,17 +150,7 @@ export function VerifySection({
             </p>
           </div>
         </div>
-      </section>
-    );
-  }
-
-  const step1Done = verify.requiredDocsIn;
-  const step2Done = Boolean(verify.emailConfirmedAt && verify.phoneConfirmedAt);
-  const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0);
-
-  return (
-    <section ref={sectionRef} id="get-verified" className="space-y-3">
-      <h2 className="sn-sec">Get verified</h2>
+      ) : null}
 
       <div className="sn-tile p-5">
         {/* Reward first — why verify at all. */}
@@ -152,15 +164,24 @@ export function VerifySection({
           </span>
           <div className="min-w-0">
             <p className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-              Get the Verified badge
+              {isVerified ? 'Your papers' : 'Get the Verified badge'}
             </p>
             <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-              Couples trust and message verified shops first. Two steps — then we contact you for your final confirmation.
+              {isVerified
+                ? 'Setnayan keeps the papers behind every badge. Send yours when they’re handy — your badge stays either way.'
+                : 'Couples trust and message verified shops first. Two steps — then we contact you for your final confirmation.'}
             </p>
           </div>
         </div>
 
-        {!profileComplete && !submitted ? (
+        {/* ⚠ NOT shown to a verified shop: its profile fields are locked
+            server-side, so "finish your business profile" would send them to a
+            form that refuses every save. A verified shop whose profile is
+            incomplete therefore cannot clear the submit gate — NAMED, NOT
+            FIXED: whether a verified shop's submit should skip the profile
+            gate is a ruling, and this build strictly widens what they can
+            reach (until today they could not open this section at all). */}
+        {!profileComplete && !submitted && !isVerified ? (
           // Owner 2026-07-03 ("or it should show both?"): the documents stay
           // visible + uploadable while the profile is unfinished — docs are the
           // slow, offline part, so vendors start gathering early. The profile
@@ -241,6 +262,7 @@ export function VerifySection({
             vendorComplete={verify.vendorComplete}
             vendorTotal={verify.vendorTotal}
             vendorProfileId={vendorProfileId}
+            isVerified={isVerified}
           />
           <ContactsStep
             n={2}
@@ -370,6 +392,7 @@ function DocsStep({
   vendorComplete,
   vendorTotal,
   vendorProfileId,
+  isVerified,
 }: {
   n: number;
   done: boolean;
@@ -378,6 +401,8 @@ function DocsStep({
   vendorComplete: number;
   vendorTotal: number;
   vendorProfileId: string;
+  /** From the page's own authoritative profile read — NOT a second probe. */
+  isVerified: boolean;
 }) {
   const [payload, setPayload] = useState<InlineDocsPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -428,7 +453,12 @@ function DocsStep({
       onToggle={handleToggle}
     >
       {payload ? (
-        <DocsBody payload={payload} vendorProfileId={vendorProfileId} onSaved={reload} />
+        <DocsBody
+          payload={payload}
+          vendorProfileId={vendorProfileId}
+          isVerified={isVerified}
+          onSaved={reload}
+        />
       ) : failed ? (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           Couldn&rsquo;t load your documents.{' '}

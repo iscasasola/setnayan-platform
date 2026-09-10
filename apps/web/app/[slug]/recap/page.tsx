@@ -71,7 +71,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const websiteOn = event
     ? surfaceEnabled(await resolveProfile(event.event_type), 'website')
     : false;
-  if (!event || !websiteOn || !(await isRecapPublished(event.event_id))) {
+  /*
+    🔴 THE SOLEMN REGISTER GETS NO AUTO-COMPOSED RECAP — owner ruling 2026-09-09.
+    A wake gets the QUIET STORY, written by the family; the recap is composed in
+    a joyful voice with nobody's hand on it, and that is what stays refused.
+
+    ⚠ THIS ROUTE HAD NO SOLEMN GATE AT ALL, and the corpus said it did. The
+    refusal everyone believed in lives in `solemnAdjustedPhase`, which governs
+    what a guest receives at `/{slug}` — the recap has its OWN address and
+    checked only "does this event have a website" and "did the host publish".
+    A grieving family that published would have been handed the cheerful one.
+    Inert when found (no wake exists in production), and found by S13 reading
+    the route rather than the comment. A sentence in a docblock is not a gate on
+    every route.
+  */
+  const solemn = event ? (await eventWordsFor(event.event_type)).solemn : false;
+  if (!event || !websiteOn || solemn || !(await isRecapPublished(event.event_id))) {
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
@@ -106,6 +121,17 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   // there records, it is TRUE for every event type shipped today. A non-wedding
   // therefore RENDERS this page; it is not filtered out here.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  /*
+    THE SAME REFUSAL, ON THE RENDER PATH. Both arms are needed: the metadata arm
+    above stops the page being indexed and titled, and this one stops it being
+    served at all. Gating only one of them is how a page comes to be reachable
+    while claiming not to exist.
+    🔑 Keyed on the REGISTER, never on a surface flag — `website` is enabled for
+    every type shipped today (see the note above), so a `surfaceEnabled` test
+    here would refuse nobody.
+  */
+  if ((await eventWordsFor(event.event_type)).solemn) notFound();
 
   // …which is why this page needs the event's own words. A birthday's guests
   // reach the stand-in below from the hub's "See the recap gallery" link, which

@@ -42,6 +42,8 @@
  * Run: pnpm --filter @setnayan/web test:db
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
@@ -54,8 +56,44 @@ let db: PGlite;
 const SENDER_COLUMNS = ['sender_role', 'sender_user_id'] as const;
 /** Same defect, different hat: who authored it, and when it happened. */
 const PROVENANCE_COLUMNS = [...SENDER_COLUMNS, 'is_bot', 'created_at'] as const;
-/** Columns a legitimate send must still be able to write. */
-const CALLER_COLUMNS = ['thread_id', 'event_id', 'vendor_profile_id', 'body'] as const;
+/**
+ * Columns a legitimate send must still be able to write.
+ *
+ * 🔴 THIS LIST WAS HAND-WRITTEN AND THAT IS EXACTLY HOW IT FAILED. On
+ * 2026-09-09 PR #5339 added `chat_messages.attachment_r2_key` with SELECT and
+ * NO INSERT, and `sendChatMessageCore` names it on an insert running under the
+ * caller's own session — so every attempt to attach a file, by a couple or a
+ * supplier, was refused by the database and the message went with it. **This
+ * test stayed green throughout**, because a hand-enumerated list is a list of
+ * the columns somebody thought of, and nobody thought of the new one.
+ *
+ * ⇒ The list is now DERIVED from the payload `chat-send.ts` actually inserts.
+ * A column added to that payload without a matching GRANT fails here, before it
+ * can reach anybody.
+ *
+ * 🔑 Nothing else could catch it: the PGlite replay runs as SUPERUSER so a
+ * missing grant is never ENFORCED (only the catalogue records it, which is why
+ * this test can read it at all); TypeScript cannot see a grant; and the
+ * exposure freeze only fails on a WIDENING, while a missing grant is a
+ * narrowing. Three guards, none able to fail.
+ */
+const HAND_LISTED_CALLER_COLUMNS = ['thread_id', 'event_id', 'vendor_profile_id', 'body'] as const;
+
+/** Every column the shipped send path names on its insert, read from source. */
+function columnsTheSendPathWrites(): string[] {
+  const src = readFileSync(
+    join(import.meta.dirname, '..', '..', 'lib', 'chat-send.ts'),
+    'utf8',
+  );
+  // The attachment payload object, then the insert's own literal. Both are
+  // object literals of `column: value` pairs; take every key that names a
+  // real column on this table (checked against the catalogue below).
+  const keys = new Set<string>();
+  for (const m of src.matchAll(/^\s{4,}([a-z][a-z0-9_]*):/gm)) {
+    if (m[1]) keys.add(m[1]);
+  }
+  return [...keys];
+}
 /** The AFTER INSERT triggers that act on the stored role. */
 const ROLE_READING_TRIGGERS = [
   'reveal_vendor_name_on_chat',
@@ -190,7 +228,7 @@ test('META: the table, the sender columns and the four roles all still exist', a
   );
   assert.ok(cols.rows.length > 0, 'public.chat_messages is missing from the replay');
   const present = new Set(cols.rows.map((r) => r.attname));
-  for (const c of [...PROVENANCE_COLUMNS, ...CALLER_COLUMNS]) {
+  for (const c of [...PROVENANCE_COLUMNS, ...HAND_LISTED_CALLER_COLUMNS]) {
     assert.ok(present.has(c), `chat_messages.${c} is gone — re-decide this test, do not inherit it`);
   }
   assert.equal(
@@ -301,10 +339,51 @@ test('authenticated CAN still write the columns a real message needs', async () 
   // The other direction. A revoke that took the whole table with it would pass
   // every test above and break messaging outright.
   const denied: string[] = [];
-  for (const c of CALLER_COLUMNS) {
+  for (const c of HAND_LISTED_CALLER_COLUMNS) {
     if (!(await canInsertColumn('authenticated', c))) denied.push(c);
   }
   assert.deepEqual(denied, [], `authenticated cannot write ${denied.join(', ')} — nobody can send a message`);
+});
+
+test('EVERY column the send path names is writable — derived, not remembered', async () => {
+  // 🔴 The test above passed for the whole time attaching a file was broken,
+  // because its list is hand-written. This one asks the SOURCE which columns a
+  // send actually names, intersects that with the real columns of this table,
+  // and requires an INSERT grant for each. A future attachment column, or any
+  // new field on a message, fails here until it is granted.
+  const named = columnsTheSendPathWrites();
+  const real = await db.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'chat_messages'`,
+  );
+  const realSet = new Set(real.rows.map((r) => r.column_name));
+  const asked = named.filter((c) => realSet.has(c));
+
+  // Anti-vacuity: if the scrape stops finding columns this test must fail
+  // rather than pass by matching nothing. It found 8+ when written.
+  assert.ok(
+    asked.length >= 5,
+    `only ${asked.length} send-path columns resolved against chat_messages — the scrape broke, so this test proved nothing`,
+  );
+  // …and it must actually reach the attachment family, the ones that broke.
+  assert.ok(
+    asked.includes('attachment_r2_key'),
+    'the scrape no longer sees attachment_r2_key — the column that caused this test to exist',
+  );
+
+  const denied: string[] = [];
+  for (const c of asked) {
+    // The provenance columns are named by the DATABASE, never by the caller,
+    // and are asserted un-writable above. They must not be required here.
+    if ((PROVENANCE_COLUMNS as readonly string[]).includes(c)) continue;
+    if (!(await canInsertColumn('authenticated', c))) denied.push(c);
+  }
+  assert.deepEqual(
+    denied,
+    [],
+    `the send path names ${denied.join(', ')} but authenticated cannot INSERT them — ` +
+      'every send that touches one is refused by the database, and the message is lost',
+  );
 });
 
 test('authenticated holds no UPDATE anywhere on the table', async () => {

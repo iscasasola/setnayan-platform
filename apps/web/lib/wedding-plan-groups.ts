@@ -931,8 +931,16 @@ export type PlanCardPick = {
   total_cost_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO `contact_email` / `contact_phone` HERE, ON PURPOSE (2026-09-10).
+  // Nothing that reads a pick ever used them, and this type is serialized into
+  // the couple's Vendors page as a CLIENT prop (`PlanBudgetAccordion`'s
+  // `model`) — so every supplier row's email and phone rode along in the page
+  // payload. On a package-locked marketplace row those are the SHOP's own
+  // details, copied in by the lock. Owner 2026-09-10: "our goal is to let them
+  // integrate their event with the vendor they find. not to let them
+  // communicate outside the app". `bucketVendorsByGroup` no longer copies them
+  // across; the optional input fields below are left for callers that pass raw
+  // rows, and are never forwarded.
   /**
    * DIY parity (2026-06-11): host-authored "what's included" lines for a
    * manual vendor's package. Flows to Compare's expandable inclusions. Absent
@@ -1361,8 +1369,6 @@ export function bucketVendorsByGroup(
       total_cost_php: toNum(v.total_cost_php ?? null),
       deposit_paid_php: toNum(v.deposit_paid_php ?? null),
       notes: v.notes ?? null,
-      contact_email: v.contact_email ?? null,
-      contact_phone: v.contact_phone ?? null,
       host_inclusions: v.host_inclusions ?? null,
       compatibility_issue: computeCompatibilityIssue(
         v,

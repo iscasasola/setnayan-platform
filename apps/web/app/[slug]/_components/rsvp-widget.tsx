@@ -18,6 +18,7 @@ export function RsvpWidget({
   replyLocked = false,
   profileDetails = null,
   words,
+  doorAction,
 }: {
   words: EventWords;
   guest: GuestRow;
@@ -64,8 +65,23 @@ export function RsvpWidget({
     phone: string | null;
     displayName: string | null;
   } | null;
+  /**
+   * DOOR 02 · REPLY of the invite arrival (lib/invite-arrival.ts) passes its own
+   * save here — `submitInviteReply`, which sends the sign-in link and then calls
+   * this card's own `submitRsvp`. Present = the DOOR variant of this card: the
+   * same fields, the same reveals and the same write, without the site's
+   * letterpress card head and without the start-free pitch — a door carries one
+   * decision, and this card is already inside one.
+   *
+   * 🔑 PASSED IN, NOT IMPORTED. The door's action lives in a server-only module
+   * chain; importing it here would drag that chain into every test that renders
+   * this card. The card stays one component with one set of fields, so the site
+   * and the door can never drift apart.
+   */
+  doorAction?: (formData: FormData) => Promise<void>;
 }) {
-  const action = submitRsvp.bind(null, eventId, guest.guest_id);
+  const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
+  const onDoor = Boolean(doorAction);
 
   // The three boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
@@ -116,7 +132,7 @@ export function RsvpWidget({
     .join(' · ');
 
   return (
-    <form action={action} className="rsvp-form pahina-deckle space-y-6 sm:p-8">
+    <form action={action} className={onDoor ? 'rsvp-form space-y-6' : 'rsvp-form pahina-deckle space-y-6 sm:p-8'}>
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -139,28 +155,34 @@ export function RsvpWidget({
         <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
 
-      {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
-          is a card in real life, so it is the only thing still shaped like one:
-          heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
-          the perforation rule. Everything else on the site is a plate. */}
-      <header className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <p className="pahina-eyebrow">
-            <span aria-hidden>№ 07</span>
-            <span>Reply</span>
-          </p>
-          <RsvpPill status={guest.rsvp_status} />
-        </div>
-        <div className="flex items-end justify-between gap-4">
-          <p className="pahina-letterpress font-pahina text-[3.2rem] font-light leading-[0.9] tracking-tight text-ink">
-            RSVP
-          </p>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-            Nº {stubNo(guest.guest_id)}
-          </p>
-        </div>
-        <hr className="pahina-perforation" />
-      </header>
+      {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
+          the guest's name and the rail already say what this is. */}
+      {onDoor ? null : (
+        <>
+          {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
+              is a card in real life, so it is the only thing still shaped like one:
+              heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
+              the perforation rule. Everything else on the site is a plate. */}
+          <header className="space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <p className="pahina-eyebrow">
+                <span aria-hidden>№ 07</span>
+                <span>Reply</span>
+              </p>
+              <RsvpPill status={guest.rsvp_status} />
+            </div>
+            <div className="flex items-end justify-between gap-4">
+              <p className="pahina-letterpress font-pahina text-[3.2rem] font-light leading-[0.9] tracking-tight text-ink">
+                RSVP
+              </p>
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+                Nº {stubNo(guest.guest_id)}
+              </p>
+            </div>
+            <hr className="pahina-perforation" />
+          </header>
+        </>
+      )}
 
       {/* Seat reservation: confirming attendance holds the guest's place (the
           couple seats them later). Show the reassurance whenever they're
@@ -175,7 +197,7 @@ export function RsvpWidget({
           </p>
           {/* No pitch on a solemn page: "Planning your own celebration? Start
               free" under a wake RSVP is the defect class itself. */}
-          {words.solemn ? null : (
+          {onDoor ? null : words.solemn ? null : (
             <GuestToHostCta
               surface="rsvp_confirmation"
               eventId={eventId}

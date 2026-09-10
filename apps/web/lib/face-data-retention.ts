@@ -1,12 +1,11 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
-import { parseStoredAsset } from '@/lib/uploads';
-import { r2Delete } from '@/lib/r2';
-import { deletePublicAsset } from '@/lib/storage';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import {
   FACE_DATA_POST_EVENT_GRACE_DAYS,
   faceDataIsPastRetention,
+  planFaceSelfieDelete,
 } from '@/lib/face-data-retention-core';
 
 /**
@@ -92,6 +91,13 @@ export type FaceRetentionSummary = {
   skippedNoClock: number;
   /** R2 objects left behind after a failed delete (reaped by lifecycle rules). */
   assetsFailed: number;
+  /**
+   * Selfie refs REFUSED for not sitting under the enrollment's own
+   * `events/<event>/guest-selfies/<guest>/` folder (planFaceSelfieDelete). The
+   * object is not deleted and the ROW is kept (its pointer with it) — but the
+   * biometric vector on it is still cleared, because the period has run out.
+   */
+  assetsRefused: number;
   /** A read or delete that errored — the row survives to the next run. */
   failed: number;
 };
@@ -107,6 +113,7 @@ function emptySummary(dryRun: boolean): FaceRetentionSummary {
     avatarsCleared: 0,
     skippedNoClock: 0,
     assetsFailed: 0,
+    assetsRefused: 0,
     failed: 0,
   };
 }
@@ -146,25 +153,6 @@ async function readCandidates(
   } catch (err) {
     return { rows: [], error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-/**
- * Delete one stored asset ref, whatever shape it is in. Mirrors
- * `withdrawFaceConsent`: `r2://bucket/key` goes to r2Delete, a legacy plain URL
- * to deletePublicAsset, and anything unparseable is left alone rather than
- * guessed at.
- */
-async function deleteStoredAsset(ref: string): Promise<boolean> {
-  const parsed = parseStoredAsset(ref);
-  if (parsed?.kind === 'r2') {
-    await r2Delete({ bucket: parsed.bucket, key: parsed.key });
-    return true;
-  }
-  if (parsed?.kind === 'legacy_url') {
-    await deletePublicAsset({ publicUrl: parsed.url });
-    return true;
-  }
-  return false;
 }
 
 /**
@@ -231,10 +219,29 @@ export async function runFaceDataRetention(
   for (const row of eligible) {
     const ref = row.asset_url;
 
+    // 🔒 0. IS THE SELFIE THIS ROW'S OWN? A refused ref is not deleted, and the
+    // row that points at it is KEPT — nulling the pointer would leave an object
+    // we declined to touch with nothing left to say whose it is. The biometric
+    // itself still goes: the period has run out and it is the part that matters.
+    const decision = planFaceSelfieDelete(row);
+    if (decision && !decision.ok) {
+      summary.assetsRefused += 1;
+      const { error: vecErr } = await admin
+        .from('guest_face_enrollments')
+        .update({ face_vector: null, vector_model: null })
+        .eq('id', row.id);
+      if (vecErr) summary.failed += 1;
+      console.warn('[face-data-retention] REFUSED a selfie ref outside the enrollment’s own folder — object and row kept, vector cleared', {
+        eventId: row.event_id,
+      });
+      continue;
+    }
+
     // 1. The source selfie, FIRST — a deleted row must never orphan its file.
-    if (ref && !survivingRefs.has(ref)) {
+    if (ref && decision?.ok && !survivingRefs.has(ref)) {
       try {
-        if (await deleteStoredAsset(ref)) summary.assetsDeleted += 1;
+        await executeCleanupDelete(decision.target);
+        summary.assetsDeleted += 1;
       } catch (err) {
         // Non-fatal by contract: an orphan is reaped by the R2 lifecycle rule,
         // and the vector below still goes. Losing the vector matters more.
@@ -291,7 +298,7 @@ export async function runFaceDataRetention(
   console.info(
     `[face-data-retention] deleted ${summary.deleted} enrollment(s), ` +
       `${summary.assetsDeleted} selfie(s), cleared ${summary.avatarsCleared} avatar(s); ` +
-      `${summary.skippedNoClock} skipped (no clock), ${summary.failed} failed.`,
+      `${summary.skippedNoClock} skipped (no clock), ${summary.assetsRefused} refused, ${summary.failed} failed.`,
   );
   return summary;
 }

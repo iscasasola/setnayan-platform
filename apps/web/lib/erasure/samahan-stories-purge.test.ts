@@ -12,8 +12,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { purgeSamahanStories, type ErasureAdminClient, type ErasureIo } from './purge';
+import { refBelongsToRow, type CleanupScope } from '../cleanup-delete-scope';
 
-type Row = { id: number; r2_object_key: string; poster_r2_key: string };
+type Row = { id: number; community_id?: string; r2_object_key: string; poster_r2_key: string };
 
 function makeAdmin(rows: Row[], log: string[]): ErasureAdminClient {
   const admin = {
@@ -39,13 +40,17 @@ function makeAdmin(rows: Row[], log: string[]): ErasureAdminClient {
   return admin as unknown as ErasureAdminClient;
 }
 
-function makeIo(log: string[], failRefs: Set<string> = new Set()): ErasureIo {
+function makeIo(
+  log: string[],
+  failRefs: Set<string> = new Set(),
+  scopes: Array<{ ref: string; scope: CleanupScope }> = [],
+): ErasureIo {
   return {
-    async deleteStoredAsset(ref: string) {
+    async deleteStoredAsset(ref: string, scope: CleanupScope) {
+      scopes.push({ ref, scope });
       if (failRefs.has(ref)) throw new Error('r2 down');
       log.push(`file-delete:${ref}`);
     },
-    async deletePublicAssetUrl() {},
     async revokeAllSessions() {
       return { ok: true as const, sessionsRevoked: 0 };
     },
@@ -94,4 +99,31 @@ test('eraseUserAccount calls purgeSamahanStories BEFORE purgeUserOwnedRecords (s
     stories[0]!.index! < owned[0]!.index!,
     'purgeSamahanStories must run before purgeUserOwnedRecords',
   );
+});
+
+test('each story file is handed over with ITS OWN samahan’s scope — a forged ref would be refused', async () => {
+  // The adapter (app/admin/users/actions.ts) plans every hand-over against the
+  // scope that comes with it. So what this pins is that the purge builds that
+  // scope from THE ROW'S community — the only thing that makes a stranger's key
+  // on the subject's own story row undeletable.
+  const C = 'c0000000-0000-4000-8000-000000000001';
+  const own = `r2://setnayan-media/samahan/${C}/story-1.mp4`;
+  const forged = 'r2://setnayan-vendor-verification/vendors/victim/government_id/gov.png';
+  const scopes: Array<{ ref: string; scope: CleanupScope }> = [];
+  await purgeSamahanStories(
+    makeAdmin([{ id: 3, community_id: C, r2_object_key: own, poster_r2_key: forged }], []),
+    'user-1',
+    'actor-1',
+    makeIo([], new Set(), scopes),
+  );
+  assert.equal(scopes.length, 2);
+  for (const { scope } of scopes) {
+    assert.equal(refBelongsToRow(own, scope), true, 'the story’s own clip is not deletable under its scope');
+    assert.equal(refBelongsToRow(forged, scope), false, 'a foreign ref on the row is deletable under its scope');
+    assert.equal(
+      refBelongsToRow('r2://setnayan-media/samahan/c0000000-0000-4000-8000-000000000002/story-1.mp4', scope),
+      false,
+      'another samahan’s story is deletable under this row’s scope',
+    );
+  }
 });

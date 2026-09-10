@@ -8,8 +8,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { parseStoredAsset } from '@/lib/uploads';
-import { r2Delete } from '@/lib/r2';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import {
   INVITED_TO_BLOCKS,
@@ -340,23 +340,49 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   if (!photo_consent) {
     const { data: enrols } = await bioAdmin
       .from('guest_face_enrollments')
-      .select('asset_url')
+      .select('id, asset_url')
       .eq('event_id', eventId)
       .eq('guest_id', guestId);
+    // 🔒 ONLY THIS GUEST'S OWN SELFIE (2026-09-10) — see planFaceSelfieDelete.
+    // A ref outside `events/<event>/guest-selfies/<guest>/` is NOT deleted, and
+    // its row is not hard-deleted either (a cleared pointer to a file we kept
+    // says nothing about whose it is): it is revoked with its vector nulled, so
+    // the biometric still goes.
+    const keptIds: number[] = [];
     for (const row of enrols ?? []) {
-      const asset = parseStoredAsset((row as { asset_url?: string | null }).asset_url);
-      if (asset?.kind !== 'r2') continue;
+      const r = row as { id: number; asset_url?: string | null };
+      const decision = planFaceSelfieDelete({
+        event_id: eventId,
+        guest_id: guestId,
+        asset_url: r.asset_url ?? null,
+      });
+      if (!decision) continue;
+      if (!decision.ok) {
+        keptIds.push(r.id);
+        console.warn('[guest-consent] REFUSED a selfie ref outside this guest’s own folder — kept', {
+          eventId,
+        });
+        continue;
+      }
       try {
-        await r2Delete({ bucket: asset.bucket, key: asset.key });
+        await executeCleanupDelete(decision.target);
       } catch {
         /* best-effort — a storage hiccup must not block consent withdrawal */
       }
     }
-    await bioAdmin
+    if (keptIds.length > 0) {
+      await bioAdmin
+        .from('guest_face_enrollments')
+        .update({ revoked_at: new Date().toISOString(), face_vector: null, vector_model: null })
+        .in('id', keptIds);
+    }
+    let removeRows = bioAdmin
       .from('guest_face_enrollments')
       .delete()
       .eq('event_id', eventId)
       .eq('guest_id', guestId);
+    if (keptIds.length > 0) removeRows = removeRows.not('id', 'in', `(${keptIds.join(',')})`);
+    await removeRows;
   } else if (face_recognition_excluded) {
     await bioAdmin
       .from('guest_face_enrollments')

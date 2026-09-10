@@ -24,7 +24,9 @@ Also found on the same walk and pinned the same way: "Remove for good" (a couple
 could aim it at a stranger's file through their own event/photo columns),
 face-data retention + both face-withdrawal actions (`couple_writes_face_enrollment`
 is FOR ALL), story expiry, erasure (every column it reads is one its subject can
-write), the Save-the-Date seal retirement, and the stylist mood-board self-delete.
+write), the Save-the-Date seal retirement, and BOTH mood-board deletes (the
+stylist's own, and the admin's — which read a stylist-writable `storage_path`
+verbatim).
 
 **What ships.**
 - `lib/cleanup-delete-scope.ts` — the one pure rule: a cleanup delete may name
@@ -33,7 +35,8 @@ write), the Save-the-Date seal retirement, and the stylist mood-board self-delet
   can only be minted there (identity-checked at runtime, so a hand-built or
   spread-widened scope is refused). Legacy public URLs are never followed.
 - `lib/cleanup-delete.ts` — the only code that turns a proven target into an R2
-  delete. Every sweep, erasure and retention job goes through it; refusals are
+  delete (it binds `bindCleanupExecutor` to `r2Delete`; the refusal of any target
+  the planner did not mint is unit-tested with a fake deleter). Every sweep, erasure and retention job goes through it; refusals are
   counted, logged at error level, and the refused pointer is kept.
 - Migration `20271219262486_every_cleanup_delete_is_pinned` — the write side:
   REVOKE UPDATE on the five service-written `papic_photos` keys; RESTRICTIVE
@@ -48,10 +51,17 @@ write), the Save-the-Date seal retirement, and the stylist mood-board self-delet
   `every-cleanup-delete-is-pinned.db.test.ts` (the write side as a real
   `authenticated` session, each refusal beside an accepted positive control).
 
+**Measured in production before shipping (read-only SELECTs, 2026-09-10):**
+every stored ref these jobs read already sits inside its new scope — papic_photos
+14/14 (original and web copy), the one application, the one shop logo, the one
+profile photo, the one event site-media ref; guest captures, supplier captures,
+face enrollments, samahan stories and chat attachments are all empty. So no
+legitimate file becomes undeletable. The 150 seeded mood-board rows hold URLs /
+seed paths that the old `replace()` never removed either.
+
 **Not done, named:** the `events` site-media columns and
 `guest_face_enrollments.asset_url` stay session-writable (their deletes are
-pinned); the admin mood-board delete still reads `storage_path` verbatim (one
-admin step; follow-up); the Camera Bridge dark launch still writes untenanted
+pinned); the Camera Bridge dark launch still writes untenanted
 `papic/seat-<index>/` keys, which are now never deleted by a sweep. The production
 `BEGIN…ROLLBACK` rehearsal of the migration could not be run from the session.
 

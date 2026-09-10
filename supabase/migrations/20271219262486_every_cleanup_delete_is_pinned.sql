@@ -58,9 +58,11 @@
 --   vendor_verification_applications  doc_uploads
 --       → RESTRICTIVE INSERT + UPDATE policies. The intake writes doc_uploads
 --         through the vendor's own session (app/vendor-dashboard/verify/actions.ts,
---         …/shop/inline-docs-actions.ts), so it cannot be revoked. Every `r2://`
---         string anywhere in the JSON must sit under the vendor's OWN folder in
---         one of the two places the intake's own gate accepts:
+--         …/shop/inline-docs-actions.ts), so it cannot be revoked. Every string
+--         anywhere in the JSON that LOOKS LIKE a storage ref — padded, BOM-led or
+--         upper-cased included (§ 4 says exactly what that means) — must be a
+--         canonical ref under the vendor's OWN folder in one of the two places
+--         the intake's own gate accepts:
 --           r2://setnayan-vendor-verification/vendors/<vendor>/verification/…
 --           r2://setnayan-media/vendors/<vendor>/…
 --         The reviewer's point stands and is kept: a legitimate slot CAN live in
@@ -174,8 +176,27 @@ CREATE POLICY vendor_papic_captures_keys_stay_in_their_folder_update
 
 -- ── 4 · vendor_verification_applications — every ref in doc_uploads is the vendor's own ──
 -- `strict $.**` walks the whole document (the slot union has array members — a
--- known-key read would miss every portfolio sample). Only strings beginning
--- `r2://` are refs; the identity sweep's own collector reads exactly those.
+-- known-key read would miss every portfolio sample).
+--
+-- ⚠ AN ALLOW-LIST, NOT A DENY-LIST (corrected before release, review of #5414).
+-- The first cut refused only strings that BEGAN `r2://`, so a foreign ref behind
+-- a leading space / tab / newline / NBSP / BOM, or spelled `R2://`, was
+-- ACCEPTED — and the shipped readers normalise exactly those away:
+-- parseStoredAsset, parseClientRef and planCleanupDelete all JS-`trim()` (which
+-- strips every one of those characters) before testing the scheme, and
+-- referenceCandidateForms (lib/verification-docs.ts) also lower-cases it. So a
+-- string any reader would resolve to an object sailed past the pin.
+--
+-- The rule is now: a string LOOKS LIKE A STORAGE REF when, after every leading
+-- character that is not an ASCII letter or digit is stripped (a strict superset
+-- of what `trim()` removes — whitespace, NBSP, BOM, line separators, and also
+-- zero-width and control characters no reader strips) and it is lower-cased, it
+-- begins `r2:`. EVERY such string must then be EXACTLY canonical — the raw
+-- value, untrimmed and case-sensitive, starting with one of the vendor's own two
+-- prefixes, with no `.`/`..` segment. Legitimate writers store `encodeR2Ref`
+-- output (`r2://<bucket>/<key>`, lower-case, no padding), so they are unaffected;
+-- a legacy `https://` URL, a date, a referee's name or a social link does not
+-- look like a ref and is left alone, as before.
 DROP POLICY IF EXISTS vendor_verification_applications_refs_are_own_insert ON public.vendor_verification_applications;
 CREATE POLICY vendor_verification_applications_refs_are_own_insert
   ON public.vendor_verification_applications
@@ -187,7 +208,7 @@ CREATE POLICY vendor_verification_applications_refs_are_own_insert
       SELECT 1
       FROM jsonb_path_query(COALESCE(doc_uploads, '{}'::jsonb), 'strict $.**') AS d(node)
       WHERE jsonb_typeof(d.node) = 'string'
-        AND starts_with(d.node #>> '{}', 'r2://')
+        AND starts_with(lower(regexp_replace(d.node #>> '{}', '^[^0-9A-Za-z]+', '')), 'r2:')
         AND NOT (
           (
             starts_with(d.node #>> '{}', 'r2://setnayan-vendor-verification/vendors/'
@@ -211,7 +232,7 @@ CREATE POLICY vendor_verification_applications_refs_are_own_update
       SELECT 1
       FROM jsonb_path_query(COALESCE(doc_uploads, '{}'::jsonb), 'strict $.**') AS d(node)
       WHERE jsonb_typeof(d.node) = 'string'
-        AND starts_with(d.node #>> '{}', 'r2://')
+        AND starts_with(lower(regexp_replace(d.node #>> '{}', '^[^0-9A-Za-z]+', '')), 'r2:')
         AND NOT (
           (
             starts_with(d.node #>> '{}', 'r2://setnayan-vendor-verification/vendors/'

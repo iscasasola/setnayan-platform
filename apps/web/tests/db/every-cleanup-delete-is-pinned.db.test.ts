@@ -16,9 +16,11 @@
  *                                   on INSERT and UPDATE (restrictive policies —
  *                                   its grants are TABLE-level, so a column revoke
  *                                   would be inert).
- *   vendor_verification_applications every r2:// string in doc_uploads held to
- *                                   the vendor's own folder, INSERT and UPDATE —
- *                                   the path #5401 believed SEC-1 already pinned.
+ *   vendor_verification_applications every string in doc_uploads that LOOKS LIKE
+ *                                   a storage ref (padded, BOM-led, upper-cased
+ *                                   included) must be a canonical ref under the
+ *                                   vendor's own folder, INSERT and UPDATE — the
+ *                                   path #5401 believed SEC-1 already pinned.
  *
  * 🔑 EVERY REFUSAL HAS A POSITIVE CONTROL beside it — the same session, the
  * same row, a key in the RIGHT folder, ACCEPTED. Without that, a refusal could
@@ -32,6 +34,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { referenceCandidateForms } from '../../lib/verification-docs';
+import { buildSlotValue } from '../../lib/vendor-verification-slots';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -359,6 +363,167 @@ test('a NEW application cannot be born carrying a foreign ref', async () => {
     await tryAs(F.vendorUid, ins, [F.vendorId, JSON.stringify({ government_id: { r2_key: `r2://setnayan-vendor-verification/vendors/${F.vendorId}/verification/g.png` } })]),
     null,
   );
+});
+
+/* ── 4 · doc_uploads is an ALLOW-LIST, not a deny-list (review of #5414) ──────
+ *
+ * The first cut refused only strings that BEGAN `r2://`. The shipped readers
+ * normalise before they test the scheme — parseStoredAsset / parseClientRef /
+ * planCleanupDelete `trim()` (whitespace, NBSP, BOM, line separators), and
+ * referenceCandidateForms also lower-cases it — so a foreign ref with a leading
+ * space, or spelled `R2://`, was ACCEPTED on write and then resolved to the
+ * victim's object by the admin review screen. Every variant below is first
+ * shown to be resolved to the victim's object by a SHIPPED reader (so the test
+ * cannot be passing on a string nothing would ever read), then refused on
+ * INSERT, on UPDATE and nested inside the portfolio array. */
+
+const VICTIM_GOV_KEY = () => `vendors/${F.victimVendorId}/verification/gov.png`;
+
+/** Strings a shipped reader resolves to the victim's government ID. */
+const READER_RESOLVED_VARIANTS = (): Array<[string, string]> => {
+  const g = VICTIM_GOV_ID();
+  const upper = `R2${g.slice(2)}`;
+  return [
+    ['leading space', ` ${g}`],
+    ['leading tab', `\t${g}`],
+    ['leading newline', `\n${g}`],
+    ['leading CRLF', `\r\n${g}`],
+    ['leading NBSP', `\u00a0${g}`],
+    ['leading BOM', `\ufeff${g}`],
+    ['leading line separator', `\u2028${g}`],
+    ['leading ideographic space', `\u3000${g}`],
+    ['upper-case scheme', upper],
+    ['padding + upper-case scheme', ` \t\u00a0${upper}`],
+    ['trailing whitespace', `${g} \n`],
+  ];
+};
+
+/** Strings no reader resolves today — refused anyway, because the rule is an allow-list. */
+const STRICTER_VARIANTS = (): Array<[string, string]> => {
+  const g = VICTIM_GOV_ID();
+  return [
+    ['leading zero-width space', `\u200b${g}`],
+    ['leading control character', `\u0001${g}`],
+    ['leading punctuation', `"${g}`],
+    ['single-slash scheme', `r2:/${g.slice('r2://'.length)}`],
+  ];
+};
+
+test('META: every READER_RESOLVED variant really is read as the victim’s file by a shipped reader', () => {
+  const variants = READER_RESOLVED_VARIANTS();
+  assert.equal(variants.length, 11);
+  for (const [label, v] of variants) {
+    assert.ok(
+      referenceCandidateForms(v).includes(VICTIM_GOV_KEY()),
+      `${label}: no shipped reader resolves this to the victim's object — the refusal below would prove nothing`,
+    );
+  }
+});
+
+test('FIX 1: a foreign ref behind padding, a BOM or an upper-case scheme is REFUSED on UPDATE — top level and nested', async () => {
+  await db.query(
+    `UPDATE public.vendor_verification_applications SET status = 'draft', doc_uploads = '{}'::jsonb WHERE application_id = $1`,
+    [F.applicationId],
+  );
+  const upd = `UPDATE public.vendor_verification_applications SET doc_uploads = $2::jsonb WHERE application_id = $1`;
+  let refused = 0;
+  for (const [label, v] of [...READER_RESOLVED_VARIANTS(), ...STRICTER_VARIANTS()]) {
+    for (const doc of [
+      { government_id: { r2_key: v, uploaded_at: '2026-09-10T00:00:00.000Z' } },
+      { portfolio_samples: [{ r2_key: `r2://setnayan-media/vendors/${F.vendorId}/portfolio/p1.jpg` }, { r2_key: v }] },
+    ]) {
+      const err = await tryAs(F.vendorUid, upd, [F.applicationId, JSON.stringify(doc)]);
+      assert.ok(err, `${label}: a vendor stored ${JSON.stringify(v)} on its own draft`);
+      assert.match(err!, /row-level security|violates/i, `${label}: refused for the wrong reason — ${err}`);
+      refused += 1;
+    }
+  }
+  assert.equal(refused, 30, 'not every variant was exercised');
+});
+
+test('FIX 1: …and on INSERT, and on the move to pending_review', async () => {
+  const ins = `INSERT INTO public.vendor_verification_applications (vendor_profile_id, application_type, status, doc_uploads)
+               VALUES ($1, 'initial', 'draft', $2::jsonb)`;
+  const submit = `UPDATE public.vendor_verification_applications
+                     SET status = 'pending_review', doc_uploads = $2::jsonb WHERE application_id = $1`;
+  let refused = 0;
+  for (const [label, v] of [...READER_RESOLVED_VARIANTS(), ...STRICTER_VARIANTS()]) {
+    const doc = JSON.stringify({ dti_certificate: { r2_key: v } });
+    const insErr = await tryAs(F.vendorUid, ins, [F.vendorId, doc]);
+    assert.ok(insErr, `${label}: a new application was born carrying ${JSON.stringify(v)}`);
+    assert.match(insErr!, /row-level security|violates/i);
+    const subErr = await tryAs(F.vendorUid, submit, [F.applicationId, doc]);
+    assert.ok(subErr, `${label}: a draft was submitted carrying ${JSON.stringify(v)}`);
+    assert.match(subErr!, /row-level security|violates/i);
+    refused += 2;
+  }
+  assert.equal(refused, 30);
+});
+
+test('FIX 1 POSITIVE CONTROL: the intake’s own writer output still saves — refs, dates, links, referees, a legacy URL', async () => {
+  await db.query(
+    `UPDATE public.vendor_verification_applications SET status = 'draft', doc_uploads = '{}'::jsonb WHERE application_id = $1`,
+    [F.applicationId],
+  );
+  // Built by the SHIPPED slot writer (lib/vendor-verification-slots.ts), not by hand.
+  const own = (slot: string) => `r2://setnayan-vendor-verification/vendors/${F.vendorId}/verification/${slot}.pdf`;
+  const doc = {
+    government_id: buildSlotValue('government_id', { r2Ref: own('gov'), url: null, scheduledAt: null }),
+    dti_certificate: buildSlotValue('dti_certificate', { r2Ref: own('dti'), url: null, scheduledAt: null }),
+    bank_account_proof: buildSlotValue('bank_account_proof', {
+      // A legacy public URL is a legal stored shape (file-upload.tsx) and is not a storage ref.
+      r2Ref: 'https://media.setnayan.com/legacy/bank.jpg', url: null, scheduledAt: null,
+    }),
+    portfolio_samples: buildSlotValue('portfolio_samples', {
+      r2Ref: null, url: null, scheduledAt: null,
+      portfolioRefs: [
+        `r2://setnayan-media/vendors/${F.vendorId}/portfolio/p1.jpg`,
+        `  r2://setnayan-vendor-verification/vendors/${F.vendorId}/verification/p2.jpg  `,
+      ],
+    }),
+    social_media: buildSlotValue('social_media', {
+      r2Ref: null, url: null, scheduledAt: null,
+      social: { instagram: 'https://instagram.com/r2d2studio', website: 'https://r2-studio.example' },
+    }),
+    client_references: buildSlotValue('client_references', {
+      r2Ref: null, url: null, scheduledAt: null,
+      references: [{ name: 'R2 Events Manila', contact_number: '0917 000 0000', event: 'Wedding', date: '2026-01-01' }],
+    }),
+    google_meet: buildSlotValue('google_meet', { r2Ref: null, url: null, scheduledAt: '2026-09-11T02:00:00.000Z' }),
+  };
+  const upd = `UPDATE public.vendor_verification_applications SET doc_uploads = $2::jsonb WHERE application_id = $1`;
+  assert.equal(
+    await tryAs(F.vendorUid, upd, [F.applicationId, JSON.stringify(doc)]),
+    null,
+    'a legitimate draft built by the shipped writer was refused — no vendor could save verification',
+  );
+  const ins = `INSERT INTO public.vendor_verification_applications (vendor_profile_id, application_type, status, doc_uploads)
+               VALUES ($1, 'initial', 'draft', $2::jsonb)`;
+  assert.equal(await tryAs(F.vendorUid, ins, [F.vendorId, JSON.stringify(doc)]), null, 'a legitimate new application was refused');
+  // …and the move to pending_review with that same document goes through.
+  assert.equal(
+    await tryAs(
+      F.vendorUid,
+      `UPDATE public.vendor_verification_applications SET status = 'pending_review', doc_uploads = $2::jsonb WHERE application_id = $1`,
+      [F.applicationId, JSON.stringify(doc)],
+    ),
+    null,
+    'a legitimate application could not be submitted',
+  );
+});
+
+test('FIX 1: the vendor’s OWN ref, padded or upper-cased, is refused too — only the canonical form a writer mints is accepted', async () => {
+  await db.query(
+    `UPDATE public.vendor_verification_applications SET status = 'draft', doc_uploads = '{}'::jsonb WHERE application_id = $1`,
+    [F.applicationId],
+  );
+  const own = `r2://setnayan-vendor-verification/vendors/${F.vendorId}/verification/gov.png`;
+  const upd = `UPDATE public.vendor_verification_applications SET doc_uploads = $2::jsonb WHERE application_id = $1`;
+  for (const v of [` ${own}`, `\ufeff${own}`, `R2${own.slice(2)}`]) {
+    const err = await tryAs(F.vendorUid, upd, [F.applicationId, JSON.stringify({ government_id: { r2_key: v } })]);
+    assert.ok(err, `a non-canonical own ref ${JSON.stringify(v)} was stored`);
+    assert.match(err!, /row-level security|violates/i);
+  }
 });
 
 test('the service role is untouched — the sweeps, the derivative writer and the recording RPC still write', async () => {

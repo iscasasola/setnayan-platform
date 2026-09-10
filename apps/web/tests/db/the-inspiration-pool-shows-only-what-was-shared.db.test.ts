@@ -31,6 +31,7 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
@@ -75,18 +76,22 @@ async function newRender(
   opts: { note?: string | null; palette?: string[] } = {},
 ): Promise<string> {
   const palette = opts.palette ?? ['#a83f2b', '#f2e6d8', '#3d4a3a'];
+  // Chosen here so the image key can be the render's OWN — the only one the
+  // table accepts (CHECK event_renders_image_key_is_its_own, 20271220579615).
+  const renderId = randomUUID();
   const r = await db.query<{ render_id: string }>(
     `INSERT INTO public.event_renders
-       (event_id, part_id, image_key, design_snapshot, prompt, config_digest, note)
-     VALUES ($1,'room:ceiling',$2,
+       (render_id, event_id, part_id, image_key, design_snapshot, prompt, config_digest, note)
+     VALUES ($5,$1,'room:ceiling',$2,
              jsonb_build_object('role_palette', jsonb_build_object('reception', $3::jsonb)),
              'a stylist brief','v1:abc',$4)
      RETURNING render_id`,
     [
       eventId,
-      `renders/${eventId}/${uniq()}.png`,
+      `renders/${eventId}/${renderId}.png`,
       JSON.stringify(palette),
       opts.note ?? null,
+      renderId,
     ],
   );
   return r.rows[0]!.render_id;
@@ -104,12 +109,22 @@ async function consent(eventId: string, consented = true): Promise<void> {
   );
 }
 
+/** The one gallery key a render may name: `render-gallery/<event>/<render>.jpg`. */
+async function ownGalleryKey(renderId: string): Promise<string> {
+  const r = await db.query<{ event_id: string }>(
+    `SELECT event_id::text AS event_id FROM public.event_renders WHERE render_id = $1`,
+    [renderId],
+  );
+  return `render-gallery/${r.rows[0]!.event_id}/${renderId}.jpg`;
+}
+
 /** Attach a watermarked gallery copy through the ONE writer that may. */
 async function attachGalleryCopy(renderId: string, uid: string): Promise<boolean> {
+  const key = await ownGalleryKey(renderId);
   await setAuthUid(db, uid);
   const res = await db.query<{ ok: boolean }>(
     `SELECT public.moodboard_attach_gallery_copy($1,$2) AS ok`,
-    [renderId, `render-gallery/${renderId}.jpg`],
+    [renderId, key],
   );
   return res.rows[0]!.ok;
 }
@@ -250,16 +265,18 @@ test('the gallery copy is written once — a second attach would orphan the firs
   const renderId = await newRender(sharer.eventId);
   assert.equal(await attachGalleryCopy(renderId, sharer.userId), true);
   await setAuthUid(db, sharer.userId);
+  // The render's OWN key again — so the refusal is "already has a copy",
+  // not "not your key" (that one is proven in a-render-key-is-its-own).
   const second = await db.query<{ ok: boolean }>(
-    `SELECT public.moodboard_attach_gallery_copy($1,'render-gallery/other.jpg') AS ok`,
-    [renderId],
+    `SELECT public.moodboard_attach_gallery_copy($1,$2) AS ok`,
+    [renderId, await ownGalleryKey(renderId)],
   );
   assert.equal(second.rows[0]!.ok, false);
   const row = await db.query<{ gallery_image_key: string }>(
     `SELECT gallery_image_key FROM public.event_renders WHERE render_id = $1`,
     [renderId],
   );
-  assert.equal(row.rows[0]!.gallery_image_key, `render-gallery/${renderId}.jpg`);
+  assert.equal(row.rows[0]!.gallery_image_key, await ownGalleryKey(renderId));
 });
 
 test("a couple's own renders are not listed back to them as other couples' work", async () => {

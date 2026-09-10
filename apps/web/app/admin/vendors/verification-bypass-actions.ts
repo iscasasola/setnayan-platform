@@ -32,6 +32,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { bypassExpiryFrom, mustWithdraw } from '@/lib/verification-bypass';
+import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 
 /**
  * The same gate every other admin vendor action uses, copied rather than
@@ -117,6 +118,12 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   );
   if (bypassErr) throw new Error(bypassErr.message);
 
+  // The SAME evidence snapshot the other two grant doors record. All three ways
+  // to hand out this badge now say what the checks found at press time, so a
+  // reader six months later cannot tell them apart by accountability — only by
+  // which door was used, which is the honest difference.
+  const evidence = await verificationEvidenceSnapshot(vendorId);
+
   await admin.from('admin_audit_log').insert({
     action: 'vendor_verification_bypass_grant',
     target_id: vendorId,
@@ -128,6 +135,7 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
       from_public_visibility: before.public_visibility,
       expires_at: expiresAt,
       reason: reason.slice(0, 2000),
+      evidence_at_grant: evidence,
     },
   });
 

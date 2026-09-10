@@ -121,6 +121,21 @@ export async function requestRender(args: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // ---- 0. only the couple (and Setnayan admins) spend the couple's credits --
+  //
+  // Owner ruling 2026-09-11. `moodboard_begin_render` refuses anyone else by
+  // returning NULL — which the branch below would report as "insufficient" and
+  // offer a pack to a guest who could never spend it. Asked of the SAME gate
+  // first, so a non-couple member gets a plain refusal and nothing is read or
+  // debited. The database stays the fence; this only picks the true sentence.
+  const { data: mayAct, error: mayActError } = await supabase.rpc(
+    'moodboard_render_caller_may_act',
+    { p_event_id: eventId },
+  );
+  if (mayActError || mayAct !== true) {
+    return { status: 'failed', code: 'unavailable', renderId: null };
+  }
+
   // ---- 1. the board, and what a render costs -------------------------------
   //
   // Read server-side rather than trusted from the client: the prompt, the

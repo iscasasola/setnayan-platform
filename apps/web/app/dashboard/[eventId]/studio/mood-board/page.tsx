@@ -189,6 +189,7 @@ export default async function MoodBoardPage({ params }: Props) {
     shareConsentRes,
     finalizationRes,
     bookedSupplierRes,
+    mayActRes,
   ] = await Promise.all([
     supabase
       .from('events')
@@ -310,6 +311,12 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
+    // Owner ruling 2026-09-11: only the couple (and Setnayan admins) start a
+    // render on the couple's credits or choose to share it. Asked of the SAME
+    // database gate the spend/consent functions use (migration 20271221631865),
+    // so the page and the refusal cannot disagree. Every other member still
+    // sees the balance, the renders and the pool — that is the read gate.
+    supabase.rpc('moodboard_render_caller_may_act', { p_event_id: eventId }),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
@@ -542,6 +549,9 @@ export default async function MoodBoardPage({ params }: Props) {
           })),
         );
   const shareConsented = shareConsentRes.data?.consented === true;
+  // A refused or failed check is "no" — the controls then say who can use them
+  // rather than offering a button the database will refuse.
+  const mayStartRenders = !mayActRes.error && mayActRes.data === true;
 
   const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
   const venueLabel = isVenueSetting(venueSetting)
@@ -1012,6 +1022,7 @@ export default async function MoodBoardPage({ params }: Props) {
           checkoutSettings={platformSettings}
           renders={moodboardRenders}
           shareConsented={shareConsented}
+          mayStartRenders={mayStartRenders}
         />
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">

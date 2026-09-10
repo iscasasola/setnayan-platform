@@ -9,8 +9,11 @@ import {
   identityUploadsSubset,
   scrubIdentityUploads,
   vendorIdentityIsPastRetention,
+  planApplicationScrub,
+  planVerificationScrub,
 } from './vendor-identity-retention-core';
 import { collectStoredAssetRefs } from './erasure/coverage';
+
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DECIDED = '2026-01-01T00:00:00.000Z';
@@ -125,4 +128,139 @@ test('a retired slot still holding a legacy file IS swept', () => {
     collectStoredAssetRefs(identityUploadsSubset({ live_selfie: { r2_key: 'r2://b/selfie.jpg' } })),
     ['r2://b/selfie.jpg'],
   );
+});
+
+/* ==========================================================================
+ * BOTH SWEEPS DELETE ONLY THE VENDOR'S OWN OBJECTS (2026-09-10)
+ *
+ * Proved by CALLING the planners the sweep executes — never by checking that a
+ * function name appears in the sweep's source (the guard this replaces did that,
+ * and `const inScope = [...present]` stayed green while the sweep deleted
+ * another bucket).
+ *
+ * ⚠ CORRECTED: this block used to assert that the APPLICATIONS sweep is left
+ * unpinned on purpose, because its refs were "tenancy-pinned at WRITE time by
+ * SEC-1". That pin lived only in the server action; a vendor could PATCH its own
+ * draft's doc_uploads through PostgREST. Both paths are pinned by TENANT now.
+ * ========================================================================== */
+
+const V = '0a000000-0000-4000-8000-000000000001';
+const VICTIM = '0a000000-0000-4000-8000-00000000dead';
+const OWN_ID = `r2://setnayan-vendor-verification/vendors/${V}/verification/gov.png`;
+const OWN_MEDIA = `r2://setnayan-media/vendors/${V}/portfolio/p1.jpg`;
+const VICTIM_LOGO = `r2://setnayan-media/vendors/${VICTIM}/logo/logo.png`;
+const VICTIM_DTI = `r2://setnayan-vendor-verification/vendors/${VICTIM}/verification/dti.pdf`;
+
+test('APPLICATION: the reviewer’s exploit — another shop’s permit and a stranger’s logo — is refused', () => {
+  const plan = planApplicationScrub({
+    vendor_profile_id: V,
+    doc_uploads: {
+      government_id: { r2_key: VICTIM_DTI },
+      portfolio_samples: [{ r2_key: VICTIM_LOGO }],
+      dti_certificate: { r2_key: `r2://setnayan-vendor-verification/vendors/${V}/verification/dti.pdf` },
+    },
+  });
+  assert.deepEqual(plan.deletes, [], 'a foreign object was planned for deletion');
+  assert.equal(plan.refused, 2);
+  assert.deepEqual(plan.refusedSlots.sort(), ['government_id', 'portfolio_samples']);
+  assert.deepEqual(plan.scrubbedSlots, []);
+  // The pointers are KEPT — the refused slots are still there to be re-reported.
+  assert.deepEqual(Object.keys(plan.nextDocUploads).sort(), ['dti_certificate', 'government_id', 'portfolio_samples']);
+});
+
+test('APPLICATION: the vendor’s own uploads — in EITHER place the intake accepts — are deleted and scrubbed', () => {
+  const plan = planApplicationScrub({
+    vendor_profile_id: V,
+    doc_uploads: {
+      government_id: { r2_key: OWN_ID },
+      portfolio_samples: [{ r2_key: OWN_MEDIA }, { r2_key: `r2://setnayan-media/vendors/${V}/portfolio/p2.jpg` }],
+      dti_certificate: { r2_key: `r2://setnayan-vendor-verification/vendors/${V}/verification/dti.pdf` },
+      client_references: [{ name: 'A Client' }],
+    },
+  });
+  assert.equal(plan.refused, 0);
+  assert.deepEqual(
+    plan.deletes.map((d) => `${d.bucket}/${d.key}`).sort(),
+    [
+      `setnayan-media/vendors/${V}/portfolio/p1.jpg`,
+      `setnayan-media/vendors/${V}/portfolio/p2.jpg`,
+      `setnayan-vendor-verification/vendors/${V}/verification/gov.png`,
+    ],
+  );
+  // The seven-year permit and the non-identity slots are copied through.
+  assert.deepEqual(Object.keys(plan.nextDocUploads).sort(), ['client_references', 'dti_certificate']);
+});
+
+test('APPLICATION: a slot is all-or-nothing — one foreign ref keeps the WHOLE slot, own refs included', () => {
+  const plan = planApplicationScrub({
+    vendor_profile_id: V,
+    doc_uploads: { portfolio_samples: [{ r2_key: OWN_MEDIA }, { r2_key: VICTIM_LOGO }] },
+  });
+  assert.deepEqual(plan.deletes, []);
+  assert.equal(plan.refused, 1);
+  assert.deepEqual(plan.nextDocUploads, { portfolio_samples: [{ r2_key: OWN_MEDIA }, { r2_key: VICTIM_LOGO }] });
+});
+
+test('APPLICATION: the tenant is the ROW’S vendor — a missing one admits nothing', () => {
+  const plan = planApplicationScrub({ vendor_profile_id: null, doc_uploads: { government_id: { r2_key: OWN_ID } } });
+  assert.deepEqual(plan.deletes, []);
+  assert.equal(plan.refused, 1);
+  // …and another vendor's row cannot claim this vendor's folder.
+  const other = planApplicationScrub({ vendor_profile_id: VICTIM, doc_uploads: { government_id: { r2_key: OWN_ID } } });
+  assert.deepEqual(other.deletes, []);
+});
+
+test('VERIFICATION COLUMNS: the exploit ref from #5401 and a cross-vendor ref are refused, pointer kept', () => {
+  const plan = planVerificationScrub({
+    vendor_profile_id: V,
+    government_id_r2_key: 'r2://setnayan-media/vendors/8f14e45f-ceea-467a-9f2a-1c2d3e4f5a6b/logo/aaaaaaaa-logo.png',
+    bank_account_proof_r2_key: `r2://setnayan-vendor-verification/vendors/${VICTIM}/bank.pdf`,
+  });
+  assert.deepEqual(plan.deletes, []);
+  assert.deepEqual(plan.clear, [], 'a refused column would be nulled — the object kept with nothing pointing at it');
+  assert.deepEqual([...plan.refused].sort(), ['bank_account_proof_r2_key', 'government_id_r2_key']);
+});
+
+test('VERIFICATION COLUMNS: every bucket but the private one is refused; the vendor’s own file is deleted', () => {
+  for (const bucket of ['setnayan-media', 'setnayan-thread-files', 'setnayan-vendor-contracts', 'setnayan-samples']) {
+    const plan = planVerificationScrub({
+      vendor_profile_id: V,
+      government_id_r2_key: `r2://${bucket}/vendors/${V}/government-id.jpg`,
+    });
+    assert.deepEqual(plan.clear, [], `${bucket} must be refused`);
+  }
+  const ok = planVerificationScrub({
+    vendor_profile_id: V,
+    government_id_r2_key: `r2://setnayan-vendor-verification/vendors/${V}/government-id.jpg`,
+    bank_account_proof_r2_key: null,
+  });
+  assert.deepEqual(ok.clear, ['government_id_r2_key']);
+  assert.equal(ok.deletes.length, 1);
+  assert.equal(ok.deletes[0]!.key, `vendors/${V}/government-id.jpg`);
+});
+
+test('VERIFICATION COLUMNS: mixed row — only the in-scope column is deleted AND cleared', () => {
+  const plan = planVerificationScrub({
+    vendor_profile_id: V,
+    government_id_r2_key: `r2://setnayan-vendor-verification/vendors/${V}/id.jpg`,
+    bank_account_proof_r2_key: VICTIM_LOGO,
+  });
+  assert.deepEqual(plan.clear, ['government_id_r2_key']);
+  assert.deepEqual(plan.refused, ['bank_account_proof_r2_key']);
+  assert.equal(plan.deletes.length, 1);
+});
+
+test('near-miss buckets, bare refs, legacy URLs and junk are refused rather than crashing', () => {
+  for (const ref of [
+    'r2://setnayan-vendor-verification-evil/vendors/x/k.jpg',
+    'r2://setnayan-vendor-verification/',
+    'r2://setnayan-vendor-verification',
+    'https://cdn.setnayan.com/vendors/v1/logo.png',
+    `vendors/${V}/logo.png`,
+    '   ',
+  ]) {
+    const plan = planVerificationScrub({ vendor_profile_id: V, government_id_r2_key: ref });
+    assert.deepEqual(plan.deletes, [], JSON.stringify(ref));
+    assert.deepEqual(plan.clear, [], JSON.stringify(ref));
+  }
 });

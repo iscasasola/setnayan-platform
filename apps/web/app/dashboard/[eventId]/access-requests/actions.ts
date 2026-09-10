@@ -8,9 +8,17 @@
  * `event_moderators.permissions_json.areas`, which every gated feature already
  * reads through `moderator_area_level`. Nothing new decides access.
  *
- * Deliberately host-only. `event_access_requests_host_answer` is scoped to
- * `current_event_ids()` and NOT extended to delegate moderators, because a
+ * Deliberately host-only, and NOT extended to delegate moderators, because a
  * coordinator who could answer requests could answer their own.
+ *
+ * ⚠ CORRECTED 2026-09-09 — this paragraph named the wrong function, and the one
+ * it named is the dangerous one. `event_access_requests_host_answer` is scoped
+ * to `current_couple_event_ids()` (member_type = 'couple'). It is
+ * `current_event_ids()` that has NO member_type filter and admits a GUEST who
+ * merely scanned the event QR. The intent here was always right; the helper
+ * quoted for it was not, and a reader repairing the sibling table would have
+ * copied the wrong one straight into a policy. Read the object, never the
+ * comment.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -115,7 +123,7 @@ export async function answerAccessRequest(
       merged = withArea(merged, area, grantLevelFor(area));
     }
 
-    const { error: modErr } = await supabase.from('event_moderators').upsert(
+    const { data: granted, error: modErr } = await supabase.from('event_moderators').upsert(
       {
         event_id: eventId,
         user_id: req.requester_user_id,
@@ -127,8 +135,19 @@ export async function answerAccessRequest(
         removed_at: null,
       },
       { onConflict: 'event_id,user_id' },
-    );
+    ).select('event_id');
     if (modErr) return { ok: false, error: modErr.message };
+    // Same reason as the revoke path below: an upsert refused by a missing
+    // policy is not an error on every route into it, and a grant that silently
+    // wrote nothing would tell the host they had shared something they had not.
+    if (!granted || granted.length === 0) {
+      return {
+        ok: false,
+        error:
+          'We could not share that. Nothing has changed. Please try again, and ' +
+          'tell us if it keeps happening.',
+      };
+    }
   }
 
   const { error: updErr } = await supabase
@@ -182,12 +201,28 @@ export async function revokeArea(
   // the RECORD that the host took this back, which an absent key cannot be:
   // "never granted" and "granted then withdrawn" must not look identical.
 
-  const { error } = await supabase
+  // 🔴 `.select()` IS LOAD-BEARING, NOT DECORATION. Until 2026-09-09 this write
+  // had no policy behind it — `event_moderators` carried a SELECT policy and
+  // nothing else while `authenticated` held the UPDATE grant — so it matched
+  // ZERO ROWS and returned `error: null`. The check below never fired and the
+  // host was told their coordinator's access had been taken back while the
+  // coordinator kept it. Asking for the rows back is the only way to tell "I
+  // changed it" from "I changed nothing and nobody objected".
+  const { data: touched, error } = await supabase
     .from('event_moderators')
     .update({ permissions_json: merged })
     .eq('event_id', eventId)
-    .eq('user_id', moderatorUserId);
+    .eq('user_id', moderatorUserId)
+    .select('event_id');
   if (error) return { ok: false, error: error.message };
+  if (!touched || touched.length === 0) {
+    return {
+      ok: false,
+      error:
+        'We could not take that back. Nothing has changed — they still have it. ' +
+        'Please try again, and tell us if it keeps happening.',
+    };
+  }
 
   revalidatePath(`/dashboard/${eventId}/access-requests`);
   return { ok: true };

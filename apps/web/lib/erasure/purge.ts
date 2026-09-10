@@ -65,25 +65,59 @@ import {
   collectStoredAssetRefs,
   scrubWizardState,
 } from '@/lib/erasure/coverage';
+import {
+  chatAttachmentScope,
+  guestSelfieScope,
+  paperworkScope,
+  profilePhotoScope,
+  samahanStoryScope,
+  vendorIdentityUploadScope,
+  vendorLogoScope,
+  type CleanupScope,
+} from '@/lib/cleanup-delete-scope';
+import {
+  PROVENANCE_ROW_CEILING,
+  canonicalChatRef,
+  chatAttachmentIsSubjectsOwn,
+  type ChatAttachmentRow,
+} from '@/lib/erasure/chat-attachment-provenance';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
+
+/** Refs per provenance lookup — two strings each, well inside a PostgREST URL. */
+const PROVENANCE_BATCH = 20;
+
 
 /**
  * Side effects the purge needs but must not import, so the module stays free of
  * `server-only` and remains runnable under tsx.
  *
- * The R2 helpers are handed WHOLE REFERENCES rather than a bucket+key pair: the
- * two storage conventions in this codebase are different (`r2://bucket/key` for
- * upload-flow columns, a public R2 URL for chat attachments), and the
- * "which refs are actually ours to delete" judgement lives with the storage
- * layer that owns it. Erasure's obligation is to HAND OVER every ref it finds;
- * the adapter decides what is deletable. Tests assert the hand-over.
+ * The R2 helper is handed a WHOLE REFERENCE plus the SCOPE of the row it was
+ * read from. Erasure's obligation is to HAND OVER every ref it finds; the
+ * adapter decides what is deletable — and since 2026-09-10 it decides that with
+ * `planCleanupDelete` (lib/cleanup-delete-scope.ts): the object must sit under
+ * the folder of the row it came from, or it is refused and the refusal is
+ * thrown for this module to audit.
+ *
+ * 🔑 WHY THE SCOPE IS REQUIRED, NOT OPTIONAL. Every column erasure reads a ref
+ * from is one its subject could write — a profile photo, a chat attachment, a
+ * paperwork scan, an application's `doc_uploads`, an enrollment's selfie. A
+ * person who put a stranger's key on their own row and then asked to be erased
+ * would have had OUR admin client delete the stranger's file. The tenant a ref
+ * is held to is decided HERE, from the row, because only this module knows which
+ * row a ref came from — the adapter sees a string.
+ *
+ * `deletePublicAssetUrl` is gone: it followed a URL into whichever bucket (or
+ * Supabase storage) its path named, and a legacy URL's tenancy cannot be
+ * proven. A legacy chat attachment is now kept and audited instead.
  */
 export type ErasureIo = {
-  /** Delete the object behind an `r2://bucket/key` stored-asset ref. */
-  deleteStoredAsset(ref: string): Promise<void>;
-  /** Delete the object behind a public R2 URL (chat attachments). */
-  deletePublicAssetUrl(url: string): Promise<void>;
+  /**
+   * Delete the object behind an `r2://bucket/key` ref IF it belongs to the row
+   * `scope` was built from. A non-`r2://` ref is left alone (it may not even be
+   * ours); an out-of-scope `r2://` ref THROWS so the purge audits it.
+   */
+  deleteStoredAsset(ref: string, scope: CleanupScope): Promise<void>;
   /** Revoke every live session so the lockout is immediate on all devices. */
   revokeAllSessions(
     userId: string,
@@ -345,7 +379,7 @@ export async function purgeOwnedEventData(
   // this step stays inside the scope its function name claims.
   const { data: paperwork, error: paperErr } = await admin
     .from('event_paperwork')
-    .select('id, document_r2_key')
+    .select('id, event_id, document_r2_key')
     .in('event_id', eventIds)
     .eq('subject_user_id', targetUserId);
   if (paperErr) {
@@ -356,10 +390,12 @@ export async function purgeOwnedEventData(
   } else if ((paperwork ?? []).length > 0) {
     // Drop the R2 objects FIRST so nulling the pointer can't orphan the file.
     for (const row of paperwork ?? []) {
-      const ref = (row as { document_r2_key?: string | null }).document_r2_key;
+      const pw = row as { event_id?: string | null; document_r2_key?: string | null };
+      const ref = pw.document_r2_key;
       if (typeof ref !== 'string' || ref.length === 0) continue;
       try {
-        await io.deleteStoredAsset(ref);
+        // 🔒 Held to THIS row's event folder — see ErasureIo.
+        await io.deleteStoredAsset(ref, paperworkScope(pw.event_id));
       } catch (e) {
         await recordErasureFailure(
           'paperwork-r2-delete',
@@ -468,6 +504,14 @@ export async function purgeOwnedEventData(
  * depends on the bucket name, but the next person reasoning about the residual
  * risk does.
  *
+ * 🔒 ONLY FILES THE LEAVING PERSON SENT FIRST (2026-09-10, review of #5414). The
+ * `chat/<thread_id>/` folder pin cannot tell two thread members apart, and
+ * `attachment_r2_key` is writable on insert — so a member could copy the other
+ * party's file ref onto a message of their own and have their own erasure
+ * delete it. A file is now deleted only when every earliest message carrying
+ * that object is the subject's own (lib/erasure/chat-attachment-provenance.ts);
+ * anything else is kept and counted as `erasure_unattributed_retained`.
+ *
  * Best-effort, matching the other purges: a failure is logged to admin_audit_log
  * (so the erasure miss is recoverable via a manual sweep) but does NOT block the
  * deletion — a stuck purge must never trap an account in an undeletable state.
@@ -494,6 +538,7 @@ export async function purgeUserAuthoredChat(
     'erasure_purge_failed',
     { kind: 'chat_message_bodies' },
   );
+  const recordRetained = makeAuditRetained(admin, targetUserId, actorUserId, 'purgeUserAuthoredChat');
 
   // Collect attachment refs BEFORE the delete — afterwards there is no row to
   // tell us which objects were theirs.
@@ -505,7 +550,7 @@ export async function purgeUserAuthoredChat(
   // still covers both shapes.
   const { data: attachments, error: readErr } = await admin
     .from('chat_messages')
-    .select('attachment_url, attachment_r2_key')
+    .select('thread_id, attachment_url, attachment_r2_key')
     .eq('sender_user_id', targetUserId);
   // ⚠ NO `.or()` FILTER, DELIBERATELY. The first cut narrowed this read with
   // `.or('attachment_url.not.is.null,attachment_r2_key.not.is.null')` and it
@@ -516,25 +561,101 @@ export async function purgeUserAuthoredChat(
   // never worth a query shape the replay could not answer.
   if (readErr) await auditFail('chat-attachment-lookup', readErr.message);
 
+  // 🔒 WHO SENT EACH FILE FIRST — read BEFORE the delete, while the subject's
+  // own rows still exist to be compared. The thread folder a chat key sits in
+  // names no sender, so a thread member could copy the OTHER party's file ref
+  // onto a message of their own and have their own erasure delete it; the
+  // earliest message carrying the object is its genuine sender
+  // (lib/erasure/chat-attachment-provenance.ts says why that holds).
+  // Queried by the canonical ref AND the subject's own spelling, in small
+  // batches, never by thread — a thread can hold more messages than one
+  // response carries, and an unordered page must not decide this.
+  const provenanceRows: ChatAttachmentRow[] = [];
+  const provenanceUnreadable = new Set<string>();
+  {
+    const lookups = new Map<string, Set<string>>(); // subject's stored ref → strings to look up
+    for (const row of attachments ?? []) {
+      const r = row as { thread_id?: string | null; attachment_r2_key?: string | null };
+      const stored = r.attachment_r2_key;
+      if (typeof stored !== 'string' || !stored.startsWith('r2://')) continue;
+      const canonical = canonicalChatRef(stored, chatAttachmentScope(r.thread_id));
+      if (canonical === null) continue; // out of scope — the adapter refuses and audits it below
+      lookups.set(stored, new Set([stored, canonical]));
+    }
+    const refs = [...lookups.keys()];
+    for (let i = 0; i < refs.length; i += PROVENANCE_BATCH) {
+      const batch = refs.slice(i, i + PROVENANCE_BATCH);
+      const strings = [...new Set(batch.flatMap((ref) => [...lookups.get(ref)!]))];
+      const { data, error: provErr } = await admin
+        .from('chat_messages')
+        .select('attachment_r2_key, sender_user_id, created_at')
+        .in('attachment_r2_key', strings);
+      if (provErr || !data || data.length >= PROVENANCE_ROW_CEILING) {
+        for (const ref of batch) provenanceUnreadable.add(ref);
+        if (provErr) await auditFail('chat-attachment-provenance-lookup', provErr.message);
+        continue;
+      }
+      provenanceRows.push(...(data as ChatAttachmentRow[]));
+    }
+  }
+
   const { error } = await admin
     .from('chat_messages') // chat-guard-allow: RA 10173 right-to-erasure — deletes ONLY the leaving user's own authored messages on account deletion (service-role; audit-logged). See fn docstring.
     .delete()
     .eq('sender_user_id', targetUserId);
   if (error) await auditFail('chat-authored-messages', error.message);
 
+  let notSubjectsOwn = 0;
   for (const row of attachments ?? []) {
-    const r = row as { attachment_url?: string | null; attachment_r2_key?: string | null };
+    const r = row as {
+      thread_id?: string | null;
+      attachment_url?: string | null;
+      attachment_r2_key?: string | null;
+    };
     // The private ref first — it is what every attachment written since
-    // 2026-09-09 carries. The legacy public URL is still honoured for any
+    // 2026-09-09 carries. A legacy public URL is still LOOKED AT for any
     // historical row (production never had one, but an erasure sweep is the
-    // wrong place to assume that).
+    // wrong place to assume that) — and audited, not followed (below).
     const stored = r.attachment_r2_key ?? r.attachment_url;
     if (typeof stored !== 'string' || stored.length === 0) continue;
+    // A legacy public URL cannot be proven to be the sender's own object (its
+    // bucket and folder come from the URL's path, which the sender wrote), so it
+    // is KEPT and said so — never followed. Production has never held one.
+    if (!stored.startsWith('r2://')) {
+      await auditFail(
+        'chat-attachment-legacy-url-kept',
+        'a legacy public-URL attachment cannot be proven the sender’s own object and was not deleted',
+      );
+      continue;
+    }
+    const scope = chatAttachmentScope(r.thread_id);
+    // 🔒 …and to the person who SENT it first. An out-of-scope ref is still
+    // handed over so the adapter refuses it and the refusal is audited as before;
+    // an in-scope ref somebody else sent first — or one whose sender could not be
+    // read — is KEPT and counted, never handed over.
+    if (canonicalChatRef(stored, scope) !== null) {
+      const verdict = provenanceUnreadable.has(stored)
+        ? ({ ok: false, reason: 'no_provenance' } as const)
+        : chatAttachmentIsSubjectsOwn(stored, scope, provenanceRows, targetUserId);
+      if (!verdict.ok) {
+        notSubjectsOwn += 1;
+        continue;
+      }
+    }
     try {
-      await io.deletePublicAssetUrl(stored);
+      // 🔒 Held to the message's own thread folder — see ErasureIo.
+      await io.deleteStoredAsset(stored, scope);
     } catch (e) {
       await auditFail('chat-attachment-r2-delete', e instanceof Error ? e.message : String(e));
     }
+  }
+  if (notSubjectsOwn > 0) {
+    // Counts only — never the ref. The file stays with the person who sent it.
+    await recordRetained('chat-attachment-not-senders-own', {
+      retained_count: notSubjectsOwn,
+      reason:
+        'the message carried a file another person sent first (or whose first sender could not be read), so it is not the leaving person’s to delete',
+    });
   }
 }
 
@@ -914,7 +1035,7 @@ export async function purgeVendorVerificationDocuments(
 
   const { data: applications, error: appErr } = await admin
     .from('vendor_verification_applications')
-    .select('application_id, doc_uploads')
+    .select('application_id, vendor_profile_id, doc_uploads')
     .in('vendor_profile_id', vendorProfileIds);
   if (appErr) {
     await auditFail('vendor-verification-application-lookup', appErr.message);
@@ -926,10 +1047,15 @@ export async function purgeVendorVerificationDocuments(
   // whole JSONB rather than reading a known key — the slot shapes are a
   // seven-member union and two of them are arrays (see its docstring).
   for (const row of applications ?? []) {
-    const refs = collectStoredAssetRefs((row as { doc_uploads?: unknown }).doc_uploads);
+    const app = row as { vendor_profile_id?: string | null; doc_uploads?: unknown };
+    const refs = collectStoredAssetRefs(app.doc_uploads);
+    // 🔒 Held to the APPLICATION'S OWN vendor folder — not the subject's list of
+    // shops. The query already filters to their shops; scoping by the row's own
+    // column means one shop's application cannot name another's object.
+    const scope = vendorIdentityUploadScope(app.vendor_profile_id);
     for (const ref of refs) {
       try {
-        await io.deleteStoredAsset(ref);
+        await io.deleteStoredAsset(ref, scope);
       } catch (e) {
         await auditFail(
           'vendor-verification-r2-delete',
@@ -982,19 +1108,25 @@ export async function purgeSamahanStories(
 
   const { data: rows, error: readErr } = await admin
     .from('samahan_stories')
-    .select('id, r2_object_key, poster_r2_key')
+    .select('id, community_id, r2_object_key, poster_r2_key')
     .eq('user_id', targetUserId);
   if (readErr) {
     await auditFail('samahan-stories-lookup', readErr.message);
     return;
   }
   for (const row of rows ?? []) {
-    const r = row as { id: number; r2_object_key?: string; poster_r2_key?: string };
+    const r = row as {
+      id: number;
+      community_id?: string | null;
+      r2_object_key?: string;
+      poster_r2_key?: string;
+    };
     let filesGone = true;
+    const scope = samahanStoryScope(r.community_id);
     for (const ref of [r.r2_object_key, r.poster_r2_key]) {
       if (typeof ref !== 'string' || !ref.startsWith('r2://')) continue;
       try {
-        await io.deleteStoredAsset(ref);
+        await io.deleteStoredAsset(ref, scope);
       } catch (e) {
         filesGone = false;
         await auditFail('samahan-stories-r2-delete', e instanceof Error ? e.message : String(e));
@@ -1114,8 +1246,8 @@ export async function purgeUserGuestBiometrics(
   // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
   // this subject ever enrolled for these events must go) before deleting.
   const { data: enrols, error: eErr } = await admin
-    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — reads only asset_url (the R2 selfie key) to clean up storage, never a face vector
-    .select('asset_url')
+    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — reads only asset_url (the R2 selfie key) and the (event, guest) it belongs to, to clean up storage, never a face vector
+    .select('event_id, guest_id, asset_url')
     .in('guest_id', guestIds);
   if (eErr) {
     await auditFail('biometrics-enrolment-lookup', eErr.message);
@@ -1125,10 +1257,12 @@ export async function purgeUserGuestBiometrics(
   // Delete the R2 selfie objects (full-res biometric source). Idempotent on a
   // missing key; best-effort per object.
   for (const row of enrols ?? []) {
-    const ref = (row as { asset_url?: string | null }).asset_url;
+    const en = row as { event_id?: string | null; guest_id?: string | null; asset_url?: string | null };
+    const ref = en.asset_url;
     if (typeof ref !== 'string' || ref.length === 0) continue;
     try {
-      await io.deleteStoredAsset(ref);
+      // 🔒 Held to the enrollment's own events/<event>/guest-selfies/<guest>/ folder.
+      await io.deleteStoredAsset(ref, guestSelfieScope(en.event_id, en.guest_id));
     } catch (e) {
       await auditFail('biometrics-r2-delete', e instanceof Error ? e.message : String(e));
     }
@@ -1271,17 +1405,28 @@ export async function eraseUserAccount(
       .select('profile_photo_url, email, slug')
       .eq('user_id', targetUserId)
       .maybeSingle(),
-    admin.from('vendor_profiles').select('logo_url').eq('user_id', targetUserId).maybeSingle(),
+    admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, logo_url')
+      .eq('user_id', targetUserId)
+      .maybeSingle(),
   ]);
   const preUserRow = preUser.data as {
     profile_photo_url?: string | null;
     email?: string | null;
     slug?: string | null;
   } | null;
-  const ownFileRefs = [
-    preUserRow?.profile_photo_url,
-    (preVendor.data as { logo_url?: string | null } | null)?.logo_url,
-  ].filter((v): v is string => typeof v === 'string' && v.length > 0);
+  // 🔒 Each file is paired with the scope of the row it came from: the profile
+  // photo must sit under `profile-photo/<this user>/`, the logo under
+  // `vendors/<this shop>/` — both columns are ones the subject writes.
+  const preVendorRow = preVendor.data as { vendor_profile_id?: string | null; logo_url?: string | null } | null;
+  const ownFileRefs: Array<{ ref: string; scope: CleanupScope }> = [];
+  if (typeof preUserRow?.profile_photo_url === 'string' && preUserRow.profile_photo_url.length > 0) {
+    ownFileRefs.push({ ref: preUserRow.profile_photo_url, scope: profilePhotoScope(targetUserId) });
+  }
+  if (typeof preVendorRow?.logo_url === 'string' && preVendorRow.logo_url.length > 0) {
+    ownFileRefs.push({ ref: preVendorRow.logo_url, scope: vendorLogoScope(preVendorRow.vendor_profile_id) });
+  }
   const originalEmail =
     typeof preUserRow?.email === 'string' && !preUserRow.email.endsWith('@erased.setnayan.invalid')
       ? preUserRow.email
@@ -1347,9 +1492,9 @@ export async function eraseUserAccount(
   //    adapter throws only if R2 is unconfigured — caught so a storage hiccup
   //    can't trap the erasure. Only `r2://` refs from the current upload flow are
   //    removed; a legacy/external URL is left (it may not even be ours).
-  for (const ref of ownFileRefs) {
+  for (const { ref, scope } of ownFileRefs) {
     try {
-      await io.deleteStoredAsset(ref);
+      await io.deleteStoredAsset(ref, scope);
     } catch (e) {
       await auditFail('r2-object-delete', e instanceof Error ? e.message : String(e));
     }

@@ -7,9 +7,8 @@ import { revalidatePath } from 'next/cache';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { deletePublicAsset } from '@/lib/storage';
-import { r2Delete } from '@/lib/r2';
-import { parseStoredAsset } from '@/lib/uploads';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestDetailsChanged } from './_lib/guest-details-changed';
@@ -21,6 +20,7 @@ import {
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
+import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-arrival';
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
@@ -101,16 +101,21 @@ export async function submitRsvp(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
+  // Posted by the invite arrival's Reply door (lib/invite-arrival.ts). A KEYWORD,
+  // never a path: every destination below is built from the slug the DATABASE
+  // returns, so no form can steer where this action sends anyone.
+  const toInvite = isInviteReturn(formData.get('return_to'));
   const session = await readGuestSession();
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
-    // Session got out of sync — kick them back to the slug landing.
+    // Session got out of sync — kick them back to the slug landing (or, from
+    // the arrival, back to its first door, where they can find themselves again).
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? `/${ev.slug}` : '/');
+    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
   }
 
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;
@@ -305,6 +310,8 @@ export async function submitRsvp(
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
+    // From the invite arrival, back to the Reply door to try again.
+    if (toInvite && evFail?.slug) redirect(`${inviteReplyPath(evFail.slug)}?rsvp=error`);
     redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
   }
 
@@ -690,6 +697,11 @@ export async function submitRsvp(
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.
   const outcome = answerRefused ? 'refused' : replyLocked ? 'details' : 'ok';
+  // From the invite arrival the reply's next door is Enter (door 03) — one tap
+  // from the Event Hub. The site's own line below is left BYTE-IDENTICAL: its
+  // guard (only-the-answer-freezes.test.ts, "replying lands the guest on the
+  // event hub") pins it, and adding a branch ahead of it re-points no guard.
+  if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
   redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
 }
 
@@ -737,20 +749,28 @@ export async function withdrawFaceConsent(
     .is('revoked_at', null);
 
   // Best-effort R2 delete of each enrolled selfie. asset_url is stored as an
-  // `r2://bucket/key` ref (see /api/guest-selfie → encodeR2Ref) — parse it and
-  // hand the (bucket, key) to r2Delete. A legacy plain-URL row (pre-r2:// era)
-  // routes through deletePublicAsset instead. Both are wrapped: a stale/absent
-  // object (or unconfigured R2) must never abort the rest of the withdrawal.
+  // `r2://bucket/key` ref (see /api/guest-selfie → encodeR2Ref).
+  //
+  // 🔒 ONLY THIS GUEST'S OWN SELFIE (2026-09-10). The object must sit under
+  // `events/<event>/guest-selfies/<guest>/` or it is not deleted — the couple's
+  // face-enrollment policy is FOR ALL, so this column is not written only by
+  // the actions that gate it, and a withdrawal must never become a way to
+  // delete somebody else's file. A refused ref is logged and its (already
+  // tombstoned) row keeps pointing at it. A legacy plain URL is refused too —
+  // its tenancy cannot be proven. Wrapped: a stale/absent object (or
+  // unconfigured R2) must never abort the rest of the withdrawal.
   for (const row of liveEnrollments ?? []) {
     const assetUrl = (row as { asset_url: string | null }).asset_url;
     if (!assetUrl) continue;
-    const parsed = parseStoredAsset(assetUrl);
+    const decision = planFaceSelfieDelete({ event_id: eventId, guest_id: guestId, asset_url: assetUrl });
+    if (!decision?.ok) {
+      console.warn('[withdrawFaceConsent] REFUSED a selfie ref outside this guest’s own folder — kept', {
+        eventId,
+      });
+      continue;
+    }
     try {
-      if (parsed?.kind === 'r2') {
-        await r2Delete({ bucket: parsed.bucket, key: parsed.key });
-      } else if (parsed?.kind === 'legacy_url') {
-        await deletePublicAsset({ publicUrl: parsed.url });
-      }
+      await executeCleanupDelete(decision.target);
     } catch (err) {
       // Idempotent + non-fatal: log and continue. An orphaned object is
       // reaped later by the R2 lifecycle rule; the withdrawal still completes.

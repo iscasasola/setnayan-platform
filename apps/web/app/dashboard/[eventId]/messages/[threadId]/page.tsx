@@ -13,6 +13,7 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
+import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deriveThreadStage } from '@/lib/vendor-thread-stage';
 import { buildSupplierStanding } from '@/lib/supplier-standing';
@@ -34,9 +35,15 @@ import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
 
-type Props = { params: Promise<{ eventId: string; threadId: string }> };
+type Props = {
+  params: Promise<{ eventId: string; threadId: string }>;
+  /** `?view=decisions|files` — see lib/thread-view.ts. */
+  searchParams?: Promise<{ view?: string | string[] }>;
+};
 
-export default async function CoupleThreadPage({ params }: Props) {
+export default async function CoupleThreadPage({ params, searchParams }: Props) {
+  // Read on the server so a Decisions link paints Decisions, not the chat.
+  const initialView = parseThreadView((await searchParams)?.view);
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const {
@@ -87,7 +94,7 @@ export default async function CoupleThreadPage({ params }: Props) {
   const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
     .select(
-      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
+      'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
@@ -117,11 +124,11 @@ export default async function CoupleThreadPage({ params }: Props) {
    * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
    *
    * The same view the supplier has, from this side. The standing sentence is
-   * rendered HERE and not on the supplier's page, because
-   * `buildSupplierStanding` speaks in the couple's second person — "waiting on
-   * you" means the couple owes the answer. It is the S6 derivation verbatim;
-   * the bench card draws the same string, which is what makes showing it twice
-   * safe.
+   * the S6 derivation verbatim, read in the couple's voice (the default); the
+   * bench card draws the same string, which is what makes showing it twice
+   * safe. The supplier's page calls the same function with `viewer: 'vendor'`
+   * (since 2026-09-10), so the two sides are told one set of facts, each
+   * with the subject turned the right way round.
    *
    * ⚠ There is no guest-count source on this side. The surcharge proposal is
    * the SUPPLIER's to act on (`fetchVendorPaxProposals` is scoped to their
@@ -430,6 +437,7 @@ export default async function CoupleThreadPage({ params }: Props) {
         eventDate={eventDate}
         standing={threadStanding}
         decisionPayments={decisionPayments}
+        initialView={initialView}
         lockHandshake={lockHandshake}
       />
 

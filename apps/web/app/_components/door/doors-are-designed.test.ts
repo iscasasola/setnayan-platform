@@ -83,6 +83,12 @@ const DOORS = [
   // and it was invisible to the first shape rule because it framed the page with
   // a `<div>` inside a bare `<main>`, not with the `<main>` itself.
   '[slug]/welcome/page.tsx',
+  // The invite arrival's doors 02 and 03 (lib/invite-arrival.ts, 2026-09-10) —
+  // Reply and Enter. Door 01 is JoinFlow, already listed below. Added in the SAME
+  // change that created them: a door that ships unlisted is exactly the miss the
+  // three notes above record.
+  '[slug]/invite/reply/page.tsx',
+  '[slug]/invite/enter/page.tsx',
   // …and a THIRD miss, found by an adversarial audit: the Live Studio camera
   // seat. Its own header calls it "A DIRECT clone of the Papic seat-claim page"
   // — whose original IS in this list — so it inherited both the wrapper and the
@@ -418,6 +424,12 @@ const ALLOWED_DOOR_LINES: ReadonlyArray<{ file: string; snippet: string }> = [
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Marketplace exposure to other PH couples' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Chat with couples in-app' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Couples browsing the marketplace' },
+  // ⚖ NOT COPY: `event_members.member_type` compared against its enum value in
+  // the signed-in arm's redirect — it never reaches a screen. join-flow.tsx joined
+  // this rule's derived set on 2026-09-10 when it began importing DoorShell's
+  // `DoorSkin` type for the invite themes; every OTHER line of it is now guarded
+  // here for the first time, which is why this is a snippet and not the file.
+  { file: 'join/[eventId]/_components/join-flow.tsx', snippet: "existing.member_type === 'couple'" },
 ];
 
 function doorFiles(): Array<{ rel: string; src: string }> {

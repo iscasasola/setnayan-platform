@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isTauri, tauri } from '@/lib/desktop-oauth';
 import { createProgramCanvas, type ProgramCanvas } from '@/lib/encoder/program-canvas';
 import { createEncoderSession, type EncoderSession } from '@/lib/encoder/encoder-session';
+import { guardGoLive } from '@/lib/encoder/go-live-guard';
 import type { ProgramAirDecision } from '@/lib/live-studio-publish-pure';
 import type { ResolvedOverlays } from '@/lib/live-studio-overlays';
 import type { EncoderHealthInput, EncoderRtmpState } from '@/lib/live-studio-ingest-health';
@@ -79,6 +80,9 @@ export function DesktopEncoderHost({
     let rtmp: EncoderRtmpState = 'idle';
     let reconnectingForMs = 0;
     let recording = false;
+    // Set once by the go-live probe, then carried for the life of the session.
+    let transportEnvelope: string | null = null;
+    let guardSentence = '';
 
     function emitHealth(): void {
       const input: EncoderHealthInput = {
@@ -91,7 +95,7 @@ export function DesktopEncoderHost({
         bitrateRung: 0,
         recording,
       };
-      publishEncoderHealth(eventId, input);
+      publishEncoderHealth(eventId, input, { transportEnvelope, guardSentence });
       if (!cancelled) setTick((n) => n + 1);
     }
 
@@ -147,22 +151,53 @@ export function DesktopEncoderHost({
         else unlisten = off;
       });
 
-    // START ORDER MATTERS: the canvas is started only after `encoder_start`
-    // resolves. Encoding before Rust holds the socket would fill the pre-config
-    // buffer with frames nobody asked for yet, and — worse — would report a
-    // "no_stream_key" refusal AFTER the couple was told they were live.
-    void session
-      .start(eventId)
-      .then(() => {
+    // START ORDER MATTERS: probe, then start, then encode.
+    //
+    // THE PROBE COMES FIRST because it is the one check that can still be acted
+    // on. `encoder_probe` ships in every build for exactly this call (its Rust
+    // docblock says so, and distinguishes itself from the debug-only S0 spike
+    // harness on that basis). If the transport cannot carry a chunk at all,
+    // saying so here costs a second; discovering it after the couple has been
+    // told they are live costs the ceremony.
+    //
+    // The canvas is started only after `encoder_start` resolves. Encoding
+    // before Rust holds the socket would fill the pre-config buffer with frames
+    // nobody asked for yet, and — worse — would report a "no_stream_key"
+    // refusal AFTER the couple was told they were live.
+    void (async () => {
+      try {
+        const verdict = await guardGoLive((command, args) =>
+          shell.core.invoke(command, args) as Promise<string>,
+        );
+        if (cancelled) return;
+
+        // Provenance for the strip, whatever the verdict: which envelope
+        // carried the probe is an annotation, never a state (rule 24, and
+        // `decideIngestHealth` refuses to let it change one).
+        transportEnvelope = verdict.envelope;
+        guardSentence = verdict.sentence;
+
+        if (!verdict.allowed) {
+          // REFUSED — and the ONLY reason that can happen is
+          // `transport_unusable`. Never because the envelope was not `raw`:
+          // Raw never arrives on WebKit at all, so that rule would refuse every
+          // macOS user. See go-live-guard.ts's docblock.
+          rtmp = 'idle';
+          emitHealth();
+          return;
+        }
+
+        await session.start(eventId);
         if (cancelled) return;
         canvas.start();
-      })
-      .catch(() => {
+        emitHealth();
+      } catch {
         // The refusal is the honest outcome and the strip stays at
         // `waiting_for_encoder`, which is what "we are not sending" looks like.
         rtmp = 'idle';
         emitHealth();
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;

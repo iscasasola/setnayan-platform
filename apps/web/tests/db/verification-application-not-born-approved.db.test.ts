@@ -133,10 +133,15 @@ after(async () => {
 test('META: the INSERT policy now constrains status, matching its UPDATE sibling', async () => {
   const r = await db.query<{ polname: string; wc: string }>(
     `SELECT polname, coalesce(pg_get_expr(polwithcheck, polrelid),'') AS wc
-       FROM pg_policy WHERE polrelid = $1::regclass AND polcmd = 'a'`,
+       FROM pg_policy WHERE polrelid = $1::regclass AND polcmd = 'a' AND polpermissive`,
     [TABLE],
   );
-  assert.equal(r.rows.length, 1, `expected exactly one INSERT policy, found ${r.rows.length}`);
+  // PERMISSIVE only: policies are OR-ed, so it is the permissive set that
+  // decides who may insert at all. A RESTRICTIVE one (2026-09-10,
+  // 20271219262486_every_cleanup_delete_is_pinned — every doc_uploads ref must be
+  // the vendor's own) is AND-ed on top and can only narrow; counting it here
+  // would read a narrowing as a second door.
+  assert.equal(r.rows.length, 1, `expected exactly one PERMISSIVE INSERT policy, found ${r.rows.length}`);
   assert.match(
     r.rows[0]!.wc,
     /status\s*=\s*'draft'/,

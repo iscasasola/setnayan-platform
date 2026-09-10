@@ -4,6 +4,21 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
 import { InvalidTokenScreen } from '@/app/join/[eventId]/_components/join-shell';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from './_lib/load-invite-look';
+import { RevealOverlayServer } from '../_components/reveal/reveal-overlay-server';
+import {
+  coerceRevealTemplate,
+  revealMarkSvg,
+  revealMonogram,
+  revealSealConfig,
+  revealVeilColor,
+  revealWaxColor,
+} from '../_lib/reveal-props';
+import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { inviteRevealPlays } from '@/lib/invite-reveal';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 
 export const metadata = { title: 'Join event' };
 
@@ -27,7 +42,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, event_type, event_end_date, venue_latitude, venue_longitude`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -106,13 +121,52 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   // one, and a Pro theme only while the event holds Event Hub Pro.
   const look = await loadInviteLook(event);
 
+  // THE REVEAL OPENS THE INVITE (owner 2026-09-10: "our cinematic reveal is also
+  // integrated as one whole concept design"). Only for a Pro theme — House is the
+  // free door, with "nothing to edit" and no opening. The props are the SAME
+  // composition the Event Hub uses (../_lib/reveal-props), and the couple's own
+  // chosen opening wins over the theme's default — including "No Reveal".
+  // WHEN it may play is the Event Hub's own rule too (lib/invite-reveal.ts): the
+  // save-the-date and invitation stages only, never the day itself, never a wake.
+  // The overlay still resolves its own Event Hub Pro ownership
+  // (RevealOverlayServer), so a lapsed unlock shows no reveal.
+  const revealPlays =
+    look.theme !== 'house' &&
+    inviteRevealPlays({
+      profile: await resolveProfile(event.event_type as string),
+      eventDate: event.event_date as string | null,
+      eventEndDate: (event.event_end_date as string | null) ?? null,
+      venueTz: eventTimezoneFromCoords(
+        event.venue_latitude as number | null,
+        event.venue_longitude as number | null,
+      ),
+    });
+  const reveal =
+    look.theme === 'house' ? null : (
+      <RevealOverlayServer
+        enabled={revealPlays}
+        monogram={revealMonogram((event.display_name as string | null) ?? '')}
+        markSvg={revealMarkSvg(event)}
+        waxColor={revealWaxColor(event.role_palette)}
+        sealConfig={revealSealConfig(event)}
+        sealFallbackSeed={fallbackSeedFromPublicId(event.public_id as string)}
+        veilColor={revealVeilColor(event.role_palette)}
+        eventTemplate={coerceRevealTemplate(event.std_reveal_template) ?? INVITE_THEMES[look.theme].opening}
+        eventEffects={resolveRevealEffects(event.std_reveal_effects)}
+        eventId={event.event_id as string}
+      />
+    );
+
   return (
-    <JoinFlow
-      event={event}
-      token={token}
-      errorKey={search.error ?? null}
-      returnPath={`/${slug}/invite`}
-      skin={look.skin}
-    />
+    <>
+      {reveal}
+      <JoinFlow
+        event={event}
+        token={token}
+        errorKey={search.error ?? null}
+        returnPath={`/${slug}/invite`}
+        skin={look.skin}
+      />
+    </>
   );
 }

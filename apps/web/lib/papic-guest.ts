@@ -213,6 +213,13 @@ export type GuestQuota = {
   poolRemaining: number | null;
   /** True once the pot crosses its own soft-stop line — "running low". */
   poolLow: boolean;
+  /**
+   * The number on her counter is a SPONSOR'S share — two or three of the equal
+   * shares, not one (migration 20271220526938). Only when the couple's ceiling
+   * is what binds AND she is not named: a named guest is on a number the couple
+   * typed, and telling her it is a sponsor's share would be a guess.
+   */
+  sponsorShare: boolean;
 };
 
 /** Sentinel `remaining` for an unlimited (Unlock) guest — large enough that the
@@ -293,6 +300,37 @@ async function readGuestCeilingSpend(
 }
 
 /**
+ * How many equal shares this guest takes — `papic_guest_share_weight(guest_id)`
+ * (migration 20271220526938), `service_role`-only, so `supabase` MUST be the
+ * admin client. 1 for a plain guest, 2 or 3 for a sponsor, NULL for a guest the
+ * couple named. Asked of the database rather than re-derived from the guest's
+ * role here, because the resolver it explains reads the same function.
+ *
+ * Returns null on ANY failure — the counter then simply says nothing about a
+ * sponsor's share, which is the pre-migration display exactly.
+ */
+async function readGuestShareWeight(
+  supabase: SupabaseClient,
+  guestId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('papic_guest_share_weight', {
+      p_guest_id: guestId,
+    });
+    if (error) {
+      if (!isMissingRelationError(error)) {
+        logQueryError('readGuestShareWeight', error, { guest_id: guestId }, 'graceful_degrade');
+      }
+      return null;
+    }
+    return typeof data === 'number' ? data : null;
+  } catch (err) {
+    logQueryError('readGuestShareWeight', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
+}
+
+/**
  * Resolve a single guest's quota from papic_guest_captures. `supabase` here is
  * an admin client (the guest camera route is a public surface with no RLS
  * session) constrained to this event_id + guest_id. Graceful-degrade to a
@@ -318,7 +356,7 @@ export async function fetchGuestQuota(
   // used to mirror only the first, so the browser enforced a 150 the database
   // was not applying anywhere. The rule itself lives in ONE place now —
   // lib/papic-guest-cap.ts — with one entry per write to `v_unlimited`.
-  const [hasUnlock, poolRead, guestCeiling, ceilingSpend] = await Promise.all([
+  const [hasUnlock, poolRead, guestCeiling, ceilingSpend, shareWeight] = await Promise.all([
     eventHasPapicUnlock(supabase, eventId).catch(() => false),
     readEventPoolStatus(supabase, eventId).catch(() => ({
       ok: false,
@@ -326,6 +364,7 @@ export async function fetchGuestQuota(
     })),
     readGuestSpendCeiling(supabase, guestId),
     readGuestCeilingSpend(supabase, guestId),
+    readGuestShareWeight(supabase, guestId),
   ]);
   const poolApplies = poolRead.status.applies === true;
   const unlimitedBase = papicGuestCapLifts({
@@ -436,6 +475,9 @@ export async function fetchGuestQuota(
     capApplies,
     poolRemaining,
     poolLow,
+    // The ceiling is the couple's (not the platform's 150, not lifted by a
+    // release) and she takes more than one share of it.
+    sponsorShare: capApplies && guestCeiling !== null && (shareWeight ?? 1) > 1,
   };
 }
 

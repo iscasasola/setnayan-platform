@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { r2Delete, r2Head } from '@/lib/r2';
+import { r2Head } from '@/lib/r2';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
   CLIP_WEB_DROP_GRACE_DAYS,
@@ -15,6 +16,7 @@ import {
   isEligibleForDrop,
   NO_DRIVE_DROP_WARN_GRACE_DAYS,
   noDriveDropAllowed,
+  planPapicOriginalDelete,
   resolveOriginalRef,
   sameResolvedObject,
   seatClipItem,
@@ -66,7 +68,13 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 //     months on 2026-08-07, and it moved off the event's FIRST day on
 //     2026-08-10, because a multi-day celebration's closing night was getting
 //     less than the promised three months.
-//   • the R2 delete resolves a known bucket or declines.
+//   • 🔒 THE DELETE IS PINNED TO THE ROW'S OWN FOLDER (2026-09-10) — the media
+//     bucket AND the capture's own event / guest / supplier-and-event folder, or
+//     it is refused, counted (`refusedOutOfScope`) and the row is NOT stamped.
+//     This line used to read "the R2 delete resolves a known bucket or
+//     declines", and "a known bucket" was all five — a forged key naming a
+//     supplier's government ID resolved and was deleted. See
+//     planPapicOriginalDelete (papic-fullres-drop-core.ts).
 // ============================================================================
 
 const KEEP_FULL_RES_SKU = 'HIGH_RES_ARCHIVE';
@@ -253,6 +261,12 @@ export type FullResDropSummary = {
    * durable playable derivative yet, so the raw is (correctly) never deleted.
    */
   clipWebUnverified: number;
+  /**
+   * Candidates whose `r2_object_key` does not sit under the row's own folder —
+   * REFUSED: nothing deleted, row not stamped. Non-zero means a key got onto a
+   * capture row that its own writer never files there; inspect the rows.
+   */
+  refusedOutOfScope: number;
   failed: number;
   bytesReclaimed: number;
 };
@@ -312,6 +326,7 @@ function emptySummary(
     driveStateUnknownEvents: 0,
     heldNoDriveUnwarned: 0,
     clipWebUnverified: 0,
+    refusedOutOfScope: 0,
     failed: 0,
     bytesReclaimed: 0,
   };
@@ -379,7 +394,7 @@ export async function runFullResDropSweep(
       .limit(limit),
     admin
       .from('papic_guest_captures')
-      .select('capture_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .select('capture_id, event_id, guest_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .or('media_type.is.null,media_type.eq.photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
@@ -393,7 +408,7 @@ export async function runFullResDropSweep(
       .limit(limit),
     admin
       .from('vendor_papic_captures')
-      .select('capture_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .select('capture_id, event_id, vendor_profile_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .eq('media_type', 'photo')
       .is('full_res_dropped_at', null)
       // The web copy MUST already exist. This is the whole safety property: a
@@ -439,7 +454,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserved_at',
+            'capture_id, event_id, guest_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at, preserved_at',
           )
           .eq('media_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -467,6 +482,7 @@ export async function runFullResDropSweep(
   let deferredDriveCopy = 0;
   let driveStateUnknownEvents = 0;
   let clipWebUnverified = 0;
+  let refusedOutOfScope = 0;
   let heldNoDriveUnwarned = 0;
   let failed = 0;
   let bytesReclaimed = 0;
@@ -588,8 +604,16 @@ export async function runFullResDropSweep(
       }
     }
 
-    const ref = resolveOriginalRef(it.r2_object_key);
-    if (!ref) continue; // unresolvable bucket → never delete blindly
+    // 🔒 THE ONE GATE BETWEEN A STORED KEY AND A PERMANENT DELETE. The key must
+    // sit under THIS capture's own folder in the media bucket — its event, its
+    // guest, or its supplier-and-event. Anything else is refused and counted,
+    // and the row is left unstamped so the refusal is re-reported next pass.
+    // Checked BEFORE the clip custody HEAD so a refused row costs no R2 call.
+    const decision = planPapicOriginalDelete(it);
+    if (!decision.ok) {
+      refusedOutOfScope += 1;
+      continue;
+    }
 
     // CLIP CUSTODY GATE (Papic storage PR-2). A clip's raw is the ONLY playable
     // copy until its web copy is proven durable — never trust the column alone (a
@@ -627,7 +651,7 @@ export async function runFullResDropSweep(
     if (dryRun) continue; // preview only — no delete, no stamp
 
     try {
-      await r2Delete({ bucket: ref.bucket, key: ref.key });
+      await executeCleanupDelete(decision.target);
       await admin
         .from(it.table)
         .update({ full_res_dropped_at: new Date().toISOString() })
@@ -673,6 +697,16 @@ export async function runFullResDropSweep(
         'custody not proven (missing / size-mismatch / non-video / within the ' +
         `${CLIP_WEB_DROP_GRACE_DAYS}-day fresh-grace window). The raw is retained as ` +
         'the only playable copy; these retry next sweep.',
+    );
+  }
+
+  // A refusal nobody can see is indistinguishable from a delete that happened.
+  // Error level, not warn: every Papic writer files under the row's own folder,
+  // so a non-zero count means a key got onto a capture row from somewhere else.
+  if (refusedOutOfScope > 0) {
+    console.error(
+      `[papic-fullres-drop] REFUSED ${refusedOutOfScope} original(s) whose key is not under ` +
+        'the capture row’s own folder — nothing deleted, rows left unstamped. Inspect them.',
     );
   }
 
@@ -726,6 +760,7 @@ export async function runFullResDropSweep(
     driveStateUnknownEvents,
     heldNoDriveUnwarned,
     clipWebUnverified,
+    refusedOutOfScope,
     failed,
     bytesReclaimed,
   };

@@ -43,6 +43,7 @@
  * precondition, and RLS on moodboard_library_assets + storage.objects.
  */
 
+import { stylistAssetObjectKey } from '@/lib/moodboard-library-key';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
@@ -609,8 +610,16 @@ export async function deleteStylistAsset(assetId: string): Promise<void> {
   if (delErr) throw new Error(`delete failed: ${delErr.message}`);
 
   if (row.storage_path) {
-    const key = row.storage_path.replace(`${BUCKET}/`, '');
-    await admin.storage.from(BUCKET).remove([key]);
+    // 🔒 Only an object in THIS stylist's own folder (2026-09-10). The row's
+    // storage_path is a column its owner can PATCH, so reading it back verbatim
+    // let one stylist delete another's image by deleting their own asset. A path
+    // outside the uploader's folder is kept and logged. See lib/moodboard-library-key.ts.
+    const key = stylistAssetObjectKey(row.storage_path, row.uploaded_by);
+    if (key) {
+      await admin.storage.from(BUCKET).remove([key]);
+    } else {
+      console.warn('[moodboard-library] REFUSED to remove an object outside the uploader’s own folder', { assetId });
+    }
   }
 
   revalidatePath('/vendor-dashboard/moodboard-library');

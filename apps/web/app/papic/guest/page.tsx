@@ -282,6 +282,7 @@ export default async function PapicGuestPage({
       capApplies={quota.capApplies}
       poolRemaining={quota.poolRemaining}
       poolLow={quota.poolLow}
+      sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}

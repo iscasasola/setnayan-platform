@@ -16,6 +16,7 @@ import {
   ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
   ROLE_MULTIPLIER,
+  allotmentRoleOf,
   splitTheRest,
   suggestedAllotment,
   summariseAllotments,
@@ -118,6 +119,52 @@ test('sponsors default to a BIGGER share, in the ceremony order that earns it', 
   assert.ok(suggestedAllotment('principal', 5) >= 15);
   // Nothing to scale means nothing suggested — never NaN in a number box.
   assert.equal(suggestedAllotment('principal', 0), 0);
+});
+
+test('🚨 sponsors are counted as extra HEADS, so their bigger shares still add up to the pot', () => {
+  // Two ninongs (3 shares each) and a cord sponsor (2) among the 112 un-named:
+  // 112 + 2 + 2 + 1 = 117 shares of 1,600 → 13 each, 79 spare. Multiplying ON
+  // TOP of the plain 14 would promise 14×109 + 42×2 + 28 = 1,638 of 1,600.
+  const split = splitTheRest({ ...WORKED, sponsors: ['principal', 'principal', 'cord'] });
+  assert.equal(split.extraHeads, 5);
+  assert.equal(split.perHead, 13);
+  assert.equal(split.spare, 79);
+  const promised =
+    split.perHead * (split.unnamedCount - 3) +
+    suggestedAllotment('principal', split.perHead) * 2 +
+    suggestedAllotment('cord', split.perHead) +
+    split.namedTotal +
+    split.spare;
+  assert.equal(promised, WORKED.pot, 'named + plain + sponsors + spare is the pot, exactly');
+  assert.equal(
+    summariseAllotments({ ...WORKED, sponsors: ['principal', 'principal', 'cord'] }),
+    '120 guests · 8 named · 3 sponsors get 39 or 26 · everyone else gets 13 credits each · 79 spare',
+  );
+});
+
+test('a list with no sponsors divides exactly as before — and a plain guest adds no weight', () => {
+  assert.deepEqual(splitTheRest({ ...WORKED, sponsors: ['guest', 'guest'] }), splitTheRest(WORKED));
+  assert.equal(splitTheRest(WORKED).extraHeads, 0);
+  assert.equal(summariseAllotments({ ...WORKED, sponsors: [] }), summariseAllotments(WORKED));
+  assert.equal(
+    summariseAllotments({ ...WORKED, sponsors: ['veil'] }),
+    '120 guests · 8 named · 1 sponsor gets 28 · everyone else gets 14 credits each · 18 spare',
+  );
+});
+
+test('spare is never negative — the floor of one share can out-promise a thin pot', () => {
+  const thin = splitTheRest({ pot: 50, guestCount: 200, named: [], everyoneElse: null, sponsors: ['principal'] });
+  assert.equal(thin.perHead, 1);
+  assert.equal(thin.spare, 0, 'never "−152 spare"');
+});
+
+test('who is a sponsor is read off the guest list — role and extra roles, biggest wins', () => {
+  assert.equal(allotmentRoleOf('principal_sponsor', []), 'principal');
+  assert.equal(allotmentRoleOf('candle_sponsor', null), 'candle');
+  assert.equal(allotmentRoleOf('guest', ['coin_sponsor']), 'coin');
+  assert.equal(allotmentRoleOf('cord_sponsor', ['principal_sponsor']), 'principal');
+  assert.equal(allotmentRoleOf('bridesmaid', ['ring_bearer']), 'guest');
+  assert.equal(allotmentRoleOf(null, undefined), 'guest');
 });
 
 test('🚨 the copy says CREDITS, and never a bare "per guest"', () => {

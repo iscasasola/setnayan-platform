@@ -202,7 +202,16 @@ before(async () => {
         INTO cols
       FROM information_schema.columns c
       WHERE c.table_schema = 'public' AND c.table_name = 'papic_photos'
-        AND has_column_privilege('authenticated', 'public.papic_photos', c.column_name, 'UPDATE');
+        AND (
+          has_column_privilege('authenticated', 'public.papic_photos', c.column_name, 'UPDATE')
+          -- ⚖ 2026-09-10 (20271219262486_every_cleanup_delete_is_pinned) also
+          -- revoked UPDATE on the five SERVICE-WRITTEN storage keys, so they
+          -- left the updatable set without having left the pre-2026-08-26
+          -- INSERT shape this scaffolding reproduces. Named back explicitly —
+          -- and moderation_state is still NOT among them, which is the point.
+          OR c.column_name IN ('r2_object_key', 'display_r2_key', 'poster_r2_key',
+                               'thumb_r2_key', 'wall_safe_r2_key')
+        );
       IF cols IS NULL THEN
         RAISE EXCEPTION 'scaffolding found no updatable columns — the grant below would be empty';
       END IF;

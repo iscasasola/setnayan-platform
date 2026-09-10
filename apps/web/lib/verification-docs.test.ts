@@ -1730,4 +1730,32 @@ test('R5 · the whole report is assembled in the pure module, listing failure in
   });
   assert.equal(refused.referencesComplete, false);
   assert.match(refused.referenceError ?? '', /nope/);
+
+  // X1/X2 lived on `referencesComplete: complete` in the argument object below
+  // this line. A read that SUCCEEDS but cannot prove it finished raises no
+  // error for gate 1 and produces a non-empty set for gate 4, so gate 2 is the
+  // only thing standing between a capped read and an irreversible delete — and
+  // gate 2 is reachable ONLY through this argument. Drive it end to end.
+  const unprovable = await buildVerificationDocsReportWith({
+    client: countlessClient([{ dti_certificate_r2_key: ref(DTI) }]),
+    listObjects: async () => listed,
+    pageSize: 4,
+    maxPages: 10,
+  });
+  assert.equal(
+    unprovable.referencesComplete,
+    false,
+    'a read that cannot prove it finished must switch deletion off page-wide',
+  );
+  assert.equal(unprovable.referenceError, REFERENCES_INCOMPLETE_REASON);
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: unprovable.referenceError,
+      referencesComplete: unprovable.referencesComplete,
+    }),
+    'refs',
+    'and the delete action must refuse on the same footing',
+  );
 });

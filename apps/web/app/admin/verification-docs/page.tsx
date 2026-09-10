@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
 
 const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
-  refs: 'Nothing was deleted. The check for what is still in use could not run, so no file could be proven safe to remove.',
+  refs: 'Nothing was deleted. The check for what is still in use could not run, or could not be read all the way to the end, so no file could be proven safe to remove.',
   inuse:
     'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise, or no vendor record could be found pointing at anything at all — which is not proof the file is unused.',
   delete: 'The file could not be deleted. Nothing changed.',

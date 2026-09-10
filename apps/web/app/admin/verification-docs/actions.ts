@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { referencedVerificationKeys } from '@/lib/verification-docs-server';
-import { isDeletableVerificationDoc } from '@/lib/verification-docs';
+import { verificationDeleteVerdict } from '@/lib/verification-docs';
 
 /**
  * /admin/verification-docs — the ONLY write path against the vendor
@@ -77,6 +77,15 @@ export async function viewVerificationDoc(formData: FormData): Promise<void> {
  *    builder could not read the shape the database actually stores, raised no
  *    error, and would have offered every live government ID for deletion.
  *    Gate 3 cannot see that — there is no error. Gate 5 is what does.
+ * 6. **A reference read that stopped EARLY is refused like a failed one.**
+ *    Neither reference SELECT used to be paged or bounded, and PostgREST caps
+ *    what it returns. A capped read comes back large, non-empty and incomplete
+ *    with no error at all — so it clears gate 3 AND gate 5 while offering every
+ *    document belonging to a row past the cap. The danger on this page is
+ *    always a reference set SMALLER than the truth.
+ *
+ * ⚖ All of them live in `verificationDeleteVerdict`, in the pure module, so
+ * they are tested by being CALLED. Do not re-type one of them here.
  *
  * ONE object per call. There is no bulk delete on this page and there should
  * not be: the whole value of the gate is that a person looked at each file.
@@ -86,13 +95,20 @@ export async function deleteVerificationDoc(formData: FormData): Promise<void> {
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 
-  const { keys, error } = await referencedVerificationKeys();
-  if (error) {
-    // Gate 3. Nothing is deleted, and the page says which read failed.
-    redirect('/admin/verification-docs?error=refs');
-  }
-  if (!isDeletableVerificationDoc(key, keys)) {
-    redirect('/admin/verification-docs?error=inuse');
+  const { keys, error, complete } = await referencedVerificationKeys();
+  // Gates 3–6, in ONE pure rule that a test can call. This file is a
+  // `'use server'` module no `node:test` can load, so a condition written HERE
+  // could only ever be guarded by matching this file's text — and two guards of
+  // exactly that shape on this branch were proven decorative by a reviewer who
+  // broke the behaviour while both asserted literals stayed put.
+  const verdict = verificationDeleteVerdict({
+    key,
+    referenced: keys,
+    referenceError: error,
+    referencesComplete: complete,
+  });
+  if (verdict !== 'ok') {
+    redirect(`/admin/verification-docs?error=${verdict}`);
   }
 
   try {

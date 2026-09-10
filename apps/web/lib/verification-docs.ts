@@ -104,10 +104,23 @@ export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
   const walk = (value: unknown, depth: number): void => {
     if (depth > maxDepth || value === null || value === undefined) return;
     if (typeof value === 'string') {
+      // 🚨 THE EXCLUSION IS COMPUTED ON THE **RAW** STRING, ON PURPOSE, AND
+      // MUST STAY THAT WAY. `collectStoredAssetRefs` — the other half — decides
+      // what it owns with `value.startsWith('r2://')` on the raw string. This
+      // half used to exclude on `value.trim().startsWith('r2://')`, which is a
+      // WIDER test than the one that includes, so the gap between them was a
+      // hole neither half covered: measured, `" r2://<bucket>/<key>"` with ONE
+      // leading space came back half1=0 half2=0, landed in no set at all, and
+      // the government ID it names was classified `left_over` with Delete
+      // beside it. `\n` and `\t` behaved identically; a TRAILING space was
+      // always fine.
+      // 🔑 TWO PREDICATES THAT DIVIDE ONE JOB MUST BE COMPUTED ON THE SAME
+      // STRING. Whichever way they disagree, one side is a silent hole.
+      if (value.startsWith('r2://')) return;
       const t = value.trim();
-      // `r2://` refs are the OTHER half's job. Leaving them out is what makes
-      // both halves load-bearing: gut either one and a shape stops being found.
-      if (t.length > 0 && !t.startsWith('r2://')) found.add(t);
+      // Leaving genuine refs to the other half is what makes both halves
+      // load-bearing: gut either one and a shape stops being found.
+      if (t.length > 0) found.add(t);
       return;
     }
     if (Array.isArray(value)) {
@@ -133,9 +146,29 @@ export function collectPlainStrings(raw: unknown, maxDepth = 8): string[] {
  * deletable — measured, not assumed. Each collected string therefore goes in
  * TWICE: raw, and again as the bare key `parseR2Ref` resolves out of it.
  *
- * A shape NEITHER form recognises still lands in the set raw, so it errs toward
- * "in use". That is the deliberate choice: more objects counted as referenced,
- * fewer deletable, never the other way.
+ * ── WHAT "ERRS TOWARD IN USE" DOES AND DOES NOT MEAN ───────────────────────
+ * 🛑 This docstring used to claim that a shape neither form recognises "still
+ * lands in the set raw, so it errs toward 'in use'". **THAT WAS FALSE AS
+ * WRITTEN, and a docstring that overstates a safety property is worse than
+ * none.** The set is compared against BARE LISTING KEYS, so a raw value that is
+ * not itself a bare key protects NOTHING. Measured against a non-empty set — so
+ * the empty-set gate could not mask it — every one of these came back
+ * `left_over`, `deletable: true`:
+ *   · a presigned `https://…/<bucket>/<key>?X-Amz-Signature=…`
+ *   · a public host `https://media.setnayan.com/<key>` · `https://pub-…r2.dev/<key>`
+ *   · `R2://` with an uppercase scheme
+ *   · a bare key carrying a leading slash, `/vendors/<id>/verification/…`
+ * These are legal stored values: both SEC-1 ownership gates short-circuit on
+ * `!ref.startsWith('r2://')`, so ANY non-`r2://` string is admitted
+ * unconditionally, `lib/uploads.ts` and `lib/vendor-identity-retention.ts` both
+ * model `legacy_url` as a real shape for this data, and `file-upload.tsx`
+ * explicitly supports legacy `http(s)` values.
+ *
+ * `referenceCandidateForms` now DERIVES a key from each of those, so the claim
+ * is true of them. **It is still not true in general**, and this is the honest
+ * statement of the ceiling: a value whose key cannot be derived is kept RAW,
+ * which protects an object only if the object's own key is that same string.
+ * Anything else is a shape nobody has written yet and nobody has covered.
  *
  * ⚖ NO BUCKET FILTER. A ref naming `setnayan-media` (a portfolio sample — the
  * writer accepts `vendorOwnedMediaPolicy` too) is kept. Dropping it could only
@@ -152,18 +185,159 @@ export function referencedKeysFrom(raw: unknown): string[] {
   const candidates = new Set<string>([
     // Half one: every `r2://` ref, at any depth. The erasure sweep's own walk.
     ...collectStoredAssetRefs(raw),
-    // Half two: everything that walk cannot see — a bare key, or any shape
-    // nobody has written yet.
+    // Half two: everything that walk cannot see — a bare key, a legacy URL, or
+    // any shape nobody has written yet.
     ...collectPlainStrings(raw),
   ]);
   for (const candidate of candidates) {
-    const value = candidate.trim();
-    if (value.length === 0) continue;
-    out.add(value);
-    const { bucket, key } = parseR2Ref(value);
-    if (bucket !== null && key.trim().length > 0) out.add(key.trim());
+    for (const form of referenceCandidateForms(candidate)) out.add(form);
   }
   return [...out];
+}
+
+/**
+ * Every key one stored string could be naming.
+ *
+ * 🔑 **THIS FUNCTION ONLY EVER ADDS.** The trimmed input is always the first
+ * entry, and every rule below appends a derived form beside it — none replaces
+ * it, none filters. That is the property that makes an over-eager rule
+ * harmless: the worst an extra string can do is refuse a delete, and the worst
+ * a missing one does is erase an identity document with no undo.
+ *
+ * The forms, and why each is a real stored shape rather than a hypothetical:
+ *  1. **The trimmed raw value.** Always.
+ *  2. **`r2://<bucket>/<key>` → `<key>`**, case-insensitively. The listing hands
+ *     back bare keys; the database stores full refs. Without this the whole fix
+ *     is inert. The scheme is lowercased before parsing because `R2://` is a
+ *     string a hand-written row or a future writer can hold and `parseR2Ref` is
+ *     anchored on the lowercase literal.
+ *  3. **A leading slash stripped.** `/vendors/…` and `vendors/…` name the same
+ *     object; S3 keys have no leading slash and `ListObjectsV2` never returns
+ *     one.
+ *  4. **An `http(s)` URL → its decoded path, and the path from `vendors/`
+ *     onward.** Covers a presigned GET (path-style puts the bucket in front of
+ *     the key), a public custom domain and an `r2.dev` host. The KEY is derived
+ *     from the path — the bucket is never guessed — and the query string goes
+ *     with it, which is what strips `X-Amz-Signature`.
+ *
+ * ⚠ A shape none of these recognises keeps only form 1, and form 1 protects an
+ * object only when the object's key IS that string. Say that out loud rather
+ * than implying cover: see `referencedKeysFrom`.
+ */
+export function referenceCandidateForms(candidate: string): string[] {
+  const out = new Set<string>();
+  const value = candidate.trim();
+  if (value.length === 0) return [];
+  out.add(value);
+
+  // 2 · the scheme, case-insensitively.
+  const schemeNormalised = /^r2:\/\//i.test(value) ? `r2://${value.slice('r2://'.length)}` : value;
+  const { bucket, key } = parseR2Ref(schemeNormalised);
+  const bare = bucket !== null ? key.trim() : value;
+  if (bare.length > 0) out.add(bare);
+
+  // 3 · a leading slash. Applied to whatever form 2 produced, so
+  // `r2://b//vendors/…` lands on the same key as `/vendors/…`.
+  const unslashed = bare.replace(/^\/+/, '');
+  if (unslashed.length > 0) out.add(unslashed);
+
+  // 4 · a legacy http(s) URL. `URL` throws on anything that is not one, which
+  // is the cheapest way to ask "is this a URL" without a regex that guesses.
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      let path = parsed.pathname.replace(/^\/+/, '');
+      try {
+        path = decodeURIComponent(path);
+      } catch {
+        // A malformed escape sequence. Keep the undecoded path — it is still a
+        // better candidate than nothing, and this can only ever add.
+      }
+      if (path.length > 0) out.add(path);
+      // Path-style presigned URLs carry `/<bucket>/<key>`; a public host
+      // carries `/<key>`. Taking everything from the first `vendors/` derives
+      // the key in both cases WITHOUT guessing which bucket is in front of it.
+      const at = path.indexOf(`${VERIFICATION_PREFIX}`);
+      if (at > 0) out.add(path.slice(at));
+    } catch {
+      // Not a URL after all. Forms 1–3 still stand.
+    }
+  }
+
+  return [...out];
+}
+
+/**
+ * Fold every reference source into ONE set of keys.
+ *
+ * 🛡 **THIS LOOP LIVES HERE, IN THE PURE MODULE, BECAUSE IT IS THE DEFECT
+ * SURFACE.** It used to sit in `verification-docs-server.ts`, which opens with
+ * `import 'server-only'` — a module no `node:test` can load — so the only guard
+ * over it read the file as TEXT and asserted `referencedKeysFrom(` appeared
+ * twice. An adversarial reviewer kept both of those call sites and simply threw
+ * their results away (`keys.add(key)` 2 → 0). The reference set was empty by
+ * construction again — the original defect, restored — and the suite reported
+ * `# tests 32 # fail 0`.
+ *
+ * 🔑 **THE ANSWER TO AN UNTESTABLE MODULE IS TO SPLIT THE RULE OUT OF IT, NEVER
+ * TO MATCH A LONGER STRING.** The server module now fetches rows and hands them
+ * here; it makes no decision of its own, so there is nothing left there for a
+ * source-match to have to stand in for.
+ */
+export function collectReferencedKeys(sources: Iterable<unknown>): Set<string> {
+  const keys = new Set<string>();
+  for (const source of sources) {
+    for (const key of referencedKeysFrom(source)) keys.add(key);
+  }
+  return keys;
+}
+
+/**
+ * Read every page of a reference source, and say whether it got to the end.
+ *
+ * 🔴 **THE DANGEROUS SIDE OF THIS PAGE IS THE REFERENCE SIDE, NOT THE LISTING
+ * SIDE, AND THE ORIGINAL CODE GUARDED THE WRONG ONE.** A short LISTING offers
+ * FEWER files, so it can only ever refuse a cleanup. A short REFERENCE READ
+ * offers MORE deletions — every document belonging to a row past the cut reads
+ * as "nothing points at this".
+ *
+ * Neither reference SELECT carried a `.limit()`, a `.range()` or a count, while
+ * PostgREST caps what it returns (Supabase's documented default for that
+ * setting is 1000 rows). When it caps, the set comes back LARGE, NON-EMPTY and
+ * INCOMPLETE with `error: null` — which sails past the error gate AND past the
+ * empty-set gate. 🔑 **That is the same disease as the bug this branch fixes,
+ * one axis over: a SUCCESSFUL read returning an INCOMPLETE set, feeding an
+ * IRREVERSIBLE delete.**
+ *
+ * ⛔ Raising a limit is the same bug with a bigger number. This pages to
+ * exhaustion and ASSERTS it got there: a page that comes back exactly full is
+ * never the end — the next page is fetched, and only a SHORT page proves the
+ * end. If the ceiling is reached first, `complete` is false and the caller must
+ * fail closed.
+ *
+ * `fetchPage` is injected so this is testable by behaviour rather than by
+ * reading the server module's source.
+ */
+export async function readAllPages(
+  fetchPage: (from: number, to: number) => Promise<{ rows: unknown[] | null; error: string | null }>,
+  opts?: { pageSize?: number; maxPages?: number },
+): Promise<{ rows: unknown[]; error: string | null; complete: boolean }> {
+  const pageSize = Math.max(1, opts?.pageSize ?? 500);
+  const maxPages = Math.max(1, opts?.maxPages ?? 200);
+  const rows: unknown[] = [];
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const { rows: got, error } = await fetchPage(from, from + pageSize - 1);
+    if (error) return { rows, error, complete: false };
+    const batch = got ?? [];
+    rows.push(...batch);
+    // A SHORT page is the only proof of the end. An exactly-full page is what a
+    // cap looks like, so it is never treated as the end.
+    if (batch.length < pageSize) return { rows, error: null, complete: true };
+  }
+
+  return { rows, error: null, complete: false };
 }
 
 /**
@@ -244,6 +418,125 @@ export function isDeletableVerificationDoc(
   if (referenced.has(key)) return false;
   const { vendorProfileId } = parseVerificationKey(key);
   return vendorProfileId !== null;
+}
+
+/**
+ * The delete action's whole decision, in one callable rule.
+ *
+ * `'ok'` means: go ahead. Anything else is the query-string key the page uses to
+ * say what happened, and NOTHING is deleted.
+ *
+ * 🛡 Same reason as the two rules below it: the action is a `'use server'`
+ * module a `node:test` cannot load, so a decision left inside it can only be
+ * guarded by matching its text. Keep the decision here.
+ *
+ * ⚖ A reference read that stopped early is refused for the same reason a failed
+ * one is: the danger on this page is a reference set that is SMALLER than the
+ * truth, and both produce exactly that.
+ */
+export function verificationDeleteVerdict(input: {
+  key: string;
+  referenced: ReadonlySet<string>;
+  referenceError: string | null;
+  referencesComplete: boolean;
+}): 'ok' | 'refs' | 'inuse' {
+  if (input.referenceError !== null) return 'refs';
+  if (!input.referencesComplete) return 'refs';
+  return isDeletableVerificationDoc(input.key, input.referenced) ? 'ok' : 'inuse';
+}
+
+/** What the page renders, and the only thing that decides whether it offers a delete. */
+export type VerificationDocsReport = {
+  docs: VerificationDoc[];
+  /** Every gate passed. Deletion is refused when false. */
+  referencesComplete: boolean;
+  /** Why deletion is refused, for the page to show verbatim. */
+  referenceError: string | null;
+  /** The bucket could not be listed at all. */
+  listingError: string | null;
+  /** The LISTING was short. Informational — see the note in the block reason. */
+  truncated: boolean;
+};
+
+/** Why a reference read that stopped early cannot authorise anything. */
+export const REFERENCES_INCOMPLETE_REASON =
+  'the list of what is still in use could not be read all the way to the end, and a short list of references makes MORE files look unused, not fewer';
+
+/** Why a listing that failed cannot authorise anything either. */
+export const LISTING_FAILED_REASON =
+  'storage could not be read, so nothing on this page can be checked against what is really there';
+
+/**
+ * The one decision: may this page offer a delete at all, and if not, why?
+ *
+ * 🛡 **THIS LIVES IN THE PURE MODULE FOR THE SAME REASON THE FOLD ABOVE
+ * DOES.** It used to be one line in `verification-docs-server.ts`, guarded by a
+ * test that asserted two literals appeared in that file's text. A reviewer
+ * replaced `referenceError ?? (emptyWhileFilesExist ? … : null)` with
+ * `referenceError`, left `emptyWhileFilesExist` computed and unused, kept both
+ * asserted literals in place — and the suite reported `# tests 32 # fail 0`
+ * with the gate gone.
+ *
+ * The gates, in the order they are checked. Every one fails CLOSED:
+ *  1. A reference read that RAISED. The old trap: an empty set from a refused
+ *     query is byte-identical to "nothing points at this".
+ *  2. A reference read that SUCCEEDED but stopped early. New — see
+ *     `readAllPages`. No error exists for gate 1 to trip on.
+ *  3. A listing that failed. We cannot check a file we could not see.
+ *  4. **An empty reference set while the bucket holds files.** This is the
+ *     state the page shipped in: two reads that succeeded and produced nothing
+ *     at all. That is what a broken reference reader looks like, not what a
+ *     tidy bucket looks like, and there is no error for gate 1 either.
+ *
+ * ⚖ A SHORT LISTING IS DELIBERATELY NOT A GATE, and that asymmetry is the whole
+ * point. Fewer objects listed = fewer deletions offered; every file still shown
+ * is still checked against the full reference set. (`/admin/website-media`
+ * blocks on ITS truncation because its verdict is per-FOLDER; this page's
+ * verdict is per-FILE.) The page says a short listing is partial, and that is
+ * the correct weight for it.
+ */
+export function verificationDeletionBlockReason(input: {
+  referenceError: string | null;
+  referencesComplete: boolean;
+  referenceKeyCount: number;
+  listingError: string | null;
+  objectCount: number;
+}): string | null {
+  if (input.referenceError !== null) return input.referenceError;
+  if (!input.referencesComplete) return REFERENCES_INCOMPLETE_REASON;
+  if (input.listingError !== null) return LISTING_FAILED_REASON;
+  if (input.referenceKeyCount === 0 && input.objectCount > 0) return EMPTY_REFERENCE_SET_REASON;
+  return null;
+}
+
+/**
+ * Build the whole report from what was read. Pure, so it can be called by a
+ * test rather than described to one.
+ */
+export function buildVerificationDocsReportFrom(input: {
+  keys: ReadonlySet<string>;
+  referenceError: string | null;
+  referencesComplete: boolean;
+  objects: ReadonlyArray<{ key: string; size: number; lastModified: Date | null }>;
+  listingError: string | null;
+  listingTruncated: boolean;
+}): VerificationDocsReport {
+  const blockReason = verificationDeletionBlockReason({
+    referenceError: input.referenceError,
+    referencesComplete: input.referencesComplete,
+    referenceKeyCount: input.keys.size,
+    listingError: input.listingError,
+    objectCount: input.objects.length,
+  });
+  return {
+    docs: classifyVerificationDocs(input.objects, input.keys).sort((a, b) =>
+      a.key.localeCompare(b.key),
+    ),
+    referencesComplete: blockReason === null,
+    referenceError: blockReason,
+    listingError: input.listingError,
+    truncated: input.listingTruncated,
+  };
 }
 
 /** Human bytes, matching the website-media page's phrasing. */

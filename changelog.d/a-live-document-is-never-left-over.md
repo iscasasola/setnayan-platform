@@ -66,3 +66,87 @@ SPEC IMPACT: None. No schema change, no migration, no product decision. The
 behaviour change is that a page which could delete live identity documents can
 no longer offer them, and that deletion is refused outright while the reference
 check produces nothing.
+
+---
+
+## 2026-09-10 · fix(admin): the same page, attacked and repaired
+
+Three adversarial reviewers then attacked the change above. One could not break
+it; the other two found five things, every one reproduced by executing the code.
+All five are closed on this branch.
+
+1. **Leading whitespace fell through BOTH halves of the union.** The `r2://`
+   test was asymmetric — half one included on `value.startsWith('r2://')` (raw),
+   half two excluded on `value.trim().startsWith('r2://')` (trimmed) — so the
+   exclusion was strictly wider than the inclusion and the gap was covered by
+   nobody. Measured against a non-empty set: `" r2://<bucket>/<key>"` with one
+   leading space came back `half1=0 half2=0`, `left_over`, `deletable: true`;
+   `\n` and `\t` identical; a trailing space was always fine. Both predicates
+   are now computed on the same string. 🔑 Two predicates that divide one job
+   must be computed on the same value — whichever way they disagree, one side is
+   a silent hole.
+
+2. **The fail-safe claim in the docstring was false as written.** It said a
+   shape neither form recognises "still lands in the set raw, so it errs toward
+   'in use'". The set is compared against BARE LISTING KEYS, so a raw value that
+   is not itself a bare key protects nothing. Probed with a non-empty set, every
+   one of these was `deletable: true`: a presigned
+   `https://…/<bucket>/<key>?X-Amz-Signature=…`, a public host
+   (`media.setnayan.com`, `pub-….r2.dev`), an uppercase `R2://` scheme, and a
+   bare key with a leading slash. All are legal stored values — both SEC-1 gates
+   short-circuit on `!ref.startsWith('r2://')`, `lib/uploads.ts` and
+   `lib/vendor-identity-retention.ts` both model `legacy_url`, and
+   `file-upload.tsx` supports legacy http(s) values. `referenceCandidateForms`
+   now derives a key from each (from the URL PATH — the bucket is never
+   guessed), and the docstring states the remaining ceiling instead of implying
+   cover. A docstring that overstates a safety property is worse than none.
+
+3. 🔴 **The reference read was unbounded — and it beat the new empty-set gate.**
+   Neither SELECT carried a `.limit()`, a `.range()` or a count, while PostgREST
+   caps the rows it returns (Supabase's documented default for that setting is
+   1000). A capped read comes back LARGE, NON-EMPTY and INCOMPLETE with
+   `error: null` — past the error gate AND past the empty-set gate — marking
+   every document belonging to a row past the cap deletable. **The same disease
+   as the bug this branch fixes, one axis over: a successful read returning an
+   incomplete set, feeding an irreversible delete.** Both sources are now paged
+   to exhaustion through one shared `readAllPages`, which treats an exactly-full
+   page as never the end and only a SHORT page as proof of it; if the ceiling is
+   reached first, the read is `complete: false` and the page and the action both
+   fail closed. Raising a limit would have been the same bug with a bigger
+   number. 🔑 The truncation guard had been put on the SAFE side (fewer objects
+   listed = fewer deletions offered) and not on the DANGEROUS one.
+   ⚖ A short LISTING is still deliberately not a gate, and that asymmetry is now
+   stated in the code: this page's verdict is per-FILE, so a short listing only
+   ever refuses a cleanup. (`/admin/website-media` blocks on its own truncation
+   because its verdict is per-FOLDER.) The page still says the list is partial.
+
+4 & 5. **Two guards were decoration, both proven so.** Both covered
+   `verification-docs-server.ts`, which imports `server-only` and therefore
+   cannot be loaded by any `node:test`, so both read its SOURCE and asserted a
+   string was present. A reviewer broke the guarded behaviour twice while the
+   suite reported `# tests 32 # fail 0`: **B1** kept both `referencedKeysFrom(`
+   call sites (the asserted count of 2) and discarded their results
+   (`keys.add(key)` 2 → 0), restoring the original defect; **B2** replaced the
+   block-reason expression with `const blockReason = referenceError;`, leaving
+   both asserted literals in place and the gate gone. 🔑 **The answer to an
+   untestable module is to split the pure rule out of it, never to match a
+   longer string.** The fold (`collectReferencedKeys`), the paging
+   (`readAllPages`), the page-wide decision (`verificationDeletionBlockReason` /
+   `buildVerificationDocsReportFrom`) and the delete action's whole verdict
+   (`verificationDeleteVerdict`) now live in the pure module and are tested by
+   being CALLED. The server module and the action fetch and delegate; they
+   decide nothing.
+
+⚠ **HONEST LIMIT, stated rather than left standing as a guard:** one assertion
+still reads the server module's source — "this module decides nothing" is a
+claim about ABSENCE, and absence has no behaviour to call. It pins that the
+three helpers are what the module calls, that exactly one `.range()` exists (a
+second, unranged query is finding 3 returning), that the string-only filter
+cannot come back, and that completeness is never asserted as a literal. It is a
+structural bill, not a behavioural guard.
+
+23 assertions added (32 → 55 tests). Every repair mutation-tested with its
+occurrence count printed before → after, all RED; B1 and B2 re-run verbatim
+against the restructured code and both now RED.
+
+SPEC IMPACT: None. No schema change, no migration, no product decision.

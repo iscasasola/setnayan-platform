@@ -8,11 +8,20 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  EMPTY_REFERENCE_SET_REASON,
+  LISTING_FAILED_REASON,
+  REFERENCES_INCOMPLETE_REASON,
+  buildVerificationDocsReportFrom,
   classifyVerificationDocs,
   collectPlainStrings,
+  collectReferencedKeys,
   isDeletableVerificationDoc,
   parseVerificationKey,
+  readAllPages,
+  referenceCandidateForms,
   referencedKeysFrom,
+  verificationDeleteVerdict,
+  verificationDeletionBlockReason,
 } from './verification-docs';
 import { buildSlotValue } from './vendor-verification-slots';
 
@@ -101,15 +110,73 @@ test('a failed reference read deletes NOTHING', () => {
   // An empty set from a failed query is indistinguishable from "nothing points
   // at this" — the RLS-denial-reads-as-empty trap. Here it would erase a live
   // government ID.
-  const fn = ACTIONS.slice(ACTIONS.indexOf('export async function deleteVerificationDoc'));
-  const guard = fn.slice(fn.indexOf('const { keys, error }'), fn.indexOf('r2Delete'));
-  assert.match(guard, /if \(error\)/, 'the read error must be checked');
-  assert.match(guard, /redirect\('\/admin\/verification-docs\?error=refs'\)/);
+  //
+  // 🔑 Asked by CALLING the rule, not by matching the action's text. The action
+  // is a `'use server'` module no node:test can load, so its decision was moved
+  // into `verificationDeleteVerdict` where this question has an answer.
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set<string>(),
+      referenceError: 'vendor_verifications: permission denied',
+      referencesComplete: false,
+    }),
+    'refs',
+  );
+  // And a NON-empty set does not rescue a failed read either — a read that
+  // raised part-way through can still have collected keys.
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: 'vendor_verification_applications: permission denied',
+      referencesComplete: false,
+    }),
+    'refs',
+  );
 });
 
-test('the delete gate is the shared predicate, not a re-typed condition', () => {
+test('the delete gate is the shared rule, not a re-typed condition', () => {
   const fn = ACTIONS.slice(ACTIONS.indexOf('export async function deleteVerificationDoc'));
-  assert.match(fn, /isDeletableVerificationDoc\(key, keys\)/);
+  assert.match(fn, /verificationDeleteVerdict\(/);
+  assert.ok(
+    fn.indexOf('verificationDeleteVerdict') < fn.indexOf('r2Delete'),
+    'the verdict must be taken BEFORE the delete',
+  );
+  // And the verdict is what the redirect carries, so a gate cannot be added to
+  // the rule and forgotten at the call site.
+  assert.match(fn, /error=\$\{verdict\}/);
+});
+
+test('the delete gate refuses a referenced key and admits an unreferenced one', () => {
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([GOV, DTI]),
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'inuse',
+  );
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'ok',
+  );
+  // The empty-set gate reaches the action too.
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set<string>(),
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'inuse',
+  );
 });
 
 test('there is no bulk delete on this page', () => {
@@ -331,27 +398,383 @@ test('the empty-set gate does not disarm the normal case', () => {
   assert.equal(isDeletableVerificationDoc(GOV, new Set([DTI])), true);
 });
 
-test('the report refuses deletion when it sees files but no references', () => {
-  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
-  const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  assert.match(
-    stripped,
-    /keys\.size === 0 && objects\.length > 0/,
-    'buildVerificationDocsReport must block on an empty set while the bucket has files',
-  );
-  assert.match(stripped, /referencesComplete: blockReason === null/);
+// ═══════════════════════════════════════════════════════════════════════════
+// THE FIVE THINGS AN ADVERSARIAL REVIEW FOUND — 2026-09-10
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 1 · LEADING WHITESPACE FELL THROUGH BOTH HALVES OF THE UNION ────────────
+//
+// The `r2://` test was ASYMMETRIC: half one included on `value.startsWith`
+// (raw), half two excluded on `value.trim().startsWith` (trimmed). The
+// exclusion was therefore strictly WIDER than the inclusion, and the gap was a
+// hole neither half covered. Measured on the shipped code, against a NON-EMPTY
+// reference set so the empty-set gate could not mask it:
+//    "r2://…"     half1=1 half2=0  → in_use     deletable=false  ✓
+//    "  r2://…"   half1=0 half2=0  → left_over  deletable=TRUE   ✗
+//    "\n" / "\t" identical. A TRAILING space was always handled.
+
+test('FINDING 1 · a ref with LEADING whitespace still marks its file in use', () => {
+  for (const [label, stored] of [
+    ['space', ` ${ref(GOV)}`],
+    ['newline', `\n${ref(GOV)}`],
+    ['tab', `\t${ref(GOV)}`],
+    ['trailing space', `${ref(GOV)}  `],
+    ['both ends', `  ${ref(GOV)}\n`],
+  ] as const) {
+    const keys = new Set([...referencedKeysFrom({ government_id: { r2_key: stored } }), DTI]);
+    assert.ok(keys.has(GOV), `${label}: the bare key fell out of the set`);
+    const [doc] = classifyVerificationDocs([obj(GOV)], keys);
+    assert.equal(doc?.state, 'in_use', `${label}: a live document read as left over`);
+    assert.equal(
+      isDeletableVerificationDoc(GOV, keys),
+      false,
+      `${label}: a live government ID was offered for permanent deletion`,
+    );
+  }
 });
 
-// ── The server half reads through the shared helper, both sources ───────────
+test('FINDING 1 · the two halves divide the job on the SAME string', () => {
+  // Whichever way the two predicates disagree, one side is a silent hole. Half
+  // two must decline exactly what half one claims — raw, not trimmed.
+  for (const stored of [ref(GOV), ` ${ref(GOV)}`, `\t${ref(GOV)}`, `${ref(GOV)} `]) {
+    const claimedByHalfOne = stored.startsWith('r2://');
+    const declinedByHalfTwo = collectPlainStrings({ v: stored }).length === 0;
+    assert.equal(
+      declinedByHalfTwo,
+      claimedByHalfOne,
+      `the halves disagree about ${JSON.stringify(stored)} — that gap is the hole`,
+    );
+  }
+});
 
-test('both reference sources go through referencedKeysFrom', () => {
+// ── 2 · THE FAIL-SAFE CLAIM WAS FALSE AS WRITTEN ────────────────────────────
+//
+// The docstring said a shape neither form recognises "still lands in the set
+// raw, so it errs toward 'in use'". The set is compared against BARE LISTING
+// KEYS, so a raw value that is not itself a bare key protects NOTHING. Every
+// shape below is a legal stored value — both SEC-1 gates short-circuit
+// ownership on `!ref.startsWith('r2://')`, `lib/uploads.ts` and
+// `lib/vendor-identity-retention.ts` both model `legacy_url`, and
+// `file-upload.tsx` supports legacy http(s) values — and every one came back
+// `left_over`, `deletable: true`.
+
+test('FINDING 2 · a presigned URL marks its file in use', () => {
+  const stored = `https://abc.r2.cloudflarestorage.com/${BUCKET}/${GOV}?X-Amz-Signature=deadbeef&X-Amz-Expires=120`;
+  const keys = new Set([...referencedKeysFrom({ government_id: { legacy_url: stored } }), DTI]);
+  assert.ok(keys.has(GOV), 'the key must be derived from the PATH, signature and all');
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+test('FINDING 2 · a public-host URL marks its file in use', () => {
+  for (const host of ['https://media.setnayan.com', 'https://pub-abc123.r2.dev']) {
+    const keys = new Set([...referencedKeysFrom({ government_id: `${host}/${GOV}` }), DTI]);
+    assert.ok(keys.has(GOV), `${host}: the key fell out`);
+    assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+  }
+});
+
+test('FINDING 2 · an UPPERCASE r2 scheme marks its file in use', () => {
+  const keys = new Set([...referencedKeysFrom({ government_id: `R2://${BUCKET}/${GOV}` }), DTI]);
+  assert.ok(keys.has(GOV));
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+test('FINDING 2 · a bare key with a LEADING SLASH marks its file in use', () => {
+  // S3 keys carry no leading slash and `ListObjectsV2` never returns one, so
+  // `/vendors/…` and `vendors/…` name the same object.
+  const keys = new Set([...referencedKeysFrom({ government_id: `/${GOV}` }), DTI]);
+  assert.ok(keys.has(GOV));
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+test('FINDING 2 · a percent-encoded URL path is decoded', () => {
+  const spaced = `vendors/${VENDOR_SHOP}/verification/government id.jpg`;
+  const keys = new Set([
+    ...referencedKeysFrom({ government_id: `https://media.setnayan.com/${encodeURI(spaced)}` }),
+    DTI,
+  ]);
+  assert.ok(keys.has(spaced), 'the listing hands back the DECODED key');
+  assert.equal(isDeletableVerificationDoc(spaced, keys), false);
+});
+
+test('FINDING 2 · every derived form ADDS — the trimmed raw value always survives', () => {
+  // The property that makes an over-eager rule harmless. If any rule ever
+  // filtered instead of appended, a value would stop protecting its object.
+  for (const value of [
+    ref(GOV),
+    `R2://${BUCKET}/${GOV}`,
+    `/${GOV}`,
+    `https://media.setnayan.com/${GOV}`,
+    'https://not-a-key.example/',
+    'a referee named Ana',
+    '2026-09-20T02:00:00Z',
+    'https://%%%malformed',
+  ]) {
+    assert.ok(
+      referenceCandidateForms(value).includes(value.trim()),
+      `the raw value dropped out of the forms of ${JSON.stringify(value)}`,
+    );
+  }
+});
+
+test('FINDING 2 · a shape with no derivable key is kept raw, and that is SAID, not implied', () => {
+  // The honest ceiling. This value protects an object only if the object's key
+  // IS that string — which the docstring now states rather than papering over.
+  const weird = '../../vendors/odd//thing.bin';
+  const forms = referenceCandidateForms(weird);
+  assert.ok(forms.includes(weird));
+  assert.equal(forms.includes(GOV), false, 'nothing may be guessed into existence');
+});
+
+// ── 3 · THE REFERENCE READ WAS UNBOUNDED ────────────────────────────────────
+//
+// 🔴 The one that beat the new empty-set gate. Neither SELECT carried a
+// `.limit()`, a `.range()` or a count, while PostgREST caps what it returns
+// (Supabase's documented default for that setting is 1000). A capped read comes
+// back LARGE, NON-EMPTY and INCOMPLETE with `error: null` — past the error gate
+// AND past the empty-set gate — and marks every document belonging to a row
+// past the cap deletable. The same disease as the bug this branch fixes, one
+// axis over: a SUCCESSFUL read returning an INCOMPLETE set, feeding an
+// IRREVERSIBLE delete.
+
+test('FINDING 3 · a page that comes back exactly FULL is never the end', () => {
+  // The cap's signature. A limit that is never asked past looks identical to a
+  // table that happens to hold exactly that many rows.
+  let calls = 0;
+  return readAllPages(
+    async () => {
+      calls += 1;
+      return { rows: Array.from({ length: 4 }, (_, i) => ({ i })), error: null };
+    },
+    { pageSize: 4, maxPages: 3 },
+  ).then((r) => {
+    assert.equal(calls, 3, 'a full page must be followed by a request for the next one');
+    assert.equal(r.complete, false, 'a read that never reached a short page is NOT complete');
+  });
+});
+
+test('FINDING 3 · only a SHORT page proves the end', async () => {
+  const pages = [4, 4, 1];
+  let n = 0;
+  const r = await readAllPages(
+    async () => ({ rows: Array.from({ length: pages[n++] ?? 0 }, (_, i) => ({ i })), error: null }),
+    { pageSize: 4, maxPages: 50 },
+  );
+  assert.equal(r.complete, true);
+  assert.equal(r.rows.length, 9, 'every page must be kept, not just the last');
+  assert.equal(n, 3, 'and it must stop at the short page rather than reading forever');
+});
+
+test('FINDING 3 · an empty first page is a complete read of an empty table', async () => {
+  const r = await readAllPages(async () => ({ rows: [], error: null }), { pageSize: 4 });
+  assert.deepEqual(r, { rows: [], error: null, complete: true });
+});
+
+test('FINDING 3 · a page that errors stops the read and is NOT complete', async () => {
+  let n = 0;
+  const r = await readAllPages(
+    async () => {
+      n += 1;
+      return n === 1
+        ? { rows: [{ a: 1 }, { a: 2 }], error: null }
+        : { rows: null, error: 'vendor_verifications: permission denied' };
+    },
+    { pageSize: 2, maxPages: 9 },
+  );
+  assert.equal(r.error, 'vendor_verifications: permission denied');
+  assert.equal(r.complete, false);
+});
+
+test('FINDING 3 · a CAPPED reference read switches deletion off page-wide', () => {
+  // The whole point: the set is large and non-empty, so neither the error gate
+  // nor the empty-set gate can see it. Only completeness can.
+  const capped = new Set([DTI]);
+  const report = buildVerificationDocsReportFrom({
+    keys: capped,
+    referenceError: null,
+    referencesComplete: false,
+    objects: [{ key: GOV, size: 1, lastModified: null }],
+    listingError: null,
+    listingTruncated: false,
+  });
+  assert.equal(report.referencesComplete, false);
+  assert.equal(report.referenceError, REFERENCES_INCOMPLETE_REASON);
+});
+
+test('FINDING 3 · and the delete ACTION refuses a capped read too', () => {
+  // The page hiding the button is not the gate — the action re-derives at press
+  // time, and a hand-posted form reaches it directly.
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: null,
+      referencesComplete: false,
+    }),
+    'refs',
+  );
+});
+
+// ── THE PAGE-WIDE DECISION, CALLED RATHER THAN READ ─────────────────────────
+//
+// 4 & 5 · Both guards that used to stand here read `verification-docs-server.ts`
+// as TEXT and asserted a string was present, because that module imports
+// `server-only` and no `node:test` can load it. A reviewer broke the guarded
+// BEHAVIOUR twice while the suite stayed GREEN at `# tests 32 # fail 0`:
+//   · B1 — kept both `referencedKeysFrom(` call sites (the asserted count of 2)
+//     and discarded their results: `keys.add(key)` 2 → 0. The reference set was
+//     empty by construction again — THE ORIGINAL DEFECT, restored.
+//   · B2 — replaced the block-reason expression with `const blockReason =
+//     referenceError;`, leaving `emptyWhileFilesExist` computed and unused.
+//     Both asserted literals still present, gate gone.
+// 🔑 THE ANSWER IS TO SPLIT THE PURE RULE OUT, NOT TO MATCH A LONGER STRING.
+// Both decisions now live in this module and are CALLED below.
+
+test('4 · the fold is a real fold — every source contributes to one set', () => {
+  const keys = collectReferencedKeys([
+    { government_id_r2_key: ref(GOV) },
+    { dti_certificate: { r2_key: ref(DTI) } },
+  ]);
+  assert.ok(keys.has(GOV), 'the first source fell out of the fold');
+  assert.ok(keys.has(DTI), 'the second source fell out of the fold');
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+  assert.equal(isDeletableVerificationDoc(DTI, keys), false);
+});
+
+test('4 · a fold that collects nothing leaves NOTHING deletable', () => {
+  // B1's exact end state, asked as a question instead of as a string match.
+  const keys = collectReferencedKeys([{ government_id_r2_key: ref(GOV) }]);
+  assert.notEqual(keys.size, 0, 'this is the defect: a live ref producing no key');
+});
+
+test('5 · the report blocks when it sees files but no references', () => {
+  const report = buildVerificationDocsReportFrom({
+    keys: new Set<string>(),
+    referenceError: null,
+    referencesComplete: true,
+    objects: [{ key: GOV, size: 1, lastModified: null }],
+    listingError: null,
+    listingTruncated: false,
+  });
+  assert.equal(report.referencesComplete, false);
+  assert.equal(report.referenceError, EMPTY_REFERENCE_SET_REASON);
+});
+
+test('5 · an empty bucket with no references is not an alarm', () => {
+  const report = buildVerificationDocsReportFrom({
+    keys: new Set<string>(),
+    referenceError: null,
+    referencesComplete: true,
+    objects: [],
+    listingError: null,
+    listingTruncated: false,
+  });
+  assert.equal(report.referencesComplete, true);
+  assert.equal(report.referenceError, null);
+});
+
+test('5 · a failed reference read wins over every other reason', () => {
+  const report = buildVerificationDocsReportFrom({
+    keys: new Set<string>(),
+    referenceError: 'vendor_verifications: permission denied',
+    referencesComplete: false,
+    objects: [{ key: GOV, size: 1, lastModified: null }],
+    listingError: null,
+    listingTruncated: false,
+  });
+  assert.equal(report.referenceError, 'vendor_verifications: permission denied');
+});
+
+test('5 · a failed LISTING switches deletion off as well', () => {
+  assert.equal(
+    verificationDeletionBlockReason({
+      referenceError: null,
+      referencesComplete: true,
+      referenceKeyCount: 3,
+      listingError: 'the bucket could not be listed',
+      objectCount: 0,
+    }),
+    LISTING_FAILED_REASON,
+  );
+});
+
+test('5 · a SHORT LISTING is deliberately NOT a gate, and the asymmetry is the point', () => {
+  // Fewer objects listed = fewer deletions offered, and every file still shown
+  // is still checked against the full reference set. The DANGEROUS side is the
+  // reference side, which is why that one blocks and this one only says so.
+  const report = buildVerificationDocsReportFrom({
+    keys: new Set([DTI]),
+    referenceError: null,
+    referencesComplete: true,
+    objects: [{ key: GOV, size: 1, lastModified: null }],
+    listingError: null,
+    listingTruncated: true,
+  });
+  assert.equal(report.referencesComplete, true, 'a short listing must not refuse a cleanup');
+  assert.equal(report.truncated, true, 'but the page must still say the list is partial');
+});
+
+test('5 · the normal case still works — nothing above disarmed the feature', () => {
+  const report = buildVerificationDocsReportFrom({
+    keys: new Set([DTI]),
+    referenceError: null,
+    referencesComplete: true,
+    objects: [
+      { key: GOV, size: 1, lastModified: null },
+      { key: DTI, size: 1, lastModified: null },
+    ],
+    listingError: null,
+    listingTruncated: false,
+  });
+  assert.equal(report.referencesComplete, true);
+  assert.deepEqual(
+    report.docs.map((d) => [d.key, d.state]),
+    [
+      [DTI, 'in_use'],
+      [GOV, 'left_over'],
+    ],
+  );
+  assert.equal(
+    verificationDeleteVerdict({
+      key: GOV,
+      referenced: new Set([DTI]),
+      referenceError: null,
+      referencesComplete: true,
+    }),
+    'ok',
+  );
+});
+
+// ── The server half is now FETCH ONLY ───────────────────────────────────────
+//
+// ⚠ HONEST LIMIT, stated rather than left standing as though it were a guard:
+// this ONE assertion still reads source, because "the untestable module makes no
+// decision" is a claim about ABSENCE and absence has no behaviour to call. It is
+// a structural bill, not a behavioural guard — everything the module used to
+// decide is covered by the tests above, which CALL it.
+
+test('the server module decides nothing — it fetches and delegates', () => {
   const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
   const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  const calls = stripped.match(/referencedKeysFrom\(/g) ?? [];
-  assert.equal(calls.length, 2, `expected one call per source, found ${calls.length}`);
+  for (const helper of [
+    'collectReferencedKeys(',
+    'buildVerificationDocsReportFrom(',
+    'readAllPages(',
+  ]) {
+    assert.ok(stripped.includes(helper), `${helper} must be where the decision comes from`);
+  }
   assert.doesNotMatch(
     stripped,
     /typeof value === 'string'/,
     'the string-only filter is the bug; it must not come back',
   );
+  // Both reference SELECTs must be RANGED. An unbounded one is finding 3.
+  const ranges = stripped.match(/\.range\(/g) ?? [];
+  assert.equal(ranges.length, 1, 'the one shared reader ranges; a second, unranged query is the bug');
+  assert.doesNotMatch(
+    stripped,
+    /referencesComplete: true/,
+    'completeness must be MEASURED by the paging, never asserted',
+  );
 });
+

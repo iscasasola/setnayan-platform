@@ -71,6 +71,12 @@ export async function viewVerificationDoc(formData: FormData): Promise<void> {
  *    closed, and say so.
  * 4. `isDeletableVerificationDoc` refuses a key we could not parse a vendor out
  *    of. If we cannot say whose it is, we do not remove it.
+ * 5. **The same predicate now also refuses an EMPTY reference set.** A read
+ *    that succeeds and returns nothing looks byte-identical to "nothing points
+ *    at this", and that is precisely how this page shipped: the reference
+ *    builder could not read the shape the database actually stores, raised no
+ *    error, and would have offered every live government ID for deletion.
+ *    Gate 3 cannot see that — there is no error. Gate 5 is what does.
  *
  * ONE object per call. There is no bulk delete on this page and there should
  * not be: the whole value of the gate is that a person looked at each file.

@@ -33,7 +33,7 @@ const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
   refs: 'Nothing was deleted. The check for what is still in use could not run, so no file could be proven safe to remove.',
   inuse:
-    'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise.',
+    'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise, or no vendor record could be found pointing at anything at all — which is not proof the file is unused.',
   delete: 'The file could not be deleted. Nothing changed.',
 };
 
@@ -84,12 +84,14 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
       ) : null}
 
       {/* The reason deletion is refused, stated where the buttons would be. An
-          empty reference set from a FAILED read is indistinguishable from "no
-          file is in use" — and acting on it would erase a live ID. */}
+          empty reference set is indistinguishable from "no file is in use" —
+          whether it came from a FAILED read or from a reader that could not
+          read the shape it was given, and acting on either would erase a live
+          ID. Both now land here, and the sentence has to be true of both. */}
       {!report.referencesComplete ? (
         <p className="rounded-lg border border-danger-900/20 bg-danger-100 px-4 py-3 text-sm text-danger-900">
-          Deleting is switched off on this page right now: the check for which files are still
-          in use did not finish, so nothing can be proven safe to remove.{' '}
+          Deleting is switched off on this page right now: nothing here can be proven safe to
+          remove, so nothing is offered for removal.{' '}
           {report.referenceError ? <span className="opacity-70">({report.referenceError})</span> : null}
         </p>
       ) : null}

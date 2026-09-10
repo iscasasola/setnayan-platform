@@ -9,9 +9,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   classifyVerificationDocs,
+  collectPlainStrings,
   isDeletableVerificationDoc,
   parseVerificationKey,
+  referencedKeysFrom,
 } from './verification-docs';
+import { buildSlotValue } from './vendor-verification-slots';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ACTIONS = readFileSync(
@@ -142,4 +145,213 @@ test('both actions require an admin before doing anything', () => {
       `${name} must gate on admin before reading the form`,
     );
   }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE REFERENCED SET — where it comes from, which is where the bug was
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔑 EVERY TEST ABOVE HANDS THE CLASSIFIER A SET IT BUILT ITSELF. That is why
+// they were all green while the page would have deleted a live government ID:
+// the classifier was never wrong, the SET was empty. These tests start from
+// the REAL writer — `buildSlotValue`, the one function both upload actions go
+// through — so a slot shape added next year is covered on the day it ships.
+
+const BUCKET = 'setnayan-vendor-verification';
+const MEDIA_BUCKET = 'setnayan-media';
+/** What the uploader really persists: a FULL ref, not a key. */
+const ref = (key: string) => `r2://${BUCKET}/${key}`;
+const slot = (slotKey: string, fields: Parameters<typeof buildSlotValue>[1]) =>
+  buildSlotValue(slotKey, fields);
+const blank = { r2Ref: null, url: null, scheduledAt: null };
+
+test('the writer never persists a bare string — the shape the old reader looked for', () => {
+  const built = [
+    slot('dti_certificate', { ...blank, r2Ref: ref(DTI) }),
+    slot('portfolio_samples', { ...blank, portfolioRefs: [ref(DTI)] }),
+    slot('client_references', {
+      ...blank,
+      references: [{ name: 'A', contact_number: '09', event: 'w', date: '2026-01-01' }],
+    }),
+    slot('social_media', { ...blank, social: { website: 'https://a.example' } }),
+    slot('google_meet', { ...blank, scheduledAt: '2026-09-20T02:00:00Z' }),
+  ];
+  for (const value of built) {
+    assert.notEqual(typeof value, 'string', `a slot value came back a bare string: ${JSON.stringify(value)}`);
+  }
+  // And the old reader, transcribed. 🔑 The `unknown` cast is not laziness — the
+  // `DocUpload` union has no `string` member at all, so TypeScript narrows the
+  // guard's body to `never` and refuses to compile it. The TYPE SYSTEM was
+  // already saying this filter can never fire; nothing was listening.
+  const oldReader = new Set<string>();
+  for (const value of Object.values(built as unknown as Record<string, unknown>)) {
+    if (typeof value === 'string' && value.trim().length > 0) oldReader.add(value.trim());
+  }
+  assert.equal(oldReader.size, 0);
+});
+
+// ── One test per shape ──────────────────────────────────────────────────────
+
+test('SHAPE · a normal document slot — the object the uploader writes', () => {
+  const uploads = { dti_certificate: slot('dti_certificate', { ...blank, r2Ref: ref(DTI) }) };
+  const keys = new Set(referencedKeysFrom(uploads));
+  assert.ok(keys.has(DTI), 'the BARE key the listing hands back must be in the set');
+  assert.ok(keys.has(ref(DTI)), 'the raw stored value must be in the set too');
+  const [doc] = classifyVerificationDocs([obj(DTI)], keys);
+  assert.equal(doc?.state, 'in_use');
+  assert.equal(isDeletableVerificationDoc(DTI, keys), false);
+});
+
+test('SHAPE · portfolio_samples is an ARRAY, and every entry counts', () => {
+  const a = `vendors/${VENDOR_SHOP}/verification/portfolio_samples/one.jpg`;
+  const b = `vendors/${VENDOR_SHOP}/verification/portfolio_samples/two.jpg`;
+  const uploads = {
+    portfolio_samples: slot('portfolio_samples', { ...blank, portfolioRefs: [ref(a), ref(b)] }),
+  };
+  const keys = new Set(referencedKeysFrom(uploads));
+  for (const k of [a, b]) {
+    assert.ok(keys.has(k), `${k} fell out of the set`);
+    assert.equal(isDeletableVerificationDoc(k, keys), false);
+  }
+});
+
+test('SHAPE · a portfolio sample in the PUBLIC media bucket is kept, not filtered out', () => {
+  // The writer accepts `vendorOwnedMediaPolicy` as well, so a ref can name a
+  // different bucket. Dropping it could only ever ENABLE a delete.
+  const k = `vendors/${VENDOR_SHOP}/verification/portfolio_samples/public.jpg`;
+  const uploads = {
+    portfolio_samples: slot('portfolio_samples', {
+      ...blank,
+      portfolioRefs: [`r2://${MEDIA_BUCKET}/${k}`],
+    }),
+  };
+  const keys = new Set(referencedKeysFrom(uploads));
+  assert.ok(keys.has(k));
+  assert.equal(isDeletableVerificationDoc(k, keys), false);
+});
+
+test('SHAPE · a BARE key survives — both upload gates admit one', () => {
+  // `!ref.startsWith('r2://') ||` short-circuits ownership to true in BOTH
+  // SEC-1 gates, so a value that is already a bare key is a legal stored shape
+  // — and the erasure walk, which requires `r2://`, drops it.
+  const uploads = { government_id: slot('government_id', { ...blank, r2Ref: GOV }) };
+  const keys = new Set(referencedKeysFrom(uploads));
+  assert.ok(keys.has(GOV));
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+test('SHAPE · a cleared slot is null — what production actually holds — and breaks nothing', () => {
+  const uploads = { bir_2303: slot('bir_2303', blank), dti_certificate: slot('dti_certificate', blank) };
+  assert.deepEqual(uploads, { bir_2303: null, dti_certificate: null });
+  assert.deepEqual(referencedKeysFrom(uploads), []);
+});
+
+test('SHAPE · the shapes that carry no file contribute no key', () => {
+  const uploads = {
+    client_references: slot('client_references', {
+      ...blank,
+      references: [{ name: 'A', contact_number: '09', event: 'w', date: '2026-01-01' }],
+    }),
+    social_media: slot('social_media', { ...blank, social: { website: 'https://a.example' } }),
+    google_meet: slot('google_meet', { ...blank, scheduledAt: '2026-09-20T02:00:00Z' }),
+  };
+  const keys = new Set(referencedKeysFrom(uploads));
+  // They add strings — deliberately, because erring toward "in use" is free —
+  // but none of them is an object key, so nothing in the bucket changes state.
+  assert.equal(keys.has(GOV), false);
+  const [doc] = classifyVerificationDocs([obj(GOV)], keys);
+  assert.equal(doc?.state, 'left_over');
+});
+
+test('SHAPE · a nested shape nobody has written yet is still walked', () => {
+  const keys = new Set(referencedKeysFrom({ future: { pages: [{ scan: { r2_key: ref(GOV) } }] } }));
+  assert.ok(keys.has(GOV), 'the walk must be shape-agnostic, not a fixed-key read');
+});
+
+test('SHAPE · a *_r2_key COLUMN value goes through the same helper', () => {
+  const row = { government_id_r2_key: ref(GOV), bank_account_proof_r2_key: null };
+  const keys = new Set(referencedKeysFrom(row));
+  assert.ok(keys.has(GOV));
+  assert.equal(isDeletableVerificationDoc(GOV, keys), false);
+});
+
+// ── Normalisation, both directions ──────────────────────────────────────────
+
+test('the set carries BOTH the raw value and the resolved bare key', () => {
+  const keys = new Set(referencedKeysFrom({ dti_certificate: { r2_key: ref(DTI) } }));
+  assert.ok(keys.has(ref(DTI)), 'raw');
+  assert.ok(keys.has(DTI), 'resolved');
+});
+
+test('widening the WALK alone is not enough — the listing holds bare keys', () => {
+  // The half-fix: pull `.r2_key` out and insert it as-is. Still deletable.
+  const halfFixed = new Set([ref(DTI)]);
+  assert.equal(isDeletableVerificationDoc(DTI, halfFixed), true);
+  // The whole fix.
+  const whole = new Set(referencedKeysFrom({ dti_certificate: { r2_key: ref(DTI) } }));
+  assert.equal(isDeletableVerificationDoc(DTI, whole), false);
+});
+
+test('a value neither form recognises is kept raw and can still mark a file in use', () => {
+  const weird = '  ../../vendors/odd//thing.bin  ';
+  const keys = new Set(referencedKeysFrom({ mystery: { r2_key: weird } }));
+  assert.ok(keys.has(weird.trim()), 'an unresolvable value must survive, trimmed');
+  assert.equal(isDeletableVerificationDoc(weird.trim(), keys), false);
+});
+
+test('collectPlainStrings keeps every NON-ref string, at any depth, trimmed', () => {
+  const found = new Set(
+    collectPlainStrings({ a: [' x ', { b: 'y' }], c: null, d: '', e: ref(GOV) }),
+  );
+  assert.deepEqual([...found].sort(), ['x', 'y']);
+});
+
+test('the two halves of the union are each load-bearing', () => {
+  // Gut either and a shape stops being found — which is what the mutation run
+  // measures. Pinned here so a future "simplification" has to answer for it.
+  const refOnly = { dti_certificate: { r2_key: ref(DTI) } };
+  const bareOnly = { government_id: { r2_key: GOV } };
+  assert.deepEqual(collectPlainStrings(refOnly), [], 'the plain walk must not claim refs');
+  assert.ok(collectPlainStrings(bareOnly).includes(GOV), 'the plain walk owns bare keys');
+  assert.ok(new Set(referencedKeysFrom(refOnly)).has(DTI));
+  assert.ok(new Set(referencedKeysFrom(bareOnly)).has(GOV));
+});
+
+// ── The empty-set gate ──────────────────────────────────────────────────────
+
+test('NOTHING is deletable when the reference set is empty', () => {
+  // This is the exact state the page shipped in: two reads that succeeded and
+  // produced no keys at all. It is not proof the file is unused.
+  assert.equal(isDeletableVerificationDoc(GOV, new Set<string>()), false);
+  assert.equal(isDeletableVerificationDoc(DTI, new Set<string>()), false);
+});
+
+test('the empty-set gate does not disarm the normal case', () => {
+  assert.equal(isDeletableVerificationDoc(GOV, new Set([DTI])), true);
+});
+
+test('the report refuses deletion when it sees files but no references', () => {
+  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
+  const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(
+    stripped,
+    /keys\.size === 0 && objects\.length > 0/,
+    'buildVerificationDocsReport must block on an empty set while the bucket has files',
+  );
+  assert.match(stripped, /referencesComplete: blockReason === null/);
+});
+
+// ── The server half reads through the shared helper, both sources ───────────
+
+test('both reference sources go through referencedKeysFrom', () => {
+  const SERVER = readFileSync(join(HERE, 'verification-docs-server.ts'), 'utf8');
+  const stripped = SERVER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const calls = stripped.match(/referencedKeysFrom\(/g) ?? [];
+  assert.equal(calls.length, 2, `expected one call per source, found ${calls.length}`);
+  assert.doesNotMatch(
+    stripped,
+    /typeof value === 'string'/,
+    'the string-only filter is the bug; it must not come back',
+  );
 });

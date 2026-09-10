@@ -22,6 +22,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
@@ -202,7 +203,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendors, eventCtx, photoMaps] = await Promise.all([
+  const [vendors, eventCtx, photoMaps, changeLines] = await Promise.all([
     fetchEventVendors(supabase, eventId),
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
@@ -228,7 +229,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // → marketplace_logo_url → initials, but the page never populated the first
     // two. Resolve them here (mirrors event-home's locked-card avatar pass).
     fetchVendorPhotoMaps(supabase, eventId),
+    // Every change agreed after a lock, in ONE read for the whole page — so each
+    // supplier's price on this list is the agreed total NOW (owner 2026-09-11,
+    // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
+    // so the lines are joined here rather than inside it.
+    fetchChangeLinesByVendor(supabase, eventId),
   ]);
+  if (changeLines.error) {
+    // Non-fatal: the list falls back to the price the lock wrote — exactly what
+    // it showed before this read existed — and the refusal is reported.
+    logQueryError(
+      'vendors/page change lines',
+      { message: changeLines.error },
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // A FAILED read is not "no data". This one row carries the event date, the
   // budget, the venue coordinates, the guest count and the Setnayan-AI
@@ -724,7 +740,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // lib/lock-request-state.ts and nowhere else.
       lock_request_state: v.lock_request_state ?? null,
       lock_request_expires_at: v.lock_request_expires_at ?? null,
-      total_cost_php: v.total_cost_php,
+      // The agreed total NOW (lock price + changes since), through the one rule
+      // the budget uses. Every price this page derives from a pick — the card,
+      // the plan-budget roll-up, "remaining budget", the build guard — reads
+      // this field, so this is the one place it is folded. Display only: no
+      // form on this page writes a pick's price back as a headline.
+      total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this

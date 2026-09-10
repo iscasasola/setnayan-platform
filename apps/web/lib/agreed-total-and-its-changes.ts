@@ -53,6 +53,8 @@
  * born.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 /** The only field of a line item this module needs. */
 export type ChangeAwareLine = {
   /** `event_vendor_line_items.is_change_delta`. Absent/null → a breakdown line. */
@@ -204,4 +206,114 @@ export function sumAmountPhp(lines: readonly { amount_php: number | string | nul
     const n = typeof li.amount_php === 'string' ? Number(li.amount_php) : li.amount_php;
     return acc + (n != null && Number.isFinite(n) ? n : 0);
   }, 0);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// THE AGREED TOTAL NOW — for every screen that shows ONE number
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Owner, 2026-09-11, shown ₱100,000 agreed → −₱15,000 Deal → "Agreed total now
+// ₱85,000" on the budget, and asked what every OTHER screen should say:
+//
+//     "Show the total now"
+//
+// The couple's supplier list, the event home's committed figure, the Decisions
+// payments line, the checklist, the supplier's own performance figures — they
+// all print ₱85,000. Only the budget card and the per-supplier page draw the
+// breakdown (before · each change · now). One price everywhere.
+//
+// Those screens read `event_vendors.total_cost_php` and nothing else, so they
+// kept printing the ₱100,000 the lock wrote. They now call `agreedTotalNow`,
+// which is `resolveAgreedTotal`'s own `agreed` on the headline branch — the
+// same expression, not a second sum. `agreed-total-and-its-changes.test.ts`
+// fails if a file that reads `total_cost_php` is neither routed through this
+// nor classified as something other than a price shown to a person.
+
+/**
+ * The PostgREST embed that brings a booking's change lines along in the SAME
+ * query as `total_cost_php`. Spread into a `.select(…)` on `event_vendors`.
+ *
+ * ⚠ The FK is NAMED on purpose. A bare `event_vendor_line_items(…)` embed is
+ * accepted today, but PostgREST refuses an embed with PGRST201 the moment a
+ * second relationship appears between the two tables — and supabase-js
+ * RESOLVES that as `{ error }`, so the page quietly degrades instead of failing.
+ * Probed against production 2026-09-11: the named form resolves.
+ */
+export const CHANGE_LINES_EMBED =
+  'change_lines:event_vendor_line_items!event_vendor_line_items_vendor_id_fkey(amount_php,is_change_delta)';
+
+/** A line item as the single-number readers load it. */
+export type ChangeLineRow = ChangeAwareLine & { amount_php: number | string | null };
+
+/**
+ * The agreed total NOW, for a reader that holds only the headline:
+ * `total_cost_php` + Σ change lines. Breakdown lines in `lines` are ignored —
+ * they itemise the headline, they do not extend it (all 12 suppliers carrying
+ * line items in production sum to their headline exactly).
+ *
+ * `null` when there is no price at all (no headline and no change), so a
+ * surface that says "no price yet" keeps saying it.
+ */
+export function agreedTotalNow(
+  headline: number | string | null | undefined,
+  lines: readonly ChangeLineRow[] | null | undefined,
+): number | null {
+  const changes = sumAmountPhp(splitVendorLines(lines ?? []).changes);
+  const h = headline == null ? null : Number(headline);
+  const hasHeadline = h != null && Number.isFinite(h);
+  if (!hasHeadline && changes === 0) return null;
+  return resolveAgreedTotal({
+    headline: hasHeadline ? (h as number) : 0,
+    catalogue: 0,
+    breakdown: 0,
+    changes,
+  }).agreed;
+}
+
+/**
+ * The same rule over a list of rows that carry their own `vendor_id`: each
+ * row's `total_cost_php` becomes the agreed total NOW. For a loader whose rows
+ * come from a helper it does not own (`fetchEventVendors`), paired with
+ * `fetchChangeLinesByVendor` — one extra query per page, never one per row.
+ *
+ * ⚠ The returned rows are FOR DISPLAY. Never write one back as a headline: that
+ * would bake the change into `total_cost_php` and count it twice.
+ */
+export function withAgreedTotalNow<
+  T extends { vendor_id: string; total_cost_php?: number | string | null },
+>(rows: readonly T[], changeLinesByVendor: ReadonlyMap<string, readonly ChangeLineRow[]>): T[] {
+  return rows.map((r) => {
+    const lines = changeLinesByVendor.get(r.vendor_id);
+    if (!lines || lines.length === 0) return r;
+    // `as T`: the field keeps its declared type — a number or null, which every
+    // `total_cost_php` column type already admits.
+    return { ...r, total_cost_php: agreedTotalNow(r.total_cost_php ?? null, lines) } as T;
+  });
+}
+
+/**
+ * Every change line on one event, grouped by booking. ONE query.
+ *
+ * Returns `{ error }` rather than throwing, like the client it wraps — the
+ * caller decides what a refusal means on its screen. On error the map is
+ * EMPTY, which makes `withAgreedTotalNow` a no-op: the screen shows the
+ * headline, exactly what it showed before this read existed.
+ */
+export async function fetchChangeLinesByVendor(
+  client: SupabaseClient,
+  eventId: string,
+): Promise<{ byVendor: Map<string, ChangeLineRow[]>; error: string | null }> {
+  const byVendor = new Map<string, ChangeLineRow[]>();
+  const { data, error } = await client
+    .from('event_vendor_line_items')
+    .select('vendor_id,amount_php,is_change_delta')
+    .eq('event_id', eventId)
+    .eq('is_change_delta', true);
+  if (error) return { byVendor, error: error.message };
+  for (const row of (data ?? []) as Array<ChangeLineRow & { vendor_id: string }>) {
+    const list = byVendor.get(row.vendor_id);
+    if (list) list.push(row);
+    else byVendor.set(row.vendor_id, [row]);
+  }
+  return { byVendor, error: null };
 }

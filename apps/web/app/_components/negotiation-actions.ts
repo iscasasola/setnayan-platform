@@ -910,6 +910,11 @@ export async function lockDeal(formData: FormData): Promise<void> {
     ctx.thread.event_id,
     ctx.thread.vendor_profile_id,
   );
+  // ── DID THIS PRESS BOOK ANYBODY, OR ONLY ASK? ────────────────────────────
+  // Under PR-H (live) the usual answer is ASK. The supplier must not then be
+  // told "Couple accepted: Deal locked" on top of "A couple wants to book you"
+  // — two contradictory messages from one press, one of which is false.
+  let askedNotBooked = false;
   if (eventVendorId && agreedCentavos != null && newTotal != null) {
     const outcome = await bookVendorAtChatLock(supabase, createAdminClient(), {
       eventId: ctx.thread.event_id,
@@ -959,7 +964,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     // would make the couple re-negotiate the same figure after the supplier says
     // yes — and `vendor_agree_to_lock` books off `event_vendors.total_cost_php`,
     // which this path has already written.
+    if (outcome.status === 'already_requested') askedNotBooked = true;
     if (outcome.status === 'requested') {
+      askedNotBooked = true;
       // Tell the supplier they have been ASKED. They are in this thread, so they
       // will likely see the message — but the answer card lives on their
       // Overview, and "likely" is not a delivery mechanism for a 7-day fuse.
@@ -1019,7 +1026,13 @@ export async function lockDeal(formData: FormData): Promise<void> {
     })
     .eq('thread_id', threadId);
 
-  await notifyChangeCounterparty(ctx, 'Deal locked', 'accepted');
+  // ⚠ ONLY WHERE A DEAL WAS ACTUALLY LOCKED. On the handshake path the supplier
+  // has already had the accurate `lock_request_received` notice above; sending
+  // "Couple accepted: Deal locked" beside it announced a booking that does not
+  // exist and that they still have 48 hours to decline.
+  if (!askedNotBooked) {
+    await notifyChangeCounterparty(ctx, 'Deal locked', 'accepted');
+  }
 
   if (back) {
     revalidatePath(back);

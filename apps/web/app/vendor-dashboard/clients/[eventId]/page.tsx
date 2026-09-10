@@ -131,6 +131,7 @@ import {
   markThreadRead,
 } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -1499,6 +1500,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
       const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
       const initialMessages = await fetchMessages(supabase, threadId);
+      // PR-H · booked, or merely asked? A supplier CANNOT read `event_vendors`
+      // through their own session — every policy on that table is couple- or
+      // moderator-scoped — so this is the admin client, scoped to this shop's
+      // own profile, the same shape as the customer-card read above.
+      const chatLockHandshake = await fetchThreadLockHandshake(admin, {
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+      });
       const declineReason = fullThread.decline_reason?.trim() || null;
       // The per-date ceiling, said out loud before it refuses. Pending-only, read
       // through the supplier's own session (the RPC is caller-scoped), null-safe:
@@ -1544,6 +1553,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             currentUserId={user.id}
             viewerRole="vendor"
             counterpartyLabel={eventName}
+            lockHandshake={chatLockHandshake}
           />
           {/* Vendor accept-gate — replicate the thread page's exact branches: a
               vendor cannot reply until they ACCEPT the inquiry. Do not loosen. */}

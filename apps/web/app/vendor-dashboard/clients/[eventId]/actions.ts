@@ -988,7 +988,15 @@ export async function vendorAgreeToLock(formData: FormData) {
 
   revalidatePath('/vendor-dashboard');
   const flag = error ? 'error' : (env.status ?? 'ok');
-  redirect(`/vendor-dashboard?lock_agree=${flag}`);
+  // `competing` rides along because the refusal it belongs to — "answer the
+  // other couples waiting on you for that date first" — is only actionable if
+  // the supplier is told HOW MANY. The Overview reads both and says the
+  // sentence; before this, nothing read either.
+  const competing =
+    env.status === 'resolve_others_first' && typeof env.competing === 'number'
+      ? `&competing=${env.competing}`
+      : '';
+  redirect(`/vendor-dashboard?lock_agree=${flag}${competing}`);
 }
 
 /**

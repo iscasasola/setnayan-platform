@@ -179,8 +179,11 @@ const PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar
 const PROFILE_PHOTO_REF = `r2://setnayan-media/profile-photo/${SUBJECT}/subject.jpg`;
 // The private-bucket ref every attachment written since 2026-09-09 carries.
 const CHAT_ATTACHMENT_REF = `r2://setnayan-thread-files/chat/${THREAD}/contract-draft.pdf`;
-// The CO-PARTNER'S attachment in the same thread — the subject copies its ref.
+// The CO-PARTNER'S two attachments in the same thread — the subject copies one
+// ref exactly and the other PADDED (so its lookup must go by the object, not the
+// spelling: nothing else in the run names that object canonically).
 const PARTNER_CHAT_ATTACHMENT_REF = `r2://setnayan-thread-files/chat/${THREAD}/venue-contract.pdf`;
+const PARTNER_CHAT_ATTACHMENT_REF_B = `r2://setnayan-thread-files/chat/${THREAD}/caterer-quote.pdf`;
 
 // ── the CO-PARTNER'S civil-registry documents · MUST SURVIVE ────────────────
 // The whole point of per-partner scoping. These belong to the person who is
@@ -407,19 +410,22 @@ before(async () => {
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
        'Adding my notes on the menu.', NULL, NULL);
 
-    -- The CO-PARTNER'S file, sent a day earlier — and the subject's two COPIES of
-    -- its ref on messages of their own (one exact, one padded onto the same
-    -- object). The thread-folder pin admits all three; only "who sent it first"
-    -- tells them apart. The partner's file MUST survive the subject's erasure.
+    -- The CO-PARTNER'S two files, sent a day earlier — and the subject's COPIES
+    -- of their refs on messages of their own (one exact; one padded onto the
+    -- same object). The thread-folder pin admits all of them; only "who sent it
+    -- first" tells them apart. Both partner files MUST survive the subject's
+    -- erasure.
     INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, sender_user_id,
                                       sender_role, body, attachment_r2_key, attachment_name, created_at)
     VALUES
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
        'Our signed venue contract.', '${PARTNER_CHAT_ATTACHMENT_REF}', 'venue-contract.pdf', now() - interval '1 day'),
+      ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
+       'The caterer quote.', '${PARTNER_CHAT_ATTACHMENT_REF_B}', 'caterer-quote.pdf', now() - interval '1 day'),
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
        'Re-sharing.', '${PARTNER_CHAT_ATTACHMENT_REF}', 'venue-contract.pdf', now()),
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
-       'Re-sharing again.', '${PARTNER_CHAT_ATTACHMENT_REF} ', 'venue-contract.pdf', now());
+       'Re-sharing the quote.', '${PARTNER_CHAT_ATTACHMENT_REF_B} ', 'caterer-quote.pdf', now());
 
     INSERT INTO public.chat_thread_reads (thread_id, user_id) VALUES ('${THREAD}', '${SUBJECT}');
 
@@ -1166,7 +1172,7 @@ test('3l · what fail-closed KEPT is audit-logged, not silently dropped', async 
 });
 
 test('3d · the co-partner’s chat messages and the thread survive', async () => {
-  assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [PARTNER]), 2);
+  assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [PARTNER]), 3);
   assert.equal(await count(`SELECT count(*) FROM public.chat_threads WHERE thread_id = $1`, [THREAD]), 1);
   assert.equal(
     deletedStoredAssets.filter((r) => r.includes('/chat/')).length,
@@ -1179,13 +1185,14 @@ test('3d″ · THE REVIEW’S CROSS-PARTY DELETE: the partner’s file, copied o
   // The thread-folder pin admits the copy — it sits under chat/<the same thread>/
   // — so this is the "who sent it first" rule's job alone. Both spellings
   // (exact, and padded onto the same object) must be refused.
-  const partnerCopies = handedOver.filter(({ ref }) => ref.trim() === PARTNER_CHAT_ATTACHMENT_REF);
+  const partnerFiles = [PARTNER_CHAT_ATTACHMENT_REF, PARTNER_CHAT_ATTACHMENT_REF_B];
+  const partnerCopies = handedOver.filter(({ ref }) => partnerFiles.includes(ref.trim()));
   assert.deepEqual(
     partnerCopies.map(({ ref }) => JSON.stringify(ref)),
     [],
     'the subject’s erasure handed the CO-PARTNER’S file to storage — their contract would be deleted',
   );
-  assert.ok(!deletedStoredAssets.some((r) => r.trim() === PARTNER_CHAT_ATTACHMENT_REF));
+  assert.ok(!deletedStoredAssets.some((r) => partnerFiles.includes(r.trim())));
   // …while the subject's OWN attachment in the same thread still went (2h).
   assert.ok(deletedStoredAssets.includes(CHAT_ATTACHMENT_REF));
 });

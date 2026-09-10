@@ -1040,7 +1040,7 @@ export async function openApplicationDocument(formData: FormData) {
   const admin = createAdminClient();
   const { data: app, error } = await admin
     .from('vendor_verification_applications')
-    .select('application_id, doc_uploads')
+    .select('application_id, vendor_profile_id, doc_uploads')
     .eq('application_id', applicationId)
     .maybeSingle();
   // ⚠ Supabase RESOLVES with { error } — a refused read arrives as data:null and
@@ -1072,6 +1072,24 @@ export async function openApplicationDocument(formData: FormData) {
   );
   if (where.kind !== 'r2') {
     redirect('/admin/verify?error=That+document+is+not+a+file+we+hold');
+  }
+
+  // ⚠ AND THE FILE MUST BE FILED UNDER THIS SHOP.
+  // Both vendor-side writers pin an `r2://…` ref to the vendor's own two
+  // folders — and both let a BARE value through unvalidated (`!ref.startsWith
+  // ('r2://')`), which their own SEC-1 comments call write pollution. So a
+  // stored bare key can name ANOTHER shop's folder. The desk's tenancy check
+  // reports that as a mismatch; this refuses to hand the file over as well,
+  // because an application approved on the strength of somebody else's
+  // paperwork is the harm, not the download.
+  //
+  // 🔑 Refuses only on a PARSED and DIFFERENT owner — never on an unparsed one.
+  // A portfolio key is `vendors/<id>/portfolio/…`, a shape this deliberately
+  // still places; a path shape we do not recognise at all yields no id, and
+  // refusing on "we could not tell" would break every legitimate future layout.
+  const keyOwner = /^vendors\/([^/]+)\//.exec(where.key)?.[1] ?? null;
+  if (keyOwner !== null && keyOwner !== app.vendor_profile_id) {
+    redirect('/admin/verify?error=That+file+is+filed+under+a+different+shop');
   }
 
   const url = await r2SignedGet({

@@ -30,6 +30,31 @@ import { stripComments } from '@/lib/strip-comments';
 const WEB = join(import.meta.dirname, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
+/**
+ * One function body, from its declaration to the next top-level one.
+ *
+ * 🪤 REV 1 SLICED A FIXED 2,600 CHARACTERS INSTEAD. Adding a cross-shop refusal
+ * pushed the content-disposition line past the window and this file went red
+ * for a reason that had nothing to do with the code — and the same window would
+ * have gone **GREEN ON NOTHING** had the function grown the other way round.
+ * A fixed-length slice is not a function body. The floor below means a rename
+ * can never leave a check quietly passing on an empty string.
+ */
+function bodyOf(src: string, fn: string): string {
+  const start = src.indexOf(`function ${fn}(`);
+  assert.ok(start > 0, `${fn} is gone — it was renamed or deleted`);
+  const after = src.slice(start + 10);
+  const next = after.search(/\n(export )?(async )?function /);
+  const body = next === -1 ? after : after.slice(0, next);
+  assert.ok(
+    body.length > 200,
+    `${fn}: the slice came back nearly empty, so any check on it would pass on anything`,
+  );
+  return body;
+}
+
+const OPENER = 'openApplicationDocument';
+
 const VERIFY_PAGE = 'app/admin/verify/page.tsx';
 const VERIFY_ACTIONS = 'app/admin/verify/actions.ts';
 const BYPASS_ACTIONS = 'app/admin/vendors/verification-bypass-actions.ts';
@@ -49,10 +74,7 @@ test('the verification queue offers a way to open a document', () => {
 });
 
 test('the opener re-derives the key from the application instead of trusting the form', () => {
-  const actions = read(VERIFY_ACTIONS);
-  const start = actions.indexOf('export async function openApplicationDocument');
-  assert.ok(start > 0, 'openApplicationDocument is gone');
-  const body = actions.slice(start, start + 2600);
+  const body = bodyOf(read(VERIFY_ACTIONS), OPENER);
 
   // The whole point: this queue admits `is_team_member` and `account_type =
   // 'admin'`, a strictly wider room than the /admin/verification-docs page
@@ -72,9 +94,7 @@ test('the opener re-derives the key from the application instead of trusting the
 });
 
 test('the opened link is short-lived and downloads rather than rendering in the tab', () => {
-  const actions = read(VERIFY_ACTIONS);
-  const start = actions.indexOf('export async function openApplicationDocument');
-  const body = actions.slice(start, start + 2600);
+  const body = bodyOf(read(VERIFY_ACTIONS), OPENER);
   assert.match(
     body,
     /responseContentDisposition:\s*contentDispositionAttachment\(/,
@@ -172,22 +192,9 @@ const GRANT_PATHS: ReadonlyArray<{ file: string; fn: string; what: string }> = [
   { file: BYPASS_ACTIONS, fn: 'grantVerificationBypass', what: 'the vouch' },
 ];
 
-/** One function body, from its declaration to the next top-level one. */
-function bodyOf(src: string, fn: string): string {
-  const start = src.indexOf(`function ${fn}(`);
-  assert.ok(start > 0, `${fn} is gone — a grant path was renamed or deleted`);
-  const after = src.slice(start + 10);
-  const next = after.search(/\n(export )?(async )?function /);
-  return next === -1 ? after : after.slice(0, next);
-}
-
 test('EVERY grant path records the evidence snapshot — checked per path, not per file', () => {
   for (const { file, fn, what } of GRANT_PATHS) {
     const body = bodyOf(read(file), fn);
-    assert.ok(
-      body.length > 200,
-      `${fn}: the slice came back nearly empty, so this check would pass on anything`,
-    );
     assert.match(
       body,
       /verificationEvidenceSnapshot\(/,
@@ -257,10 +264,7 @@ test('the desk never renders an overall verdict beside the per-check results', (
 // ---------------------------------------------------------------------------
 
 test('the discriminating HEAD claims "absent" only on a real 404', () => {
-  const r2 = read('lib/r2.ts');
-  const start = r2.indexOf('export async function r2HeadOutcome');
-  assert.ok(start > 0, 'r2HeadOutcome is gone — the desk can no longer tell gone from unanswered');
-  const body = r2.slice(start, start + 2200);
+  const body = bodyOf(read('lib/r2.ts'), 'r2HeadOutcome');
   assert.match(body, /status === 404/, 'the absent branch no longer requires a 404');
   assert.match(body, /kind: 'unknown'/, 'every non-404 failure must degrade to unknown');
   // A 403 must NEVER be read as "the file is not there": the file may be
@@ -287,9 +291,7 @@ test('neither the probe nor the opener hardcodes a bucket for a stored reference
     'the probe HEADs a hardcoded bucket again',
   );
 
-  const actions = read(VERIFY_ACTIONS);
-  const start = actions.indexOf('export async function openApplicationDocument');
-  const body = actions.slice(start, start + 3200);
+  const body = bodyOf(read(VERIFY_ACTIONS), OPENER);
   assert.match(body, /resolveDocumentLocation\(/, 'the opener guesses the bucket again');
   assert.doesNotMatch(
     body,
@@ -308,4 +310,41 @@ test('the queue reads its checks in a batch, not once per card', () => {
     'the per-shop builder is being fanned out over the whole queue again',
   );
   assert.match(page, /buildVerificationChecksForVendors\(/, 'the batched builder is gone');
+});
+
+test('the opener refuses a file filed under a different shop', () => {
+  // Both vendor-side writers pin an `r2://…` ref to the vendor's own folders —
+  // and both let a BARE value through unvalidated, which their own SEC-1
+  // comments call write pollution. A stored bare key can therefore name another
+  // shop's folder. The tenancy CHECK reports that; the opener must also refuse
+  // to hand the file over, because an application approved on the strength of
+  // somebody else's paperwork is the harm, not the download.
+  const body = bodyOf(read(VERIFY_ACTIONS), OPENER);
+
+  // 🪤 ASSERT THE SELECT, NOT A MENTION. Rev 1 matched `vendor_profile_id`
+  // anywhere in the body — which the comparison below satisfies on its own, so
+  // dropping the column from the query left the guard GREEN while
+  // `app.vendor_profile_id` became undefined and every document was refused.
+  // Only mutation found it. A bare mention is not a read.
+  const select = /\.select\('([^']*)'\)/.exec(body);
+  assert.ok(select, 'the opener no longer selects anything from the application');
+  assert.match(
+    select![1],
+    /\bvendor_profile_id\b/,
+    'the opener does not SELECT the shop the application belongs to, so it cannot place the file',
+  );
+
+  assert.match(
+    body,
+    /keyOwner !== null && keyOwner !== app\.vendor_profile_id/,
+    'the opener serves a file filed under a different shop',
+  );
+  // …and it must NOT refuse on a path it simply could not parse: a portfolio
+  // key is a different shape, and refusing on "we could not tell" would break
+  // every legitimate future layout.
+  assert.doesNotMatch(
+    body,
+    /if \(keyOwner === null\)[^\n]*redirect/,
+    'the opener refuses an unrecognised path shape instead of placing it',
+  );
 });

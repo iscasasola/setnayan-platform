@@ -83,6 +83,12 @@ const DOORS = [
   // and it was invisible to the first shape rule because it framed the page with
   // a `<div>` inside a bare `<main>`, not with the `<main>` itself.
   '[slug]/welcome/page.tsx',
+  // The invite arrival's doors 02 and 03 (lib/invite-arrival.ts, 2026-09-10) —
+  // Reply and Enter. Door 01 is JoinFlow, already listed below. Added in the SAME
+  // change that created them: a door that ships unlisted is exactly the miss the
+  // three notes above record.
+  '[slug]/invite/reply/page.tsx',
+  '[slug]/invite/enter/page.tsx',
   // …and a THIRD miss, found by an adversarial audit: the Live Studio camera
   // seat. Its own header calls it "A DIRECT clone of the Papic seat-claim page"
   // — whose original IS in this list — so it inherited both the wrapper and the

@@ -171,7 +171,7 @@ BEGIN
   IF NOT phone AND NOT is_card THEN
     phone := regexp_replace(norm, '[' || ws || '().+-]{1,2}', '', 'g') ~ '[0-9]{11}';
   END IF;
-  IF phone THEN cats := cats || 'phone'; END IF;
+  IF phone THEN cats := array_append(cats, 'phone'); END IF;
 
   -- ── EMAIL · EMAIL_OBFUSCATED ─────────────────────────────────────────────
   IF p_body ~ '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
@@ -181,7 +181,7 @@ BEGIN
        || s || '*[A-Za-z]{2,}'
      )
   THEN
-    cats := cats || 'email';
+    cats := array_append(cats, 'email');
   END IF;
 
   -- ── SOCIAL_URL ───────────────────────────────────────────────────────────
@@ -193,12 +193,12 @@ BEGIN
     || '\.(?:com|net|org|me|ph|io)(?:/[^' || ws || ']*)?'
     || ')'
   ) THEN
-    cats := cats || 'url';
+    cats := array_append(cats, 'url');
   END IF;
 
   -- ── HANDLE ───────────────────────────────────────────────────────────────
   IF p_body ~ ('(?:^|[^A-Za-z0-9_@/])@[A-Za-z][A-Za-z0-9._]{1,30}' || bb) THEN
-    cats := cats || 'handle';
+    cats := array_append(cats, 'handle');
   END IF;
 
   -- ── BLOCKLIST (in the engine's order) ────────────────────────────────────
@@ -215,10 +215,10 @@ BEGIN
          || '|' || b0 || 'signal app' || b1 || '|' || b0 || 'line app' || b1
        )
     THEN
-      cats := cats || 'app_name';
+      cats := array_append(cats, 'app_name');
     END IF;
     IF p_body ~* (b0 || '(?:blue|purple|green|pink)' || s || '+app' || b1) THEN
-      cats := cats || 'euphemism';
+      cats := array_append(cats, 'euphemism');
     END IF;
   END IF;
 
@@ -245,7 +245,7 @@ BEGIN
     || '|off' || s || '+(?:the' || s || '+)?platform'
     || ')' || b1
   ) THEN
-    cats := cats || 'solicit';
+    cats := array_append(cats, 'solicit');
   END IF;
 
   RETURN cats;

@@ -331,7 +331,7 @@ test('C · a direct insert carrying contact details is REFUSED, for either party
 test('C · positive control — ordinary conversation still sends, both ways', async () => {
   for (const [uid, body] of [
     [F.couple, 'See you at the tasting on the 12th — 150 pax, budget 80000.'],
-    [F.vendorUser, 'Salamat po! Our 4-hour set is Php 9,000 per hour. Message me on Setnayan anytime.'],
+    [F.vendorUser, 'Salamat po! Our 4-hour set is Php 9,000 per hour, minimum 4 hours, 20 staff.'],
     [F.couple, 'Can we do 2026-12-12 14:30 instead?'],
   ] as const) {
     const err = await sendAs(uid, row({ body }));
@@ -589,7 +589,7 @@ const EDGES = [
   'Php 9,000 per hour, minimum 4 hours, 150 pax, 20 staff',
   'Valid 2026-09-17 - 2026-12-31',
   'Message me on Viber, not on Setnayan', 'We reply on Setnayan or add me on WhatsApp',
-  'my number', 'hit me　up', 'whats app', 'whats​app',
+  'my\u00a0number', 'hit\u2003me\u3000up', 'whats\u00a0app', 'whats\u200bapp', 'add\u2003me\u00a0on viber',
   'Reception @Shangri-La', 'email@', 'a@b.c', 'a@b.cc',
 ];
 

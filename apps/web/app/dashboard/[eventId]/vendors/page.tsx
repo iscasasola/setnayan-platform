@@ -61,7 +61,7 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
-import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import {
   bucketVendorsByGroup,
   canonicalServiceToPlanGroupId,
@@ -2339,24 +2339,18 @@ async function fetchVendorPhotoMaps(
   // vendor_id in the same pass that maps service photos below.
   const startingPriceByServiceId = new Map<string, number>();
   for (const row of (svcRes.data ?? []) as SvcRow[]) {
-    if (row.primary_photo_r2_key) {
-      svcUrlByServiceId.set(
-        row.vendor_service_id,
-        r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
-      );
-    }
+    // A ref we cannot address resolves to null — leave the entry OUT so the
+    // card falls back to its placeholder rather than to a broken image.
+    const svcPhotoUrl = publicUrlForStoredAsset(row.primary_photo_r2_key);
+    if (svcPhotoUrl) svcUrlByServiceId.set(row.vendor_service_id, svcPhotoUrl);
     if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
       startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);
     }
   }
   const manualUrlByManualId = new Map<string, string>();
   for (const row of (manRes.data ?? []) as ManRow[]) {
-    if (row.photo_r2_key) {
-      manualUrlByManualId.set(
-        row.manual_vendor_id,
-        r2PublicUrl(R2_BUCKETS.media, row.photo_r2_key),
-      );
-    }
+    const manualPhotoUrl = publicUrlForStoredAsset(row.photo_r2_key);
+    if (manualPhotoUrl) manualUrlByManualId.set(row.manual_vendor_id, manualPhotoUrl);
   }
   for (const [vendorId, serviceId] of serviceIdByVendor) {
     const url = svcUrlByServiceId.get(serviceId);

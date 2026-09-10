@@ -57,6 +57,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
+import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
@@ -77,7 +78,7 @@ import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
  * with two additions: `starting_price_php` (resolved from one of the
  * vendor's services) and `primary_photo_url` (resolved from the same
- * service's `primary_photo_r2_key` → r2PublicUrl). Both are added by
+ * service's `primary_photo_r2_key` → publicUrlForStoredAsset). Both are added by
  * the page-level enrichment pass, kept optional so the card never
  * crashes if the underlying lookup returns null.
  */
@@ -764,34 +765,3 @@ function VendorHero({
   );
 }
 
-/**
- * next/image needs an absolute URL whose host is in
- * `next.config.ts`'s `images.remotePatterns` whitelist. Vendor uploads
- * land on R2 (setnayan-media bucket → `*.r2.dev` /
- * `*.r2.cloudflarestorage.com`) or Supabase Storage (`*.supabase.co`
- * / `*.supabase.in`). Anything else routes to the initials fallback
- * — a missing image renders as initials, never as broken next/image
- * markup. Mirrors the host whitelist the legacy VendorMarketCard
- * used before extraction.
- */
-function isOptimizableImageUrl(url: string): boolean {
-  if (url.startsWith('/')) return true;
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return false;
-  }
-  return (
-    host.endsWith('.r2.dev') ||
-    host.endsWith('.r2.cloudflarestorage.com') ||
-    host.endsWith('.supabase.co') ||
-    host.endsWith('.supabase.in') ||
-    // Demo/seed placeholder host. Already whitelisted in next.config.ts
-    // remotePatterns + used by the moodboard library seed; aligning the card
-    // guard lets synthetic demo-vendor logos render as a card banner instead
-    // of falling back to initials. Real vendors never store picsum URLs.
-    host === 'picsum.photos' ||
-    host === 'fastly.picsum.photos'
-  );
-}

@@ -31,7 +31,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   MUSIC_CANONICALS,
@@ -136,7 +136,7 @@ export type WizardVendorRec = {
    *  populated when presentation_pattern === 'creations'; empty array
    *  for Pattern B and for Pattern A vendors with < 2 service photos
    *  (the tile falls back to single-hero in those cases · same UX as
-   *  Pattern B). Photo URLs are pre-resolved via r2PublicUrl. */
+   *  Pattern B). Photo URLs are pre-resolved via publicUrlForStoredAsset. */
   services_preview: ReadonlyArray<{
     photo_url: string;
     service_name: string | null;
@@ -738,9 +738,15 @@ export async function fetchWizardVendorRecommendations(
         ? photos
             .slice(0, 5)
             .map((p) => ({
-              photo_url: r2PublicUrl(R2_BUCKETS.media, p.primary_photo_r2_key!),
+              photo_url: publicUrlForStoredAsset(p.primary_photo_r2_key),
               service_name: p.category ?? null,
             }))
+            // A ref we cannot address is dropped, never emitted as an empty
+            // src — the collage simply shows one tile fewer.
+            .filter(
+              (t): t is { photo_url: string; service_name: string | null } =>
+                typeof t.photo_url === 'string' && t.photo_url.length > 0,
+            )
         : [];
 
     const overlap = overlapByVendor.get(row.vendor_profile_id);
@@ -767,7 +773,7 @@ export async function fetchWizardVendorRecommendations(
     return {
       ...row,
       primary_photo_url: firstPhotoKey
-        ? r2PublicUrl(R2_BUCKETS.media, firstPhotoKey)
+        ? publicUrlForStoredAsset(firstPhotoKey)
         : null,
       verification_state: meta?.verification_state ?? null,
       name_revealed_at: meta?.name_revealed_at ?? null,

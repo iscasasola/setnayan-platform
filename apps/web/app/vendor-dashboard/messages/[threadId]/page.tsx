@@ -64,7 +64,7 @@ import {
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
-import { confirmVendorPayment } from './pay-confirm-actions';
+import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -1138,6 +1138,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         // way to answer each request; Decisions is a second door to it.
         supplierReplyActions={{
           confirmPayment: confirmVendorPayment,
+          refusePayment: refuseVendorPayment,
           applySurcharge: acceptPaxSurcharge,
           holdPrice: declinePaxSurcharge,
         }}

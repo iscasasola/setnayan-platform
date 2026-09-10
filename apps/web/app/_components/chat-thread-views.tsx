@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { ProposeNewTimeForm } from './propose-new-time-form';
+import { NotReceivedForm } from './not-received-form';
 import {
   DECISIONS_EMPTY,
   decisionStageWord,
@@ -167,6 +168,8 @@ function StandingLine({
  */
 export type SupplierReplyActions = {
   confirmPayment: (formData: FormData) => Promise<void>;
+  /** H4 — "it never reached me" (`refuseVendorPayment`). */
+  refusePayment: (formData: FormData) => Promise<void>;
   applySurcharge: (formData: FormData) => Promise<void>;
   holdPrice: (formData: FormData) => Promise<void>;
 };
@@ -327,22 +330,8 @@ function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext
       );
     }
 
-    case 'payment': {
-      // Supplier-only. Absent actions ⇒ no button, never a button that fails.
-      const act = ctx.supplierActions?.confirmPayment;
-      if (!act) return null;
-      return (
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          <form action={act}>
-            <input type="hidden" name="payment_id" value={reply.paymentId} />
-            <input type="hidden" name="thread_id" value={ctx.threadId} />
-            <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
-              Confirm received
-            </SubmitButton>
-          </form>
-        </div>
-      );
-    }
+    case 'payment':
+      return <PaymentReply reply={reply} ctx={ctx} />;
 
     case 'guest_count': {
       const apply = ctx.supplierActions?.applySurcharge;
@@ -441,6 +430,68 @@ export function FilesPanel({ files }: { files: readonly SharedFileEntry[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * A logged payment has TWO answers — it reached me, or it never did — the two
+ * the design drew side by side. The second opens the shared `NotReceivedForm`,
+ * so this door and the payment section's post the identical fields (H4).
+ *
+ * Supplier-only: both actions arrive as props from the supplier's page. Absent
+ * actions ⇒ no button, never a button that fails. After either answer the line
+ * stops needing the supplier, so `reply ⇔ needsYou` removes the buttons itself.
+ */
+function PaymentReply({
+  reply,
+  ctx,
+}: {
+  reply: Extract<DecisionReply, { kind: 'payment' }>;
+  ctx: ReplyContext;
+}) {
+  const [notReceivedOpen, setNotReceivedOpen] = useState(false);
+  const confirm = ctx.supplierActions?.confirmPayment;
+  const refuse = ctx.supplierActions?.refusePayment;
+  if (!confirm) return null;
+  const hidden = (
+    <>
+      <input type="hidden" name="payment_id" value={reply.paymentId} />
+      <input type="hidden" name="thread_id" value={ctx.threadId} />
+    </>
+  );
+  return (
+    <div className="mt-2.5">
+      <div className="flex flex-wrap gap-2">
+        <form action={confirm}>
+          {hidden}
+          <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
+            Confirm received
+          </SubmitButton>
+        </form>
+        {refuse ? (
+          <button
+            type="button"
+            onClick={() => setNotReceivedOpen((v) => !v)}
+            aria-expanded={notReceivedOpen}
+            className={QUIET}
+          >
+            Not received
+          </button>
+        ) : null}
+      </div>
+      {refuse && notReceivedOpen ? (
+        <NotReceivedForm
+          action={refuse}
+          hidden={hidden}
+          fieldClassName="input-field min-h-[44px] text-sm"
+          submit={
+            <SubmitButton className={`${QUIET} self-start`} pendingLabel="Sending…">
+              Tell them it hasn’t arrived
+            </SubmitButton>
+          }
+        />
+      ) : null}
+    </div>
   );
 }
 

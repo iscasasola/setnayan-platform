@@ -109,6 +109,38 @@ export class R2RefRefused extends Error {
   }
 }
 
+/**
+ * Does this string LOOK LIKE a storage ref, by the SAME rule the database's
+ * RESTRICTIVE `..._refs_are_own_*` policies use (migration
+ * `20271219262486_every_cleanup_delete_is_pinned.sql`, § 4)?
+ *
+ * 🪤 THE BUG THIS REPLACES. Two call sites (verify/actions.ts, shop/
+ * inline-docs-actions.ts) used to gate their own ownership check on plain
+ * `ref.startsWith('r2://')` — an exact-case, untrimmed-beyond-`.trim()` test.
+ * A value spelled `R2://…`, padded with a leading tab/NBSP/BOM the form
+ * field's own `.trim()` didn't anticipate stacking with, or simply differently
+ * cased, made that test FALSE, which took the `!startsWith(...)` branch of an
+ * `||` chain and treated the value as "not a ref, nothing to check" — skipping
+ * `parseClientRef` entirely and writing it straight into `doc_uploads`. The
+ * database's own policy normalises before judging (see below) and so refused
+ * the write anyway, but as a raw `new row violates row-level security policy`
+ * error with no app-level translation.
+ *
+ * This is the same normalisation, so anything the database would recognise as
+ * ref-shaped is caught HERE first and can be given a plain refusal instead of
+ * surfacing that error: strip every leading character that is not an ASCII
+ * letter or digit (a strict superset of what `.trim()` removes — plain
+ * whitespace, NBSP, BOM, line separators, and also zero-width/control
+ * characters no reader strips), lower-case what remains, and ask whether it
+ * begins `r2:`. A value that answers yes here but fails `parseClientRef`'s
+ * strict, case-sensitive, exact-prefix check is refused before any database
+ * round trip.
+ */
+export function looksLikeStorageRef(value: string): boolean {
+  const stripped = value.replace(/^[^0-9A-Za-z]+/, '');
+  return stripped.toLowerCase().startsWith('r2:');
+}
+
 /** S3/R2 hard limit on key length. */
 const MAX_KEY_LENGTH = 1024;
 

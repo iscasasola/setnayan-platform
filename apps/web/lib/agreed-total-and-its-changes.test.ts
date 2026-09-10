@@ -705,37 +705,42 @@ const FOLD_ROWS = /\bwithAgreedTotalNow\s*\(/;
 const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column: number; what: string }> = {
   'app/dashboard/[eventId]/_components/event-dashboard.tsx': {
     what: 'event home — the committed figure',
-    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const cost = agreedTotalNow\(row\.total_cost_php, row\.change_lines\)/, 1]],
     column: 3,
   },
   'app/dashboard/[eventId]/vendors/page.tsx': {
     what: 'the couple’s supplier list, plan budget, “remaining”, build guard',
-    needles: [[AGREED_NOW, 1], [PAGE_READ, 1]],
+    needles: [[AGREED_NOW, 1], [PAGE_READ, 1], [/total_cost_php: agreedTotalNow\(v\.total_cost_php, changeLines\.byVendor\.get\(/, 1]],
     column: 8,
   },
   'app/dashboard/[eventId]/date-selection/page.tsx': {
     what: 'date picker — the shortlist budget range',
-    needles: [[FOLD_ROWS, 1], [PAGE_READ, 1]],
+    needles: [[FOLD_ROWS, 1], [PAGE_READ, 1], [/shortlistBudgetRange\(\s*withAgreedTotalNow\(vendors, changeLines\.byVendor\)/, 1]],
     column: 4,
   },
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': {
     what: 'per-supplier page — hero price and the Costing total (draws the change too)',
-    needles: [[AGREED_NOW, 1]],
+    needles: [
+      [AGREED_NOW, 1],
+      [/const rolledTotalNum = serviceNowNum \+/, 1],
+      [/packageHeader\.priceCentavos \+ Math\.round\(changesSinceLockNum \* 100\)/, 1],
+      [/\{changesSinceLockNum !== 0 \?/, 1],
+    ],
     column: 7,
   },
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment and the payment plan amounts',
-    needles: [[AGREED_NOW, 2], [EMBED, 2]],
+    needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
     column: 11,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',
-    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const rolled = \(r: VRow\) =>\s*\(agreedTotalNow\(/, 1]],
     column: 4,
   },
   'lib/thread-decision-sources.server.ts': {
     what: 'Decisions — "₱50,000 of ₱X", both sides of the thread',
-    needles: [[AGREED_NOW, 1], [EMBED, 1]],
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/\[b\.vendor_id, agreedTotalNow\(b\.total_cost_php, b\.change_lines\)\]/, 1]],
     column: 3,
   },
   'lib/checklist-budget.ts': {
@@ -745,12 +750,12 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   },
   'lib/checklist-budget-attribution.ts': {
     what: 'checklist budget — the per-supplier cost',
-    needles: [[AGREED_NOW, 1]],
+    needles: [[AGREED_NOW, 1], [/Number\(agreedTotalNow\(v\.total_cost_php, v\.change_lines\) \?\? 0\)/, 1]],
     column: 2,
   },
   'lib/budget-page-money.ts': {
     what: 'budget page — the flag-OFF Committed strip',
-    needles: [[AGREED_NOW, 1]],
+    needles: [[AGREED_NOW, 1], [/const cost = agreedTotalNow\(s\.vendor\.total_cost_php, s\.lineItems\)/, 1]],
     column: 2,
   },
   'lib/budget.ts': {

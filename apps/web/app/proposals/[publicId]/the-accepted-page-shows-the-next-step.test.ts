@@ -39,10 +39,11 @@ test('the accepted couple-side state resolves a Lock link from event_vendors', (
 test('the next-step block is gated to the couple, accepted, with an event', () => {
   const src = source();
   const gate = src.match(/let lockWorkspaceHref[^;]*;\s*if \(([^)]*)\)/);
-  assert.ok(gate, 'expected the lockWorkspaceHref resolution to be gated');
-  assert.match(gate![1], /!isVendorSide/);
-  assert.match(gate![1], /proposal\.status === 'accepted'/);
-  assert.match(gate![1], /proposal\.event_id/);
+  const cond = gate?.[1];
+  assert.ok(cond, 'expected the lockWorkspaceHref resolution to be gated');
+  assert.match(cond, /!isVendorSide/);
+  assert.match(cond, /proposal\.status === 'accepted'/);
+  assert.match(cond, /proposal\.event_id/);
 });
 
 test('the next-step block only renders when a link was resolved, and only once', () => {

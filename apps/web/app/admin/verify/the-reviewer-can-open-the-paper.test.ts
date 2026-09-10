@@ -329,7 +329,7 @@ test('the opener refuses a file filed under a different shop', () => {
   const select = /\.select\('([^']*)'\)/.exec(body);
   assert.ok(select, 'the opener no longer selects anything from the application');
   assert.match(
-    select![1],
+    select?.[1] ?? '',
     /\bvendor_profile_id\b/,
     'the opener does not SELECT the shop the application belongs to, so it cannot place the file',
   );

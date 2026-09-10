@@ -197,16 +197,45 @@ test('a guest, a booked supplier and a coordinator cannot START a render — not
   assert.equal(refused, 6);
 });
 
-test('…nor finish, fail (refund) or attach a copy to the COUPLE’s render', async () => {
-  for (const who of NON_COUPLE) {
-    const own = `renders/${F.eventId}/${F.coupleRender}.png`;
-    assert.equal(await scalar<boolean>(F[who], `SELECT public.moodboard_finish_render($1, $2) AS v`, [F.coupleRender, own]), false, `${who} finished it`);
-    assert.equal(await scalar<boolean>(F[who], `SELECT public.moodboard_fail_render($1, 'x') AS v`, [F.coupleRender]), false, `${who} failed it`);
-    assert.equal(
-      await scalar<boolean>(F[who], `SELECT public.moodboard_attach_gallery_copy($1, $2) AS v`, [F.coupleRender, `render-gallery/${F.eventId}/${F.coupleRender}.jpg`]),
-      false,
-      `${who} attached a gallery copy`,
+test('…nor finish, fail (refund) or attach a copy to the COUPLE’s IN-FLIGHT render — which the couple then finishes', async () => {
+  // A fresh in-flight render (image_key NULL), so a refusal cannot be "it was
+  // already delivered" — the couple's own finish at the end is the control.
+  await db.exec('BEGIN');
+  try {
+    await asUser(F.couple);
+    const id = (await db.query<{ v: string | null }>(BEGIN_SQL, [F.eventId, 1])).rows[0]!.v;
+    assert.ok(id, 'the couple could not begin — the control is broken');
+    await reset();
+    const own = `renders/${F.eventId}/${id}.png`;
+    let refused = 0;
+    for (const who of NON_COUPLE) {
+      await asUser(F[who]);
+      const fin = (await db.query<{ v: boolean }>(`SELECT public.moodboard_finish_render($1, $2) AS v`, [id, own])).rows[0]!.v;
+      const fail = (await db.query<{ v: boolean }>(`SELECT public.moodboard_fail_render($1, 'x') AS v`, [id])).rows[0]!.v;
+      const att = (
+        await db.query<{ v: boolean }>(`SELECT public.moodboard_attach_gallery_copy($1, $2) AS v`, [id, `render-gallery/${F.eventId}/${id}.jpg`])
+      ).rows[0]!.v;
+      await reset();
+      assert.equal(fin, false, `${who} finished the couple’s render`);
+      assert.equal(fail, false, `${who} failed (refunded) the couple’s render`);
+      assert.equal(att, false, `${who} attached a gallery copy`);
+      refused += 3;
+    }
+    const still = await db.query<{ image_key: string | null; failed_at: string | null }>(
+      `SELECT image_key, failed_at FROM public.event_renders WHERE render_id = $1`,
+      [id],
     );
+    assert.equal(still.rows[0]!.image_key, null);
+    assert.equal(still.rows[0]!.failed_at, null);
+    await asUser(F.couple);
+    const done = (await db.query<{ v: boolean }>(`SELECT public.moodboard_finish_render($1, $2) AS v`, [id, own])).rows[0]!.v;
+    await reset();
+    assert.equal(done, true, 'the couple could not finish its own render — the refusals above prove nothing');
+    console.log(`# non-couple finish/fail/attach refused: ${refused}/9`);
+  } finally {
+    await db.exec('RESET ROLE').catch(() => {});
+    await db.exec('ROLLBACK').catch(() => {});
+    await reset();
   }
 });
 
@@ -277,7 +306,7 @@ test('the trusted SERVER context (no auth.uid()) is unchanged', async () => {
 
 /* ── 3 · READ ACCESS IS KEPT, MEMBER FOR MEMBER ───────────────────────────── */
 
-test('every non-couple member still READS the balance, the couple’s renders, the consent row and the pool', async () => {
+test('every non-couple member still READS the balance, the couple’s renders and the pool', async () => {
   for (const who of NON_COUPLE) {
     const bal = await asRolledBack<{ credits_granted: number; credits_left: number }>(
       F[who],

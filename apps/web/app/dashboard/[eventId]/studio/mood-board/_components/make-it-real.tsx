@@ -127,6 +127,13 @@ export type MakeItRealProps = {
   renders: RenderGalleryItem[] | null;
   /** MB8 — has this event agreed to be featured (and taken the +1 render)? */
   shareConsented: boolean;
+  /**
+   * Owner ruling 2026-09-11 — may THIS viewer spend the couple's render
+   * credits or change share consent? True for the couple and Setnayan admins
+   * (`moodboard_render_caller_may_act`). A guest, supplier or coordinator
+   * still sees everything here; the controls say who can use them instead.
+   */
+  mayStartRenders: boolean;
 };
 
 /** One row of the couple's gallery, with its viewing URL resolved. */
@@ -151,6 +158,7 @@ export function MakeItReal({
   checkoutSettings,
   renders,
   shareConsented,
+  mayStartRenders,
 }: MakeItRealProps) {
   const inspirationPresenceSet = useMemo(
     () => new Set(inspirationPresence),
@@ -395,7 +403,12 @@ export function MakeItReal({
               ? 'Make it real is temporarily unavailable.'
               : `1 credit per part · ${config!.creditsWholeLook} for the whole look. Payment is verified by hand (~a day).`}
           </p>
-          {packPlan ? (
+          {!mayStartRenders ? (
+            <p data-couple-only-renders className="max-w-[34ch] text-xs text-ink/55">
+              Only the couple can start a render or choose to share one.
+            </p>
+          ) : null}
+          {packPlan && mayStartRenders ? (
             <ChoosePlanSheet
               eventId={eventId}
               triggerLabel={`Buy ${packPlan.name}`}
@@ -418,6 +431,7 @@ export function MakeItReal({
               }
               onScrollTo={scrollTo}
               localCreditsLeft={localCreditsLeft}
+              coupleOnly={!mayStartRenders}
               state={stateFor(WHOLE_LOOK_ID)}
               onNoteChange={(note) => patchState(WHOLE_LOOK_ID, { note })}
               onGenerate={(vm) => generate(WHOLE_LOOK_ID, vm)}
@@ -436,6 +450,7 @@ export function MakeItReal({
                 onToggleBrief={() => patchState(part.id, { briefOpen: !stateFor(part.id).briefOpen })}
                 onScrollTo={scrollTo}
                 localCreditsLeft={localCreditsLeft}
+                coupleOnly={!mayStartRenders}
                 state={stateFor(part.id)}
                 onNoteChange={(note) => patchState(part.id, { note })}
                 onGenerate={(vm) => generate(part.id, vm)}
@@ -470,6 +485,7 @@ export function MakeItReal({
                 onToggleBrief={() => patchState(part.id, { briefOpen: !stateFor(part.id).briefOpen })}
                 onScrollTo={scrollTo}
                 localCreditsLeft={localCreditsLeft}
+                coupleOnly={!mayStartRenders}
                 state={stateFor(part.id)}
                 onNoteChange={(note) => patchState(part.id, { note })}
                 onGenerate={(vm) => generate(part.id, vm)}
@@ -501,7 +517,7 @@ export function MakeItReal({
               <input
                 type="checkbox"
                 checked={consented}
-                disabled={consentPending}
+                disabled={consentPending || !mayStartRenders}
                 onChange={(e) => void toggleConsent(e.target.checked)}
                 className="mt-0.5 h-4 w-4 shrink-0 accent-terracotta"
               />
@@ -516,6 +532,11 @@ export function MakeItReal({
                   yours. Setnayan can always see and keep your renders for quality and to build
                   our own design library; this choice is only about showing them publicly.
                 </span>
+                {!mayStartRenders ? (
+                  <span className="block text-xs font-semibold text-ink/60">
+                    Only the couple can change this.
+                  </span>
+                ) : null}
               </span>
             </label>
           </div>
@@ -752,6 +773,8 @@ type TileChromeProps = {
   onUnlock: () => void;
   onKeep: () => void;
   onRemove?: () => void;
+  /** Owner ruling 2026-09-11: this viewer is not the couple — show, never offer. */
+  coupleOnly?: boolean;
 };
 
 function TileChrome({
@@ -770,6 +793,7 @@ function TileChrome({
   onUnlock,
   onKeep,
   onRemove,
+  coupleOnly = false,
 }: TileChromeProps) {
   const canAfford = localCreditsLeft !== null && localCreditsLeft >= vm.cost;
   return (
@@ -857,7 +881,10 @@ function TileChrome({
         {/* ── MB8: the two outcomes that are neither "idle" nor "done" ──────
             Both sit ABOVE the normal controls, because the freshest fact
             about this tile is what just happened to it. */}
-        {vm.insufficient ? (
+        {coupleOnly ? (
+          <span className="basis-full text-ink/60">Only the couple can make this real.</span>
+        ) : null}
+        {!coupleOnly && vm.insufficient ? (
           <>
             <span className="basis-full font-semibold text-danger-700">
               You don&rsquo;t have {vm.costLabel} left — nothing was made and nothing was
@@ -874,7 +901,7 @@ function TileChrome({
             </button>
           </>
         ) : null}
-        {vm.failure ? (
+        {!coupleOnly && vm.failure ? (
           <>
             <span className="basis-full font-semibold text-danger-700">
               {vm.failure.headline} — your credit was returned.
@@ -893,7 +920,7 @@ function TileChrome({
             ) : null}
           </>
         ) : null}
-        {!state.generated ? (
+        {coupleOnly ? null : !state.generated ? (
           !vm.gate.ok ? (
             <>
               <span className="basis-full text-ink/60">
@@ -985,7 +1012,7 @@ function TileChrome({
         ) : null}
       </div>
 
-      {state.briefOpen && !state.locked ? (
+      {state.briefOpen && !state.locked && !coupleOnly ? (
         <div className="space-y-1.5 border-t border-dashed border-ink/10 px-3 py-2.5 text-xs">
           <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">From your board</p>
           <p className="text-ink/70">Venue — {venueLabel}</p>

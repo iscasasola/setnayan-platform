@@ -182,8 +182,10 @@ type Props = {
   poolLow?: boolean;
   /** Her number is a sponsor's bigger share (two or three of the equal shares),
    *  so the counter says so — otherwise a ninang reading "33 left" beside a
-   *  cousin's "11 left" has no idea why. Resolved by `fetchGuestQuota`. */
-  sponsorShare?: boolean;
+   *  cousin's "11 left" has no idea why. Resolved by `fetchGuestQuota`.
+   *  REQUIRED, like `capApplies`: the camera has two mounts, and an optional
+   *  prop is how one of them quietly forgets it. */
+  sponsorShare: boolean;
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  guest can't change it; it's baked into every photo they capture. */
   eventStyle: PapicStyle;
@@ -230,7 +232,7 @@ export function PapicGuestCapture({
   capApplies,
   poolRemaining = null,
   poolLow = false,
-  sponsorShare = false,
+  sponsorShare,
   eventStyle,
   faceMode,
   storyToken = null,

@@ -15,7 +15,7 @@ import {
   bypassExpiryFrom,
   bypassNoticeForVendor,
   bypassState,
-  mustWithdraw,
+  vouchHasLapsed,
 } from './verification-bypass';
 
 const NOW = new Date('2026-09-07T00:00:00.000Z');
@@ -41,25 +41,25 @@ test('an active bypass counts down, and turns urgent inside 30 days', () => {
 
 test('🔑 documents approved WINS over the clock — a bridge crossed is not a bridge failed', () => {
   // A supplier who completed verification inside the window must never be
-  // withdrawn because a stale expires_at was left on the row.
+  // marked lapsed because a stale expires_at was left on the row.
   const past = { expiresAt: inDays(-40), documentsApproved: true };
   assert.equal(bypassState(past, NOW).kind, 'satisfied');
-  assert.equal(mustWithdraw(past, NOW), false);
+  assert.equal(vouchHasLapsed(past, NOW), false);
 });
 
-test('🔑 the deadline passes and the listing must be withdrawn', () => {
+test('🔑 the deadline passes and the vouch has lapsed', () => {
   const facts = { expiresAt: inDays(-1), documentsApproved: false };
   const s = bypassState(facts, NOW);
   assert.equal(s.kind, 'expired');
-  assert.equal(mustWithdraw(facts, NOW), true);
+  assert.equal(vouchHasLapsed(facts, NOW), true);
 });
 
-test('an unparseable deadline never withdraws a live listing', () => {
+test('an unparseable deadline never marks a live vouch lapsed', () => {
   // Absence of a usable date is absence of a deadline. Reading garbage as
-  // "expired" would take a real shop off the marketplace over a bad string.
+  // "expired" would take a real shop's badge off over a bad string.
   const facts = { expiresAt: 'not-a-date', documentsApproved: false };
   assert.equal(bypassState(facts, NOW).kind, 'none');
-  assert.equal(mustWithdraw(facts, NOW), false);
+  assert.equal(vouchHasLapsed(facts, NOW), false);
 });
 
 test('the vendor is told from day one, not at day 175', () => {
@@ -67,7 +67,27 @@ test('the vendor is told from day one, not at day 175', () => {
   assert.ok(early && /170 days left/.test(early), `day-one notice missing: ${early}`);
   const late = bypassNoticeForVendor(bypassState({ expiresAt: inDays(5), documentsApproved: false }, NOW));
   assert.ok(late && /due in 5 days/.test(late), `urgent notice missing: ${late}`);
-  assert.ok(late && /stops showing to couples/.test(late), 'the consequence is not stated');
+  assert.ok(late && /Verified badge comes off/.test(late), 'the consequence is not stated');
+});
+
+test('⚖ owner 2026-09-11 (Q4 + Q5) · a missed deadline costs the BADGE, never the listing', () => {
+  // Every sentence the supplier can be shown about their deadline must say the
+  // shop stays up. The old copy promised "your shop stops showing to couples"
+  // — the consequence the owner ruled out.
+  const states = [
+    bypassState({ expiresAt: inDays(170), documentsApproved: false }, NOW),
+    bypassState({ expiresAt: inDays(5), documentsApproved: false }, NOW),
+    bypassState({ expiresAt: inDays(-3), documentsApproved: false }, NOW),
+  ];
+  for (const st of states) {
+    const line = bypassNoticeForVendor(st) ?? '';
+    assert.ok(
+      !/(stops showing|no longer showing|withdraw|taken down|hidden|unlist)/i.test(line),
+      `a deadline notice threatens the listing: ${line}`,
+    );
+  }
+  const lapsed = bypassNoticeForVendor(states[2]!) ?? '';
+  assert.match(lapsed, /still listed/i, `the lapse notice does not say the shop stays up: ${lapsed}`);
 });
 
 test('a satisfied or absent bypass says nothing to the vendor', () => {
@@ -106,6 +126,7 @@ const HERE2 = dirname(fileURLToPath(import.meta.url));
 const ACTIONS = stripComments(
   readFileSync(resolve(HERE2, '../app/admin/vendors/verification-bypass-actions.ts'), 'utf8'),
 );
+const SWEEP = stripComments(readFileSync(resolve(HERE2, 'verified-badge-sweep.ts'), 'utf8'));
 const MIGRATION = (() => {
   const dir = resolve(HERE2, '../../../supabase/migrations');
   const fs = require('node:fs') as typeof import('node:fs');
@@ -136,16 +157,50 @@ test('source · a grant demands a stated reason', () => {
 });
 
 test('source · every path writes an audit row', () => {
+  // Grant and revoke here; the expiry note in the daily pass.
   const actions = ACTIONS.match(/admin_audit_log/g) ?? [];
-  assert.ok(actions.length >= 3, `grant, revoke and expiry must each audit — found ${actions.length}`);
+  assert.ok(actions.length >= 2, `grant and revoke must each audit — found ${actions.length}`);
+  assert.match(SWEEP, /vendor_verification_bypass_expired/, 'a lapsed vouch is no longer audited');
+});
+
+test('🔴 source · a vouch stamps the date AND the deadline in the same update as the state', () => {
+  // `vendor_profiles_verified_requires_stamp` refuses 'verified' with a NULL
+  // last_verified_at on EVERY update. A grant that writes the state alone fails
+  // for every shop that was never verified — which is every shop a vouch is for.
+  const i = ACTIONS.indexOf('grantVerificationBypass');
+  const body = ACTIONS.slice(i, ACTIONS.indexOf('export async function revokeVerificationBypass'));
+  const update = body.slice(body.indexOf(".from('vendor_profiles')"), body.indexOf('if (error)'));
+  assert.match(update, /last_verified_at:/, 'the vouch does not stamp last_verified_at — the CHECK refuses it');
+  assert.match(update, /next_renewal_due_at: expiresAt/, 'the vouch deadline does not reach the badge');
 });
 
 test('🔑 source · the sweep asks the SAME pure rule the vendor countdown reads', () => {
-  assert.match(ACTIONS, /mustWithdraw\(/, 'the sweep hand-rolls its own expiry test');
+  assert.match(SWEEP, /vouchHasLapsed\(/, 'the sweep hand-rolls its own expiry test');
   assert.ok(
-    !/new Date\(\)\s*>\s*new Date\(/.test(ACTIONS),
+    !/new Date\(\)\s*>\s*new Date\(/.test(SWEEP),
     'the sweep compares dates itself — it can then disagree with what the vendor was shown',
   );
+});
+
+test('⛔ source · nothing that runs at a deadline hides, unpublishes or un-verifies a shop', () => {
+  // Owner 2026-09-11 · Q5: the shop stays findable and bookable. The sweep that
+  // used to live in the actions file set public_visibility = 'hidden'.
+  assert.ok(
+    !/sweepExpiredVerificationBypasses/.test(ACTIONS),
+    'the hiding sweep is back in the server-action file',
+  );
+  // The sweep may READ vendor_profiles (to find shops near their deadline); it
+  // must never WRITE it. Each `.from('vendor_profiles')` chain is cut at the
+  // statement's end and checked for a write verb.
+  const chains = SWEEP.split(".from('vendor_profiles')").slice(1).map((c) => c.split(';')[0]!);
+  assert.ok(chains.length >= 1, 'the sweep no longer reads vendor_profiles — this guard is probing nothing');
+  for (const chain of chains) {
+    assert.ok(
+      !/\.(update|upsert|insert|delete)\(/.test(chain),
+      `the deadline sweep writes vendor_profiles: ${chain.slice(0, 120)}`,
+    );
+  }
+  assert.ok(!/public_visibility/.test(SWEEP), 'the deadline sweep names the listing column');
 });
 
 test('🔑 source · no cron. The sweep is a function, not a schedule', () => {

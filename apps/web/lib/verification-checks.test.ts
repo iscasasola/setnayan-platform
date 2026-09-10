@@ -15,6 +15,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   grantWarning,
+  resolveDocumentLocation,
   runVerificationChecks,
   sortForReview,
   summariseChecks,
@@ -496,4 +497,102 @@ test('a shop with NO checks at all is warned that the badge rests on the reviewe
 test('the portfolio range in the message is the shipped range, not a re-typed pair', () => {
   const r = byKey(runVerificationChecks(cleanFacts({ portfolioCount: 1 }), NOW), 'portfolio_count');
   assert.match(r.disagreement!.left.value, new RegExp(`${PORTFOLIO_MIN}.{0,3}${PORTFOLIO_MAX}`));
+});
+
+// ---------------------------------------------------------------------------
+// WHERE A FILED DOCUMENT LIVES — the bug that would have been the loudest
+// ---------------------------------------------------------------------------
+
+/**
+ * 🔴 The first cut of the storage probe HEADed a HARDCODED verification bucket
+ * with the whole `r2://…` string as the key. `doc_uploads` holds a REFERENCE,
+ * and the vendor-side writer accepts TWO buckets — the private one for the four
+ * documents, the PUBLIC media one for portfolio samples. Every document of
+ * every application would have come back "no object — nothing is stored there".
+ * Not a missed finding: a LOUD INVENTED ONE, on every row.
+ */
+const BUCKETS = [
+  'setnayan-media',
+  'setnayan-thread-files',
+  'setnayan-vendor-contracts',
+  'setnayan-samples',
+  'setnayan-vendor-verification',
+];
+const FALLBACK = 'setnayan-vendor-verification';
+
+test('a stored reference is read for its OWN bucket, not a guessed one', () => {
+  assert.deepEqual(
+    resolveDocumentLocation(
+      'r2://setnayan-vendor-verification/vendors/vp-1/verification/dti.pdf',
+      BUCKETS,
+      FALLBACK,
+    ),
+    { kind: 'r2', bucket: 'setnayan-vendor-verification', key: 'vendors/vp-1/verification/dti.pdf' },
+  );
+  // The portfolio case — a DIFFERENT bucket, and the one a hardcoded constant
+  // would have got wrong on every single row.
+  assert.deepEqual(
+    resolveDocumentLocation('r2://setnayan-media/vendors/vp-1/portfolio/shot.jpg', BUCKETS, FALLBACK),
+    { kind: 'r2', bucket: 'setnayan-media', key: 'vendors/vp-1/portfolio/shot.jpg' },
+  );
+});
+
+test('the resolved key never carries the r2:// prefix — that is what made the key wrong', () => {
+  const where = resolveDocumentLocation(
+    'r2://setnayan-media/vendors/vp-1/portfolio/shot.jpg',
+    BUCKETS,
+    FALLBACK,
+  );
+  assert.equal(where.kind, 'r2');
+  assert.doesNotMatch((where as { key: string }).key, /^r2:\/\//);
+});
+
+test('a bare verification path is accepted; anything else is not a file we hold', () => {
+  assert.deepEqual(
+    resolveDocumentLocation('vendors/vp-1/verification/bir.pdf', BUCKETS, FALLBACK),
+    { kind: 'r2', bucket: FALLBACK, key: 'vendors/vp-1/verification/bir.pdf' },
+  );
+  for (const v of [
+    'https://example.com/a.pdf',
+    '',
+    '   ',
+    'r2://',
+    'r2://setnayan-media',
+    'some/other/path.pdf',
+  ]) {
+    assert.equal(
+      resolveDocumentLocation(v, BUCKETS, FALLBACK).kind,
+      'not_a_file',
+      `"${v}" was read as a file we hold`,
+    );
+  }
+});
+
+test('an UNKNOWN bucket is never probed against a guessed one', () => {
+  // Guessing here is exactly the mistake: it would HEAD a real bucket for a key
+  // that was never in it and report the file as missing.
+  assert.equal(
+    resolveDocumentLocation('r2://somebody-elses-bucket/vendors/vp-1/x.pdf', BUCKETS, FALLBACK).kind,
+    'not_a_file',
+  );
+});
+
+test('an unprobeable reference is MANUAL, never a mismatch', () => {
+  const r = byKey(
+    runVerificationChecks(
+      cleanFacts({
+        filedDocuments: [
+          {
+            slotKey: 'dti_certificate',
+            r2Key: 'https://example.com/somebodys-link.pdf',
+            existsInStorage: null,
+            keyOwnerVendorId: null,
+          },
+        ],
+      }),
+      NOW,
+    ),
+    'documents_in_storage',
+  );
+  assert.equal(r.outcome, 'manual');
 });

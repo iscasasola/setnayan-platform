@@ -231,3 +231,44 @@ test('the discriminating HEAD claims "absent" only on a real 404', () => {
   // invents a finding out of a misconfiguration.
   assert.doesNotMatch(body, /status === 403[^\n]*absent/, 'a 403 is being read as absent');
 });
+
+test('neither the probe nor the opener hardcodes a bucket for a stored reference', () => {
+  // `doc_uploads` holds `r2://bucket/key`, and the vendor-side writer accepts
+  // TWO buckets — the private verification one for the four documents, the
+  // PUBLIC media one for portfolio samples. A constant here HEADs every file
+  // under the wrong name in the wrong bucket and announces "nothing is stored
+  // there" on every row: not a missed finding, a loud invented one.
+  const server = read('lib/verification-checks-server.ts');
+  assert.match(
+    server,
+    /resolveDocumentLocation\(/,
+    'the storage probe no longer resolves the bucket from the stored reference',
+  );
+  assert.doesNotMatch(
+    server,
+    /r2HeadOutcome\(\{\s*bucket:\s*R2_BUCKETS\.\w+/,
+    'the probe HEADs a hardcoded bucket again',
+  );
+
+  const actions = read(VERIFY_ACTIONS);
+  const start = actions.indexOf('export async function openApplicationDocument');
+  const body = actions.slice(start, start + 3200);
+  assert.match(body, /resolveDocumentLocation\(/, 'the opener guesses the bucket again');
+  assert.doesNotMatch(
+    body,
+    /r2SignedGet\(\{\s*bucket:\s*R2_BUCKETS\.\w+/,
+    'the opener signs a hardcoded bucket — a valid link to an object that is not there',
+  );
+});
+
+test('the queue reads its checks in a batch, not once per card', () => {
+  const page = read(VERIFY_PAGE);
+  // The visibility list reads up to 200 rows. A per-card builder there is 400+
+  // concurrent round trips from one render.
+  assert.doesNotMatch(
+    page,
+    /vendors\.map\([^)]*buildVerificationChecksForVendor\b/,
+    'the per-shop builder is being fanned out over the whole queue again',
+  );
+  assert.match(page, /buildVerificationChecksForVendors\(/, 'the batched builder is gone');
+});

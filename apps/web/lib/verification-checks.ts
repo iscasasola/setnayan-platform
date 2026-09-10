@@ -170,6 +170,59 @@ export type CheckFacts = {
 };
 
 // ---------------------------------------------------------------------------
+// Where a filed document actually lives
+// ---------------------------------------------------------------------------
+
+/**
+ * Where one `doc_uploads` value points, resolved from the value itself.
+ *
+ * 🔴 THE BUG THIS EXISTS TO PREVENT, CAUGHT BEFORE IT SHIPPED. The first cut of
+ * the storage probe HEADed a HARDCODED `setnayan-vendor-verification` with the
+ * stored string as the key. But `doc_uploads` holds an `r2://bucket/key`
+ * REFERENCE, and the vendor-side writer accepts TWO buckets: the private
+ * verification one for the four documents, and the PUBLIC media bucket for
+ * portfolio samples (`vendor-portfolio-ref-tenancy.test.ts`: *"a portfolio is
+ * public by definition"*). So the probe would have looked for every file under
+ * the wrong name, in the wrong bucket, and reported **"no object — nothing is
+ * stored there" on every document of every application.**
+ *
+ * 🔑 That is the worst failure this desk could have: not a missed finding, but a
+ * LOUD INVENTED ONE, on every row, in the automation the reviewer is being asked
+ * to trust. **Read the bucket out of the value; never assume one.**
+ */
+export type DocumentLocation =
+  | { kind: 'r2'; bucket: string; key: string }
+  /** A plain link or an unrecognised shape — we hold no file to look for. */
+  | { kind: 'not_a_file'; value: string };
+
+export function resolveDocumentLocation(
+  storedValue: string,
+  knownBuckets: readonly string[],
+  fallbackBucket: string,
+): DocumentLocation {
+  const v = storedValue.trim();
+  if (!v) return { kind: 'not_a_file', value: storedValue };
+  if (v.startsWith('r2://')) {
+    const rest = v.slice('r2://'.length);
+    const slash = rest.indexOf('/');
+    if (slash <= 0 || slash === rest.length - 1) return { kind: 'not_a_file', value: v };
+    const bucket = rest.slice(0, slash);
+    const key = rest.slice(slash + 1);
+    // An unknown bucket is NOT probed against a guessed one — that is how the
+    // hardcoded-bucket bug produced a confident wrong answer.
+    if (!knownBuckets.includes(bucket)) return { kind: 'not_a_file', value: v };
+    return { kind: 'r2', bucket, key };
+  }
+  // A BARE key is legal too: the vendor-side writer lets a non-`r2://` value
+  // through, and the storage-hygiene page's own classifier assumes exactly this
+  // shape. Only accept it when it looks like one of our verification paths.
+  if (/^vendors\/[^/]+\/verification\//.test(v)) {
+    return { kind: 'r2', bucket: fallbackBucket, key: v };
+  }
+  return { kind: 'not_a_file', value: v };
+}
+
+// ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
 

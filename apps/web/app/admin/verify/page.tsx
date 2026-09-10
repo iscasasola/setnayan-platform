@@ -70,7 +70,7 @@ import { DeepSearchChat } from './_components/deep-search-chat';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   buildVerificationChecks,
-  buildVerificationChecksForVendor,
+  buildVerificationChecksForVendors,
   type VerificationChecksReport,
 } from '@/lib/verification-checks-server';
 import {
@@ -1746,8 +1746,11 @@ async function VisibilitySurface({
   // applications queue below has never decided anything. So the checks belong
   // HERE at least as much as they belong there, and a shop with no application
   // at all is the normal input rather than an edge case.
-  const visibilityChecks = await Promise.all(
-    vendors.map((v) => buildVerificationChecksForVendor(v.vendor_profile_id)),
+  // TWO queries for the whole screen, never two per card — this list reads up
+  // to 200 rows and a per-card builder would open 400+ concurrent round trips
+  // from one render.
+  const visibilityChecks = await buildVerificationChecksForVendors(
+    vendors.map((v) => v.vendor_profile_id),
   );
 
   // ── THE THIRD WAY TO GRANT THIS BADGE, AND UNTIL NOW THE ONLY UNREACHABLE ONE ──
@@ -1805,7 +1808,7 @@ async function VisibilitySurface({
               <VerifyCard
                 vendor={v}
                 logoDisplayUrl={logoDisplayUrls[i] ?? null}
-                checks={visibilityChecks[i] ?? null}
+                checks={visibilityChecks[v.vendor_profile_id] ?? null}
                 bypass={bypassMap[v.vendor_profile_id] ?? null}
               />
             </li>
@@ -1887,10 +1890,13 @@ function VouchControls({
   vendorProfileId,
   businessName,
   vouch,
+  alreadyListed,
 }: {
   vendorProfileId: string;
   businessName: string | null;
   vouch: ReturnType<typeof bypassState>;
+  /** A shop already showing to couples has nothing to be listed-now FOR. */
+  alreadyListed: boolean;
 }) {
   if (vouch.kind === 'active' || vouch.kind === 'satisfied') {
     return (
@@ -1930,6 +1936,10 @@ function VouchControls({
       </div>
     );
   }
+
+  // Nothing to vouch FOR: the shop is already showing to couples, so a vouch
+  // would add a six-month deadline to a listing that is not waiting on one.
+  if (alreadyListed) return null;
 
   return (
     <details className="relative">
@@ -2059,6 +2069,7 @@ function VerifyCard({
           vendorProfileId={vendor.vendor_profile_id}
           businessName={vendor.business_name}
           vouch={vouch}
+          alreadyListed={visibility === 'verified'}
         />
         {visibility !== 'hidden' ? (
           <ConfirmForm

@@ -17,6 +17,7 @@ import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { R2_BUCKETS, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
+import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   DEEP_SEARCH_MODEL,
@@ -1057,12 +1058,28 @@ export async function openApplicationDocument(formData: FormData) {
     redirect('/admin/verify?error=That+document+is+not+on+this+application');
   }
 
+  // 🔑 THE BUCKET COMES OUT OF THE STORED REFERENCE, NEVER FROM A CONSTANT.
+  // `doc_uploads` holds `r2://bucket/key`, and the vendor-side writer accepts
+  // TWO buckets — the private verification one for the four documents, the
+  // PUBLIC media one for portfolio samples. Signing a hardcoded bucket with the
+  // whole `r2://…` string as the key mints a perfectly valid link to an object
+  // that does not exist: the reviewer presses Open, gets nothing, and blames
+  // the browser.
+  const where = resolveDocumentLocation(
+    requestedKey,
+    Object.values(R2_BUCKETS),
+    R2_BUCKETS.vendorVerification,
+  );
+  if (where.kind !== 'r2') {
+    redirect('/admin/verify?error=That+document+is+not+a+file+we+hold');
+  }
+
   const url = await r2SignedGet({
-    bucket: R2_BUCKETS.vendorVerification,
-    key: requestedKey,
+    bucket: where.bucket as (typeof R2_BUCKETS)[keyof typeof R2_BUCKETS],
+    key: where.key,
     expiresIn: 120,
     responseContentDisposition: contentDispositionAttachment(
-      requestedKey.split('/').pop() || `${slotKey}`,
+      where.key.split('/').pop() || `${slotKey}`,
     ),
   });
   redirect(url);

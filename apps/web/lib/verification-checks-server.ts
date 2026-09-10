@@ -36,6 +36,7 @@ import {
   type DocUploadMap,
 } from '@/lib/vendor-verification';
 import {
+  resolveDocumentLocation,
   runVerificationChecks,
   summariseChecks,
   type CheckFacts,
@@ -47,6 +48,9 @@ import {
 
 /** Never probe more than this many document keys for one application. */
 const MAX_PROBED_DOCUMENTS = 24;
+
+/** The buckets a stored reference is allowed to name. */
+const KNOWN_BUCKETS = Object.values(R2_BUCKETS);
 
 /**
  * Every R2 key a slot value carries, in whatever shape it was written.
@@ -190,11 +194,36 @@ async function probeDocuments(
 
   const probed = await Promise.all(
     pending.map(async ({ slotKey, r2Key }): Promise<FiledDocument & { note: string | null }> => {
-      const { vendorProfileId } = parseVerificationKey(r2Key);
+      // 🔑 THE BUCKET COMES OUT OF THE STORED VALUE, NEVER FROM A CONSTANT.
+      // `doc_uploads` holds `r2://bucket/key`, and the vendor-side writer
+      // accepts TWO buckets — the private verification one for the four
+      // documents, the PUBLIC media one for portfolio samples. Assuming one
+      // would have HEADed every file under the wrong name in the wrong bucket
+      // and announced "nothing is stored there" on every row.
+      const where = resolveDocumentLocation(
+        r2Key,
+        KNOWN_BUCKETS,
+        R2_BUCKETS.vendorVerification,
+      );
+      if (where.kind !== 'r2') {
+        // Not a file we hold. NOT "missing" — unprobeable, which is a manual
+        // mark, and never a mismatch invented out of a shape we do not know.
+        return {
+          slotKey,
+          r2Key,
+          existsInStorage: null,
+          keyOwnerVendorId: null,
+          note: 'the stored value is not a file reference we recognise',
+        };
+      }
+      const { vendorProfileId } = parseVerificationKey(where.key);
       let existsInStorage: boolean | null = null;
       let note: string | null = null;
       try {
-        const outcome = await r2HeadOutcome({ bucket: R2_BUCKETS.vendorVerification, key: r2Key });
+        const outcome = await r2HeadOutcome({
+          bucket: where.bucket as (typeof KNOWN_BUCKETS)[number],
+          key: where.key,
+        });
         if (outcome.kind === 'present') existsInStorage = true;
         else if (outcome.kind === 'absent') existsInStorage = false;
         else note = outcome.note;
@@ -347,46 +376,88 @@ export async function buildVerificationChecks(
 export async function buildVerificationChecksForVendor(
   vendorProfileId: string,
 ): Promise<VerificationChecksReport | null> {
+  const map = await buildVerificationChecksForVendors([vendorProfileId]);
+  return map[vendorProfileId] ?? null;
+}
+
+const VENDOR_PROFILE_CHECK_COLUMNS =
+  'vendor_profile_id, business_name, contact_email, contact_phone, hq_address, ' +
+  'registration_number_raw, registration_number_needs_review, in_business_since_year, ' +
+  'experience_verified_at';
+
+/**
+ * The same checks for a WHOLE SCREEN of shops, in TWO queries rather than two
+ * per shop.
+ *
+ * 🔑 THE PER-SHOP VERSION DOES NOT SCALE ONTO A QUEUE. The verification queue
+ * reads up to 200 rows; calling the single-shop builder in a `Promise.all` over
+ * that is 400+ concurrent round trips from one page render, which is how a
+ * review screen becomes a pool exhaustion. Both reads are `.in(...)` here, so
+ * the query count is flat in the number of shops.
+ *
+ * ⚠ A FAILED READ IS NOT AN EMPTY ONE, on either side. A refused vendor read
+ * drops that shop from the map entirely (its card then says the checks could
+ * not run — never "clean"); a refused application read marks that shop's
+ * checklist UNREADABLE, which the document checks turn into manual marks rather
+ * than reporting "nothing filed".
+ */
+export async function buildVerificationChecksForVendors(
+  vendorProfileIds: readonly string[],
+): Promise<Record<string, VerificationChecksReport>> {
+  const out: Record<string, VerificationChecksReport> = {};
+  const ids = Array.from(new Set(vendorProfileIds.filter(Boolean)));
+  if (ids.length === 0) return out;
   try {
     const admin = createAdminClient();
-    const { data: vendor, error: vErr } = await admin
+    const { data: vendorRows, error: vErr } = await admin
       .from('vendor_profiles')
-      .select(
-        'vendor_profile_id, business_name, contact_email, contact_phone, hq_address, registration_number_raw, registration_number_needs_review, in_business_since_year, experience_verified_at',
-      )
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (vErr || !vendor) return null;
+      .select(VENDOR_PROFILE_CHECK_COLUMNS)
+      .in('vendor_profile_id', ids);
+    if (vErr || !vendorRows) return out;
 
-    // The latest application, if there is one. A read failure is NOT an empty
-    // checklist — it degrades the document checks to manual, which is what
-    // `docUploadsUnreadable` means.
-    const { data: app, error: aErr } = await admin
+    // Newest application per shop. Ordered newest-first and taken first-wins,
+    // the same shape the queue already uses for deep-search dossiers.
+    const { data: appRows, error: aErr } = await admin
       .from('vendor_verification_applications')
-      .select('doc_uploads, contact_email_confirmed_at, contact_phone_confirmed_at')
-      .eq('vendor_profile_id', vendorProfileId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .select(
+        'vendor_profile_id, doc_uploads, contact_email_confirmed_at, contact_phone_confirmed_at, created_at',
+      )
+      .in('vendor_profile_id', ids)
+      .order('created_at', { ascending: false });
+    const latest: Record<string, Record<string, unknown>> = {};
+    for (const row of (appRows ?? []) as Array<Record<string, unknown>>) {
+      const key = String(row.vendor_profile_id);
+      if (!latest[key]) latest[key] = row;
+    }
 
-    const v = vendor as Record<string, unknown>;
-    return await buildVerificationChecks({
-      vendorProfileId,
-      businessName: (v.business_name as string | null) ?? null,
-      docUploads: (app?.doc_uploads as unknown) ?? {},
-      docUploadsUnreadable: Boolean(aErr),
-      contactEmail: (v.contact_email as string | null) ?? null,
-      contactPhone: (v.contact_phone as string | null) ?? null,
-      hqAddress: (v.hq_address as string | null) ?? null,
-      contactEmailConfirmedAt: (app?.contact_email_confirmed_at as string | null) ?? null,
-      contactPhoneConfirmedAt: (app?.contact_phone_confirmed_at as string | null) ?? null,
-      registrationNumberRaw: (v.registration_number_raw as string | null) ?? null,
-      registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
-      inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,
-      experienceVerifiedAt: (v.experience_verified_at as string | null) ?? null,
-    });
+    const built = await Promise.all(
+      (vendorRows as unknown as Array<Record<string, unknown>>).map(async (v) => {
+        const id = String(v.vendor_profile_id);
+        const app = latest[id];
+        return {
+          id,
+          report: await buildVerificationChecks({
+            vendorProfileId: id,
+            businessName: (v.business_name as string | null) ?? null,
+            docUploads: (app?.doc_uploads as unknown) ?? {},
+            docUploadsUnreadable: Boolean(aErr),
+            contactEmail: (v.contact_email as string | null) ?? null,
+            contactPhone: (v.contact_phone as string | null) ?? null,
+            hqAddress: (v.hq_address as string | null) ?? null,
+            contactEmailConfirmedAt: (app?.contact_email_confirmed_at as string | null) ?? null,
+            contactPhoneConfirmedAt: (app?.contact_phone_confirmed_at as string | null) ?? null,
+            registrationNumberRaw: (v.registration_number_raw as string | null) ?? null,
+            registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
+            inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,
+            experienceVerifiedAt: (v.experience_verified_at as string | null) ?? null,
+          }),
+        };
+      }),
+    );
+    for (const { id, report } of built) out[id] = report;
+    return out;
   } catch {
-    return null;
+    return out;
   }
 }
 

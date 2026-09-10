@@ -127,6 +127,36 @@ test('every legacy coarse key survives untouched and exists in the enum', async 
   );
 });
 
+test('the enum labels the TS union does NOT have are unreachable as a card kind', async () => {
+  // Rung 1 of the resolver ("already coarse — keep it") is keyed on
+  // VENDOR_CATEGORIES, the 52-value TypeScript union. The Postgres enum carries
+  // MORE than that (the attire values, measured 58 vs 52). A card filed under one
+  // of the extras would fall past rung 1 into the leaf/branch rungs and could be
+  // re-derived — so this pins the reason that cannot happen: none of them is a
+  // choosable card kind. `parseCategory` admits VENDOR_CATEGORIES ∪ coverage
+  // LEAVES and nothing else, and a leaf is a `canonical_service` row.
+  const labels = await enumLabels();
+  const union = new Set<string>(VENDOR_CATEGORIES);
+  const enumOnly = [...labels].filter((l) => !union.has(l)).sort();
+  assert.ok(
+    enumOnly.length > 0,
+    'the enum and the union agree exactly — this assertion is measuring nothing; ' +
+      'if they were reconciled on purpose, delete this test rather than weaken it',
+  );
+
+  const r = await db.query<{ canonical_service: string }>(
+    `SELECT canonical_service FROM canonical_service_taxonomy WHERE canonical_service = ANY($1)`,
+    [enumOnly],
+  );
+  assert.deepEqual(
+    r.rows.map((x) => x.canonical_service).sort(),
+    [],
+    'an enum-only label became a real taxonomy leaf, so a supplier can now file a ' +
+      'card under it — add it to the VendorCategory union (rung 1) before it is ' +
+      `re-derived into something else:\n  ${r.rows.map((x) => x.canonical_service).join('\n  ')}`,
+  );
+});
+
 test('NEUTRALISATION: a kind the maps do not know is caught by these assertions', async () => {
   // Proves the checks measure the resolver rather than the default. If an
   // unmappable kind still produced a legal label with no complaint, the

@@ -30,6 +30,13 @@ import { categoryForBranch } from '@/lib/vendor-branch-category';
  * THE ORDER, and why each rung exists:
  *   1. the kind is ALREADY a coarse `vendor_category` key → keep it. A card
  *      filed under `photographer` must not be re-derived into something else.
+ *      ⚠ This rung is keyed on `VENDOR_CATEGORIES` (52) and the Postgres enum
+ *      carries MORE (58 — the attire labels). That is safe only because none of
+ *      the extras is a choosable card kind: `parseCategory` admits
+ *      `VENDOR_CATEGORIES` ∪ coverage LEAVES, and a leaf is a
+ *      `canonical_service` row. The db guard asserts exactly that, so the day an
+ *      admin makes one of them a leaf, CI says so instead of it being quietly
+ *      re-derived here.
  *   2. the kind is a taxonomy LEAF → its leaf/branch answer, via the tile the
  *      caller resolved from the live taxonomy.
  *   3. the kind IS a tile id (`host_mc` — a branch, not a leaf, so the taxonomy

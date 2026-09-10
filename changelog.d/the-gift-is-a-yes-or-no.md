@@ -64,3 +64,19 @@ The port-control baseline records one deliberate removal, `ExclusivePerkField`.
 SPEC IMPACT: `DECISION_LOG.md` gains the build row for the yes/no control;
 `BUILD_PLAN_Chat_And_Exclusive_2026-09-09.md` § C1 is superseded (it still says
 the Exclusive is a pick from five and mandatory, both overturned the same day).
+
+## 2026-09-10 · fix(vendor-services): the yes/no migration keeps the save function's "Service not found" refusal
+
+Landing check before merge found that the copied save function had dropped the
+refusal every definition since 20270208451790 carries: a save naming a card the
+shop does not own (or one deleted mid-edit) would have written child rows
+against a NULL id and returned NULL as if it had saved. Restored in the
+not-yet-applied migration and pinned by a db test (mutation: removing the
+RAISE, count 1 → 0, turns the test red). Rehearsed against production inside a
+rolled-back transaction: the gate keeps the price rule and drops the gift rule;
+the save drops the gift rule, keeps the not-found refusal, keeps its
+service_role-only grant, and preserves both live cards' gift wording on a save
+that does not mention it. The only lines of the live body that change are the
+gift rule, the perk assignment, and the new column.
+
+SPEC IMPACT: None (restores existing behaviour; no product change).

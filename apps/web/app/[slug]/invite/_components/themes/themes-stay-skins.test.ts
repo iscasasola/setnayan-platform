@@ -56,7 +56,7 @@ test('a theme stylesheet is imported only from the invite routes’ own theme fo
 test('a skin never restyles the card’s controls — its only reach inside the card is the header', () => {
   const themesDir = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');
   for (const sheet of readdirSync(themesDir).filter((f) => f.endsWith('.module.css'))) {
-    const css = readFileSync(join(themesDir, sheet), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = stripComments(readFileSync(join(themesDir, sheet), 'utf8'));
     const globals = [...css.matchAll(/:global\(([^)]*)\)/g)].map((m) => (m[1] ?? '').trim());
     assert.deepEqual(
       globals.filter((g) => g !== 'header'),

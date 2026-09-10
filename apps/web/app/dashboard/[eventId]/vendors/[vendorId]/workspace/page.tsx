@@ -111,6 +111,7 @@ type CouplePaymentAskRow = {
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
+import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
@@ -1060,25 +1061,42 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const stage = inferStage(ev.status);
   const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
 
-  // Hero price precedence: package locked total (centavos) → snapshot itemized
-  // (pesos) → host's total_cost_php (pesos).
-  const heroPriceFormatted =
-    packageHeader?.priceCentavos != null
-      ? formatCentavosPhp(packageHeader.priceCentavos)
-      : vendorBudgetSummary
-        ? formatPHP(vendorBudgetSummary.itemizedTotal)
-        : formatPHP(ev.total_cost_php);
-
   const paidSoFarFormatted =
     vendorBudgetSummary && vendorBudgetSummary.paidTotal > 0
       ? formatPHP(vendorBudgetSummary.paidTotal)
       : depositPaidFormatted;
 
   // 3-line total = Service + Transport + Food allowance (the Costing form).
+  // `serviceCostNum` stays the HEADLINE: it is the value the Service price input
+  // edits and the quote bridge compares against, so it must never carry a change.
   const serviceCostNum = Number(ev.total_cost_php ?? 0) || 0;
   const transportNum = Number(ev.transport_php ?? 0) || 0;
   const foodNum = Number(ev.food_allowance_php ?? 0) || 0;
-  const rolledTotalNum = serviceCostNum + transportNum + foodNum;
+  // The Total, though, is the agreed total NOW — the service price plus every
+  // change agreed after the lock (owner 2026-09-11, "Show the total now"), from
+  // the one rule the budget uses. This page is one of the two that also SHOWS
+  // the change, as its own row between the inputs and the Total, so the sum on
+  // screen still adds up. The lines come from the budget summary loaded above
+  // (same rows, `is_change_delta` included); if that read failed there is
+  // nothing to add and the Total is the service price, as it always was.
+  const serviceNowNum =
+    agreedTotalNow(ev.total_cost_php, vendorBudgetSummary?.lineItems ?? []) ?? 0;
+  const changesSinceLockNum = serviceNowNum - serviceCostNum;
+  const rolledTotalNum = serviceNowNum + transportNum + foodNum;
+
+  // Hero price precedence: package locked total (centavos) → snapshot itemized
+  // (pesos) → host's total_cost_php (pesos). Every arm is the agreed total NOW:
+  // `itemizedTotal` already carries the changes (resolveAgreedTotal), and the
+  // package and headline arms add the same `changesSinceLockNum` the Costing
+  // row prints — a package locked at ₱100,000 with a −₱15,000 change reads
+  // ₱85,000 here too, not the lock-time price.
+  const heroPriceFormatted =
+    packageHeader?.priceCentavos != null
+      ? formatCentavosPhp(packageHeader.priceCentavos + Math.round(changesSinceLockNum * 100))
+      : vendorBudgetSummary
+        ? formatPHP(vendorBudgetSummary.itemizedTotal)
+        : // The summary read failed, so no change lines were loaded to add.
+          formatPHP(ev.total_cost_php);
 
   // Conversation deep-link target
   const conversationHref = chatThread
@@ -2186,6 +2204,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               ) : null}
             </>
           )}
+
+          {changesSinceLockNum !== 0 ? (
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-ink/65">Changes you both agreed after the lock</span>
+              <span className="font-medium text-ink">
+                {changesSinceLockNum < 0 ? '−' : '+'}
+                {formatPHP(Math.abs(changesSinceLockNum))}
+              </span>
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between border-t border-ink/10 pt-3">
             <span className="text-sm font-medium text-ink">Total</span>

@@ -795,6 +795,7 @@ export function ChatMessageStream({
                   : `/vendor-dashboard/messages/${threadId}`,
                 'decisions',
               ),
+              eventDate,
               supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
             }}
           />

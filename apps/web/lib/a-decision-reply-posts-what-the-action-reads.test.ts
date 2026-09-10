@@ -42,7 +42,10 @@ function slice(src: string, start: string): string {
   const at = src.indexOf(start);
   assert.notEqual(at, -1, `could not find "${start}" — renamed? update this guard`);
   const rest = src.slice(at + start.length);
-  const next = rest.search(/\n(?:export\s+)?async function |\n\s*case '/);
+  // Any top-level function — async or not — or the next `case` ends the slice.
+  // (It once stopped only at async ones, so the last `case` ran on into the
+  // next React component and read ITS forms as the quote's.)
+  const next = rest.search(/\n(?:export\s+)?(?:async\s+)?function |\n\s*case '/);
   return next === -1 ? rest : rest.slice(0, next);
 }
 
@@ -56,9 +59,16 @@ const APPT = read('app/_components/appointments-actions.ts');
 const NEG = read('app/_components/negotiation-actions.ts');
 const PAY = read('app/vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts');
 const PAX = read('app/vendor-dashboard/messages/[threadId]/pax-actions.ts');
+/** The shared new-time form — posted from Decisions AND the chat card. */
+const NEW_TIME = read('app/_components/propose-new-time-form.tsx');
 
 type Case = {
   reply: string;
+  /**
+   * The source of the reply's form(s). Defaults to the `case` branch; a reply
+   * that grew its own component names it, plus any shared form it renders.
+   */
+  formSource?: string;
   actionBody: string;
   /** Read by the action but legitimately not posted from Decisions — with why. */
   optional: Record<string, string>;
@@ -67,10 +77,12 @@ type Case = {
 const CASES: Case[] = [
   {
     reply: "case 'meeting':",
+    // Confirm · New time · Decline — the three the chat card offers. The new
+    // time is the SHARED form, so it is checked once here for both doors.
+    formSource: slice(VIEW, 'function MeetingReply(') + NEW_TIME,
     actionBody: slice(APPT, 'export async function respondAppointment('),
     optional: {
-      scheduled_at: 'propose_new only — Decisions offers confirm / decline, not a new time',
-      duration_min: 'propose_new only',
+      duration_min: 'a new time keeps the length already booked; neither door asks for one',
     },
   },
   {
@@ -94,7 +106,7 @@ const CASES: Case[] = [
 for (const c of CASES) {
   test(`the ${c.reply.replace(/case '|':/g, '')} reply posts exactly what its action reads`, () => {
     const reads = readsOf(c.actionBody);
-    const posts = postsOf(slice(VIEW, c.reply));
+    const posts = postsOf(c.formSource ?? slice(VIEW, c.reply));
     assert.ok(reads.size > 0, 'found no formData.get in the action — the slice is wrong, not the form');
 
     for (const name of reads) {

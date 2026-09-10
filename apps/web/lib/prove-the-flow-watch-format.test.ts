@@ -15,7 +15,7 @@ import {
   describeProposal,
   describeLock,
   describeChangeTrail,
-} from './prove-the-flow-watch-format.ts';
+} from './prove-the-flow-watch-format';
 
 test('describeCard: nameless, unpublished, no price, missing gift value', () => {
   const s = describeCard({

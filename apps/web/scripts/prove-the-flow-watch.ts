@@ -52,7 +52,7 @@ import {
   type AmendmentRow,
   type EventVendorRow,
   type ChangeOrderRow,
-} from '../lib/prove-the-flow-watch-format.ts';
+} from '../lib/prove-the-flow-watch-format';
 
 type Args = {
   vendorSlug: string | null;

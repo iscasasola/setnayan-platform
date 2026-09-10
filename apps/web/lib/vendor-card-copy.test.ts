@@ -79,9 +79,18 @@ test('a copy carries what was AUTHORED and nothing the card EARNED', () => {
     );
   }
   // What it MUST carry: the money, or a copy is a blank card wearing a name.
-  for (const required of ['starting_price_php', 'pricing_basis', 'exclusive_perk_text']) {
+  for (const required of ['starting_price_php', 'pricing_basis', 'includes_setnayan_gift']) {
     assert.ok(cols.includes(required), `the copy must carry ${required}`);
   }
+  // ⛔ AND WHAT IT MUST NOT CARRY, since 2026-09-09: the retired free text.
+  // `exclusive_perk_text` is no longer editable on any surface, so copying a
+  // supplier's old prose onto a NEW card would mint a promise its owner can
+  // neither see nor withdraw. The yes/no copies; the prose stays with the card
+  // that made it.
+  assert.ok(
+    !cols.includes('exclusive_perk_text'),
+    'a copy must not carry the retired free-text perk — it cannot be edited off',
+  );
 });
 
 test('media is REFERENCED, never moved, copied or deleted', () => {

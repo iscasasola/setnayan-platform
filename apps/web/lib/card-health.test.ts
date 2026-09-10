@@ -78,7 +78,6 @@ function perfect(over: Partial<CardHealthSnapshot> = {}): CardHealthSnapshot {
     hasClip: true,
     hasPrice: true,
     title: 'Catering — buffet & plated',
-    exclusiveText: 'Free dessert-table upgrade for Setnayan couples',
     inclusionLabels: ['Same-day highlight reel'],
     discountConditions: ['Book at least 6 months ahead'],
     lines: [
@@ -132,7 +131,7 @@ test('an empty Setnayan gift does NOT block — owner ruled it optional 2026-09-
   // RATE and not a feature — the gift is 40% of the booking fee charged on top,
   // so it took what a shop pays us from 5% to 7% of the first PHP 100,000.
   // ⛔ Putting the blocker back is an owner decision, not a tidy-up.
-  const h = scoreCardHealth(perfect({ exclusiveText: '   ' }));
+  const h = scoreCardHealth(perfect({}));
   assert.notEqual(h.grade, 'blocked', 'an empty gift still blocks the card');
   assert.ok(
     !h.blockers.some((b) => b.code === 'no_exclusive'),
@@ -179,14 +178,21 @@ test('contact info in the title blocks and points at the inline title field', ()
   });
 });
 
-test('contact info in the Exclusive blocks and points at the exclusive sheet', () => {
+test('the retired Exclusive free text is no longer scanned — nothing can fix it', () => {
+  // ⚖ This asserted a `text_exclusive` blocker until 2026-09-09. The Setnayan
+  // Exclusive stopped being a free-text field that day: the control is a yes/no
+  // and NO surface submits `exclusive_perk_text` any more. A text blocker on a
+  // value the supplier cannot reach is an unfixable refusal — it would point at
+  // a sheet whose input no longer exists — so the finding was removed with the
+  // field, and the server-side check in actions.ts went with it.
+  // ⛔ Re-adding it means re-adding an editor first.
   withIntegrity(true, () => {
-    const h = scoreCardHealth(
-      perfect({ exclusiveText: 'Free upgrade — text 0917 555 1234' }),
+    const h = scoreCardHealth(perfect({}));
+    assert.equal(
+      h.blockers.find((b) => b.code === 'text_exclusive'),
+      undefined,
+      'card health still scans a field no surface can submit',
     );
-    const blocker = h.blockers.find((b) => b.code === 'text_exclusive');
-    assert.ok(blocker, 'text_exclusive blocker expected');
-    assert.equal(blocker?.sheet, 'excl');
   });
 });
 
@@ -269,11 +275,18 @@ test('clean inclusions and discount conditions leave the score untouched', () =>
 
 test('every field the real gate checks is a lane in card health', () => {
   withIntegrity(true, () => {
-    // One dirty value in each of the five checked field groups at once.
+    // One dirty value in each checked field group at once.
+    //
+    // ⚖ THIS LIST LOST `text_exclusive` ON 2026-09-09 AND THAT IS THE POINT OF
+    // THE TEST, NOT A HOLE IN IT. The list mirrors what the SERVER checks. The
+    // Setnayan Exclusive free text stopped being submitted by any surface that
+    // day — the control became a yes/no — so `commitVendorService` stopped
+    // checking it too. Card health and the server moved together, which is
+    // exactly what this test exists to enforce; had only one of them moved,
+    // this assertion would be red right now.
     const h = scoreCardHealth(
       perfect({
         title: 'Catering — juan@example.com',
-        exclusiveText: 'Free upgrade — text 0917 555 1234',
         inclusionLabels: ['Free album — chef@example.com'],
         discountConditions: ['Ping promos@example.com'],
         lines: [choice('Main course', ['Lechon belly', 'Email chef@example.com'])],
@@ -281,7 +294,7 @@ test('every field the real gate checks is a lane in card health', () => {
     );
     assert.deepEqual(
       h.blockers.map((b) => b.code).sort(),
-      ['text_discounts', 'text_exclusive', 'text_inclusions', 'text_lines', 'text_title'],
+      ['text_discounts', 'text_inclusions', 'text_lines', 'text_title'],
       'a field the server checks and card health does not is a false "Ready to publish"',
     );
   });
@@ -403,8 +416,8 @@ test('the price blocker speaks the SAME sentence the maker uses everywhere', () 
   );
 });
 
-test('a priced, exclusive-bearing card has neither publish blocker', () => {
-  const h = scoreCardHealth(perfect({ hasPrice: true, exclusiveText: 'Free extra hour' }));
+test('a priced card has neither publish blocker', () => {
+  const h = scoreCardHealth(perfect({ hasPrice: true }));
   assert.equal(h.blockers.find((x) => x.code === 'no_price'), undefined);
   assert.equal(h.blockers.find((x) => x.code === 'no_exclusive'), undefined);
 });

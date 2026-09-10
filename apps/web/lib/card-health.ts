@@ -109,7 +109,6 @@ export type CardHealthSnapshot = {
    */
   hasPrice: boolean;
   title: string;
-  exclusiveText: string;
   /**
    * Inclusion labels and discount conditions, in submitted order.
    *
@@ -276,11 +275,6 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
     // 'Inclusion N', 'Discount N conditions', 'Customization line N option M'.
     // The vendor reads the same sentence here and in a server bounce.
     { code: 'text_title', sheet: 'title', fields: [{ field: 'Title', value: snapshot.title }] },
-    {
-      code: 'text_exclusive',
-      sheet: 'excl',
-      fields: [{ field: 'Setnayan Exclusive', value: snapshot.exclusiveText }],
-    },
     {
       code: 'text_inclusions',
       sheet: 'custom', // the InclusionsEditor lives in "What couples get"

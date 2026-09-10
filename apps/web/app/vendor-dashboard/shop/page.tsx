@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { isMusicToolCategory } from '@/lib/songs';
 import { shopToolShelves } from './shop-tool-shelves';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -1719,8 +1720,14 @@ const SHOP_SECTIONS: AccordionSection[] = [
     · working with others — other shops, creators, and your own team
     · protection          — the two rooms you open when something is wrong
 */
-function ShopTools({ hasMoodboardLibraryAccess }: { hasMoodboardLibraryAccess: boolean }) {
-  const shelves = shopToolShelves(hasMoodboardLibraryAccess);
+function ShopTools({
+  hasMoodboardLibraryAccess,
+  hasMusicRepertoireAccess,
+}: {
+  hasMoodboardLibraryAccess: boolean;
+  hasMusicRepertoireAccess: boolean;
+}) {
+  const shelves = shopToolShelves(hasMoodboardLibraryAccess, hasMusicRepertoireAccess);
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <div className="space-y-7">
@@ -1770,8 +1777,15 @@ async function ShopSectionBody({
       return <PaymentOptionsSurface searchParams={pass as never} />;
     case 'manpower':
       return <ManpowerSurface />;
-    case 'tools':
-      return <ShopTools hasMoodboardLibraryAccess={await shopHasMoodboardLibraryAccess()} />;
+    case 'tools': {
+      const [hasMoodboard, hasMusic] = await Promise.all([
+        shopHasMoodboardLibraryAccess(),
+        shopHasMusicRepertoireAccess(),
+      ]);
+      return (
+        <ShopTools hasMoodboardLibraryAccess={hasMoodboard} hasMusicRepertoireAccess={hasMusic} />
+      );
+    }
     default:
       return null;
   }
@@ -1826,4 +1840,22 @@ async function shopHasMoodboardLibraryAccess(): Promise<boolean> {
     data: { user },
   } = await supabase.auth.getUser();
   return (await resolveMoodboardLibraryAccess(supabase, user?.id)).allowed;
+}
+
+/**
+ * D2 (2026-09-11): the Repertoire card on the More-tools shelf listed itself
+ * for EVERY shop — a caterer got a "Song bank & setlist" card that led
+ * nowhere they could use. Same "one music rule" (`isMusicToolCategory`,
+ * `lib/songs.ts`) the public songs block and `addRepertoireSong`'s
+ * server-side refusal now share.
+ */
+async function shopHasMusicRepertoireAccess(): Promise<boolean> {
+  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
+  const supabase = await createShopToolsClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  return isMusicToolCategory(profile?.services ?? null);
 }

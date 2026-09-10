@@ -39,17 +39,12 @@ import { test } from 'node:test';
 
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type-profile';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)));
 
-const strip = (s: string) =>
-  s
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
-
 function src(rel: string): string {
-  return strip(readFileSync(join(HERE, rel), 'utf8'));
+  return stripComments(readFileSync(join(HERE, rel), 'utf8'));
 }
 
 test('the route reuses the ONE solemn signal — no second "is this event solemn" check', () => {

@@ -27,17 +27,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)));
 
-const strip = (s: string) =>
-  s
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
-
 function pageSource(): string {
-  return strip(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+  return stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 }
 
 /**

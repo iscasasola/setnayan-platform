@@ -88,10 +88,11 @@ test('sabotage: a resolver that merges two minutes onto one page is caught by th
       const pages: A4PageSource[] = [];
       for (let i = 0; i < chapters.length; i += 2) {
         const pair = chapters.slice(i, i + 2);
+        const [first] = pair;
         if (pair.length === 2) {
           pages.push({ kind: 'arranged', sheetId: `merged-${i}`, chapters: [...pair] });
-        } else {
-          pages.push({ kind: 'minute', chapter: pair[0] });
+        } else if (first) {
+          pages.push({ kind: 'minute', chapter: first });
         }
       }
       return pages;

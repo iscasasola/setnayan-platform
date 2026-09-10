@@ -281,7 +281,10 @@ test('a document filed under another shop names both shops', () => {
     'document_tenancy',
   );
   assert.equal(r.outcome, 'mismatch');
-  assert.match(r.disagreement!.left.value, new RegExp(VENDOR));
+  // The shop is named by its NAME, not its internal id — this desk is read by
+  // the owner, who does not read the schema. The OTHER shop is all we have an
+  // id for, and a reviewer chasing a misfiled permit needs something to chase.
+  assert.match(r.disagreement!.left.value, /Banawe Blooms/);
   assert.match(r.disagreement!.right.value, /vp-someone-else/);
 });
 
@@ -595,4 +598,108 @@ test('an unprobeable reference is MANUAL, never a mismatch', () => {
     'documents_in_storage',
   );
   assert.equal(r.outcome, 'manual');
+});
+
+// ---------------------------------------------------------------------------
+// THE REVIEWER IS THE OWNER — the desk speaks to a person, not to a schema
+// ---------------------------------------------------------------------------
+
+/**
+ * 🗣 The house rule for anything the owner reads: say what a PERSON
+ * experiences — no table names, no column names, no flag names. He steers the
+ * product and does not read the code, and a correct answer he cannot act on is
+ * worth the same as a wrong one.
+ *
+ * This desk is a screen HE uses, so the rule applies to every string it draws.
+ * The first cut told him a value came "from
+ * vendor_verification_applications.contact_email_confirmed_at". The repo's
+ * engineering-notes lint passed on it, because that lint has a different job —
+ * ⚠ a guard being green is not the same as a rule being kept.
+ */
+const SCHEMA_WORDS = [
+  'vendor_profiles',
+  'vendor_verification_applications',
+  'vendor_verification_bypasses',
+  'doc_uploads',
+  'public_visibility',
+  'verification_state',
+  'registration_number_raw',
+  'registration_number_needs_review',
+  'contact_email_confirmed_at',
+  'contact_phone_confirmed_at',
+  'in_business_since_year',
+  'experience_verified_at',
+  'r2_key',
+];
+
+/** Every string this module puts in front of a person, for one set of facts. */
+function renderedStrings(facts: CheckFacts): string[] {
+  const out: string[] = [];
+  const results = runVerificationChecks(facts, NOW);
+  for (const r of results) {
+    out.push(r.label, r.detail);
+    if (r.reason) out.push(r.reason);
+    if (r.disagreement) {
+      for (const side of [r.disagreement.left, r.disagreement.right]) {
+        out.push(side.label, side.value, side.source);
+      }
+    }
+  }
+  out.push(summaryLine(summariseChecks(results)));
+  const w = grantWarning(summariseChecks(results));
+  if (w) out.push(w);
+  return out;
+}
+
+test('nothing the desk draws names a table, a column, or a flag', () => {
+  const batteries: Array<Partial<CheckFacts>> = [
+    {},
+    { completeSlotKeys: new Set() },
+    { contactPhoneConfirmedAt: null },
+    { contactEmailConfirmedAt: null, contactPhoneConfirmedAt: null },
+    { registrationNumberDuplicate: true, registrationNumberHeldAlsoBy: ['Riverside Catering'] },
+    { registryAnswer: { kind: 'no_match' } },
+    { registryAnswer: { kind: 'unreachable', note: '504 Gateway Timeout' } },
+    { portfolioCount: 0, clientReferenceCount: 0 },
+    { contactPhone: null, hqAddress: null, contactEmail: null },
+    { inBusinessSinceYear: 2031 },
+    { docUploadsUnreadable: true },
+    { storageUnreachable: true, storageNote: 'connection reset' },
+    {
+      filedDocuments: [
+        {
+          slotKey: 'dti_certificate',
+          r2Key: 'r2://setnayan-vendor-verification/vendors/vp-other/verification/dti.pdf',
+          existsInStorage: false,
+          keyOwnerVendorId: 'vp-other',
+        },
+      ],
+    },
+  ];
+  let checked = 0;
+  for (const over of batteries) {
+    for (const line of renderedStrings(cleanFacts(over))) {
+      checked++;
+      for (const word of SCHEMA_WORDS) {
+        assert.ok(
+          !line.includes(word),
+          `the desk shows the owner a schema name: "${word}" in — ${line}`,
+        );
+      }
+      // The generic shape too, so a column this list has never heard of is
+      // still caught. A stored file path is exempt: `vendors/x/verification/
+      // dti.pdf` is genuinely where the file is, and a reviewer chasing a
+      // missing document wants it.
+      const withoutPaths = line.replace(/\S*\/\S*/g, ' ');
+      assert.doesNotMatch(
+        withoutPaths,
+        /\b[a-z]+_[a-z_]+\.[a-z_]+\b/,
+        `the desk shows the owner a table.column: ${line}`,
+      );
+    }
+  }
+  // 🔑 THE FLOOR IS THE GUARD ON THE GUARD. Without it, thinning this battery
+  // to one entry makes the whole test pass on almost nothing — measured: 13
+  // entries down to 1, still green. Proved by mutation, not assumed.
+  assert.ok(checked > 300, `only ${checked} strings were checked — the battery has gone thin`);
 });

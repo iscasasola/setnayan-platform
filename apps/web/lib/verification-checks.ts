@@ -349,14 +349,14 @@ function checkDocumentsInStorage(f: CheckFacts): CheckResult {
       label,
       `${gone.length} filed document${gone.length === 1 ? ' has' : 's have'} no file behind ${gone.length === 1 ? 'it' : 'them'}.`,
       {
-        label: 'What the checklist says is filed',
+        label: 'What this shop says it sent us',
         value: list(gone.map((d) => slotLabel(d.slotKey))),
-        source: "This application's checklist (doc_uploads)",
+        source: "This application's own checklist",
       },
       {
-        label: 'What storage actually holds at those keys',
-        value: 'no object — nothing is stored there',
-        source: `The vendor-verification bucket, probed at ${list(gone.map((d) => d.r2Key))}`,
+        label: 'What we actually hold',
+        value: 'nothing — there is no file behind it',
+        source: `Our own document store, looked in at ${list(gone.map((d) => d.r2Key))}`,
       },
       gone[0]!.slotKey,
     );
@@ -399,14 +399,14 @@ function checkDocumentTenancy(f: CheckFacts): CheckResult {
       label,
       `${foreign.length} document${foreign.length === 1 ? ' is' : 's are'} filed under a different shop.`,
       {
-        label: 'The shop this application belongs to',
-        value: `${f.businessName ?? 'this shop'} (${f.vendorProfileId})`,
-        source: 'vendor_verification_applications.vendor_profile_id',
+        label: 'The shop this application was filed by',
+        value: f.businessName ?? 'this shop',
+        source: 'The application in front of you',
       },
       {
-        label: 'The shop the document file is stored under',
-        value: d.keyOwnerVendorId ?? 'unknown',
-        source: `The storage path of ${slotLabel(d.slotKey)} — ${d.r2Key}`,
+        label: 'The shop the file is actually stored under',
+        value: `a different shop (${d.keyOwnerVendorId ?? 'unknown'})`,
+        source: `Where ${slotLabel(d.slotKey)} is filed — ${d.r2Key}`,
       },
       d.slotKey,
     );
@@ -445,17 +445,17 @@ function checkRegistrationNumber(f: CheckFacts): CheckResult {
       label,
       'This registration number is already on another shop.',
       {
-        label: 'The number this shop submitted',
+        label: 'The number this shop gave us',
         value: raw,
-        source: 'vendor_profiles.registration_number_raw on this shop',
+        source: "This shop's own profile",
       },
       {
-        label: 'Already registered to',
+        label: 'Already claimed by',
         value:
           f.registrationNumberHeldAlsoBy.length > 0
             ? list(f.registrationNumberHeldAlsoBy)
-            : 'another shop on Setnayan (name not readable)',
-        source: 'The same normalised number on another vendor_profiles row',
+            : 'another shop on Setnayan (we could not read its name)',
+        source: 'Another shop on Setnayan carrying the very same number',
       },
     );
   }
@@ -472,14 +472,14 @@ function checkRegistrationNumber(f: CheckFacts): CheckResult {
         label,
         'The registry does not know this number.',
         {
-          label: 'The number this shop submitted',
+          label: 'The number this shop gave us',
           value: raw,
-          source: 'vendor_profiles.registration_number_raw on this shop',
+          source: "This shop's own profile",
         },
         {
-          label: 'What the business registry returned for it',
+          label: 'What the government register says about it',
           value: 'no registered business with that number',
-          source: 'Business-registry lookup',
+          source: 'The business register',
         },
       );
     case 'unreachable':
@@ -525,14 +525,14 @@ function checkContactValidate(f: CheckFacts): CheckResult {
     label,
     `The token arrived by ${confirmedSide} but never by ${missingSide}.`,
     {
-      label: `Confirmed by ${confirmedSide}`,
+      label: `Their ${confirmedSide} arrived`,
       value: at,
-      source: `vendor_verification_applications.contact_${email ? 'email' : 'phone'}_confirmed_at`,
+      source: `Marked off on this application when their ${confirmedSide} came in`,
     },
     {
-      label: `Confirmed by ${missingSide}`,
-      value: 'never — no stamp on this application',
-      source: `vendor_verification_applications.contact_${email ? 'phone' : 'email'}_confirmed_at`,
+      label: `Their ${missingSide} never arrived`,
+      value: 'never — nobody has marked it off',
+      source: `The same application, where the ${missingSide} would have been marked off`,
     },
   );
 }
@@ -646,14 +646,14 @@ function checkReachable(f: CheckFacts): CheckResult {
     label,
     `The profile is missing ${list(missing)}.`,
     {
-      label: 'What a reviewer needs to reach and place this shop',
+      label: 'What you need to reach and place a shop',
       value: 'an email address, a phone number and a business address',
-      source: 'The three contact fields every verified shop carries',
+      source: 'The three things every verified shop carries',
     },
     {
-      label: 'What this profile carries',
+      label: 'What this shop has given us',
       value: `missing ${list(missing)}`,
-      source: 'vendor_profiles (contact_email, contact_phone, hq_address)',
+      source: "The shop's own profile",
     },
   );
 }
@@ -676,14 +676,14 @@ function checkDeclaredExperience(f: CheckFacts, now: Date): CheckResult {
       label,
       `The shop says it started trading in ${f.inBusinessSinceYear}, which has not happened yet.`,
       {
-        label: 'The latest a start year can be',
+        label: 'The latest a start year could possibly be',
         value: `${thisYear}`,
         source: "Today's date",
       },
       {
-        label: 'What this shop declared',
+        label: 'What this shop told us',
         value: `${f.inBusinessSinceYear}`,
-        source: 'vendor_profiles.in_business_since_year',
+        source: "The shop's own profile",
       },
     );
   }

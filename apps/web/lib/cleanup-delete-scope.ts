@@ -36,9 +36,10 @@
  * "the media bucket" still lets one couple delete another couple's pictures.
  *
  * ─── HOW IT IS ENFORCED, NOT JUST STATED ───────────────────────────────────
- * • A `CleanupScope` can only be minted by the builders in this file. It carries
- *   a module-private symbol and `planCleanupDelete` checks it AT RUNTIME, so a
- *   hand-built `{ policies: [...] } as CleanupScope` is refused, not obeyed.
+ * • A `CleanupScope` can only be minted by the builders in this file, and
+ *   `planCleanupDelete` checks that AT RUNTIME by identity (a module-private
+ *   WeakSet), so a hand-built `{ policies: [...] } as CleanupScope` — or a
+ *   spread copy of a real scope with a wider policy list — is refused.
  * • A `PlannedDelete` is likewise only minted here, and the executor refuses
  *   anything else — so the only road to an R2 delete runs through this check.
  * • The key test reuses `parseClientRef` (lib/r2-client-ref.ts), the SEC-1 gate:
@@ -70,9 +71,21 @@ import {
   type ClientRefPolicy,
 } from '@/lib/r2-client-ref';
 
-/** Module-private brands. Not exported — nothing outside this file can mint either. */
-const SCOPE_BRAND: unique symbol = Symbol('cleanup-delete-scope');
-const PLANNED_BRAND: unique symbol = Symbol('cleanup-delete-planned');
+/**
+ * Type-level brands (erased at runtime) so a plain object literal does not
+ * type-check as a scope or a target…
+ */
+declare const SCOPE_BRAND: unique symbol;
+declare const PLANNED_BRAND: unique symbol;
+
+/**
+ * …and the RUNTIME proof: identity membership in module-private sets. A brand
+ * carried as a property would survive `{ ...scope, policies: [wider] }` (object
+ * spread copies own enumerable symbol keys); a WeakSet entry does not — the
+ * spread is a new object this module never minted.
+ */
+const MINTED_SCOPES = new WeakSet<object>();
+const MINTED_TARGETS = new WeakSet<object>();
 
 const MEDIA: R2BucketName = 'setnayan-media';
 const THREAD_FILES: R2BucketName = 'setnayan-thread-files';
@@ -124,12 +137,13 @@ function mintScope(
   policies: readonly ClientRefPolicy[],
   bareKeysIn: R2BucketName | null = null,
 ): CleanupScope {
-  return Object.freeze({
+  const scope = Object.freeze({
     label,
-    policies: Object.freeze([...policies]),
+    policies: Object.freeze(policies.map((p) => Object.freeze({ ...p, prefixes: Object.freeze([...p.prefixes]) }))),
     bareKeysIn,
-    [SCOPE_BRAND]: true as const,
-  });
+  }) as unknown as CleanupScope;
+  MINTED_SCOPES.add(scope);
+  return scope;
 }
 
 /** A scope that admits nothing — what a builder returns for an unusable id. */
@@ -284,19 +298,11 @@ export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
 // ─── The check ──────────────────────────────────────────────────────────────
 
 export function isCleanupScope(value: unknown): value is CleanupScope {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as Record<PropertyKey, unknown>)[SCOPE_BRAND] === true
-  );
+  return typeof value === 'object' && value !== null && MINTED_SCOPES.has(value);
 }
 
 export function isPlannedDelete(value: unknown): value is PlannedDelete {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as Record<PropertyKey, unknown>)[PLANNED_BRAND] === true
-  );
+  return typeof value === 'object' && value !== null && MINTED_TARGETS.has(value);
 }
 
 /**
@@ -327,12 +333,12 @@ export function planCleanupDelete(ref: unknown, scope: CleanupScope): CleanupDec
   for (const policy of scope.policies) {
     const parsed = parseClientRef(candidate, policy);
     if (parsed) {
-      const target: PlannedDelete = Object.freeze({
+      const target = Object.freeze({
         bucket: parsed.bucket,
         key: parsed.key,
         scope: scope.label,
-        [PLANNED_BRAND]: true as const,
-      });
+      }) as unknown as PlannedDelete;
+      MINTED_TARGETS.add(target);
       return { ok: true, target };
     }
   }

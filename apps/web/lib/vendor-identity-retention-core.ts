@@ -181,7 +181,7 @@ export function hasIdentityUploads(docUploads: unknown): boolean {
 // `r2://setnayan-media/vendors/<own id>/…` (vendorOwnedMediaPolicy). So the pin
 // is by TENANT — the vendor's own folder in either bucket — not by bucket alone.
 // The write side is closed too (a restrictive policy in migration
-// 20271219…_every_cleanup_delete_is_pinned); this is the half that holds even if
+// 20271219262486_every_cleanup_delete_is_pinned); this is the half that holds even if
 // a future writer forgets.
 //
 // 🔒 REFUSED ⇒ COUNTED, and the pointer is KEPT. Per slot, all-or-nothing: a

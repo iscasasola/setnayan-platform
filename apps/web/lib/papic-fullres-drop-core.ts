@@ -685,7 +685,7 @@ export function guestClipItem(r: Row): PapicDropItem {
 //
 // So a candidate is deleted only when its key sits under the folder the row's
 // OWN writer files it in. The write side is narrowed too (migration
-// 20271219…_every_cleanup_delete_is_pinned + the recording actions); this is the
+// 20271219262486_every_cleanup_delete_is_pinned + the recording actions); this is the
 // half that holds even if a future writer forgets.
 // ============================================================================
 

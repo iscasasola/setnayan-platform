@@ -65,7 +65,7 @@ import {
  * and the next approve OR reject armed this job to delete another shop's
  * seven-year permit. Both paths are pinned now, by tenant, and the write side
  * is closed by a restrictive policy in migration
- * 20271219…_every_cleanup_delete_is_pinned. The only deletes go through
+ * 20271219262486_every_cleanup_delete_is_pinned. The only deletes go through
  * `executeCleanupDelete` (lib/cleanup-delete.ts), which refuses anything the
  * planner did not prove.
  */

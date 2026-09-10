@@ -6,9 +6,8 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
-import { parseStoredAsset } from '@/lib/uploads';
-import { r2Delete } from '@/lib/r2';
-import { deletePublicAsset } from '@/lib/storage';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { CleanupDeleteRefused, planCleanupDelete } from '@/lib/cleanup-delete-scope';
 import { eraseUserAccount, type ErasureIo } from '@/lib/erasure/purge';
 import {
   serializeTempPasswordFlash,
@@ -36,29 +35,22 @@ const TEMP_PASSWORD_FLASH_TTL_SECONDS = 120;
  */
 function erasureIo(): ErasureIo {
   return {
-    // Only `r2://bucket/key` refs from the current upload flow are removed; a
-    // legacy/external URL is left (it may not even be ours). r2Delete is
-    // idempotent on a missing key.
-    deleteStoredAsset: async (ref) => {
-      const asset = parseStoredAsset(ref);
-      if (asset?.kind === 'r2') await r2Delete({ bucket: asset.bucket, key: asset.key });
-    },
-    // Chat attachments store a PUBLIC R2 URL rather than an `r2://` ref, so they
-    // need the URL-shaped round-trip.
+    // Only `r2://bucket/key` refs are ever deleted; a legacy/external URL is
+    // left (it may not even be ours). r2Delete is idempotent on a missing key.
     //
-    // ⚠ THROW ON A REPORTED NON-DELETION (2026-07-26). `deletePublicAsset`
-    // never throws — by design, for the settings callers that just want a
-    // best-effort cleanup. That silently disabled erasure's whole audit path:
-    // `purgeUserAuthoredChat` wraps this in try/catch to write a
-    // `chat-attachment-r2-delete` failure row, and with a function that cannot
-    // fail, the catch was unreachable and every miss went unrecorded. Now the
-    // outcome comes back as data and this adapter converts it into the throw
-    // the purge is already written to audit — matching `r2Delete` above, which
-    // throws and is audited correctly. The adapter is the right place for the
-    // conversion: erasure needs the failure, the other five callers do not.
-    deletePublicAssetUrl: async (url) => {
-      const res = await deletePublicAsset({ publicUrl: url });
-      if (!res.ok) throw new Error(`${res.reason}: ${res.message}`);
+    // 🔒 AND ONLY WHEN THE OBJECT IS THE ROW'S OWN (2026-09-10). The purge hands
+    // over the scope of the row it read the ref from; `planCleanupDelete` holds
+    // the ref to that row's folder. Every column erasure reads is one its
+    // subject could write, so without this a person could put a stranger's key
+    // on their own row, ask to be erased, and have our admin client delete the
+    // stranger's file. A refusal THROWS — the purge already wraps every call in
+    // an audited catch, so the refusal lands in the erasure audit as a failure
+    // row rather than vanishing.
+    deleteStoredAsset: async (ref, scope) => {
+      if (typeof ref !== 'string' || !ref.trim().startsWith('r2://')) return;
+      const decision = planCleanupDelete(ref, scope);
+      if (!decision.ok) throw new CleanupDeleteRefused(scope.label, decision.reason);
+      await executeCleanupDelete(decision.target);
     },
     revokeAllSessions,
   };

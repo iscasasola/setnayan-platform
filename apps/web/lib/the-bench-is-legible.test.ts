@@ -157,6 +157,22 @@ const PAIRINGS: readonly Pairing[] = [
   { name: 'waiting on you', selector: '.slcat .vc .stand b.need' },
   { name: 'the roll-up', selector: '.slcat .replied' },
   { name: 'the roll-up names', selector: '.slcat .replied .who' },
+  // ── 2026-09-11 · H5 — the owner's "hide lock, say why" + the HARD tier ────
+  // The soft tier's reason note had NEVER RENDERED (the card gated its build
+  // slot on the lock id, which a clash nulls), so its colour was never on
+  // screen to measure. It renders now, so it is measured now.
+  { name: "Doesn't fit your build (note)", selector: '.slcat .vact-note-txt b' },
+  {
+    name: 'Not available on your date (divider)',
+    selector: '.slcat .raildiv.hard>span',
+    darkSelector: 'html.dark .slcat .raildiv.hard>span',
+  },
+  {
+    name: 'Not available on your date (note)',
+    selector: '.slcat .vact.note.unavailable .vact-note-txt b',
+    darkSelector: 'html.dark .slcat .vact.note.unavailable .vact-note-txt b',
+  },
+  { name: 'Lock is off — the reason', selector: '.slcat .vact.note.withheld .vact-note-txt b' },
 ];
 
 const AA = 4.5;
@@ -181,7 +197,7 @@ function measure(p: Pairing, theme: 'light' | 'dark'): { name: string; r: number
 test('the scan read the real stylesheet (an empty read is a green lie)', () => {
   assert.ok(src.includes('const SLCAT_CSS'), 'the bench stylesheet is gone or renamed');
   assert.ok(src.length > 20000, `read only ${src.length} chars`);
-  assert.equal(PAIRINGS.length, 10, 'the pairing list changed size — say so in the PR');
+  assert.equal(PAIRINGS.length, 14, 'the pairing list changed size — say so in the PR');
   // Every selector must actually be in the file, or the loop measures nothing
   // and reports a clean pass — the shape both shipped guards failed in.
   for (const p of PAIRINGS) {

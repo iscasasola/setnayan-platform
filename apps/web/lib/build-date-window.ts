@@ -422,6 +422,33 @@ export function freeDaysLine(args: {
 }
 
 /**
+ * The HARD tier's sink (Explore Replan PR-G2 · owner 2026-09-11). Takes the
+ * suppliers whose own calendar shows the committed day taken OUT of the rail
+ * before the soft tier partitions what is left, so the rail reads — per the
+ * spec's §6 order — *fits · "Doesn't fit your build" · "Not available"*.
+ *
+ * Stable, like its soft sibling: it moves only the unavailable, in the order the
+ * couple's lens and their own arrangement put them, and never reshuffles the
+ * rest. Cards are MOVED, never dropped (owner-locked decision #3: "never
+ * removed").
+ */
+export function sinkUnavailable<T>(
+  rows: readonly T[],
+  isUnavailable: (row: T) => boolean,
+): { available: T[]; unavailable: T[] } {
+  const available: T[] = [];
+  const unavailable: T[] = [];
+  for (const row of rows) (isUnavailable(row) ? unavailable : available).push(row);
+  return { available, unavailable };
+}
+
+/** The hard tier's divider and card note — red, where the soft tier is amber. */
+export const NOT_AVAILABLE_DIVIDER = 'Not available on your date';
+export const NOT_AVAILABLE_ACTION = 'Not available on your date';
+/** The reason line under it. Says what the calendar shows, and the way out. */
+export const NOT_AVAILABLE_REASON = 'Their calendar shows your date taken. You can still ask them.';
+
+/**
  * Stable partition of a rail into cards that fit and cards that do not. Stable
  * on purpose: the sink must not reshuffle the couple's chosen sort, it must only
  * move the losers to the end (same discipline as the shipped compatible-first

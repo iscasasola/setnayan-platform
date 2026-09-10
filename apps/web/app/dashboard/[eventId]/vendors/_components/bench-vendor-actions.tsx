@@ -39,11 +39,16 @@
 
 import Link from 'next/link';
 import { useTransition } from 'react';
-import { CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle } from 'lucide-react';
+import { Ban, CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
-import { DOESNT_FIT_ACTION, doesntFitReason } from '@/lib/build-date-window';
+import {
+  DOESNT_FIT_ACTION,
+  NOT_AVAILABLE_ACTION,
+  NOT_AVAILABLE_REASON,
+  doesntFitReason,
+} from '@/lib/build-date-window';
 import {
   CARD_ADDING,
   CARD_ADD_TO_BUILD,
@@ -55,6 +60,7 @@ import {
   CARD_NEEDS_PRICE,
   CARD_REMOVE_FROM_BUILD,
   CARD_ASK_SENT,
+  LOCK_WITHHELD_COPY,
   cardCheckInquiryLabel,
   cardInquireLabel,
   waitingOnSupplier,
@@ -114,17 +120,21 @@ export function BenchVendorActions({
     });
   };
 
+  // ONE ID PER JOB. The build slot acts on `buildGroupId`; Lock renders on
+  // `lockGroupId`. They were one variable until 2026-09-11, and the resolver
+  // nulls the lock id on a clash — so the clash note below could never draw.
   const groupId = actions.lockGroupId;
+  const buildGroupId = actions.buildGroupId;
 
   return (
     <div className="vacts">
-      {actions.build && groupId ? (
+      {actions.build && buildGroupId ? (
         actions.build.kind === 'add' ? (
           <button
             type="button"
             className="vact primary"
             disabled={pending}
-            onClick={() => pin(groupId)}
+            onClick={() => pin(buildGroupId)}
           >
             <Hammer size={12} strokeWidth={2} aria-hidden />
             {pending ? CARD_ADDING : CARD_ADD_TO_BUILD}
@@ -139,10 +149,35 @@ export function BenchVendorActions({
               type="button"
               className="vact mini"
               disabled={pending}
-              onClick={() => unpin(groupId)}
+              onClick={() => unpin(buildGroupId)}
             >
               {pending ? '…' : CARD_REMOVE_FROM_BUILD}
             </button>
+          </span>
+        ) : actions.build.kind === 'not_available' ? (
+          // HARD tier (PR-G2 · owner 2026-09-11): their calendar shows the
+          // committed day taken. Not an error on the couple's part and not a
+          // wall — the reason is named and the conversation leg below stays
+          // live. A card already in the build keeps Remove: the card is sunk,
+          // never silently taken out of the couple's plan.
+          <span className="vact-pair">
+            <span className="vact note unavailable">
+              <CalendarX2 size={12} strokeWidth={1.9} aria-hidden />
+              <span className="vact-note-txt">
+                <b>{NOT_AVAILABLE_ACTION}</b>
+                <span>{NOT_AVAILABLE_REASON}</span>
+              </span>
+            </span>
+            {actions.build.inBuild ? (
+              <button
+                type="button"
+                className="vact mini"
+                disabled={pending}
+                onClick={() => unpin(buildGroupId)}
+              >
+                {pending ? '…' : CARD_REMOVE_FROM_BUILD}
+              </button>
+            ) : null}
           </span>
         ) : actions.build.kind === 'schedule_clash' ? (
           // SOFT schedule clash (PR-G1). Not an error and not a wall: the
@@ -176,6 +211,18 @@ export function BenchVendorActions({
           <span className="vact-note-txt">
             <b>{CARD_ASK_SENT}</b>
             <span>{waitingOnSupplier(lockRequestExpiresAt ?? null)}</span>
+          </span>
+        </span>
+      ) : null}
+
+      {/* "Hide lock, say why" (owner 2026-09-11). Lock is absent below; this
+          is the reason, read off the thread — never a guessed one. */}
+      {actions.lockWithheld ? (
+        <span className="vact note withheld">
+          <Ban size={12} strokeWidth={1.9} aria-hidden />
+          <span className="vact-note-txt">
+            <b>{LOCK_WITHHELD_COPY[actions.lockWithheld].headline}</b>
+            <span>{LOCK_WITHHELD_COPY[actions.lockWithheld].line}</span>
           </span>
         </span>
       ) : null}

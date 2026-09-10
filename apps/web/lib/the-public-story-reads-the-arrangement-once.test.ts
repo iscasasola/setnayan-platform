@@ -67,3 +67,17 @@ test('3 · story-pages.ts runs no query of its own — it only calls the gated r
   assert.equal(/\.rpc\s*\(/.test(src), false, 'story-pages.ts calls a function directly');
   assert.match(src, /loadStoryArrangement\(\s*admin\s*,\s*eventId\s*,\s*viewer\s*\)/);
 });
+
+test('4 · the spine draws the pages, and its minutes never repeat a photograph a page shows', () => {
+  // The spine is a server component that needs the live loaders to render, so its WIRING is read
+  // from source; the behaviour of each piece is proven in `story-sheet.test.ts`.
+  const src = read('app/[slug]/_components/story/story-spine.tsx');
+  assert.match(
+    src,
+    /for \(const raw of data\.dayChapters\) \{\s*const c = withoutPlacedMedia\(raw, onSheets\);/,
+    "every minute must pass through withoutPlacedMedia before it is placed, or a guest sees a placed photo twice",
+  );
+  assert.match(src, /const onSheets = refsOnSheets\(sheets\);/);
+  assert.match(src, /placeSheetsOnDays\(sheets, dayDates\)/, 'the pages must be placed on the drawn days');
+  assert.match(src, /<SheetEntry entry=\{e\.sheet\}/, 'a placed page must actually be rendered');
+});

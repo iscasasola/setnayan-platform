@@ -195,6 +195,60 @@ export function createChunkRing(capacity: number): ChunkRing {
   };
 }
 
+/* ── S18 · the drain, on its way to the page ─────────────────────────────────────────────── */
+
+/**
+ * One encoded access unit crossing to the page. `data` is the entry's own
+ * `ArrayBuffer`, TRANSFERRED rather than copied — see `drainToWire`.
+ */
+export type MediaChunkWire = {
+  keyframe: boolean;
+  timestampMicros: number;
+  seq: number;
+  data: ArrayBuffer;
+};
+
+/**
+ * Empty both rings into the shape `postMessage` sends, plus the transfer list
+ * that keeps it zero-copy.
+ *
+ * LIVES HERE, NOT IN THE WORKER, FOR ONE REASON: the worker module touches
+ * `self`, `OffscreenCanvas` and `postMessage` at import time, so nothing inside
+ * it can be unit-tested in Node. This is the part with decisions in it — does a
+ * quiet tick send anything, are the rings actually emptied, does every buffer
+ * reach the transfer list — so it belongs where those decisions can be broken
+ * in a test and seen to fail.
+ *
+ * Returns `null` when both rings are empty: an empty `media` message every
+ * 33 ms costs an IPC hop and a structured clone to say "no news".
+ */
+export function drainToWire(
+  videoRing: Pick<ChunkRing, 'drain'>,
+  audioRing: Pick<ChunkRing, 'drain'>,
+): { video: MediaChunkWire[]; audio: MediaChunkWire[]; transfer: ArrayBuffer[] } | null {
+  const video = videoRing.drain();
+  const audio = audioRing.drain();
+  if (video.length === 0 && audio.length === 0) return null;
+  const wire = (entry: RingEntry): MediaChunkWire => ({
+    keyframe: entry.keyframe,
+    timestampMicros: entry.timestampMicros,
+    seq: entry.seq,
+    // `.buffer` is the whole allocation and every entry owns a fresh one (the
+    // encode sink allocates per chunk), so this is exact — not a view into a
+    // shared arena that would transfer more than it should.
+    data: entry.data.buffer as ArrayBuffer,
+  });
+  const videoWire = video.map(wire);
+  const audioWire = audio.map(wire);
+  return {
+    video: videoWire,
+    audio: audioWire,
+    // EVERY buffer, or the ones left out are structured-cloned instead —
+    // silently, at 30 frames a second.
+    transfer: [...videoWire, ...audioWire].map((chunk) => chunk.data),
+  };
+}
+
 /* ── drift-guarded ring push ────────────────────────────────────────────────────────────── */
 
 export type DriftGuardedRing = {

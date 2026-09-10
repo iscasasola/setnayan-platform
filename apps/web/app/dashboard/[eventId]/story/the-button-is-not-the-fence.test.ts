@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
+import { storySurfacesFor } from '@/lib/a-withdrawal-reaches-every-copy';
 
 const ACTIONS = join(import.meta.dirname, 'actions.ts');
 
@@ -185,20 +186,56 @@ test('narrowing the audience revalidates the story, the recap AND the print shee
     (`revalidate = 300`) and it asks `storyAudienceAdmits`, so a narrowed story
     stayed readable there for five minutes — on the surface a stranger can keep.
 
-    🔴 THE RECAP IS IN THIS LIST FOR A DIFFERENT REASON, and an earlier version
-    of this comment got it wrong. `/[slug]/recap` is the Auto-Recap: its own
-    switch (`event_recaps.status`), and **it does not read `event_editorial` at
-    all** — measured, 0 references in `recap/page.tsx` and `lib/auto-recap.ts`.
-    It is revalidated because `04` §3 names it in the withdrawal set and it
-    renders guest photos and Kwentos, not because an audience change leaks
-    through it. The assertion stays; the reason had to be corrected.
+    🔴 THE REASON THE RECAP IS IN THIS LIST HAS NOW BEEN WRONG TWICE, AND THE
+    SECOND VERSION IS THE INSTRUCTIVE ONE. It read: *"it does not read
+    `event_editorial` at all — measured, 0 references in `recap/page.tsx` and
+    `lib/auto-recap.ts`."*
+
+    **THE NUMBER WAS RIGHT AND THE SENTENCE WAS WRONG.** Both files really do
+    contain 0 occurrences of that string. `lib/auto-recap.ts` also calls
+    `loadEditorialData` at two call sites, and THAT reads `event_editorial`. The
+    recap reads the story's row one hop away, where a grep for a table name
+    cannot see it — a correct measurement turned into a consequence nobody
+    checked.
+
+    ⚖ What survives: `lib/auto-recap.ts` has 0 references to `audience`, so
+    narrowing the audience genuinely does not hide the recap. That was the
+    conclusion the comment needed, and it had to be measured on `audience`
+    rather than on the name of a table.
+
+    🔑 What does NOT survive: a guest's withdrawal reaches the recap for a much
+    stronger reason than "cheap insurance" — `loadEditorialData` applies the
+    consent veto to the hero the recap leads with. The assertion never moved;
+    only the story told about it did, twice.
   */
   const body = saveEditorialBody();
-  for (const path of ['`/${ev.slug}`', '`/${ev.slug}/recap`', '`/${ev.slug}/print`']) {
+
+  /*
+    ⚠ THE THREE PATHS ARE NO LONGER SPELLED OUT HERE, AND THE ASSERTION GOT
+    STRONGER RATHER THAN WEAKER. S14 moved them into ONE list
+    (`lib/a-withdrawal-reaches-every-copy.ts`), because a guest's withdrawal has
+    to reach exactly the same surfaces and two copies of "everywhere" is how the
+    fourth one gets forgotten. Matching three literal `revalidatePath` calls in
+    this file would now be a guard against the refactor rather than against the
+    defect.
+
+    So it asks the two halves of the actual claim: this action reaches the list,
+    and the list still contains the three surfaces. The second half also catches
+    a surface being dropped from the list — which the old string match could
+    not, because it only ever looked at this one file.
+  */
+  assert.match(
+    body,
+    /everyCopyIsNowStale\(\s*eventId\s*\)/,
+    'an audience change no longer reaches the list of public surfaces — a ' +
+      'narrowed story stays readable on the page, the recap and the printable ' +
+      'keepsake for up to five minutes.',
+  );
+  const surfaces = storySurfacesFor('a-slug');
+  for (const path of ['/a-slug', '/a-slug/recap', '/a-slug/print']) {
     assert.ok(
-      body.includes(`revalidatePath(${path})`),
-      `an audience change no longer revalidates ${path} — a narrowed story stays ` +
-        `readable there for up to five minutes.`,
+      surfaces.includes(path),
+      `${path} has fallen out of the list of surfaces an audience change reaches.`,
     );
   }
 });

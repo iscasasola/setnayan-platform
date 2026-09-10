@@ -41,6 +41,7 @@ import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
@@ -52,6 +53,10 @@ import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
+import {
+  fetchThreadPayments,
+  paxProposalsToGuestCounts,
+} from '@/lib/thread-decision-sources.server';
 import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
@@ -615,6 +620,51 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         // still open long after it had ended.
         inquiryStatus: thread.inquiry_status,
       });
+  // ── DECISIONS · the two sources that are not messages ─────────────────────
+  // Payments and the guest-count change are page sections rendered around the
+  // stream, so the Decisions view can only get them from here. Both reads are
+  // graceful — a refusal costs those rows, never the conversation.
+  const decisionPayments = await fetchThreadPayments({
+    adminClient: paxAdmin,
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+  });
+  const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
+
+  // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
+  // A supplier CANNOT read `event_vendors` through their own session — all four
+  // policies on that table are couple- or moderator-scoped — so this uses the
+  // admin client already in scope, narrowed to (this event × THIS shop's own
+  // profile), the same pair the thread-ownership check above already proved.
+  // Three handshake columns; no money, no guest data, no schedule.
+  const lockHandshake = await fetchThreadLockHandshake(paxAdmin, {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+  });
+
+  /**
+   * ⛔ NO STANDING SENTENCE ON THIS SIDE, ON PURPOSE.
+   *
+   * `buildSupplierStanding` (S6) is written in the COUPLE's second person and
+   * cannot be re-pointed by a parameter: its `answerIsOwedByCouple` rung says
+   * **"waiting on you"** when a quote is out with the couple, and its reply
+   * clause says "Replied yesterday" about the SUPPLIER. Rendered here, the
+   * supplier would be told they owe an answer they are in fact waiting for —
+   * the sentence would be exactly backwards on the one rung that asks anyone
+   * to act.
+   *
+   * The alternative — a second, supplier-voiced sentence — is the thing S6
+   * exists to forbid, and the v3 prototype's two hand-typed standings
+   * disagreed with each other before either shipped.
+   *
+   * So this page shows no standing line, and the supplier reads the same facts
+   * from the per-entry "Now" lines and the "N need you" count, both of which
+   * ARE viewer-correct because `buildThreadDecisions` takes the viewer. Giving
+   * the supplier their own standing sentence is a copy decision for the owner,
+   * not something to invent in a build session.
+   */
+  const threadStanding = null;
+
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
   // the rows cannot disagree with each other or with the header above them.
   const customerSummary = buildCustomerEventSummary({
@@ -1055,6 +1105,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         viewerRole="vendor"
         counterpartyLabel={coupleLabel}
         eventDate={event?.event_date ?? null}
+        standing={threadStanding}
+        decisionPayments={decisionPayments}
+        decisionGuestCounts={decisionGuestCounts}
+        lockHandshake={lockHandshake}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

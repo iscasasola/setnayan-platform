@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { storyGate } from '@/lib/story-opens-when-untold';
-import { storyAudienceOf } from '@/lib/who-can-see-your-story';
+import { storyAudienceOf, storyHasBeenPublished } from '@/lib/who-can-see-your-story';
 import { formatEventDate } from '@/lib/events';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -39,7 +39,15 @@ import { nextCandidates, sanitizeNextAnnouncement, type NextTypeOption } from '@
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 
-type LandingVisibility = 'public' | 'unlisted' | 'private';
+/**
+ * How the celebration's own page is published.
+ *
+ * ⚠ `invited_accounts` is a REAL fourth state (the privacy screen's "tagged
+ * accounts only") and it is in the database's own CHECK constraint. This union
+ * omitted it, so the cast below silently relabelled it — and the Stories
+ * caveat downstream told the host their page was "Private" when it was not.
+ */
+type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 /**
  * Consolidated editorial editor (iteration 0046). One page where the couple
@@ -177,12 +185,22 @@ export default async function EditorialEditorPage({
   let draft: Record<string, unknown> = {};
   let status = 'draft';
   let publishConsentAt: string | null = null;
+  /*
+    S14 · `07` Q6 — HAS THIS STORY EVER BEEN PUBLIC? The "Taken back" rung is
+    offered only to a story that has, because offering it to one that never left
+    the host's desk is a control with nothing behind it. Asked of `edition_no`
+    rather than of `status`: the number is stamped on the FIRST publish and the
+    database refuses to move it afterwards, so it is the one fact on the row that
+    cannot lie about the past. `published_at` would say yes for a story that only
+    ever reached guests-only.
+  */
+  let hasBeenPublished = false;
   let draftMeasured = true;
   try {
     const admin = createAdminClient();
     const { data: ed, error: edError } = await admin
       .from('event_editorial')
-      .select('draft_json, status, publish_consent_at')
+      .select('draft_json, status, publish_consent_at, edition_no')
       .eq('event_id', eventId)
       .maybeSingle();
     if (edError) {
@@ -205,6 +223,9 @@ export default async function EditorialEditorPage({
     if (typeof ed?.publish_consent_at === 'string' && ed.publish_consent_at.trim()) {
       publishConsentAt = ed.publish_consent_at;
     }
+    hasBeenPublished = storyHasBeenPublished(
+      typeof ed?.edition_no === 'number' ? ed.edition_no : null,
+    );
   } catch {
     // A genuine throw — a network failure, not a refusal. Same conclusion.
     draftMeasured = false;
@@ -567,7 +588,7 @@ export default async function EditorialEditorPage({
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}
-        isWedding={(event.event_type ?? 'wedding') === 'wedding'}
+        eventType={(event.event_type as string | null) ?? 'wedding'}
         boardColors={boardColors}
         boardThemeName={(event.moodboard_theme_name as string | null) ?? null}
         /*
@@ -585,6 +606,7 @@ export default async function EditorialEditorPage({
         deskOpenCount={desk ? desk.counts.open : 0}
         deskPercentDecided={desk ? percentDecided(desk.items) : 0}
         publishConsentAt={publishConsentAt}
+        hasBeenPublished={hasBeenPublished}
         /*
           THE FOURTH AND FIFTH STEPS, rendered here and handed down as slots:
           each needs a server read the editor must not make. They render ONLY

@@ -159,9 +159,36 @@ test('a chat file with no stored reference is still listed, with nothing to clic
 });
 
 test('chatAttachmentHref is the only thing that turns a message into a URL', () => {
-  assert.equal(chatAttachmentHref(chatFile), chatFile.attachment_url);
-  assert.equal(chatAttachmentHref({ ...chatFile, attachment_url: null }), null);
-  assert.equal(chatAttachmentHref({ ...chatFile, attachment_url: undefined }), null);
+  // 🔒 UPDATED 2026-09-09, when #5339 landed the private route. The link is the
+  // membership-proving route — NEVER the stored ref and never a public URL.
+  assert.equal(chatAttachmentHref(chatFile), `/api/chat/attachment/${chatFile.message_id}`);
+
+  // A legacy row (public URL, no r2 key) is fetched through the route too. If
+  // this ever returns the URL itself again, a file is being handed to anyone
+  // holding the string, with no check that they are still in the thread.
+  assert.notEqual(chatAttachmentHref(chatFile), chatFile.attachment_url);
+
+  // A row carrying only the NEW column links just the same — this is the
+  // assertion that would have caught the gap between #5339's merge and the
+  // migration of this function, when every new file listed as unopenable.
+  assert.equal(
+    chatAttachmentHref({
+      ...chatFile,
+      attachment_url: null,
+      attachment_r2_key: 'r2://setnayan-thread-files/abc',
+    }),
+    `/api/chat/attachment/${chatFile.message_id}`,
+  );
+
+  // No file on the message ⇒ no link.
+  assert.equal(
+    chatAttachmentHref({ ...chatFile, attachment_url: null, attachment_r2_key: null }),
+    null,
+  );
+  assert.equal(
+    chatAttachmentHref({ ...chatFile, attachment_url: undefined, attachment_r2_key: undefined }),
+    null,
+  );
 });
 
 test('the customer card never builds a chat-file link of its own', () => {

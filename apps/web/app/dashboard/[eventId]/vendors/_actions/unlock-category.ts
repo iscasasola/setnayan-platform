@@ -39,6 +39,10 @@ import {
   canonicalServicesForTile,
 } from '@/lib/vendor-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  eventVendorCategoryForCardKind,
+  eventVendorCategoryKeyForCardKind,
+} from '@/lib/event-vendor-category';
 import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -179,16 +183,39 @@ export async function unlockCategoryWithInquiry(input: {
     const vendorName = prof?.business_name ?? cand.name ?? 'Vendor';
 
     // 1. Add the vendor → the category is now active.
+    //
+    // 🛑 `category` here is a `vendor_services` card kind — a coverage LEAF, or
+    // a tier-2 TILE id. `event_vendors.category` is the strict enum
+    // `vendor_category`, which has neither `live_band` nor `host_mc` in it. The
+    // raw value made the insert answer `22P02` and the `continue` below swallowed
+    // it, so "add this category" reported no vendor for a shop that was right
+    // there. Same defect, same day, as the public-profile inquiry — one resolver
+    // for both.
+    const tileForKind = tax.map[category]?.tile ?? null;
     const { error: insertErr } = await supabase.from('event_vendors').insert({
       event_id: eventId,
-      category,
-      category_key: tax.map[category]?.tile ?? null,
+      category: eventVendorCategoryForCardKind(category, tileForKind),
+      category_key: eventVendorCategoryKeyForCardKind(category, tileForKind),
       vendor_name: vendorName,
       status: 'considering',
       marketplace_vendor_id: vendorProfileId,
       service_id: serviceId,
     });
-    if (insertErr) continue;
+    if (insertErr) {
+      // LOUD. This used to be a bare `continue`: the couple was told "no vendor"
+      // for a shop the search had already found, with nothing anywhere saying why.
+      // eslint-disable-next-line no-console
+      console.error(
+        '[unlock-category] a best-fit shop was found and could NOT be added to the picks',
+        {
+          eventId,
+          vendorProfileId,
+          cardKind: category,
+          error: insertErr.message,
+        },
+      );
+      continue;
+    }
     addedAny = true;
     if (firstVendorName === null) firstVendorName = vendorName;
 

@@ -40,6 +40,7 @@ import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard } from '@/lib/service-card-view-model';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
@@ -65,7 +66,11 @@ import {
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  displayLogoUrl,
+  displayUrlForStoredAsset,
+  publicUrlForStoredAsset,
+} from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import {
@@ -111,7 +116,6 @@ import {
   type VendorBadge,
 } from '@/lib/vendor-badges';
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
 import { searchReads, type ReadHit } from '@/lib/site-search';
 
@@ -711,7 +715,7 @@ type VendorCardRow = {
    *  pre-migration deploy → free → name still hidden. */
   tier_state?: string | null;
   /** Resolved public URL for the vendor's hero service photo
-   *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
+   *  (`vendor_services.primary_photo_r2_key` → publicUrlForStoredAsset). Null when
    *  the vendor has no service with a photo set. */
   primary_photo_url?: string | null;
   /** Lowest active `vendor_services.starting_price_php` across all
@@ -1525,10 +1529,82 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     an empty array renders identically to a genuinely empty marketplace. Caught
     here so a broken read falls back to the vendor grid this page shipped
     yesterday — degraded, never a convincing lie.
+
+    🔴 `admin`, NOT `supabase` — AND THE VISITOR SESSION IS WHY THE GRID WAS
+    EMPTY TO EVERY STRANGER. Measured 2026-09-09 against production through a
+    real anonymous PostgREST client, not inferred from a policy file:
+
+        vendor_profiles ..... 2 rows   (Saysay, SetnaProd)
+        vendor_services ..... 0 rows
+
+    `vendor_services_public_read` is `TO authenticated`; its sibling
+    `vendor_profiles_public_read` is `TO authenticated, anon`. So a signed-out
+    couple — the FIRST person to touch this product — opened /explore, read the
+    heading "The first shops", and got a grid with no children. RLS refuses
+    without raising, so `serviceCards` came back `[]`, the `.catch` never fired,
+    and an access decision rendered as "nobody has listed anything yet".
+
+    🔑 EVERY OTHER READ ON THIS PAGE ALREADY USES `admin` FOR EXACTLY THIS
+    REASON — see the marketplace query's own note below: *"the marketplace is a
+    public surface … the admin client carries no viewer identity so the read is
+    consistent for everyone."* One read out of ~20 took the viewer's session,
+    and it was the one that draws the body.
+
+    🔒 THIS DOES NOT WIDEN ANYTHING. The module states the visibility rule in
+    its own query — active card AND a shop whose `verification_state` and
+    `public_visibility` are both `verified` — and its docblock says why: it
+    runs with whatever client the caller passes, so the answer must not change
+    with the caller. The rule is the same rule the policy encodes; the admin
+    client is what the function was written to be handed.
+
+    ⛔ THE OTHER REPAIR WAS ADDING `anon` TO THE POLICY, AND IT IS NOT
+    EQUIVALENT. `anon` already holds table-level SELECT on `vendor_services`
+    (measured in prod: no column allowlist, all 40 columns), so admitting it to
+    the policy publishes the whole row to any holder of the public key —
+    `is_demo`/`demo_batch_id`, `daily_capacity`, `credit_price_centavos`,
+    `branch_id` included, none of which any customer surface renders. That is
+    widening a TABLE when the thing that needed widening was a PAGE. It would
+    also move the exposure baseline and need a migration to undo. This is one
+    identifier, revertible in one line.
   */
   const serviceCards = isLandingView
-    ? await fetchMarketplaceServiceCards(supabase, { limit: 24 }).catch(() => null)
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
     : null;
+  /*
+    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
+    Owner, 2026-09-09: the card body opens that service's details, the LOGO
+    opens the shop.
+
+    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
+    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
+    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
+    resolver for this column — never a second one, and never `publicUrlFor`,
+    whose argument is an object KEY and which would fold the `r2://` scheme into
+    the object path.
+
+    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
+    shop with four cards would otherwise be signed four times for one picture.
+    Signing is a round trip each.
+
+    A failure costs a picture, never the grid — the card falls back to the
+    initials tile, which is a real design state, not an error state.
+  */
+  const serviceCardLogoUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    const byShop = new Map<string, string | null>();
+    for (const c of serviceCards) {
+      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
+    }
+    const shops = [...byShop.entries()];
+    const resolved = await Promise.all(
+      shops.map(([, ref]) =>
+        displayLogoUrl({ logo_url: ref }).catch(() => null),
+      ),
+    );
+    shops.forEach(([vendorProfileId], i) => {
+      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
+    });
+  }
   const marketplaceIsEmpty = liveShopCount === 0;
 
   if (isLandingView && marketplaceIsEmpty) {
@@ -2680,7 +2756,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     v.tier_state = meta?.tier_state ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
-      ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
+      ? publicUrlForStoredAsset(svc.photoR2Key)
       : null;
     // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
     // the card shows the "Off-season savings" badge + the filter can narrow.
@@ -3423,31 +3499,49 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
-                <Link
-                  href={c.businessSlug ? `/v/${c.businessSlug}` : '/explore'}
-                  className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  <ServiceCardView
-                    card={toServiceCard(
-                      c.row,
-                      undefined,
-                      undefined,
-                      undefined,
-                      undefined,
-                      false,
-                      null,
-                      new Date(),
-                      null,
-                      null,
-                      false,
-                    )}
-                    detailsEnabled={false}
-                  />
-                  <p className="mt-1.5 truncate text-xs text-ink/55">
-                    {c.businessName}
-                    {c.locationCity ? ` · ${c.locationCity}` : ''}
-                  </p>
-                </Link>
+                {/*
+                  TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
+                  service's details, the shop LOGO opens the shop. The card used
+                  to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
+                  why a second link could not simply be added inside it.
+
+                  ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
+                  argument stays FALSE, and that is deliberate, not a slip. They
+                  are two different questions:
+                    · the view's flag asks "is this card a doorway?" — it is now,
+                      because it has an address to go to.
+                    · the builder's flag asks "put the details-sheet-only keys in
+                      the payload?" — no. Those exist for the in-page sheet on
+                      the shop's own page, they are gated on
+                      NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
+                      would break the byte-identical-payload contract that
+                      `service-details-dark.test.ts` pins.
+                  The public id the address needs is read from the DATABASE ROW,
+                  which always carries it — see `lib/service-card-address.ts`.
+                */}
+                <ServiceCardView
+                  card={toServiceCard(
+                    c.row,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    false,
+                    null,
+                    new Date(),
+                    null,
+                    null,
+                    false,
+                  )}
+                  detailsEnabled
+                  detailsHref={serviceCardAddress(c)}
+                  shop={{
+                    name: c.businessName,
+                    href: shopAddress(c.businessSlug),
+                    logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
+                    city: c.locationCity,
+                  }}
+                />
               </li>
             ))}
           </ul>

@@ -9,6 +9,8 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { editorialAllowsEventType } from '@/lib/editorial-event-types';
+import { eventNoun } from '@/lib/event-noun';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
@@ -35,8 +37,8 @@ import {
 } from '@/app/[slug]/_components/editorial/editorial-order';
 import {
   STORY_AUDIENCES,
-  STORY_AUDIENCE_LABEL,
   STORY_AUDIENCE_NOTE,
+  STORY_AUDIENCE_SAVED,
   storyIsShared,
   type StoryAudience,
 } from '@/lib/who-can-see-your-story';
@@ -46,6 +48,7 @@ import {
   mayChooseAudience,
   publishBlockers,
   publishBlockerSentence,
+  rungIsOffered,
   PUBLISH_CONSENT_FINE_PRINT,
   PUBLISH_CONSENT_SENTENCE,
   PUBLISH_PANEL_INTRO,
@@ -87,7 +90,18 @@ const EDITORIAL_IMAGE_TYPES = [
   'image/avif',
 ];
 
-type LandingVisibility = 'public' | 'unlisted' | 'private';
+/**
+ * How the celebration's own page is published.
+ *
+ * ⚠ `invited_accounts` is a REAL fourth state — the privacy screen's "tagged
+ * accounts only" — and it is in the database's own CHECK constraint
+ * (`events_landing_page_visibility_check`, read out of prod by the object).
+ * This union omitted it, so the page CAST it to one of the three and the
+ * Stories caveat named "Private" back at somebody who had picked
+ * invited-accounts. Only 'public' reaches Stories either way — but a caveat
+ * has to name the choice they actually made or it reads as a bug.
+ */
+type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 // Upgrade destination for the PRO authorship perks → the Editorial PRO buy
 // surface (studio/editorial-pro), which fetches the live catalog price + mounts
@@ -246,7 +260,7 @@ export function EditorialEditor({
   shareUrl = null,
   showcaseOptedIn = false,
   landingVisibility = 'public',
-  isWedding = true,
+  eventType = 'wedding',
   guestColumnsOn = false,
   boardColors = [],
   boardThemeName = null,
@@ -254,6 +268,7 @@ export function EditorialEditor({
   deskClear = false,
   deskOpenCount = 0,
   deskPercentDecided = 0,
+  hasBeenPublished = false,
   publishConsentAt = null,
   cover = null,
   whatsNext = null,
@@ -284,10 +299,14 @@ export function EditorialEditor({
   showcaseOptedIn?: boolean;
   /** Landing-page visibility — a private page can't be featured publicly. */
   landingVisibility?: LandingVisibility;
-  /** Real Stories only aggregates weddings (loadPublishedShowcases filters
-   *  event_type='wedding'), so the opt-in toggle is wedding-only — a non-wedding
-   *  couple toggling it would set consent that never surfaces. */
-  isWedding?: boolean;
+  /** This celebration's kind. Decides whether Stories can carry it at all
+   *  (`editorialAllowsEventType` — the one home of that question) and which
+   *  noun the panel speaks in. It was a wedding-only BOOLEAN computed at the
+   *  call site, which hid this switch from the other fifteen kinds long after
+   *  the gallery started accepting them. Passing the kind itself means a newly
+   *  added celebration type inherits the answer instead of waiting for
+   *  somebody to remember this file. */
+  eventType?: string | null;
   /** Guest Columns (GUEST_COLUMNS_ENABLED, server env — default OFF). When off,
    *  the "Letters to the Editor" toggle + order row are hidden so the editor
    *  never surfaces a section that can't render (no fake doors). */
@@ -314,6 +333,19 @@ export function EditorialEditor({
   /** The desk's own meter, repeated where publishing is refused. */
   deskPercentDecided?: number;
   /** `event_editorial.publish_consent_at` — when the host agreed, or null. */
+  /**
+   * Has this story ever actually been public? Decides whether the fourth rung —
+   * "Taken back" — is offered at all. Read from the stamped edition number on
+   * the desk page, because that is the only fact on the row the database will
+   * not let move.
+   *
+   * ⚠ DELIBERATELY ABOVE `publishConsentAt`, NOT BELOW IT. S7 is adding `cover`
+   * and `whatsNext` immediately after that line in a branch of its own, and the
+   * slot directly under it is the natural place for both of us to reach for.
+   * Two sessions appending to the same line is a conflict neither of us learns
+   * anything from.
+   */
+  hasBeenPublished?: boolean;
   publishConsentAt?: string | null;
   /**
    * THE COVER AND WHAT'S NEXT (08 steps 1.5 + 1.7). Both are resolved on the
@@ -570,6 +602,13 @@ export function EditorialEditor({
     consented: consentTicked,
   };
   const blockers = publishBlockers(publishFacts);
+  /*
+    Which rungs this ladder shows. Filtered and mapped through the SAME pure
+    rule, so the count that sizes the grid and the buttons that are drawn can
+    never disagree about how many there are.
+  */
+  const rungFacts = { hasBeenPublished, current: form.audience };
+  const rungsOffered = STORY_AUDIENCES.filter((c) => rungIsOffered(c, rungFacts));
 
   const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
@@ -653,6 +692,12 @@ export function EditorialEditor({
       toast.error('Could not copy — long-press the link to copy it.');
     }
   };
+
+  // Which kind of day this is — asked once, in the module that owns the
+  // question, so a new celebration type inherits the answer instead of waiting
+  // for somebody to remember this file.
+  const showcaseKindAllowed = editorialAllowsEventType(eventType ?? 'wedding');
+  const noun = eventNoun(eventType);
 
   const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
   const linkCard =
@@ -1394,8 +1439,21 @@ export function EditorialEditor({
           {PUBLISH_PANEL_INTRO}
         </p>
 
-        <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+        {/*
+          THE FOURTH RUNG IS NOT ALWAYS ONE. "Taken back" appears only for a
+          story that has actually been published (`rungIsOffered`) — a story that
+          never left this desk has nothing to take back, and pressing it would
+          record that it had once been public. The grid widens to four only when
+          there are four; the three-up layout the prototype draws is untouched
+          for every story that has not published yet.
+        */}
+        <div
+          className={`mt-4 grid gap-2.5 ${
+            rungsOffered.length > 3 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'
+          }`}
+        >
           {STORY_AUDIENCES.map((choice) => {
+            if (!rungIsOffered(choice, rungFacts)) return null;
             const chosen = form.audience === choice;
             const allowed = mayChooseAudience(choice, publishFacts);
             return (
@@ -1512,7 +1570,7 @@ export function EditorialEditor({
           <span>
             {phase === 'done' ? (
               <span className="font-medium text-green-700">
-                Saved · {STORY_AUDIENCE_LABEL[form.audience].toLowerCase()} can read it.
+                {STORY_AUDIENCE_SAVED[form.audience]}
               </span>
             ) : phase === 'error' ? (
               <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
@@ -1572,10 +1630,20 @@ export function EditorialEditor({
             </p>
           )}
 
-          {/* Real Stories opt-in (RA 10173 explicit consent). Wedding-only —
-              the public gallery aggregates weddings, so a non-wedding couple
-              toggling it would set consent that never surfaces. */}
-          {isWedding ? (
+          {/* Real Stories opt-in (RA 10173 explicit consent).
+
+              🔴 THIS SWITCH WAS WEDDING-ONLY AND THE GALLERY HAD NOT BEEN FOR
+              THREE WEEKS. The owner ruled on 2026-08-15 that every kind of day
+              may be written up — `date` and `hangout` named out loud — and the
+              five `event_type='wedding'` filters came out of the gallery, the
+              sitemap and the credited-vendor portfolio. This one stayed, so the
+              fifteen non-wedding kinds could WRITE and PUBLISH a story here and
+              were never shown the one control that lets anyone see it.
+              Measured in prod: a published `date` story on a public page whose
+              host had never been offered the switch.
+              🔑 The kind question is asked in exactly one place now, and it is
+              not a boolean written at a call site. */}
+          {showcaseKindAllowed ? (
           <div className="mt-5 border-t border-ink/10 pt-5">
             <button
               type="button"
@@ -1589,7 +1657,7 @@ export function EditorialEditor({
                   Feature our story in Stories
                 </span>
                 <span className="block text-xs text-ink/55">
-                  Add our wedding to the public Stories gallery, 30 days after
+                  Add our {noun} to the public Stories gallery, 30 days after
                   the day. You can turn this off anytime.
                 </span>
               </span>
@@ -1603,17 +1671,45 @@ export function EditorialEditor({
               </span>
             </button>
 
-            {featured && landingVisibility === 'private' ? (
+            {/*
+              🔴 THIS CAVEAT NAMED A REMEDY THAT STOPPED WORKING. It said "Make
+              it Public or Unlisted" — while the gallery's read was tightened
+              the same 2026-08-15 from `!= 'private'` to `= 'public'`, precisely
+              because "unlisted" is what the privacy screen sells as LINK ONLY.
+              Following our own instruction left you invisible, silently. A
+              caveat that names the wrong remedy is worse than no caveat: it
+              gets followed.
+
+              🔴 AND IT WAS GATED ON `featured`, so it appeared only AFTER
+              somebody had already opted in — never to the person still
+              deciding — and it tested `'private'` alone, so the two middle
+              states said nothing at all.
+
+              🔑 THE FOUR NAMES BELOW ARE THE PRIVACY SCREEN'S OWN CARD TITLES,
+              copied deliberately — "Public" / "Unlisted" / "Only guests with a
+              Setnayan account" / "Private". Describing a setting in words the
+              control does not use ("Link only") is the same defect one rung
+              down: the host goes looking for a radio button that isn't there.
+            */}
+            {landingVisibility !== 'public' ? (
               <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
                 <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
                 <span>
-                  Your Event Hub is <strong>Private</strong>, so it won&rsquo;t appear in Real
-                  Stories yet. Make it Public or Unlisted in{' '}
+                  Your page is set to{' '}
+                  <strong>
+                    {landingVisibility === 'unlisted'
+                      ? 'Unlisted'
+                      : landingVisibility === 'invited_accounts'
+                        ? 'Only guests with a Setnayan account'
+                        : 'Private'}
+                  </strong>
+                  , so it won&rsquo;t appear in Stories. Choose{' '}
+                  <strong>Public</strong> under{' '}
                   <Link
                     href={`/dashboard/${eventId}/website/privacy`}
                     className="underline underline-offset-2 hover:text-burgundy"
                   >
-                    Privacy settings
+                    Who can view
                   </Link>
                   .
                 </span>

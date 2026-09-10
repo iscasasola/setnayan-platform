@@ -64,10 +64,19 @@ test('every rung names WHO can see it, in its own words', () => {
     assert.ok((PUBLISH_STATE_BLURB[a] ?? '').length > 40, `${a} has no blurb`);
     assert.ok(PUBLISH_STATE_RUNG[a]?.trim(), `${a} has no rung word`);
   }
-  // The three rung words are distinct — "Now · Next · Last" is a ladder; three
-  // identical words are three buttons again.
+  /*
+    The rung words are distinct — "Now · Next · Last" is a ladder; identical
+    words are just buttons again.
+
+    ⚠ MEASURED AGAINST THE LIST, NOT AGAINST THE LITERAL 3. It was written as
+    `=== 3` when three was every audience there was, and S14's fourth rung
+    ("Undo", for a story taken back) failed it while breaking nothing it claims
+    to protect. Comparing the set to the list's own length keeps the actual
+    claim — no two rungs share a word — and it still fails the moment two do.
+  */
   const rungs = STORY_AUDIENCES.map((a) => PUBLISH_STATE_RUNG[a]);
-  assert.equal(new Set(rungs).size, 3, 'the rungs do not read as an order');
+  assert.equal(new Set(rungs).size, rungs.length, 'the rungs do not read as an order');
+  assert.ok(rungs.length >= 3, 'the ladder lost a rung');
   assert.ok(PUBLISH_PANEL_INTRO.length > 60);
 });
 

@@ -56,7 +56,9 @@ import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
 import {
   fetchThreadPayments,
   paxProposalsToGuestCounts,
+  fetchLiveQuoteTotalPhp,
 } from '@/lib/thread-decision-sources.server';
+import { buildSupplierStanding } from '@/lib/supplier-standing';
 import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
@@ -629,11 +631,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Payments and the guest-count change are page sections rendered around the
   // stream, so the Decisions view can only get them from here. Both reads are
   // graceful — a refusal costs those rows, never the conversation.
-  const decisionPayments = await fetchThreadPayments({
-    adminClient: paxAdmin,
-    eventId: thread.event_id,
-    vendorProfileId: profile.vendor_profile_id,
-  });
+  const [decisionPayments, liveQuoteTotalPhp] = await Promise.all([
+    fetchThreadPayments({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+    // Under the supplier's OWN session — they read their own proposals.
+    fetchLiveQuoteTotalPhp({
+      supabase,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+  ]);
   const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
 
   // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
@@ -648,27 +658,36 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   });
 
   /**
-   * ⛔ NO STANDING SENTENCE ON THIS SIDE, ON PURPOSE.
+   * WHERE YOU STAND — the SAME derivation the couple's thread page and bench
+   * card use (S6), read in the supplier's voice.
    *
-   * `buildSupplierStanding` (S6) is written in the COUPLE's second person and
-   * cannot be re-pointed by a parameter: its `answerIsOwedByCouple` rung says
-   * **"waiting on you"** when a quote is out with the couple, and its reply
-   * clause says "Replied yesterday" about the SUPPLIER. Rendered here, the
-   * supplier would be told they owe an answer they are in fact waiting for —
-   * the sentence would be exactly backwards on the one rung that asks anyone
-   * to act.
+   * Until 2026-09-10 this page had no standing line, because the sentence
+   * spoke only in the couple's second person and would have told a supplier
+   * "waiting on you" about a quote they were waiting on. The subject now turns
+   * around inside `buildSupplierStanding` via `viewer`, so the two sides can
+   * never be told different facts about one conversation — and there is still
+   * exactly one sentence, not a supplier copy of it.
    *
-   * The alternative — a second, supplier-voiced sentence — is the thing S6
-   * exists to forbid, and the v3 prototype's two hand-typed standings
-   * disagreed with each other before either shipped.
-   *
-   * So this page shows no standing line, and the supplier reads the same facts
-   * from the per-entry "Now" lines and the "N need you" count, both of which
-   * ARE viewer-correct because `buildThreadDecisions` takes the viewer. Giving
-   * the supplier their own standing sentence is a copy decision for the owner,
-   * not something to invent in a build session.
+   * The rung is `railStage`, the one the header pill already shows, so the
+   * pill and this line cannot contradict each other.
    */
-  const threadStanding = null;
+  const lastThreadMessage = initialMessages[initialMessages.length - 1];
+  const threadStanding = buildSupplierStanding({
+    viewer: 'vendor',
+    stage: railStage,
+    hasThread: true,
+    quotedAmountPhp: liveQuoteTotalPhp,
+    lastSpeaker:
+      lastThreadMessage == null
+        ? null
+        : lastThreadMessage.sender_role === 'vendor'
+          ? 'vendor'
+          : lastThreadMessage.sender_role === 'couple'
+            ? 'couple'
+            : null,
+    lastSaidAtMs: lastThreadMessage ? Date.parse(lastThreadMessage.created_at) || null : null,
+    nowMs: Date.now(),
+  });
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
   // the rows cannot disagree with each other or with the header above them.

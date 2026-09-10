@@ -124,11 +124,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
    * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
    *
    * The same view the supplier has, from this side. The standing sentence is
-   * rendered HERE and not on the supplier's page, because
-   * `buildSupplierStanding` speaks in the couple's second person — "waiting on
-   * you" means the couple owes the answer. It is the S6 derivation verbatim;
-   * the bench card draws the same string, which is what makes showing it twice
-   * safe.
+   * the S6 derivation verbatim, read in the couple's voice (the default); the
+   * bench card draws the same string, which is what makes showing it twice
+   * safe. The supplier's page calls the same function with `viewer: 'vendor'`
+   * (since 2026-09-10), so the two sides are told one set of facts, each
+   * with the subject turned the right way round.
    *
    * ⚠ There is no guest-count source on this side. The surcharge proposal is
    * the SUPPLIER's to act on (`fetchVendorPaxProposals` is scoped to their

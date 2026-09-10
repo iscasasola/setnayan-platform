@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import { ProposeNewTimeForm } from './propose-new-time-form';
 import {
   DECISIONS_EMPTY,
   decisionStageWord,
@@ -179,6 +181,8 @@ export type ReplyContext = {
    * other side keeps you on Decisions instead of dropping you into the chat.
    */
   returnPath: string;
+  /** yyyy-mm-dd or null — bounds a proposed new meeting time. */
+  eventDate: string | null;
   supplierActions?: SupplierReplyActions;
 };
 
@@ -291,35 +295,8 @@ const QUIET =
  */
 function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext }) {
   switch (reply.kind) {
-    case 'meeting': {
-      const hidden = (
-        <>
-          <input type="hidden" name="appointment_id" value={reply.appointmentId} />
-          <input type="hidden" name="event_id" value={ctx.eventId} />
-          <input type="hidden" name="vendor_profile_id" value={ctx.vendorProfileId} />
-          <input type="hidden" name="return_path" value={ctx.returnPath} />
-          <input type="hidden" name="label" value={reply.label} />
-        </>
-      );
-      return (
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          <form action={respondAppointment}>
-            {hidden}
-            <input type="hidden" name="decision" value="confirm" />
-            <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
-              Confirm
-            </SubmitButton>
-          </form>
-          <form action={respondAppointment}>
-            {hidden}
-            <input type="hidden" name="decision" value="decline" />
-            <SubmitButton className={QUIET} pendingLabel="Declining…">
-              Decline
-            </SubmitButton>
-          </form>
-        </div>
-      );
-    }
+    case 'meeting':
+      return <MeetingReply reply={reply} ctx={ctx} />;
 
     case 'adjustment': {
       const hidden = (
@@ -466,3 +443,73 @@ export function FilesPanel({ files }: { files: readonly SharedFileEntry[] }) {
     </ol>
   );
 }
+
+/**
+ * A meeting has THREE answers — yes, no, and "not then, how about…" — the same
+ * three the chat's own card offers. The third opens the shared
+ * `ProposeNewTimeForm`, so this door and the chat's post the identical fields.
+ *
+ * Proposing a new time flips the proposer to the reader (`propose_new` sets
+ * `initiated_by` to the responder), so after sending, this card turns to
+ * "waiting on them" and its buttons go away — the invariant `reply ⇔ needsYou`
+ * does that by itself, with no special case here.
+ */
+function MeetingReply({
+  reply,
+  ctx,
+}: {
+  reply: Extract<DecisionReply, { kind: 'meeting' }>;
+  ctx: ReplyContext;
+}) {
+  const [newTimeOpen, setNewTimeOpen] = useState(false);
+  const hidden = (
+    <>
+      <input type="hidden" name="appointment_id" value={reply.appointmentId} />
+      <input type="hidden" name="event_id" value={ctx.eventId} />
+      <input type="hidden" name="vendor_profile_id" value={ctx.vendorProfileId} />
+      <input type="hidden" name="return_path" value={ctx.returnPath} />
+      <input type="hidden" name="label" value={reply.label} />
+    </>
+  );
+  return (
+    <div className="mt-2.5">
+      <div className="flex flex-wrap gap-2">
+        <form action={respondAppointment}>
+          {hidden}
+          <input type="hidden" name="decision" value="confirm" />
+          <SubmitButton className={PRIMARY} pendingLabel="Confirming…">
+            Confirm
+          </SubmitButton>
+        </form>
+        <button
+          type="button"
+          onClick={() => setNewTimeOpen((v) => !v)}
+          aria-expanded={newTimeOpen}
+          className={QUIET}
+        >
+          New time
+        </button>
+        <form action={respondAppointment}>
+          {hidden}
+          <input type="hidden" name="decision" value="decline" />
+          <SubmitButton className={QUIET} pendingLabel="Declining…">
+            Decline
+          </SubmitButton>
+        </form>
+      </div>
+      {newTimeOpen ? (
+        <ProposeNewTimeForm
+          hidden={hidden}
+          eventDate={ctx.eventDate}
+          fieldClassName="input-field min-h-[44px] text-sm"
+          submit={
+            <SubmitButton className={`${PRIMARY} self-start`} pendingLabel="Sending…">
+              Send new time
+            </SubmitButton>
+          }
+        />
+      ) : null}
+    </div>
+  );
+}
+

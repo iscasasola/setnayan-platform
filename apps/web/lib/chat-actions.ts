@@ -394,6 +394,12 @@ export async function acceptInquiry(formData: FormData) {
       // limit". Every other tier wall in this app reads as a sentence, not a
       // crash. The DB's own message carries the number and the date; we only add
       // the way out, and we deliberately do NOT leak who the other couples are.
+      // CHAT_THREAD_SIDE_REFUSED — the database only lets a supplier answer a
+      // PENDING inquiry (20271222263716). A stale page on a thread the couple has
+      // since set aside must read as a sentence, not an error page.
+      if (error.message.includes('CHAT_THREAD_SIDE_REFUSED')) {
+        fail('This inquiry is no longer waiting for an answer.');
+      }
       if (error.message.includes('WHITELIST_DATE_LIMIT')) {
         fail(
           "You're already pursuing as many clients as your plan allows for that date. Lock one in, or decline someone, to free a slot.",

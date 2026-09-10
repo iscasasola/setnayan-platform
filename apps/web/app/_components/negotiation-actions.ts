@@ -865,11 +865,29 @@ export async function lockDeal(formData: FormData): Promise<void> {
   // Load the accepted amendment + its base proposal total + items → new total.
   const { data: amRow } = await supabase
     .from('proposal_amendments')
-    .select('amendment_id, status, base_proposal_id')
+    .select('amendment_id, status, base_proposal_id, event_id, vendor_profile_id, thread_id')
     .eq('amendment_id', amendmentId)
     .maybeSingle();
-  const am = amRow as { status?: string; base_proposal_id?: string | null } | null;
+  const am = amRow as {
+    status?: string;
+    base_proposal_id?: string | null;
+    event_id?: string | null;
+    vendor_profile_id?: string | null;
+    thread_id?: string | null;
+  } | null;
   if (!am || am.status !== 'accepted') redirect(dest);
+  // 🔒 THE DEAL MUST BE THIS CONVERSATION'S. The form names both ids; RLS lets a
+  // couple read every amendment on their event, so without this a Deal struck
+  // with one supplier could be frozen onto another supplier's thread — and
+  // booked at that price. The price is now written on the service role below,
+  // so this binding is what keeps it honest.
+  if (
+    am.event_id !== ctx.thread.event_id ||
+    am.vendor_profile_id !== ctx.thread.vendor_profile_id ||
+    (am.thread_id != null && am.thread_id !== threadId)
+  ) {
+    redirect(dest);
+  }
 
   const [{ data: items }, baseTotal] = await Promise.all([
     supabase
@@ -1035,14 +1053,26 @@ export async function lockDeal(formData: FormData): Promise<void> {
     .is('locked_at', null);
 
   // Freeze the price onto the thread — the payment session reads this.
-  await supabase
+  //
+  // 🔒 ON THE SERVICE ROLE, scoped by the thread this request has just PROVED
+  // is the couple's (loadThreadRole → role 'couple', above) and only after the
+  // accepted-amendment, price and booking checks. Since 20271222263716 a browser
+  // session can no longer write these three columns at all — before it, a couple
+  // could PATCH /rest/v1/chat_threads and "lock" their own thread at any price.
+  // The event_id filter pins the write to the same row the proof was about.
+  const { error: freezeError } = await createAdminClient()
     .from('chat_threads')
     .update({
       agreed_price_centavos: agreedCentavos,
       locked_at: now,
       locked_by_user_id: ctx.userId,
     })
-    .eq('thread_id', threadId);
+    .eq('thread_id', threadId)
+    .eq('event_id', ctx.thread.event_id);
+  if (freezeError) {
+    console.error(`[lockDeal] price freeze failed for thread_id=${threadId}:`, freezeError.message);
+    failBack('We could not record the agreed price just now — please try again.');
+  }
 
   // ⚠ ONLY WHERE A DEAL WAS ACTUALLY LOCKED. On the handshake path the supplier
   // has already had the accurate `lock_request_received` notice above; sending

@@ -96,7 +96,25 @@ export type SupplierStandingFacts = {
   lastSpeaker: StandingSpeaker | null;
   lastSaidAtMs: number | null;
   nowMs: number;
+  /**
+   * WHO IS READING. Defaults to the couple — the bench, the Picks column and
+   * the couple's thread page, where this sentence was born.
+   *
+   * ⚠ ADDED 2026-09-10, and it is a PARAMETER, NOT A SECOND SENTENCE. Every
+   * clause below has a subject: "waiting on you" means the COUPLE owes the
+   * answer; "Replied yesterday" is about the SUPPLIER. Rendered unchanged on the
+   * supplier's own thread page it would be exactly backwards on the one rung
+   * that asks anyone to act — so for three weeks the supplier got no standing
+   * line at all. The fix is to turn the subject around HERE, in the one
+   * derivation, so the two readers can never be told different facts about the
+   * same conversation. Writing a supplier-voiced copy of this function is the
+   * failure this module exists to prevent.
+   */
+  viewer?: StandingViewer;
 };
+
+/** Who is reading the sentence. */
+export type StandingViewer = 'couple' | 'vendor';
 
 /**
  * THE LADDER'S FLOOR, asked of the resolver rather than typed.
@@ -198,20 +216,36 @@ export function buildSupplierStanding(facts: SupplierStandingFacts): SupplierSta
     const days =
       facts.lastSaidAtMs == null ? null : daysBetween(facts.lastSaidAtMs, facts.nowMs);
 
-    if (facts.lastSpeaker === 'vendor') {
-      // They answered. Whether that answer is the couple's to act on depends on
+    // The one fact every clause turns on: did the OTHER party speak last?
+    const viewer: StandingViewer = facts.viewer ?? 'couple';
+    const otherParty: StandingSpeaker = viewer === 'couple' ? 'vendor' : 'couple';
+
+    if (facts.lastSpeaker === otherParty) {
+      // They answered. Whether that answer is the reader's to act on depends on
       // the rung, not on the words in it — a quote out with the couple is the
       // one case where the page can honestly say the wait is theirs.
-      if (voice.answerIsOwedByCouple) {
+      if (viewer === 'couple' && voice.answerIsOwedByCouple) {
         needsYou = true;
         segments.push({ kind: 'need', text: 'waiting on you' });
-      } else {
+      } else if (viewer === 'couple') {
         segments.push({ kind: 'said', text: `Replied ${agoLabel(days ?? 0)}` });
+      } else {
+        // The SUPPLIER reading a couple who wrote last. Full-strength ink, not
+        // the need colour: on the couple's side a plain reply is `said` too,
+        // and "needs you" is reserved for a decision — which for a supplier
+        // arrives as a Decisions entry, counted there, never in this line.
+        segments.push({ kind: 'said', text: `They replied ${agoLabel(days ?? 0)}` });
       }
       replied = true;
+    } else if (viewer === 'vendor' && facts.lastSpeaker === 'vendor' && voice.answerIsOwedByCouple) {
+      // The supplier's own quote is out and the couple has not answered: the
+      // mirror of the couple's "waiting on you", in QUIET ink — it asks the
+      // supplier for nothing.
+      segments.push({ kind: 'quiet', text: 'waiting on them' });
     } else if (days != null) {
-      // The couple spoke last (or the thread was opened and nobody has written
-      // in it yet) — so the wait is the supplier's.
+      // The READER spoke last (or the thread was opened and nobody has written
+      // in it yet) — so the wait is the other party's. "No reply · 12 days"
+      // reads true from either side, because it is about whoever is not you.
       //
       // ⚖ QUIET, NOT ALARMED. A supplier who has not answered in twelve days
       // may be at a wedding. This line exists so the couple knows which card to

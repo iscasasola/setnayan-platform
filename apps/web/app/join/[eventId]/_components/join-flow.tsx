@@ -6,6 +6,7 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction, selfJoinAction } from '../actions';
 import { JoinShell } from './join-shell';
+import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { eventWordsForEvent, type EventWords } from '@/app/[slug]/_lib/event-words';
@@ -58,11 +59,14 @@ export async function JoinFlow({
   token,
   errorKey,
   returnPath,
+  skin,
 }: {
   event: JoinFlowEvent;
   token: string;
   errorKey: string | null;
   returnPath: string;
+  /** The invite link's theme skin, from `/[slug]/invite`. The opaque /join URL passes none. */
+  skin?: DoorSkin;
 }) {
   const eventId = event.event_id;
   // JoinShell wants a non-null display_name; coerce once (renders nothing if blank).
@@ -121,7 +125,7 @@ export async function JoinFlow({
       }
       const selfAction = selfJoinAction.bind(null, eventId, token);
       return (
-        <JoinShell event={shellEvent} steps={arrivalSteps('name')}>
+        <JoinShell event={shellEvent} steps={arrivalSteps('name')} skin={skin}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
           {/* DOOR 01 · NAME — one field, one action (the invite arrival,
               lib/invite-arrival.ts). The email and "Sign in" moved to Reply,
@@ -157,7 +161,7 @@ export async function JoinFlow({
     }
     // No public page yet → fall back to the account wall.
     return (
-      <JoinShell event={shellEvent}>
+      <JoinShell event={shellEvent} skin={skin}>
         <p className="text-base text-ink/70">
           Sign in or create an account to add yourself to this event.
         </p>
@@ -203,7 +207,7 @@ export async function JoinFlow({
   const action = joinEventAction.bind(null, eventId, token);
 
   return (
-    <JoinShell event={shellEvent}>
+    <JoinShell event={shellEvent} skin={skin}>
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
 
       <p className="text-base text-ink/70">

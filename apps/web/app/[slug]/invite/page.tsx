@@ -3,6 +3,7 @@ import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { JoinFlow } from '@/app/join/[eventId]/_components/join-flow';
 import { InvalidTokenScreen } from '@/app/join/[eventId]/_components/join-shell';
+import { INVITE_LOOK_COLUMNS, loadInviteLook } from './_lib/load-invite-look';
 
 export const metadata = { title: 'Join event' };
 
@@ -26,7 +27,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -101,12 +102,17 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     return <InvalidTokenScreen />;
   }
 
+  // The couple's invite theme (lib/invite-themes.ts) — House unless they saved
+  // one, and a Pro theme only while the event holds Event Hub Pro.
+  const look = await loadInviteLook(event);
+
   return (
     <JoinFlow
       event={event}
       token={token}
       errorKey={search.error ?? null}
       returnPath={`/${slug}/invite`}
+      skin={look.skin}
     />
   );
 }

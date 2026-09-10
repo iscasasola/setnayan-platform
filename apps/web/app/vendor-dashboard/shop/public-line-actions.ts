@@ -9,6 +9,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { parseTagline, parseWebsiteUrl } from '@/lib/vendor-public-line';
 import { maybeSuggestCoverageFromWebsite } from '@/lib/vendor-signup-coverage-suggest-server';
 import { buildVendorDeepSearchInputs } from '@/lib/vendor-deep-search-run';
+import { findVendorTextViolation } from '@/lib/service-text-integrity';
 
 /**
  * Server action behind My Shop → Business Profile → "Your line and your link"
@@ -79,6 +80,21 @@ export async function updatePublicLine(
     const parsed = parseWebsiteUrl(formData.get('website'));
     if (!parsed.ok) return { ok: false, error: parsed.error };
     patch.website = parsed.value;
+  }
+
+  // E2 (2026-09-11) — the card-text integrity gate (owner 2026-07-23 chat;
+  // 2026-07-27 card text: "no placing of contact information or anything to
+  // bypass our app") already runs on chat and on service-card text; it never
+  // ran on the shop's own tagline. Wired here with the same wording/refusal
+  // UX `findVendorTextViolation` already gives services/packages. The
+  // website field is deliberately NOT checked — owner question 3 in the
+  // register is still open on whether the shop's own site may carry contact
+  // details, so this only closes the settled surface.
+  if ('tagline' in patch) {
+    const viol = findVendorTextViolation([
+      { field: 'Tagline', value: patch.tagline as string | null },
+    ]);
+    if (viol) return { ok: false, error: viol };
   }
 
   // A submission carrying neither key is a no-op, not a write of two NULLs.

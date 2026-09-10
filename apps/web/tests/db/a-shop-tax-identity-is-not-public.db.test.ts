@@ -55,7 +55,8 @@ let replay: ReplayResult;
 let db: PGlite;
 
 /**
- * The eleven columns 20271217955839 takes off `authenticated`.
+ * The eleven columns 20271217955839 takes off `authenticated` — plus the badge
+ * deadline, which 20271222518385 took off afterwards (the last entry).
  *
  * A NAMED list on purpose. The BIR columns all landed in one migration
  * (20260516100000) and the DTI/SEC ones in another (20270925937630), so the
@@ -77,6 +78,11 @@ const DENIED_TO_AUTHENTICATED = [
   'registration_number_needs_review',
   // the owner as a private person
   'business_owner_name',
+  // the Verified badge's deadline — a 182-day vouch vs a one-year approval, for
+  // every verified shop (L3 #5433 found it; N5 migration 20271222518385 took it
+  // off `authenticated`). The shop reads it through vendor_profiles_self; the
+  // marketplace, the admin desk and the sweep read it on the service role.
+  'next_renewal_due_at',
 ] as const;
 
 /**

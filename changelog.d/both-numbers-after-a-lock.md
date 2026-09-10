@@ -80,11 +80,9 @@ The T1 watcher reads change lines, so a Deal change is no longer reported as "no
 card to `lockFreezeLine` plus its behaviour (no "Deal locked" without a booking, a
 different sentence for each side of an ask).
 
-⚠ Known and NOT changed here: several screens still read the booked total alone (the
-couple's supplier list, the event home's committed figure, the Decisions payments line,
-and some supplier-dashboard figures). After a change they show the price agreed at the
-lock, as they already did for change orders. The budget and the supplier's workspace
-(which reads the budget summary) show both.
+~~⚠ Known and NOT changed here: several screens still read the booked total alone.~~
+Superseded by the next block — the owner looked on 2026-09-11 and ruled "Show the total
+now"; every such screen was changed.
 
 Re-measured in production 2026-09-11 (read-only): 0 change orders · 18 line items over 12
 suppliers, all summing to their headline · 0 package anchors · 0 locked deals · 0 locked
@@ -95,3 +93,47 @@ agreed total; the fee base is the agreed total including changes (change orders 
 the fee); the lock sentence is main's `lockFreezeLine`. `Test_Script_Live_Two_Sided_2026-09-10.md`
 step 11 names the exact tap and the three numbers to expect.
 
+## 2026-09-11 · feat(budget): one price everywhere — every screen shows the agreed total now
+
+**Owner looked at this PR on 2026-09-11 and ruled two things before merge.** (1) *"Show
+the total now"* — every screen other than the budget and the per-supplier page shows the
+AGREED TOTAL NOW (₱85,000 in his worked example), derived by the one helper the budget
+uses; only those two show the breakdown. (2) *"Yes, fee follows every change"* — already
+built by the fee functions in `20271218458148`; untouched here and still pinned (the
+guard below checks both fee bodies carry the change lines).
+
+**What now shows ₱85,000 instead of the lock-time ₱100,000** (each through
+`agreedTotalNow` = `resolveAgreedTotal`'s own `agreed` on the headline branch — not a
+second sum): the event home's Committed figure · the couple's supplier list, plan-budget
+roll-up, "remaining budget" and build guard · the date picker's shortlist range · the
+per-supplier page's hero price and Costing total (which also draws the change as its own
+row, so the sum on screen adds up) · the Decisions "₱X of ₱Y" line on both sides of the
+thread · the checklist's committed-per-group · build-from-quotes ranking · the lock-time
+downpayment and payment-plan amounts · the flag-OFF budget strip (now routed through the
+same helper instead of its own headline+changes sum) · the supplier's My Performance
+revenue (monthly + daily), revenue by source and deal size (migration `20271221806689`
+re-signs those four functions from the LIVE bodies, one expression each — the fee
+functions' change-line subquery; ACL and comments untouched, exposure baseline unmoved).
+
+**How the lines arrive.** In the same query, through the named-FK embed
+`CHANGE_LINES_EMBED` (probed against production: resolves; a bare embed can die with
+PGRST201), or — where the rows come from a helper another session owns
+(`fetchEventVendors`) — one per-page `fetchChangeLinesByVendor` read. Every read checks
+`{ error }`; a refusal is logged and the screen falls back to the headline it showed
+before.
+
+**The guard** (`lib/agreed-total-and-its-changes.test.ts` § 7): the set of files that
+read `total_cost_php` is DERIVED from the code (comments stripped), and each must sit on
+exactly one roster — shows the total now (needles and the column counted exactly),
+hands the row to a caller that folds first (callers enumerated), or is named as not a
+price shown to a person, with the reason. A new reader fails until someone decides. The
+latest SQL body of the four supplier figures and the two fee functions must carry the
+one change-line form.
+
+⚠ Left in another session's file (routed, not edited): `lib/vendors.ts` (HONEST SHOP) —
+`fetchEventVendors` returns the raw headline (both callers that show a price now fold
+it), and `computeVendorStats` sums raw headlines but has no caller (the guard fails if
+one appears).
+
+SPEC IMPACT: None new — implements the 2026-09-11 DECISION_LOG row "OWNER LOOKED AT
+'BOTH NUMBERS AFTER A LOCK' (#5390)", ruling (1); ruling (2) was already built.

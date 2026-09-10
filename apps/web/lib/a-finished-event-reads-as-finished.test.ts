@@ -183,6 +183,8 @@ test('no call site asks a UTC server what time it is at the venue', () => {
     'lib/event-hub-control.ts',
     'app/dashboard/[eventId]/website/editor/page.tsx',
     'app/api/std/view/route.ts',
+    // The invite link's first door asks whether its reveal may play (2026-09-10).
+    'lib/invite-reveal.ts',
   ];
   for (const f of CALLERS) {
     /*

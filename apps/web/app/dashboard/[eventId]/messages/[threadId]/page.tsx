@@ -13,6 +13,7 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
+import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deriveThreadStage } from '@/lib/vendor-thread-stage';
 import { buildSupplierStanding } from '@/lib/supplier-standing';
@@ -34,9 +35,15 @@ import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
 
-type Props = { params: Promise<{ eventId: string; threadId: string }> };
+type Props = {
+  params: Promise<{ eventId: string; threadId: string }>;
+  /** `?view=decisions|files` — see lib/thread-view.ts. */
+  searchParams?: Promise<{ view?: string | string[] }>;
+};
 
-export default async function CoupleThreadPage({ params }: Props) {
+export default async function CoupleThreadPage({ params, searchParams }: Props) {
+  // Read on the server so a Decisions link paints Decisions, not the chat.
+  const initialView = parseThreadView((await searchParams)?.view);
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const {
@@ -430,6 +437,7 @@ export default async function CoupleThreadPage({ params }: Props) {
         eventDate={eventDate}
         standing={threadStanding}
         decisionPayments={decisionPayments}
+        initialView={initialView}
         lockHandshake={lockHandshake}
       />
 

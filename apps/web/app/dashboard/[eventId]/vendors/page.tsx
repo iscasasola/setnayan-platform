@@ -31,6 +31,7 @@ import {
   resolveVendorDisplayName,
   isVendorNameRevealed,
 } from '@/lib/vendors';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
@@ -385,7 +386,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
         .from('vendor_profiles')
-        .select('vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state')
+        .select(
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at',
+        )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
       // picked marketplace vendor for THIS event. Surfaces a Waiting / Open /
@@ -473,6 +476,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       screen_name: string | null;
       tier_state: string | null;
       verification_state: string | null;
+      /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
+      next_renewal_due_at: string | null;
     };
 
     const statsByProfile = new Map<string, StatsRow>();
@@ -675,7 +680,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
-        is_verified: s.public_visibility === 'verified',
+        // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+        // deadline (hasVerifiedBadge), separate from public_visibility
+        // (listing/bookability, untouched — stays listed past the deadline).
+        is_verified: hasVerifiedBadge({
+          verification_state: a?.verification_state ?? null,
+          next_renewal_due_at: a?.next_renewal_due_at ?? null,
+        }),
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
         within_radius: withinRadius,

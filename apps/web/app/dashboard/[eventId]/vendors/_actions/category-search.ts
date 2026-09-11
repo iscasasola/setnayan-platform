@@ -31,6 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 // The ladder's own vocabulary lives in the PURE module that enforces the
 // boundary, so "which rung is protected?" has one answer in the codebase.
@@ -1201,7 +1202,13 @@ export async function searchCategoryVendors(input: {
           : null,
       reviewCount: r.review_count ?? null,
       distanceKm: dKm,
-      verified: r.public_visibility === 'verified',
+      // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+      // deadline (hasVerifiedBadge), separate from public_visibility (listing/
+      // bookability, untouched — a shop past its badge deadline stays listed).
+      verified: hasVerifiedBadge({
+        verification_state: r.verification_state,
+        next_renewal_due_at: r.next_renewal_due_at,
+      }),
       boosted: adRank > 0,
       compatScore,
       compatTier,

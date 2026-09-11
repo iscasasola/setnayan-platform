@@ -22,6 +22,7 @@ import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -967,7 +968,12 @@ export async function searchOnboardingReceptionVenues(input: {
     rating: r.avg_rating_overall,
     reviewCount: r.review_count,
     photoUrl: r.primary_photo_url ?? r.logo_url,
-    verified: r.verification_state === 'verified',
+    // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+    // deadline, not verification_state alone.
+    verified: hasVerifiedBadge({
+      verification_state: r.verification_state,
+      next_renewal_due_at: r.next_renewal_due_at,
+    }),
     tier,
   });
   try {

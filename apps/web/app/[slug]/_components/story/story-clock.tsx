@@ -308,16 +308,30 @@ export function StoryClock({
           seen.add(el);
           const from = target - 38;
           const t0 = performance.now();
+          /*
+            🔴 THE COUNT-UP PAINTS; IT NEVER WRITES THE TEXT. It used to set
+            `node.textContent`, and this effect reaches EVERY entry on the page
+            through `document.querySelectorAll` — including entries in streamed
+            parts React has not hydrated yet. When the observer fired first, React
+            then found "11:32" where the server had sent "12:10", reported #418
+            and threw the whole story away to redraw it. Found by step 8's live
+            drive: 2 loads in 12 on a published story, never on a story without
+            minutes. So the moving digits ride an ATTRIBUTE (React does not
+            compare attributes when it hydrates) drawn by `::before` in
+            globals.css, over the real text; the last frame removes it, and what
+            is left is the text the server sent.
+          */
           const step = (t: number) => {
             const p = Math.min(1, (t - t0) / 900);
             const ease = 1 - Math.pow(1 - p, 3);
             // The count-up NEVER SHOWS A WRONG TIME: it lands exactly, and the
-            // last frame is the truth, not an eased approximation of it.
-            node.textContent =
-              p >= 1
-                ? formatClock(target).t
-                : formatClock(Math.round(from + (target - from) * ease)).t;
-            if (p < 1) requestAnimationFrame(step);
+            // last frame is the truth — the server's own text, uncovered.
+            if (p >= 1) {
+              delete node.dataset.storyCounting;
+              return;
+            }
+            node.dataset.storyCounting = formatClock(Math.round(from + (target - from) * ease)).t;
+            requestAnimationFrame(step);
           };
           requestAnimationFrame(step);
         }

@@ -3983,6 +3983,23 @@ html:active-view-transition .sn-page-enter { animation: none; }
   }
 }
 
+/* THE COUNT-UP IS PAINTED OVER THE TEXT, NEVER WRITTEN INTO IT (story-clock.tsx).
+   While a minute's stamp counts up, the digits in flight sit in
+   `data-story-counting` and are drawn by ::before; the server's own text keeps
+   its box (so nothing moves) and is only hidden underneath. Writing the text
+   instead broke hydration on parts of the story that had not hydrated yet. */
+[data-story-countup][data-story-counting] {
+  position: relative;
+  visibility: hidden;
+}
+[data-story-countup][data-story-counting]::before {
+  content: attr(data-story-counting);
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: visible;
+}
+
 /* Wide content scrolls inside its own container — the body never scrolls
    sideways at 390px (§11). */
 .sn-story {

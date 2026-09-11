@@ -67,6 +67,16 @@ export const WORDS_MAX_WIDTH = 400;
 export const WORD_SIZE = { min: 12, max: 64, default: 19 } as const;
 
 /**
+ * How wide words may grow before they wrap — the prototype's `WMAX*size/19`, never wider than
+ * the sheet. Uncapped, words at size 64 could be 1,347 units wide on a 660-unit page: they ran
+ * off the page's right edge and, clamped back, off its left. ONE rule for the editor and every
+ * reader, so a caption wraps at the same word everywhere it is drawn.
+ */
+export function wordsMaxWidth(size: number): number {
+  return Math.min(SHEET_WIDTH, Math.round((WORDS_MAX_WIDTH * size) / WORD_SIZE.default));
+}
+
+/**
  * The four word colours the prototype offers — Ink · Terracotta · Blue · Gold. Stored by NAME,
  * not by CSS variable, so a theme change can never re-colour a saved caption into something
  * the host did not pick.
@@ -81,7 +91,14 @@ export const WORDS_TEXT_MAX = 2_000;
 
 /* Ceilings for a hand-made request. Far above anything the editor produces. */
 export const MOMENTS_MAX = 80;
-export const OBJECTS_PER_MOMENT_MAX = 400;
+/**
+ * ⚠ ABOVE THE POOL'S OWN CEILING (`ARRANGEMENT_POOL_CAP`, 1,000), ON PURPOSE. It was 400: a
+ * celebration whose busiest moment held more than 400 photos opened in Automatic with all of
+ * them on that page — and the moment the host tapped "I choose", every save was refused as
+ * "more than one story can hold", for good. A page must be able to hold every capture its
+ * host can see, plus their words. Pinned by `make-it-yours-words-and-moments.test.ts`.
+ */
+export const OBJECTS_PER_MOMENT_MAX = 2_000;
 export const SETS_MAX = 60;
 export const SET_REFS_MAX = 1_000;
 /** The whole document, serialised. */
@@ -514,11 +531,23 @@ export function overlaps(a: Box, b: Box): boolean {
 }
 
 /**
- * The box an object takes up. Words use the size they were last drawn at; before that, the
- * prototype's estimate from the text alone.
+ * The box a TURNED thing takes up on the page. A turn spins it about its own centre (CSS's
+ * default), so the page must make room for the corners, not the unturned box — clamping the
+ * unturned box let a caption turned near an edge hang off the sheet with its × and handle
+ * outside it (10a r3 chaos-r3-08 · R11-turned-words-cut-off).
  */
-export function boxOf(o: StoredObject): Box {
-  if (o.kind === 'photo') return { x: o.x, y: o.y, w: o.w, h: o.h };
+export function turnedBox(b: Box, turn: number): Box {
+  if (!turn || turn % 180 === 0) return b;
+  const r = (turn * Math.PI) / 180;
+  const c = Math.abs(Math.cos(r));
+  const s = Math.abs(Math.sin(r));
+  const w = b.w * c + b.h * s;
+  const h = b.w * s + b.h * c;
+  return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+}
+
+/** Words as they stand, before any turn — measured if the editor has drawn them. */
+export function unturnedWordsBox(o: StoredWords): Box {
   if (o.w !== undefined && o.h !== undefined) return { x: o.x, y: o.y, w: o.w, h: o.h };
   const lines = o.text.split('\n');
   const longest = Math.max(0, ...lines.map((l) => l.length));
@@ -526,6 +555,16 @@ export function boxOf(o: StoredObject): Box {
   const per = Math.max(1, Math.floor((w - 34) / 9.4));
   const n = lines.reduce((a, l) => a + Math.max(1, Math.ceil(l.length / per)), 0);
   return { x: o.x, y: o.y, w, h: 16 + n * 24 };
+}
+
+/**
+ * The box an object takes up. Words use the size they were last drawn at; before that, the
+ * prototype's estimate from the text alone — and a turned caption takes up its turned box, so
+ * a photo is never dealt under its corner and the sheet grows to meet it.
+ */
+export function boxOf(o: StoredObject): Box {
+  if (o.kind === 'photo') return { x: o.x, y: o.y, w: o.w, h: o.h };
+  return turnedBox(unturnedWordsBox(o), o.turn);
 }
 
 /** The first grid slot nothing is sitting in — a photo is never dealt onto the host's words. */

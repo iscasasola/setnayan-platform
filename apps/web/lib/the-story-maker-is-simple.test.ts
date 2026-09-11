@@ -31,6 +31,17 @@ function code(s: string): string {
   return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
+/**
+ * Where THIS fold opens — the one whose summary reads "The smaller lines". Found by its own words,
+ * not as "the first `<details>` in the file": since 2026-09-11 the whole older editor sits inside
+ * a "More settings" fold of its own (step 6), which opens first, and "the first fold" then named
+ * the wrong one.
+ */
+function smallerLinesFold(s: string): number {
+  const summary = s.indexOf('The smaller lines');
+  return summary < 0 ? -1 : s.lastIndexOf('<details', summary);
+}
+
 const FOLDED = [
   { label: 'Eyebrow', state: 'superKicker' },
   { label: 'Sub-headline', state: 'deck' },
@@ -61,7 +72,7 @@ test('every field still exists — folding is not deleting', () => {
 
 test('the two the couple came to write are ABOVE the fold', () => {
   const s = code(src());
-  const fold = s.indexOf('<details');
+  const fold = smallerLinesFold(s);
   assert.ok(fold > 0, 'The disclosure is gone — the story maker is a flat six-box form again.');
   for (const { label } of UP_FRONT) {
     const at = s.indexOf(`label="${label}"`);
@@ -77,7 +88,7 @@ test('the two the couple came to write are ABOVE the fold', () => {
 
 test('the magazine furniture is BELOW the fold', () => {
   const s = code(src());
-  const fold = s.indexOf('<details');
+  const fold = smallerLinesFold(s);
   for (const { label } of FOLDED) {
     const at = s.indexOf(`label="${label}"`);
     assert.ok(at > fold, `"${label}" is back on the top level — the fold is decorative.`);

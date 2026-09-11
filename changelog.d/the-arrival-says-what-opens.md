@@ -58,6 +58,16 @@ symptoms, one PR — with a guard per item
    out — so the guard CONSTRUCTS a far-future event rather than reading a real
    one.
 
-SPEC IMPACT: None. No locked decision moves — the destination, the payment flow,
-the RLS patterns and the invite-arrival door order are all unchanged; only door
+SPEC IMPACT: No LOCKED decision moves — the destination, the payment flow, the
+RLS patterns and the invite-arrival door order are all unchanged; this is door
 copy, one shared-card prop and one new pure resolver module.
+
+⚠ Two of the five are nonetheless PRODUCT rulings and are surfaced rather than
+buried: (4) face tagging comes off the invite arrival is the owner's own
+instruction, verbatim, and deserves a `DECISION_LOG.md` row; (2) which boxes
+survive a decline was decided on the owner's behalf after he was offered the
+choice and passed, and is reversible. Both are recorded in
+`Design_Invite_Themes_2026-09-10/03_ORCHESTRATOR_LOG.md` (2026-09-11, "OWNER
+REVIEW OF DOOR 02"). The corpus row is deliberately left to the session that
+owns that log for this group, so two writers do not edit `DECISION_LOG.md` at
+once.

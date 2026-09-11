@@ -58,6 +58,14 @@ const readWeb = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf
  * A window that FACES THE SABOTAGE: the text between two anchors, both of which
  * must exist. A guard that silently measures an empty slice is not a guard.
  */
+/**
+ * Collapse whitespace. 🪤 PROSE IN JSX IS LINE-WRAPPED, so a sentence a reader
+ * sees as one line is "…the photos\n            they are in…" in the source. A
+ * guard that matches the unwrapped form goes red on a re-indent and green on
+ * nothing — measured: this file's own first run failed exactly that way.
+ */
+const flat = (s: string) => s.replace(/\s+/g, ' ');
+
 function between(src: string, open: string, close: string, what: string): string {
   const a = src.indexOf(open);
   assert.notEqual(a, -1, `${what}: the opening anchor ${JSON.stringify(open)} is gone — update this test`);
@@ -80,17 +88,17 @@ test('the provider block no longer tells an accountless guest it "fills this in 
     'the provider block on the Reply door',
   );
   assert.doesNotMatch(
-    block,
+    flat(block),
     /Fills this in for you, and becomes how you sign in later\./,
     'the old line is back: it reads as though the guest already has an account, which is exactly what the owner caught',
   );
   assert.match(
-    block,
+    flat(block),
     /No Setnayan account yet\?/,
     'the block no longer opens by telling a guest with no account that they are catered for',
   );
   assert.match(
-    block,
+    flat(block),
     /makes one in a tap/,
     'the block no longer says that continuing MAKES the account — the whole correction',
   );
@@ -118,9 +126,9 @@ test('the photos reason is given, at the provider block and not merely somewhere
     '<OAuthButtonRow',
     'the provider block on the Reply door',
   );
-  assert.match(block, /It also keeps the photos of you/, 'the reason the owner asked for is not on the door');
+  assert.match(flat(block), /It also keeps the photos of you/, 'the reason the owner asked for is not on the door');
   assert.match(
-    block,
+    flat(block),
     /this page shows each guest the photos they are in/,
     'the photos sentence no longer names the surface that actually ships',
   );
@@ -141,7 +149,7 @@ test('the photos sentence does not outrun the feature', () => {
   // found in the tree, so the door must not describe one.
   const block = between(REPLY, 'ANY_OAUTH_ENABLED ? (', '<OAuthButtonRow', 'the provider block');
   assert.doesNotMatch(
-    block,
+    flat(block),
     /collection|all your events|every event/i,
     'the door is promising a cross-event photo collection, which was never verified to exist',
   );
@@ -388,7 +396,7 @@ test('the door ASKS the resolver — it does not restate the rule, and does not 
   assert.match(ENTER, /\{destinationWords\.blurb\}/, 'the blurb is hard-coded again');
   assert.match(ENTER, /\{destinationWords\.cta\}/, 'the button label is hard-coded again');
   assert.doesNotMatch(
-    ENTER,
+    flat(ENTER),
     /Your invitation is ready/,
     'the door has a literal invitation sentence again — it must come from the phase',
   );

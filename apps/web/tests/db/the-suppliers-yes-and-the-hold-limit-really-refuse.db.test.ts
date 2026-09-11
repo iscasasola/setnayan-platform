@@ -130,11 +130,18 @@ async function mkShop(label: string): Promise<{ uid: string; vpid: string }> {
   return { uid, vpid };
 }
 
+/** A LIVE card: drafted first, then given a cover and one "what's included"
+ *  line, then published — the order the H2 publish gate (20271222415682) asks. */
 async function mkCard(vpid: string, dailyCapacity: number | null): Promise<string> {
   const s = await db.query<{ s: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1, 'photo_booth', 40000, 'Free extra hour') RETURNING vendor_service_id AS s`,
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, 'photo_booth', 40000, 'Free extra hour', FALSE, 'vendor-media/lock-path-2/cover.jpg') RETURNING vendor_service_id AS s`,
     [vpid],
+  );
+  await db.query(
+    `INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+     VALUES ($1, $2, 'Unlimited prints', 0, 0)`,
+    [s.rows[0]!.s, vpid],
   );
   await db.query(`UPDATE public.vendor_services SET daily_capacity = $2, is_active = TRUE WHERE vendor_service_id = $1`, [
     s.rows[0]!.s,

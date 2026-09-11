@@ -178,12 +178,19 @@ before(async () => {
   const mkCard = async () =>
     (
       await db.query<{ s: string }>(
-        `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-         VALUES ($1, 'photo_booth', 40000, 'Free extra hour') RETURNING vendor_service_id AS s`,
+        // Drafted with a cover, then given a "what's included" line below, so
+        // the H2 publish gate (20271222415682) lets it go live.
+        `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+         VALUES ($1, 'photo_booth', 40000, 'Free extra hour', FALSE, 'vendor-media/daily-limit/cover.jpg') RETURNING vendor_service_id AS s`,
         [F.vendorId],
       )
     ).rows[0]!.s;
   F.card = await mkCard();
+  await db.query(
+    `INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+     VALUES ($1, $2, 'Unlimited prints', 0, 0)`,
+    [F.card, F.vendorId],
+  );
   // Active, on a public verified shop — the card the couple's session can read
   // its limit from, exactly as the gate reads it.
   await db.query(`UPDATE public.vendor_services SET daily_capacity = $2, is_active = TRUE WHERE vendor_service_id = $1`, [F.card, LIMIT]);

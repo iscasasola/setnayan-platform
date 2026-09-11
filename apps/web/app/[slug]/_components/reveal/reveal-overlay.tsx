@@ -51,6 +51,7 @@ import {
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
+import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -92,6 +93,35 @@ type Props = {
    *  activation path alongside the admin global toggle + the ?reveal= override.
    *  Dormant until the STD_PREMIUM_OPENINGS SKU is sellable. */
   premiumUnlocked?: boolean;
+  /**
+   * ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11 · lib/reveal-once-per-
+   * visit.ts). Which side of the hand-off this mount is:
+   *
+   *   · `'record'` — the INVITE door. When its reveal actually shows, it writes
+   *     "seen" for this event into `sessionStorage`.
+   *   · `'defer'`  — the EVENT HUB. On mount it reads that mark and, if the
+   *     guest has just come through the invite doors, stands aside for the rest
+   *     of this tab's life. A later visit is a new session and plays as usual.
+   *
+   * Absent on every other mount, and absent means neither — nothing changes for
+   * a page that does not pass it.
+   *
+   * 🪤 STANDING ASIDE MUST STILL START THE FILM. It does, and it does it through
+   * the mechanism that was already there rather than a new one: the film starts
+   * itself after a 700 ms grace unless `window.__stdRevealActive` is set
+   * (`save-the-date-film.tsx`), and a deferred overlay never sets it — `showing`
+   * below is false from the first render onward, exactly as it is for a couple
+   * who chose "No Reveal". Do NOT dispatch `std-reveal-done` from here to "make
+   * sure": that is the FIRST-LIFT signal, and firing it on mount would also tell
+   * the veil-and-film handshake a lift happened that never did.
+   */
+  oncePerVisit?: 'record' | 'defer';
+  /**
+   * The event this reveal belongs to — the key the mark above is stored under,
+   * so two invitations open in one tab never silence each other. Passed down by
+   * `RevealOverlayServer` from the id it already holds.
+   */
+  seenEventId?: string | null;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -109,21 +139,31 @@ export function RevealOverlay({
   eventTemplate = null,
   eventEffects,
   premiumUnlocked = false,
+  oncePerVisit,
+  seenEventId = null,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [open, setOpen] = useState(false);
   const [gone, setGone] = useState(false);
+  // Read in the SAME effect that sets `mounted`, so it is known before this
+  // component has ever rendered anything: the overlay renders null until
+  // mounted, so a deferred one goes from nothing to nothing.
+  const [alreadySeen, setAlreadySeen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     try {
       setReveal(new URLSearchParams(window.location.search).get('reveal') ?? '');
       setReducedMotion(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+      if (oncePerVisit === 'defer') {
+        setAlreadySeen(revealAlreadySeen(window.sessionStorage, seenEventId));
+      }
     } catch {
       /* noop */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // SEC-3 (2026-07-26): `?reveal=` is a PREVIEW affordance, not an entitlement.
@@ -163,6 +203,7 @@ export function RevealOverlay({
   const active =
     enabled &&
     !reducedMotion &&
+    !alreadySeen &&
     !(eventTemplate === NO_REVEAL && !override) &&
     (configEnabled || FLAG_ON || override !== null || premiumUnlocked);
 
@@ -208,10 +249,20 @@ export function RevealOverlay({
   useEffect(() => {
     const showing = active && mounted && !gone;
     (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;
+    /*
+      THE MARK IS WRITTEN WHERE THE REVEAL IS MEASURED, NOT WHERE IT IS DRAWN.
+      `showing` is the one expression in this file that means "a guest is
+      actually looking at the opening" — it already gates the film handshake
+      above, and every reason the overlay stands down (reduced motion, No
+      Reveal, the admin map, a lapsed unlock, the wrong phase) is folded into
+      it. Writing the mark from a render branch instead would have recorded
+      "seen" for guests who were shown nothing.
+    */
+    if (showing && oncePerVisit === 'record') markRevealSeen(window.sessionStorage, seenEventId);
     return () => {
       (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = false;
     };
-  }, [active, mounted, gone]);
+  }, [active, mounted, gone, oncePerVisit, seenEventId]);
 
   if (!active || !mounted || gone) return null;
 

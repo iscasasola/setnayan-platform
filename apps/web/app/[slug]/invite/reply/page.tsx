@@ -48,7 +48,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_type, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)

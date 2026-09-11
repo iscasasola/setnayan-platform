@@ -112,7 +112,7 @@ test('the day ruling has ONE home, and the offer asks it rather than re-deriving
   );
 });
 
-test('the seven names have ONE home — the editor and the controller read the same list', () => {
+test('the eight names have ONE home — the editor and the controller read the same list', () => {
   const panels = readFileSync(
     resolve(WEB, 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx'),
     'utf8',
@@ -121,26 +121,26 @@ test('the seven names have ONE home — the editor and the controller read the s
   assert.match(
     panelSrc,
     /from '@\/lib\/website-pro-items'/,
-    'pro-panels must import the seven, not carry a second copy of them',
+    'pro-panels must import the eight, not carry a second copy of them',
   );
   /*
     🪤 THE ASSERTION ABOVE, ALONE, SURVIVED ITS OWN SABOTAGE. Re-typing the array
     inside pro-panels while leaving the (now unused) import line in place kept
     that `match` green — the guard was reading the import, not the absence of a
-    copy. So the claim is stated the way it is meant: THE SEVEN NAMES APPEAR IN
+    copy. So the claim is stated the way it is meant: THE EIGHT NAMES APPEAR IN
     EXACTLY ONE FILE, and a name typed anywhere else is the second source of
     truth this is here to prevent.
   */
   assert.doesNotMatch(
     panelSrc,
     /'Cinematic Reveal'/,
-    'the seven names are re-typed here — one fact, two lists, each passing its own suite',
+    'the eight names are re-typed here — one fact, two lists, each passing its own suite',
   );
   const resolver = read(SHIPPED['lib/event-hub-pro.ts']);
   assert.match(resolver, /WEBSITE_PRO_ITEMS/, 'and the controller builds its chips from that list');
   assert.doesNotMatch(
     resolver,
     /'Cinematic Reveal',\s*\n\s*'Save-the-Date video'/,
-    'a re-typed list of the seven is two sources of truth for one fact',
+    'a re-typed list of the eight is two sources of truth for one fact',
   );
 });

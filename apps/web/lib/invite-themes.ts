@@ -112,17 +112,51 @@ export function isInviteThemeId(value: unknown): value is InviteThemeId {
 }
 
 /**
- * The theme a guest actually sees. House unless the couple SAVED a theme that
- * has shipped — and, for a Pro theme, the event holds Event Hub Pro right now.
- * A lapse falls back to House and a re-purchase restores the choice, with no
- * write in between.
+ * 🔒 WEDDINGS ONLY, FOR NOW (owner Q7 = A, 2026-09-11 · DECISION_LOG "the seven
+ * invite-theme questions"): *"the event types that carry the Save-the-Date film,
+ * the same fence the reveal uses. Every other celebration gets House."*
+ *
+ * The caller measures it — `resolveWeddingOnlyParts(profile).save_the_date_film`
+ * — and hands the answer in, for the same reason `ownsPro` is a boolean and not
+ * an event id: a gate that can only ever answer one way is indistinguishable, in
+ * the render, from a gate that works.
+ *
+ * ⛔ IT IS NOT A SECOND OPINION ABOUT THE REVEAL. `lib/invite-reveal.ts` asks
+ * whether a reveal may PLAY NOW (a calendar question, on the venue's clock);
+ * this asks only whether this KIND of celebration has a Save-the-Date film at
+ * all. Same profile answer, two different questions — do not collapse them, and
+ * do not restate `cinematicRevealPlays` here.
+ *
+ * NOT optional. A default of `true` would let a birthday through on the day
+ * somebody forgets to pass it, and that failure renders as a working page.
  */
-export function resolveInviteTheme(input: { saved: unknown; ownsPro: boolean }): InviteThemeId {
+type WeddingFence = {
+  /** `resolveWeddingOnlyParts(profile).save_the_date_film`. */
+  mayShowStdFilm: boolean;
+};
+
+/** Free themes are for everyone; a Pro theme needs the unlock AND the fence. */
+function themeIsAvailable(
+  theme: InviteTheme,
+  input: { ownsPro: boolean } & WeddingFence,
+): boolean {
+  if (!theme.ready) return false;
+  if (theme.tier === 'free') return true;
+  return input.ownsPro && input.mayShowStdFilm;
+}
+
+/**
+ * The theme a guest actually sees. House unless the couple SAVED a theme that
+ * has shipped — and, for a Pro theme, the event holds Event Hub Pro right now
+ * AND its type may carry the Save-the-Date film. A lapse (of either) falls back
+ * to House and the choice is restored when it returns, with no write in between.
+ */
+export function resolveInviteTheme(
+  input: { saved: unknown; ownsPro: boolean } & WeddingFence,
+): InviteThemeId {
   if (!isInviteThemeId(input.saved)) return 'house';
   const theme = INVITE_THEMES[input.saved];
-  if (!theme.ready) return 'house';
-  if (theme.tier === 'pro' && !input.ownsPro) return 'house';
-  return theme.id;
+  return themeIsAvailable(theme, input) ? theme.id : 'house';
 }
 
 /**
@@ -131,21 +165,39 @@ export function resolveInviteTheme(input: { saved: unknown; ownsPro: boolean }):
  * points at, if they can use it; otherwise House. The couple already told us
  * their feel once, so they are not asked about style twice.
  */
-export function suggestedInviteTheme(input: {
-  saved: unknown;
-  moodFeelKey: unknown;
-  ownsPro: boolean;
-}): InviteThemeId {
-  if (isInviteThemeId(input.saved)) return input.saved;
+export function suggestedInviteTheme(
+  input: { saved: unknown; moodFeelKey: unknown; ownsPro: boolean } & WeddingFence,
+): InviteThemeId {
+  // ⚠ THE SAVED VALUE GOES THROUGH THE FENCE TOO. It used to be returned
+  // straight, which was right while the only fence was ownership (the picker
+  // disabled what you could not have, so nothing unavailable could be saved).
+  // Q7 adds a fence the couple can cross AFTER saving, by changing the kind of
+  // celebration they are holding — and a radio pre-selected on a theme their
+  // guests are not being shown is the picker telling them the opposite of the
+  // door.
+  if (isInviteThemeId(input.saved) && themeIsAvailable(INVITE_THEMES[input.saved], input)) {
+    return input.saved;
+  }
+  if (isInviteThemeId(input.saved)) return 'house';
   const feel = typeof input.moodFeelKey === 'string' ? input.moodFeelKey : null;
   if (!feel) return 'house';
   const match = INVITE_THEME_IDS.map((id) => INVITE_THEMES[id]).find(
-    (t) => t.ready && t.feels.includes(feel) && (t.tier === 'free' || input.ownsPro),
+    (t) => t.feels.includes(feel) && themeIsAvailable(t, input),
   );
   return match?.id ?? 'house';
 }
 
-/** The themes a couple can pick right now, in the order the owner named them. */
-export function pickableInviteThemes(): InviteTheme[] {
-  return INVITE_THEME_IDS.map((id) => INVITE_THEMES[id]).filter((t) => t.ready);
+/**
+ * The themes a couple can pick right now, in the order the owner named them.
+ *
+ * Pro themes are LISTED-BUT-DISABLED for a couple who simply has not bought the
+ * unlock — *"never hidden, so a couple knows what they would get"* (the picker's
+ * own note). They are absent entirely where the event TYPE cannot have them
+ * (Q7 = A): offering a birthday a theme no purchase can ever turn on is not an
+ * upsell, it is a dead radio button.
+ */
+export function pickableInviteThemes(input: WeddingFence): InviteTheme[] {
+  return INVITE_THEME_IDS.map((id) => INVITE_THEMES[id]).filter(
+    (t) => t.ready && (t.tier === 'free' || input.mayShowStdFilm),
+  );
 }

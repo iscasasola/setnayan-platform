@@ -3,7 +3,7 @@
  *
  * ONE UNLOCK, OFFERED WHERE IT IS MISSED — the Event Hub controller's Pro offer.
  * Design: `EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md` § 5.1 rule 1 (*"every
- * upgrade is offered at the point of absence"*) and § 5.3 (the seven items and
+ * upgrade is offered at the point of absence"*) and § 5.3 (the eight items and
  * the channel each belongs to). Drawing: prototype § 4.
  *
  * Owner, 2026-09-02: *"the cinematic reveal, added features like background
@@ -11,10 +11,10 @@
  * controller as well."*
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is NOT seven upgrade slots, and it is NOT a shop tab. The seven Pro items
+ * It is NOT eight upgrade slots, and it is NOT a shop tab. The eight Pro items
  * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
- * catalog — and `pro-panels.tsx` has said so since it shipped: *"the seven Pro
- * items are ONE unlock … no per-feature buy button."* So the controller grows
+ * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
+ * are ONE unlock … no per-feature buy button."* So the controller grows
  * exactly ONE offer, and moves it to whichever channel the couple is standing on
  * when they meet the wall. Same unlock, same price, bought in place.
  *
@@ -50,7 +50,7 @@ import {
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
 
-/** One chip in the seven — `here` is the item this channel is being sold on. */
+/** One chip in the eight — `here` is the item this channel is being sold on. */
 export type HubProChip = {
   name: WebsiteProItem;
   /** True for exactly one chip: the item the couple is standing in front of. */
@@ -65,7 +65,7 @@ export type HubProOffer = {
   channel: LifecyclePhase;
   headline: string;
   blurb: string;
-  /** All seven, in catalog order, exactly one flagged `here`. */
+  /** All eight, in catalog order, exactly one flagged `here`. */
   chips: readonly HubProChip[];
   ctaLabel: string;
   /** Path RELATIVE to `/dashboard/<eventId>` — the shipped buy surface. */
@@ -147,6 +147,24 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     blurb:
       'The background and the buttons, set to your palette — on every one of the four pages your link becomes.',
   },
+  /*
+    THE EIGHTH (owner Q3 = A, 2026-09-11). Grounded ONLY in what ships today:
+    four themes under this unlock, opening on the couple's own reveal, their
+    save-the-date background behind the card, their monogram as the seal and
+    their colour on the one button. No theme count is written into the sentence
+    — there were three ready skins on the day this was drafted and there will be
+    five when sessions 2–4 land, and a number in copy is the thing that rots.
+
+    ⚠ NOT LED ON BY ANY CHANNEL. `LEAD_BY_CHANNEL` is unchanged: the invite link
+    is not one of the four public pages an offer attaches to, so this copy is
+    here for totality (the `Record` is exhaustive) and for the day a channel is
+    added — the same reason 'Editorial editing' carries copy it never shows.
+  */
+  'Invite link theme': {
+    headline: 'Your invite link opens like an invitation.',
+    blurb:
+      'The link you send stops being a plain page. It opens with your reveal, then your own photo behind the card, your mark as the seal, and your colour on the button your guests press.',
+  },
 };
 
 /**
@@ -214,7 +232,7 @@ export function resolveHubProOffer(args: {
     headline: PITCH[lead].headline,
     blurb: PITCH[lead].blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
-    ctaLabel: 'Unlock all seven',
+    ctaLabel: 'Unlock all eight',
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',

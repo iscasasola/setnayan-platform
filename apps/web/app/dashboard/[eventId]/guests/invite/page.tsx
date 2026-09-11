@@ -12,6 +12,8 @@ import { InviteLink } from './_components/invite-link';
 import { InviteThemePicker } from './_components/invite-theme-picker';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { suggestedInviteTheme } from '@/lib/invite-themes';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { RegenerateQrButton } from './_components/regenerate-qr-button';
 
 export const metadata = { title: 'Invite guests' };
@@ -53,7 +55,7 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
   // its per-column grant would refuse the WHOLE events query and blank this page.
   const lookAdmin = createAdminClient();
   const [{ data: lookRow, error: lookError }, ownsPro] = await Promise.all([
-    lookAdmin.from('events').select('invite_theme, mood_feel_key').eq('event_id', eventId).maybeSingle(),
+    lookAdmin.from('events').select('invite_theme, mood_feel_key, event_type').eq('event_id', eventId).maybeSingle(),
     eventCoupleWebsiteProActive(lookAdmin, eventId).catch(() => false),
   ]);
   if (lookError) {
@@ -61,10 +63,22 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
     // failure is logged, so "no theme saved" and "could not read it" never look alike.
     logQueryError('GuestInvitePage (events.invite_theme)', lookError, { event_id: eventId }, 'graceful_degrade');
   }
+  /*
+    🔒 WEDDINGS ONLY (owner Q7 = A, 2026-09-11). The Pro themes are offered only
+    where the event type may carry the Save-the-Date film — the reveal's own
+    fence, `resolveWeddingOnlyParts(profile).save_the_date_film`, asked here so a
+    birthday is never shown four radios that `setInviteTheme` would refuse. An
+    unreadable profile is NOT a wedding: the `.catch` falls to the free door
+    rather than opening a paid one.
+  */
+  const mayShowStdFilm = await resolveProfile((lookRow?.event_type as string | null) ?? '')
+    .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+    .catch(() => false);
   const selectedTheme = suggestedInviteTheme({
     saved: lookRow?.invite_theme ?? null,
     moodFeelKey: lookRow?.mood_feel_key ?? null,
     ownsPro,
+    mayShowStdFilm,
   });
 
   const [tokenRes, pendingRes, eventRes] = await Promise.all([
@@ -241,6 +255,7 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
         eventId={eventId}
         selected={selectedTheme}
         ownsPro={ownsPro}
+        mayShowStdFilm={mayShowStdFilm}
         saved={search.theme === 'saved'}
       />
 

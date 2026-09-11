@@ -753,6 +753,39 @@ html.subnav-docked [data-shell-main] {
   }
 
   /*
+   * THE INVITE DOOR'S BUTTON, IN THE COUPLE'S OWN COLOUR (owner Q2 = A,
+   * 2026-09-11). Scoped to `[data-door-action]`, which `DoorShell` sets ONLY
+   * when its skin carries an `action` — i.e. only a Pro invite theme, resolved
+   * once in `app/[slug]/invite/_lib/load-invite-look.ts`. House, every other
+   * door, and the Event Hub's own copy of the same RSVP card are all outside
+   * this scope and render byte-identically.
+   *
+   * 📦 A RULE HERE, NOT A STYLESHEET. globals.css already ships on every page,
+   * so this adds no module to the shared chunk — the constraint `door-shell.tsx`
+   * records ("`main` is a hair under a locked 200 KB"). The precedent is
+   * `.app-surface .button-primary` further down, which re-points this same class
+   * for the dashboards.
+   *
+   * ⚠ THE LABEL IS NOT OPTIONAL. `--door-action-label` is chosen against the
+   * fill by `lib/invite-button-color.ts` (white or ink, 4.5:1 or the terracotta
+   * floor). Setting the background here without it would leave the class's own
+   * `text-cream` on a colour nobody measured — which on a pale couple colour is
+   * white on white. Fill and label are one decision; they move together.
+   *
+   * The hover is a brightness step rather than a second colour: there is only
+   * one hex to work from, and `mulberry-600` belongs to the house palette.
+   */
+  [data-door-action] .button-primary {
+    background-color: var(--door-action);
+    color: var(--door-action-label);
+    --tw-ring-color: var(--door-action);
+  }
+  [data-door-action] .button-primary:hover {
+    background-color: var(--door-action);
+    filter: brightness(0.92);
+  }
+
+  /*
    * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
    * One of the two sanctioned homes for the new `link` token (the other being
    * inline anchors). Border and label carry the indigo; the fill stays cream so

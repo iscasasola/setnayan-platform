@@ -1901,6 +1901,14 @@ export async function SiteBody({
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
+        /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). The SECOND half:
+           a guest who has just lifted this couple's veil on the invite door does
+           not meet it again on this visit. A later visit is a new session and
+           plays as usual — and standing aside still starts the Save-the-Date
+           film, because a deferred overlay never sets `__stdRevealActive` and
+           the film's own 700 ms grace start takes over. See
+           lib/reveal-once-per-visit.ts. */
+        oncePerVisit="defer"
       />
       {/* Couple's opt-in background-music player — NOT during the Save-the-Date
           phase: the STD film owns audio there, and this floating speaker control

@@ -42,7 +42,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, event_type, event_end_date, venue_latitude, venue_longitude`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, role_palette, monogram_uploaded_svg, monogram_custom_svg, wax_seal_config, std_reveal_template, std_reveal_effects, event_end_date, venue_latitude, venue_longitude`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -154,6 +154,14 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
         eventTemplate={coerceRevealTemplate(event.std_reveal_template) ?? INVITE_THEMES[look.theme].opening}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id as string}
+        /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). This door is the
+           FIRST half: when this opening actually plays, it records "seen" for
+           this event in sessionStorage, and the Event Hub the guest is handed
+           into two doors later stands aside rather than dropping the same veil
+           again. A House invite passes none of this — it plays no reveal, so
+           that guest's first reveal is still the Event Hub's, which is the
+           behaviour the owner's answer preserves. */
+        oncePerVisit="record"
       />
     );
 

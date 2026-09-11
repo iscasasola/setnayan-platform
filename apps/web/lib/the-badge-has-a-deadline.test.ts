@@ -19,9 +19,12 @@
  * which the owner has never put a deadline on and MUST stay on the raw
  * state) or a ranking/compat-score input, or the `public_visibility`
  * listing/bookability state (also must stay raw — Q5 says explicitly the
- * shop stays listed past the badge's deadline). Only six sites actually fed
- * a rendered "Verified" pill off the raw state; this PR pointed all six at
- * `hasVerifiedBadge` (see `changelog.d/small-badge-spots.md` for the list).
+ * shop stays listed past the badge's deadline). Seven sites actually fed
+ * a rendered "Verified" text off the raw state (six found by the initial
+ * pass; this guard itself caught a seventh — the share-card OG description,
+ * `lib/vendor-og-description.ts`, landed by a parallel session mid-PR); this
+ * PR points all seven at `hasVerifiedBadge` (see
+ * `changelog.d/small-badge-spots.md` for the list).
  *
  * ── WHAT THIS GUARDS ─────────────────────────────────────────────────────
  * A raw `X.verification_state === 'verified'` or `X.public_visibility ===
@@ -201,6 +204,7 @@ test('hasVerifiedBadge is reachable and the fixed sites actually call it', () =>
     'app/onboarding/wedding/actions.ts',
     'app/tour/vendors/page.tsx',
     'app/_components/frontdoor/data.ts',
+    'lib/vendor-og-description.ts',
   ]) {
     const src = STRIPPED.get(f);
     assert.ok(src, `${f} is no longer scanned`);

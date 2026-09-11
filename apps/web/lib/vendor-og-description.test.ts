@@ -66,3 +66,40 @@ test('a whitespace-only tagline is treated as no tagline, not printed verbatim',
   });
   assert.match(result, /Davao City/, 'must fall through to the category · city composition');
 });
+
+// ── Q4/Q5 (owner 2026-09-11) — "Verified" follows the badge deadline, not
+// verification_state alone ───────────────────────────────────────────────
+
+test('verified with no deadline recorded still says Verified (today\'s behaviour, unchanged)', () => {
+  const result = composeVendorOgDescription({
+    tagline: null,
+    services: ['live_band'],
+    location_city: 'Cebu City',
+    verification_state: 'verified',
+    next_renewal_due_at: null,
+  });
+  assert.match(result, /Verified$/);
+});
+
+test('verified with a FUTURE deadline still says Verified', () => {
+  const result = composeVendorOgDescription({
+    tagline: null,
+    services: ['live_band'],
+    location_city: 'Cebu City',
+    verification_state: 'verified',
+    next_renewal_due_at: '2099-01-01T00:00:00Z',
+  });
+  assert.match(result, /Verified$/);
+});
+
+test('verified with a PAST deadline no longer says Verified — the share card must not keep advertising a lapsed badge', () => {
+  const result = composeVendorOgDescription({
+    tagline: null,
+    services: ['live_band'],
+    location_city: 'Cebu City',
+    verification_state: 'verified',
+    next_renewal_due_at: '2020-01-01T00:00:00Z',
+  });
+  assert.doesNotMatch(result, /Verified/, `got: ${result}`);
+  assert.match(result, /Cebu City/, 'the rest of the description still renders');
+});

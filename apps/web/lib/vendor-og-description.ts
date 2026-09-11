@@ -1,4 +1,5 @@
 import { displayServiceLabel } from '@/lib/vendors';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 
 /**
  * lib/vendor-og-description.ts — the one descriptive line on a shop's share
@@ -15,18 +16,31 @@ import { displayServiceLabel } from '@/lib/vendors';
  * fabricated placeholder: this is the same row-3838 house rule ("never a
  * stock photo, a zero, or an empty chart") D2 already enforces on the public
  * page itself.
+ *
+ * "Verified" here follows the badge's own deadline (owner rulings 2026-09-11,
+ * DECISION_LOG "SEVEN SUPPLIER-SIDE QUESTIONS" Q4/Q5) via `hasVerifiedBadge`
+ * — not `verification_state` alone, which a share card could otherwise keep
+ * advertising past the badge's own lapse.
  */
 export function composeVendorOgDescription(vendor: {
   tagline: string | null;
   services: readonly string[] | null | undefined;
   location_city: string | null;
   verification_state?: string | null;
+  next_renewal_due_at?: string | null;
 }): string {
   const tagline = vendor.tagline?.trim();
   if (tagline) return tagline;
   const category = vendor.services?.[0] ? displayServiceLabel(vendor.services[0]) : null;
   const city = vendor.location_city?.trim() || null;
   const parts = [category, city].filter((p): p is string => Boolean(p));
-  if (vendor.verification_state === 'verified') parts.push('Verified');
+  if (
+    hasVerifiedBadge({
+      verification_state: vendor.verification_state ?? null,
+      next_renewal_due_at: vendor.next_renewal_due_at ?? null,
+    })
+  ) {
+    parts.push('Verified');
+  }
   return parts.length > 0 ? parts.join(' · ') : 'A Setnayan shop.';
 }

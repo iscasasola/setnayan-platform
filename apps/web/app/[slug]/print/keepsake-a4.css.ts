@@ -171,6 +171,16 @@ export const KEEPSAKE_A4_CSS = `
   border-radius: 2mm;
 }
 
+/* ── one hand-arranged moment per page (step 7) ──────────────────────────── */
+.k4-arranged {
+  /* The composition is never enlarged past the host's own 660-unit sheet
+     (ArrangedSheet's own rule) and is rarely as tall as a fixed A4 page, so
+     this page is allowed to grow — never clipped like a mechanical minute
+     page, whose content the loader already caps to fit. */
+  height: auto;
+  min-height: 297mm;
+}
+
 /* ── closing page (locked close + colophon), reuses the A3 sheet's classes
    for the couple's words / song / QR colophon so both formats read as one
    family — those class names (.k-couple-quote, .k-song, .k-colophon…) come
@@ -218,6 +228,21 @@ export const KEEPSAKE_A4_CSS = `
     break-after: page;
   }
   .k4-page > * { break-inside: avoid; }
+  /*
+    A hand-arranged sheet is data, not a mechanical minute — the loader never
+    caps its height to one page's worth (sheetHeight grows downward with
+    what the host placed), so clipping it the way a minute page is clipped
+    would silently cut off the bottom of a tall sheet. It still gets its own
+    page (break-before/after are inherited from .k4-page above); only the
+    fixed height and the overflow clip are lifted, and its child may break
+    across a physical page rather than being forced to avoid doing so.
+  */
+  .k4-page.k4-arranged {
+    height: auto;
+    min-height: 297mm;
+    overflow: visible;
+  }
+  .k4-page.k4-arranged > * { break-inside: auto; }
   img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 `;

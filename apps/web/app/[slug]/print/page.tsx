@@ -31,6 +31,8 @@ import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventWordsFor } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
@@ -214,6 +216,22 @@ export default async function EditorialPrintPage({
   */
   if (data) data = redactStoryLayers(data, printViewer);
 
+  /*
+    (3c) THE MOMENTS THE HOST ARRANGED BY HAND (step 7 of
+    `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) — reused by BOTH formats below,
+    never a second renderer. `loadStoryPages` is the one door (step 3's
+    `loadStoryArrangement`, applying S3's guest layer and S14's consent veto)
+    — this route never reads the arrangement any other way, same as the
+    public page (`the-public-story-reads-the-arrangement-once.test.ts`).
+    Empty for a story in Automatic, so an unarranged keepsake prints exactly
+    as before this step.
+  */
+  const sheets: DrawnSheet[] = data
+    ? await loadStoryPages(createAdminClient(), event.event_id, printViewer, (key) =>
+        displayUrlForStoredAsset(key),
+      ).catch(() => [])
+    : [];
+
   if (!data) {
     return (
       <main
@@ -314,6 +332,7 @@ export default async function EditorialPrintPage({
           qrSvg={qrSvg}
           hideWatermark={hideWatermark}
           stampLine={stampLine}
+          sheets={sheets}
         />
       ) : (
         <PrintSheet
@@ -324,6 +343,7 @@ export default async function EditorialPrintPage({
           qrSvg={qrSvg}
           hideWatermark={hideWatermark}
           stampLine={stampLine}
+          sheets={sheets}
         />
       )}
     </main>

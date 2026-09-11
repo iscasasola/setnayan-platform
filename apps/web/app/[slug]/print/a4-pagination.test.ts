@@ -9,14 +9,18 @@
  * `buildA4Pages` (keepsake-layout.ts) is the pure function this pins: given N
  * ordered chapters and the default resolver, it must return exactly N
  * 'minute' pages, each wrapping exactly one chapter, in the original order —
- * no merging, no splitting, no dropping, no reordering.
+ * no merging, no splitting, no dropping, no reordering. Step 7's
+ * `arrangedA4PageResolver` must uphold the SAME invariant for the chapters —
+ * it only ever INSERTS separate 'arranged' pages alongside them, never
+ * folding a chapter into one (see `arranged-pages-interleave.test.ts` for
+ * that resolver's own behaviour).
  *
  * ── SABOTAGE, MEASURED ───────────────────────────────────────────────────
- * The test below sabotages `defaultA4PageResolver` into merging every two
- * adjacent chapters onto one page (simulating "two minutes land on one
- * page") and confirms the guard's own invariant check catches it — then
- * reverts and confirms the real resolver passes. Occurrence counts are
- * printed for both runs.
+ * The test below sabotages `defaultA4PageResolver` into dropping every other
+ * chapter (simulating "two minutes collapsed onto one page, one lost") and
+ * confirms the guard's own invariant check catches it — then reverts and
+ * confirms the real resolver passes. Occurrence counts are printed for both
+ * runs.
  */
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
@@ -42,28 +46,19 @@ function chapter(n: number): DayChapter {
 const CHAPTERS: DayChapter[] = [chapter(1), chapter(2), chapter(3), chapter(4), chapter(5)];
 
 /**
- * The invariant every resolver — today's default, and any future
- * hand-arranged one — must satisfy: every input chapter appears in the
- * output EXACTLY ONCE (no split, no merge, no drop), in its original
- * relative order. A resolver that fails this either loses a minute or lets
- * two minutes share a page (the two failure modes this test exists for).
+ * The invariant every resolver — today's default, and step 7's
+ * `arrangedA4PageResolver` — must satisfy: every input chapter appears as
+ * its OWN 'minute' page EXACTLY ONCE (no split, no merge, no drop), in its
+ * original relative order — 'arranged' pages may be interspersed among them
+ * (that's what step 7 adds) but are ignored by this check, which is only
+ * about the minutes.
  */
 function assertOnePagePerMinute(chapters: DayChapter[], pages: A4PageSource[]): void {
-  const flattened: string[] = [];
-  for (const page of pages) {
-    if (page.kind === 'minute') {
-      flattened.push(page.chapter.leadId as string);
-    } else {
-      // An 'arranged' page is allowed to carry more than one chapter — but see
-      // the merge-sabotage test below, which specifically targets the
-      // 'minute' arm the shipped resolver uses.
-      for (const c of page.chapters) flattened.push(c.leadId as string);
-    }
-  }
+  const minuteLeadIds = pages.filter((p) => p.kind === 'minute').map((p) => p.chapter.leadId);
   assert.deepEqual(
-    flattened,
+    minuteLeadIds,
     chapters.map((c) => c.leadId),
-    'every chapter must appear exactly once, in order, across the pages',
+    'every chapter must appear exactly once, as its own minute page, in order',
   );
 }
 
@@ -80,44 +75,38 @@ test('the shipped resolver: exactly one page per minute, in order', () => {
   assertOnePagePerMinute(CHAPTERS, pages);
 });
 
-test('sabotage: a resolver that merges two minutes onto one page is caught by the invariant check', () => {
-  // Simulates the defect directly: pairs of adjacent chapters collapsed onto
-  // a single 'arranged' page — i.e. "two minutes land on one A4 page".
-  const mergingResolver: A4PageResolver = {
+test('sabotage: a resolver that drops every other minute is caught by the invariant check', () => {
+  // Simulates the defect directly: half the chapters never make it onto any
+  // page at all — i.e. "a minute vanished from the booklet".
+  const droppingResolver: A4PageResolver = {
     resolve(chapters) {
       const pages: A4PageSource[] = [];
-      for (let i = 0; i < chapters.length; i += 2) {
-        const pair = chapters.slice(i, i + 2);
-        const [first] = pair;
-        if (pair.length === 2) {
-          pages.push({ kind: 'arranged', sheetId: `merged-${i}`, chapters: [...pair] });
-        } else if (first) {
-          pages.push({ kind: 'minute', chapter: first });
-        }
-      }
+      chapters.forEach((c, i) => {
+        if (i % 2 === 0) pages.push({ kind: 'minute', chapter: c });
+      });
       return pages;
     },
   };
-  const sabotagedPages = buildA4Pages({ dayChapters: CHAPTERS }, mergingResolver);
+  const sabotagedPages = buildA4Pages({ dayChapters: CHAPTERS }, droppingResolver);
   // Occurrence count, before asserting: fewer PAGES than chapters is exactly
-  // "two minutes on one page".
+  // "a minute lost from the booklet".
   console.log(`SABOTAGE: ${CHAPTERS.length} chapters produced ${sabotagedPages.length} pages (expected ${CHAPTERS.length} for one-per-page)`);
   assert.notEqual(
     sabotagedPages.length,
     CHAPTERS.length,
     'the sabotage should have reduced the page count below one-per-minute — if not, the sabotage itself is broken',
   );
-  // The house guard: a strict one-minute-per-page checker. This is what a
-  // real pagination test would assert against the resolver actually shipped.
-  const allMinutePages = sabotagedPages.every((p) => p.kind === 'minute');
-  assert.equal(allMinutePages, false, 'sabotage must produce at least one non-minute (merged) page');
+  assert.throws(
+    () => assertOnePagePerMinute(CHAPTERS, sabotagedPages),
+    'the invariant check must reject a resolver that drops chapters',
+  );
 
   // Revert: the shipped default resolver, same input, must NOT reproduce the
   // sabotage's page count.
   const revertedPages = buildA4Pages({ dayChapters: CHAPTERS });
   console.log(`REVERTED: ${CHAPTERS.length} chapters produced ${revertedPages.length} pages`);
   assert.equal(revertedPages.length, CHAPTERS.length, 'the real resolver must produce exactly one page per minute');
-  assert.ok(revertedPages.every((p) => p.kind === 'minute'), 'the real resolver never merges minutes onto one page');
+  assert.ok(revertedPages.every((p) => p.kind === 'minute'), 'the real resolver never drops or merges minutes');
 });
 
 test('sabotage: a resolver that splits one minute across two pages is caught', () => {

@@ -1,4 +1,3 @@
-import type { EventWords } from '../_lib/event-words';
 // ============================================================================
 // A4 booklet print keepsake — one page per minute of the story timeline
 // ============================================================================
@@ -20,10 +19,18 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 import type { ComposedCopy } from '../_components/editorial/compose';
 import type { EditorialData } from '../_components/editorial/data';
+import type { EventWords } from '../_lib/event-words';
+import type { DrawnSheet } from '@/lib/story-pages';
 import { mastheadEdition } from '@/lib/story-spine';
 import { nameplate, editionCenter } from './keepsake-layout';
-import { buildA4Pages, type A4PageResolver, type A4PageSource } from './keepsake-layout';
+import {
+  arrangedA4PageResolver,
+  buildA4Pages,
+  type A4PageResolver,
+  type A4PageSource,
+} from './keepsake-layout';
 import { Colophon, LockedClose } from './print-sheet';
+import { ArrangedSheet } from '../_components/story/arranged-sheet';
 
 function CoverPage({
   data,
@@ -100,35 +107,30 @@ function MinutePage({
 }
 
 /**
- * ── THE EXTENSION SEAM, RENDERED ────────────────────────────────────────────
- * `kind: 'arranged'` is not produced by the default resolver (see
- * keepsake-layout.ts) — nothing today asks for it. This arm exists so the
- * type is exhaustive and so a future hand-arranged-sheet step has a page to
- * fill in rather than a `never` to delete; it currently renders the group's
- * minutes stacked on one page as a plain fallback, which is never reached by
- * any resolver this codebase ships.
+ * ONE PAGE, ONE HAND-ARRANGED MOMENT (step 7). Renders the SAME `ArrangedSheet`
+ * the public page draws — never a second renderer — with `stills` so a
+ * snippet prints as its poster still rather than attempting to play. What it
+ * is handed is already gated: `loadStoryPages` (S3 + S14) is the only door
+ * this page's sheets come through — see page.tsx.
  */
 function ArrangedPage({
   page,
   names,
+  words,
 }: {
   page: Extract<A4PageSource, { kind: 'arranged' }>;
   names: string;
+  words: EventWords;
 }): ReactElement {
+  const label = `${page.sheet.name ?? 'A page of the day'} — as the ${words.host} laid it out`;
   return (
-    <section className="k4-page k4-minute">
+    <section className="k4-page k4-arranged">
       <p className="k4-minute-index">
-        <span>Arranged sheet &middot; {page.sheetId}</span>
+        <span>{page.sheet.name ?? 'A page of the day'}</span>
       </p>
-      {page.chapters.map((chapter, i) => (
-        <div key={chapter.leadId ?? i} style={{ marginBottom: '4mm' }}>
-          {chapter.title ? <h3 className="k4-minute-title">{chapter.title}</h3> : null}
-          {chapter.writeUp ? <p className="k4-minute-writeup">{chapter.writeUp}</p> : null}
-        </div>
-      ))}
-      <p className="k4-minute-writeup" style={{ opacity: 0.5 }}>
-        ({names} — this arranged-sheet layout is a seam for a future step, not a shipped design.)
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <ArrangedSheet sheet={page.sheet} names={names} stills label={label} />
+      </div>
     </section>
   );
 }
@@ -142,6 +144,7 @@ export function A4Sheet({
   hideWatermark,
   stampLine,
   resolver,
+  sheets = [],
 }: {
   words: EventWords;
   data: EditorialData;
@@ -151,8 +154,15 @@ export function A4Sheet({
   hideWatermark: boolean;
   stampLine: string | null;
   /** The page-grouping seam — see keepsake-layout.ts's A4PageResolver. Omit
-   *  to get the shipped one-minute-per-page default. */
+   *  to get the shipped default: one-minute-per-page in Automatic, or (when
+   *  `sheets` is non-empty) `arrangedA4PageResolver`. */
   resolver?: A4PageResolver;
+  /**
+   * THE MOMENTS THE HOST ARRANGED BY HAND (step 7) — already gated by
+   * `loadStoryPages` (S3 + S14) and empty for a story in Automatic, so an
+   * unarranged story paginates exactly as before this step.
+   */
+  sheets?: readonly DrawnSheet[];
 }): ReactElement {
   const editionLeft = mastheadEdition(
     data.eventDate,
@@ -160,18 +170,26 @@ export function A4Sheet({
     data.editionNo != null,
     data.editionVolume,
   );
-  const pages = buildA4Pages(data, resolver);
+  const pages = buildA4Pages(data, resolver ?? (sheets.length ? arrangedA4PageResolver(sheets) : undefined));
+
+  // "Minute N of M" counts MINUTE pages only — an interleaved arranged page
+  // (step 7) is a page of its own, never a number in that count.
+  const totalMinutes = pages.filter((p) => p.kind === 'minute').length;
+  let minuteIndex = 0;
 
   return (
     <>
       <CoverPage data={data} copy={copy} mono={mono} editionLeft={editionLeft} />
-      {pages.map((page, i) =>
-        page.kind === 'minute' ? (
-          <MinutePage key={page.chapter.leadId ?? i} page={page} index={i} total={pages.length} names={data.firstNames} />
-        ) : (
-          <ArrangedPage key={page.sheetId} page={page} names={data.firstNames} />
-        ),
-      )}
+      {pages.map((page, i) => {
+        if (page.kind === 'minute') {
+          const index = minuteIndex;
+          minuteIndex += 1;
+          return (
+            <MinutePage key={page.chapter.leadId ?? i} page={page} index={index} total={totalMinutes} names={data.firstNames} />
+          );
+        }
+        return <ArrangedPage key={page.sheet.momentId} page={page} names={data.firstNames} words={words} />;
+      })}
       <section className="k4-page k4-closing">
         <div className="k4-closing">
           <LockedClose words={words} data={data} />

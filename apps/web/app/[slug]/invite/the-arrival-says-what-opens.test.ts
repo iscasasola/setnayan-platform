@@ -309,10 +309,24 @@ test('a guest who IS coming still gets the meal boxes when the list is final', a
 });
 
 test('the door renders no selfie, the site card still does', async () => {
+  // 🪤 ANCHORED ON THE CONTROLS, NOT ON THE WORD. `.selfie-reveal` is named in
+  // the card's one CSS rule — which must STAY, because the same rule drives the
+  // meal reveal above. A `doesNotMatch(/selfie/)` would therefore be red for a
+  // reason that has nothing to do with whether a face is being asked for.
   const onDoor = await render({ offerSelfie: false });
-  assert.doesNotMatch(onDoor, /selfie_ref|Selfie|selfie/, 'the invite arrival is still asking for a face');
-  const onSite = await render();
-  assert.match(onSite, /selfie/i, 'the Event Hub card lost its selfie — this was meant to be scoped to the invite');
+  for (const control of ['selfie_ref', 'biometric_consent', 'selfie_quality']) {
+    assert.doesNotMatch(
+      onDoor,
+      new RegExp(`name="${control}"`),
+      `the invite arrival still posts ${control} — it is asking for a face again`,
+    );
+  }
+  const onSite = await render({}, { rsvp_status: 'attending' });
+  assert.match(
+    onSite,
+    /name="biometric_consent"/,
+    'the Event Hub card lost its selfie — the removal was meant to be scoped to the invite arrival',
+  );
 });
 
 // ═══ 5 · the last door names the face it is about to open ══════════════════

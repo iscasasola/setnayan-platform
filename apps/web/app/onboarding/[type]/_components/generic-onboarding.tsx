@@ -16,6 +16,7 @@ import {
  * Iteration 0053 Phase 3 · PR2.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
@@ -130,6 +131,20 @@ type Props = {
    * shift the suggestion by a year at the exact anniversary boundary.
    */
   todayISO?: string;
+  /**
+   * Entrance grey-out (owner ruling 2026-09-11 — "same treatment for any other
+   * one-at-a-time event type"). Server-resolved (page.tsx, `getBlockingLifeEvent`
+   * with the DEFAULT — no honoree named yet — candidate): non-null means this
+   * signed-in account is currently blocked from a *blank-honoree* (i.e. "for
+   * myself") version of this type. NULL for every lifestyle type, every
+   * signed-out visitor, and any gated-type account with no blocking row.
+   *
+   * Seeds `blockedBy` below so the notice is visible from the very first
+   * screen, not just after a failed commit. Naming a different celebrant on
+   * the 'honoree' screen still opens a new slot and clears it — this is a
+   * heads-up, not a wall (see the honoree screen, unchanged).
+   */
+  entranceBlocking?: { eventId: string; displayName: string } | null;
 };
 
 type Draft = {
@@ -181,15 +196,22 @@ export function GenericOnboarding(props: Props) {
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
+    entranceBlocking = null,
   } = props;
   const router = useRouter();
   const today = todayISO ?? new Date().toISOString().slice(0, 10);
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
   const [step, setStep] = useState(0);
+  // Seeded from the server's entrance check (owner ruling 2026-09-11) so the
+  // notice is on screen from the very first render, not only after a failed
+  // commit. Naming a different celebrant on the 'honoree' screen still clears
+  // it (see that screen's onChange below) — this state is shared with the
+  // post-commit `life_event_exists` path on purpose, since both describe the
+  // exact same fact: "the blank-honoree slot for this type is taken."
   const [blockedBy, setBlockedBy] = useState<
     { eventId: string; displayName: string } | null
-  >(null);
+  >(entranceBlocking);
   const [displayName, setDisplayName] = useState('');
   // The celebrant. Asked only for the five gated life types — it is the key the
   // one-in-planning cap counts on, and the generic flow never collected it, so
@@ -1002,6 +1024,28 @@ export function GenericOnboarding(props: Props) {
               'A few quick questions and we’ll shape a plan made for your celebration.'}
           </Title>
           <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
+          {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very
+              first screen, instead of only after a wizard-length walk ends in
+              the same refusal. `blockedBy` is seeded from the server's entrance
+              check when it is currently non-null for a blank honoree; this is a
+              heads-up, not a dead end — the flow still continues, and naming a
+              different celebrant on the 'honoree' screen a moment from now
+              clears it, exactly as it always has. */}
+          {blockedBy ? (
+            <div className="mx-auto mt-6 max-w-md rounded-[var(--m-r-md)] border border-[color:var(--sn-gold-300)] bg-[color:var(--sn-gold-100)]/70 px-4 py-3 text-left text-sm text-ink/75">
+              <p>
+                You already have a {label.toLowerCase()} in planning
+                {blockedBy.displayName ? ` — “${blockedBy.displayName}”` : ''}. If this one is
+                for someone else, name them in a moment and we’ll keep the two apart.
+              </p>
+              <Link
+                className="mt-2 inline-block font-medium text-mulberry underline underline-offset-2"
+                href={`/dashboard/${blockedBy.eventId}`}
+              >
+                Go to {blockedBy.displayName || `your ${label.toLowerCase()}`}
+              </Link>
+            </div>
+          ) : null}
         </div>
       );
     }

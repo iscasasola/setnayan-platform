@@ -27,6 +27,8 @@ import { deriveOnboardingPrefill, EMPTY_PREFILL } from '@/lib/onboarding/prefill
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
 import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value';
+import { isGatedLifeType } from '@/lib/life-event-gate';
+import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { GenericOnboarding } from './_components/generic-onboarding';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +83,46 @@ export default async function GenericOnboardingPage({
     getOnboardingSpec(type, flow.personaPackKey, profile.terminology.register),
   ]);
   const user = userData.user;
+
+  // ── ENTRANCE GREY-OUT (owner ruling 2026-09-11, DECISION_LOG.md — "same
+  // treatment for any other one-at-a-time event type"). PR #5447 did this for
+  // wedding: a signed-in account already blocked is told BEFORE it walks the
+  // whole wizard, not at the last screen (PR #5446 fixed the end-of-flow dead
+  // end; this closes the entrance gap for the generic onboarding).
+  //
+  // Only the five gated life types (life-event-gate.ts: debut · christening ·
+  // birthday · graduation · gender_reveal) cap at one in-planning per honoree —
+  // isGatedLifeType() guards the read so every other type never spends it.
+  //
+  // ⚠ UNLIKE WEDDING, THIS IS A NOTICE, NOT A DEAD END. The wedding cap is
+  // unconditional; this one is keyed on honoree_label/honoree_dependent_id
+  // (life-event-gate.ts blocksLifeEventCreation), which the wizard does not ask
+  // until the 'honoree' screen — a couple of screens past this one. So the
+  // check here runs with the DEFAULT candidate (no honoree named yet, exactly
+  // what a blank honoree has always meant — "for myself"): it tells the account
+  // it is CURRENTLY blocked for that default, with a way to the existing event,
+  // while the flow keeps going — naming a different celebrant on the honoree
+  // screen still opens a new slot, exactly as it does today. This is why the
+  // create-event picker's tile is deliberately NOT greyed for these five types
+  // (see event-type-picker.tsx / event-type-photo-picker.tsx, unchanged): the
+  // rule depends on an answer the tile is tapped before asking.
+  //
+  // Read failures fail OPEN here (unlike the commit-time gate, which must fail
+  // closed): this is a courtesy heads-up, not the enforcement point — the real
+  // cap is still enforced by commitOnboardingEvent on every submit regardless
+  // of whether this notice rendered.
+  let entranceBlocking: { eventId: string; displayName: string } | null = null;
+  if (user && isGatedLifeType(type)) {
+    try {
+      entranceBlocking = await getBlockingLifeEvent(supabase, user.id, {
+        eventType: type,
+        honoreeLabel: null,
+        honoreeDependentId: null,
+      });
+    } catch {
+      entranceBlocking = null;
+    }
+  }
 
   // Profile prefill (onboarding_v2_brief · owner 2026-07-13): read the four
   // self-consented facts (religion/civil status/birthdate/gender) and derive the
@@ -162,6 +204,7 @@ export default async function GenericOnboardingPage({
       prefill={prefill}
       selfBirthdayAge={selfBirthdayAge}
       selfSex={self.gender}
+      entranceBlocking={entranceBlocking}
       // Their own name, for the celebrant field on their own birthday. Same
       // scope as the age: a self fact, handed to their own wizard.
       selfName={self.displayName}

@@ -19,6 +19,7 @@
 
 import { useRef, useState } from 'react';
 import { Send } from 'lucide-react';
+import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 
 type ScriptMsg = { role: 'couple' | 'vendor'; body: string };
 
@@ -163,10 +164,24 @@ export function TourChatThread({ counterpartyLabel }: { counterpartyLabel: strin
           disabled={exhausted}
           className="input-field min-h-[60px] flex-1 py-2 disabled:opacity-60"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              if (textareaRef.current) send(textareaRef.current.value);
-            }
+            // Mirrors ChatSendForm's real composer: Enter sends, Shift+Enter
+            // starts a new line, and the same IME/modifier/coarse-pointer
+            // holdbacks apply so the demo matches the real thing exactly.
+            const shouldSend = shouldSendOnEnter(
+              {
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                keyCode: e.keyCode,
+                altKey: e.altKey,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+              },
+              { coarsePointer: isCoarsePointer() },
+            );
+            if (!shouldSend) return;
+            e.preventDefault();
+            if (textareaRef.current) send(textareaRef.current.value);
           }}
         />
         <button

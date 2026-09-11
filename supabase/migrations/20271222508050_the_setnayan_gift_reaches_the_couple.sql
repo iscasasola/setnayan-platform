@@ -242,14 +242,16 @@ DECLARE
   v_gift RECORD;
 BEGIN
   -- The yes/no is a SNAPSHOT taken once, when the charge opens.
+  -- (Plain `=` assignment, on purpose: tests/db/gates-have-handles.db.test.ts
+  -- finds a switch column's writer by `col = …`, and this trigger IS its writer.)
   IF TG_OP = 'INSERT' THEN
-    NEW.setnayan_gift_offered :=
+    NEW.setnayan_gift_offered =
       NEW.kind = 'primary'
       AND NEW.source = 'lock'
       AND NEW.event_vendor_id IS NOT NULL
       AND public.setnayan_gift_offered_on(NEW.event_vendor_id);
   ELSE
-    NEW.setnayan_gift_offered := OLD.setnayan_gift_offered;
+    NEW.setnayan_gift_offered = OLD.setnayan_gift_offered;
   END IF;
 
   -- Once PAID with money in it, the gift is FROZEN at what was paid for.

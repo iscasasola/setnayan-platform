@@ -159,8 +159,13 @@ export default async function AdminUserReportsPage({
     new Set(rows.filter((r) => r.target_type === 'chapter').map((r) => r.target_id)),
   );
 
-  const [{ data: eventData }, { data: reporterData }, { data: captureData }, { data: chapterData }] =
-    await Promise.all([
+  const [
+    { data: eventData },
+    { data: reporterData },
+    { data: captureData },
+    { data: chapterData },
+    { data: seatPhotoData },
+  ] = await Promise.all([
       eventIds.length
         ? admin.from('events').select('event_id, display_name').in('event_id', eventIds)
         : Promise.resolve({ data: [] as { event_id: string; display_name: string | null }[] }),
@@ -195,6 +200,31 @@ export default async function AdminUserReportsPage({
             .select('public_id, title, status, user_id')
             .in('public_id', chapterTargetIds)
         : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null }[] }),
+      /*
+        A 'photo' report can name a SEAT photograph (papic_photos) — every
+        picture the Story is built from, and what a guest's "take this down"
+        from the story usually points at. Looked up only in the guest camera's
+        table, those rows had no picture and no "hidden" state here.
+      */
+      photoTargetIds.length
+        ? admin
+            .from('papic_photos')
+            .select(
+              'photo_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, photo_type, full_res_dropped_at, hidden_at',
+            )
+            .in('photo_id', photoTargetIds)
+        : Promise.resolve({
+            data: [] as {
+              photo_id: string;
+              r2_object_key: string | null;
+              display_r2_key: string | null;
+              thumb_r2_key: string | null;
+              poster_r2_key: string | null;
+              photo_type: string | null;
+              full_res_dropped_at: string | null;
+              hidden_at: string | null;
+            }[],
+          }),
     ]);
 
   const eventName = new Map<string, string>();
@@ -222,6 +252,18 @@ export default async function AdminUserReportsPage({
         full_res_dropped_at: c.full_res_dropped_at,
       }),
       hidden: Boolean(c.hidden_at),
+    });
+  for (const p of seatPhotoData ?? [])
+    captureMeta.set(p.photo_id, {
+      ref: resolveStillRef({
+        photo_type: p.photo_type,
+        r2_object_key: p.r2_object_key,
+        display_r2_key: p.display_r2_key,
+        thumb_r2_key: p.thumb_r2_key,
+        poster_r2_key: p.poster_r2_key,
+        full_res_dropped_at: p.full_res_dropped_at,
+      }),
+      hidden: Boolean(p.hidden_at),
     });
 
   // Chapter meta: title + a deep link to the live page (needs the owner's
@@ -253,9 +295,9 @@ export default async function AdminUserReportsPage({
   }
 
   const thumbEntries = await Promise.all(
-    (captureData ?? []).map(async (c) => {
-      const ref = captureMeta.get(c.capture_id)?.ref ?? null;
-      return [c.capture_id as string, ref ? await displayUrlForStoredAsset(ref) : null] as const;
+    [...captureMeta.keys()].map(async (id) => {
+      const ref = captureMeta.get(id)?.ref ?? null;
+      return [id, ref ? await displayUrlForStoredAsset(ref) : null] as const;
     }),
   );
   const thumbUrl = new Map<string, string | null>();

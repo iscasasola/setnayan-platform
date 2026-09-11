@@ -276,6 +276,22 @@ const CONSENT_WRITES: Array<{ what: string; hits: (body: string) => boolean }> =
     is one the next writer is free to miss. The role rides the same consent as
     the name, so both tables count.
   */
+  /*
+    A capture taken down or put back (step 8 of the Story, 2026-09-11). Every
+    reader of the story, the recap and both prints filters `hidden_at`, so a hide
+    is the plainest consent write there is — and the host's hide of a SEAT photo
+    (the story's only source) and the moderator's hide of a reported one both
+    reached none of the cached copies. `hideReportedPhoto` is the lib helper the
+    moderator's action writes through; naming it keeps that write visible here.
+    `\bhidden_at` does not match `wall_hidden_at` (the wall's own switch).
+  */
+  {
+    what: 'a capture taken down or put back',
+    hits: (b) =>
+      chainedTo(b, 'papic_photos', /\.update\(/, /\bhidden_at\b/) ||
+      chainedTo(b, 'papic_guest_captures', /\.update\(/, /\bhidden_at\b/) ||
+      /\bhideReportedPhoto\s*\(/.test(b),
+  },
   {
     what: 'a guest’s name coming off their own words',
     hits: (b) =>

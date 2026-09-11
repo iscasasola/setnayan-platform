@@ -77,6 +77,8 @@ const SENSITIVE_NEVER_ANON = [
   // personal / contact PII
   'business_owner_name',
   'contact_phone',
+  // 20271221366210 — a shop is reached through Setnayan, never around it.
+  'contact_email',
   'hq_address',
 ] as const;
 
@@ -94,7 +96,10 @@ const INTERNAL_NEVER_ANON = [
   'absorbs_convenience_fee',
 ] as const;
 
-/** Exactly the 21 columns migration 20271014385411 re-grants to anon. */
+/**
+ * The 21 columns migration 20271014385411 re-granted to anon, less
+ * `contact_email`, which 20271221366210 revoked — 20 today.
+ */
 const ANON_READABLE = [
   'vendor_profile_id',
   'public_id',
@@ -106,7 +111,6 @@ const ANON_READABLE = [
   'location_city',
   'hq_latitude',
   'hq_longitude',
-  'contact_email',
   'public_visibility',
   'event_types',
   'compatible_ceremony_types',

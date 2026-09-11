@@ -143,7 +143,8 @@ export async function sendVendorInvite(formData: FormData): Promise<SendInviteRe
 
   // Already-on-Setnayan short-circuit: if the email matches an existing
   // vendor account, surface the Connect path instead of creating an invite.
-  const existing = await lookupExistingVendorByEmail(supabase, email);
+  // Service role: a shop's contact email is not session-readable (20271221366210).
+  const existing = await lookupExistingVendorByEmail(createAdminClient(), email);
   if (existing) {
     return {
       ok: true,

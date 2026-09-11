@@ -563,6 +563,38 @@ export function formatStarRating(value: number): string {
   return value.toFixed(1);
 }
 
+/**
+ * The couple-facing copy for a shop with no reviews yet — the shop page's
+ * own line (app/v/[slug]/page.tsx), reused verbatim everywhere else a
+ * couple sees a shop's rating (owner ruling 2026-09-11: "New", never
+ * "☆ 0.0 · 0"). NOT the same concept as `lib/vendor-experience.ts`'s
+ * `New to Setnayan` tier — that one is about finalized bookings; this one
+ * is about reviews. The words happen to match; the meanings don't, so keep
+ * this its own constant rather than importing that module's.
+ */
+export const NEW_TO_SETNAYAN_LABEL = 'New to Setnayan';
+
+/**
+ * True when a shop has nothing to average yet: no rating, a non-positive
+ * rating, or no (or unknown) reviews. Every surface that renders a shop's
+ * star + average + count MUST check this before rendering the number —
+ * `vendor_market_stats.avg_rating_overall` is `COALESCE(..., 0)` at the
+ * database layer (never NULL), so a bare `rating ?? null` / `rating !=
+ * null` check lets a brand-new shop's 0 through as if it were a real
+ * average. Render `NEW_TO_SETNAYAN_LABEL` instead when this is true.
+ */
+export function isNewToSetnayan(
+  rating: number | null | undefined,
+  reviewCount: number | null | undefined,
+): boolean {
+  return !(
+    typeof rating === 'number' &&
+    rating > 0 &&
+    typeof reviewCount === 'number' &&
+    reviewCount > 0
+  );
+}
+
 // ----------------------------------------------------------------------------
 // Track record — dated list of completed events that flowed through Setnayan.
 // ----------------------------------------------------------------------------

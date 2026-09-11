@@ -9,6 +9,7 @@ import { fetchUserEvents } from '@/lib/events';
 import {
   fetchTrustedReviewStatsForMany,
   formatStarRating,
+  NEW_TO_SETNAYAN_LABEL,
 } from '@/lib/reviews';
 import {
   parseVisibility,
@@ -543,11 +544,13 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           strokeWidth={1.75}
                         />
                         <span className="font-mono">
-                          {rating > 0 ? formatStarRating(rating) : 'new'}
+                          {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
                         </span>
-                        <span className="text-ink/45">
-                          ({count} {count === 1 ? 'review' : 'reviews'})
-                        </span>
+                        {rating > 0 ? (
+                          <span className="text-ink/45">
+                            ({count} {count === 1 ? 'review' : 'reviews'})
+                          </span>
+                        ) : null}
                       </span>
                     </td>
                   );

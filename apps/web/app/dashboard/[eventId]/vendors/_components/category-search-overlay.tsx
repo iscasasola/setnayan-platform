@@ -32,6 +32,7 @@ import {
 } from '../_actions/category-search';
 import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
@@ -507,6 +508,12 @@ export function CategorySearchOverlay({
               <span className="stars">
                 ★ {r.rating.toFixed(1)} ({r.reviewCount})
               </span>
+            ) : typeof r.reviewCount === 'number' ? (
+              // 0 reviews — "New", never a fake "☆ 0.0 (0)" (owner ruling
+              // 2026-09-11). r.reviewCount is a known number for every row
+              // here (a real marketplace vendor), so this never fires for an
+              // unmeasured shop.
+              <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
             ) : null}
             {r.distanceKm !== null ? (
               <span className={r.withinRadius ? undefined : 'faraway'}>

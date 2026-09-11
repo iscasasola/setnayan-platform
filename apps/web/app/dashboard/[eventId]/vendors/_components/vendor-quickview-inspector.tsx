@@ -12,6 +12,8 @@ import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 import { formatPhp } from '@/lib/vendors';
 import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
+import { shopInitials } from '@/lib/shop-initials';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -33,11 +35,9 @@ import { resolveReachBadge } from '@/lib/vendor-service-radius';
  * Server component — renders the client `InspectorColumn` with static children.
  */
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 export function VendorQuickViewInspector({
@@ -155,7 +155,10 @@ export function VendorQuickViewInspector({
           </div>
         ) : null}
 
-        {/* Rating + review summary (hidden when the vendor has no rating). */}
+        {/* Rating + review summary — "New to Setnayan" for a real
+            marketplace pick with 0 reviews, hidden entirely only when the
+            rating is genuinely unmeasured (owner ruling 2026-09-11: never a
+            fake "0.0"). */}
         {v.rating != null ? (
           <div className="flex items-center gap-1.5 text-sm text-ink/75">
             <Star size={15} strokeWidth={1.75} className="text-terracotta" aria-hidden />
@@ -165,6 +168,11 @@ export function VendorQuickViewInspector({
                 · {v.reviewCount} {v.reviewCount === 1 ? 'review' : 'reviews'}
               </span>
             ) : null}
+          </div>
+        ) : typeof v.reviewCount === 'number' ? (
+          <div className="flex items-center gap-1.5 text-sm text-ink/75">
+            <Star size={15} strokeWidth={1.75} className="text-ink/25" aria-hidden />
+            <span className="font-semibold text-ink">{NEW_TO_SETNAYAN_LABEL}</span>
           </div>
         ) : null}
 

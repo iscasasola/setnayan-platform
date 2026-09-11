@@ -229,8 +229,16 @@ test('insert-path scan: every events-insert server path is guarded and allowlist
       offenders.push(rel);
       continue;
     }
+    // getInPlanningWedding is the SAME wedding-cardinality guard as
+    // hasInPlanningWeddingForUser — the latter is a one-line wrapper around
+    // the former (wedding-guard.ts) that discards the event id. The commit
+    // path (app/onboarding/wedding/actions.ts) calls it directly so it can
+    // read the existing wedding's id for a 2026-09-11 dead-end fix; either
+    // spelling proves the same gate is wired.
     const guarded =
-      src.includes('getBlockingLifeEvent') || src.includes('hasInPlanningWeddingForUser');
+      src.includes('getBlockingLifeEvent') ||
+      src.includes('hasInPlanningWeddingForUser') ||
+      src.includes('getInPlanningWedding');
     assert.ok(guarded, `${rel} inserts into events but wires no creation guard`);
   }
   assert.deepEqual(

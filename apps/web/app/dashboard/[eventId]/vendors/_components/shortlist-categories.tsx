@@ -187,13 +187,16 @@ import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import { planGroupForCategory } from '@/lib/wedding-plan-groups';
 import {
   railEndIsAddAnother,
+  isUnavailableOnDate,
   resolveBenchCardActions,
   type BenchCardActions,
 } from '@/lib/bench-card-actions';
 import {
   DOESNT_FIT_DIVIDER,
+  NOT_AVAILABLE_DIVIDER,
   noSharedDateBadge,
   partitionByBuildFit,
+  sinkUnavailable,
   type BuildDateWindow,
   type ConvergenceBanner,
   type TeamCalendarMember,
@@ -630,6 +633,25 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 .slcat .vact-note-txt b{font-weight:600;color:var(--gold-deep)}
 .slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:10px;line-height:1.35}
 html.dark .slcat .vact.note.clash{color:#e2b968}
+
+/* ── HARD tier · "Not available on your date" (PR-G2 · owner 2026-09-11) ─────
+   The CTA red (#B04722 = --color-mulberry-600; #EC8A5F its dark step), where the
+   soft tier is gold: gold says "your build narrowed past them", red says "they
+   are taken that day". Still a reason, never an error — the card stays viewable
+   and its conversation stays live. One selector per rule, so
+   the-bench-is-legible.test.ts can find and measure each label. */
+.slcat .raildiv.hard>span{color:#B04722;border-left-color:rgba(194,78,37,.45)}
+html.dark .slcat .raildiv.hard>span{color:#EC8A5F}
+.slcat .vact.note.unavailable{align-items:flex-start;gap:6px;border-color:rgba(194,78,37,.42);color:#B04722;white-space:normal}
+.slcat .vact.note.unavailable svg{flex:0 0 auto;margin-top:1px}
+.slcat .vact.note.unavailable .vact-note-txt b{color:#B04722}
+html.dark .slcat .vact.note.unavailable{color:#EC8A5F}
+html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:#EC8A5F}
+/* "Hide lock, say why" — neutral ink, because a supplier saying no is an
+   ordinary outcome, never an alarm (the same reason Cancelled is grey). */
+.slcat .vact.note.withheld{align-items:flex-start;gap:6px;white-space:normal}
+.slcat .vact.note.withheld svg{flex:0 0 auto;margin-top:1px}
+.slcat .vact.note.withheld .vact-note-txt b{color:var(--ink)}
 html.dark .slcat .vact-note-txt b{color:#e2b968}
 
 html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
@@ -998,6 +1020,7 @@ function VendorCard({
   dates,
   standing,
   actions,
+  unavailable = false,
   arrange,
 }: {
   v: ShortlistVendor;
@@ -1027,6 +1050,10 @@ function VendorCard({
    * a bare `InspectorTrigger`, no wrapper element, no extra DOM.
    */
   actions?: BenchCardActions | null;
+  /** HARD tier (PR-G2 · 2026-09-11): drawn behind the "Not available on your
+   *  date" divider. Set ONLY by the rail that sank it, so the dim and the sink
+   *  are one decision (`isUnavailableOnDate`), never two. */
+  unavailable?: boolean;
   /** Undefined on every surface that does not rearrange (row 2's marketplace
    *  card never does — those results are a search, not the couple's plan). */
   arrange?: CardArrange;
@@ -1108,13 +1135,13 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    return v.buildFit === 'clash' ? <div className="vcw is-dim">{card}</div> : card;
+    return v.buildFit === 'clash' || unavailable ? <div className="vcw is-dim">{card}</div> : card;
   }
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
     // one (decision #3 — never removed, always viewable, always reversible).
     <div
-      className={`vcw${v.buildFit === 'clash' ? ' is-dim' : ''}${
+      className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}${
         arrange?.grabbed ? ' is-grabbed' : ''
       }`}
       // ⚠ LONG-PRESS FIRST IS LOAD-BEARING, NOT A FLOURISH. This rail is a
@@ -2784,8 +2811,16 @@ export function ShortlistCategories({
                     tilePins,
                     (e) => e.v.vendorId,
                   );
+                  // PR-G2 · the HARD tier comes out FIRST — a supplier whose own
+                  // calendar shows the committed day taken — so the rail reads,
+                  // in the spec's §6 order: fits · "Doesn't fit your build" ·
+                  // "Not available on your date". Same predicate as the card's
+                  // resolver and the Picks column; moved, never dropped.
+                  const availability = sinkUnavailable(arrangedRail, ({ v }) =>
+                    isUnavailableOnDate(replan, v),
+                  );
                   const rail = partitionByBuildFit(
-                    arrangedRail,
+                    availability.available,
                     ({ v }) =>
                       v.buildFit === 'clash'
                         ? { fits: false, clashWith: v.buildClashWith }
@@ -3146,6 +3181,42 @@ export function ShortlistCategories({
                                       tileLabel={t.label}
                                     dates={dateViewFor(v)}
                                       standing={standings[v.vendorId] ?? null}
+                                      actions={resolveBenchCardActions({
+                                        enabled: replan,
+                                        vendor: v,
+                                        inBuild: buildPickSet.has(v.vendorId),
+                                      })}
+                                    />
+                                  ))}
+                                </>
+                              ) : null}
+                              {/* PR-G2 · the HARD tier's sink (owner 2026-09-11:
+                                  "they shouldn't even be shown as planned based on
+                                  their schedule availability"). After the soft
+                                  sink, behind a RED divider: these suppliers are
+                                  not a narrower build, they cannot make the day.
+                                  Dimmed, viewable, their conversation still one
+                                  tap away — and never removed from the couple's
+                                  list (decision #3). */}
+                              {availability.unavailable.length > 0 ? (
+                                <>
+                                  <span
+                                    className="raildiv hard"
+                                    role="separator"
+                                    aria-label={NOT_AVAILABLE_DIVIDER}
+                                  >
+                                    <span aria-hidden>{NOT_AVAILABLE_DIVIDER}</span>
+                                  </span>
+                                  {availability.unavailable.map(({ v, reason }) => (
+                                    <VendorCard
+                                      key={v.vendorId}
+                                      v={v}
+                                      reason={reason}
+                                      eventId={eventId}
+                                      tileLabel={t.label}
+                                      dates={dateViewFor(v)}
+                                      standing={standings[v.vendorId] ?? null}
+                                      unavailable
                                       actions={resolveBenchCardActions({
                                         enabled: replan,
                                         vendor: v,

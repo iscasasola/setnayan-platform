@@ -18,7 +18,8 @@ import {
   type PlanProgress,
   type PolicySnapshot,
 } from '@/lib/vendor-service-payment-schedules';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 
 /**
  * A booked vendor service's payment schedule, seq-ordered, for couple display.
@@ -362,7 +363,10 @@ export async function fetchPendingVendorPayments(opts: {
       let proofUrl: string | null = null;
       if (p.proof_r2_key) {
         try {
-          proofUrl = await displayUrlForStoredAsset(p.proof_r2_key);
+          // 🔒 The host's receipt lives in the PRIVATE thread-files bucket under
+          // this event's own `payment-proof/events/<id>/` folder — the ONLY folder
+          // its writer (budget/actions.ts) accepts. Signed only from there.
+          proofUrl = await displayUrlForPrivateStoredAsset(p.proof_r2_key, budgetPaymentProofPolicy(eventId));
         } catch {
           proofUrl = null;
         }

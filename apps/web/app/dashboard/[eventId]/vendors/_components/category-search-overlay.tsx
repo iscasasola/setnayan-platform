@@ -278,6 +278,8 @@ export function CategorySearchOverlay({
           maxKm: km,
           facets,
           facetHardFilter: hardFilter,
+          // H6 — a supplier with no booking left on the couple's date leaves search.
+          hideUnbookable: true,
         });
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
@@ -318,6 +320,7 @@ export function CategorySearchOverlay({
         facets: appliedFacets,
         facetHardFilter,
         includeFarther: true,
+        hideUnbookable: true,
       });
       setFarther(res.results);
       setAdded((prev) => {

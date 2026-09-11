@@ -54,7 +54,14 @@ test('hasLiveInquiry: a thread with an unknown status still counts (only decline
 
 test('flag OFF: no actions at all — the card renders exactly as pre-replan', () => {
   const a = resolveBenchCardActions({ enabled: false, vendor: vendor(), inBuild: false });
-  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
+  assert.deepEqual(a, {
+    build: null,
+    buildGroupId: null,
+    inquiry: null,
+    withdraw: null,
+    lockGroupId: null,
+    lockWithheld: null,
+  });
 });
 
 // ── the build leg ──────────────────────────────────────────────────────────
@@ -180,9 +187,11 @@ test('a booked vendor keeps the conversation — Build and Lock are the lies, no
   });
   assert.deepEqual(a, {
     build: null,
+    buildGroupId: null,
     inquiry: { kind: 'check', threadId: 't-1' },
     withdraw: null,
     lockGroupId: null,
+    lockWithheld: null,
   });
 });
 
@@ -206,7 +215,14 @@ test('a booked OFF-PLATFORM pick still shows nothing — rule 4 outranks rule 2'
     vendor: vendor({ status: 'locked', marketplaceVendorId: null, threadId: null }),
     inBuild: false,
   });
-  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
+  assert.deepEqual(a, {
+    build: null,
+    buildGroupId: null,
+    inquiry: null,
+    withdraw: null,
+    lockGroupId: null,
+    lockWithheld: null,
+  });
 });
 
 // ── the rail end ───────────────────────────────────────────────────────────
@@ -304,5 +320,12 @@ test('schedule clash: flag OFF ignores the verdict entirely', () => {
     vendor: vendor({ buildFit: 'clash', buildClashWith: 'Alta Vista' }),
     inBuild: false,
   });
-  assert.deepEqual(a, { build: null, inquiry: null, withdraw: null, lockGroupId: null });
+  assert.deepEqual(a, {
+    build: null,
+    buildGroupId: null,
+    inquiry: null,
+    withdraw: null,
+    lockGroupId: null,
+    lockWithheld: null,
+  });
 });

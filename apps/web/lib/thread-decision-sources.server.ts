@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 import type { GuestCountFact, PaymentFact } from '@/lib/thread-decisions';
 import type { PaxSurchargeProposal } from '@/lib/pax';
 
@@ -58,7 +63,10 @@ export async function fetchThreadPayments(opts: {
 
   const { data: bookings, error: bookingErr } = await adminClient
     .from('event_vendors')
-    .select('vendor_id, total_cost_php')
+    // The change lines ride in the same query: "₱50,000 of ₱X" is a part of the
+    // agreed total NOW (owner 2026-09-11, "Show the total now"), not of the
+    // price the lock wrote. A refused embed lands in the `bookingErr` branch.
+    .select(`vendor_id, total_cost_php, ${CHANGE_LINES_EMBED}`)
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
 
@@ -67,13 +75,18 @@ export async function fetchThreadPayments(opts: {
     return [];
   }
 
-  const rows = (bookings ?? []) as Array<{ vendor_id: string; total_cost_php: number | null }>;
+  const rows = (bookings ?? []) as Array<{
+    vendor_id: string;
+    total_cost_php: number | null;
+    change_lines?: ChangeLineRow[] | null;
+  }>;
   const ids = rows.map((b) => b.vendor_id).filter(Boolean);
   if (ids.length === 0) return [];
 
-  // The booking's committed cost — what "₱50,000 of ₱187,500" is a part of.
+  // The booking's committed cost — what "₱50,000 of ₱187,500" is a part of —
+  // as the agreed total NOW, through the one rule the budget uses.
   const totalByBooking = new Map<string, number | null>(
-    rows.map((b) => [b.vendor_id, b.total_cost_php]),
+    rows.map((b) => [b.vendor_id, agreedTotalNow(b.total_cost_php, b.change_lines)]),
   );
 
   const { data, error } = await adminClient

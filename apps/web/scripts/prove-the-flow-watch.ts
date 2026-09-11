@@ -52,6 +52,7 @@ import {
   type AmendmentRow,
   type EventVendorRow,
   type ChangeOrderRow,
+  type ChangeLineRow,
 } from '../lib/prove-the-flow-watch-format';
 
 type Args = {
@@ -179,6 +180,22 @@ async function main() {
     // the watcher must survive being run before every session it checks lands.
   }
 
+  // ── The change lines beside the agreed total (B2, 2026-09-11) ─────────────
+  // A new Deal locked on a booked supplier records its change HERE and has no
+  // change-order row, so reading change orders alone would call a real change
+  // "nothing". Before B2 merged the column does not exist: the read errors and
+  // the list stays empty, which is the honest reading for that database.
+  let changeLines: ChangeLineRow[] = [];
+  if (eventVendor) {
+    const { data: cls, error: clErr } = await supabase
+      .from('event_vendor_line_items')
+      .select('label, amount_php')
+      .eq('vendor_id', eventVendor.vendor_id)
+      .eq('is_change_delta', true)
+      .order('created_at', { ascending: true });
+    if (!clErr) changeLines = (cls ?? []) as ChangeLineRow[];
+  }
+
   const snapshot = {
     at: new Date().toISOString(),
     vendorSlug: args.vendorSlug,
@@ -190,6 +207,7 @@ async function main() {
     amendment,
     eventVendor,
     changeOrders,
+    changeLines,
   };
 
   let originalTotalPhp: number | null = null;
@@ -214,7 +232,7 @@ async function main() {
       `3 · Deal in chat — ${describeAmendment(amendment, threadRow)}`,
       `4 · Formal quote — ${describeProposal(proposal)}`,
       `5 · Lock — ${describeLock(eventVendor)}`,
-      `6 · Price change since lock — ${describeChangeTrail(eventVendor, changeOrders, originalTotalPhp)}`,
+      `6 · Price change since lock — ${describeChangeTrail(eventVendor, changeOrders, originalTotalPhp, changeLines)}`,
     ];
     console.log(lines.join('\n'));
   }

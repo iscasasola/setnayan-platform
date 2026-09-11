@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6633
+# facts: 6636
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4869
+#   col       4872
 #   policy    910
 #   view      9
 #   func      255
@@ -1428,6 +1428,8 @@ col	public.event_deletion_requests.reason_code	anon=- authenticated=SI
 col	public.event_deletion_requests.reviewed_at	anon=- authenticated=S
 col	public.event_deletion_requests.status	anon=- authenticated=SU
 col	public.event_deletion_requests.user_id	anon=- authenticated=SI
+col	public.event_editorial.arrangement	anon=- authenticated=SIU
+col	public.event_editorial.arrangement_version	anon=- authenticated=SIU
 col	public.event_editorial.created_at	anon=- authenticated=SIU
 col	public.event_editorial.draft_json	anon=- authenticated=SIU
 col	public.event_editorial.edited_by_couple	anon=- authenticated=SIU
@@ -1892,6 +1894,7 @@ col	public.event_vendor_line_items.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.created_at	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.due_date	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.event_id	anon=SIU authenticated=SIU
+col	public.event_vendor_line_items.is_change_delta	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.label	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.line_item_id	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.sort_order	anon=SIU authenticated=SIU
@@ -4823,8 +4826,8 @@ col	public.vendor_profiles.capacity_max	anon=- authenticated=SIU
 col	public.vendor_profiles.capacity_min	anon=- authenticated=SIU
 col	public.vendor_profiles.compatible_ceremony_types	anon=S authenticated=SIU
 col	public.vendor_profiles.compatible_venue_settings	anon=S authenticated=SIU
-col	public.vendor_profiles.contact_email	anon=S authenticated=SIU
-col	public.vendor_profiles.contact_phone	anon=- authenticated=SIU
+col	public.vendor_profiles.contact_email	anon=- authenticated=IU
+col	public.vendor_profiles.contact_phone	anon=- authenticated=IU
 col	public.vendor_profiles.created_at	anon=S authenticated=SIU
 col	public.vendor_profiles.created_by_admin_user_id	anon=- authenticated=SIU
 col	public.vendor_profiles.demo_batch_id	anon=- authenticated=SIU
@@ -4864,7 +4867,7 @@ col	public.vendor_profiles.microsite_pinned_review_id	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_sections	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_video_ids	anon=- authenticated=SIU
 col	public.vendor_profiles.name_revealed_at	anon=- authenticated=SIU
-col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=SIU
+col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=IU
 col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
 col	public.vendor_profiles.papic_challenge_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier	anon=- authenticated=SIU

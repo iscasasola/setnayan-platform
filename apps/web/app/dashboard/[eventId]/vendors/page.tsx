@@ -22,6 +22,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
@@ -81,6 +82,11 @@ import {
 } from './_components/pending-lock-proposals';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  blockedLockReason,
+  resolveBenchCardActions,
+  type BlockedLockReason,
+} from '@/lib/bench-card-actions';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
@@ -202,7 +208,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendors, eventCtx, photoMaps] = await Promise.all([
+  const [vendors, eventCtx, photoMaps, changeLines] = await Promise.all([
     fetchEventVendors(supabase, eventId),
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
@@ -228,7 +234,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // → marketplace_logo_url → initials, but the page never populated the first
     // two. Resolve them here (mirrors event-home's locked-card avatar pass).
     fetchVendorPhotoMaps(supabase, eventId),
+    // Every change agreed after a lock, in ONE read for the whole page — so each
+    // supplier's price on this list is the agreed total NOW (owner 2026-09-11,
+    // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
+    // so the lines are joined here rather than inside it.
+    fetchChangeLinesByVendor(supabase, eventId),
   ]);
+  if (changeLines.error) {
+    // Non-fatal: the list falls back to the price the lock wrote — exactly what
+    // it showed before this read existed — and the refusal is reported.
+    logQueryError(
+      'vendors/page change lines',
+      { message: changeLines.error },
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // A FAILED read is not "no data". This one row carries the event date, the
   // budget, the venue coordinates, the guest count and the Setnayan-AI
@@ -724,7 +745,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // lib/lock-request-state.ts and nowhere else.
       lock_request_state: v.lock_request_state ?? null,
       lock_request_expires_at: v.lock_request_expires_at ?? null,
-      total_cost_php: v.total_cost_php,
+      // The agreed total NOW (lock price + changes since), through the one rule
+      // the budget uses. Every price this page derives from a pick — the card,
+      // the plan-budget roll-up, "remaining budget", the build guard — reads
+      // this field, so this is the one place it is folded. Display only: no
+      // form on this page writes a pick's price back as a headline.
+      total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
@@ -1486,6 +1512,29 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : null,
   });
 
+  // ── Owner 2026-09-11 · which build picks cannot be locked right now ────────
+  // Read off the CARD's own resolver — the same call the bench makes — so the
+  // Picks column never offers "Lock to confirm" for a supplier whose card hides
+  // Lock (declined inquiry, a slot another booking took) or whose calendar shows
+  // the committed day taken. `inBuild: true` because only build picks reach that
+  // list, and a build pick is exempt from the SOFT window tier by design.
+  // Flag OFF ⇒ the resolver offers nothing ⇒ the map stays empty ⇒ the column
+  // renders as it shipped.
+  const lockBlockedByVendorId = new Map<string, BlockedLockReason>();
+  {
+    const replanOn = isExploreReplanEnabled();
+    for (const folder of shortlistFolders) {
+      for (const tile of folder.tiles) {
+        for (const v of tile.vendors) {
+          const why = blockedLockReason(
+            resolveBenchCardActions({ enabled: replanOn, vendor: v, inBuild: true }),
+          );
+          if (why) lockBlockedByVendorId.set(v.vendorId, why);
+        }
+      }
+    }
+  }
+
   // ── WHERE EACH SUPPLIER STANDS (2026-09-09) ────────────────────────────────
   // A bench card used to offer "Check inquiry" and say nothing about WHERE
   // THINGS STAND — the same button whether the supplier answered an hour ago,
@@ -2116,6 +2165,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // renders with the kill switch thrown. Passing it here is what puts
           // "Leave a review" on the surface a couple actually sees.
           reviewStatusByVendorId={reviewStatusByVendorId}
+          lockBlockedByVendorId={lockBlockedByVendorId}
         />
         {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
             renders null when off (owner 2026-07-24). */}

@@ -109,6 +109,38 @@ export class R2RefRefused extends Error {
   }
 }
 
+/**
+ * Does this string LOOK LIKE a storage ref, by the SAME rule the database's
+ * RESTRICTIVE `..._refs_are_own_*` policies use (migration
+ * `20271219262486_every_cleanup_delete_is_pinned.sql`, § 4)?
+ *
+ * 🪤 THE BUG THIS REPLACES. Two call sites (verify/actions.ts, shop/
+ * inline-docs-actions.ts) used to gate their own ownership check on plain
+ * `ref.startsWith('r2://')` — an exact-case, untrimmed-beyond-`.trim()` test.
+ * A value spelled `R2://…`, padded with a leading tab/NBSP/BOM the form
+ * field's own `.trim()` didn't anticipate stacking with, or simply differently
+ * cased, made that test FALSE, which took the `!startsWith(...)` branch of an
+ * `||` chain and treated the value as "not a ref, nothing to check" — skipping
+ * `parseClientRef` entirely and writing it straight into `doc_uploads`. The
+ * database's own policy normalises before judging (see below) and so refused
+ * the write anyway, but as a raw `new row violates row-level security policy`
+ * error with no app-level translation.
+ *
+ * This is the same normalisation, so anything the database would recognise as
+ * ref-shaped is caught HERE first and can be given a plain refusal instead of
+ * surfacing that error: strip every leading character that is not an ASCII
+ * letter or digit (a strict superset of what `.trim()` removes — plain
+ * whitespace, NBSP, BOM, line separators, and also zero-width/control
+ * characters no reader strips), lower-case what remains, and ask whether it
+ * begins `r2:`. A value that answers yes here but fails `parseClientRef`'s
+ * strict, case-sensitive, exact-prefix check is refused before any database
+ * round trip.
+ */
+export function looksLikeStorageRef(value: string): boolean {
+  const stripped = value.replace(/^[^0-9A-Za-z]+/, '');
+  return stripped.toLowerCase().startsWith('r2:');
+}
+
 /** S3/R2 hard limit on key length. */
 const MAX_KEY_LENGTH = 1024;
 
@@ -510,6 +542,38 @@ export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
 }
 
 /**
+ * The folder a couple's DEPOSIT receipt is filed under — the screenshot they
+ * attach when they lock with a downpayment, or record a deposit afterwards
+ * (`event_vendors.deposit_proof_url`, written by `vendors/actions.ts` through
+ * `lib/deposit-proof.server.ts`).
+ *
+ * 🔒 WHY IT LIVES HERE (N5, 2026-09-11). Those receipts used to be written
+ * under `deposit-proof/<eventId>/` — a prefix `bucketForPrefix` routes to the
+ * PUBLIC media bucket — and stored as a permanent public URL: a bank or GCash
+ * screenshot, readable by anyone the link reached. Under `payment-proof/` the
+ * PREFIX alone routes it to the private thread-files bucket, beside the host's
+ * other receipts, and it is read back only through `depositProofPolicy` below.
+ *
+ * No trailing slash: this is the upload `pathPrefix`; the policy adds it.
+ */
+export function depositProofFolder(eventId: string): string {
+  return `payment-proof/events/${eventId}/deposit`;
+}
+
+/**
+ * READ side of a deposit receipt: the private thread-files bucket, and only
+ * this event's deposit folder. The event id MUST come from the booking row the
+ * caller was allowed to read (the couple's own, the supplier's own client, or
+ * the admin's queue) — never from the stored value.
+ */
+export function depositProofPolicy(eventId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`${depositProofFolder(eventId)}/`],
+  };
+}
+
+/**
  * A buyer's payment-proof screenshot on their OWN order.
  *
  * ⚠ Unlike `budgetPaymentProofPolicy` above, this one IS a confidentiality
@@ -547,6 +611,55 @@ export function inlineCheckoutProofPolicy(
   const prefixes = [`payment-screenshots/inline-checkout/${userId}/`];
   if (eventId) prefixes.unshift(`payment-screenshots/inline-checkout/${eventId}/`);
   return { bucket: 'setnayan-thread-files', prefixes };
+}
+
+/**
+ * READ side of a payment-proof screenshot (`payments.screenshot_url`): every
+ * folder an uploader of THIS order's proof may have used — the order's own
+ * `payments/<orderId>/` (pay panel, booking-fee page, Papic guest buy) and the
+ * inline checkout drawer's `payment-screenshots/inline-checkout/<event|user>/`
+ * (written before the order row exists). Composed from the two WRITE policies
+ * above so the reader can never accept a folder no writer uses — nor miss one
+ * a writer does.
+ *
+ * Every id MUST come from the order row the caller has already been allowed to
+ * read (the buyer's own order, a vendor's own fee order, or the admin queue) —
+ * never from the stored value itself.
+ */
+export function paymentProofPolicy(args: {
+  orderId: string;
+  eventId: string | null;
+  userId: string | null;
+}): ClientRefPolicy {
+  const prefixes = [...orderPaymentProofPolicy(args.orderId).prefixes];
+  if (args.userId) prefixes.push(...inlineCheckoutProofPolicy(args.eventId, args.userId).prefixes);
+  else if (args.eventId) prefixes.push(`payment-screenshots/inline-checkout/${args.eventId}/`);
+  return { bucket: 'setnayan-thread-files', prefixes };
+}
+
+/**
+ * Force-majeure / dispute evidence a couple attaches on their own event.
+ *
+ * The one uploader (`disputes/page.tsx`, `<FileUpload bucket="thread-files">`)
+ * writes `events/<eventId>/disputes/…` in the PRIVATE thread-files bucket.
+ * Scoped to the event's `disputes/` folder, not merely to `events/<eventId>/`,
+ * so a dispute can never be used to have the server sign another thread-files
+ * object that happens to live under the same event.
+ */
+export function disputeEvidencePolicy(eventId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`events/${eventId}/disputes/`] };
+}
+
+/**
+ * Admin-authored catalogue art in the PRIVATE `setnayan-samples` bucket — the
+ * category tile photos (`taxonomy/<tile>/`) and the onboarding refinement
+ * photos (`refinements/<leaf>/`) the taxonomy studio uploads. Shown to couples
+ * on Explore and in onboarding, so it is signed on the way out — but only from
+ * the two roots the studio writes (the same two `privateBucketRootIsAllowed`
+ * admits for this bucket).
+ */
+export function catalogueArtPolicy(): ClientRefPolicy {
+  return { bucket: 'setnayan-samples', prefixes: ['taxonomy/', 'refinements/'] };
 }
 
 /**

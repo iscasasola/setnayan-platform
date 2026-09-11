@@ -213,20 +213,35 @@ test('finish_render REFUSES every key that is not the render’s own — and acc
   assert.equal(await rpcAs(F.couple, FINISH, [sibling, own(F.eventId, sibling, 'webp')]), true);
 });
 
-test('a zero-credit GUEST — the finding’s own attacker — cannot stamp a stranger’s file either', async () => {
-  // The CURRENT RULE IS KEPT (owner question): any member may begin a render,
-  // and a 0-credit begin makes a row for nothing. Pinned here so a change to it
-  // is a visible decision — and so the key rule is proven against exactly the
-  // caller the review named.
-  const id = await beginAs(F.guest, F.eventId, 0);
+test('a zero-credit GUEST — the finding’s own attacker — can no longer even begin, nor stamp any key on the couple’s render', async () => {
+  // Was pinned OPEN here on purpose ("so a change to it is a visible decision").
+  // It is now decided: owner ruling 2026-09-11 — only the couple (and admins)
+  // start a render (20271221631865; proven member-type by member-type in
+  // only-the-couple-spends-render-credits.db.test.ts). The guest's begin is
+  // refused, so the key rule is proven against the couple's OWN render instead.
+  await asUser(F.guest);
+  try {
+    const g = await db.query<{ id: string | null }>(
+      `SELECT public.moodboard_begin_render($1, 'room:ceiling', 'a stylist brief', '{}'::jsonb, 'v1:abc', 0, NULL, '{}'::uuid[]) AS id`,
+      [F.eventId],
+    );
+    assert.equal(g.rows[0]!.id, null, 'a guest began a render on the couple’s event');
+  } finally {
+    await reset();
+  }
+  const id = await beginAs(F.couple, F.eventId, 0);
   assert.equal(
     await rpcAs(F.guest, FINISH, [id, `payment-proof/events/${F.otherEventId}/proof.png`]),
     false,
   );
   assert.equal(await rpcAs(F.guest, ATTACH, [id, `payment-proof/events/${F.otherEventId}/p.jpg`]), false);
+  // Even the render's OWN key is refused to the guest now — the gate, not the key.
+  assert.equal(await rpcAs(F.guest, FINISH, [id, own(F.eventId, id)]), false);
   assert.equal((await keysOf(id)).image_key, null);
-  // Positive control: the refusal above is the KEY, not the membership gate.
-  assert.equal(await rpcAs(F.guest, FINISH, [id, own(F.eventId, id)]), true);
+  // Positive control: the couple's forged key is refused by the KEY rule, and
+  // the right key lands — so the two refusals above are not the key rule alone.
+  assert.equal(await rpcAs(F.couple, FINISH, [id, `payment-proof/events/${F.otherEventId}/proof.png`]), false);
+  assert.equal(await rpcAs(F.couple, FINISH, [id, own(F.eventId, id)]), true);
 });
 
 test('a non-member is refused even with the right key (the gate still stands)', async () => {

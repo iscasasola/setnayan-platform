@@ -25,6 +25,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
+import { runVerifiedBadgeDeadlineSweep } from '@/lib/verified-badge-sweep';
 import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 
 /**
@@ -692,6 +693,16 @@ export async function runDailyEmailJobs(): Promise<void> {
   try {
     if (await claimPeriodicJob('supplier-night-before-email', DAILY_GAP_MS))
       await runSupplierNightBeforeEmailReminders();
+  } catch {
+    /* best-effort */
+  }
+  // The Verified badge's deadline (owner 2026-09-11 · Q4 + Q5): the 60-day
+  // reminder and the "badge is off" note. The badge itself expires on read,
+  // so a missed day here delays a NOTE, never the badge; and nothing in it
+  // hides or unpublishes a shop.
+  try {
+    if (await claimPeriodicJob('verified-badge-deadlines', DAILY_GAP_MS))
+      await runVerifiedBadgeDeadlineSweep();
   } catch {
     /* best-effort */
   }

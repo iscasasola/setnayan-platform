@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
+import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { resolveLivePax } from '@/lib/pax';
 import {
@@ -85,6 +86,11 @@ import {
   type ImpactVendorRow,
 } from '@/lib/lock-impact-inputs';
 import { resolveProbeWindow } from '@/lib/build-date-window';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -934,7 +940,13 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php')
+    // The change lines ride along (named-FK embed) so the downpayment below is a
+    // share of the agreed total NOW — a change order can be accepted before a
+    // lock (owner 2026-09-11, "Show the total now"). A refused embed lands in
+    // `targetErr` and the lock stops with the message, as any refused read does.
+    .select(
+      `vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php, ${CHANGE_LINES_EMBED}`,
+    )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -1275,10 +1287,10 @@ export async function finalizeVendor(
     const policy = downpaymentPolicyFromRows(rows);
     if (isProtectedPolicy(policy) && policy) {
       const dpRow = rows.find((r) => r.seq === 0) ?? null;
-      const totalCostPhp =
-        typeof targetVendor.total_cost_php === 'string'
-          ? Number(targetVendor.total_cost_php)
-          : ((targetVendor.total_cost_php as number | null) ?? null);
+      const totalCostPhp = agreedTotalNow(
+        targetVendor.total_cost_php as number | string | null,
+        (targetVendor as { change_lines?: ChangeLineRow[] | null }).change_lines,
+      );
       // Resolve the downpayment amount for the evidence snapshot when possible.
       let downpaymentAmountPhp: number | null = null;
       if (dpRow) {
@@ -1441,7 +1453,10 @@ export async function finalizeVendor(
   //      below (slotPathLocked short-circuits it).
   //   #2 (daily_capacity): services with ZERO active slots keep the existing
   //      per-day count gate — repointed from the (ungenerated) wedding_date
-  //      mirror to the canonical events.event_date column (verifier C5/C6).
+  //      mirror to the canonical events.event_date column (verifier C5/C6), and
+  //      counted by the server-only service_card_bookings_on (LOCK-PATH
+  //      CAPACITY) because the couple's own session cannot see other couples'
+  //      bookings. Day-precise events only.
   // Both degrade OPEN on missing data so a lock is never wrongly blocked.
   let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
@@ -1591,38 +1606,49 @@ export async function finalizeVendor(
       if (typeof capacity === 'number' && capacity > 0) {
         // event_date is the canonical DATE column; wedding_date is a generated
         // mirror with NO migration DDL, so it can silently no-op on a fresh DB
-        // (verifier C5/C6). Repointed to event_date in this same PR.
-        const { data: capEventRow } = await supabase
+        // (verifier C5/C6). Read through the couple's session: it is their own
+        // event, and that read is what proves the date is theirs to ask about.
+        const { data: capEventRow, error: capEventErr } = await supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle();
-        const capDate =
-          (capEventRow as { event_date?: string | null } | null)?.event_date ?? null;
-        if (capDate) {
-          const { data: capSameDate } = await supabase
-            .from('events')
-            .select('event_id')
-            .eq('event_date', capDate);
-          const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
-          if (capEventIds.length > 0) {
-            const { count: capCount } = await supabase
-              .from('event_vendors')
-              .select('vendor_id', { count: 'exact', head: true })
-              .eq('service_id', targetVendor.service_id)
-              .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
-              .is('archived_at', null)
-              .in('event_id', capEventIds)
-              .neq('vendor_id', vendorId);
-            if ((capCount ?? 0) >= capacity) {
-              return {
-                status: 'soft_hold_limit_reached',
-                vendorId,
-                vendorName: targetVendor.vendor_name as string,
-                currentLimit: capacity,
-                existingHoldCount: capCount ?? 0,
-              };
-            }
+        if (capEventErr) {
+          console.error('[finalizeVendor] #2 daily-limit: event read failed', capEventErr.message);
+        }
+        const capEvent = capEventRow as
+          | { event_date?: string | null; event_date_precision?: string | null }
+          | null;
+        const capDate = capEvent?.event_date ?? null;
+        // 🔒 LOCK-PATH CAPACITY (N5, 2026-09-11). This used to count the card's
+        // bookings by reading `events` + `event_vendors` through the COUPLE'S
+        // session — and RLS shows a couple only their own events, so it always
+        // counted 0 and a daily limit of 2 took a third, fourth, fifth couple.
+        // Now ONE server-only definer count answers (migration 20271222330608),
+        // the same one the bench search hides full cards with. Its inputs are
+        // the card on the couple's own booking row and the date on the couple's
+        // own event, both just read through their session. Day-precise only: a
+        // month-only event is stored as the 1st, and is no booking on the 1st.
+        if (capDate && capEvent?.event_date_precision === 'day') {
+          const { data: booked, error: bookedErr } = await createAdminClient().rpc(
+            'service_card_bookings_on',
+            {
+              p_service_id: targetVendor.service_id,
+              p_day: capDate,
+              p_exclude_vendor_id: vendorId,
+            },
+          );
+          if (bookedErr) {
+            // Degrades OPEN, like every capacity read here — but never silently.
+            console.error('[finalizeVendor] #2 daily-limit: count failed', bookedErr.message);
+          } else if (typeof booked === 'number' && booked >= capacity) {
+            return {
+              status: 'soft_hold_limit_reached',
+              vendorId,
+              vendorName: targetVendor.vendor_name as string,
+              currentLimit: capacity,
+              existingHoldCount: booked,
+            };
           }
         }
       }
@@ -1640,7 +1666,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -1659,56 +1685,42 @@ export async function finalizeVendor(
     const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
-    // Skip the check when the event has no wedding date, OR when the
+    // Skip the check when the event has no real DAY yet (no date, or only a
+    // month/year — stored as the 1st, which is no hold on the 1st), OR when the
     // vendor's profile/limit can't be resolved. Degrades open.
-    if (weddingDate && typeof limit === 'number') {
-      // Count other event_vendors rows where:
-      //   • same marketplace_vendor_id (same Setnayan vendor account)
-      //   • event_id maps to an event with the same wedding_date
-      //   • status = 'contracted' (soft hold — not 'considering', not 'paid')
-      //   • archived_at IS NULL (not soft-archived)
-      //   • vendor_id != $current_vendor_id (don't count the target row
-      //     itself even though it'll never be 'contracted' here — defensive)
-      //
-      // Two-step query: first fetch the event_ids on the same wedding_date,
-      // then count event_vendors rows scoped to those event_ids. PostgREST
-      // doesn't support a single .in('event_id', subquery) so the two-step
-      // is the canonical shape.
-      const { data: sameDateEvents, error: sdeErr } = await supabase
-        .from('events')
-        .select('event_id')
-        .eq('event_date', weddingDate);
-      if (sdeErr) {
-        return { status: 'error', message: sdeErr.message };
-      }
-      const sameDateEventIds = (sameDateEvents ?? [])
-        .map((r) => r.event_id as string)
-        .filter((id) => id !== eventId);
-
-      // If no OTHER events share this date, there's no way the limit can
-      // be hit (the host's own pick is the only one). Skip the count.
-      if (sameDateEventIds.length > 0) {
-        const { count, error: countErr } = await supabase
-          .from('event_vendors')
-          .select('vendor_id', { count: 'exact', head: true })
-          .eq('marketplace_vendor_id', targetVendor.marketplace_vendor_id)
-          .eq('status', 'contracted')
-          .is('archived_at', null)
-          .in('event_id', sameDateEventIds)
-          .neq('vendor_id', vendorId);
-        if (countErr) {
-          return { status: 'error', message: countErr.message };
-        }
-        const existingHoldCount = count ?? 0;
-        if (existingHoldCount >= limit) {
-          return {
-            status: 'soft_hold_limit_reached',
-            vendorId,
-            vendorName: targetVendor.vendor_name as string,
-            currentLimit: limit,
-            existingHoldCount,
-          };
-        }
+    //
+    // 🔒 LOCK-PATH 2 (2026-09-11, migration 20271223386305). This used to count
+    // the shop's holds by listing same-date `events` and counting
+    // `event_vendors` THROUGH THE COUPLE'S SESSION — and RLS shows a couple only
+    // their own events, so it always counted 0 and a shop "limited to 3" took a
+    // fourth, fifth, sixth couple on one date. Now ONE server-only definer count
+    // answers: the OTHER couples (one per event — a package's covered lines are
+    // not extra holds) holding this shop at status 'contracted' (a soft hold:
+    // agreed, not yet paid), not archived, on a day-precise event that day. Its
+    // inputs are the shop on the couple's own booking row and the date on the
+    // couple's own event, both read through their session just above.
+    if (weddingDate && eventRow?.event_date_precision === 'day' && typeof limit === 'number') {
+      const { data: held, error: heldErr } = await createAdminClient().rpc(
+        'vendor_soft_holds_on',
+        {
+          p_vendor_profile_id: targetVendor.marketplace_vendor_id,
+          p_day: weddingDate,
+          p_exclude_event_id: eventId,
+        },
+      );
+      if (heldErr) {
+        // Degrades OPEN, like the #2 daily-limit count — an internal read
+        // failure the couple cannot act on must not block their lock — but
+        // never silently.
+        console.error('[finalizeVendor] hold limit: count failed', heldErr.message);
+      } else if (typeof held === 'number' && held >= limit) {
+        return {
+          status: 'soft_hold_limit_reached',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+          currentLimit: limit,
+          existingHoldCount: held,
+        };
       }
     }
   }
@@ -2031,10 +2043,11 @@ export async function finalizeVendor(
     const planAdmin = createAdminClient();
 
     // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow }, { data: eventRow }] = await Promise.all([
+    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
       planAdmin
         .from('event_vendors')
-        .select('total_cost_php')
+        // Plan amounts are shares of the agreed total NOW (changes included).
+        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
         .eq('event_id', eventId)
         .eq('vendor_id', vendorId)
         .maybeSingle(),
@@ -2044,8 +2057,13 @@ export async function finalizeVendor(
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
-    const totalCostPhp =
-      (evRow as { total_cost_php: number | null } | null)?.total_cost_php ?? null;
+    if (evRowErr) {
+      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
+    }
+    const planRow = evRow as
+      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
+      | null;
+    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
     const eventDateIso =
       (eventRow as { event_date: string | null } | null)?.event_date ?? null;
     const lockDateIso = new Date().toISOString().slice(0, 10);
@@ -2534,13 +2552,12 @@ export async function finalizeVendor(
   if (dpProvided && dpChosen) {
     try {
       const proofEntry = formData.get('proof');
+      // 🔒 The PRIVATE bucket, stored as a ref (lib/deposit-proof.server.ts) —
+      // a deposit screenshot is a bank record, never a public URL.
       let proofUrl: string | null = null;
       if (proofEntry instanceof File && proofEntry.size > 0) {
-        const up = await uploadPublicAsset({
-          pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-          file: proofEntry,
-        });
-        if (up.ok) proofUrl = up.publicUrl;
+        const up = await uploadDepositProof(eventId, proofEntry);
+        if (up.ok) proofUrl = up.ref;
       }
       const methodLabel = buildMethodLabel(dpChosen);
       // SINGLE-WINNER marker stamp: the `.is('deposit_recorded_at', null)`
@@ -4273,8 +4290,6 @@ export async function cancelBookingAsHost(
 // contract_signed_at). The host can still advance status separately.
 // ==========================================================================
 
-const DEPOSIT_PROOF_PATH_PREFIX = 'deposit-proof';
-
 /**
  * recordDeposit — COUPLE side.
  *
@@ -4369,21 +4384,19 @@ export async function recordDeposit(
     contact_email: string | null;
   };
 
-  // Optional proof artifact. Same uploadPublicAsset pipeline manual-vendor
-  // photos use — validates MIME/size, falls back to Supabase Storage in dev,
-  // returns a public URL we persist. Record-keeping only; Setnayan is not the
-  // payee and does not verify funds.
+  // Optional proof artifact — to the PRIVATE bucket under this event's deposit
+  // folder, stored as a ref and read back only through a short-lived signed
+  // link (lib/deposit-proof.server.ts). It used to go to the public media
+  // bucket as a permanent URL. Record-keeping only; Setnayan is not the payee
+  // and does not verify funds.
   let proofUrl: string | null = null;
   const proofEntry = formData.get('proof');
   if (proofEntry instanceof File && proofEntry.size > 0) {
-    const uploadResult = await uploadPublicAsset({
-      pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-      file: proofEntry,
-    });
+    const uploadResult = await uploadDepositProof(eventId, proofEntry);
     if (!uploadResult.ok) {
       return { status: 'error', message: uploadResult.error };
     }
-    proofUrl = uploadResult.publicUrl;
+    proofUrl = uploadResult.ref;
   }
 
   // HOLD THE DATE the instant the deposit is logged (not only on full payment).

@@ -36,6 +36,8 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 // boundary, so "which rung is protected?" has one answer in the codebase.
 import type { LadderTier } from '@/lib/inline-more-order';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
+import { leavesBenchSearch } from '@/lib/bench-bookable-days';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   buildCoupleFaithSet,
@@ -385,6 +387,13 @@ export async function searchCategoryVendors(input: {
   /** When TRUE, hard-drop vendors that carry facet tags but match ZERO selected
    *  facets. Vendors with no facet data are NEVER dropped (graceful degrade). */
   facetHardFilter?: boolean;
+  /** H6 (owner 2026-09-11) — BENCH ONLY: drop suppliers with no booking left on
+   *  the couple's date (every in-scope card refused by the booking path, on the
+   *  day, or on every day of a month-only date). Suppliers the couple already
+   *  knows are never dropped. Off by default, so every other caller — the
+   *  unlock, the 3-state fallback, the free-venue shortlist — is unchanged.
+   *  See lib/bench-bookable-days. */
+  hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
@@ -414,7 +423,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -746,6 +755,23 @@ export async function searchCategoryVendors(input: {
       // Fail-open: leave unavailableIds empty so the search is unchanged.
     }
   }
+
+  // H6 · no booking left on the couple's date → leaves the BENCH search. The
+  // down-rank above stays for everything else; this only runs when the bench
+  // asks for it, and fails open (lib/bench-bookable-days.server). The refusals
+  // are read server-side with the admin client (the RPC is service_role-only);
+  // only the filtered list below ever reaches the browser. Membership was
+  // already proven by the RLS-bounded events read above.
+  const noBookingLeft =
+    input.hideUnbookable === true
+      ? await findSuppliersWithNoBookingLeft({
+          admin,
+          supplierIds: ids,
+          canonicals,
+          eventDate: eventDateStr,
+          eventDatePrecision: (ev.event_date_precision as string | null) ?? null,
+        })
+      : new Set<string>();
 
   const { data: profRows } = await admin
     .from('vendor_profiles')
@@ -1319,6 +1345,9 @@ export async function searchCategoryVendors(input: {
     ordered = ordered.filter(
       (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
     );
+  }
+  if (noBookingLeft.size > 0) {
+    ordered = ordered.filter((s) => !leavesBenchSearch(s, noBookingLeft));
   }
   // Service-date availability DOWN-RANK (never remove): stable-partition busy
   // vendors to the bottom, preserving each group's tier order. No-op when the

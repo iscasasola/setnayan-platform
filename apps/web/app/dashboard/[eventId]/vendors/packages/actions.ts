@@ -402,14 +402,34 @@ export async function lockPackage(
   //    business_name carries onto event_vendors.vendor_name so the
   //    planning-card row reads cleanly even before the marketplace_logo
   //    join enriches it.
-  const { data: vendor } = await supabase
+  const { data: vendorRow } = await supabase
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name, contact_email, contact_phone')
+    .select('vendor_profile_id, business_name')
     .eq('vendor_profile_id', pkg.vendor_profile_id)
     .maybeSingle();
-  if (!vendor) {
+  if (!vendorRow) {
     return { status: 'error', message: 'Vendor profile missing for package' };
   }
+  // 🔒 A shop's contact_email / contact_phone are not readable by a browser
+  // session (20271221366210) — naming them on `supabase` would refuse the WHOLE
+  // select and every package lock would fail as "profile missing". They are
+  // copied onto the booking row for the platform's own coordinator broadcasts
+  // (lib/coordinator-broadcasts.ts), so read them on the service role, scoped by
+  // the package this session just proved it can read.
+  const { data: vendorContact, error: vendorContactErr } = await createAdminClient()
+    .from('vendor_profiles')
+    .select('contact_email, contact_phone')
+    .eq('vendor_profile_id', pkg.vendor_profile_id)
+    .maybeSingle();
+  if (vendorContactErr) {
+    // eslint-disable-next-line no-console
+    console.error('[lockPackage] shop contact read failed', { code: vendorContactErr.code });
+  }
+  const vendor = {
+    ...vendorRow,
+    contact_email: (vendorContact?.contact_email as string | null | undefined) ?? null,
+    contact_phone: (vendorContact?.contact_phone as string | null | undefined) ?? null,
+  };
 
   // 5b. Booking requires a VERIFIED vendor (owner 2026-07-24). The cascade below
   //     inserts contracted event_vendors rows for this vendor — gate it the same

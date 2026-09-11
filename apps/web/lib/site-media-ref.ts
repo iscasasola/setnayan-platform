@@ -60,6 +60,28 @@ export function siteMediaServeRef(value: unknown): string | null {
   return trimmed;
 }
 
+/**
+ * THE SAME RULE, AS THE GENERIC SIGNER'S OWN GATE (N4 part 3, 2026-09-11).
+ *
+ * `displayUrlForStoredAsset` (lib/uploads.ts) used to presign an `r2://` ref in
+ * ANY bucket for any caller, and three browser-writable columns reached it
+ * beyond the website media above — `event_editorial.draft_json`,
+ * `guests.photo_url`, `vendor_profiles.logo_url` (plus a dispute's
+ * `evidence_urls`, written by a server action that accepted any ref). Pinning
+ * each column would leave the next one open, so the SIGNER now applies this
+ * rule to every value it is handed: only the public media bucket is ever
+ * signed there. A private file is read ONLY through
+ * `displayUrlForPrivateStoredAsset(value, policy)`, whose caller names the
+ * bucket AND the tenant folder (lib/r2-client-ref.ts policies).
+ *
+ * An alias rather than a copy: one rule, one allow-list, two names — so the
+ * website-media reads and the signer can never disagree about what "public"
+ * means.
+ */
+export function publicBucketServeRef(value: unknown): string | null {
+  return siteMediaServeRef(value);
+}
+
 /** `siteMediaServeRef` over a stored array (e.g. `our_photos`): strings only, refusals dropped. */
 export function siteMediaServeRefs(values: unknown): string[] {
   if (!Array.isArray(values)) return [];

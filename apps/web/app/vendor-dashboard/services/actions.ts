@@ -55,7 +55,10 @@ import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import {
   PUBLISH_REFUSAL_MESSAGE,
+  coverIsSet,
+  inclusionsAreSet,
   priceIsSet,
+  unmetForALiveCard,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
 import { SERVICE_UPDATE_MATCHED_NOTHING } from '@/lib/a-write-that-matched-nothing';
@@ -1496,8 +1499,9 @@ async function titleForCard(
  *
  * vendor_service_id present → UPDATE (edit); absent → INSERT (create, with the
  * create-only tier-cap pre-check). `publish=true` flips is_active on, gated on
- * `unmetPublishRequirements` (a starting price + a non-empty Setnayan
- * Exclusive) — and re-enforced under it by the RPC and by the
+ * `unmetPublishRequirements` (a cover photo, a starting price and what's
+ * included — the gift left it 2026-09-09, the cover and inclusions joined it
+ * 2026-09-11) — and re-enforced under it by the RPC and by the
  * `enforce_service_publish_gate` trigger, which is the actual fence.
  * Time-slots are NOT handled here —
  * they keep addServiceTimeSlot/deleteServiceTimeSlot (Enterprise + booking lock).
@@ -1680,10 +1684,34 @@ export async function commitVendorService(formData: FormData) {
   //
   // A DRAFT IS NEVER JUDGED. `publish === false` skips all of it, which is what
   // keeps "Save as draft" a real escape from an unfinished card.
+  //
+  // ⚖ H2 (2026-09-11): a card GOING live also needs a cover photo and what's
+  // included — the owner's "the cover-photo · title · inclusions requirements
+  // stay". A card ALREADY live is held only to its price (`unmetForALiveCard`);
+  // it is flagged for the rest, never refused. `save_vendor_service` and the
+  // trigger draw the same line, in the same order, with the same sentences.
   if (publish) {
-    const unmet = unmetPublishRequirements({
+    let alreadyLive = false;
+    if (!isCreate) {
+      const { data: liveRow, error: liveReadError } = await supabase
+        .from('vendor_services')
+        .select('is_active')
+        .eq('vendor_service_id', serviceId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      // ⚠ A refused read is NOT "a draft": judging it as one would refuse a
+      // live card for rules it is exempt from. Say we could not read it.
+      if (liveReadError) {
+        return back('We could not read this card just now, so it was not saved. Try again in a moment.');
+      }
+      alreadyLive = (liveRow as { is_active?: boolean | null } | null)?.is_active === true;
+    }
+    const facts = {
       hasPrice: priceIsSet(fields.starting_price_php as number | null),
-    });
+      hasCover: coverIsSet(fields.primary_photo_r2_key as string | null),
+      hasInclusions: inclusionsAreSet(inclusionRows.map((n) => n.label)),
+    };
+    const unmet = alreadyLive ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
     const firstUnmet = unmet[0];
     if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
   }
@@ -1772,12 +1800,10 @@ export async function commitVendorService(formData: FormData) {
     if (first) return back(first.message);
   }
 
-  // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
-  // card must carry a real cover photo. Drafts can save without one. The perk
-  // gate is re-checked inside the RPC; the photo gate lives here in TS.
-  if (publish && !fields.primary_photo_r2_key) {
-    return back('Add a cover photo before publishing — drafts can save without one.');
-  }
+  // (The cover-photo check that stood here — owner 2026-06-20, "the card needs
+  // a photo" — moved INTO the shared publish gate above on 2026-09-11 (H2), so
+  // the list's on/off switch and the database now ask it too. One rule, one
+  // sentence: PUBLISH_REFUSAL_MESSAGE.cover.)
 
   // QR-in-media guard (owner-locked 2026-07-03): the cover photo leads the
   // public service card — it may not embed the vendor's invite/lock QR.
@@ -2179,13 +2205,21 @@ export async function toggleVendorServiceActive(formData: FormData) {
   // refused for the wrong reason. It is refused deliberately now, and said so:
   // publishing on a row we could not read would be publishing on no evidence.
   if (is_active) {
-    const { data: svcRow, error: readError } = await supabase
-      .from('vendor_services')
-      .select('starting_price_php')
-      .eq('vendor_service_id', idRaw)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle();
-    if (readError || !svcRow) {
+    const [{ data: svcRow, error: readError }, { data: incRows, error: incError }] =
+      await Promise.all([
+        supabase
+          .from('vendor_services')
+          .select('starting_price_php, primary_photo_r2_key, is_active')
+          .eq('vendor_service_id', idRaw)
+          .eq('vendor_profile_id', profile.vendor_profile_id)
+          .maybeSingle(),
+        supabase
+          .from('vendor_service_inclusions')
+          .select('label')
+          .eq('vendor_service_id', idRaw)
+          .eq('vendor_profile_id', profile.vendor_profile_id),
+      ]);
+    if (readError || !svcRow || incError) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(
           'We could not read this card just now, so it was not published. Try again in a moment.',
@@ -2194,10 +2228,19 @@ export async function toggleVendorServiceActive(formData: FormData) {
     }
     const row = svcRow as {
       starting_price_php?: number | null;
+      primary_photo_r2_key?: string | null;
+      is_active?: boolean | null;
     };
-    const unmet = unmetPublishRequirements({
+    // H2 — turning a DRAFT on is going live: cover · price · what's included.
+    // A card already on is held to its price only (flagged for the rest).
+    const facts = {
       hasPrice: priceIsSet(row.starting_price_php),
-    });
+      hasCover: coverIsSet(row.primary_photo_r2_key),
+      hasInclusions: inclusionsAreSet(
+        ((incRows ?? []) as { label?: string | null }[]).map((r) => r.label),
+      ),
+    };
+    const unmet = row.is_active === true ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
     const firstUnmet = unmet[0];
     if (firstUnmet) {
       return redirect(

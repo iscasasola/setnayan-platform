@@ -35,6 +35,7 @@
 import { TILE_HINTS } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
+import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-actions';
 
 /** aria-label + tooltip for the page-level ⓘ toggle. */
 export const EXPLORE_INFO_BUTTON_LABEL = 'About this page';
@@ -277,6 +278,32 @@ export const CARD_REMOVE_FROM_BUILD = 'Remove';
  * have been contacted at all ("waiting for the vendor's price" would be a lie).
  */
 export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
+
+/**
+ * "Hide lock, say why" (owner 2026-09-11). The headline says what HAPPENED, the
+ * line says what is still possible. Both are read from `chat_threads.
+ * inquiry_status`, never inferred: the decline form sends no reason, so a
+ * declined card never claims "not free on your date" — only that they said no.
+ */
+/** The Picks column's list of build picks that cannot be locked right now. */
+export const CANT_LOCK_YET_HEADING = "In your build — can't lock right now";
+/** One short reason per row there; the card carries the longer version. */
+export const BLOCKED_LOCK_ROW: Record<BlockedLockReason, string> = {
+  not_available: 'Not available on your date',
+  inquiry_declined: 'They declined your inquiry',
+  slot_taken: 'Another booking took their slot',
+};
+
+export const LOCK_WITHHELD_COPY: Record<LockWithheldReason, { headline: string; line: string }> = {
+  inquiry_declined: {
+    headline: 'They declined your inquiry',
+    line: "So there's nothing to lock. You can still message them.",
+  },
+  slot_taken: {
+    headline: 'Another booking took their slot',
+    line: 'The date you asked about is gone. You can still message them.',
+  },
+};
 
 /** Second action, stateful on thread existence. */
 export const CARD_INQUIRE = 'Inquire';

@@ -68,7 +68,7 @@ import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   displayLogoUrl,
-  displayUrlForStoredAsset,
+  displayUrlForCatalogueArt,
   publicUrlForStoredAsset,
 } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
@@ -687,6 +687,10 @@ type VendorCardRow = {
    *  carry it pre-2026-05-22. Drives the badge engine in
    *  `lib/vendor-badges.ts`. */
   verification_state?: string | null;
+  /** `vendor_profiles.next_renewal_due_at` — the Verified badge's deadline
+   *  (owner 2026-09-11 · Q4 + Q5). Same follow-up batch; the badge engine
+   *  withholds `verified` past it while the shop stays listed. */
+  next_renewal_due_at?: string | null;
   /** V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
    *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
    *  [[project_setnayan_vendor_hybrid_anonymity]]). Pulled in the
@@ -2303,6 +2307,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           string,
           {
             verification_state: string | null;
+            next_renewal_due_at: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
             tier_state: string | null;
@@ -2331,7 +2336,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         const { data, error } = await admin
           .from('vendor_profiles')
           .select(
-            'vendor_profile_id, verification_state, name_revealed_at, screen_name, tier_state',
+            'vendor_profile_id, verification_state, next_renewal_due_at, name_revealed_at, screen_name, tier_state',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
@@ -2347,6 +2352,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           string,
           {
             verification_state: string | null;
+            next_renewal_due_at: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
             tier_state: string | null;
@@ -2356,12 +2362,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           const r = row as {
             vendor_profile_id: string;
             verification_state: string | null;
+            next_renewal_due_at?: string | null;
             name_revealed_at?: string | null;
             screen_name?: string | null;
             tier_state?: string | null;
           };
           out.set(r.vendor_profile_id, {
             verification_state: r.verification_state ?? null,
+            next_renewal_due_at: r.next_renewal_due_at ?? null,
             name_revealed_at: r.name_revealed_at ?? null,
             screen_name: r.screen_name ?? null,
             tier_state: r.tier_state ?? null,
@@ -2765,6 +2773,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // measured", and the card must say nothing rather than guess.
     v.anonymity_resolved = meta !== null;
     v.verification_state = meta?.verification_state ?? null;
+    v.next_renewal_due_at = meta?.next_renewal_due_at ?? null;
     /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. NULL =
        business_name hidden in this card (Free + Verified pre-first-
        reply). Consumed by VendorCard via resolveVendorDisplayName. */
@@ -3006,6 +3015,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       return {
         vendor_profile_id: v.vendor_profile_id,
         verification_state: v.verification_state ?? null,
+        next_renewal_due_at: v.next_renewal_due_at ?? null,
         created_at: v.created_at,
         avg_rating_overall: v.avg_rating_overall ?? 0,
         review_count: v.review_count ?? 0,
@@ -4607,7 +4617,9 @@ async function CatalogView({
     if (cardsWithPhoto.length > 0) {
       const urls = await Promise.all(
         cardsWithPhoto.map(({ ref }) =>
-          displayUrlForStoredAsset(ref).catch(() => null),
+          // Catalogue art may sit in the PRIVATE samples bucket (the taxonomy
+          // studio's uploads) — signed only from its own two roots.
+          displayUrlForCatalogueArt(ref).catch(() => null),
         ),
       );
       cardsWithPhoto.forEach(({ card }, i) => {

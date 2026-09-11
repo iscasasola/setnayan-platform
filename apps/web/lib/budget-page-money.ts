@@ -63,6 +63,7 @@
 
 import type { EventMoney } from './budget-truth';
 import type { BudgetLiveSummary, VendorBudgetSummary } from './budget';
+import { agreedTotalNow } from './agreed-total-and-its-changes';
 
 /**
  * The three stats the "Current commitments" strip renders.
@@ -182,4 +183,39 @@ export function vendorsToItemize(args: {
 }): VendorBudgetSummary[] {
   const { vendors, isConfirmed } = args;
   return vendors.filter((s) => isConfirmed(s.vendor.status as string));
+}
+
+/**
+ * The LEGACY committed figure for confirmed suppliers — what the strip prints
+ * when the budget-truth flag is OFF, which is the state the owner will be
+ * looking at during the two-sided test.
+ *
+ * ── Why it exists as a function ─────────────────────────────────────────────
+ * It used to be six lines inlined in `budget/page.tsx`, summing
+ * `event_vendors.total_cost_php` and nothing else. A change order accepted
+ * after a lock does NOT move that column — it settles as a signed
+ * `event_vendor_line_items` row — so the strip kept reporting the pre-change
+ * number while the supplier's own card, which reads `itemizedTotal`, reported
+ * the new one. TWO NUMBERS, ONE SCREEN, DISAGREEING — which is the exact defect
+ * the 2026-09-09 ruling ("Both, shown separately") exists to end. A number that
+ * lives inside a page cannot be tested, so it lives here now.
+ *
+ * ⚠ CHANGES ONLY, NEVER EVERY LINE. A breakdown line is an itemisation OF this
+ * headline: all 12 suppliers carrying line items in production sum to their
+ * headline EXACTLY, so adding those would double every one of them.
+ */
+export function legacyCommittedVendorsPhp(
+  vendors: readonly {
+    vendor: { status: string | null; total_cost_php: number | string | null };
+    lineItems: readonly { amount_php: number | string | null; is_change_delta?: boolean | null }[];
+  }[],
+  isConfirmed: (status: string) => boolean,
+): number {
+  return vendors.reduce((acc, s) => {
+    if (!isConfirmed((s.vendor.status ?? '') as string)) return acc;
+    // The agreed total NOW, through the one rule every single-number screen uses
+    // (it reads only the CHANGE lines of `lineItems`, never the breakdown).
+    const cost = agreedTotalNow(s.vendor.total_cost_php, s.lineItems) ?? 0;
+    return acc + (Number.isFinite(cost) ? cost : 0);
+  }, 0);
 }

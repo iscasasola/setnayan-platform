@@ -183,6 +183,8 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
         const { readPaymentReceiptFromR2 } = await import('@/lib/payment-receipt-read.server');
         return readPaymentReceiptFromR2({
           screenshotRef: screenshotUrl,
+          // The same folder the ref was just admitted under, above.
+          proofPolicy: orderPaymentProofPolicy(payable.orderId),
           typedReference: bankReference,
           expectedPhp: payable.amountPhp,
         });

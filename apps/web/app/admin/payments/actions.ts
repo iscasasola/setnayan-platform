@@ -13,6 +13,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
@@ -1518,25 +1519,44 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   if (!paymentId) throw new Error('Missing payment_id.');
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error: readError } = await admin
     .from('payments')
-    .select('payment_id,screenshot_url,reference_number,amount_php')
+    .select('payment_id,order_id,user_id,screenshot_url,reference_number,amount_php')
     .eq('payment_id', paymentId)
     .maybeSingle();
+  if (readError) console.error('[rereadPaymentReceipt] payment read failed', readError.message);
 
   const row = data as {
+    order_id: string;
+    user_id: string | null;
     screenshot_url: string | null;
     reference_number: string | null;
     amount_php: number | string | null;
   } | null;
 
+  // 🔒 The reader opens only this payment's OWN proof folders — the same scope
+  // the admin's own screen signs the picture with (page.tsx, paymentProofPolicy),
+  // built from the ORDER row, never from the stored value (N5 · part B).
+  let orderEventId: string | null = null;
   if (row?.screenshot_url) {
+    const { data: order, error: orderError } = await admin
+      .from('orders')
+      .select('event_id')
+      .eq('order_id', row.order_id)
+      .maybeSingle();
+    if (orderError) console.error('[rereadPaymentReceipt] order read failed', orderError.message);
+    orderEventId = (order as { event_id: string | null } | null)?.event_id ?? null;
+  }
+
+  if (row?.screenshot_url) {
+    const proofPolicy = paymentProofPolicy({ orderId: row.order_id, eventId: orderEventId, userId: row.user_id });
     after(async () => {
       const { runPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
       await runPaymentReceiptRead({
         admin,
         paymentId,
         screenshotRef: row.screenshot_url,
+        proofPolicy,
         typedReference: row.reference_number,
         // The amount ON THE PAYMENT ROW, which is the order's own figure — the
         // pay page stamps it and the form cannot influence it. Reading the

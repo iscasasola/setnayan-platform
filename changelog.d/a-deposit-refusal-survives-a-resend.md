@@ -17,9 +17,13 @@ The re-send stays; it is the deposit's deliberate design. Migration
   - It has no foreign key, so the history outlives its booking row.
 - **New `resend_vendor_deposit(p_event_vendor_id, p_actor_user_id)`:**
   server-only. `recordDeposit` calls it on the admin client, after its own
-  couple/coordinator authorization. It only clears a standing refusal, so a
-  "payment stands" ruling on a confirmed deposit is no longer wiped by a
-  re-record.
+  couple/coordinator authorization. It writes the history row itself
+  (`couple_resent`, and who) before clearing. The trigger's own insert for that
+  refusal is then a no-op, because the table is unique on (booking,
+  refused-at). No session can insert into the history, and nothing consults a
+  value a session could set, so no session can make a closure read
+  `couple_resent`. It only clears a standing refusal, so a "payment stands"
+  ruling on a confirmed deposit is no longer wiped by a re-record.
 - **`guard_event_vendor_deposit_ack`:** re-signed from its live production body
   (md5 equal to `pg_get_functiondef` on prod). It changes only in the two
   clearing clauses and their comment (line-hash diff in the PR): a session may no
@@ -29,8 +33,9 @@ The re-send stays; it is the deposit's deliberate design. Migration
   days" list keeps re-sent disputes visible.
 
 Guards:
-- `tests/db/a-deposit-refusal-survives-a-resend.db.test.ts`: 10 cases, including
-  a neutralisation run. It was mutation-checked 6 ways.
+- `tests/db/a-deposit-refusal-survives-a-resend.db.test.ts`: 11 cases,
+  including a neutralisation run and a forged-closure attempt. It was
+  mutation-checked 7 ways.
 - `tests/db/the-couple-keeps-their-record.db.test.ts`: its "the couple may CLEAR"
   case now proves the couple may neither set nor clear, while RLS still lets
   them write the row, and the re-send reaches the supplier through the definer.

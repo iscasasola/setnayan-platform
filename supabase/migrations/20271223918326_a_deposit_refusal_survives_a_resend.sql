@@ -20,8 +20,12 @@
       reads it on the service client.
    2. resend_vendor_deposit(p_event_vendor_id, p_actor_user_id) — the re-send's
       clear, SERVER-ONLY (service_role). recordDeposit calls it with the admin
-      client AFTER its own couple/coordinator authorization. It marks the
-      transaction so the history row says "couple_resent" and who.
+      client AFTER its own couple/coordinator authorization. It writes the
+      history row ITSELF ("couple_resent", and who) before clearing; the
+      trigger's own insert for that refusal is then a no-op (one row per
+      refusal, by a unique key). No session can insert into the history, so no
+      session can make a closure read "couple_resent" — and no marker a session
+      could set is consulted anywhere (orchestrator review, 2026-09-11).
    3. guard_event_vendor_deposit_ack — re-signed from its LIVE production body
       (md5 equal to pg_get_functiondef on prod, 2026-09-11), changed ONLY in
       the two clearing clauses and their comment (line-hash diff in the PR): a
@@ -64,6 +68,11 @@ CREATE TABLE IF NOT EXISTS public.event_vendor_deposit_refusals (
                          'booking_deleted', 'cleared_by_service'))
 );
 
+-- One history row per refusal: a refusal is identified by its booking and the
+-- moment it was made. The re-send writes first; the trigger then finds the row
+-- and does nothing.
+CREATE UNIQUE INDEX IF NOT EXISTS event_vendor_deposit_refusals_one_per_refusal
+  ON public.event_vendor_deposit_refusals (event_vendor_id, refused_at);
 CREATE INDEX IF NOT EXISTS event_vendor_deposit_refusals_by_booking
   ON public.event_vendor_deposit_refusals (event_vendor_id, closed_at DESC);
 CREATE INDEX IF NOT EXISTS event_vendor_deposit_refusals_by_closure
@@ -78,18 +87,20 @@ COMMENT ON TABLE public.event_vendor_deposit_refusals IS
   'Every supplier refusal of a couple''s DEPOSIT that has ended, and how it ended '
   '(couple_resent · supplier_confirmed · setnayan_ruled_it_stands · booking_deleted '
   '· cleared_by_service), with Setnayan''s ruling if there was one. Written only by '
-  'archive_deposit_refusal() (SECURITY DEFINER trigger on event_vendors); never by a '
+  'resend_vendor_deposit() and archive_deposit_refusal() (SECURITY DEFINER); never by a '
   'session. No foreign key on purpose: the history must outlive the booking row. '
   'Read by /admin/disputes on the service client. FOLLOW-UPS A, 20271223918326.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2 · The one writer: whenever a refusal ends, it is archived first.
+-- 2 · The backstop writer: whenever a refusal ends, it is archived.
 --
--- `closed_by` is exact for the re-send — resend_vendor_deposit marks the
--- transaction — and inferred from the new row for the other two definer paths:
+-- The re-send archives itself (§ 3), so by the time this fires for it the row
+-- exists and the insert is a no-op. For every other ending, `closed_by` is
+-- INFERRED from the new row — never read from anything a session can set:
 -- acknowledge_vendor_deposit sets deposit_acknowledged_at; settle_vendor_
--- deposit_dispute('payment_stands') sets it AND the outcome. Anything else that
--- clears a refusal (service_role tooling) is recorded as cleared_by_service.
+-- deposit_dispute('payment_stands') sets it AND the outcome; anything else
+-- (service_role tooling) is cleared_by_service. Nothing here can produce
+-- 'couple_resent'. The closer is auth.uid() — the caller's own token.
 -- The settlement is COALESCE(OLD, NEW): 'not_received' sits on OLD beside the
 -- refusal it describes; 'payment_stands' arrives on NEW in the same statement.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -100,8 +111,6 @@ CREATE OR REPLACE FUNCTION public.archive_deposit_refusal()
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_marker    TEXT := NULLIF(current_setting('setnayan.deposit_refusal_closed_by', true), '');
-  v_actor     TEXT := NULLIF(current_setting('setnayan.deposit_refusal_closed_by_user', true), '');
   v_closed_by TEXT;
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -115,18 +124,17 @@ BEGIN
        OLD.deposit_decline_reason, OLD.deposit_declined_by_user_id,
        OLD.deposit_dispute_settled_at, OLD.deposit_dispute_outcome, OLD.deposit_dispute_note,
        OLD.deposit_dispute_settled_by_user_id,
-       v_closed_by, auth.uid());
+       v_closed_by, auth.uid())
+    ON CONFLICT (event_vendor_id, refused_at) DO NOTHING;
     RETURN NULL;
   END IF;
 
-  v_closed_by := COALESCE(
-    v_marker,
-    CASE
+  v_closed_by := CASE
       WHEN NEW.deposit_acknowledged_at IS NOT NULL
            AND NEW.deposit_dispute_outcome = 'payment_stands' THEN 'setnayan_ruled_it_stands'
       WHEN NEW.deposit_acknowledged_at IS NOT NULL THEN 'supplier_confirmed'
       ELSE 'cleared_by_service'
-    END);
+    END;
 
   INSERT INTO public.event_vendor_deposit_refusals
     (event_vendor_id, event_id, vendor_name, refused_at, reason, refused_by_user_id,
@@ -139,7 +147,8 @@ BEGIN
      COALESCE(OLD.deposit_dispute_outcome, NEW.deposit_dispute_outcome),
      COALESCE(OLD.deposit_dispute_note, NEW.deposit_dispute_note),
      COALESCE(OLD.deposit_dispute_settled_by_user_id, NEW.deposit_dispute_settled_by_user_id),
-     v_closed_by, COALESCE(v_actor::uuid, auth.uid()));
+     v_closed_by, auth.uid())
+  ON CONFLICT (event_vendor_id, refused_at) DO NOTHING;
   RETURN NULL;
 END;
 $function$;
@@ -199,8 +208,20 @@ BEGIN
     RETURN jsonb_build_object('status', 'no_refusal');
   END IF;
 
-  PERFORM set_config('setnayan.deposit_refusal_closed_by', 'couple_resent', true);
-  PERFORM set_config('setnayan.deposit_refusal_closed_by_user', COALESCE(p_actor_user_id::text, ''), true);
+  -- Archive FIRST, as the re-send, and who sent it. The trigger that fires on
+  -- the clear below finds this row and writes nothing.
+  INSERT INTO public.event_vendor_deposit_refusals
+    (event_vendor_id, event_id, vendor_name, refused_at, reason, refused_by_user_id,
+     dispute_settled_at, dispute_outcome, dispute_note, dispute_settled_by_user_id,
+     closed_by, closed_by_user_id)
+  SELECT ev.vendor_id, ev.event_id, ev.vendor_name, ev.deposit_declined_at,
+         ev.deposit_decline_reason, ev.deposit_declined_by_user_id,
+         ev.deposit_dispute_settled_at, ev.deposit_dispute_outcome, ev.deposit_dispute_note,
+         ev.deposit_dispute_settled_by_user_id,
+         'couple_resent', p_actor_user_id
+    FROM public.event_vendors ev
+   WHERE ev.vendor_id = p_event_vendor_id
+  ON CONFLICT (event_vendor_id, refused_at) DO NOTHING;
 
   UPDATE public.event_vendors
      SET deposit_declined_at                = NULL,
@@ -214,9 +235,6 @@ BEGIN
    WHERE vendor_id = p_event_vendor_id
      AND deposit_declined_at IS NOT NULL;
 
-  -- The marker is for THIS clear only.
-  PERFORM set_config('setnayan.deposit_refusal_closed_by', '', true);
-  PERFORM set_config('setnayan.deposit_refusal_closed_by_user', '', true);
 
   RETURN jsonb_build_object('status', 'ok');
 END;
@@ -226,9 +244,9 @@ REVOKE ALL ON FUNCTION public.resend_vendor_deposit(uuid, uuid) FROM PUBLIC, ano
 GRANT EXECUTE ON FUNCTION public.resend_vendor_deposit(uuid, uuid) TO service_role;
 
 COMMENT ON FUNCTION public.resend_vendor_deposit(uuid, uuid) IS
-  'The couple sends their deposit again: clears the supplier''s standing refusal '
-  'and any ruling on it, after archive_deposit_refusal() has written them to '
-  'event_vendor_deposit_refusals as couple_resent. Server-only (service_role) — '
+  'The couple sends their deposit again: writes the supplier''s standing refusal '
+  'and any ruling on it to event_vendor_deposit_refusals as couple_resent, then '
+  'clears them. Server-only (service_role) — '
   'recordDeposit calls it after authorizing the couple or coordinator. FOLLOW-UPS A.';
 
 -- ─────────────────────────────────────────────────────────────────────────────

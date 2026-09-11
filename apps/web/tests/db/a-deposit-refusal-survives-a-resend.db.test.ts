@@ -296,13 +296,16 @@ test('the history outlives its booking — deleting the row archives the open re
   assert.equal(h[0]!.reason, 'gone');
 });
 
-test('the re-send\'s marker labels ITS clear only — a later closure in the same transaction is not "couple_resent"', async () => {
-  const a = await refusedDeposit();
+test('a session cannot forge how a refusal ended — only the server-side re-send ever reads "couple_resent"', async () => {
+  // A supplier who tries to label their own acknowledgement as the couple's
+  // re-send (any session may call set_config) gets exactly what they did.
   const b = await refusedDeposit();
+  await setAuthUid(db, b.supplier);
   await db.exec('BEGIN');
   try {
-    await db.query(`SELECT public.resend_vendor_deposit($1,$2)`, [a.eventVendorId, a.couple]);
-    await setAuthUid(db, b.supplier);
+    await db.exec('SET LOCAL ROLE authenticated');
+    await db.query(`SELECT set_config('setnayan.deposit_refusal_closed_by', 'couple_resent', true)`);
+    await db.query(`SELECT set_config('setnayan.deposit_refusal_closed_by_user', $1, true)`, [b.couple]);
     await db.query(`SELECT public.acknowledge_vendor_deposit($1)`, [b.eventVendorId]);
     await db.exec('COMMIT');
   } catch (e) {
@@ -311,8 +314,18 @@ test('the re-send\'s marker labels ITS clear only — a later closure in the sam
   } finally {
     await setAuthUid(db, null);
   }
-  assert.equal((await history(a.eventVendorId))[0]!.closed_by, 'couple_resent');
-  assert.equal((await history(b.eventVendorId))[0]!.closed_by, 'supplier_confirmed');
+  const h = await history(b.eventVendorId);
+  assert.equal(h.length, 1);
+  assert.equal(h[0]!.closed_by, 'supplier_confirmed');
+  assert.equal(h[0]!.closed_by_user_id, b.supplier, 'the closer is the caller\'s own token, not a value they set');
+});
+
+test('the re-send is ONE history row — its own write and the trigger\'s backstop never both land', async () => {
+  const b = await refusedDeposit();
+  assert.equal(await resend(b), 'ok');
+  const h = await history(b.eventVendorId);
+  assert.equal(h.length, 1, 'the trigger fired on the clear and wrote nothing');
+  assert.equal(h[0]!.closed_by, 'couple_resent');
 });
 
 /* ── 4 · who may touch any of it ────────────────────────────────────────── */

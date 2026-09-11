@@ -127,9 +127,10 @@ COMMENT ON COLUMN public.event_vendor_payments.is_deposit_record IS
   'reject_vendor_deposit, and confirming it acknowledges the deposit (H4, 2026-09-11).';
 COMMENT ON COLUMN public.event_vendor_payments.payment_refused_at IS
   'When the booked supplier said this INSTALLMENT never reached them. A MARK, never '
-  'a deletion: the couple''s row, amount, method and receipt all stand. Supplier-set '
-  'only via refuse_vendor_payment; cleared by a confirmation or by the couple '
-  're-sending. Never on a deposit record — the deposit refuses on event_vendors. '
+  'a deletion: the couple''s row, amount, method and receipt all stand. Set only via '
+  'refuse_vendor_payment; cleared only by a confirmation (confirm_vendor_payment, or '
+  'Setnayan ruling the payment stands). No session may set it, clear it, or delete a '
+  'row carrying it. Never on a deposit record — the deposit refuses on event_vendors. '
   'NULL settlement beside a non-NULL refusal is an OPEN dispute on /admin/disputes.';
 COMMENT ON COLUMN public.event_vendor_payments.payment_refusal_reason IS
   'The supplier''s own words, shown to the couple, 240 chars. Optional.';
@@ -213,9 +214,21 @@ UPDATE public.event_vendor_payments p
 -- that does (vendor_claim_locked_qr) is SECURITY DEFINER and runs as owner.
 --
 -- The admin exemption on vendor_confirmed_* is the old guard's and is kept as
--- it was. The NEW columns follow the deposit's rule instead: definer functions
--- and service_role only. CLEARING a refusal to NULL stays legal, for the
--- deposit's reason — the couple re-sending clears the stale answer.
+-- it was. The NEW columns are written by the definer functions and
+-- service_role ONLY — and, unlike the deposit's columns, a session may not
+-- CLEAR them either. The deposit's guard allows clearing because its couple
+-- re-sends proof on the same record; an installment has no such path (a
+-- re-send is a NEW payment row), so clearing would only ever be a couple
+-- erasing the supplier's "it never reached me", or Setnayan's ruling, off
+-- their own row — and the dispute off /admin/disputes (orchestrator review
+-- of #5443, 2026-09-11).
+--
+-- 🔒 AND NOT BY DELETE EITHER. `event_vendor_payments_couple_write` is FOR ALL
+-- and the budget page's `deletePayment` deletes through the couple's session,
+-- so a row carrying a refusal or a ruling could otherwise simply be removed.
+-- Now BEFORE INSERT OR UPDATE OR DELETE. An undisputed row deletes as before;
+-- the event's own deletion (keep_supplier_bookings_on_event_delete, SECURITY
+-- DEFINER) and erasure (service_role) are not sessions and are unaffected.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.guard_vendor_payment_confirmation()
  RETURNS trigger
@@ -223,7 +236,13 @@ CREATE OR REPLACE FUNCTION public.guard_vendor_payment_confirmation()
 AS $function$
 BEGIN
   IF current_user IN ('authenticated', 'anon') THEN
-    IF TG_OP = 'INSERT' THEN
+    IF TG_OP = 'DELETE' THEN
+      IF OLD.payment_refused_at IS NOT NULL OR OLD.payment_dispute_settled_at IS NOT NULL THEN
+        RAISE EXCEPTION 'event_vendor_payments: a payment the supplier refused, or Setnayan ruled on, cannot be deleted'
+          USING ERRCODE = '42501';
+      END IF;
+      RETURN OLD;
+    ELSIF TG_OP = 'INSERT' THEN
       IF NOT public.is_admin()
          AND (NEW.vendor_confirmed_at IS NOT NULL OR NEW.vendor_confirmed_by IS NOT NULL) THEN
         RAISE EXCEPTION 'event_vendor_payments: vendor confirmation may only be set via confirm_vendor_payment'
@@ -254,28 +273,24 @@ BEGIN
         RAISE EXCEPTION 'event_vendor_payments: which row is the deposit is decided by the database'
           USING ERRCODE = '42501';
       END IF;
-      -- SET is forgery; CLEARING to NULL is the couple re-sending.
-      IF (NEW.payment_refused_at IS DISTINCT FROM OLD.payment_refused_at
-            AND NEW.payment_refused_at IS NOT NULL)
-         OR (NEW.payment_refusal_reason IS DISTINCT FROM OLD.payment_refusal_reason
-            AND NEW.payment_refusal_reason IS NOT NULL)
-         OR (NEW.payment_refused_by_user_id IS DISTINCT FROM OLD.payment_refused_by_user_id
-            AND NEW.payment_refused_by_user_id IS NOT NULL) THEN
+      -- ANY change — setting is forgery, clearing is erasure.
+      IF NEW.payment_refused_at IS DISTINCT FROM OLD.payment_refused_at
+         OR NEW.payment_refusal_reason IS DISTINCT FROM OLD.payment_refusal_reason
+         OR NEW.payment_refused_by_user_id IS DISTINCT FROM OLD.payment_refused_by_user_id THEN
         RAISE EXCEPTION 'event_vendor_payments: the refusal is supplier-set only (via refuse_vendor_payment)'
           USING ERRCODE = '42501';
       END IF;
-      IF (NEW.payment_dispute_settled_at IS DISTINCT FROM OLD.payment_dispute_settled_at
-            AND NEW.payment_dispute_settled_at IS NOT NULL)
-         OR (NEW.payment_dispute_outcome IS DISTINCT FROM OLD.payment_dispute_outcome
-            AND NEW.payment_dispute_outcome IS NOT NULL)
-         OR (NEW.payment_dispute_note IS DISTINCT FROM OLD.payment_dispute_note
-            AND NEW.payment_dispute_note IS NOT NULL)
-         OR (NEW.payment_dispute_settled_by_user_id IS DISTINCT FROM OLD.payment_dispute_settled_by_user_id
-            AND NEW.payment_dispute_settled_by_user_id IS NOT NULL) THEN
+      IF NEW.payment_dispute_settled_at IS DISTINCT FROM OLD.payment_dispute_settled_at
+         OR NEW.payment_dispute_outcome IS DISTINCT FROM OLD.payment_dispute_outcome
+         OR NEW.payment_dispute_note IS DISTINCT FROM OLD.payment_dispute_note
+         OR NEW.payment_dispute_settled_by_user_id IS DISTINCT FROM OLD.payment_dispute_settled_by_user_id THEN
         RAISE EXCEPTION 'event_vendor_payments: the settlement is Setnayan-set only (via settle_vendor_payment_dispute)'
           USING ERRCODE = '42501';
       END IF;
     END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
   END IF;
   RETURN NEW;
 END;
@@ -283,7 +298,7 @@ $function$;
 
 DROP TRIGGER IF EXISTS trg_guard_vendor_payment_confirmation ON public.event_vendor_payments;
 CREATE TRIGGER trg_guard_vendor_payment_confirmation
-  BEFORE INSERT OR UPDATE ON public.event_vendor_payments
+  BEFORE INSERT OR UPDATE OR DELETE ON public.event_vendor_payments
   FOR EACH ROW EXECUTE FUNCTION public.guard_vendor_payment_confirmation();
 
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -11,9 +11,11 @@
  *
  *   1. WHICH ROW IS THE DEPOSIT — decided by the database, once, and no session
  *      can claim or disown it.
- *   2. THE FORGERIES — a couple can neither refuse on the supplier's behalf,
- *      settle on Setnayan's, nor INSERT a row already "confirmed" (the hole
- *      20271008178212 recorded as known-not-fixed).
+ *   2. THE FORGERIES AND THE ERASURES — a couple can neither refuse on the
+ *      supplier's behalf, settle on Setnayan's, INSERT a row already
+ *      "confirmed" (the hole 20271008178212 recorded as known-not-fixed), nor
+ *      CLEAR or DELETE a refusal or a ruling off their own row (orchestrator
+ *      review of #5443) — proven, then neutralised to show the proof bites.
  *   3. ONE PATH — refusing the deposit's row IS reject_vendor_deposit; the ledger
  *      row never carries a second refusal of the same money.
  *   4. THE TWO ANSWERS NEVER DRIFT — confirm the deposit's row and the deposit is
@@ -261,13 +263,13 @@ test('a couple cannot INSERT a row already confirmed — the hole the old UPDATE
   assert.match(r.error ?? '', /vendor confirmation may only be set via confirm_vendor_payment/);
   // The guard now runs on INSERT — pinned so a future CREATE TRIGGER cannot quietly drop it.
   const t = await db.query<{ ins: boolean; upd: boolean }>(
-    `SELECT (tgtype & 4) <> 0 AS ins, (tgtype & 16) <> 0 AS upd FROM pg_trigger
+    `SELECT (tgtype & 4) <> 0 AS ins, (tgtype & 16) <> 0 AS upd, (tgtype & 8) <> 0 AS del FROM pg_trigger
       WHERE tgname = 'trg_guard_vendor_payment_confirmation' AND NOT tgisinternal`,
   );
-  assert.deepEqual(t.rows[0], { ins: true, upd: true });
+  assert.deepEqual(t.rows[0], { ins: true, upd: true, del: true });
 });
 
-test('a couple cannot write the supplier\'s refusal or Setnayan\'s settlement — on either verb — but may clear a refusal', async () => {
+test('a couple cannot WRITE the supplier\'s refusal or Setnayan\'s settlement — on either verb', async () => {
   const b = await newBooking();
   const ins = await as(b.couple, () =>
     db.query(
@@ -290,18 +292,111 @@ test('a couple cannot write the supplier\'s refusal or Setnayan\'s settlement �
     ),
   );
   assert.match(forged.error ?? '', /settlement is Setnayan-set only/);
+});
 
+/** The couple clears the supplier's refusal off their own row. */
+const CLEAR_REFUSAL = `UPDATE public.event_vendor_payments
+    SET payment_refused_at = NULL, payment_refusal_reason = NULL, payment_refused_by_user_id = NULL
+  WHERE payment_id = $1`;
+const CLEAR_SETTLEMENT = `UPDATE public.event_vendor_payments
+    SET payment_dispute_settled_at = NULL, payment_dispute_outcome = NULL,
+        payment_dispute_note = NULL, payment_dispute_settled_by_user_id = NULL
+  WHERE payment_id = $1`;
+
+test('ERASURE · a couple cannot clear the refusal, clear the ruling, or delete the disputed row', async () => {
+  const b = await newBooking();
+  const pay = await coupleLogsInstallment(b);
   assert.equal((await refuse(b.supplier, pay, 'not in our account')).out?.status, 'ok');
-  const cleared = await as(b.couple, () =>
-    db.query(
-      `UPDATE public.event_vendor_payments
-          SET payment_refused_at = NULL, payment_refusal_reason = NULL, payment_refused_by_user_id = NULL
-        WHERE payment_id = $1`,
-      [pay],
-    ),
+
+  assert.match((await as(b.couple, () => db.query(CLEAR_REFUSAL, [pay]))).error ?? '', /refusal is supplier-set only/);
+  // One column at a time too — the clause is per column, not per set.
+  const oneColumn = await as(b.couple, () =>
+    db.query(`UPDATE public.event_vendor_payments SET payment_refusal_reason = NULL WHERE payment_id = $1`, [pay]),
   );
-  assert.equal(cleared.error, undefined, 'clearing is the couple sending it again');
-  assert.equal((await ledger(pay)).payment_refused_at, null);
+  assert.match(oneColumn.error ?? '', /refusal is supplier-set only/);
+
+  const admin = await newAdmin();
+  assert.equal((await settle(admin, pay, 'not_received', 'no transfer on the statement')).out?.status, 'ok');
+  assert.match((await as(b.couple, () => db.query(CLEAR_SETTLEMENT, [pay]))).error ?? '', /settlement is Setnayan-set only/);
+
+  // The same erasure by the other verb — the budget page deletes through the couple's session.
+  const del = await as(b.couple, () => db.query(`DELETE FROM public.event_vendor_payments WHERE payment_id = $1`, [pay]));
+  assert.match(del.error ?? '', /cannot be deleted/);
+
+  const row = await ledger(pay);
+  assert.ok(row.payment_refused_at, 'the refusal survived');
+  assert.equal(row.payment_dispute_outcome, 'not_received', 'the ruling survived');
+});
+
+test('a couple can still delete a payment nobody has disputed — the budget page\'s delete is unchanged', async () => {
+  const b = await newBooking();
+  const pay = await coupleLogsInstallment(b);
+  const del = await as(b.couple, () =>
+    db.query<{ payment_id: string }>(`DELETE FROM public.event_vendor_payments WHERE payment_id = $1 RETURNING payment_id`, [pay]),
+  );
+  assert.equal(del.error, undefined);
+  assert.equal((del.value as { rows: unknown[] }).rows.length, 1, 'the delete really happened — a BEFORE DELETE that returned NULL would skip it silently');
+});
+
+test('deletes that are not a session still delete — erasure, and the event\'s own deletion — even of a disputed row', async () => {
+  // A BEFORE DELETE trigger that returns NULL does not error: it skips the row
+  // and reports success. Erasure (service_role) and keep_supplier_bookings_on_
+  // event_delete (SECURITY DEFINER) must never be silently turned into no-ops.
+  const b = await newBooking();
+  const disputed = await coupleLogsInstallment(b);
+  await refuse(b.supplier, disputed, 'never arrived');
+  const direct = await db.query<{ payment_id: string }>(
+    `DELETE FROM public.event_vendor_payments WHERE payment_id = $1 RETURNING payment_id`,
+    [disputed],
+  );
+  assert.equal(direct.rows.length, 1, 'an owner-context delete of a disputed row happened');
+
+  const c = await newBooking();
+  const unconfirmed = await coupleLogsInstallment(c);
+  await db.query(`DELETE FROM public.events WHERE event_id = $1`, [c.eventId]);
+  const left = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.event_vendor_payments WHERE payment_id = $1`,
+    [unconfirmed],
+  );
+  assert.equal(left.rows[0]!.n, 0, 'the event\'s deletion still drops payments the supplier never confirmed');
+});
+
+test('NEUTRALISATION · put the old "clearing is allowed" clause back and the erasure lands — so the test above measures the guard', async () => {
+  const b = await newBooking();
+  const pay = await coupleLogsInstallment(b);
+  await refuse(b.supplier, pay, 'never arrived');
+
+  const def = (
+    await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.guard_vendor_payment_confirmation()'::regprocedure) AS d`)
+  ).rows[0]!.d;
+  let permissive = def;
+  for (const col of [
+    'payment_refused_at',
+    'payment_refusal_reason',
+    'payment_refused_by_user_id',
+    'payment_dispute_settled_at',
+    'payment_dispute_outcome',
+    'payment_dispute_note',
+    'payment_dispute_settled_by_user_id',
+  ]) {
+    const strict = `NEW.${col} IS DISTINCT FROM OLD.${col}`;
+    assert.ok(permissive.includes(strict), `the live guard no longer reads "${strict}" — re-derive this neutralisation`);
+    permissive = permissive.replace(strict, `(${strict} AND NEW.${col} IS NOT NULL)`);
+  }
+
+  await setAuthUid(db, b.couple);
+  await db.exec('BEGIN');
+  try {
+    await db.exec(permissive);
+    await db.exec('SET LOCAL ROLE authenticated');
+    await db.query(CLEAR_REFUSAL, [pay]);
+    await db.exec('RESET ROLE');
+    assert.equal((await ledger(pay)).payment_refused_at, null, 'with the old clause, the couple erases the refusal');
+  } finally {
+    await db.exec('ROLLBACK');
+    await setAuthUid(db, null);
+  }
+  assert.ok((await ledger(pay)).payment_refused_at, 'rolled back — the real guard is in force again');
 });
 
 /* ── 3 · REFUSING — one door, and the deposit goes through its own ─────────── */
@@ -431,7 +526,7 @@ test('"the payment stands" confirms the row and hands back the supplier\'s words
   assert.equal((await settle(admin, pay, 'not_received', 'again')).out?.status, 'no_dispute');
 });
 
-test('"it did not arrive" keeps the refusal — and a FRESH refusal after the couple re-sends is a fresh question', async () => {
+test('"it did not arrive" keeps the refusal — and if Setnayan reopens it, a FRESH refusal is a fresh question', async () => {
   const b = await newBooking();
   const pay = await coupleLogsInstallment(b);
   const admin = await newAdmin();
@@ -442,16 +537,15 @@ test('"it did not arrive" keeps the refusal — and a FRESH refusal after the co
   assert.equal(row.payment_dispute_outcome, 'not_received');
   assert.equal((await settle(admin, pay, 'payment_stands', 'x')).out?.status, 'already');
 
-  // The couple sends it again: they clear the refusal on their row.
-  await as(b.couple, () =>
-    db.query(
-      `UPDATE public.event_vendor_payments
-          SET payment_refused_at = NULL, payment_refusal_reason = NULL, payment_refused_by_user_id = NULL
-        WHERE payment_id = $1`,
-      [pay],
-    ),
+  // No session can clear a refusal any more; Setnayan's own tooling (service
+  // role, not a session) is the only thing that could reopen one. When it does,
+  // the supplier's next refusal must NOT inherit the old ruling.
+  await db.query(
+    `UPDATE public.event_vendor_payments
+        SET payment_refused_at = NULL, payment_refusal_reason = NULL, payment_refused_by_user_id = NULL
+      WHERE payment_id = $1`,
+    [pay],
   );
-  // The supplier refuses again — the old settlement must NOT still be on the row.
   assert.equal((await refuse(b.supplier, pay, 'still nothing')).out?.status, 'ok');
   row = await ledger(pay);
   assert.equal(row.payment_dispute_settled_at, null, 'open again, so it reaches the queue');

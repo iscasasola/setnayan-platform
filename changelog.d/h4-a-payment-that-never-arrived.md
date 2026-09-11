@@ -19,9 +19,12 @@ carry two different supplier answers.
 - The deposit's refusal and settlement columns are mirrored onto the ledger for
   installments. Two CHECKs back them: a row can't be both confirmed and refused,
   and the deposit's row never carries a refusal of its own.
-- The ledger's guard now runs on `BEFORE INSERT OR UPDATE`. This also closes the
-  INSERT hole that `20271008178212` recorded as "known, not fixed": a couple
-  could insert a row that was already vendor-confirmed.
+- The ledger's guard now runs on `BEFORE INSERT OR UPDATE OR DELETE`.
+  - A session may not set **or clear** the refusal and settlement columns, and
+    may not delete a disputed row. Clearing would let a couple erase the dispute
+    from `/admin/disputes`; the orchestrator caught this at review.
+  - It also closes the INSERT hole that `20271008178212` recorded as "known, not
+    fixed": a couple could insert a row that was already vendor-confirmed.
 - `refuse_vendor_payment`: the deposit's row delegates to
   `reject_vendor_deposit`; an installment is marked on its own row.
 - `confirm_vendor_payment`: confirming the deposit's row acknowledges the
@@ -43,8 +46,9 @@ carry two different supplier answers.
   supplier's client page no longer counts it as "awaiting your confirmation".
 
 **Guards:**
-- `tests/db/a-payment-can-be-refused-too.db.test.ts`: 17 cases, by behaviour
-  under the real roles. It was mutation-checked 6 ways against sabotaged SQL.
+- `tests/db/a-payment-can-be-refused-too.db.test.ts`: 21 cases, by behaviour
+  under the real roles, including a neutralisation run. It was mutation-checked
+  9 ways against sabotaged SQL.
 - `lib/a-payment-can-be-refused-too.test.ts` covers:
   - the refusal read;
   - the Decisions lines;

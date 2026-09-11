@@ -61,6 +61,22 @@
  *   Rule 4 · BEHAVIOURAL: the couple's Vendors-page model — a CLIENT prop, so
  *            every field is in the page payload even if nothing prints it —
  *            carries no supplier email or phone.
+ *   Rule 5 · A shop's own WEBSITE rendered as an `href` — `href={vendor.website}`
+ *            or the like. Owner ruling 2026-09-11 (DECISION_LOG "SEVEN
+ *            SUPPLIER-SIDE QUESTIONS" Q3): "Never show links" — no tappable
+ *            website link on the shop page, before or after booking. Zero
+ *            tolerance: no bill (the fix was to stop rendering it, not to
+ *            reason about exceptions). The shop's saved `website` value is
+ *            untouched in the database — this only bans the render.
+ *   Rule 6 · A social / video LINK-OUT rendered as an `href` — the
+ *            `originalUrl` a `kind: 'link'` platform gets from
+ *            `lib/video-embed.ts` (Instagram / Facebook / TikTok / other —
+ *            these don't give an embeddable inline player) or an Instagram
+ *            synced-post `permalink`. Same Q3 ruling. An EMBEDDED video
+ *            (`kind: 'iframe'`, YouTube/Vimeo, mounted as an `<iframe>`) is
+ *            not a link and stays — Q3 says "never show links", the owner
+ *            never asked to drop the videos themselves. Zero tolerance: no
+ *            bill.
  *
  * ── WHAT IT DOES NOT COVER, said rather than buried ─────────────────────────
  *   • Serialization in general. Rule 4 pins the one client payload measured to
@@ -73,10 +89,11 @@
  *     for every verified shop — measured in prod 2026-09-10. So the values are
  *     one PostgREST request away with the public key whatever this guard says.
  *     Closing that is a column revoke (a migration) plus moving the app's own
- *     user-session readers of the column; it is its own change.
- *   • The shop's external WEBSITE link, social / Instagram / portfolio
- *     link-outs, and contact details a shop types into its own free text — all
- *     OPEN owner decisions, deliberately untouched here.
+ *     user-session readers of the column; it is its own change. The same is
+ *     true of `vendor_profiles.website` — Rules 5/6 close the RENDER, not the
+ *     column grant.
+ *   • Contact details a shop types into its own free text (a message, a
+ *     quote) — still `lib/chat-contact-filter.ts`'s job, not Rules 5/6's.
  *   • `app/api/**` JSON (not a rendered surface; the public vendor API masks
  *     both fields and is flag-dark behind PUBLIC_API_ENABLED).
  */
@@ -297,6 +314,39 @@ function dynamicSchemes(src: string): string[] {
   return out;
 }
 
+/**
+ * Rule 5 — a shop's own WEBSITE rendered as an `href`. Bites `href={vendor.
+ * website}`, `href={s.website}`, a template with `${x.website}` inside it, or
+ * the field concatenated in. Owner 2026-09-11 Q3: "Never show links".
+ */
+const WEBSITE_HREF_RES: ReadonlyArray<RegExp> = [
+  /\bhref\s*=\s*\{\s*[\w.?!]*\bwebsite\b[^}]*\}/gi,
+  /\bhref\s*=\s*\{\s*`[^`]*\$\{[\w.?!]*\bwebsite\b[^}]*\}[^`]*`\s*\}/gi,
+];
+
+/**
+ * Rule 6 — a social / video LINK-OUT rendered as an `href`: the `originalUrl`
+ * a `kind: 'link'` platform gets from `lib/video-embed.ts` (Instagram /
+ * Facebook / TikTok / other — no embeddable inline player), or an Instagram
+ * synced-post `permalink`. An embedded `kind: 'iframe'` player (YouTube /
+ * Vimeo, mounted as an `<iframe src=…>`, never an `<a href=…>`) does not
+ * match — it is a video, not a link, and Q3 never asked to drop it.
+ */
+const LINK_OUT_HREF_RES: ReadonlyArray<RegExp> = [
+  /\bhref\s*=\s*\{\s*[\w.?!]*\boriginalUrl\b[^}]*\}/gi,
+  /\bhref\s*=\s*\{\s*[\w.?!]*\bpermalink\b[^}]*\}/gi,
+];
+
+function hrefMatches(src: string, res: ReadonlyArray<RegExp>): string[] {
+  const out: string[] = [];
+  for (const re of res) {
+    for (const m of src.matchAll(new RegExp(re.source, re.flags))) {
+      out.push(m[0].slice(0, 80));
+    }
+  }
+  return out;
+}
+
 /** Rule 2 — a contact field rendered as a JSX expression. */
 const CONTACT_TEXT_RE = /\{\s*[\w?.!]*\bcontact_?(?:email|phone)\b\s*(?:\?\?[^{}]*)?\}/gi;
 /**
@@ -374,6 +424,54 @@ test('Rule 1 matches the shapes it claims to, and exempts only a constant', () =
   for (const b of bites) assert.equal(dynamicSchemes(b).length, 1, `did not bite: ${b}`);
   assert.equal(dynamicSchemes('`<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>`').length, 0);
   assert.equal(dynamicSchemes('href="mailto:iscasasolaii@gmail.com"').length, 0);
+});
+
+test("Rule 5 — no couple-facing or public surface links to a shop's own website", () => {
+  const hits: string[] = [];
+  for (const [f, src] of STRIPPED) {
+    for (const h of hrefMatches(src, WEBSITE_HREF_RES)) hits.push(`${f}  →  ${h}`);
+  }
+  assert.deepEqual(
+    hits,
+    [],
+    'A couple or a public visitor is handed the shop\'s own website. Owner ruling ' +
+      '2026-09-11 (DECISION_LOG "SEVEN SUPPLIER-SIDE QUESTIONS" Q3): "Never show links" — ' +
+      'no tappable website link, before or after booking. The saved value stays in the ' +
+      "database; it must not reach a render.\n  " + hits.join('\n  '),
+  );
+});
+
+test('Rule 5 matches the shapes it claims to', () => {
+  const bites = [
+    'href={vendor.website}',
+    'href={s.website}',
+    'href={`${vendor.website}`}',
+  ];
+  for (const b of bites) assert.equal(hrefMatches(b, WEBSITE_HREF_RES).length, 1, `did not bite: ${b}`);
+  assert.equal(hrefMatches('<p>{vendor.website}</p>', WEBSITE_HREF_RES).length, 0);
+  assert.equal(hrefMatches('href={vendor.business_slug}', WEBSITE_HREF_RES).length, 0);
+});
+
+test('Rule 6 — no couple-facing or public surface links out to a social/video platform', () => {
+  const hits: string[] = [];
+  for (const [f, src] of STRIPPED) {
+    for (const h of hrefMatches(src, LINK_OUT_HREF_RES)) hits.push(`${f}  →  ${h}`);
+  }
+  assert.deepEqual(
+    hits,
+    [],
+    'A couple or a public visitor is handed a link out to Instagram/Facebook/TikTok/etc. ' +
+      'Owner ruling 2026-09-11 Q3: "Never show links". An embedded (iframe) YouTube/Vimeo ' +
+      "player is fine — this only bans a click-through <a href> out of the app.\n  " +
+      hits.join('\n  '),
+  );
+});
+
+test('Rule 6 matches the shapes it claims to, and does not bite an embedded iframe', () => {
+  const bites = ['href={v.originalUrl}', "href={m.permalink ?? '#'}"];
+  for (const b of bites) assert.equal(hrefMatches(b, LINK_OUT_HREF_RES).length, 1, `did not bite: ${b}`);
+  assert.equal(hrefMatches('<iframe src={v.embedUrl} />', LINK_OUT_HREF_RES).length, 0);
+  assert.equal(hrefMatches('href={vendor.website}', LINK_OUT_HREF_RES).length, 0);
 });
 
 test('Rule 2 — a contact field is printed only where the bill says why, at the exact count', () => {

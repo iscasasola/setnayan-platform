@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video, MessageCircle } from 'lucide-react';
+import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -95,7 +95,7 @@ import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
-import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
+import { parseVideoLink } from '@/lib/video-embed';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
@@ -668,16 +668,6 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   }
 }
 
-/** Platform glyph for a Featured-videos link-out card. This lucide build ships
- *  no brand marks, so play-style platforms use Play and everything else the
- *  neutral Video glyph — the platform NAME carries the identity in the label. */
-function PlatformIcon({ platform }: { platform: VideoPlatform }) {
-  const cls = 'h-4 w-4';
-  if (platform === 'youtube' || platform === 'vimeo')
-    return <Play aria-hidden className={cls} strokeWidth={2} />;
-  return <Video aria-hidden className={cls} strokeWidth={2} />;
-}
-
 /** Display URLs for one service card's showcase media. */
 
 /**
@@ -1248,11 +1238,16 @@ export async function renderVendorBySlug({
   // was folded into gallery_video_links (data migration
   // 20270519000000_merge_microsite_videos_into_gallery), so every video now
   // renders here. Each pasted link is classified: YouTube / Vimeo → inline 16:9
-  // iframes; Instagram / Facebook / TikTok / other → link-out cards. Unparseable
-  // entries are dropped.
+  // iframes (embedded, never a link out — kept); Instagram / Facebook / TikTok /
+  // other → `kind: 'link'`, dropped here (owner ruling 2026-09-11 Q3: "Never
+  // show links" — a click-through card to an outside platform is exactly the
+  // door out Q3 closes). The vendor's pasted value stays saved in
+  // gallery_video_links; only the public render narrows to what actually plays
+  // in-page. Unparseable entries are dropped too.
   const featuredVideos = (vendor.gallery_video_links ?? [])
     .map((url) => parseVideoLink(url))
-    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null);
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null)
+    .filter((v) => v.kind === 'iframe');
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
     vendor.location_city,
@@ -2297,17 +2292,13 @@ export async function renderVendorBySlug({
                   Replies in your Setnayan inbox
                 </span>
               ) : null}
-              {vendor.website ? (
-                <a
-                  href={vendor.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Website
-                </a>
-              ) : null}
+              {/* Owner ruling 2026-09-11 (DECISION_LOG "SEVEN SUPPLIER-SIDE
+                  QUESTIONS" Q3): "Never show links" — no tappable website or
+                  social link on the shop page, before or after booking. The
+                  shop's own `website` value stays SAVED (never deleted, still
+                  readable in My Shop) — this page just never renders it as a
+                  door out. `lib/no-door-out-of-the-app.test.ts` fails if a
+                  website href reaches any couple-facing or public surface. */}
             </div>
             {/* The shop previewing itself learns WHY its email and phone are not
                 here, instead of reading their absence as a broken page. Only the
@@ -2472,10 +2463,13 @@ export async function renderVendorBySlug({
 
         {/* Portfolio — ONE unified gallery of the vendor's photos + their own
             pasted video links (all tiers). Photos lead, then videos: YouTube &
-            Vimeo mount as responsive inline 16:9 players; Instagram / Facebook /
-            TikTok / other links render as click-through cards. Unparseable video
-            entries are dropped upstream. Governed by the vendor's Portfolio
-            visibility toggle; auto-hidden when there's nothing to show. */}
+            Vimeo mount as responsive inline 16:9 players. Instagram / Facebook /
+            TikTok / other pasted links are dropped upstream (`featuredVideos`
+            is pre-filtered to `kind === 'iframe'`) — owner ruling 2026-09-11 Q3:
+            "Never show links", so no click-through card to an outside platform
+            renders here, embedded or not. Unparseable video entries are also
+            dropped upstream. Governed by the vendor's Portfolio visibility
+            toggle; auto-hidden when there's nothing to show. */}
         {showPortfolio &&
         (portfolioUrls.length > 0 ||
           featuredVideos.length > 0 ||
@@ -2500,9 +2494,12 @@ export async function renderVendorBySlug({
                 </div>
               ))}
               {featuredVideos.map((v, idx) =>
-                v.kind === 'iframe' && v.embedUrl ? (
+                v.embedUrl ? (
                   // Inline player spans two grid columns so its 16:9 frame reads
                   // as the signature "watch this" moment amid the photo tiles.
+                  // `featuredVideos` is pre-filtered to `kind === 'iframe'`, so
+                  // every entry reaching this map plays in-page — never a link
+                  // out (owner ruling 2026-09-11 Q3).
                   <div
                     key={`${v.originalUrl}-${idx}`}
                     className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
@@ -2517,44 +2514,20 @@ export async function renderVendorBySlug({
                       className="absolute inset-0 h-full w-full border-0"
                     />
                   </div>
-                ) : (
-                  // Link-out platforms (IG / FB / TikTok / other) get a play-badge
-                  // card sized like a photo tile so the grid stays even.
-                  <a
-                    key={`${v.originalUrl}-${idx}`}
-                    href={v.originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="group relative flex aspect-[4/3] flex-col justify-between overflow-hidden rounded-xl border border-ink/10 bg-cream/50 p-4 transition-colors hover:border-terracotta/40"
-                  >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors group-hover:bg-terracotta/10 group-hover:text-terracotta">
-                      <PlatformIcon platform={v.platform} />
-                    </span>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-ink">
-                        Watch on {v.label}
-                      </span>
-                      <ArrowRight
-                        aria-hidden
-                        className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
-                        strokeWidth={2}
-                      />
-                    </span>
-                  </a>
-                ),
+                ) : null,
               )}
               {/* Synced Instagram posts (show_on_profile) — images re-hosted in
-                  R2 render as photo tiles; videos link out to the IG permalink
-                  with a play badge, sized like a photo tile so the grid stays
-                  even. Entries without a resolvable URL are dropped. */}
+                  R2 render as photo tiles; a video post shows the SAME re-hosted
+                  thumbnail with a play badge (still a truthful "this was a
+                  video"), sized like a photo tile so the grid stays even — but
+                  never links out to the IG permalink (owner ruling 2026-09-11
+                  Q3: "Never show links"). Entries without a resolvable URL are
+                  dropped. */}
               {igMedia.map((m, idx) =>
                 m.mediaType === 'VIDEO' ? (
-                  <a
+                  <div
                     key={`ig-${m.id}`}
-                    href={m.permalink ?? '#'}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                    className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
                   >
                     {m.displayUrl ? (
                       <Image
@@ -2570,11 +2543,11 @@ export async function renderVendorBySlug({
                       </span>
                     )}
                     <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors group-hover:bg-black/70">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white">
                         <Play aria-hidden className="h-5 w-5" strokeWidth={2} />
                       </span>
                     </span>
-                  </a>
+                  </div>
                 ) : m.displayUrl ? (
                   <div
                     key={`ig-${m.id}`}

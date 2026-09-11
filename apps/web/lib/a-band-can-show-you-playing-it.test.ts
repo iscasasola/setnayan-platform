@@ -86,9 +86,25 @@ test('a couple can actually SEE the set list — the column has a viewer', () =>
   // An empty set list must not render as "this band plays nothing".
   assert.match(
     pub,
-    /repertoire\.length > 0 \?/,
+    /repertoire\.length > 0/,
     'an empty repertoire must render nothing at all, not an empty section — the ' +
       'band simply has not filled it in yet',
+  );
+  // D2 — the gate is now the ONE music rule, not repertoire length alone: a
+  // non-music shop (a caterer who happens to have songs rows dangling from a
+  // test fixture, say) must not get a "Songs they play" section either.
+  assert.match(
+    pub,
+    /isMusicToolCategory\(vendor\.services\)/,
+    'a shop outside the music categories must not show the songs block, even ' +
+      'with a non-empty repertoire — songs are for music performers, not everybody',
+  );
+  // Both halves must gate the SAME block, not two different ones.
+  assert.match(
+    pub,
+    /repertoire\.length > 0 && isMusicToolCategory\(vendor\.services\) \?/,
+    'the length check and the music check must gate the same conditional — ' +
+      'an empty repertoire renders nothing, and so does a non-music shop',
   );
 });
 

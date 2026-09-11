@@ -278,6 +278,17 @@ export function GenericOnboarding(props: Props) {
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
+   * Set only when a `life_event_exists` refusal has NO honoree screen to route
+   * back to (this event type never asks for one — `!asksHonoree` — so there is
+   * no field to disambiguate with). That refusal can never resolve itself: the
+   * account is permanently capped at one of this type until the existing one
+   * is finished or put away, so re-pressing "Create my …" would only ever
+   * re-ask the server and get `life_event_exists` again forever (owner report
+   * 2026-09-11, same dead end as the wedding flow). Once true, the CTA
+   * navigates to the blocking event's dashboard instead of re-committing.
+   */
+  const [blockedTerminal, setBlockedTerminal] = useState(false);
+  /**
    * What the couple picked on the Papic services step (owner 2026-08-11).
    *
    * Deliberately NOT persisted into the localStorage draft: it is a purchase
@@ -801,6 +812,14 @@ export function GenericOnboarding(props: Props) {
   };
 
   async function handleCreate() {
+    // Terminal life-event-cap dead end (owner report 2026-09-11): this type has
+    // no honoree field to disambiguate with, so a life_event_exists refusal can
+    // never clear on this screen. Navigate to the blocking event instead of
+    // re-committing — never mint a second one of this type.
+    if (blockedTerminal && blockedBy) {
+      router.push(`/dashboard/${blockedBy.eventId}`);
+      return;
+    }
     setCommitting(true);
     setError(null);
     const feel = personaKey ? revealByPersona[personaKey]?.feel ?? null : null;
@@ -923,8 +942,13 @@ export function GenericOnboarding(props: Props) {
           setStep(idx);
           setError(null);
         } else {
+          // No honoree field on this type to disambiguate with — this refusal
+          // can never clear itself. Stop offering a retry that only re-asks
+          // the same question forever (owner report 2026-09-11): the CTA
+          // below now navigates to the blocking event instead.
+          setBlockedTerminal(true);
           setError(
-            'You already have one of these in planning. Finish it first, or open it and choose “Put this away”.',
+            'You already have one of these in planning. Open it from your dashboard and choose “Put this away”, or finish it first.',
           );
         }
         return;
@@ -1558,7 +1582,11 @@ export function GenericOnboarding(props: Props) {
               disabled={committing}
               className="rounded-full bg-mulberry px-7 py-3 text-sm font-semibold text-paper transition hover:opacity-90 disabled:opacity-60"
             >
-              {committing ? 'Creating…' : `Create my ${label.toLowerCase()}`}
+              {blockedTerminal
+                ? 'Go to my dashboard'
+                : committing
+                  ? 'Creating…'
+                  : `Create my ${label.toLowerCase()}`}
             </button>
           ) : (
             <button

@@ -32,7 +32,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
-import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -348,7 +348,20 @@ export type OnboardingCommitResult =
        */
       paymentPath?: string | null;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /**
+       * `error === 'wedding_exists'` only: the couple's existing IN-PLANNING
+       * wedding's event id, read off the same row the guard already fetched
+       * (getInPlanningWedding) — no extra query. Lets the caller send them
+       * straight to that wedding instead of leaving the CTA wired to a commit
+       * that will only ever answer `wedding_exists` again (owner-locked
+       * one-wedding rule, 2026-07-12). Absent when the id isn't cheaply known —
+       * the caller falls back to the dashboard launcher.
+       */
+      existingEventId?: string;
+    };
 
 export async function commitOnboardingWedding(
   payload: OnboardingCommitPayload,
@@ -396,8 +409,11 @@ export async function commitOnboardingWedding(
   // this commit path could walk past it (council 2026-07-17 recon: an existing
   // bypass). A freshly-minted anonymous user has no prior events by
   // construction, so the read is skipped for them.
-  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
-    return { ok: false, error: 'wedding_exists' };
+  if (!user.is_anonymous) {
+    const existingWedding = await getInPlanningWedding(supabase, user.id);
+    if (existingWedding) {
+      return { ok: false, error: 'wedding_exists', existingEventId: existingWedding.eventId };
+    }
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --

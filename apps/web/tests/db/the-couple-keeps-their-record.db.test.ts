@@ -233,7 +233,7 @@ test('an answer is one way or the other — the database refuses both', async ()
   );
 });
 
-test('the couple may CLEAR the refusal and may never SET one', async () => {
+test('the couple may never SET or CLEAR the refusal — re-sending goes through resend_vendor_deposit', async () => {
   const { eventVendorId, vendorUserId, coupleUserId } = await seedClaim();
   await setAuthUid(db, vendorUserId);
   await db.query(`SELECT public.reject_vendor_deposit($1, 'nothing arrived')`, [eventVendorId]);
@@ -255,27 +255,44 @@ test('the couple may CLEAR the refusal and may never SET one', async () => {
     );
 
     /*
-      🔑 AND THE OTHER DIRECTION MUST SUCCEED, OR THIS TEST PROVES NOTHING.
-      If RLS simply denied the couple this row, the rejection above would be
-      "zero rows updated" rather than the guard firing, and a permanently
-      unanswerable refusal would read as a passing guard. Clearing IS the couple
-      re-sending their proof, and it is deliberately permitted.
+      🔑 ERASURE (FOLLOW-UPS A, 2026-09-11): clearing is refused too. It was
+      permitted as "the couple re-sending their proof", and it erased the
+      dispute from /admin/disputes without a trace. The re-send now goes
+      through the server-only resend_vendor_deposit, which archives first.
     */
-    const cleared = await db.query<{ vendor_id: string }>(
-      `UPDATE public.event_vendors
-          SET deposit_declined_at = NULL, deposit_decline_reason = NULL,
-              deposit_declined_by_user_id = NULL
-        WHERE vendor_id = $1 RETURNING vendor_id`,
+    await assert.rejects(
+      () =>
+        db.query(
+          `UPDATE public.event_vendors
+              SET deposit_declined_at = NULL, deposit_decline_reason = NULL,
+                  deposit_declined_by_user_id = NULL
+            WHERE vendor_id = $1`,
+          [eventVendorId],
+        ),
+      /vendor-set only/,
+      'a couple could erase their supplier’s refusal',
+    );
+
+    /*
+      🔑 AND THE COUPLE CAN STILL WRITE THIS ROW, OR THE TWO REFUSALS ABOVE
+      PROVE NOTHING. If RLS simply denied the couple the row, the guard would
+      never have been reached. A harmless column on the same row updates.
+    */
+    const touched = await db.query<{ vendor_id: string }>(
+      `UPDATE public.event_vendors SET updated_at = NOW() WHERE vendor_id = $1 RETURNING vendor_id`,
       [eventVendorId],
     );
-    assert.equal(
-      cleared.rows.length,
-      1,
-      'the couple cannot clear a refusal — then re-sending their proof can never reach the supplier',
-    );
+    assert.equal(touched.rows.length, 1, 'RLS denies the couple their own booking — the refusals above were not the guard');
   } finally {
     await db.exec(`RESET ROLE`).catch(() => {});
   }
+
+  // The re-send itself, the way recordDeposit makes it: server-side, with who.
+  const r = await db.query<{ out: { status: string } }>(`SELECT public.resend_vendor_deposit($1, $2) AS out`, [
+    eventVendorId,
+    coupleUserId,
+  ]);
+  assert.equal(r.rows[0]!.out.status, 'ok', 're-sending their proof can never reach the supplier');
   const row = await readRow(eventVendorId);
   assert.equal(row.deposit_declined_at, null);
   assert.ok(row.deposit_recorded_at, 're-sending must not disturb the claim itself');

@@ -279,6 +279,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // payment went to), couple-grain — see T14/T15 below. The old event_vendors
   // reason claimed bookings were "already reachable in an export through the
   // EVENT"; that was never true (the route read neither table).
+  // FOLLOW-UPS A (2026-09-11): Setnayan's history of deposit refusals that ended.
+  event_vendor_deposit_refusals:
+    'Setnayan’s REFEREE RECORD of deposit refusals that have ended — admin-only (RLS on, no session grant). It is not withheld from the couple: the couple still sees the CURRENT refusal, and any ruling on it, on their own booking, and every payment they logged — refused or not — is in their export under payment_ledger. Its three *_user_id columns are actor stamps (who refused, which admin ruled, who ended it), not subject data; exporting by them would hand one party the other’s dispute record.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',

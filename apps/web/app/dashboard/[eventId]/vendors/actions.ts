@@ -4471,43 +4471,32 @@ export async function recordDeposit(
     so a re-send changes no marker a trigger could watch — the couple's act of
     re-recording IS the fresh claim, and this is the only thing that puts the
     question back on the supplier's desk after a refusal.
-    🔒 One direction only: `guard_event_vendor_deposit_ack` lets a couple CLEAR
-    the refusal and never set one.
-    🪤 ITS OWN STATEMENT, AFTER the write above, deliberately. These columns
-    arrive with this change and app code deploys in parallel with the migration;
-    naming them in the main update would make PostgREST refuse the whole thing,
-    so a couple recording money mid-deploy would be told it failed. Here the
-    worst case is a stale refusal for a few minutes, logged, on a claim that has
-    just been re-sent anyway.
+    🔒 THROUGH A DEFINER, NOT THIS SESSION (FOLLOW-UPS A, 2026-09-11). A session
+    may no longer clear the refusal or Setnayan's ruling — guard_event_vendor_
+    deposit_ack refuses it, because a session clear erased the dispute from
+    /admin/disputes without a trace. `resend_vendor_deposit` is server-only: it
+    runs on the admin client, AFTER this action has already proven the caller is
+    the couple or a consent-authorized coordinator (above), and the database
+    archives the refusal and any ruling to event_vendor_deposit_refusals before
+    clearing them. The caller's id goes with it, so the history says who re-sent.
+    🪤 ITS OWN STATEMENT, AFTER the write above, deliberately: a couple recording
+    money must never be told it failed because the re-send's clear did. A failed
+    clear is logged; the worst case is a stale refusal on a claim just re-sent.
   */
   {
-    const { error: clearErr } = await supabase
-      .from('event_vendors')
-      .update({
-        deposit_declined_at: null,
-        deposit_decline_reason: null,
-        deposit_declined_by_user_id: null,
-        // …and with it any Setnayan settlement OF that refusal (2026-08-28).
-        // The settlement describes the refusal on the row; once the couple has
-        // sent it again there is no refusal for it to describe, and leaving it
-        // would let the NEXT refusal look already-settled and never reach the
-        // admin queue. The permanent history is in admin_audit_log.
-        // 🔒 Legal for the couple's own session for the same reason the three
-        // lines above are: guard_event_vendor_deposit_ack refuses SETTING these
-        // and allows CLEARING them.
-        deposit_dispute_settled_at: null,
-        deposit_dispute_outcome: null,
-        deposit_dispute_note: null,
-        deposit_dispute_settled_by_user_id: null,
-      })
-      .eq('vendor_id', vendorId)
-      .eq('event_id', eventId);
+    const { data: resend, error: clearErr } = await createAdminClient().rpc('resend_vendor_deposit', {
+      p_event_vendor_id: vendorId,
+      p_actor_user_id: user.id,
+    });
     if (clearErr) {
       // eslint-disable-next-line no-console
       console.error(
         `[recordDeposit] could not clear the supplier's refusal for vendor_id=${vendorId}:`,
         clearErr.message,
       );
+    } else if ((resend as { status?: string } | null)?.status === 'not_recorded') {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] re-send found no recorded deposit for vendor_id=${vendorId}`);
     }
   }
 

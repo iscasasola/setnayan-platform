@@ -793,12 +793,34 @@ export function EditorialEditor({
 
       <div {...panel('story')} className="space-y-6">
       {/*
-        THE STORY STEP OPENS ON "MAKE IT YOURS" — the prototype's "Story Maker › The story" is this
-        page. The sections below it are the shipped editor's, kept exactly
-        (`nothing-the-shipped-editor-could-do-is-lost.test.ts`): the words half of the pages is
-        step 6, and until then a host who already writes here loses nothing.
+        ⓵ THE STORY STEP OPENS ON "MAKE IT YOURS" — the prototype's "Story Maker › The story" is
+        this page, and it is the whole of what the step shows until the host opens the fold below.
       */}
       {makeItYours}
+      {/*
+        ⓶ "MORE SETTINGS" — ONE CLOSED FOLD UNDER "MAKE IT YOURS" (step 6, found live 2026-09-11).
+        The approved prototype shows only "Make it yours" on this step, so everything the shipped
+        editor had lives here, closed, at the bottom. Owner ruling S6 (2026-09-09): nothing the
+        shipped editor can do may be lost — so every section below is KEPT, in its order, with its
+        names, and a `<details>` keeps it mounted: a field typed into and then folded away still
+        saves (`more-settings-keeps-every-control.test.ts`).
+      */}
+      <details className={`group ${card}`} data-more-settings="">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-ink">
+          <span>
+            <span className="block font-display text-lg italic">More settings</span>
+            <span className="mt-0.5 block text-sm text-ink/60">
+              The words, your photos, section order, your own columns, what they said and what
+              shows.
+            </span>
+          </span>
+          <ChevronDown
+            aria-hidden
+            className="h-5 w-5 flex-none text-ink/50 transition-transform group-open:rotate-180"
+            strokeWidth={2}
+          />
+        </summary>
+        <div className="mt-6 space-y-6">
       {/* Bring-in inputs (existing piece-editors) */}
       <section className={card}>
         <h2 className="font-display text-lg italic text-ink">What goes in</h2>
@@ -1475,6 +1497,8 @@ export function EditorialEditor({
           })}
         </div>
       </section>
+        </div>
+      </details>
 
       </div>
 

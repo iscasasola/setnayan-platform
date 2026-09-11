@@ -437,6 +437,26 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
   // them on deletion unless erasure does. The row is the COUPLE's record of
   // paying a supplier; deleting it because the supplier's staffer (or the admin
   // who refereed) left would erase the couple's proof of payment.
+  // FOLLOW-UPS A (2026-09-11) — the deposit-refusal HISTORY. Plain uuids with no
+  // foreign key (the history must outlive its booking), so nothing nulls them
+  // on deletion unless erasure does. The row is Setnayan's record of a money
+  // dispute between two parties; erasing one party's account removes their
+  // stamp, never the record of what was said and how it ended.
+  {
+    table: 'event_vendor_deposit_refusals',
+    column: 'refused_by_user_id',
+    why: 'Which supplier-side account refused the deposit. An actor stamp on Setnayan’s dispute history — the stamp goes, the refusal and how it ended stay.',
+  },
+  {
+    table: 'event_vendor_deposit_refusals',
+    column: 'dispute_settled_by_user_id',
+    why: 'Which Setnayan admin ruled. Same actor-stamp test; the decision itself is also in admin_audit_log.',
+  },
+  {
+    table: 'event_vendor_deposit_refusals',
+    column: 'closed_by_user_id',
+    why: 'Who ended the refusal (the couple re-sending, the supplier confirming, an admin). An actor stamp; the closure kind stays.',
+  },
   {
     table: 'event_vendor_payments',
     column: 'payment_refused_by_user_id',

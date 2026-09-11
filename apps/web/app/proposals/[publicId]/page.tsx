@@ -30,6 +30,8 @@ import {
   sendProposal,
 } from '@/app/vendor-dashboard/proposals/actions';
 import { formatCalendarDate } from '@/lib/events';
+import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
+import { formatGiftPhotos } from '@/lib/setnayan-gift';
 
 export const metadata = { title: 'Proposal' };
 
@@ -198,6 +200,32 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   });
 
   /**
+   * THE SETNAYAN GIFT, IN PHOTOGRAPHS (C1 · owner 2026-09-09). When this
+   * supplier's card said yes to the gift, the quote is where the couple first
+   * learns how many free Papic photos it means — "a gift named at the moment of
+   * decision closes; a gift revealed after booking is only a thank-you".
+   *
+   * Counted from THIS quote's total through the same fee and the same live
+   * ladder that will price the supplier's bill, and shown only when that bill
+   * will really carry it (the card's yes, a Setnayan-sourced client, outside
+   * the first five free bookings). Otherwise nothing is said — never "0".
+   * The couple is told PHOTOS, never pesos; the supplier also sees what it
+   * adds to their booking-fee bill, because they are the one paying it.
+   *
+   * Runs after the RLS read above proved this viewer may see the quote.
+   */
+  const gift =
+    proposal.event_id &&
+    proposal.total_centavos > 0 &&
+    !['declined', 'expired', 'superseded'].includes(proposal.status)
+      ? await quoteSetnayanGift(createAdminClient(), {
+          eventId: proposal.event_id,
+          vendorProfileId: proposal.vendor_profile_id,
+          amountCentavos: proposal.total_centavos,
+        })
+      : null;
+
+  /**
    * Accepting only shortlists the shop at a price (respond_vendor_proposal
    * upserts an event_vendors row, status 'shortlisted') — it does not book
    * anything. The couple's own next action is pressing Lock on that shop's
@@ -324,6 +352,23 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               <span>Total</span>
               <span className="tabular-nums">{formatCentavos(proposal.total_centavos)}</span>
             </p>
+          ) : null}
+          {gift ? (
+            <div
+              data-testid="quote-setnayan-gift"
+              className="mt-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+            >
+              <p className="text-sm font-semibold text-mulberry-600">
+                {isVendorSide
+                  ? `Includes your Setnayan gift — your couple gets ${formatGiftPhotos(gift.credits)} free Papic photos`
+                  : `Includes a Setnayan gift — you get ${formatGiftPhotos(gift.credits)} free Papic photos`}
+              </p>
+              <p className="mt-0.5 text-xs text-ink/60">
+                {isVendorSide
+                  ? `Added to your booking fee bill: ${formatCentavos(gift.chargeCentavos)}. The photos reach your couple's Papic once that bill is paid.`
+                  : `For your celebration, from ${businessName}. They arrive in your Papic once the booking is confirmed.`}
+              </p>
+            </div>
           ) : null}
         </section>
       ) : null}

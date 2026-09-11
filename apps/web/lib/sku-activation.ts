@@ -409,6 +409,53 @@ async function grantVendorPapicCreditsForBookingFee(
 }
 
 /**
+ * The Setnayan gift door. Runs INSIDE the `vendor_booking_fee__{id}` hook,
+ * after the charge is settled. The charge sized the gift when it was billed
+ * (`booking_fee_charges.gift_credits` — 40% of the fee, proportional along the
+ * live Papic ladder, capped at 50,000); this lands it in the event's SHARED
+ * pot as one `papic_event_point_grants` row carrying this order's id — the same
+ * ledger a paid Papic rung writes to, so `reversePapicPassPoints` takes it back
+ * if this order is ever reversed.
+ *
+ * All the rules live in `booking_fee_grant_setnayan_gift` (migration
+ * 20271222508050): only a PAID charge, only this charge's own paid order, only
+ * once. A refusal is an answer, not a fault; an `error` is reported and leaves
+ * the order recoverable by a re-approval.
+ */
+async function grantSetnayanGiftForBookingFee(
+  ctx: ActivationContext,
+  chargeId: string,
+): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin.rpc('booking_fee_grant_setnayan_gift', {
+      p_charge_id: chargeId,
+      p_order_id: ctx.orderId,
+    });
+    if (error) {
+      reportActivationFault('activate:setnayan_gift_grant', ctx, error);
+      return;
+    }
+    const res = (data ?? {}) as { granted?: boolean; credits?: number; event_id?: string };
+    if (!res.granted) return; // no gift on this bill, not paid, or already landed
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        booking_fee_charge_id: chargeId,
+        event_id: res.event_id ?? null,
+        setnayan_gift_credits_granted: res.credits ?? 0,
+      },
+    });
+  } catch (e) {
+    console.error('[sku-activation] Setnayan gift grant threw (non-fatal):', e);
+    reportActivationFault('activate:setnayan_gift_grant', ctx, e);
+  }
+}
+
+/**
  * The pack door — 'vendor_papic_portfolio_pack' → 25 credits for ONE event
  * (owner 2026-09-05, credits since RAISED to 100 on 2026-09-06 — the ₱500 did
  * not move: *"they pay 500 pesos for 25 papic credits … the photo importation
@@ -1642,6 +1689,13 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // failed grant must be able to land the credits, and the ledger's own
       // unique index makes a second landing a no-op.
       await grantVendorPapicCreditsForBookingFee(ctx, chargeId);
+      // THE SETNAYAN GIFT (C1 · owner 2026-09-09): "granted when the money
+      // CLEARS, into the event's Papic pot." This order is the supplier's paid
+      // bill, which carried the gift on top of the fee — so land the couple's
+      // photos now. Same re-approval posture as the line above: runs whether or
+      // not `settled` flipped just now, and the database refuses a second
+      // landing for the same order.
+      await grantSetnayanGiftForBookingFee(ctx, chargeId);
     },
   },
   {

@@ -923,7 +923,20 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         side="vendor"
         hrefBase="/vendor-dashboard/messages"
       />
-      <section className="flex min-w-0 flex-1 flex-col gap-4">
+      {/* ⚠ AN OPEN TOOL MUST NOT BURY THE CONVERSATION (owner 2026-09-11).
+          The row above is a FIXED height, which is what keeps a long thread
+          scrolling inside its own box with the composer pinned under it. An
+          open tool (`vendorTools` — "Build a quote" is taller than a laptop
+          screen) used to squeeze the stream to zero: the composer landed on
+          the All/Decisions/Files tabs and the rest ran past the side columns'
+          backgrounds. Now this column scrolls ITSELF (`min-h-0` lets it be
+          held to the row, `overflow-y-auto` scrolls it) and the stream keeps a
+          floor (the wrapper below), so an open tool pushes the conversation
+          down instead of flattening it.
+          🔑 NOT `min-h` on the row: that fixes the tool case but lets a long
+          conversation grow the whole page, dropping the composer below the
+          fold on every busy thread. */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
       <header className="flex items-center justify-between gap-3 sn-row p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
@@ -1127,28 +1140,32 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
       {vendorTools}
 
-      <ChatMessageStream
-        threadId={threadId}
-        initialMessages={initialMessages}
-        currentUserId={user.id}
-        viewerRole="vendor"
-        counterpartyLabel={coupleLabel}
-        eventDate={event?.event_date ?? null}
-        standing={threadStanding}
-        decisionPayments={decisionPayments}
-        decisionGuestCounts={decisionGuestCounts}
-        initialView={initialView}
-        // The SAME three actions this page's own sections post to — the
-        // payment-confirm row and the guest-count surcharge card below. One
-        // way to answer each request; Decisions is a second door to it.
-        supplierReplyActions={{
-          confirmPayment: confirmVendorPayment,
-          refusePayment: refuseVendorPayment,
-          applySurcharge: acceptPaxSurcharge,
-          holdPrice: declinePaxSurcharge,
-        }}
-        lockHandshake={lockHandshake}
-      />
+      {/* The stream's floor: it fills whatever the column has left, but never
+          less than this, so an open tool cannot flatten it (see the section). */}
+      <div className="flex min-h-[20rem] flex-1 flex-col">
+        <ChatMessageStream
+          threadId={threadId}
+          initialMessages={initialMessages}
+          currentUserId={user.id}
+          viewerRole="vendor"
+          counterpartyLabel={coupleLabel}
+          eventDate={event?.event_date ?? null}
+          standing={threadStanding}
+          decisionPayments={decisionPayments}
+          decisionGuestCounts={decisionGuestCounts}
+          initialView={initialView}
+          // The SAME three actions this page's own sections post to — the
+          // payment-confirm row and the guest-count surcharge card below. One
+          // way to answer each request; Decisions is a second door to it.
+          supplierReplyActions={{
+            confirmPayment: confirmVendorPayment,
+            refusePayment: refuseVendorPayment,
+            applySurcharge: acceptPaxSurcharge,
+            holdPrice: declinePaxSurcharge,
+          }}
+          lockHandshake={lockHandshake}
+        />
+      </div>
 
       {blockState.blockedByMe || blockState.blockedByThem ? (
         <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">

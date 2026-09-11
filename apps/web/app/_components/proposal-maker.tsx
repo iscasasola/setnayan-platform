@@ -952,9 +952,16 @@ export function ProposalMaker({
                     patchInstallment(r.key, r.kind === 'percent' ? { kind: 'fixed', amountPhp: Math.round((resolved?.raw_centavos ?? 0) / 100) } : { kind: 'percent', percent: r.percent ?? 0 })
                   }
                   aria-label="Toggle peso / percent"
+                  title={r.kind === 'percent' ? 'Switch to a fixed peso amount' : 'Switch to a percent of the total'}
                   className="rounded-md border border-ink/15 px-1.5 py-0.5 text-[11px] text-ink/60 hover:border-terracotta"
                 >
-                  {r.kind === 'percent' ? '%' : '₱'}
+                  {/* Shows the unit a tap SWITCHES TO, not the one already
+                      shown next to the input — that was the double "%": a
+                      percent row read "20 %" from the input's own suffix,
+                      then a second "%" right after it on this button, which
+                      read as the same fact printed twice rather than as a
+                      control (owner screenshot 2026-09-11). */}
+                  {r.kind === 'percent' ? '₱' : '%'}
                 </button>
                 {!isDown ? (
                   <button

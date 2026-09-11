@@ -8,7 +8,6 @@ import {
   CalendarDays,
   FileText,
   Handshake,
-  Info,
   ListChecks,
   Phone,
   Plus,
@@ -16,6 +15,7 @@ import {
   User,
   Video,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { CustomerEventSummary } from '@/lib/customer-event-summary';
@@ -103,9 +103,20 @@ export function ChatInfoRailColumn(props: ChatInfoRailProps) {
 }
 
 /**
- * Mobile trigger — an info button (belongs in the conversation header) that
- * opens the rail as the shared bottom-sheet. Hidden on lg+ where the column is
- * always shown. Owns its own open-state.
+ * Mobile trigger — belongs in the conversation header, opens the rail as the
+ * shared bottom-sheet. Hidden on lg+ where the column is always shown. Owns
+ * its own open-state.
+ *
+ * 🔑 A VISIBLE LABEL, NOT A LONE GLYPH. This used to be an unlabelled 36px
+ * circle with only an <Info> icon — the sole way into the mobile tools (Build
+ * a quote, Log payment, Propose schedule, the calls, …), and a supplier on a
+ * live thread could not find it (owner, 2026-09-11: "i cannot access tools
+ * when on mobile mode?"). The icon-only affordance read as decoration, not a
+ * button. It is now a labelled pill matching the house's small secondary
+ * pill-button pattern (see `SubmitButton` usage in
+ * `app/vendor-dashboard/repertoire/page.tsx`) — text plus an icon, never the
+ * icon alone. `globals.css` already floors every `button` at 44px min-height;
+ * the pill is sized for that instead of fighting it with a fixed height.
  */
 export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
   const [open, setOpen] = useState(false);
@@ -114,12 +125,18 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Customer details"
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+        aria-label="Customer details and tools"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
       >
-        <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <Wrench aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Tools
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} labelledById={HEADING_ID} title="Customer">
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledById={HEADING_ID}
+        title="Customer & tools"
+      >
         {/* A tool opens BEHIND this sheet, so launching one closes it. Without
             that the supplier taps "Build a quote" and watches nothing happen,
             because the thing that opened is under the sheet they are looking

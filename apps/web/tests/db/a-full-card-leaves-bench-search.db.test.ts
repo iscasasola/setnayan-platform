@@ -16,7 +16,9 @@
  *
  *   THE DIFFERENTIAL — for every seeded card × day × named-calendars flag, run
  *   the REAL booking path (resolve_schedule_pool → acquire_schedule_pools, and
- *   acquire_service_time_slot for slotted cards) inside a transaction that is
+ *   acquire_service_time_slot for slotted cards, and — for a card with a daily
+ *   limit and no slot — the lock's "#2" verdict: service_card_bookings_on ≥
+ *   daily_capacity, the count the gate asks) inside a transaction that is
  *   rolled back, and assert the function's verdict matches. The only allowed
  *   difference is the ruled one: a 'whitelist' day is held for the supplier's
  *   yes, not refused, so search shows it (orchestrator ruling 2026-09-11).
@@ -50,10 +52,11 @@ const DAY = {
   externalFull: '2027-10-08', // B: 2 bookings + 1 external client = its capacity of 3
   released: '2027-10-09', // A's only booking that day was released
   syncedPool: '2027-10-10', // a synced-calendar block on A's pool only
+  monthFirst: '2027-10-01', // H: one real booking + two MONTH-only events stored as the 1st
 } as const;
 const DAYS = Object.values(DAY);
 
-type Card = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+type Card = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 const card = {} as Record<Card, string>;
 const pool = {} as Record<'A' | 'B' | 'D' | 'E', string>;
 let coupleUid = '';
@@ -105,6 +108,10 @@ before(async () => {
   slot.one = await createSlot(card.G, 'Lunch', '11:00', '14:00', 1, true);
   slot.two = await createSlot(card.G, 'Dinner', '18:00', '21:00', 1, true);
   slot.off = await createSlot(card.G, 'Brunch', '08:00', '10:00', 5, false);
+  // H · a per-card DAILY LIMIT of 2, no time slots, a category nobody has
+  //     booked into a pool yet (LOCK-PATH CAPACITY).
+  card.H = await createService(vendorProfileId, 'photo_booth');
+  await db.query(`UPDATE public.vendor_services SET daily_capacity = 2 WHERE vendor_service_id = $1`, [card.H]);
 
   // ── the facts, one per day ──────────────────────────────────────────────
   await bookPool(pool.A, DAY.poolFull);
@@ -134,6 +141,18 @@ before(async () => {
   await takeSlot(slot.two, DAY.open, { archived: true });
   await takeSlot(slot.two, DAY.open, { status: 'shortlisted' });
   await takeSlot(slot.two, DAY.open, { precision: 'month' });
+
+  // H's bookings: full on poolFull (2 of 2); one of two on open, beside an
+  // archived and a shortlisted row that are not bookings; and on the 1st one
+  // real booking plus two MONTH-only events stored there — which must not count.
+  await otherBooking({ day: DAY.poolFull, serviceId: card.H, status: 'deposit_paid' });
+  await otherBooking({ day: DAY.poolFull, serviceId: card.H, status: 'contracted' });
+  await otherBooking({ day: DAY.open, serviceId: card.H, status: 'complete' });
+  await otherBooking({ day: DAY.open, serviceId: card.H, archived: true });
+  await otherBooking({ day: DAY.open, serviceId: card.H, status: 'shortlisted' });
+  await otherBooking({ day: DAY.monthFirst, serviceId: card.H, status: 'delivered' });
+  await otherBooking({ day: DAY.monthFirst, serviceId: card.H, precision: 'month' });
+  await otherBooking({ day: DAY.monthFirst, serviceId: card.H, precision: 'month', status: 'contracted' });
 
   // THE MONTH — a second shop whose one card is booked every day of October
   // but the 17th.
@@ -420,7 +439,26 @@ async function bookingPathRefuses(
         }
       }
     }
-    return poolRefused || slotRefused;
+    // ── the lock's #2 daily-limit gate (vendors/actions.ts), for a card with no
+    // active slot and a daily_capacity: the SAME count it asks, excluding the
+    // row being locked, compared the way it compares. Day-precise only (this
+    // event is). The count's own truth is checked independently below.
+    let capacityRefused = false;
+    if (slots.rows.length === 0) {
+      const cap = await db.query<{ c: number | null }>(
+        `SELECT daily_capacity AS c FROM public.vendor_services WHERE vendor_service_id = $1`,
+        [serviceId],
+      );
+      const limit = cap.rows[0]?.c ?? null;
+      if (typeof limit === 'number' && limit > 0) {
+        const n = await db.query<{ n: number }>(
+          `SELECT public.service_card_bookings_on($1, $2::date, $3) AS n`,
+          [serviceId, day, eventVendorId],
+        );
+        capacityRefused = n.rows[0]!.n >= limit;
+      }
+    }
+    return poolRefused || slotRefused || capacityRefused;
   } finally {
     await setAuthUid(db, null);
     await db.exec('ROLLBACK');
@@ -499,7 +537,7 @@ test('a locked day refuses the pool it names; a shop-wide lock refuses every liv
   const shopLocked = await refusedBy(ALL(), [DAY.shopLocked]);
   assert.deepEqual(
     [...shopLocked].map((k) => nameOf(k.split('@')[0]!)).sort(),
-    ['A', 'B', 'C', 'E', 'F', 'G'],
+    ['A', 'B', 'C', 'E', 'F', 'G', 'H'],
     'every card but D — whose only pool is switched off, so the booking path gates nothing',
   );
 });
@@ -539,33 +577,34 @@ test('THE MONTH · booked every day but one — 30 of 31 refused, so the supplie
   assert.ok(!said.has(`${monthCard}@2027-10-17`));
 });
 
-// ── 2b · the tripwire's database half ─────────────────────────────────────
+// ── 2b · the per-card daily limit (LOCK-PATH CAPACITY) ────────────────────
 
-test("TRIPWIRE · a couple's session sees no other couple's bookings — so daily_capacity refuses nothing", async () => {
-  // vendors/actions.ts "#2" counts a card's bookings on the date through the
-  // COUPLE'S session. The mirror ignores daily_capacity because, under RLS,
-  // that count only ever sees the couple's own rows. If this starts seeing
-  // other couples' rows, the #2 gate starts REFUSING — and the mirror must
-  // learn daily_capacity (migration header §2; lib/h6-mirrors-the-booking-path).
-  const everyone = await db.query<{ events: number; rows: number }>(
-    `SELECT (SELECT count(*)::int FROM public.events WHERE event_date = $1::date) AS events,
-            (SELECT count(*)::int FROM public.event_vendors WHERE service_id = $2) AS rows`,
-    [DAY.poolFull, card.G],
-  );
-  assert.ok(everyone.rows[0]!.events > 0 && everyone.rows[0]!.rows > 0, 'fixture: other couples do book that day');
-  await setAuthUid(db, coupleUid);
-  await db.exec(`SET ROLE authenticated`);
-  try {
-    const seen = await db.query<{ events: number; rows: number }>(
-      `SELECT (SELECT count(*)::int FROM public.events WHERE event_date = $1::date) AS events,
-              (SELECT count(*)::int FROM public.event_vendors WHERE service_id = $2) AS rows`,
-      [DAY.poolFull, card.G],
-    );
-    assert.deepEqual(seen.rows[0], { events: 0, rows: 0 });
-  } finally {
-    await db.exec(`RESET ROLE`);
-    await setAuthUid(db, null);
+test('a daily limit refuses its card when full, and a month-only event is no booking on the 1st', async () => {
+  const said = await refusedBy([card.H], [DAY.poolFull, DAY.open, DAY.monthFirst]);
+  assert.deepEqual([...said], [`${card.H}@${DAY.poolFull}`]);
+});
+
+test('the one count agrees with the rows themselves, card by card and day by day', async () => {
+  // Independent of the function: the superuser reads every row and applies the
+  // rule by hand — booked statuses, not archived, day-precise events that day.
+  let checked = 0;
+  for (const id of ALL()) {
+    for (const day of DAYS) {
+      const fn = await db.query<{ n: number }>(`SELECT public.service_card_bookings_on($1, $2::date) AS n`, [id, day]);
+      const byHand = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.event_vendors ev JOIN public.events e ON e.event_id = ev.event_id
+          WHERE ev.service_id = $1 AND e.event_date = $2::date AND e.event_date_precision = 'day'
+            AND ev.archived_at IS NULL
+            AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')`,
+        [id, day],
+      );
+      assert.equal(fn.rows[0]!.n, byHand.rows[0]!.n, `${nameOf(id)} on ${day}`);
+      checked += 1;
+    }
   }
+  const h1st = await db.query<{ n: number }>(`SELECT public.service_card_bookings_on($1, $2::date) AS n`, [card.H, DAY.monthFirst]);
+  assert.equal(h1st.rows[0]!.n, 1, 'the two month-only events on the 1st were counted');
+  console.log(`# daily-limit count checked against the rows: ${checked} card-days`);
 });
 
 // ── 3 · safety and privacy ────────────────────────────────────────────────

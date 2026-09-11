@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { escapeLikeQuery } from './people-search-query';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -442,16 +443,48 @@ export function buildClaimUrl(token: string): string {
 // Email lookup — does an email already run a Setnayan vendor account?
 // ---------------------------------------------------------------------------
 
+/**
+ * 🔒 `admin` MUST BE THE SERVICE-ROLE CLIENT (20271221366210).
+ *
+ * A shop's `contact_email` is no longer SELECT-able by `anon` or
+ * `authenticated` — not even inside a WHERE, because Postgres checks the column
+ * privilege for a filter exactly as for a projection, and PostgREST then refuses
+ * the WHOLE statement. So this lookup runs on the service role, and because the
+ * service role is outside every RLS rule, the two rules the session used to get
+ * for free are written out here instead:
+ *
+ *   · WHICH shops — only the ones `vendor_profiles_public_read` admits to a
+ *     stranger (public_visibility = verified AND verification_state = verified).
+ *     A hidden or unverified shop's existence is not confirmed to a couple who
+ *     guesses its email.
+ *   · WHAT it answers — the shop's id and name, never the email itself.
+ *
+ * And the email is matched EXACTLY (case-insensitive): `%` and `_` are ILIKE
+ * wildcards, so an unescaped `a%` would turn this into a letter-by-letter
+ * oracle for every verified shop's address.
+ */
 export async function lookupExistingVendorByEmail(
-  supabase: SupabaseClient,
+  admin: SupabaseClient,
   email: string,
 ): Promise<{ vendor_profile_id: string; business_name: string } | null> {
-  const { data } = await supabase
+  const wanted = email.trim();
+  if (!wanted) return null;
+  const { data, error } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id,business_name')
-    .ilike('contact_email', email.trim())
+    .ilike('contact_email', escapeLikeQuery(wanted))
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified')
     .limit(1)
     .maybeSingle();
+  if (error) {
+    // Checked, not swallowed: a refused read here used to look exactly like
+    // "no such shop". Callers treat null as "not on Setnayan", which is the
+    // same answer they gave before this lookup existed, so degrade — loudly.
+    // eslint-disable-next-line no-console
+    console.error('[lookupExistingVendorByEmail] read failed', { code: error.code, message: error.message });
+    return null;
+  }
   if (!data) return null;
   return {
     vendor_profile_id: data.vendor_profile_id as string,

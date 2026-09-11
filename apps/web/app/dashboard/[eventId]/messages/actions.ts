@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { lookupExistingVendorByEmail } from '@/lib/vendor-invites';
 import { fetchThreadById } from '@/lib/chat';
 import { isFollowingVendor } from '@/lib/follow';
 import { followVendor } from '@/lib/follow-actions';
@@ -79,19 +81,14 @@ export async function startThreadByVendorEmail(formData: FormData) {
 
   // Find the vendor profile whose CONTACT email matches. We deliberately
   // don't look up auth users by email — that requires admin privileges and
-  // leaks signup status. Vendors expose contact_email publicly on their
-  // profile, so couples search by that.
-  const { data: vendor, error: vendorErr } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_name')
-    .ilike('contact_email', email)
-    .maybeSingle();
-
-  if (vendorErr) {
-    return redirect(
-      `/dashboard/${eventId}/messages?error=${encodeURIComponent(vendorErr.message)}`,
-    );
-  }
+  // leaks signup status.
+  //
+  // 🔒 A shop's contact email is no longer readable by a browser session
+  // (20271221366210) — not even as a filter, which Postgres checks exactly like
+  // a projection. So the match runs on the service role through the ONE shared
+  // lookup, which re-states the public-read row rule, matches the address
+  // exactly (no ILIKE wildcards) and answers only the shop's id and name.
+  const vendor = await lookupExistingVendorByEmail(createAdminClient(), email);
   if (!vendor) {
     return redirect(
       `/dashboard/${eventId}/messages?error=${encodeURIComponent('No Setnayan vendor with that contact email.')}`,

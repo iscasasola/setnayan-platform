@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
+import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { resolveLivePax } from '@/lib/pax';
 import {
@@ -2565,13 +2566,12 @@ export async function finalizeVendor(
   if (dpProvided && dpChosen) {
     try {
       const proofEntry = formData.get('proof');
+      // 🔒 The PRIVATE bucket, stored as a ref (lib/deposit-proof.server.ts) —
+      // a deposit screenshot is a bank record, never a public URL.
       let proofUrl: string | null = null;
       if (proofEntry instanceof File && proofEntry.size > 0) {
-        const up = await uploadPublicAsset({
-          pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-          file: proofEntry,
-        });
-        if (up.ok) proofUrl = up.publicUrl;
+        const up = await uploadDepositProof(eventId, proofEntry);
+        if (up.ok) proofUrl = up.ref;
       }
       const methodLabel = buildMethodLabel(dpChosen);
       // SINGLE-WINNER marker stamp: the `.is('deposit_recorded_at', null)`
@@ -4304,8 +4304,6 @@ export async function cancelBookingAsHost(
 // contract_signed_at). The host can still advance status separately.
 // ==========================================================================
 
-const DEPOSIT_PROOF_PATH_PREFIX = 'deposit-proof';
-
 /**
  * recordDeposit — COUPLE side.
  *
@@ -4400,21 +4398,19 @@ export async function recordDeposit(
     contact_email: string | null;
   };
 
-  // Optional proof artifact. Same uploadPublicAsset pipeline manual-vendor
-  // photos use — validates MIME/size, falls back to Supabase Storage in dev,
-  // returns a public URL we persist. Record-keeping only; Setnayan is not the
-  // payee and does not verify funds.
+  // Optional proof artifact — to the PRIVATE bucket under this event's deposit
+  // folder, stored as a ref and read back only through a short-lived signed
+  // link (lib/deposit-proof.server.ts). It used to go to the public media
+  // bucket as a permanent URL. Record-keeping only; Setnayan is not the payee
+  // and does not verify funds.
   let proofUrl: string | null = null;
   const proofEntry = formData.get('proof');
   if (proofEntry instanceof File && proofEntry.size > 0) {
-    const uploadResult = await uploadPublicAsset({
-      pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-      file: proofEntry,
-    });
+    const uploadResult = await uploadDepositProof(eventId, proofEntry);
     if (!uploadResult.ok) {
       return { status: 'error', message: uploadResult.error };
     }
-    proofUrl = uploadResult.publicUrl;
+    proofUrl = uploadResult.ref;
   }
 
   // HOLD THE DATE the instant the deposit is logged (not only on full payment).

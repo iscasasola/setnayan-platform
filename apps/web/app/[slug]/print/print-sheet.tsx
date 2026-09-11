@@ -1,4 +1,3 @@
-import type { EventWords } from '../_lib/event-words';
 // ============================================================================
 // A3 broadsheet print keepsake — the sheet render (pure server markup)
 // ============================================================================
@@ -14,6 +13,9 @@ import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 import type { ComposedCopy } from '../_components/editorial/compose';
 import type { EditorialData, DayChapter } from '../_components/editorial/data';
+import type { EventWords } from '../_lib/event-words';
+import type { DrawnSheet } from '@/lib/story-pages';
+import { refsOnSheets, withoutPlacedMedia } from '@/lib/story-sheet';
 import { mastheadEdition } from '@/lib/story-spine';
 import { PRINTED_STAMP_LIMIT } from '@/lib/a-withdrawal-reaches-every-copy';
 import {
@@ -22,7 +24,9 @@ import {
   prettyCategory,
   needsBackPage,
   splitChapters,
+  orderSheetsForPrint,
 } from './keepsake-layout';
+import { ArrangedSheet } from '../_components/story/arranged-sheet';
 
 // ── small presentational helpers ─────────────────────────────────────────────
 
@@ -158,6 +162,57 @@ export function Colophon({
   );
 }
 
+/**
+ * ONE PAGE, ONE HAND-ARRANGED MOMENT (step 7) — the A3 sheet's counterpart to
+ * the A4 booklet's per-page arranged render. A full composed sheet does not
+ * fit the compact chapter grid the front/back curation uses, so each one gets
+ * its own full broadsheet side instead, in the story's own time order
+ * (`orderSheetsForPrint`) — after the curated front/back, before the close.
+ * Renders the SAME `ArrangedSheet` the public page draws, `stills` so a
+ * snippet prints as its poster still.
+ */
+function ArrangedSheetPage({
+  sheet,
+  data,
+  words,
+  isLast,
+  moreAfter,
+  qrSvg,
+  hideWatermark,
+  stampLine,
+}: {
+  sheet: DrawnSheet;
+  data: EditorialData;
+  words: EventWords;
+  /** The last printed side overall gets the locked close + colophon — the
+   *  same "always the last element on the last side" rule the curated sheet
+   *  follows. */
+  isLast: boolean;
+  /** Another printed side follows this one — force a page break after it. */
+  moreAfter: boolean;
+  qrSvg: string;
+  hideWatermark: boolean;
+  stampLine: string | null;
+}): ReactElement {
+  const label = `${sheet.name ?? 'A page of the day'} — as the ${words.host} laid it out`;
+  return (
+    <section className={`keepsake-sheet k-arranged-sheet${moreAfter ? ' k-more-after' : ''}`}>
+      <div className="k-rule-double" />
+      <div className="k-dateline">
+        <span>{nameplate(data.displayName)}</span>
+        <span className="k-dateline-center">{sheet.name ?? editionCenter(data)}</span>
+        <span>As Arranged</span>
+      </div>
+      <div className="k-rule-thick" />
+      <div className="k-section" style={{ display: 'flex', justifyContent: 'center' }}>
+        <ArrangedSheet sheet={sheet} names={data.firstNames} stills label={label} />
+      </div>
+      {isLast ? <LockedClose words={words} data={data} /> : null}
+      {isLast ? <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} /> : null}
+    </section>
+  );
+}
+
 // ── the sheet ─────────────────────────────────────────────────────────────────
 
 export function PrintSheet({
@@ -168,6 +223,7 @@ export function PrintSheet({
   qrSvg,
   hideWatermark,
   stampLine,
+  sheets = [],
 }: {
   words: EventWords;
   data: EditorialData;
@@ -182,9 +238,27 @@ export function PrintSheet({
    * version — see the Colophon's docblock; the line is then omitted entirely.
    */
   stampLine: string | null;
+  /**
+   * THE MOMENTS THE HOST ARRANGED BY HAND (step 7) — already gated by
+   * `loadStoryPages` (S3 + S14) and empty for a story in Automatic, so an
+   * unarranged story prints exactly as before this step.
+   */
+  sheets?: readonly DrawnSheet[];
 }): ReactElement {
-  const hasBack = needsBackPage(data);
-  const { front: frontChapters, back: backChapters } = splitChapters(data, hasBack);
+  // One photograph, one place — same rule the public page enforces
+  // (`story-spine.tsx`): a capture a sheet already shows leaves the chapter
+  // grid's own media rather than printing twice, a page apart. The chapter
+  // itself is never dropped, only the media that duplicates a sheet.
+  const onSheets = refsOnSheets(sheets);
+  const layoutData: EditorialData =
+    sheets.length === 0
+      ? data
+      : { ...data, dayChapters: data.dayChapters.map((c) => withoutPlacedMedia(c, onSheets)) };
+  const orderedSheets = orderSheetsForPrint(data.dayChapters, sheets);
+  const hasSheets = orderedSheets.length > 0;
+
+  const hasBack = needsBackPage(layoutData);
+  const { front: frontChapters, back: backChapters } = splitChapters(layoutData, hasBack);
 
   /*
     🔴 THIS PRINTED "No. 1" FOR ANY STORY WITHOUT A NUMBER (`data.editionNo ?? 1`)
@@ -209,8 +283,11 @@ export function PrintSheet({
   const heroStill = data.heroPhotoUrl; // never a <video> — print is static
 
   // ── FRONT ────────────────────────────────────────────────────────────────
+  // A hand-arranged page always follows, so the front (or the back, when
+  // there is one) is never the true last side — moreAfter carries the page
+  // break, and the locked close + colophon move to the last arranged page.
   const front: ReactNode = (
-    <section className={`keepsake-sheet${hasBack ? ' k-has-back' : ''}`}>
+    <section className={`keepsake-sheet${hasBack ? ' k-has-back' : hasSheets ? ' k-more-after' : ''}`}>
       <div className="k-rule-double" />
       <header className="k-masthead">
         <StillMonogram mono={mono} fallback={{ text: data.monogramText, color: data.monogramColor }} />
@@ -285,22 +362,40 @@ export function PrintSheet({
         </div>
       ) : null}
 
-      {/* LOCKED CLOSE (front only when there's no back) — the couple's words then
-          their song, per the editorial's pinned close. */}
-      {!hasBack ? <LockedClose words={words} data={data} /> : null}
+      {/* LOCKED CLOSE (front only when there's no back AND no arranged pages
+          follow it) — the couple's words then their song, per the
+          editorial's pinned close. */}
+      {!hasBack && !hasSheets ? <LockedClose words={words} data={data} /> : null}
 
-      {/* Colophon is the last element on the last side → front only when no back. */}
-      {!hasBack ? (
+      {/* Colophon is the last element on the last side → front only when
+          nothing (no back, no arranged page) follows it. */}
+      {!hasBack && !hasSheets ? (
         <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} />
       ) : null}
     </section>
   );
 
-  if (!hasBack) return <>{front}</>;
+  const arrangedPages: ReactNode = hasSheets
+    ? orderedSheets.map((sheet, i) => (
+        <ArrangedSheetPage
+          key={sheet.momentId}
+          sheet={sheet}
+          data={data}
+          words={words}
+          isLast={i === orderedSheets.length - 1}
+          moreAfter={i < orderedSheets.length - 1}
+          qrSvg={qrSvg}
+          hideWatermark={hideWatermark}
+          stampLine={stampLine}
+        />
+      ))
+    : null;
+
+  if (!hasBack) return <>{front}{arrangedPages}</>;
 
   // ── BACK (conditional) ─────────────────────────────────────────────────────
   const back: ReactNode = (
-    <section className="keepsake-sheet">
+    <section className={`keepsake-sheet${hasSheets ? ' k-more-after' : ''}`}>
       <div className="k-rule-double" />
       <div className="k-dateline">
         <span>{nameplate(data.displayName)}</span>
@@ -383,11 +478,14 @@ export function PrintSheet({
         </div>
       ) : null}
 
-      {/* LOCKED CLOSE — the couple's words then their song. */}
-      <LockedClose words={words} data={data} />
+      {/* LOCKED CLOSE — the couple's words then their song. Moves to the last
+          arranged page when one follows this side. */}
+      {!hasSheets ? <LockedClose words={words} data={data} /> : null}
 
       {/* Colophon is ALWAYS the last element on the last side. */}
-      <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} />
+      {!hasSheets ? (
+        <Colophon qrSvg={qrSvg} hideWatermark={hideWatermark} stampLine={stampLine} />
+      ) : null}
     </section>
   );
 
@@ -395,6 +493,7 @@ export function PrintSheet({
     <>
       {front}
       {back}
+      {arrangedPages}
     </>
   );
 }

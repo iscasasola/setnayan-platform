@@ -554,7 +554,22 @@ export const KEEPSAKE_CSS = `
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .keepsake-sheet.k-has-back { page-break-after: always; break-after: page; }
+  .keepsake-sheet.k-has-back,
+  .keepsake-sheet.k-more-after { page-break-after: always; break-after: page; }
+  /*
+    A hand-arranged sheet (step 7) is data, not the curated front/back grid —
+    its composed height is the host's, not something this route trims to fit
+    one A3 side (ArrangedSheet already never draws it larger than the
+    host's own 660-unit sheet). Clipping it the way the curated grid is
+    clipped above would silently cut off the bottom of a tall page, so its
+    own page lifts the fixed height and the overflow clip; it still gets its
+    own side via .k-more-after / .k-has-back same as any other.
+  */
+  .keepsake-sheet.k-arranged-sheet {
+    height: auto;
+    min-height: 420mm;
+    overflow: visible;
+  }
   img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 `;

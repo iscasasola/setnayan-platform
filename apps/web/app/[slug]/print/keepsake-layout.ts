@@ -8,6 +8,9 @@
 // ============================================================================
 
 import type { EditorialData } from '../_components/editorial/data';
+import type { DrawnSheet } from '@/lib/story-pages';
+import { placeSheetsOnDays, refsOnSheets, withoutPlacedMedia, type PlacedSheet } from '@/lib/story-sheet';
+import { manilaDayOf } from '@/lib/story-day-window';
 
 // ── Masthead helpers (mirrors editorial-content.tsx, kept in lock-step) ──────
 // These are re-derivations of the editorial's private masthead helpers so the
@@ -155,40 +158,112 @@ export function splitChapters(
 import type { DayChapter } from '../_components/editorial/data';
 
 /**
- * ── THE EXTENSION SEAM ───────────────────────────────────────────────────
- * A future step lets a couple hand-arrange a bespoke sheet for one or more
- * adjacent minutes (a spread that replaces the mechanical one-minute-per-page
- * default — e.g. a hand-laid ceremony spread covering three consecutive
- * minutes on one sheet). That step is NOT built here. What IS built is the
- * seam it plugs into: `A4PageResolver` is the one function that turns the
- * day's ordered minutes into pages, and `buildA4Pages` takes one as an
- * optional argument instead of hardcoding the one-minute-per-page rule
- * inline. The default resolver is the only one that exists today.
+ * ── THE EXTENSION SEAM, FILLED IN (step 7) ───────────────────────────────
+ * A hand-arranged moment does not replace a run of minutes — the public page
+ * (`story-spine.tsx`) never merges a `Sheet` into the chapters it sits beside;
+ * it draws the sheet as its OWN entry, time-sorted alongside the (media-
+ * trimmed) minutes. The booklet does the same: `A4PageResolver` is the one
+ * function that turns the day's ordered minutes into pages, and
+ * `arrangedA4PageResolver` is the resolver a hand-arranged story now uses —
+ * it never drops or merges a chapter, only interleaves one 'arranged' page
+ * per sheet at its place in time.
  */
 export type A4PageSource =
   | { kind: 'minute'; chapter: DayChapter }
-  | { kind: 'arranged'; sheetId: string; chapters: DayChapter[] };
+  | { kind: 'arranged'; sheet: DrawnSheet };
 
 export interface A4PageResolver {
   /** Turn the day's ordered minutes into the pages that get printed. The
    *  default resolver is 1:1 — every minute is exactly one page, in order.
-   *  A resolver that hand-arranges some minutes onto a shared sheet must
-   *  still return every input chapter exactly once, across all pages, in
-   *  their original relative order — that invariant is what the pagination
-   *  guard test checks, so a future resolver is held to it automatically. */
+   *  A resolver that adds hand-arranged pages must still return every input
+   *  chapter exactly once, as a 'minute' page, in their original relative
+   *  order — that invariant is what the pagination guard test checks. */
   resolve(chapters: readonly DayChapter[]): A4PageSource[];
 }
 
-/** The only resolver that exists today: one page per minute, in order. */
+/** The mechanical resolver: one page per minute, in order. Used whenever the
+ *  story carries no hand-arranged sheets (Automatic — prints exactly as
+ *  before this step). */
 export function defaultA4PageResolver(chapters: readonly DayChapter[]): A4PageSource[] {
   return chapters.map((chapter) => ({ kind: 'minute', chapter }));
 }
 
 /**
+ * Where the day's arranged sheets sit in time, for BOTH print formats — the
+ * same merge the public page uses (`placeSheetsOnDays`), so the keepsake can
+ * never disagree with the living page about order. `chapters` supplies the
+ * day list the print route would otherwise need `StorySpineFacts` for (it
+ * builds no spine): every chapter's own Manila day, unioned with whatever day
+ * an untimed (host-added) sheet borrows — the identical fallback
+ * `story-spine.tsx` uses when it has no day list of its own either.
+ */
+export function placeSheetsForPrint(
+  chapters: readonly Pick<DayChapter, 'atIso'>[],
+  sheets: readonly DrawnSheet[],
+): PlacedSheet<DrawnSheet>[] {
+  if (sheets.length === 0) return [];
+  const chapterDays = chapters
+    .map((c) => (c.atIso ? manilaDayOf(c.atIso) : null))
+    .filter((d): d is string => d !== null);
+  const dayDates = [...new Set([...chapterDays, ...placeSheetsOnDays(sheets, []).map((p) => p.day)])].sort();
+  return placeSheetsOnDays(sheets, dayDates);
+}
+
+/** The sheets alone, in the order they print — the A3 keepsake's own arranged
+ *  pages use this directly; the A4 booklet merges the same placement with the
+ *  minute pages below. */
+export function orderSheetsForPrint(
+  chapters: readonly Pick<DayChapter, 'atIso'>[],
+  sheets: readonly DrawnSheet[],
+): DrawnSheet[] {
+  return placeSheetsForPrint(chapters, sheets)
+    .map((p, i) => ({ atMs: p.atMs ?? Number.NEGATIVE_INFINITY, i, sheet: p.sheet }))
+    .sort((a, b) => a.atMs - b.atMs || a.i - b.i)
+    .map((e) => e.sheet);
+}
+
+/**
+ * The A4 resolver a hand-arranged story uses: every chapter still becomes
+ * exactly one 'minute' page (media a sheet already shows is taken out of it —
+ * one photo, one place, same rule the public page enforces), and one
+ * 'arranged' page is inserted per sheet at its place in time. A sheet sorts
+ * before a minute at the same instant, matching `story-spine.tsx`'s own
+ * `dayEntries` merge exactly.
+ */
+export function arrangedA4PageResolver(sheets: readonly DrawnSheet[]): A4PageResolver {
+  return {
+    resolve(chapters) {
+      if (sheets.length === 0) return defaultA4PageResolver(chapters);
+      const onSheets = refsOnSheets(sheets);
+      const placed = placeSheetsForPrint(chapters, sheets);
+
+      type Entry = { atMs: number; rank: 0 | 1; seq: number; page: A4PageSource };
+      const entries: Entry[] = placed.map((p, i) => ({
+        atMs: p.atMs ?? Number.NEGATIVE_INFINITY,
+        rank: 0,
+        seq: i,
+        page: { kind: 'arranged', sheet: p.sheet },
+      }));
+      chapters.forEach((c, i) => {
+        const stripped = withoutPlacedMedia(c, onSheets);
+        const atMs = stripped.atIso ? Date.parse(stripped.atIso) : Number.NaN;
+        entries.push({
+          atMs: Number.isFinite(atMs) ? atMs : Number.NEGATIVE_INFINITY,
+          rank: 1,
+          seq: i,
+          page: { kind: 'minute', chapter: stripped },
+        });
+      });
+      entries.sort((a, b) => a.atMs - b.atMs || a.rank - b.rank || a.seq - b.seq);
+      return entries.map((e) => e.page);
+    },
+  };
+}
+
+/**
  * Build the A4 booklet's pages from the (already-gated, already-redacted)
  * editorial data. `resolver` defaults to the mechanical one-minute-per-page
- * rule; passing a different one is the seam a future hand-arranged-sheet step
- * uses — nothing today passes anything else.
+ * rule; `arrangedA4PageResolver` is what a hand-arranged story passes instead.
  *
  * Typed on the ONE field this needs (`dayChapters`), not the whole
  * `EditorialData` — this is a pure layout function and a test fixture for it

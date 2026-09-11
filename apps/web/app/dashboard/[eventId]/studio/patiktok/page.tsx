@@ -450,13 +450,13 @@ function TiktokConnectPanel({
           </form>
         </div>
       ) : (
-        <Link
+        <a
           href={`/api/tiktok/auth/start?event_id=${eventId}`}
           className="inline-flex items-center justify-center gap-2 rounded-md border border-terracotta bg-cream px-4 py-2 text-sm font-medium text-terracotta-700-700 transition-colors hover:bg-terracotta/10"
         >
           <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
           Connect TikTok
-        </Link>
+        </a>
       )}
     </section>
   );

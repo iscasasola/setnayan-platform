@@ -563,13 +563,13 @@ function ConnectCTA({
 
   return (
     <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
-      <Link
+      <a
         href={`/api/oauth/youtube/start?event_id=${eventId}`}
         className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
       >
         <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Connect YouTube
-      </Link>
+      </a>
       <p className="text-xs text-ink/55">
         You&rsquo;ll be redirected to Google to grant access, then bounced back here.
         Takes about 20 seconds.

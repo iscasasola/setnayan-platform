@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { CloudUpload, Heart, X } from 'lucide-react';
 import { DriveSafetyPanel } from '@/app/_components/drive-connect-card';
 
@@ -84,13 +83,13 @@ export function RecapDriveNudge({
       <DriveSafetyPanel variant="condensed" />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Link
+        <a
           href={connectHref}
           className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Save originals to my Drive
-        </Link>
+        </a>
         <button
           type="button"
           onClick={dismiss}

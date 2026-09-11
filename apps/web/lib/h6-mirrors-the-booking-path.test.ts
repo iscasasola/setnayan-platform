@@ -26,6 +26,10 @@
  *      counts exactly lib/events.ts CONFIRMED_VENDOR_STATUSES on day-precise
  *      events. (This replaced H6's tripwire, which existed to fail the day the
  *      gate stopped counting through the couple's RLS-blind session.)
+ *      The supplier's yes (`vendor_agree_to_lock`, LOCK-PATH 2, migration
+ *      20271223386305) — the step that BOOKS under the lock handshake — asks
+ *      the same count the same way, so the ask, the yes and the search can
+ *      never disagree about a card's daily limit.
  *   5. THE CALLERS — only the bench asks to hide; everyone else is unchanged;
  *      and only server code, with the admin client, ever calls the mirror.
  */
@@ -70,6 +74,8 @@ const resolver = latestBody('resolve_schedule_pool');
 const mirror = latestBody(MIRROR_FN);
 const COUNT_FN = 'service_card_bookings_on';
 const count = latestBody(COUNT_FN);
+/** The supplier's yes — under the lock handshake, the step that books. */
+const agree = latestBody('vendor_agree_to_lock');
 
 /**
  * The lock's "#2" daily-limit gate, read from finalizeVendor: from where it
@@ -161,7 +167,7 @@ function mirrorParts(body: string): Record<Cte, string> {
   return out;
 }
 
-type Predicate = { name: string; side: 'pools' | 'slots' | 'count' | 'gate'; booking: RegExp; mirror: Array<[Cte, RegExp]> };
+type Predicate = { name: string; side: 'pools' | 'slots' | 'count' | 'gate' | 'agree'; booking: RegExp; mirror: Array<[Cte, RegExp]> };
 
 const DAY_COVERS = (d: string) =>
   new RegExp(
@@ -329,9 +335,46 @@ const PREDICATES: Predicate[] = [
     booking: /AND vendor_service_id = p_service_id AND is_active/,
     mirror: [['capacity_refused', /AND NOT EXISTS \(SELECT 1 FROM slot sl WHERE sl\.sid = svc\.sid\)/]],
   },
+  // ── …and the supplier's yes, which books under the handshake (LOCK-PATH 2) ──
+  {
+    name: 'the yes asks the SAME count, full AT the limit',
+    side: 'agree',
+    booking: /AND public\.service_card_bookings_on\(v_service, v_date, p_event_vendor_id\) >= v_daily_cap THEN/,
+    mirror: [['capacity_refused', /AND public\.service_card_bookings_on\(svc\.sid, d\.day\) >= svc\.dcap/]],
+  },
+  {
+    name: 'the yes reads the card’s own daily_capacity',
+    side: 'agree',
+    booking: /SELECT vs\.daily_capacity INTO v_daily_cap FROM public\.vendor_services vs WHERE vs\.vendor_service_id = v_service/,
+    mirror: [['svc', /s\.daily_capacity AS dcap/]],
+  },
+  {
+    name: 'the yes applies a limit only when set above zero',
+    side: 'agree',
+    booking: /IF v_daily_cap IS NOT NULL AND v_daily_cap > 0/,
+    mirror: [['capacity_refused', /WHERE svc\.dcap IS NOT NULL AND svc\.dcap > 0/]],
+  },
+  {
+    name: 'the yes judges a slotted card by its slots, never the daily limit',
+    side: 'agree',
+    booking: /NOT EXISTS \( SELECT 1 FROM public\.vendor_service_time_slots t WHERE t\.vendor_service_id = v_service AND t\.is_active \)/,
+    mirror: [['capacity_refused', /AND NOT EXISTS \(SELECT 1 FROM slot sl WHERE sl\.sid = svc\.sid\)/]],
+  },
+  {
+    name: 'the yes asks only on a day-precise date',
+    side: 'agree',
+    booking: /IF v_date IS NOT NULL AND v_prec = 'day' AND v_status NOT IN \('contracted', 'deposit_paid', 'delivered', 'complete'\) THEN SELECT ev\.service_id INTO v_service/,
+    mirror: [['capacity_refused', /CROSS JOIN d/]],
+  },
+  {
+    name: 'the yes refuses with a status the supplier is told about',
+    side: 'agree',
+    booking: /RETURN jsonb_build_object\( 'status', 'daily_limit_reached'/,
+    mirror: [['capacity_refused', /FROM svc/]],
+  },
 ];
 
-type Bodies = { pools: string; slots: string; count: string; gate: string; mirror: string; parts: Record<Cte, string> };
+type Bodies = { pools: string; slots: string; count: string; gate: string; agree: string; mirror: string; parts: Record<Cte, string> };
 
 /** Every predicate that is missing from either side — the audit itself. */
 function auditMirror(b: Bodies): string[] {
@@ -354,13 +397,14 @@ const real: Bodies = {
   slots: slots.body,
   count: count.body,
   gate,
+  agree: agree.body,
   mirror: mirror.body,
   parts: mirrorParts(mirror.body),
 };
 const everywhere = (re: RegExp) => new RegExp(re.source, 'g');
 
 test('the mirror restates every refusal condition in the booking path in force', () => {
-  assert.deepEqual(auditMirror(real), [], `against ${pools.file} · ${slots.file} · ${count.file} · ${ACTIONS} · ${mirror.file}`);
+  assert.deepEqual(auditMirror(real), [], `against ${pools.file} · ${slots.file} · ${count.file} · ${ACTIONS} · ${agree.file} · ${mirror.file}`);
 });
 
 test('MUTATION · every predicate fails the audit when removed from either side', () => {

@@ -1666,7 +1666,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -1685,56 +1685,42 @@ export async function finalizeVendor(
     const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
-    // Skip the check when the event has no wedding date, OR when the
+    // Skip the check when the event has no real DAY yet (no date, or only a
+    // month/year — stored as the 1st, which is no hold on the 1st), OR when the
     // vendor's profile/limit can't be resolved. Degrades open.
-    if (weddingDate && typeof limit === 'number') {
-      // Count other event_vendors rows where:
-      //   • same marketplace_vendor_id (same Setnayan vendor account)
-      //   • event_id maps to an event with the same wedding_date
-      //   • status = 'contracted' (soft hold — not 'considering', not 'paid')
-      //   • archived_at IS NULL (not soft-archived)
-      //   • vendor_id != $current_vendor_id (don't count the target row
-      //     itself even though it'll never be 'contracted' here — defensive)
-      //
-      // Two-step query: first fetch the event_ids on the same wedding_date,
-      // then count event_vendors rows scoped to those event_ids. PostgREST
-      // doesn't support a single .in('event_id', subquery) so the two-step
-      // is the canonical shape.
-      const { data: sameDateEvents, error: sdeErr } = await supabase
-        .from('events')
-        .select('event_id')
-        .eq('event_date', weddingDate);
-      if (sdeErr) {
-        return { status: 'error', message: sdeErr.message };
-      }
-      const sameDateEventIds = (sameDateEvents ?? [])
-        .map((r) => r.event_id as string)
-        .filter((id) => id !== eventId);
-
-      // If no OTHER events share this date, there's no way the limit can
-      // be hit (the host's own pick is the only one). Skip the count.
-      if (sameDateEventIds.length > 0) {
-        const { count, error: countErr } = await supabase
-          .from('event_vendors')
-          .select('vendor_id', { count: 'exact', head: true })
-          .eq('marketplace_vendor_id', targetVendor.marketplace_vendor_id)
-          .eq('status', 'contracted')
-          .is('archived_at', null)
-          .in('event_id', sameDateEventIds)
-          .neq('vendor_id', vendorId);
-        if (countErr) {
-          return { status: 'error', message: countErr.message };
-        }
-        const existingHoldCount = count ?? 0;
-        if (existingHoldCount >= limit) {
-          return {
-            status: 'soft_hold_limit_reached',
-            vendorId,
-            vendorName: targetVendor.vendor_name as string,
-            currentLimit: limit,
-            existingHoldCount,
-          };
-        }
+    //
+    // 🔒 LOCK-PATH 2 (2026-09-11, migration 20271223386305). This used to count
+    // the shop's holds by listing same-date `events` and counting
+    // `event_vendors` THROUGH THE COUPLE'S SESSION — and RLS shows a couple only
+    // their own events, so it always counted 0 and a shop "limited to 3" took a
+    // fourth, fifth, sixth couple on one date. Now ONE server-only definer count
+    // answers: the OTHER couples (one per event — a package's covered lines are
+    // not extra holds) holding this shop at status 'contracted' (a soft hold:
+    // agreed, not yet paid), not archived, on a day-precise event that day. Its
+    // inputs are the shop on the couple's own booking row and the date on the
+    // couple's own event, both read through their session just above.
+    if (weddingDate && eventRow?.event_date_precision === 'day' && typeof limit === 'number') {
+      const { data: held, error: heldErr } = await createAdminClient().rpc(
+        'vendor_soft_holds_on',
+        {
+          p_vendor_profile_id: targetVendor.marketplace_vendor_id,
+          p_day: weddingDate,
+          p_exclude_event_id: eventId,
+        },
+      );
+      if (heldErr) {
+        // Degrades OPEN, like the #2 daily-limit count — an internal read
+        // failure the couple cannot act on must not block their lock — but
+        // never silently.
+        console.error('[finalizeVendor] hold limit: count failed', heldErr.message);
+      } else if (typeof held === 'number' && held >= limit) {
+        return {
+          status: 'soft_hold_limit_reached',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+          currentLimit: limit,
+          existingHoldCount: held,
+        };
       }
     }
   }

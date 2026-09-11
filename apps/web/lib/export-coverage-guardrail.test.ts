@@ -288,6 +288,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // payment_refused_by_user_id / payment_dispute_settled_by_user_id — actor
   // stamps (who said it never arrived, which admin settled it), the same test
   // event_vendors' lock stamps pass above.
+  // FOLLOW-UPS A (2026-09-11): Setnayan's history of deposit refusals that ended.
+  event_vendor_deposit_refusals:
+    'Setnayan’s REFEREE RECORD of deposit refusals that have ended — admin-only (RLS on, no session grant). It is not withheld from the couple: the couple still sees the CURRENT refusal, and any ruling on it, on their own booking. Its three *_user_id columns are actor stamps (who refused, which admin ruled, who ended it), not subject data; exporting by them would hand one party the other’s dispute record. Logged beside the ledger export gap (orchestrator, 2026-09-11).',
   event_vendor_payments:
     'The couple’s record of paying a supplier. Its two *_user_id columns are actor stamps (the supplier-side account that refused a payment, the admin who settled it), not subject data — exporting by them would hand a supplier’s staffer a couple’s payment ledger. The couple’s own rows are event-tier data (header note 3, the unenforced tier) and are NOT in the export today; that gap predates these columns and they do not widen it.',
   api_keys:

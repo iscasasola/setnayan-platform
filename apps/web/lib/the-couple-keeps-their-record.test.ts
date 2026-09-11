@@ -73,22 +73,32 @@ test('the couple can send it again — the fix has to be reachable', () => {
 
 test('re-sending clears the refusal, or the question never comes back', () => {
   const src = read(RECORD);
+  /*
+    Since FOLLOW-UPS A (2026-09-11) the clear goes through the server-only
+    `resend_vendor_deposit`, which archives the refusal and any ruling before
+    clearing them — a session may no longer clear them (the database refuses),
+    so a clear written as a session `.update({ deposit_declined_at: null })`
+    would fail at runtime. What it does is proven by behaviour in
+    tests/db/a-deposit-refusal-survives-a-resend.db.test.ts; this pins that
+    recordDeposit still CALLS it, on the admin client, with who re-sent.
+  */
   assert.match(
     src,
-    /deposit_declined_at: null/,
-    'recordDeposit no longer clears the refusal — the supplier is never asked again',
+    /createAdminClient\(\)\.rpc\('resend_vendor_deposit',\s*\{\s*p_event_vendor_id: vendorId,\s*p_actor_user_id: user\.id,/,
+    'recordDeposit no longer clears the refusal through resend_vendor_deposit — the supplier is never asked again',
   );
-  assert.match(src, /deposit_decline_reason: null/);
-  assert.match(src, /deposit_declined_by_user_id: null/);
+  assert.doesNotMatch(
+    src,
+    /deposit_declined_at: null/,
+    'a session clear of the refusal is back — the database refuses it now, and it erased the history',
+  );
   /*
-    🪤 AND IT MUST BE ITS OWN STATEMENT. Naming these columns in the main update
-    makes PostgREST refuse the WHOLE write while the migration is still landing,
-    so a couple recording money mid-deploy would be told it failed. The clear
-    sits after the write that must not fail.
+    🪤 AND IT MUST BE ITS OWN STATEMENT, after the write that must not fail: a
+    couple recording money must never be told it failed because the clear did.
   */
   const mainUpdate = src.indexOf('deposit_recorded_at: ev.deposit_recorded_at');
-  const theClear = src.indexOf('deposit_declined_at: null');
-  assert.ok(mainUpdate > 0 && theClear > mainUpdate, 'the clear moved into the main update');
+  const theClear = src.indexOf("rpc('resend_vendor_deposit'");
+  assert.ok(mainUpdate > 0 && theClear > mainUpdate, 'the clear moved before the main update');
 });
 
 test('the supplier’s card reports their answer instead of asking again', () => {

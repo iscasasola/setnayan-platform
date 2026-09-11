@@ -208,6 +208,8 @@ import {
   type RequirementsModalPhase,
 } from '@/app/_components/requirements-modal';
 import type { RequirementField } from '@/lib/requirements-capture';
+import { shopInitials } from '@/lib/shop-initials';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import {
   loadCategoryRequirements,
   saveCategoryRequirements,
@@ -800,11 +802,11 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .replied .who{color:var(--ink-soft)}
 `;
 
+/** Two-letter monogram fallback — delegates to the shared shop/vendor helper
+ * (lib/shop-initials.ts) so "Saysay Live Band & Hosting (FIXTURE)" reads
+ * "SL", never "S(". */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 /**
@@ -1095,6 +1097,12 @@ function VendorCard({
             <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
             {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
           </span>
+        ) : typeof v.reviewCount === 'number' ? (
+          // 0 reviews on a real marketplace pick — "New", never a fake
+          // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
+          // number for a marketplace-linked vendor (never an off-platform /
+          // manual pick, which carries no enrichment at all).
+          <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
         ) : null}
         {v.isVerified || v.isSetnayan ? (
           <span className="badges">
@@ -1396,6 +1404,12 @@ function InlineMoreCard({
               <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
               {v.reviewCount != null ? ` · ${v.reviewCount}` : ''}
             </span>
+          ) : typeof v.reviewCount === 'number' ? (
+            // No stars/average for a shop with 0 reviews — "New", never
+            // "0.0" (owner ruling 2026-09-11). Only claimed when reviewCount
+            // is a real, known number (this row is always a real marketplace
+            // vendor, never an off-platform pick).
+            <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
           ) : null}
           {v.verified ? (
             <span className="badges">
@@ -2629,7 +2643,14 @@ export function ShortlistCategories({
                 <span className="bmr-m">
                   <b>{r.name}</b>
                   <span>
-                    {[r.city, r.rating != null ? `★ ${r.rating.toFixed(1)}` : null]
+                    {[
+                      r.city,
+                      r.rating != null
+                        ? `★ ${r.rating.toFixed(1)}`
+                        : typeof r.reviewCount === 'number'
+                          ? NEW_TO_SETNAYAN_LABEL
+                          : null,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </span>

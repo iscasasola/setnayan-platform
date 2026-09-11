@@ -4,7 +4,11 @@ import { MapPin, Star } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatDistanceKm, haversineKm } from '@/lib/geo';
-import { fetchTrustedReviewStatsForMany, formatStarRating } from '@/lib/reviews';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+  NEW_TO_SETNAYAN_LABEL,
+} from '@/lib/reviews';
 import {
   findTopVendorsByFolder,
   type VendorPreviewRow,
@@ -309,7 +313,15 @@ function FolderVendorCard({
             <span className="font-mono text-ink">{formatStarRating(rating)}</span>
             <span className="text-ink/45">({reviewCount})</span>
           </span>
-        ) : null}
+        ) : (
+          // 0 reviews — "New", never a hidden-away fake 0.0 (owner ruling
+          // 2026-09-11). reviewCount defaults to 0 above, so this is a known
+          // "no reviews yet", not an unmeasured gap.
+          <span className="inline-flex items-center gap-1 text-ink/45">
+            <Star aria-hidden className="h-3.5 w-3.5 text-ink/25" strokeWidth={1.75} />
+            {NEW_TO_SETNAYAN_LABEL}
+          </span>
+        )}
         {distanceKm !== null ? (
           <span className="inline-flex items-center gap-1">
             <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

@@ -69,6 +69,8 @@ import {
   type AccordionChild,
   type AccordionPick,
 } from '@/lib/vendors-plan-budget';
+import { shopInitials } from '@/lib/shop-initials';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -81,11 +83,9 @@ function isLocked(pick: AccordionPick): boolean {
   return pick.raw_status !== null && LOCKED.has(pick.raw_status);
 }
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 // ── In-app Setnayan services, mapped into the category pile ───────────────
@@ -1617,7 +1617,7 @@ function VendorCardAtom({
             </div>
           )}
 
-          {stars && (
+          {stars ? (
             <div className="stars" aria-label={`${rating} stars`}>
               {stars}
               <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
@@ -1625,7 +1625,13 @@ function VendorCardAtom({
                 <span className="rcount">{reviewCount}</span>
               )}
             </div>
-          )}
+          ) : reviewCount !== null ? (
+            // 0 reviews on a real marketplace pick — "New", never a fake
+            // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a
+            // known number for a marketplace-linked vendor, so this never
+            // fires for an off-platform / manual pick.
+            <div className="stars">{NEW_TO_SETNAYAN_LABEL}</div>
+          ) : null}
 
           {(verified || setnayan || recommendedReason) && (
             <div className="badges">
@@ -2104,8 +2110,14 @@ function CompareSheet({
                 <th>Reviews</th>
                 {vendors.map((v) => (
                   <td key={v.id}>
-                    {v.rating !== null ? `★ ${v.rating}` : '—'}
-                    {v.reviewCount !== null ? ` · ${v.reviewCount} reviews` : ''}
+                    {v.rating !== null
+                      ? `★ ${v.rating}`
+                      : v.reviewCount !== null
+                        ? NEW_TO_SETNAYAN_LABEL
+                        : '—'}
+                    {v.rating !== null && v.reviewCount !== null
+                      ? ` · ${v.reviewCount} reviews`
+                      : ''}
                     {v.rating !== null &&
                       v.rating === maxRating &&
                       ratings.length > 1 && (

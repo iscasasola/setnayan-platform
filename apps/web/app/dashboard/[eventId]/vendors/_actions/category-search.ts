@@ -1188,7 +1188,17 @@ export async function searchCategoryVendors(input: {
       nameAnonymized,
       city: r.location_city ?? null,
       logoUrl: r.logo_url ?? null,
-      rating: r.avg_rating_overall ?? null,
+      // A shop with 0 reviews carries avg_rating_overall = 0 (the view
+      // COALESCEs it, never NULL) — `?? null` let that 0 pass straight
+      // through as a "real" rating, which is how the category-search
+      // overlay's and the bench "more" row's shared feed rendered
+      // "☆ 0.0 · 0" for a brand-new shop (owner ruling 2026-09-11: a shop
+      // with no reviews shows "New", never "0.0"). Null it here, once, at
+      // the shared source both surfaces read.
+      rating:
+        typeof r.avg_rating_overall === 'number' && r.avg_rating_overall > 0
+          ? r.avg_rating_overall
+          : null,
       reviewCount: r.review_count ?? null,
       distanceKm: dKm,
       verified: r.public_visibility === 'verified',

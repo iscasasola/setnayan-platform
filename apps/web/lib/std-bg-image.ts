@@ -11,6 +11,7 @@ import {
   parseStoredAsset,
   presignDisplayUrl,
 } from '@/lib/uploads';
+import { publicBucketServeRef } from '@/lib/site-media-ref';
 
 /**
  * Save-the-Date background — serve a SCREEN-SIZED variant, not the raw upload.
@@ -62,7 +63,13 @@ async function objectExists(bucket: R2BucketName, key: string): Promise<boolean>
 export async function displayUrlForStdBackground(
   value: string | null | undefined,
 ): Promise<string | null> {
-  const ref = parseStoredAsset(value);
+  // 🔒 Public bucket only, like the generic signer it falls back to (N4 part 3):
+  // this function presigns `ref.bucket` DIRECTLY below, so without its own gate
+  // it would be a second any-bucket signer. Its one caller already pins the
+  // value; this makes the function safe on its own.
+  const servable = publicBucketServeRef(value);
+  if (!servable) return null;
+  const ref = parseStoredAsset(servable);
   if (!ref || ref.kind !== 'r2') {
     // null / empty / legacy URL — nothing to resize.
     return displayUrlForStoredAsset(value);

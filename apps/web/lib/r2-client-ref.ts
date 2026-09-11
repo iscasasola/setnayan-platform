@@ -582,6 +582,55 @@ export function inlineCheckoutProofPolicy(
 }
 
 /**
+ * READ side of a payment-proof screenshot (`payments.screenshot_url`): every
+ * folder an uploader of THIS order's proof may have used — the order's own
+ * `payments/<orderId>/` (pay panel, booking-fee page, Papic guest buy) and the
+ * inline checkout drawer's `payment-screenshots/inline-checkout/<event|user>/`
+ * (written before the order row exists). Composed from the two WRITE policies
+ * above so the reader can never accept a folder no writer uses — nor miss one
+ * a writer does.
+ *
+ * Every id MUST come from the order row the caller has already been allowed to
+ * read (the buyer's own order, a vendor's own fee order, or the admin queue) —
+ * never from the stored value itself.
+ */
+export function paymentProofPolicy(args: {
+  orderId: string;
+  eventId: string | null;
+  userId: string | null;
+}): ClientRefPolicy {
+  const prefixes = [...orderPaymentProofPolicy(args.orderId).prefixes];
+  if (args.userId) prefixes.push(...inlineCheckoutProofPolicy(args.eventId, args.userId).prefixes);
+  else if (args.eventId) prefixes.push(`payment-screenshots/inline-checkout/${args.eventId}/`);
+  return { bucket: 'setnayan-thread-files', prefixes };
+}
+
+/**
+ * Force-majeure / dispute evidence a couple attaches on their own event.
+ *
+ * The one uploader (`disputes/page.tsx`, `<FileUpload bucket="thread-files">`)
+ * writes `events/<eventId>/disputes/…` in the PRIVATE thread-files bucket.
+ * Scoped to the event's `disputes/` folder, not merely to `events/<eventId>/`,
+ * so a dispute can never be used to have the server sign another thread-files
+ * object that happens to live under the same event.
+ */
+export function disputeEvidencePolicy(eventId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`events/${eventId}/disputes/`] };
+}
+
+/**
+ * Admin-authored catalogue art in the PRIVATE `setnayan-samples` bucket — the
+ * category tile photos (`taxonomy/<tile>/`) and the onboarding refinement
+ * photos (`refinements/<leaf>/`) the taxonomy studio uploads. Shown to couples
+ * on Explore and in onboarding, so it is signed on the way out — but only from
+ * the two roots the studio writes (the same two `privateBucketRootIsAllowed`
+ * admits for this bucket).
+ */
+export function catalogueArtPolicy(): ClientRefPolicy {
+  return { bucket: 'setnayan-samples', prefixes: ['taxonomy/', 'refinements/'] };
+}
+
+/**
  * A vendor's proof-of-downpayment / remembrance photo on a locked-QR invite.
  *
  * ⚠ The uploader writes to a FLAT, untenanted `locked-qr-proof/` prefix

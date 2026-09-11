@@ -3,7 +3,7 @@ import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { validateVendorCategoryMapping } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForCatalogueArt } from '@/lib/uploads';
 import {
   updatePlanningDeadline,
   setLastMinuteStart,
@@ -128,7 +128,7 @@ async function toDisplay(raw: string | null): Promise<string | null> {
   if (!raw) return null;
   if (raw.startsWith('r2://')) {
     try {
-      return await displayUrlForStoredAsset(raw);
+      return await displayUrlForCatalogueArt(raw);
     } catch {
       return null;
     }

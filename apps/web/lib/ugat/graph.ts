@@ -2842,7 +2842,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'moodboard_begin_render (spend \u2014 it calls reserve INSIDE the same transaction as the event_renders INSERT, so a debit without a render row is unrepresentable) \u00b7 moodboard_fail_render (refund) \u00b7 the pack-fulfilment path and moodboard_set_share_consent (grant) \u2014 SHIPPED in MB8',
     guardedBy:
-      'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every function; `anon` is granted EXECUTE on none of them',
+      'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every SPEND and CONSENT function and admits only the couple or an admin (owner ruling 2026-09-11, migration 20271221631865), while the two READS (balance, inspiration pool) use moodboard_render_caller_may_view \u2014 any member; `anon` is granted EXECUTE on none of them',
     traps:
       'The partial UNIQUE on order_id is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants, not by trusting this list. moodboard_render_balance returns ZERO ROWS (not a zero balance) to a caller who may not ask: a reader that coalesces the two together tells a couple who bought a pack that they hold nothing.',
   },

@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
-import { displayUrlsForStoredAssets } from '@/lib/uploads';
+import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
+import { disputeEvidencePolicy } from '@/lib/r2-client-ref';
 import {
   FLAG_TYPES,
   FLAG_TYPE_LABEL,
@@ -93,8 +94,11 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
   await Promise.all(
     flags.map(async (f) => {
       if (!f.evidence_urls?.length) return;
-      evidenceUrlMap[f.flag_id] = await displayUrlsForStoredAssets(
+      // 🔒 Evidence lives in the PRIVATE thread-files bucket; signed only from
+      // THIS event's `events/<id>/disputes/` folder (the uploader's own).
+      evidenceUrlMap[f.flag_id] = await displayUrlsForPrivateStoredAssets(
         f.evidence_urls,
+        disputeEvidencePolicy(eventId),
       );
     }),
   );

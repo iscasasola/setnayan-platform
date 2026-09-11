@@ -287,6 +287,7 @@ export function EditorialEditor({
   desk = null,
   cover = null,
   whatsNext = null,
+  makeItYours = null,
 }: {
   eventId: string;
   slug: string | null;
@@ -377,6 +378,13 @@ export function EditorialEditor({
   desk?: React.ReactNode;
   cover?: React.ReactNode;
   whatsNext?: React.ReactNode;
+  /**
+   * "MAKE IT YOURS" (step 4 of `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) — the photo half of the
+   * story's pages. A slot for the same reason as the three above: it is built from a service-role
+   * read behind the proved host, which is not this browser component's to make. It autosaves on
+   * its own (its own column, its own action), so nothing in it joins this form's unsaved state.
+   */
+  makeItYours?: React.ReactNode;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -784,6 +792,13 @@ export function EditorialEditor({
       <div {...panel('desk')}>{desk}</div>
 
       <div {...panel('story')} className="space-y-6">
+      {/*
+        THE STORY STEP OPENS ON "MAKE IT YOURS" — the prototype's "Story Maker › The story" is this
+        page. The sections below it are the shipped editor's, kept exactly
+        (`nothing-the-shipped-editor-could-do-is-lost.test.ts`): the words half of the pages is
+        step 6, and until then a host who already writes here loses nothing.
+      */}
+      {makeItYours}
       {/* Bring-in inputs (existing piece-editors) */}
       <section className={card}>
         <h2 className="font-display text-lg italic text-ink">What goes in</h2>

@@ -28,8 +28,8 @@ function fakeProfile(services: string[]): VendorProfileRow {
   return { services } as unknown as VendorProfileRow;
 }
 
-function couplesSeeHrefs(hasAccess: boolean): string[] {
-  const shelves = shopToolShelves(hasAccess);
+function couplesSeeHrefs(hasAccess: boolean, hasMusicRepertoireAccess = false): string[] {
+  const shelves = shopToolShelves(hasAccess, hasMusicRepertoireAccess);
   const shelf = shelves.find((s) => s.key === 'couples-see');
   assert.ok(shelf, 'the couples-see shelf must exist');
   return shelf!.tools.map((t) => t.href);

@@ -62,6 +62,7 @@ import {
 } from 'lucide-react';
 
 import type { VendorCategory } from './vendors';
+import { MUSIC_TOOL_CATEGORIES } from './songs';
 
 /**
  * One skeletal Lucide glyph per canonical vendor category — used for the
@@ -142,8 +143,17 @@ export type SpecialistTool = {
   description: string;
   href: string;
   icon: LucideIcon;
-  /** Show this tool when the vendor offers any service in these categories. */
-  categories: ReadonlyArray<VendorCategory>;
+  /**
+   * Show this tool when the vendor offers any service in these categories.
+   * `VendorCategory` for every tool except `repertoire` (D2, 2026-09-11):
+   * `distinctCategories` at the one call site is actually
+   * `vendor_services.category` — the GRANULAR canonical-service leaf
+   * (`live_band`, `host_mc`, …), a finer vocabulary than `VendorCategory`
+   * that the repertoire tool alone needs to match against. `string` covers
+   * both without weakening the other tools' values, which stay valid
+   * `VendorCategory` literals.
+   */
+  categories: ReadonlyArray<string>;
 };
 
 /**
@@ -175,7 +185,13 @@ export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
       'Curate the songs you play so couples can request and preview them.',
     href: '/vendor-dashboard/repertoire',
     icon: Music,
-    categories: ['band_dj', 'string_quartet', 'choir'],
+    // D2 (2026-09-11): was ['band_dj', 'string_quartet', 'choir'] — the
+    // broader VendorCategory codes, which matched none of a real band's
+    // cards (vendor_services.category stores the granular leaf: live_band,
+    // host_mc, …). MUSIC_TOOL_CATEGORIES is the one shared music rule
+    // (lib/songs.ts) — the union, so the two legacy codes are widened
+    // forward, never dropped.
+    categories: [...MUSIC_TOOL_CATEGORIES],
   },
   {
     key: 'day-of',

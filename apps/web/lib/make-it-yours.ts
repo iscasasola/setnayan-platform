@@ -210,12 +210,14 @@ export function moveObject(
   momentId: string,
   objectId: string,
   to: { x: number; y: number },
-  opts: { toFront?: boolean } = {},
+  opts: { toFront?: boolean; measured?: Measured } = {},
 ): Move {
   if (state.mode !== 'hand') return { ok: false, refusal: 'automatic', state };
   const moment = momentById(state, momentId);
-  const target = moment?.objects.find((o) => o.id === objectId);
-  if (!moment || !target) return { ok: false, refusal: 'no_moment', state };
+  const found = moment?.objects.find((o) => o.id === objectId);
+  if (!moment || !found) return { ok: false, refusal: 'no_moment', state };
+  // Words wrap to the room they have, so they are measured again where they landed.
+  const target: ResolvedObject = isPhoto(found) ? found : { ...found, ...measuredOf(opts.measured) };
   const at = isPhoto(target)
     ? clampPosition(to.x, to.y, target.w)
     : clampWords({ ...target, x: to.x, y: to.y });

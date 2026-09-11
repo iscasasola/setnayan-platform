@@ -772,17 +772,28 @@ html.subnav-docked [data-shell-main] {
    * `text-cream` on a colour nobody measured — which on a pale couple colour is
    * white on white. Fill and label are one decision; they move together.
    *
-   * The hover is a brightness step rather than a second colour: there is only
-   * one hex to work from, and `mulberry-600` belongs to the house palette.
+   * ⚠ THE HOVER IS A RESOLVED COLOUR, NOT `filter: brightness()`. A brightness
+   * step moves the fill in ONE direction whatever label is on it, so on a light
+   * fill wearing the ink label it walks the pair closer together — a colour
+   * resolved at exactly 4.5:1 would drop under AA the moment a thumb rests on
+   * it, in a state nobody screenshots. `lib/invite-button-color.ts` computes a
+   * hover that always moves AWAY from the label, and the sweep in its test
+   * asserts the hover reads at least as well as the resting state.
+   *
+   * ⚖ THE FOCUS RING IS DELIBERATELY LEFT ALONE. It stays the house #C24E25:
+   * a ring's job is to be visible against the page GROUND, which on a Pro theme
+   * is the couple's own photograph, and nothing here has measured the couple's
+   * colour against that. Setting `--tw-ring-color` here would also be inert —
+   * Tailwind's `focus-visible:ring-mulberry` utility is emitted in a later layer
+   * at equal specificity and wins — and a declaration that changes no pixel is
+   * worse than none.
    */
   [data-door-action] .button-primary {
     background-color: var(--door-action);
     color: var(--door-action-label);
-    --tw-ring-color: var(--door-action);
   }
   [data-door-action] .button-primary:hover {
-    background-color: var(--door-action);
-    filter: brightness(0.92);
+    background-color: var(--door-action-hover);
   }
 
   /*

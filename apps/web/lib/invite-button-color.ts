@@ -43,7 +43,7 @@
  * light.ts`'s, imported and not re-typed: two copies of a legibility formula is
  * two mechanisms that can disagree about whether somebody can read a button.
  */
-import { contrastRatio, rgbOfHex } from './story-light';
+import { contrastRatio, mix, rgbOfHex, type Rgb } from './story-light';
 
 /**
  * SETNAYAN TERRACOTTA — the House button, and the floor under every Pro one.
@@ -69,16 +69,46 @@ export type InviteButton = {
   /** White or ink, whichever reads on that fill. */
   label: string;
   /**
+   * The hover fill. ⚠ NOT a `filter: brightness()` step, and that is measured,
+   * not stylistic: brightness moves the fill in ONE direction regardless of
+   * which label sits on it, so on a light fill wearing the ink label it walks
+   * the pair CLOSER together. A colour resolved at exactly 4.5:1 would have
+   * dropped under AA the moment a thumb rested on it — a legibility failure that
+   * exists only in a state no screenshot is taken of.
+   *
+   * So the hover always moves the fill AWAY from its own label: darker under a
+   * white label, lighter under ink. Contrast is monotone in that direction, so
+   * the hover can only ever read BETTER than the resting state, which the sweep
+   * in the test asserts rather than assumes.
+   */
+  hover: string;
+  /**
    * True when the couple's colour was used. False means the floor caught it —
    * either it was not a colour, or no allowed label reached 4.5:1 on it.
    */
   couples: boolean;
 };
 
+/** How far the hover moves the fill away from its label. */
+const HOVER_STEP = 0.08;
+
+const BLACK: Rgb = [0, 0, 0];
+const PAPER: Rgb = [255, 255, 255];
+
+function hexOf(c: Rgb): string {
+  return `#${c.map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+/** Away from the label: toward black under white, toward white under ink. */
+function hoverAwayFrom(fill: Rgb, label: string): string {
+  return hexOf(mix(fill, label === WHITE ? BLACK : PAPER, HOVER_STEP));
+}
+
 /** The House button: terracotta, white label. Never the couple's colour. */
 export const HOUSE_INVITE_BUTTON: InviteButton = {
   background: INVITE_BUTTON_FALLBACK,
   label: WHITE,
+  hover: hoverAwayFrom(rgbOfHex(INVITE_BUTTON_FALLBACK)!, WHITE),
   couples: false,
 };
 
@@ -102,5 +132,6 @@ export function resolveInviteButton(raw: unknown): InviteButton {
   const best = Math.max(onWhite, onInk);
   if (best < AA) return HOUSE_INVITE_BUTTON;
 
-  return { background: hex, label: onWhite >= onInk ? WHITE : INK, couples: true };
+  const label = onWhite >= onInk ? WHITE : INK;
+  return { background: hex, label, hover: hoverAwayFrom(fill, label), couples: true };
 }

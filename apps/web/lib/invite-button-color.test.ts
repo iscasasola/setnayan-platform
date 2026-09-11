@@ -37,6 +37,14 @@ function asRendered(button: { background: string; label: string }): number {
   return contrastRatio(bg, fg);
 }
 
+/** …and the ratio under a thumb, which is a state nobody screenshots. */
+function onHover(button: { hover: string; label: string }): number {
+  const bg = rgbOfHex(button.hover);
+  const fg = rgbOfHex(button.label);
+  assert.ok(bg && fg, `a hover resolved to something that is not a colour: ${JSON.stringify(button)}`);
+  return contrastRatio(bg, fg);
+}
+
 test('the house colour is the floor, and the floor itself passes AA', () => {
   assert.equal(HOUSE_INVITE_BUTTON.background, INVITE_BUTTON_FALLBACK);
   assert.equal(INVITE_BUTTON_FALLBACK, '#C24E25', 'the Setnayan terracotta is the owner’s named fallback');
@@ -122,6 +130,19 @@ test('whatever comes back, a guest can read it — swept, not spot-checked', () 
           asRendered(out) >= 4.5,
           `${hex} resolved to ${out.background} / ${out.label}, which measures ${asRendered(out).toFixed(2)}:1`,
         );
+        /*
+          🔴 AND UNDER A THUMB. A `filter: brightness()` hover moves the fill one
+          way whatever label is on it, so on a light fill wearing the ink label it
+          walks the pair CLOSER — a colour resolved at exactly 4.5:1 would drop
+          under AA in a state no screenshot is ever taken of. The resolved hover
+          moves AWAY from the label instead, so this can only ever go up.
+        */
+        assert.ok(
+          onHover(out) >= asRendered(out),
+          `${hex}: hover (${onHover(out).toFixed(2)}:1) reads WORSE than rest ` +
+            `(${asRendered(out).toFixed(2)}:1) — the hover is moving toward the label`,
+        );
+        assert.ok(onHover(out) >= 4.5, `${hex}: the hover state falls under AA`);
         if (out.couples) couples += 1;
         else floored += 1;
       }
@@ -150,6 +171,18 @@ test('the pair travels together — DoorShell paints the fill AND the label', ()
   assert.ok(rule, 'the scoped rule that paints the invite door’s button is gone');
   assert.match(rule[1]!, /background-color:\s*var\(--door-action\)/);
   assert.match(rule[1]!, /color:\s*var\(--door-action-label\)/, 'the label is not repainted — text-cream would win');
+
+  // …and the hover is a RESOLVED colour, never a brightness step (see the sweep).
+  const hover = /\[data-door-action\] \.button-primary:hover \{([^}]*)\}/.exec(css);
+  assert.ok(hover, 'the hover rule is gone — the button would keep hover:bg-mulberry-600, the HOUSE colour');
+  assert.match(hover[1]!, /background-color:\s*var\(--door-action-hover\)/);
+  assert.doesNotMatch(
+    hover[1]!,
+    /filter:/,
+    'the hover is a brightness step again — it moves one way whatever label is on the ' +
+      'fill, so under the ink label it walks the pair closer and can drop under AA',
+  );
+  assert.match(shell, /'--door-action-hover'[^\n]*\]:\s*skin\.action\.hover/, 'the hover colour is not carried');
 });
 
 test('the couple’s colour reaches the door from the LOOK, never from a theme file', () => {

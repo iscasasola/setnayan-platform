@@ -110,7 +110,7 @@ export type DoorSkin = {
    * the label TOGETHER, because a fill whose label nobody can read is worse than
    * the house colour. Never take one half of it into a style without the other.
    */
-  action?: { background: string; label: string };
+  action?: { background: string; label: string; hover: string };
 };
 
 export type DoorShellProps = {
@@ -159,9 +159,10 @@ export function DoorShell({
   const rail = steps && steps.length > 1 ? <StepRail steps={steps} /> : null;
 
   /*
-    THE COUPLE'S BUTTON COLOUR — carried as two custom properties and read by
-    ONE rule in globals.css (`[data-door-action] .button-primary`), scoped to
-    this frame. Three reasons it is done this way and not another:
+    THE COUPLE'S BUTTON COLOUR — carried as three custom properties (fill, label,
+    hover) and read by ONE rule in globals.css (`[data-door-action]
+    .button-primary`), scoped to this frame. Three reasons it is done this way
+    and not another:
 
       · NO NEW STYLESHEET. `main` sits a hair under a locked 200 KB and a
         separate .css file is another module in the shared chunk — the same
@@ -183,6 +184,7 @@ export function DoorShell({
     ? ({
         ['--door-action' as string]: skin.action.background,
         ['--door-action-label' as string]: skin.action.label,
+        ['--door-action-hover' as string]: skin.action.hover,
       } as React.CSSProperties)
     : null;
 

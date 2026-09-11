@@ -32,15 +32,18 @@ import {
 // 1 · The rule
 // ════════════════════════════════════════════════════════════════════════════
 
+/** A card with everything the gate asks for. */
+const COMPLETE = { hasPrice: true, hasCover: true, hasInclusions: true } as const;
+
 test('a complete card publishes', () => {
-  assert.deepEqual(unmetPublishRequirements({ hasPrice: true }), []);
-  assert.equal(canPublishService({ hasPrice: true }), true);
+  assert.deepEqual(unmetPublishRequirements(COMPLETE), []);
+  assert.equal(canPublishService(COMPLETE), true);
 });
 
 test('no price is a REFUSAL, not a nudge — the rule this module reversed', () => {
-  const unmet = unmetPublishRequirements({ hasPrice: false });
+  const unmet = unmetPublishRequirements({ ...COMPLETE, hasPrice: false });
   assert.deepEqual(unmet, ['price']);
-  assert.equal(canPublishService({ hasPrice: false }), false);
+  assert.equal(canPublishService({ ...COMPLETE, hasPrice: false }), false);
 });
 
 test('a card with NO Setnayan gift publishes — owner 2026-09-09', () => {
@@ -51,8 +54,8 @@ test('a card with NO Setnayan gift publishes — owner 2026-09-09', () => {
   // from 5% to 7% of the first PHP 100,000 and made "we only charge 5% and 1%"
   // untrue. ⛔ If this ever needs to go back, that is an owner decision and a
   // rate change, not a tidy-up.
-  assert.deepEqual(unmetPublishRequirements({ hasPrice: true }), []);
-  assert.equal(canPublishService({ hasPrice: true }), true);
+  assert.deepEqual(unmetPublishRequirements(COMPLETE), []);
+  assert.equal(canPublishService(COMPLETE), true);
   assert.ok(
     !(PUBLISH_REQUIREMENTS as readonly string[]).includes('exclusive'),
     'the Setnayan gift is back to being compulsory',
@@ -94,8 +97,8 @@ test('a blank or whitespace Exclusive is not set', () => {
 
 // ⛔ THE LINE THIS FEATURE MUST NEVER CROSS.
 test('the gate cannot see how big the price is', () => {
-  const cheap = unmetPublishRequirements({ hasPrice: true });
-  const dear = unmetPublishRequirements({ hasPrice: true });
+  const cheap = unmetPublishRequirements(COMPLETE);
+  const dear = unmetPublishRequirements(COMPLETE);
   assert.deepEqual(cheap, dear);
   // The facts the gate reads are BOOLEANS by construction — there is no number
   // in `PublishFacts` for a bigger figure to climb. If a future edit puts one
@@ -206,9 +209,12 @@ test("the wizard's Publish button is shut by the gate, not by its own two fields
     join(WEB, 'app/vendor-dashboard/services/_components/service-wizard.tsx'),
     'utf8',
   );
+  // H2 (2026-09-11): the cover left the wizard's own rule and joined the shared
+  // gate beside "what's included" — so all three facts go IN, and nothing is
+  // AND-ed on outside it.
   assert.match(
     src,
-    /const unmetToPublish = unmetPublishRequirements\(\{ hasPrice \}\);/,
+    /const unmetToPublish = unmetPublishRequirements\(\{\s*hasPrice,\s*hasCover: hasPhoto,\s*hasInclusions,\s*\}\);/,
     'the wizard stopped deriving what is missing from the shared gate',
   );
   // ⚖ `hasExclusive` left this call on 2026-09-09 with the requirement itself.
@@ -220,7 +226,7 @@ test("the wizard's Publish button is shut by the gate, not by its own two fields
   );
   assert.match(
     src,
-    /const canPublish = hasPhoto && unmetToPublish\.length === 0;/,
+    /const canPublish = unmetToPublish\.length === 0;/,
     'the wizard\'s Publish button no longer waits for the gate',
   );
 });
@@ -249,10 +255,22 @@ test('the first pass asks for every requirement the gate holds', () => {
     join(WEB, 'app/vendor-dashboard/services/_components/canvas-maker.tsx'),
     'utf8',
   );
+  // H2 (2026-09-11): "what's included" joined the gate, so the pass asks it
+  // (the 'custom' sheet) between the price and the optional gift.
   assert.match(
     src,
-    /steps\.push\('media', 'price', 'excl'\)/,
-    'the first pass no longer asks for a price',
+    /steps\.push\('media', 'price', 'custom', 'excl'\)/,
+    'the first pass no longer asks for a price, or for what is included',
+  );
+  assert.match(
+    src,
+    /passStep === 'custom'\s*\?\s*inclusionsAreSet\(snap\.inclusionLabels\)/,
+    'the what’s-included step lets Continue through with nothing included',
+  );
+  assert.match(
+    src,
+    /footer=\{passStep === 'custom' \? passFooter : null\}/,
+    'the what’s-included step has no Continue button — the pass strands the supplier there',
   );
   assert.match(
     src,

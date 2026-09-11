@@ -33,22 +33,31 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
 let vendorProfileId: string;
 
-/** Call the atomic writer the way `commitVendorService` does. */
+/**
+ * Call the atomic writer the way `commitVendorService` does.
+ *
+ * A PUBLISHING save carries a cover and one "what's included" line — since H2
+ * (20271222415682) a card cannot go live without them, and these tests are
+ * about the gift, not about that gate (which has its own file).
+ */
 async function save(
   serviceId: string | null,
   fields: Record<string, unknown>,
   publish: boolean,
 ): Promise<string> {
+  const payload = publish ? { primary_photo_r2_key: FIXTURE_COVER, ...fields } : fields;
+  const inclusions = publish ? [{ label: FIXTURE_INCLUSION, worth_php: 0 }] : [];
   const r = await db.query<{ save_vendor_service: string }>(
     `SELECT public.save_vendor_service(
        $1::uuid, $2::uuid, $3::jsonb,
-       '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $4::boolean)`,
-    [vendorProfileId, serviceId, JSON.stringify(fields), publish],
+       '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $5::jsonb, $4::boolean)`,
+    [vendorProfileId, serviceId, JSON.stringify(payload), publish, JSON.stringify(inclusions)],
   );
   return r.rows[0]!.save_vendor_service;
 }

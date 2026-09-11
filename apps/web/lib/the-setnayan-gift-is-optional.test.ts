@@ -81,10 +81,14 @@ test('1 · the TypeScript gate no longer requires a gift', () => {
     !(PUBLISH_REQUIREMENTS as readonly string[]).includes('exclusive'),
     'the gift is back in PUBLISH_REQUIREMENTS — that is a RATE change (5% → 7%), not a tidy-up',
   );
-  assert.deepEqual([...PUBLISH_REQUIREMENTS], ['price']);
-  assert.equal(canPublishService({ hasPrice: true }), true, 'a priced card with no gift cannot publish');
-  assert.equal(canPublishService({ hasPrice: false }), false, 'the price stopped being required');
-  assert.deepEqual(unmetPublishRequirements({ hasPrice: false }), ['price']);
+  // H2 (2026-09-11) added the cover and "what's included" — the owner's own
+  // "the cover-photo · title · inclusions requirements stay". The gift is still
+  // not among them, which is what this test is for.
+  assert.deepEqual([...PUBLISH_REQUIREMENTS], ['cover', 'price', 'inclusions']);
+  const complete = { hasPrice: true, hasCover: true, hasInclusions: true };
+  assert.equal(canPublishService(complete), true, 'a complete card with no gift cannot publish');
+  assert.equal(canPublishService({ ...complete, hasPrice: false }), false, 'the price stopped being required');
+  assert.deepEqual(unmetPublishRequirements({ ...complete, hasPrice: false }), ['price']);
 });
 
 test('1b · every surviving requirement still has both of its sentences', () => {

@@ -34,15 +34,26 @@
  * The requirement list and its copy come from `lib/service-publish-gate` —
  * the same module the wizard and the server action use, so this button cannot
  * disagree with the trigger about what is missing or what to call it.
+ *
+ * ⚖ H2 (2026-09-11) — THE COVER AND "WHAT'S INCLUDED" ARE FLAGS HERE, NOT
+ * BLOCKS. They became publish requirements after cards were already live, and
+ * a card already live is judged only on its price (`unmetForALiveCard`) — the
+ * trigger and `save_vendor_service` draw the same line. So this button stays
+ * enabled for a live card missing either, and says so above it
+ * (`liveCardHealthFlags`): the card is never taken down and never locked, and
+ * its shop is told what a couple is not seeing.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import {
   PUBLISH_COACH_MESSAGE,
+  coverIsSet,
+  inclusionsAreSet,
   priceIsSet,
-  unmetPublishRequirements,
+  unmetForALiveCard,
   type PublishRequirement,
 } from '@/lib/service-publish-gate';
+import { liveCardHealthFlags, type CardHealthFinding } from '@/lib/card-health';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export function PublishGateSubmit({
@@ -57,6 +68,7 @@ export function PublishGateSubmit({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [unmet, setUnmet] = useState<PublishRequirement[]>([]);
+  const [flags, setFlags] = useState<CardHealthFinding[]>([]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -68,16 +80,25 @@ export function PublishGateSubmit({
       // `priceIsSet` takes a number; an empty box and a non-numeric box are both
       // "no price". NaN must not read as a set price.
       const n = price === undefined || price.trim() === '' ? null : Number(price);
-      setUnmet(
-        unmetPublishRequirements({
-          hasPrice: priceIsSet(Number.isFinite(n as number) ? (n as number) : null),
-        }),
-      );
+      const data = new FormData(form);
+      const facts = {
+        hasPrice: priceIsSet(Number.isFinite(n as number) ? (n as number) : null),
+        hasCover: coverIsSet(String(data.get('primary_photo_r2_key') ?? '')),
+        hasInclusions: inclusionsAreSet(data.getAll('inclusion_label').map((v) => String(v))),
+      };
+      setUnmet(unmetForALiveCard(facts));
+      setFlags(liveCardHealthFlags(facts));
     };
 
     read();
     form.addEventListener('input', read);
-    return () => form.removeEventListener('input', read);
+    // A photo upload or an added inclusion row changes the form without an
+    // `input` event on a text box — `change` catches the hidden fields.
+    form.addEventListener('change', read);
+    return () => {
+      form.removeEventListener('input', read);
+      form.removeEventListener('change', read);
+    };
   }, [isActive]);
 
   const blocked = isActive && unmet.length > 0;
@@ -92,6 +113,18 @@ export function PublishGateSubmit({
         >
           {unmet.map((r) => PUBLISH_COACH_MESSAGE[r]).join(' ')}
         </p>
+      ) : null}
+      {isActive && flags.length > 0 ? (
+        <ul
+          data-testid="live-card-flags"
+          className="space-y-0.5 text-right text-xs"
+          style={{ color: 'var(--m-slate-2)' }}
+          role="status"
+        >
+          {flags.map((f) => (
+            <li key={f.code}>{f.message}</li>
+          ))}
+        </ul>
       ) : null}
       <SubmitButton className={className} pendingLabel="Saving…" disabled={blocked}>
         {children}

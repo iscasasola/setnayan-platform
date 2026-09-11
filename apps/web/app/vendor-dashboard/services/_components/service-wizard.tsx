@@ -18,7 +18,11 @@ import { commitVendorService } from '../actions';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { serviceWizardSteps } from '@/lib/service-customization-draft';
 import { cardPriceLine } from '@/lib/canvas-form-snapshot';
-import { PUBLISH_COACH_MESSAGE, unmetPublishRequirements } from '@/lib/service-publish-gate';
+import {
+  PUBLISH_COACH_MESSAGE,
+  inclusionsAreSet,
+  unmetPublishRequirements,
+} from '@/lib/service-publish-gate';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
@@ -70,6 +74,8 @@ export function ServiceWizard({
   const [photoKey, setPhotoKey] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const [hasPrice, setHasPrice] = useState(false);
+  /** At least one named "what's included" line (read off the live form). */
+  const [hasInclusions, setHasInclusions] = useState(false);
 
   /**
    * Does this card carry a price yet?
@@ -91,7 +97,9 @@ export function ServiceWizard({
     if (!form) return;
     const read = () => {
       try {
-        setHasPrice(cardPriceLine(new FormData(form)).hasPrice);
+        const data = new FormData(form);
+        setHasPrice(cardPriceLine(data).hasPrice);
+        setHasInclusions(inclusionsAreSet(data.getAll('inclusion_label').map((v) => String(v))));
       } catch {
         /* a mid-render read never breaks the form */
       }
@@ -131,14 +139,18 @@ export function ServiceWizard({
   const hasPhoto = photoKey.trim().length > 0;
   /**
    * What is still missing before this card may face a couple, asked of
-   * `lib/service-publish-gate.ts` — the one function the two server actions and
-   * the `enforce_service_publish_gate` trigger also ask. The cover photo is the
-   * WIZARD'S OWN extra requirement and is deliberately not in that shared rule:
-   * the server has never asked for one, and quietly moving it into the shared
-   * gate would make it a new server rule dressed up as a refactor.
+   * `lib/service-publish-gate.ts` — the one function the two server actions,
+   * `save_vendor_service` and the `enforce_service_publish_gate` trigger also
+   * ask. The cover photo USED TO BE this wizard's own extra rule; since
+   * 2026-09-11 (H2) it is in the shared gate beside "what's included", so the
+   * wizard asks the same question the save does and nothing more.
    */
-  const unmetToPublish = unmetPublishRequirements({ hasPrice });
-  const canPublish = hasPhoto && unmetToPublish.length === 0;
+  const unmetToPublish = unmetPublishRequirements({
+    hasPrice,
+    hasCover: hasPhoto,
+    hasInclusions,
+  });
+  const canPublish = unmetToPublish.length === 0;
 
   const show = (id: string) => (activeId === id ? {} : { hidden: true });
 
@@ -399,7 +411,6 @@ export function ServiceWizard({
             escape, and it is never refused. */}
         {!canPublish ? (
           <div className="space-y-1 rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
-            {!hasPhoto ? <p>Add a cover photo (step 1) to publish.</p> : null}
             {unmetToPublish.map((requirement) => (
               <p key={requirement}>{PUBLISH_COACH_MESSAGE[requirement]}</p>
             ))}

@@ -27,6 +27,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -81,10 +82,15 @@ async function liveCard(
   title: string | null,
 ): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO vendor_services
-       (vendor_profile_id, category, title, starting_price_php, exclusive_perk_text, is_active)
-     VALUES ($1, $2, $3, 35000, $4, TRUE)
-     RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, title, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, $2, $3, 35000, $4, TRUE, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [shop, category, title, PERK],
   );
   const id = r.rows[0]?.vendor_service_id;
@@ -146,14 +152,23 @@ test('once that shop replies, its next nameless card carries the name', async ()
   );
 });
 
-test('a kind with no taxonomy row is HUMANISED, never printed as a key', async () => {
+test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2)', async () => {
   // `host_mc` is one of the two live production kinds and it has NO row in
-  // `canonical_service_schemas` (measured 2026-09-10), so this is the real case,
-  // not a contrived one.
+  // `canonical_service_schemas` (measured 2026-09-10) — so until H2 it fell to
+  // the humanised key and a blank host card read "Host Mc by …". The taxonomy
+  // tree already said "Host / MC" (`service_categories.label_en`, the label the
+  // app's own tiles use), and the name now reads it (migration 20271222415682).
   const id = await liveCard(SHOP_OPEN, 'host_mc', null);
   const title = await titleOf(id);
-  assert.equal(title, 'Host Mc by Saysay Live Band');
+  assert.equal(title, 'Host / MC by Saysay Live Band');
   assert.ok(!(title ?? '').includes('host_mc'), 'a raw database key reached a card title');
+});
+
+test('a kind with no taxonomy row at all is HUMANISED, never printed as a key', async () => {
+  const id = await liveCard(SHOP_OPEN, 'a_kind_nobody_mapped', null);
+  const title = await titleOf(id);
+  assert.equal(title, 'A Kind Nobody Mapped by Saysay Live Band');
+  assert.ok(!(title ?? '').includes('a_kind_nobody_mapped'), 'a raw database key reached a card title');
 });
 
 test('the name is clamped to the 80 every other writer uses', async () => {
@@ -185,9 +200,15 @@ test('⛔ the publish gate still refuses an unpriced card — naming disarmed no
   let refusal: string | null = null;
   try {
     await db.query(
-      `INSERT INTO vendor_services
-         (vendor_profile_id, category, title, starting_price_php, exclusive_perk_text, is_active)
-       VALUES ($1, 'live_band', NULL, NULL, $2, TRUE)`,
+      `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, title, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, 'live_band', NULL, NULL, $2, TRUE, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
       [SHOP_OPEN, PERK],
     );
   } catch (e) {

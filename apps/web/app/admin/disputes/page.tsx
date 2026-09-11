@@ -25,6 +25,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { DepositDisputesSection } from './_components/deposit-disputes-section';
+import { PaymentDisputesSection } from './_components/payment-disputes-section';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -361,7 +362,9 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
         />
       </div>
 
-      {/* The money question only Setnayan can answer (owner 2026-08-28). */}
+      {/* The money questions only Setnayan can answer — every payment through
+          one path (owner 2026-08-28; installments H4, 2026-09-11). */}
+      <PaymentDisputesSection />
       <DepositDisputesSection />
     </div>
   );

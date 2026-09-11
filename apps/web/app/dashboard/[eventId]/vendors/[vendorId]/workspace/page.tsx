@@ -206,6 +206,7 @@ import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 // same actions + review-state logic the standalone /review page uses.
 import { reviewState, type ReviewState } from '@/lib/completion-handshake';
 import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
+import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -358,7 +359,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const depositRefusal = await (async () => {
     const { data, error } = await supabase
       .from('event_vendors')
-      .select('deposit_declined_at, deposit_decline_reason, deposit_dispute_note')
+      // The deposit's refusal columns, from the one list every reader uses
+      // (lib/payment-refusal) — this card reads three of them.
+      .select(DEPOSIT_DISPUTE_COLUMNS)
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();

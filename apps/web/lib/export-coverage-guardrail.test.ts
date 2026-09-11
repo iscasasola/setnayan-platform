@@ -284,6 +284,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // couple's whole booking into that staffer's personal export.
   event_vendors:
     'Booking row shared by a couple and a vendor. Its two *_user_id columns are actor stamps (who asked, who answered), not subject data — exporting by them would hand one party the other party’s commercial record.',
+  // Became "user-identifying" on 2026-09-11 when H4 added
+  // payment_refused_by_user_id / payment_dispute_settled_by_user_id — actor
+  // stamps (who said it never arrived, which admin settled it), the same test
+  // event_vendors' lock stamps pass above.
+  event_vendor_payments:
+    'The couple’s record of paying a supplier. Its two *_user_id columns are actor stamps (the supplier-side account that refused a payment, the admin who settled it), not subject data — exporting by them would hand a supplier’s staffer a couple’s payment ledger. The couple’s own rows are event-tier data (header note 3, the unenforced tier) and are NOT in the export today; that gap predates these columns and they do not widen it.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',

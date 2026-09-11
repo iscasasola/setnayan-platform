@@ -349,14 +349,21 @@ export type StepperInstallment = PlanInstance & { state: InstallmentState };
 export type PaymentSeqState = {
   schedule_instance_seq: number | null;
   vendor_confirmed: boolean;
+  /**
+   * H4 — the supplier said this payment never reached them. A refused payment
+   * does not make its installment 'pending': the supplier is not "awaiting" it,
+   * they have answered it. The installment reads 'due' until Setnayan rules —
+   * `payment_stands` confirms the row, which makes it 'paid'. Absent = false.
+   */
+  refused?: boolean;
 };
 
 /**
  * Fold a plan + its payments into per-installment states.
  *
  * For each plan installment (by seq): 'paid' if ANY payment with that seq is
- * vendor-confirmed, else 'pending' if ANY payment with that seq is logged
- * (unconfirmed), else 'due'. Pure + total.
+ * vendor-confirmed, else 'pending' if ANY payment with that seq is logged,
+ * unconfirmed and NOT refused (H4), else 'due'. Pure + total.
  */
 export function computeStepper(
   instances: PlanInstance[],
@@ -366,8 +373,9 @@ export function computeStepper(
   const loggedSeqs = new Set<number>();
   for (const p of payments) {
     if (p.schedule_instance_seq == null) continue;
-    loggedSeqs.add(p.schedule_instance_seq);
     if (p.vendor_confirmed) confirmedSeqs.add(p.schedule_instance_seq);
+    else if (p.refused) continue;
+    loggedSeqs.add(p.schedule_instance_seq);
   }
   return [...instances]
     .sort((a, b) => a.seq - b.seq)

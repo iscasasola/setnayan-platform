@@ -49,6 +49,7 @@ import {
   fetchPlanProgressForVendor,
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
+import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import {
   PROPOSAL_STATUS_LABEL,
@@ -738,6 +739,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     if (planStepRows?.steps) planSteps = computePlanRollup(planStepRows.steps);
     pendingPayments = pending;
   }
+  // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
+  // Setnayan's to referee, so no "awaiting your confirmation" count includes it;
+  // the live payment section still shows it, with where it stands.
+  const awaitingPayments = pendingPayments.filter(awaitsTheSupplier);
 
   // Change-Order Trail — depends on the event_vendor id resolved above.
   const { data: changeOrderRows, error: changeOrderRowsError } = eventVendorId
@@ -1052,7 +1057,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: `pay-${pp.paymentId}`,
       kind: 'payment',
       title: 'Payment logged by the couple',
-      detail: `${fmtPeso(pp.amountPhp)}${pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · awaiting your confirmation`,
+      detail: `${fmtPeso(pp.amountPhp)}${pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · ${
+        awaitsTheSupplier(pp) ? 'awaiting your confirmation' : 'you said it never arrived · Setnayan is checking'
+      }`,
       at: pp.paidAt,
       sortAt: Date.parse(pp.paidAt),
     });
@@ -1348,7 +1355,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       isBooked={isBooked}
       planRollup={planSteps}
       planStepRows={planStepRows}
-      pendingPayments={pendingPayments}
+      // Only what still waits on the supplier — a refused payment is Setnayan's.
+      pendingPayments={awaitingPayments}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1778,8 +1786,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (inquiryStatus === 'pending') {
     vRailTitle = 'Respond to the inquiry';
     vRailBody = `${eventName} reached out. Accept to open the chat, or decline if you’re not available.`;
-  } else if (pendingPayments.length > 0) {
-    const n = pendingPayments.length;
+  } else if (awaitingPayments.length > 0) {
+    const n = awaitingPayments.length;
     vRailTitle = `Confirm ${n} payment${n === 1 ? '' : 's'}`;
     vRailBody = `${eventName} logged ${n === 1 ? 'a payment' : 'payments'} — confirm receipt to keep the plan on track.`;
   } else if (isDelivered) {
@@ -1816,9 +1824,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
         <h3 className="mt-2 text-sm font-semibold text-ink">{vRailTitle}</h3>
         <p className="mt-1 text-xs leading-relaxed text-ink/60">{vRailBody}</p>
-        {pendingPayments.length > 0 ? (
+        {awaitingPayments.length > 0 ? (
           <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
-            {pendingPayments.length} awaiting confirmation
+            {awaitingPayments.length} awaiting confirmation
           </p>
         ) : null}
       </ShopCard>

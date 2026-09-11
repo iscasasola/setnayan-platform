@@ -6,6 +6,13 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import type { GuestCountFact, PaymentFact } from '@/lib/thread-decisions';
+import {
+  DEPOSIT_DISPUTE_COLUMNS,
+  LEDGER_DISPUTE_COLUMNS,
+  readPaymentDispute,
+  type DepositDisputeRow,
+  type LedgerDisputeRow,
+} from '@/lib/payment-refusal';
 import type { PaxSurchargeProposal } from '@/lib/pax';
 
 /**
@@ -31,7 +38,7 @@ import type { PaxSurchargeProposal } from '@/lib/pax';
  * filter, and lets the `now` line say which state each row is in.
  */
 
-type PaymentRow = {
+type PaymentRow = LedgerDisputeRow & {
   payment_id: string;
   vendor_id: string;
   amount_php: number;
@@ -66,7 +73,9 @@ export async function fetchThreadPayments(opts: {
     // The change lines ride in the same query: "₱50,000 of ₱X" is a part of the
     // agreed total NOW (owner 2026-09-11, "Show the total now"), not of the
     // price the lock wrote. A refused embed lands in the `bookingErr` branch.
-    .select(`vendor_id, total_cost_php, ${CHANGE_LINES_EMBED}`)
+    // …and the deposit's refusal, which lives on the booking, not on the
+    // deposit's ledger row (lib/payment-refusal).
+    .select(`vendor_id, total_cost_php, ${DEPOSIT_DISPUTE_COLUMNS}, ${CHANGE_LINES_EMBED}`)
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
 
@@ -75,11 +84,14 @@ export async function fetchThreadPayments(opts: {
     return [];
   }
 
-  const rows = (bookings ?? []) as Array<{
-    vendor_id: string;
-    total_cost_php: number | null;
-    change_lines?: ChangeLineRow[] | null;
-  }>;
+  const rows = (bookings ?? []) as Array<
+    DepositDisputeRow & {
+      vendor_id: string;
+      total_cost_php: number | null;
+      change_lines?: ChangeLineRow[] | null;
+    }
+  >;
+  const bookingById = new Map(rows.map((b) => [b.vendor_id, b]));
   const ids = rows.map((b) => b.vendor_id).filter(Boolean);
   if (ids.length === 0) return [];
 
@@ -91,7 +103,9 @@ export async function fetchThreadPayments(opts: {
 
   const { data, error } = await adminClient
     .from('event_vendor_payments')
-    .select('payment_id, vendor_id, amount_php, paid_at, method, notes, vendor_confirmed_at')
+    .select(
+      `payment_id, vendor_id, amount_php, paid_at, method, notes, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
+    )
     .in('vendor_id', ids);
 
   if (error) {
@@ -115,6 +129,7 @@ export async function fetchThreadPayments(opts: {
         label: p.notes,
         confirmedAtMs: Number.isFinite(confirmed) ? confirmed : null,
         ofTotalPhp: totalByBooking.get(p.vendor_id) ?? null,
+        dispute: readPaymentDispute(p, bookingById.get(p.vendor_id)),
       };
     })
     .filter((x): x is PaymentFact => x != null);

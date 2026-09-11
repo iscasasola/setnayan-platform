@@ -38,6 +38,7 @@ import {
 } from '@/lib/front-door-composition';
 
 import { type FrontDoorData } from './data';
+import { shopInitials } from '@/lib/shop-initials';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -61,16 +62,12 @@ function cardBlurb(s: { excerpt: string | null; kindLabel: string; kind: 'chapte
     : `A ${s.kindLabel.toLowerCase()} story`;
 }
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
+ * used for the editorial/chapter card's `s.ownerName` above — that call
+ * shared the identical bug (a stray symbol/bracket taking the literal first
+ * character), so it is fixed by the same change. */
 function initialsOf(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .filter(Boolean)
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'SN'
-  );
+  return shopInitials(name, 2, 'SN');
 }
 
 /**

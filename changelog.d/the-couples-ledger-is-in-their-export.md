@@ -36,5 +36,11 @@ was never true: the route read neither table. The orchestrator ruled the ledger 
   why, and row shaping) and has its own unit test.
 - The deposit-refusal history (#5453) stays excluded as Setnayan's referee
   record.
+- `lib/host-means-host.test.ts`: the export's `event_memberships` read (which
+  reports `member_type` to the subject as data and gates nothing) passed that
+  sweep only by accident, because a neighbouring read that compared
+  `member_type` sat inside the scan window. Resolving the couple's events once
+  moved that neighbour and exposed it. The read is now a named, reasoned
+  exemption (file plus exact select), and a stale exemption fails the build.
 
 SPEC IMPACT: None.

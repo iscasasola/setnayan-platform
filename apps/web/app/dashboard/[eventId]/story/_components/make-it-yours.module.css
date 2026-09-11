@@ -7,7 +7,10 @@
   round handle, naming, sets and moment reorder. Stickers are off (owner, for now).
 */
 
-.root {
+/* The tokens are shared with `.layer` — the hint's own box in <body> (see make-it-yours.tsx,
+   `hintRef`), which inherits nothing from this editor once it is portalled out of it. */
+.root,
+.layer {
   --paper: rgb(var(--color-cream));
   --sunk: #f7f4ef;
   --line: #e7e1d8;
@@ -26,6 +29,13 @@
   --f-d: var(--font-pahina-display), Georgia, serif;
   --f-u: var(--font-sans), system-ui, sans-serif;
   --f-m: var(--font-mono), ui-monospace, monospace;
+}
+.layer *,
+.layer *::before,
+.layer *::after {
+  box-sizing: border-box;
+}
+.root {
   /* The two-column switch is asked of THIS editor's width, not the window's: the Story Maker's
      own rail already takes 240px of a laptop screen, so a window media query would put the
      moments beside a page with no room left to draw it. */

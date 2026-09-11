@@ -51,6 +51,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactElement,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   MOMENT_NAME_MAX,
@@ -243,6 +244,18 @@ export function MakeItYours({
   conflictRef.current = conflict;
 
   const rootRef = useRef<HTMLElement>(null);
+  /*
+    🔴 THE HINT IS PORTALLED TO <body>, AND ON THE LIVE PAGE IT HAS TO BE. Step 8 drove the real
+    Story Maker at 1280×860 and a refused tap's "why" was drawn at y≈924 — below the screen. The
+    hint is `position: fixed`, and fixed is relative to the nearest ancestor that is a containing
+    block: this editor's own root (`container-type: inline-size`, which the sheet's `cqw` units
+    need) and the dashboard's `.sn-page-enter` wrapper (an identity `transform` its entrance
+    animation leaves behind) both are. The stand-in page of steps 4 and 6 had neither, so it
+    passed there. Same fix as canvas-maker.tsx's sheet, for the same reason.
+  */
+  const hintRef = useRef<HTMLDivElement>(null);
+  const [hintHost, setHintHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHintHost(document.body), []);
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const filmsRef = useRef<HTMLDivElement>(null);
@@ -1355,7 +1368,8 @@ export function MakeItYours({
       if (a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) {
         return;
       }
-      const inside = !!a && root.contains(a);
+      // The hint lives in <body> (see hintRef) — its Undo still counts as inside the editor.
+      const inside = !!a && (root.contains(a) || !!hintRef.current?.contains(a));
       const onBody = !a || a === document.body;
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         if ((inside || onBody) && undoRef.current) {
@@ -2016,22 +2030,30 @@ export function MakeItYours({
         </div>
       </div>
 
-      <div
-        className={cx(s.hint, toast.on && s.on, toast.live && s.act)}
-        role="status"
-        aria-live="polite"
-      >
-        {toast.on ? (
-          <span key={toast.n}>
-            {toast.msg}
-            {toast.live ? (
-              <button type="button" className={s.undo} onClick={doUndo}>
-                Undo
-              </button>
-            ) : null}
-          </span>
-        ) : null}
-      </div>
+      {hintHost
+        ? createPortal(
+            <div className={s.layer}>
+              <div
+                ref={hintRef}
+                className={cx(s.hint, toast.on && s.on, toast.live && s.act)}
+                role="status"
+                aria-live="polite"
+              >
+                {toast.on ? (
+                  <span key={toast.n}>
+                    {toast.msg}
+                    {toast.live ? (
+                      <button type="button" className={s.undo} onClick={doUndo}>
+                        Undo
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
+              </div>
+            </div>,
+            hintHost,
+          )
+        : null}
     </section>
   );
 }

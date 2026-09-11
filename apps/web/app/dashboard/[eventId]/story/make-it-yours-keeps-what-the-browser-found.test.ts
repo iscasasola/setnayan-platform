@@ -158,6 +158,16 @@ const RULES: Array<{ rule: string; holds: boolean }> = [
     holds: /\.x\s*\{[^}]*min-height:\s*0;/.test(css),
   },
   {
+    // Found by step 8's LIVE drive at 1280×860: a refused tap's "why" was drawn below the screen,
+    // because the editor's root (container-type) and the dashboard's `.sn-page-enter` (an identity
+    // transform) each turn `position: fixed` into a box inside the page. The stand-in page had
+    // neither. The hint is portalled to <body>, in a layer that carries the editor's tokens.
+    rule: 'the hint is drawn on the screen, not inside the page (portalled to <body>)',
+    holds:
+      /createPortal\(\s*<div className=\{s\.layer\}>\s*<div\s+ref=\{hintRef\}\s+className=\{cx\(s\.hint,/.test(tsx) &&
+      /\.root,\s*\.layer\s*\{\s*--paper:/.test(css),
+  },
+  {
     // ⛔ Owner 2026-09-10: no stickers, for now.
     rule: 'no stickers',
     holds: !/sticker/i.test(tsx),

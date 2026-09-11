@@ -520,7 +520,7 @@ export function ProposalMaker({
             <input
               type="number"
               min={1}
-              step={10}
+              step={1}
               value={pax}
               onChange={(e) => setPax(Number(e.target.value) || 0)}
               className={`${numField} w-16 text-center`}

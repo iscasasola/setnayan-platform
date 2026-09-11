@@ -352,3 +352,139 @@ export async function settleDepositDispute(formData: FormData) {
   if (eventId) revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`);
   redirect('/admin/disputes?settled=ok');
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   H4 · SETTLING AN INSTALLMENT — "one path for every payment" (owner
+   2026-09-11). The downpayment's settlement above, mirrored onto the ledger row:
+   same two outcomes, same "say why, both parties see it", same audit trail,
+   same session rule. A DEPOSIT never reaches this action — its refusal lives on
+   the booking, and the function answers 'no_dispute' for its ledger row.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+const PAYMENT_OUTCOME_LABEL: Record<DepositOutcome, string> = {
+  payment_stands: 'Setnayan confirmed the payment reached the supplier',
+  not_received: 'Setnayan confirmed the payment did not arrive',
+};
+
+export async function settlePaymentDispute(formData: FormData) {
+  const { userId: adminUserId } = await requireAdmin();
+  const paymentId = String(formData.get('payment_id') ?? '');
+  const outcomeRaw = String(formData.get('outcome') ?? '');
+  const note = String(formData.get('note') ?? '').trim();
+
+  if (!paymentId) throw new Error('Invalid input');
+  if (!(DEPOSIT_OUTCOMES as readonly string[]).includes(outcomeRaw)) {
+    throw new Error('Pick an outcome');
+  }
+  const outcome = outcomeRaw as DepositOutcome;
+  if (!note) throw new Error('Say what you confirmed — both parties are shown this note.');
+
+  const admin = createAdminClient();
+
+  // Read BEFORE settling: `payment_stands` clears the supplier's words off the
+  // row, and the audit row is where they survive verbatim.
+  const { data: pay } = await admin
+    .from('event_vendor_payments')
+    .select('payment_id, event_id, vendor_id, amount_php, payment_refused_at, payment_refusal_reason')
+    .eq('payment_id', paymentId)
+    .maybeSingle();
+  if (!pay) throw new Error('Payment not found');
+
+  // 🔑 The admin's OWN session: the function gates on is_admin(), which reads
+  // auth.uid() — the service-role client carries no user and would be refused
+  // on every call (lib/admin-gated-rpc-needs-a-session.test.ts).
+  const sessionDb = await createClient();
+  const { data, error } = await sessionDb.rpc('settle_vendor_payment_dispute', {
+    p_payment_id: paymentId,
+    p_outcome: outcome,
+    p_note: note,
+  });
+  if (error) throw new Error(error.message);
+
+  const env = (data ?? {}) as { status?: string; claim?: string | null };
+  if (env.status !== 'ok') {
+    revalidatePath('/admin/disputes');
+    redirect(`/admin/disputes?settled=${env.status ?? 'unknown'}`);
+  }
+
+  try {
+    await admin.from('admin_audit_log').insert({
+      action: 'payment_dispute_settled',
+      target_table: 'event_vendor_payments',
+      target_id: paymentId,
+      before_json: {
+        payment_refused_at: pay.payment_refused_at,
+        supplier_claim: env.claim ?? pay.payment_refusal_reason,
+        amount_php: pay.amount_php,
+      },
+      after_json: { payment_dispute_outcome: outcome },
+      reason: note,
+      actor_user_id: adminUserId,
+    });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[admin/disputes] payment settlement audit insert failed (non-fatal):', e);
+  }
+
+  const eventId = pay.event_id as string | null;
+  const eventVendorId = pay.vendor_id as string;
+  const amount = `₱${Number(pay.amount_php ?? 0).toLocaleString('en-PH')}`;
+  const title =
+    outcome === 'payment_stands'
+      ? `Setnayan settled the ${amount} payment question`
+      : `Setnayan could not confirm the ${amount} payment`;
+  const body = `${PAYMENT_OUTCOME_LABEL[outcome]}. Note from the Setnayan team: ${note}`;
+
+  try {
+    const { data: booking } = await admin
+      .from('event_vendors')
+      .select('vendor_name, marketplace_vendor_id')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const supplierName = (booking?.vendor_name as string | null) ?? 'your supplier';
+    if (eventId) {
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id as string,
+          type: 'dispute_resolved',
+          title,
+          body:
+            outcome === 'not_received'
+              ? `${body} Your record of it is still on file — send it to ${supplierName} again.`
+              : body,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    }
+    if (booking?.marketplace_vendor_id) {
+      const { data: shop } = await admin
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', booking.marketplace_vendor_id as string)
+        .maybeSingle();
+      if (shop?.user_id) {
+        await emitNotification({
+          userId: shop.user_id as string,
+          type: 'dispute_resolved',
+          title,
+          body,
+          relatedUrl: eventId ? `/vendor-dashboard/clients/${eventId}` : null,
+        });
+      }
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[admin/disputes] payment settlement notify failed (non-fatal):', e);
+  }
+
+  revalidatePath('/admin/disputes');
+  revalidatePath('/admin/work');
+  if (eventId) revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`);
+  redirect('/admin/disputes?settled=ok');
+}

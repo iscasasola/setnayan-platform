@@ -93,7 +93,12 @@ async function candidates(): Promise<Candidate[]> {
  * Columns written by a database function — the guest-side write path.
  *
  * Matched on an assignment (`col = ...`, as in an UPDATE ... SET or a PL/pgSQL
- * body) or on the column appearing inside an `INSERT INTO <that table>`. The
+ * body; `NEW.col := ...`, PL/pgSQL's own assignment, as a BEFORE trigger writes
+ * — the detector was blind to that spelling until H4's deposit-record stamp,
+ * 2026-09-11) or on the column appearing inside an `INSERT INTO <that table>`.
+ * ⚠ `(?:[^=]|$)`, not `[^=]`: under `(?n)` a bracket never matches a newline,
+ * so an assignment that ENDS its line (`col :=` / `col =`, value on the next)
+ * was invisible whichever operator it used. The
  * `^[^-]*` guard keeps a `--` comment line from being read as an assignment,
  * the same way lib/gate-writers.ts strips comments before looking: a guard in
  * this repo has been satisfied by prose about the column four separate times.
@@ -117,7 +122,7 @@ async function writtenBySqlFunction(): Promise<Set<string>> {
       FROM cand
      WHERE EXISTS (
        SELECT 1 FROM fn
-        WHERE fn.prosrc ~ ('(?n)^[^-]*\\m' || cand.col || '\\M\\s*=[^=]')
+        WHERE fn.prosrc ~ ('(?n)^[^-]*\\m' || cand.col || '\\M\\s*:?=(?:[^=]|$)')
            OR fn.prosrc ~* ('insert\\s+into\\s+(public\\.)?' || cand.tbl || '\\M[^;]*\\m' || cand.col || '\\M')
      )
   `);

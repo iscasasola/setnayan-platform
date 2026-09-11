@@ -61,9 +61,14 @@ const PAY = read('app/vendor-dashboard/messages/[threadId]/pay-confirm-actions.t
 const PAX = read('app/vendor-dashboard/messages/[threadId]/pax-actions.ts');
 /** The shared new-time form — posted from Decisions AND the chat card. */
 const NEW_TIME = read('app/_components/propose-new-time-form.tsx');
+/** The shared "never reached me" form — Decisions AND the payment section (H4). */
+const NOT_RECEIVED = read('app/_components/not-received-form.tsx');
+const PAY_LIVE = read('app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx');
 
 type Case = {
   reply: string;
+  /** The test's name, when one reply has more than one action behind it. */
+  name?: string;
   /**
    * The source of the reply's form(s). Defaults to the `case` branch; a reply
    * that grew its own component names it, plus any shared form it renders.
@@ -90,9 +95,37 @@ const CASES: Case[] = [
     actionBody: slice(NEG, 'export async function respondAmendmentFromChat('),
     optional: { reason: 'an optional note on decline; the chat card does not ask for one either' },
   },
+  // H4 · a payment has TWO answers, each its own action. The confirm form
+  // lives in the component; the "never reached me" fields live in the shared
+  // form, so each action is checked against exactly the form that posts to it.
   {
     reply: "case 'payment':",
+    name: 'payment · confirm received',
+    formSource: slice(VIEW, 'function PaymentReply('),
     actionBody: slice(PAY, 'export async function confirmVendorPayment('),
+    optional: {},
+  },
+  {
+    reply: "case 'payment':",
+    name: 'payment · not received',
+    formSource: slice(VIEW, 'function PaymentReply(') + NOT_RECEIVED,
+    actionBody: slice(PAY, 'export async function refuseVendorPayment('),
+    optional: {},
+  },
+  // The payment section on the supplier's thread page is the other door to the
+  // same two actions; the same two-sided check holds there.
+  {
+    reply: 'payment section',
+    name: 'payment section · confirm received',
+    formSource: slice(PAY_LIVE, 'function PendingPaymentAnswer('),
+    actionBody: slice(PAY, 'export async function confirmVendorPayment('),
+    optional: {},
+  },
+  {
+    reply: 'payment section',
+    name: 'payment section · not received',
+    formSource: slice(PAY_LIVE, 'function PendingPaymentAnswer(') + NOT_RECEIVED,
+    actionBody: slice(PAY, 'export async function refuseVendorPayment('),
     optional: {},
   },
   {
@@ -104,9 +137,10 @@ const CASES: Case[] = [
 ];
 
 for (const c of CASES) {
-  test(`the ${c.reply.replace(/case '|':/g, '')} reply posts exactly what its action reads`, () => {
+  test(`the ${c.name ?? c.reply.replace(/case '|':/g, '')} reply posts exactly what its action reads`, () => {
     const reads = readsOf(c.actionBody);
     const posts = postsOf(c.formSource ?? slice(VIEW, c.reply));
+    assert.ok(posts.size > 0, 'found no posted field — the form slice is wrong, not the form');
     assert.ok(reads.size > 0, 'found no formData.get in the action — the slice is wrong, not the form');
 
     for (const name of reads) {

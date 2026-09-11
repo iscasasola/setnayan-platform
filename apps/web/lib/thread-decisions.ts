@@ -1,5 +1,6 @@
 import { formatPhp } from '@/lib/vendors';
 import { THREAD_STAGE_LABEL, type ThreadStage } from '@/lib/vendor-thread-stage';
+import type { PaymentDispute } from '@/lib/payment-refusal';
 
 /**
  * thread-decisions.ts — ONE timeline of everything that was actually decided in
@@ -169,7 +170,7 @@ export type DecisionNow = {
  *
  *   meeting      → `respondAppointment`        (confirm | decline)
  *   adjustment   → `respondAmendmentFromChat`  (accept  | decline)
- *   payment      → `confirmVendorPayment`      (supplier only)
+ *   payment      → `confirmVendorPayment` | `refuseVendorPayment` (supplier only)
  *   guest_count  → `acceptPaxSurcharge` / `declinePaxSurcharge` (supplier only)
  *   quote        → a LINK to `/proposals/<public id>`, not an action
  *
@@ -184,10 +185,12 @@ export type DecisionNow = {
  * one-tap booking on a summary line, beside three smaller approvals, would be
  * the easiest button on the screen to press by accident.
  *
- * ⚠ AND THERE IS NO "NOT RECEIVED" FOR A PAYMENT. The design drew one. The
- * product has only `confirmVendorPayment`; nothing records a dispute. A button
- * with no action behind it would be worse than none, so the supplier gets
- * "Confirm received" and the payment otherwise keeps waiting, as it does today.
+ * ⚖ "NOT RECEIVED" (H4, owner 2026-09-11 — "one path for every payment").
+ * The design drew it beside "Confirm received"; until H4 the product had no
+ * action behind it, so none was shown. `refuseVendorPayment` now exists: on the
+ * deposit's row it IS the deposit's existing refusal (reject_vendor_deposit),
+ * on an installment the mirrored one. Once refused, the payment is Setnayan's to
+ * referee, so it asks neither side anything — see `paymentNow`.
  */
 export type DecisionReply =
   /** `label` feeds the other side's notification ("Meeting declined: Tasting"). */
@@ -378,6 +381,12 @@ export type PaymentFact = {
   confirmedAtMs: number | null;
   /** Total on the live quote, for "₱50,000 of ₱187,500". Null when unknown. */
   ofTotalPhp: number | null;
+  /**
+   * The supplier's "it never reached me" and Setnayan's ruling, read through
+   * `readPaymentDispute` so the deposit's row reports the BOOKING's refusal.
+   * Absent/null = there has been none.
+   */
+  dispute?: PaymentDispute | null;
 };
 
 /** The couple's live headcount has moved away from the quoted one. */
@@ -550,16 +559,52 @@ function adjustmentNow(a: AdjustmentFact, f: ThreadDecisionFacts): DecisionNow {
 function paymentNow(p: PaymentFact, f: ThreadDecisionFacts): DecisionNow {
   const of =
     p.ofTotalPhp != null ? ` · ${formatPhp(p.amountPhp)} of ${formatPhp(p.ofTotalPhp)}` : '';
+  const d = p.dispute ?? null;
+  // Whose account the money was meant to reach, in this reader's voice.
+  const whose = f.viewer === 'vendor' ? 'you' : 'them';
   if (p.confirmedAtMs != null) {
     const on = dayLabel(p.confirmedAtMs);
+    // A payment Setnayan ruled on says so: the supplier did not confirm it
+    // themselves, and the couple should know who settled it.
+    const settledBySetnayan = d?.settlement?.outcome === 'payment_stands';
     return {
       stage: null,
-      text: `Confirmed received${on ? ` · ${on}` : ''}${of}`,
+      text: settledBySetnayan
+        ? `Setnayan confirmed it reached ${whose}${on ? ` · ${on}` : ''}${of}`
+        : `Confirmed received${on ? ` · ${on}` : ''}${of}`,
       needsYou: false,
       wasText: null,
     };
   }
-  // Logged by the couple, not yet confirmed by the supplier. It is the
+  // REFUSED — Setnayan's to referee, so it asks NEITHER side anything. The
+  // couple's line carries the supplier's own words (H4 "done means"), and the
+  // ruling once there is one. A "send it again" to-do would be a needs-you with
+  // no button behind it on the couple's screen, so it is said, not asked.
+  if (d?.refusedAtMs != null) {
+    if (d.settlement?.outcome === 'not_received') {
+      const note = d.settlement.note ? ` · “${d.settlement.note}”` : '';
+      return {
+        stage: null,
+        text:
+          f.viewer === 'vendor'
+            ? `Setnayan found it didn’t reach you${note}`
+            : `Setnayan found it didn’t reach them${note} · you can send it again`,
+        needsYou: false,
+        wasText: null,
+      };
+    }
+    const words = d.reason ? ` · “${d.reason}”` : '';
+    return {
+      stage: null,
+      text:
+        f.viewer === 'vendor'
+          ? `You said it never reached you${words} · Setnayan is checking`
+          : `They said it never reached them${words} · Setnayan is checking`,
+      needsYou: false,
+      wasText: null,
+    };
+  }
+  // Logged by the couple, not yet answered by the supplier. It is the
   // SUPPLIER's to answer — on the couple's screen this is not a to-do.
   const waited = waitingLabel(p.loggedAtMs, f.nowMs);
   return {

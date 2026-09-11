@@ -4,6 +4,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
+import {
+  LEDGER_EXPORT_SELECT,
+  LEDGER_SUPPLIER_SELECT,
+  RECEIPT_LINK_TTL_SECONDS,
+  shapeLedgerRows,
+  type LedgerExportRow,
+  type LedgerSupplierRow,
+  type ReceiptLink,
+} from '@/lib/export-payment-ledger';
 
 /**
  * RA 10173 data-export endpoint (V1 slice).
@@ -171,6 +182,32 @@ export async function GET() {
       'coordinator records was unavailable on this run.';
   }
 
+  /*
+    THE CALLER'S OWN COUPLE EVENTS, resolved ONCE (2026-09-11). Three sections
+    are kept to the couple grain — the birth data, the payment ledger and the
+    suppliers it was paid to — and all three must mean the same set of events,
+    so the membership read that defines "the couple's events" is made once and
+    awaited by each. ERROR FIRST, before a single row is touched: past this
+    guard `ids` is an array, and a failed read is handed straight through so
+    each section names itself in `not_included` instead of asserting the couple
+    owns nothing. member_type='couple' is what keeps a coordinator on someone
+    else's event from exporting that couple's data.
+  */
+  const coupleEventIds: Promise<{ ids: string[]; error: null } | { ids: null; error: { message: string } }> = (async () => {
+    const owned = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple');
+    if (owned.error) return { ids: null, error: owned.error };
+    return {
+      ids: owned.data
+        .map((r) => (r as { event_id?: string }).event_id)
+        .filter((id): id is string => typeof id === 'string'),
+      error: null,
+    };
+  })();
+
   const [
     profileRes,
     eventsRes,
@@ -200,6 +237,8 @@ export async function GET() {
     ownShareConsentsRes,
     ownColourGrantsRes,
     ownColourChangesRes,
+    ledgerRes,
+    ledgerSuppliersRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -229,11 +268,7 @@ export async function GET() {
     // member_type='couple' filter is what keeps this at the couple grain —
     // events_host by itself would also admit an accepted moderator.
     (async () => {
-      const owned = await supabase
-        .from('event_members')
-        .select('event_id')
-        .eq('user_id', user.id)
-        .eq('member_type', 'couple');
+      const owned = await coupleEventIds;
       // ERROR FIRST, before a single row is touched. The rejected shape here
       // was `const ids = (owned.data ?? []) …` with the error checked two
       // lines later: harmless as written, but it is the exact silhouette this
@@ -247,12 +282,10 @@ export async function GET() {
       //
       // The error is handed straight through: listOutcome() names
       // `owned_event_birth_data` in `not_included` and flips export_complete.
-      if (owned.error) {
+      if (owned.ids === null) {
         return { data: [] as unknown[], error: owned.error };
       }
-      const ids = owned.data
-        .map((r) => (r as { event_id?: string }).event_id)
-        .filter((id): id is string => typeof id === 'string');
+      const ids = owned.ids;
       // A genuine empty: the subject holds no member_type='couple' row, so
       // there is no host-scoped birth data to fetch. Not a failure — the only
       // branch on this route entitled to return an empty with error null.
@@ -643,6 +676,33 @@ export async function GET() {
       )
       .eq('actor_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-11) — THE COUPLE'S OWN PAYMENT LEDGER: every payment
+    // they logged against a supplier, on the events they own. Couple-grain,
+    // exactly like the birth data above, and on the SESSION client: the
+    // ledger's couple read policy (current_couple_event_ids) returns precisely
+    // these rows, so RLS and completeness agree and no bypass is needed. The
+    // explicit .in('event_id', …) is defence in depth. Other people's account
+    // ids (the supplier's staff, the admin who ruled) are not in the projection
+    // — see LEDGER_EXPORT_OMITTED.
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase
+        .from('event_vendor_payments')
+        .select(LEDGER_EXPORT_SELECT)
+        .in('event_id', owned.ids)
+        .order('paid_at', { ascending: true });
+    })(),
+    // …and WHOM each payment went to: the booking's supplier name and category,
+    // for the same couple events. A narrow read — the rest of the booking is
+    // not this section's business.
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase.from('event_vendors').select(LEDGER_SUPPLIER_SELECT).in('event_id', owned.ids);
+    })(),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -696,6 +756,30 @@ export async function GET() {
   const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
   const ownColourGrants = listOutcome('own_colour_access_held', ownColourGrantsRes);
   const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
+  const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
+  const ledgerSuppliers = listOutcome<LedgerSupplierRow>('payment_ledger_suppliers', ledgerSuppliersRes);
+
+  // Receipt links for the ledger: presigned from the payment-proof folder of the
+  // row's OWN event (the only folder its writer accepts), with the expiry the
+  // file states beside each link. A link that cannot be made keeps the durable
+  // key in the row and says so — never a silent null.
+  const receiptLinks = new Map<string, ReceiptLink>();
+  const receiptExpiresAt = new Date(Date.now() + RECEIPT_LINK_TTL_SECONDS * 1000).toISOString();
+  await Promise.all(
+    ledger.rows.map(async (row) => {
+      const key = typeof row.proof_r2_key === 'string' ? row.proof_r2_key : null;
+      const eventId = typeof row.event_id === 'string' ? row.event_id : null;
+      if (!key || !eventId || typeof row.payment_id !== 'string') return;
+      try {
+        const url = await displayUrlForPrivateStoredAsset(key, budgetPaymentProofPolicy(eventId), {
+          ttlSeconds: RECEIPT_LINK_TTL_SECONDS,
+        });
+        if (url) receiptLinks.set(row.payment_id, { url, expiresAt: receiptExpiresAt });
+      } catch {
+        // Left out of the map: shapeLedgerRows notes it on the row.
+      }
+    }),
+  );
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
@@ -768,6 +852,8 @@ export async function GET() {
     ownRenders,
     ownColourGrants,
     ownColourChanges,
+    ledger,
+    ledgerSuppliers,
   ]);
 
   const exported = {
@@ -869,6 +955,11 @@ export async function GET() {
     own_colour_changes_made: ownColourChanges.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
+    // RA 10173 (2026-09-11) — the payments this couple logged on events they
+    // own, each naming the supplier it was paid to. See lib/export-payment-ledger.
+    payment_ledger: shapeLedgerRows(ledger.rows, ledgerSuppliers.rows, receiptLinks),
+    payment_ledger_note:
+      'Every payment you logged against a supplier on an event you own, with the supplier’s confirmation, any “it never reached me” and Setnayan’s ruling. receipt_link is presigned and stops working at receipt_link_expires_at; the durable record of each receipt is proof_r2_key.',
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/
@@ -880,6 +971,7 @@ export async function GET() {
       'face_vector embeddings (biometric raw data — metadata only is exported)',
       'active alaga claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
+      'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
       // Anything that failed or went unread on THIS run, named. Empty on a
       // clean export; `export_complete` above is the machine-readable twin.
       ...incompleteSections,

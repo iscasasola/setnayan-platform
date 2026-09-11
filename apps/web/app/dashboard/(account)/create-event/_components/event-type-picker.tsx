@@ -179,6 +179,18 @@ export function EventTypePicker({
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
+    // Wedding cardinality grey-out (owner-locked 2026-07-12 rule, 2026-09-11
+    // ruling: "they shouldn't even allow the creation/step 1 of clicking the
+    // wedding event"). Caught HERE, before the onboardingHref redirect below —
+    // otherwise a signed-in account with a wedding in planning would already be
+    // inside /onboarding/wedding step 1 before anything could stop them. Set
+    // selectedKey instead of navigating so the guided-router block further down
+    // this component (same one used for the samahan/no-onboardingHref path)
+    // renders in place of the form.
+    if (type.key === 'wedding' && inPlanningWedding) {
+      setSelectedKey(type.key);
+      return;
+    }
     // Carry the already-answered celebrant across the route hop into
     // /onboarding/[type], which asks the same question one screen later. It
     // rides in sessionStorage, NOT the URL: it is a person's first name, and a
@@ -355,7 +367,13 @@ export function EventTypePicker({
             </button>
           </div>
         ) : null}
-        <EventTypePhotoPicker types={gridTypes} onSelect={handleSelect} />
+        <EventTypePhotoPicker
+          types={gridTypes}
+          onSelect={handleSelect}
+          unavailableReasons={
+            inPlanningWedding ? { wedding: `Already planning ${inPlanningWedding.displayName}` } : undefined
+          }
+        />
         {hiddenCount > 0 && !showAllTypes ? (
           <button
             className="mt-4 w-full rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-4 py-3 text-sm text-ink/70 transition-colors hover:border-gold/40 hover:text-ink"

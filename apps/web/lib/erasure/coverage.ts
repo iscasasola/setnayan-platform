@@ -432,6 +432,21 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'created_by_user_id',
     why: 'The couple’s shared playlist. Made nullable by 20271032282809, so it CAN be de-identified in place — the earlier pass excluded it believing it was still NOT NULL.',
   },
+  // H4 (2026-09-11) — the ledger's refusal stamps. Plain uuids with NO foreign
+  // key, mirroring event_vendor_payments.vendor_confirmed_by, so nothing nulls
+  // them on deletion unless erasure does. The row is the COUPLE's record of
+  // paying a supplier; deleting it because the supplier's staffer (or the admin
+  // who refereed) left would erase the couple's proof of payment.
+  {
+    table: 'event_vendor_payments',
+    column: 'payment_refused_by_user_id',
+    why: 'Which supplier-side account said a payment never arrived. An actor stamp on the couple’s own payment record — the stamp goes, the payment and the refusal it describes stay.',
+  },
+  {
+    table: 'event_vendor_payments',
+    column: 'payment_dispute_settled_by_user_id',
+    why: 'Which Setnayan admin settled the dispute. The permanent history of that decision is admin_audit_log; the stamp on the couple’s row goes with the admin’s account.',
+  },
   {
     table: 'vendor_reuse_requests',
     column: 'requested_by_user_id',

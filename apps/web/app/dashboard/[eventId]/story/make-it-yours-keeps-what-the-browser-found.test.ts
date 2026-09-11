@@ -145,7 +145,7 @@ const RULES: Array<{ rule: string; holds: boolean }> = [
     // Found by step 6's drive: an Undo brought a cleared caption back at its empty box's size,
     // and Automatic dealt photos under it.
     rule: 'a caption is kept at the size it is drawn',
-    holds: /remeasure\(\);\s*\}\);/.test(tsx) && /measureWords\(cur, world, m\.id, sizes\)/.test(tsx),
+    holds: /for \(const job of jobs\) job\(\);\s*remeasure\(\);/.test(tsx) && /measureWords\(cur, world, m\.id, sizes\)/.test(tsx),
   },
   {
     // Owner-passed design call 5: on a phone, words get the toolbar instead of handles.

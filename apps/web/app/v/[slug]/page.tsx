@@ -206,7 +206,11 @@ type Props = {
   }>;
 };
 
-type PublicVendorRow = {
+// E1 (2026-09-11) — exported so the OG-card route (app/api/og/v/[slug]/
+// route.tsx) can reuse the EXACT same row shape `vendorMetadataBySlug` reads
+// from, rather than hand-typing a second copy that silently drifts from this
+// one (the class of bug lib/site-media-ref.ts's own docblock warns about).
+export type PublicVendorRow = {
   vendor_profile_id: string;
   public_id: string;
   business_name: string;
@@ -339,7 +343,12 @@ async function isAdminInDemoMode(): Promise<boolean> {
   return isAdminProfile(profile);
 }
 
-async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+// E1 (2026-09-11) — exported for the same reason as `PublicVendorRow` above:
+// the OG-card route needs the identical hide-if-hidden / hide-if-demo read
+// `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
+// fallback (a second hand-rolled query would silently fall out of sync with
+// this one the next time a column is added or renamed here).
+export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -465,13 +474,25 @@ export async function vendorMetadataBySlug(slug: string) {
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
-  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
-  // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — extend the
-  // base metadata from PR #573 with canonical URL + OpenGraph profile card
-  // + Twitter summary_large_image so social shares of a vendor profile
-  // render with the vendor's logo + name instead of the layout-default
-  // /brand/og-card.webp. Falls back to logo_url when present; layout-level
-  // og:image (Bucket 2 PR #607) covers the no-logo case.
+  // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
+  // resolve `vendor.logo_url` straight into a presigned R2 URL
+  // (X-Amz-Expires=86400): a share sent today was a broken image tomorrow,
+  // and a shop with no logo got no og:image at all (the layout-default brand
+  // card took over, or — worse on some crawlers — nothing). Both cards now
+  // point at the PERMANENT `/api/og/v/[slug]` address instead: it renders a
+  // fresh PNG on every crawl (no expiry to outrun) and degrades to the same
+  // wordmark-only card when there's no logo, so a share is never broken and
+  // never bare. See `app/api/og/v/[slug]/route.tsx` / `lib/social/vendor-card.tsx`.
+  const ogImageUrl = `${siteUrl}/api/og/v/${vendor.business_slug ?? slug}`;
+  const ogImage = {
+    url: ogImageUrl,
+    width: 1200,
+    height: 630,
+    /* Hybrid-anonymity (V2.1 amendment #2): alt text uses the resolved
+       display label so social previews don't leak a hidden business_name
+       via crawler-friendly alt. */
+    alt: displayLabel,
+  };
   return {
     title: titleText,
     description: descText,
@@ -483,28 +504,13 @@ export async function vendorMetadataBySlug(slug: string) {
       description: descText,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      // Same r2:// trap as the on-page logo — an unresolved reference here is a
-      // social card with a broken picture, which nobody sees until a link is
-      // already shared. Resolved once, reused by both cards below.
-      ...(logoDisplayUrl
-        ? {
-            images: [
-              {
-                url: logoDisplayUrl,
-                /* Hybrid-anonymity (V2.1 amendment #2): alt text uses
-                   the resolved display label so social previews don't
-                   leak a hidden business_name via crawler-friendly alt. */
-                alt: `${displayLabel} logo`,
-              },
-            ],
-          }
-        : {}),
+      images: [ogImage],
     },
     twitter: {
       card: 'summary_large_image',
       title: titleText,
       description: descText,
-      ...(logoDisplayUrl ? { images: [logoDisplayUrl] } : {}),
+      images: [ogImageUrl],
     },
   };
 }
@@ -1734,7 +1740,10 @@ export async function renderVendorBySlug({
     name: displayLabel,
     url: `${SITE_URL}/${slug}`,
     description: vendor.tagline ?? `${displayLabel} on Setnayan.`,
-    image: logoDisplayUrl ?? `${SITE_URL}/icon-512.svg`,
+    // E1 (2026-09-11) — same permanent card as the OG/Twitter images above,
+    // not the raw (expiring) presigned logo URL. See
+    // `vendorMetadataBySlug`'s `ogImageUrl` for the full rationale.
+    image: `${SITE_URL}/api/og/v/${vendor.business_slug ?? slug}`,
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'PH',

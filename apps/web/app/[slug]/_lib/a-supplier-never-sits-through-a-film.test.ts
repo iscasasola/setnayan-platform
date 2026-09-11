@@ -98,8 +98,21 @@ test('it leaves the film the film’s own way, so the veil retires with it', () 
 });
 
 test('the ribbon and the strip agree on one anchor, from one constant', () => {
-  assert.match(RIBBON, /export const SUPPLIER_DESK_ANCHOR = 'your-desk';/);
+  /*
+    The constant lives in a plain module (supplier-desk-anchor.ts), not in the 'use client' ribbon:
+    a server component that imports a value from a client module gets a client reference, not the
+    value (lib/a-server-file-never-takes-a-value-from-a-client-module.test.ts, Story step 8). Still
+    ONE constant — every file imports it from there.
+  */
+  assert.match(strip(read('supplier-desk-anchor.ts')), /export const SUPPLIER_DESK_ANCHOR = 'your-desk';/);
   assert.match(RIBBON, /getElementById\(SUPPLIER_DESK_ANCHOR\)/);
+  for (const file of ['supplier-ribbon.tsx', 'supplier-desk.tsx', 'vendor-doorway.tsx']) {
+    assert.match(
+      strip(read(file)),
+      /import \{ SUPPLIER_DESK_ANCHOR \} from '\.\/supplier-desk-anchor';/,
+      `${file} must take the anchor from the one constant`,
+    );
+  }
   for (const file of ['supplier-desk.tsx', 'vendor-doorway.tsx']) {
     const src = strip(read(file));
     assert.match(

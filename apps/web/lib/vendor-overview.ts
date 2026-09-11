@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { fetchVendorThreads } from '@/lib/chat';
 import { shortenGeneratedBody } from '@/lib/conversation-list';
@@ -1040,23 +1041,28 @@ async function fetchLockRequests(
     .or('package_role.is.null,package_role.eq.anchor')
     .is('archived_at', null)
     .order('deposit_recorded_at', { ascending: false });
-  return ((data ?? []) as Array<{
+  const rows = (data ?? []) as Array<{
     vendor_id: string;
     event_id: string;
     vendor_name: string | null;
     deposit_recorded_at: string;
     deposit_acknowledged_at: string | null;
     deposit_proof_url: string | null;
-  }>).map((r) => ({
-    eventId: r.event_id,
-    eventVendorId: r.vendor_id,
-    // event_vendors.vendor_name is the vendor's own business name — NOT the
-    // couple. The couple label comes from the joined event (fetchEventMeta),
-    // consistent with how reviews attribute to the event, not personal names.
-    coupleName: null,
-    proofUrl: r.deposit_proof_url,
-    recordedAt: r.deposit_recorded_at,
-  }));
+  }>;
+  return Promise.all(
+    rows.map(async (r) => ({
+      eventId: r.event_id,
+      eventVendorId: r.vendor_id,
+      // event_vendors.vendor_name is the vendor's own business name — NOT the
+      // couple. The couple label comes from the joined event (fetchEventMeta),
+      // consistent with how reviews attribute to the event, not personal names.
+      coupleName: null,
+      // 🔒 A PRIVATE receipt: a short-lived link scoped to the row's own event
+      // deposit folder, never the stored value (lib/deposit-proof.server.ts).
+      proofUrl: await depositProofDisplayUrl(r.deposit_proof_url, r.event_id),
+      recordedAt: r.deposit_recorded_at,
+    })),
+  );
 }
 
 // --- The four answers the desk gained (all vendor's-own-session reads) -------

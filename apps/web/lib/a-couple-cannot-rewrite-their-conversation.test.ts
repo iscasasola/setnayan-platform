@@ -87,7 +87,9 @@ test('no later migration disarms the guard, drops it, or makes it SECURITY DEFIN
       return (
         /DROP TRIGGER[^;]*chat_threads_guard_sides/i.test(s) ||
         /DISABLE TRIGGER\s+(chat_threads_guard_sides|ALL)/i.test(s) ||
-        /FUNCTION public\.tg_chat_threads_guard_sides\(\)[\s\S]*?SECURITY DEFINER/i.test(s)
+        // The function's own HEADER (one statement, before its body) — not any
+        // later mention of the words, e.g. a post-condition's error text.
+        /FUNCTION public\.tg_chat_threads_guard_sides\(\)[^;$]*?SECURITY DEFINER/i.test(s)
       );
     });
   assert.deepEqual(bad, [], `these migrations weaken the thread guard: ${bad.join(', ')}`);

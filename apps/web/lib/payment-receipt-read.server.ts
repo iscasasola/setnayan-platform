@@ -2,7 +2,7 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import sharp from 'sharp';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { parseStoredAsset } from '@/lib/uploads';
+import { parseClientRef, type ClientRefPolicy } from '@/lib/r2-client-ref';
 import { r2GetBytes } from '@/lib/r2';
 import {
   RECEIPT_TRANSCRIBE_PROMPT,
@@ -118,22 +118,36 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 /**
  * Read one screenshot and say what is on it. Records nothing, decides nothing.
  *
- * Returns `null` when there is nothing to read — no key, no picture, or a legacy
- * plain-URL value we do not fetch. NULL IS NOT A MISMATCH: the caller must treat
- * it as "carry on", because a buyer who sent a reference number and no picture
- * has done nothing wrong and the form allows it.
+ * Returns `null` when there is nothing to read — no key, no picture, a legacy
+ * plain-URL value we do not fetch, or a ref OUTSIDE this payment's own proof
+ * folder. NULL IS NOT A MISMATCH: the caller must treat it as "carry on",
+ * because a buyer who sent a reference number and no picture has done nothing
+ * wrong and the form allows it.
+ *
+ * 🔒 `proofPolicy` IS REQUIRED (N5, 2026-09-11 · found by N4). This used to
+ * fetch the bytes of whatever bucket and key the stored value named, with the
+ * admin R2 credentials, and show them to a model whose summary lands on the
+ * admin's screen — a government ID in `setnayan-vendor-verification` would have
+ * been transcribed as happily as a GCash receipt. Every WRITER of
+ * `payments.screenshot_url` already binds the ref to the order's own folder,
+ * and a buyer's session cannot UPDATE the column (no UPDATE policy — measured in
+ * the replay); this makes the READER hold the same line itself: the caller
+ * names the folders it has authorised (from the ORDER row, never from the
+ * value), and anything else is not read.
  *
  * NEVER THROWS.
  */
 export async function readPaymentReceiptFromR2(args: {
   screenshotRef: string | null;
+  /** The payment's own proof folders — `paymentProofPolicy(...)` from the order row. */
+  proofPolicy: ClientRefPolicy;
   typedReference: string | null;
   expectedPhp: number | null;
 }): Promise<ReceiptReadRecord | null> {
   if (!receiptReaderConfigured()) return null;
 
-  const asset = parseStoredAsset(args.screenshotRef);
-  if (!asset || asset.kind !== 'r2') return null;
+  const asset = parseClientRef(args.screenshotRef, args.proofPolicy);
+  if (!asset) return null;
 
   let base64: string;
   try {
@@ -227,11 +241,14 @@ export async function runPaymentReceiptRead(args: {
   admin: SupabaseClient;
   paymentId: string;
   screenshotRef: string | null;
+  /** The payment's own proof folders — `paymentProofPolicy(...)` from the order row. */
+  proofPolicy: ClientRefPolicy;
   typedReference: string | null;
   expectedPhp: number | null;
 }): Promise<ReceiptReadRecord | null> {
   const read = await readPaymentReceiptFromR2({
     screenshotRef: args.screenshotRef,
+    proofPolicy: args.proofPolicy,
     typedReference: args.typedReference,
     expectedPhp: args.expectedPhp,
   });

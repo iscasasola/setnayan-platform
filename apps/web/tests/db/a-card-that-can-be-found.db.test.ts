@@ -31,6 +31,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -95,8 +96,15 @@ test('the migration installed the gate as a trigger, not as advice', async () =>
 
 test('publishing with no price is REFUSED', async () => {
   const err = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, exclusive_perk_text)
-     VALUES ($1, $2, true, $3)`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, true, $3, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY, PERK],
   );
   assert.ok(err, 'a priceless card was published');
@@ -105,8 +113,15 @@ test('publishing with no price is REFUSED', async () => {
 
 test('ZERO IS NOT A PRICE — publishing at ₱0 is REFUSED', async () => {
   const err = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, true, 0, $3)`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, true, 0, $3, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY, PERK],
   );
   assert.ok(err, '₱0 was accepted as a price');
@@ -129,8 +144,15 @@ test('the Setnayan Exclusive gate is GONE — a giftless card publishes', async 
   // how this file broke when the gate was relaxed: nothing cleans up between
   // tests, and a refusal that becomes an acceptance starts leaving rows behind.
   const err = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php)
-     VALUES ($1, $2, true, 45001)`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, primary_photo_r2_key)
+     VALUES ($1, $2, true, 45001, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY],
   );
   assert.equal(err, null, `a giftless card was refused: ${err}`);
@@ -146,8 +168,15 @@ test('the Setnayan Exclusive gate is GONE — a giftless card publishes', async 
 
   // Whitespace is not an Exclusive, and no longer needs to be.
   const blank = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, true, 45002, '   ')`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, true, 45002, '   ', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY],
   );
   assert.equal(blank, null, `a whitespace Exclusive was refused: ${blank}`);
@@ -159,8 +188,15 @@ test('the PRICE gate still bites — the requirement that did NOT move', async (
   // the gate. A card with no starting price is still refused, with the sentence
   // written for the shop rather than a raw Postgres error.
   const err = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php)
-     VALUES ($1, $2, true, NULL)`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, primary_photo_r2_key)
+     VALUES ($1, $2, true, NULL, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY],
   );
   assert.ok(err, 'an unpriced card was published');
@@ -169,8 +205,15 @@ test('the PRICE gate still bites — the requirement that did NOT move', async (
 
 test('a complete card publishes — the gate is not simply refusing everything', async () => {
   const err = await refused(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, true, 45000, $3)`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, true, 45000, $3, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`,
     [VP, CATEGORY, PERK],
   );
   assert.equal(err, null, `a complete card was refused: ${err}`);
@@ -217,8 +260,15 @@ test('flipping a draft live without a price is REFUSED (the toggle path)', async
 
 test('A CONTROL HONOURED ONLY ON THE WAY IN IS NOT A CONTROL — the price cannot be removed from a live card', async () => {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, true, 45000, $3) RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, true, 45000, $3, '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [VP, CATEGORY, PERK],
   );
   const id = r.rows[0]!.vendor_service_id;
@@ -277,9 +327,14 @@ test('NO CLIFF — an unrelated edit of a legacy live priceless card is allowed'
   // Bypass the gate the only way a legacy row could have got here — directly,
   // with the trigger momentarily disabled, which is what "seeded before the
   // rule existed" looks like.
+  // (H2, 2026-09-11: "what's included" is judged by a second, DEFERRED trigger —
+  // disabled alongside, because a legacy row predates that rule too. Both of
+  // production's live cards were exactly this when H2 landed: no inclusions.)
   await db.query(`ALTER TABLE vendor_services DISABLE TRIGGER trg_enforce_service_publish_gate`);
+  await db.query(`ALTER TABLE vendor_services DISABLE TRIGGER trg_enforce_service_publish_gate_inclusions_upd`);
   await db.query(`UPDATE vendor_services SET is_active = true WHERE vendor_service_id = $1`, [id]);
   await db.query(`ALTER TABLE vendor_services ENABLE TRIGGER trg_enforce_service_publish_gate`);
+  await db.query(`ALTER TABLE vendor_services ENABLE TRIGGER trg_enforce_service_publish_gate_inclusions_upd`);
 
   assert.equal(
     await refused(

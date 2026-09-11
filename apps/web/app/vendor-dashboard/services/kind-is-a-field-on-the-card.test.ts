@@ -228,7 +228,11 @@ test('the pass asks the publish gate and nothing else', () => {
   );
   assert.ok(steps.length >= 3, `the pass pushes only ${steps.length} steps — it stopped being the gate`);
   const SHEET_FOR_REQUIREMENT: Record<string, string | undefined> = {
+    // H2 (2026-09-11): the cover and "what's included" joined the gate — the
+    // owner's "the cover-photo · title · inclusions requirements stay".
+    cover: 'media',
     price: 'price',
+    inclusions: 'custom',
     exclusive: 'excl',
   };
   for (const requirement of PUBLISH_REQUIREMENTS) {

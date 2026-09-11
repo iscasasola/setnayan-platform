@@ -42,7 +42,10 @@ test('the editor’s Save routes through the gate, not a bare SubmitButton', () 
 
 test('the gate button reuses the shared module — copy cannot drift from the trigger', () => {
   assert.match(GATE, /from '@\/lib\/service-publish-gate'/, 'it forked the requirement list');
-  assert.match(GATE, /unmetPublishRequirements\(/, 'it stopped asking what is missing');
+  // A LIVE card is held to its price only (`unmetForALiveCard`) and FLAGGED for
+  // the cover and what's included (`liveCardHealthFlags`) — H2, 2026-09-11.
+  assert.match(GATE, /setUnmet\(unmetForALiveCard\(facts\)\)/, 'it stopped asking what is missing');
+  assert.match(GATE, /setFlags\(liveCardHealthFlags\(facts\)\)/, 'a live card stopped being flagged');
   assert.match(GATE, /PUBLISH_COACH_MESSAGE\[/, 'it hand-wrote its own copy');
 });
 
@@ -64,12 +67,15 @@ test('the predicate agrees with the trigger on every combination', () => {
   ];
   for (const c of cases) {
     assert.equal(
-      canPublishService({ hasPrice: c.hasPrice }),
+      canPublishService({ hasPrice: c.hasPrice, hasCover: true, hasInclusions: true }),
       c.publishable,
       `price=${c.hasPrice}`,
     );
   }
-  assert.deepEqual(unmetPublishRequirements({ hasPrice: false }), ['price']);
+  assert.deepEqual(
+    unmetPublishRequirements({ hasPrice: false, hasCover: true, hasInclusions: true }),
+    ['price'],
+  );
   assert.match(PUBLISH_COACH_MESSAGE.price, /required to publish/i);
 });
 

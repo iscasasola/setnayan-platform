@@ -35,6 +35,7 @@ import {
   chatAttachmentLimit,
   isCompressibleImage,
 } from '@/lib/chat-attachment-limits';
+import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 
 type Props = {
   threadId: string;
@@ -52,6 +53,12 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  // Guards Enter-to-send against a double submit: a fast double-tap of Enter
+  // (or a second keydown that lands while the form action is still awaiting
+  // compression or sendAction) must not fire requestSubmit() twice. Set once
+  // the message is known non-empty, cleared on the contact-block return and in
+  // `finally` after sendAction, whether it succeeded or failed.
+  const sendPendingRef = useRef(false);
   // Off-platform-contact block message (chatroom blocked-rules). Shown inline
   // when the composer catches contact info BEFORE sending — instant feedback so
   // the sender edits without a server round-trip. The server re-checks
@@ -78,6 +85,10 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
         const fileVal = formData.get('attachment');
         const hasFile = fileVal instanceof File && fileVal.size > 0;
         if (!bodyVal && !hasFile) return;
+
+        // From here until the send settles, a second Enter is a double send —
+        // the photo compression below is awaited too, not only sendAction.
+        sendPendingRef.current = true;
 
         /* COMPRESS BEFORE IT LEAVES THE PHONE (owner 2026-09-09: "all files
            uploaded on chat should be compressed and minimum").
@@ -108,6 +119,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
         // the sender can edit and resend.
         if (chatContactFilterEnabled() && bodyVal && evaluateMessage(bodyVal).blocked) {
           setBlockError(CONTACT_BLOCK_MESSAGE);
+          sendPendingRef.current = false;
           return;
         }
         setBlockError(null);
@@ -127,6 +139,8 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             payload: { threadId, hadAttachment: hasFile },
           });
           return;
+        } finally {
+          sendPendingRef.current = false;
         }
         // Optimistic clear on success; the Realtime INSERT will paint the
         // outgoing bubble in the stream within a few hundred ms.
@@ -221,6 +235,30 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             window.dispatchEvent(
               new CustomEvent('chat-stream:input', { detail: { threadId } }),
             );
+          }}
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter starts a new line — the standard chat
+            // convention. shouldSendOnEnter also holds back for IME
+            // composition (Filipino/Japanese/Chinese keyboards confirm a word
+            // with Enter), any modifier, and a coarse-pointer (touch) device,
+            // where Return must stay a newline since there is no Shift+Enter
+            // on an on-screen keyboard.
+            const shouldSend = shouldSendOnEnter(
+              {
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                keyCode: e.keyCode,
+                altKey: e.altKey,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+              },
+              { coarsePointer: isCoarsePointer() },
+            );
+            if (!shouldSend) return;
+            e.preventDefault();
+            if (sendPendingRef.current) return;
+            e.currentTarget.form?.requestSubmit();
           }}
         />
         <SubmitButton

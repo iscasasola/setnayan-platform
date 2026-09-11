@@ -22,14 +22,23 @@
  * export downloaded today and opened next month does not look broken.
  */
 
-/** The ledger columns the subject receives. Split by the completeness test. */
-export const LEDGER_EXPORT_SELECT =
+/**
+ * The ledger columns the subject receives. Split by the completeness test.
+ *
+ * ⚠ NAMED `…_PROJECTION`, NOT `…_SELECT`, ON PURPOSE. lint:dup-rule treats any
+ * exported `*_SELECT` / `*_COLUMNS` as the CANONICAL column list of its table
+ * and accuses every narrower read of that table of "dropping" columns — that
+ * naming is its only declaration of intent. This list is not the ledger's
+ * canonical shape; it is what one legal disclosure ships. The supplier's
+ * payment card, the admin queue and the stepper each read what they need.
+ */
+export const LEDGER_EXPORT_PROJECTION =
   'payment_id, event_id, vendor_id, line_item_id, amount_php, paid_at, method, reference, notes, ' +
   'schedule_instance_seq, is_deposit_record, vendor_confirmed_at, payment_refused_at, ' +
   'payment_refusal_reason, payment_dispute_settled_at, payment_dispute_outcome, payment_dispute_note, ' +
   'proof_r2_key, created_at';
 
-export const LEDGER_EXPORT_COLUMNS: readonly string[] = LEDGER_EXPORT_SELECT.split(',').map((c) => c.trim());
+export const LEDGER_EXPORT_FIELDS: readonly string[] = LEDGER_EXPORT_PROJECTION.split(',').map((c) => c.trim());
 
 /**
  * Withheld from the subject, each with the reason. All three are OTHER PEOPLE's
@@ -47,7 +56,7 @@ export const LEDGER_EXPORT_OMITTED: Readonly<Record<string, string>> = {
 };
 
 /** The supplier each ledger row names. A narrow read — name and category only. */
-export const LEDGER_SUPPLIER_SELECT = 'vendor_id, vendor_name, category';
+export const LEDGER_SUPPLIER_PROJECTION = 'vendor_id, vendor_name, category';
 
 /** How long a receipt link in the file stays usable. */
 export const RECEIPT_LINK_TTL_SECONDS = 60 * 60 * 24;

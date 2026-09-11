@@ -7,8 +7,8 @@ import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-column
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
-  LEDGER_EXPORT_SELECT,
-  LEDGER_SUPPLIER_SELECT,
+  LEDGER_EXPORT_PROJECTION,
+  LEDGER_SUPPLIER_PROJECTION,
   RECEIPT_LINK_TTL_SECONDS,
   shapeLedgerRows,
   type LedgerExportRow,
@@ -690,7 +690,7 @@ export async function GET() {
       if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
       return supabase
         .from('event_vendor_payments')
-        .select(LEDGER_EXPORT_SELECT)
+        .select(LEDGER_EXPORT_PROJECTION)
         .in('event_id', owned.ids)
         .order('paid_at', { ascending: true });
     })(),
@@ -701,7 +701,7 @@ export async function GET() {
       const owned = await coupleEventIds;
       if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
       if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
-      return supabase.from('event_vendors').select(LEDGER_SUPPLIER_SELECT).in('event_id', owned.ids);
+      return supabase.from('event_vendors').select(LEDGER_SUPPLIER_PROJECTION).in('event_id', owned.ids);
     })(),
   ]);
 

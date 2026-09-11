@@ -80,7 +80,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from './security/migration-schema';
-import { LEDGER_EXPORT_COLUMNS, LEDGER_EXPORT_OMITTED } from './export-payment-ledger';
+import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED } from './export-payment-ledger';
 import {
   VENDOR_PROFILE_EXPORT_COLUMNS,
   VENDOR_PROFILE_EXPORT_OMITTED,
@@ -857,15 +857,15 @@ test('T14 · the payment_ledger projection is COMPLETE (no ledger column silentl
     table.cols.size >= 20,
     `readSchema() sees only ${table.cols.size} ledger columns; there were 22 on 2026-09-11. Fix the parser.`,
   );
-  const projected = new Set(LEDGER_EXPORT_COLUMNS);
+  const projected = new Set(LEDGER_EXPORT_FIELDS);
   const omitted = Object.keys(LEDGER_EXPORT_OMITTED);
-  assert.equal(projected.size, LEDGER_EXPORT_COLUMNS.length, 'the ledger projection repeats a column');
+  assert.equal(projected.size, LEDGER_EXPORT_FIELDS.length, 'the ledger projection repeats a column');
   const missing = [...table.cols].filter((c) => !projected.has(c) && !omitted.includes(c)).sort();
   assert.deepEqual(
     missing,
     [],
     `UNDER-EXPORT: ledger column(s) reach no data subject: ${missing.join(', ')}. Add each to ` +
-      'LEDGER_EXPORT_SELECT in lib/export-payment-ledger.ts, or to LEDGER_EXPORT_OMITTED with the reason.',
+      'LEDGER_EXPORT_PROJECTION in lib/export-payment-ledger.ts, or to LEDGER_EXPORT_OMITTED with the reason.',
   );
   const phantom = [...projected].filter((c) => !table.cols.has(c)).sort();
   assert.deepEqual(phantom, [], `Projected ledger column(s) no migration declares: ${phantom.join(', ')}.`);

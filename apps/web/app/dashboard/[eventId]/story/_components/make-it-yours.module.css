@@ -584,6 +584,10 @@
   right: -11px;
   width: 26px;
   height: 26px;
+  /* The app gives every button a 44px minimum height; on this 26px circle that drew a tall oval
+     that reached over the words and the neighbour (found in step 6's screenshots — step 4 shipped
+     it). The circle is the prototype's; it is counter-scaled to stay a finger's size. */
+  min-height: 0;
   padding: 0;
   border-radius: 50%;
   border: 2px solid var(--paper);

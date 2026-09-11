@@ -1,5 +1,5 @@
 /**
- * "MAKE IT YOURS" KEEPS WHAT THE BROWSER FOUND (`10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md` step 4).
+ * "MAKE IT YOURS" KEEPS WHAT THE BROWSER FOUND (`10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md` steps 4 and 6).
  *
  * Each rule below was found by DRIVING the editor in a real browser — the prototype's rounds 1
  * and 3 (`10a_MAKE_IT_YOURS_TEST_PLAN_2026-09-10.md`) and this port's own Playwright drive at 1280
@@ -79,6 +79,88 @@ const RULES: Array<{ rule: string; holds: boolean }> = [
     // The whole editor saves through step 3's one action, never a write of its own.
     rule: 'it saves through step 3’s action and saves what it shows',
     holds: /from '\.\.\/arrangement-actions'/.test(tsx) && /storedFromResolved\(stateRef\.current\)/.test(tsx),
+  },
+
+  /* ── STEP 6 — words, the toolbar, moments, sets ───────────────────────────────────────────── */
+  {
+    // Found by step 6's drive: React 19 re-applies inline HTML whenever its object is new, so a
+    // fresh `{ __html }` per render wiped every letter as it was typed.
+    rule: 'the words box draws its text ONCE, from one unchanging object',
+    holds:
+      /useState\(\(\) => \(\{ __html: toHtml\(o\.text\) \}\)\)/.test(tsx) &&
+      /dangerouslySetInnerHTML=\{inner\}/.test(tsx) &&
+      !/dangerouslySetInnerHTML=\{\{/.test(tsx),
+  },
+  {
+    // Pasted bold, links or pictures showed while typing and vanished on the next read (critic-13).
+    rule: 'a paste into words is plain text only',
+    holds: /onPaste=\{\(e\) => \{\s*e\.preventDefault\(\);\s*const t = e\.clipboardData\.getData\('text\/plain'\)/.test(tsx),
+  },
+  {
+    // A switch to another app blurs the field too; an emptied caption or a nameless new moment
+    // was dropped for it (r3 critic, NOT RUN item).
+    rule: 'leaving the window is not leaving the words or the name field',
+    holds:
+      /!document\.hasFocus\(\)\) return;\s*const el = objEl\(id\)/.test(tsx) &&
+      /onBlur=\{\(e\) => \{\s*if \(!document\.hasFocus\(\)\) return;/.test(tsx),
+  },
+  {
+    // On a phone a press on the grip reached the text beside it and became a caret (r3 R6).
+    rule: 'a press on the words’ grip is a drag even when it lands on the text',
+    holds: /e\.clientX <= grip\.getBoundingClientRect\(\)\.right \+ 4\) inText = false/.test(tsx),
+  },
+  {
+    // Captured on a row, the pointer is lost the moment that row moves (prototype, grip reorder).
+    rule: 'the grip reorder captures the pointer on the LIST',
+    holds: /list\.setPointerCapture\(e\.pointerId\)/.test(tsx),
+  },
+  {
+    // r3/critic OPEN: a moment row was role=button with a real button inside it.
+    rule: 'no row is a button, and rows are list items',
+    holds: !/role="button"/.test(tsx) && /role="listitem"/.test(tsx) && /role="list"/.test(tsx),
+  },
+  {
+    // Owner 2026-09-10: nothing on the bar takes the caret out of the words.
+    rule: 'the words toolbar never takes the caret',
+    holds: /role="toolbar"[\s\S]{0,300}onPointerDown=\{\(e\) => e\.preventDefault\(\)\}/.test(tsx),
+  },
+  {
+    // Found by step 6's drive: the bar above new words sat on the photo row and took a ×'s press.
+    rule: 'the toolbar will not sit on another control when the other side is clear',
+    holds: /const covers = \(top: number\)/.test(tsx) && /box\.left \+ 4/.test(tsx),
+  },
+  {
+    // DW-17…22 · R7 · R8: something vanished mid-press and the page slid under the finger.
+    rule: 'the layout holds still while a press that removed something lifts',
+    holds:
+      /freezeLayout\(\);\s*if \(selObjRef\.current === id\) selectObj\(null\);/.test(tsx) &&
+      /if \(move\.ok\) \{\s*freezeLayout\(\);\s*commit\(\{ \.\.\.move\.state, handTouched/.test(tsx),
+  },
+  {
+    // The prototype's open item: Tab from a still-empty new box lost the keyboard's place.
+    rule: 'Tab out of an empty new box goes to the next control outside it',
+    holds: /e\.key === 'Tab' && readText\(e\.currentTarget\)\.trim\(\) === ''/.test(tsx) && /function focusBeside\(/.test(tsx),
+  },
+  {
+    // Found by step 6's drive: an Undo brought a cleared caption back at its empty box's size,
+    // and Automatic dealt photos under it.
+    rule: 'a caption is kept at the size it is drawn',
+    holds: /remeasure\(\);\s*\}\);/.test(tsx) && /measureWords\(cur, world, m\.id, sizes\)/.test(tsx),
+  },
+  {
+    // Owner-passed design call 5: on a phone, words get the toolbar instead of handles.
+    rule: 'on a phone the handle and the words’ × give way to the toolbar',
+    holds: /@media \(pointer: coarse\) \{\s*\.hdl,\s*\.obj\.tx \.x,[\s\S]{0,160}display: none !important;/.test(css),
+  },
+  {
+    // Found in step 6's screenshots: the app's 44px button floor drew the × as a tall oval.
+    rule: 'the × is the prototype’s circle, not the app’s 44px floor',
+    holds: /\.x\s*\{[^}]*min-height:\s*0;/.test(css),
+  },
+  {
+    // ⛔ Owner 2026-09-10: no stickers, for now.
+    rule: 'no stickers',
+    holds: !/sticker/i.test(tsx),
   },
 ];
 

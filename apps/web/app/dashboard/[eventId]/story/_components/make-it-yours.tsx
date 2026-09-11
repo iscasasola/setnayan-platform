@@ -79,6 +79,7 @@ import {
   clampWords,
   editWords,
   forgetSet,
+  measureWords,
   isPhoto,
   isWords,
   moveMoment,
@@ -333,9 +334,33 @@ export function MakeItYours({
     const rr = root.getBoundingClientRect();
     const bw = bar.offsetWidth;
     const bh = bar.offsetHeight;
-    const x = Math.max(8, Math.min(window.innerWidth - bw - 8, r.left + r.width / 2 - bw / 2));
-    const above = r.top - bh - BAR_GAP > 8;
-    const y = above ? r.top - bh - BAR_GAP : r.bottom + BAR_GAP;
+    // Centred on the words, kept inside the PAGE's own box — centred on a caption at the page's
+    // left edge, it spilled over the moments beside the page — and never off the screen's sides.
+    const box = stageRef.current?.parentElement?.getBoundingClientRect();
+    let x = r.left + r.width / 2 - bw / 2;
+    if (box && box.width >= bw + 8) x = Math.max(box.left + 4, Math.min(box.right - bw - 4, x));
+    x = Math.max(8, Math.min(window.innerWidth - bw - 8, x));
+    /*
+      "NO ROOM" INCLUDES "WOULD COVER SOMETHING". Found driving the editor: new words land just
+      under the photos, so a bar above them sat ON the photo row — and a press on a photo's ×
+      pressed "Turn left" instead (the family of 10a DW-21). Above is still first; below when
+      above would cover another control; failing both, whichever covers fewer.
+    */
+    const controls = [
+      ...root.querySelectorAll<HTMLElement>('button, a[href], [data-film], [data-grip]'),
+    ]
+      .filter((c) => !bar.contains(c) && !el.contains(c) && c.getClientRects().length > 0)
+      .map((c) => c.getBoundingClientRect());
+    const covers = (top: number) =>
+      controls.filter((c) => c.left < x + bw && x < c.right && c.top < top + bh && top < c.bottom).length;
+    const upY = r.top - bh - BAR_GAP;
+    const downY = r.bottom + BAR_GAP;
+    const upFits = upY > 8;
+    const downFits = downY + bh < window.innerHeight - 8;
+    const up = upFits ? covers(upY) : Number.POSITIVE_INFINITY;
+    const down = downFits ? covers(downY) : Number.POSITIVE_INFINITY;
+    const above = up === 0 || !(down < up) ? upFits || !downFits : false;
+    const y = above ? upY : downY;
     bar.style.left = `${Math.round(x - rr.left)}px`;
     bar.style.top = `${Math.round(y - rr.top)}px`;
     // The colour menu opens AWAY from the words, never on top of them.
@@ -379,7 +404,20 @@ export function MakeItYours({
     const jobs = afterRender.current;
     afterRender.current = [];
     for (const job of jobs) job();
+    remeasure();
   });
+
+  useEffect(() => {
+    // Web fonts arriving late change how big words are drawn, with no render to notice it.
+    let live = true;
+    void document.fonts?.ready.then(() => {
+      if (live) remeasure();
+    });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const st = stageRef.current;
@@ -813,6 +851,28 @@ export function MakeItYours({
   };
 
   const measure = (el: HTMLElement): Measured => ({ w: el.offsetWidth, h: el.offsetHeight });
+
+  /**
+   * Every caption on this page kept at the size it is DRAWN (see `measureWords`). Never in the
+   * middle of a drag or a handle turn, never under a caret (typing measures as it goes), never
+   * where nothing may be saved.
+   */
+  function remeasure() {
+    const cur = stateRef.current;
+    if (cur.mode !== 'hand' || busy.current || unreadable || conflictRef.current) return;
+    const m = cur.moments.find((x) => x.id === selRef.current) ?? cur.moments[0];
+    if (!m) return;
+    const a = document.activeElement as HTMLElement | null;
+    const sizes: Record<string, Measured> = {};
+    for (const o of m.objects) {
+      if (!isWords(o)) continue;
+      const el = objEl(o.id);
+      if (!el || (a?.isContentEditable && el.contains(a))) continue;
+      sizes[o.id] = measure(el);
+    }
+    const move = measureWords(cur, world, m.id, sizes);
+    if (move.ok) commit(move.state, { keepUndo: true });
+  }
 
   const onWordsInput = (o: StoredWords, ed: HTMLElement) => {
     const el = objEl(o.id);
@@ -2008,7 +2068,12 @@ function WordsBox({
   onHandleDown: (e: ReactPointerEvent<HTMLSpanElement>) => void;
   onRemove: (byKey: boolean) => void;
 }): ReactElement {
-  const [html] = useState(() => toHtml(o.text));
+  /*
+    🔴 THE SAME OBJECT ON EVERY RENDER, NOT JUST THE SAME STRING. Found driving the editor: React 19
+    re-applies `dangerouslySetInnerHTML` whenever the object is new, so a fresh `{ __html }` on each
+    render wiped every letter the moment it was typed — the box stayed empty under the caret.
+  */
+  const [inner] = useState(() => ({ __html: toHtml(o.text) }));
   const boxRef = useRef<HTMLDivElement>(null);
   const edRef = useRef<HTMLDivElement>(null);
 
@@ -2071,7 +2136,7 @@ function WordsBox({
         role="textbox"
         aria-multiline="true"
         aria-label="Words on this page"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={inner}
         onInput={(e) => onInput(e.currentTarget)}
         onPaste={(e) => {
           // Plain text only — pasted bold, links or pictures would show while typing and vanish

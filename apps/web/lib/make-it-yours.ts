@@ -401,6 +401,35 @@ export function styleWords(
   }));
 }
 
+/**
+ * The words on a page as they are DRAWN. A kept size that no longer matches the drawing is
+ * corrected — found by the real-browser drive: an Undo brought back a cleared caption at the size
+ * of the EMPTY box it had just been measured as (its placeholder), so Automatic dealt photos under
+ * it. Nothing moves except to stay on the sheet; a size within a unit is not a change.
+ */
+export function measureWords(
+  state: ResolvedArrangement,
+  world: MakeItYoursWorld,
+  momentId: string,
+  sizes: Readonly<Record<string, Measured>>,
+): Move {
+  if (state.mode !== 'hand') return { ok: false, refusal: 'automatic', state };
+  const moment = momentById(state, momentId);
+  if (!moment) return { ok: false, refusal: 'no_moment', state };
+  let changed = false;
+  const objects = moment.objects.map((o) => {
+    const m = sizes[o.id];
+    if (!m || !isWords(o)) return o;
+    const next = { ...o, ...measuredOf(m) };
+    if (Math.abs((o.w ?? -9) - (next.w ?? -9)) <= 1 && Math.abs((o.h ?? -9) - (next.h ?? -9)) <= 1) return o;
+    changed = true;
+    const at = clampWords(next);
+    return { ...next, x: at.x, y: at.y };
+  });
+  if (!changed) return { ok: false, refusal: 'no_change', state };
+  return { ok: true, state: settle(withMoment(state, momentId, (m) => ({ ...m, objects })), world) };
+}
+
 /** The round handle's turn: within 5° of straight it IS straight. */
 export function snapTurn(deg: number): number {
   const n = ((deg % 360) + 360) % 360;

@@ -19,6 +19,7 @@ import {
   editWords,
   forgetSet,
   isWords,
+  measureWords,
   moveMoment,
   moveObject,
   nameSet,
@@ -229,6 +230,25 @@ test('taking words off is a removal like a photo — it goes, and Undo is the ed
   assert.equal(r.state.moments[1]!.objects.some((o) => o.id === a.id), false);
   assert.equal(r.state.handTouched, false, 'words are not photos — Automatic would not re-sort them');
   assertWhole(r.state);
+});
+
+test('a caption is kept at the size it is DRAWN — a stale size is corrected, a near one is not a change', () => {
+  const st = hand();
+  const vows = st.moments[1]!.id;
+  const a = addWords(st, WORLD, vows);
+  assert.ok(a.ok);
+  // The empty box was measured with only its placeholder showing…
+  const small = editWords(a.state, WORLD, vows, a.id, 'She came down the path', { w: 204, h: 58 });
+  assert.ok(small.ok);
+  // …and is drawn far bigger once its words are back (the drive's case: an Undo after a clear).
+  const fixed = measureWords(small.state, WORLD, vows, { [a.id]: { w: 509, h: 98 } });
+  assert.ok(fixed.ok);
+  const w = words(fixed.state, vows, a.id);
+  assert.deepEqual([w.w, w.h], [509, 98]);
+  assert.ok(w.x + 509 <= SHEET_WIDTH, 'a wider caption is kept on the sheet');
+  const same = measureWords(fixed.state, WORLD, vows, { [a.id]: { w: 510, h: 98 } });
+  assert.equal(same.ok, false, 'a unit of drift is not a change — no save for nothing');
+  assertWhole(fixed.state);
 });
 
 /* ── MOMENTS ───────────────────────────────────────────────────────────── */

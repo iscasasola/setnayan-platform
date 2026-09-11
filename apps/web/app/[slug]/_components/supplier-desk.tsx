@@ -3,7 +3,7 @@ import { ArrowUpRight, MapPin, MessageSquare, Users } from 'lucide-react';
 
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { displayServiceLabel } from '@/lib/vendors';
-import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
+import { SUPPLIER_DESK_ANCHOR } from './supplier-desk-anchor';
 import { PRIVATE_LINE_NOTE, type SupplierDeskStage } from '@/lib/supplier-desk-rule';
 import {
   ConsoleEyebrow,

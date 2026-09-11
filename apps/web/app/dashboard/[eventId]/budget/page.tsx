@@ -33,10 +33,8 @@ import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
-import {
-  BudgetLiveSummaryCard,
-  BUDGET_TOP_SUMMARY_HEADER_ID,
-} from './_components/budget-live-summary';
+import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
+import { BUDGET_TOP_SUMMARY_HEADER_ID } from './_components/budget-summary-ids';
 import { BudgetLedgerTable } from './_components/budget-ledger-table';
 import {
   CostsWithNoSupplier,

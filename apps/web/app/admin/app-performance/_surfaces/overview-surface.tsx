@@ -30,7 +30,8 @@ import {
   StackedBars,
   StatusPill,
 } from '@/app/admin/app-performance/_components/charts';
-import { APX_CSS, CockpitFx } from '@/app/admin/app-performance/_components/fx';
+import { CockpitFx } from '@/app/admin/app-performance/_components/fx';
+import { APX_CSS } from '@/app/admin/app-performance/_components/fx-css';
 import { HealthNow } from '@/app/admin/app-performance/_components/health-now';
 import { ActionCenterZone } from '@/app/admin/app-performance/_components/action-center';
 import { ExpensesZone } from '@/app/admin/app-performance/_components/expenses';

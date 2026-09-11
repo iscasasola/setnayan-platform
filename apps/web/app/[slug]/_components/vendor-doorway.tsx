@@ -4,7 +4,7 @@ import type { VendorCapability } from '../_lib/site-identity';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import type { ClientEventWords } from './event-words-provider';
 import { SupplierDesk } from './supplier-desk';
-import { SUPPLIER_DESK_ANCHOR } from './supplier-ribbon';
+import { SUPPLIER_DESK_ANCHOR } from './supplier-desk-anchor';
 
 /**
  * VendorDoorway — the strip a booked supplier sees on their client's own

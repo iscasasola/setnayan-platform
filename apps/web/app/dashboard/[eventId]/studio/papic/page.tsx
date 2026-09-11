@@ -1908,13 +1908,13 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-3">
       <DriveSafetyPanel />
-      <Link
+      <a
         href={`/api/oauth/drive/start?event_id=${eventId}`}
         className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
       >
         <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Connect Google Drive
-      </Link>
+      </a>
       <p className="text-xs text-ink/55">
         ~20 seconds. Connect once — it covers your recap and photographer hand-off too.
       </p>
@@ -1988,12 +1988,12 @@ async function DriveConnectedPanel({
             Some full-resolution originals couldn&rsquo;t be saved to Drive — your
             online gallery is safe, but the full-res copies are waiting. Free up
             space{overflowGrant ? ' on either Drive' : ''}, or{' '}
-            <Link
+            <a
               href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
               className="font-medium underline underline-offset-2"
             >
               {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
-            </Link>{' '}
+            </a>{' '}
             — they&rsquo;ll finish uploading automatically.
           </p>
         </div>
@@ -2010,12 +2010,12 @@ async function DriveConnectedPanel({
               <p className="text-[11px] text-ink/60">
                 Not your sign-in ({loginEmail}). That&rsquo;s fine — photos save to{' '}
                 {grant.external_account_display}.{' '}
-                <Link
+                <a
                   href={`/api/oauth/drive/start?event_id=${eventId}&switch=1`}
                   className="font-medium text-mulberry underline-offset-2 hover:underline"
                 >
                   Use a different account
-                </Link>
+                </a>
               </p>
             ) : null}
             {overflowGrant ? (
@@ -2030,12 +2030,12 @@ async function DriveConnectedPanel({
                 {overflowGrant.connection_health === 'needs_reauth' ? (
                   <p className="text-danger-600">
                     Your 2nd Drive needs to reconnect —{' '}
-                    <Link
+                    <a
                       href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
                       className="font-medium underline underline-offset-2"
                     >
                       reconnect it
-                    </Link>
+                    </a>
                     .
                   </p>
                 ) : null}
@@ -2054,12 +2054,12 @@ async function DriveConnectedPanel({
               <p className="text-[11px] text-ink/60">
                 Running low on space? Full-resolution photos always live in your own
                 Drive — if it fills up, add a second one.{' '}
-                <Link
+                <a
                   href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
                   className="font-medium text-mulberry underline-offset-2 hover:underline"
                 >
                   Connect a second Drive you own
-                </Link>
+                </a>
                 . New photos overflow into it automatically once the first is full.
               </p>
             )}

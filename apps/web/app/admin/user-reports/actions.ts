@@ -3,14 +3,17 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { hideReportedPhoto, type ReportedPhotoTable } from '@/lib/hide-a-reported-photo';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
-//   · hidden     — hide the reported photo (papic_guest_captures.hidden_at) AND
-//                  mark the report actioned.
+//   · hidden     — hide the reported photo (papic_photos OR papic_guest_captures
+//                  .hidden_at — lib/hide-a-reported-photo.ts) AND mark the report
+//                  actioned.
 //   · blocked    — event-scoped block of the uploading guest AND mark actioned.
 //   · escalated  — leave the content up but flag the report as escalated
 //                  (action_taken note) for owner/legal review; status actioned.
@@ -78,12 +81,16 @@ export async function resolveReport(formData: FormData) {
   // the creator's own /u page (unpublishing a creator's own page is an
   // escalation call, not a one-click); revalidate the hub so the shelf
   // reflects the clear immediately.
+  /*
+    🔴 A 'photo' target is EITHER a seat photograph (papic_photos — every picture
+    the Story is built from) or a guest-camera capture. This used to update
+    papic_guest_captures only, so a guest's "take this down" about a story
+    photograph was stamped "Content hidden" and hid nothing. The helper looks in
+    both, bound to the report's event, and says which — or that it found none.
+  */
+  let hiddenIn: ReportedPhotoTable | null = null;
   if (action === 'hide' && report.target_type === 'photo') {
-    await admin
-      .from('papic_guest_captures')
-      .update({ hidden_at: new Date().toISOString() })
-      .eq('capture_id', report.target_id as string)
-      .eq('event_id', report.event_id as string);
+    hiddenIn = await hideReportedPhoto(admin, report.event_id as string, report.target_id as string);
   }
 
   if (action === 'hide' && report.target_type === 'chapter') {
@@ -124,21 +131,27 @@ export async function resolveReport(formData: FormData) {
       );
       // Also hide the offending photo when we block off a photo report.
       if (report.target_type === 'photo') {
-        await admin
-          .from('papic_guest_captures')
-          .update({ hidden_at: new Date().toISOString() })
-          .eq('capture_id', report.target_id as string)
-          .eq('event_id', report.event_id as string);
+        hiddenIn = await hideReportedPhoto(admin, report.event_id as string, report.target_id as string);
       }
     }
   }
 
+  /*
+    A hidden photograph is a consent write like any other: the story, the recap,
+    both prints and the share card are cached on their own clocks, so without
+    this it stayed on all of them after the moderator pressed Hide.
+  */
+  if (hiddenIn && report.event_id) await everyCopyIsNowStale(report.event_id as string);
+
   // A chapter "hide" is really an unfeature (the content stays on the
-  // creator's own page) — say so honestly in the resolution note.
+  // creator's own page) — say so honestly in the resolution note. A photo
+  // "hide" that found no photograph says THAT, never "Content hidden".
   const actionNote =
     action === 'hide' && report.target_type === 'chapter'
       ? 'Removed from the Real Stories Storytellers shelf by Setnayan moderator (stays on the creator’s own page).'
-      : ACTION_NOTE[action];
+      : action === 'hide' && report.target_type === 'photo' && !hiddenIn
+        ? 'Nothing hidden — the reported photo was not found in this event.'
+        : ACTION_NOTE[action];
 
   const { error: updateError } = await admin
     .from('user_reports')

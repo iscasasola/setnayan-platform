@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { isKwentoModerator } from '@/lib/security/kwento-moderation-authz';
 
 // Iteration 0012 Papic — couple-side UGC moderation actions.
@@ -143,6 +144,8 @@ export async function setCaptureHidden(eventId: string, formData: FormData) {
     redirect(`${MODERATION_PATH(eventId)}?error=hide_failed`);
   }
 
+  // "Drops out of any public surface" (above) — including the cached ones.
+  await everyCopyIsNowStale(eventId);
   revalidatePath(MODERATION_PATH(eventId));
   redirect(`${MODERATION_PATH(eventId)}?${hide ? 'hidden' : 'unhidden'}=1`);
 }
@@ -186,6 +189,14 @@ export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
     redirect(`${MODERATION_PATH(eventId)}?error=hide_failed`);
   }
 
+  /*
+    A SEAT PHOTO IS WHAT THE STORY IS BUILT FROM. Hiding one changes what the
+    story, the recap, both prints and the share card may show, and each is cached
+    on its own clock — so without this the photograph the host just took down
+    stayed on the keepsake for five minutes and on the card for an hour.
+    Unhiding widens the same surfaces, and is exactly as urgent.
+  */
+  await everyCopyIsNowStale(eventId);
   revalidatePath(MODERATION_PATH(eventId));
   redirect(`${MODERATION_PATH(eventId)}?${hide ? 'hidden' : 'unhidden'}=1`);
 }

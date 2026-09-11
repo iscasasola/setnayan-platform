@@ -245,7 +245,7 @@ export default async function ApiKeysPage({ searchParams }: Props) {
             vendors (public, no auth).
           </li>
           <li>
-            See <a href="/api/v1" className="underline">/api/v1</a> for the full reference.
+            See <Link href="/api/v1" prefetch={false} className="underline">/api/v1</Link> for the full reference.
           </li>
         </ul>
       </section>

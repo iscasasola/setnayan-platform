@@ -542,6 +542,38 @@ export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
 }
 
 /**
+ * The folder a couple's DEPOSIT receipt is filed under — the screenshot they
+ * attach when they lock with a downpayment, or record a deposit afterwards
+ * (`event_vendors.deposit_proof_url`, written by `vendors/actions.ts` through
+ * `lib/deposit-proof.server.ts`).
+ *
+ * 🔒 WHY IT LIVES HERE (N5, 2026-09-11). Those receipts used to be written
+ * under `deposit-proof/<eventId>/` — a prefix `bucketForPrefix` routes to the
+ * PUBLIC media bucket — and stored as a permanent public URL: a bank or GCash
+ * screenshot, readable by anyone the link reached. Under `payment-proof/` the
+ * PREFIX alone routes it to the private thread-files bucket, beside the host's
+ * other receipts, and it is read back only through `depositProofPolicy` below.
+ *
+ * No trailing slash: this is the upload `pathPrefix`; the policy adds it.
+ */
+export function depositProofFolder(eventId: string): string {
+  return `payment-proof/events/${eventId}/deposit`;
+}
+
+/**
+ * READ side of a deposit receipt: the private thread-files bucket, and only
+ * this event's deposit folder. The event id MUST come from the booking row the
+ * caller was allowed to read (the couple's own, the supplier's own client, or
+ * the admin's queue) — never from the stored value.
+ */
+export function depositProofPolicy(eventId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`${depositProofFolder(eventId)}/`],
+  };
+}
+
+/**
  * A buyer's payment-proof screenshot on their OWN order.
  *
  * ⚠ Unlike `budgetPaymentProofPolicy` above, this one IS a confidentiality

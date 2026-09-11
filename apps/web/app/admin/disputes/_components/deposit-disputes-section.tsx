@@ -2,6 +2,7 @@ import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { settleDepositDispute } from '../actions';
 
@@ -54,6 +55,15 @@ export async function DepositDisputesSection() {
   // NULL, not [] — a refused read must stay distinguishable from a real zero,
   // or "nothing waiting" is what a broken query looks like.
   const rows = (data as OpenDepositDispute[] | null) ?? null;
+  // 🔒 The receipt is a PRIVATE file: a short-lived link scoped to the row's own
+  // event deposit folder, never the stored value as an href.
+  const receiptUrls = new Map<string, string>();
+  await Promise.all(
+    (rows ?? []).map(async (r) => {
+      const url = await depositProofDisplayUrl(r.deposit_proof_url, r.event_id);
+      if (url) receiptUrls.set(r.vendor_id, url);
+    }),
+  );
 
   return (
     <section className="mt-10" aria-labelledby="deposit-disputes-heading">
@@ -94,12 +104,12 @@ export async function DepositDisputesSection() {
                 Couple recorded {peso(r.deposit_paid_php)}
                 {r.deposit_method_label ? ` via ${r.deposit_method_label}` : ''}
                 {r.deposit_recorded_at ? ` · ${relativeTime(r.deposit_recorded_at)}` : ''}
-                {r.deposit_proof_url ? (
+                {receiptUrls.get(r.vendor_id) ? (
                   <>
                     {' · '}
                     <a
                       className="underline"
-                      href={r.deposit_proof_url}
+                      href={receiptUrls.get(r.vendor_id)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

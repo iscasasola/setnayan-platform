@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { disputeEvidencePolicy } from '@/lib/r2-client-ref';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -48,6 +49,7 @@ type EventLookup = {
 
 type EventVendorLookup = {
   vendor_id: string;
+  event_id: string;
   vendor_name: string;
   category: string;
   deposit_recorded_at: string | null;
@@ -102,7 +104,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       ? admin
           .from('event_vendors')
           .select(
-            'vendor_id, vendor_name, category, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+            'vendor_id, event_id, vendor_name, category, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
           )
           .eq('vendor_id', row.event_vendor_id)
           .maybeSingle()
@@ -137,6 +139,13 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     row.evidence_urls ?? [],
     disputeEvidencePolicy(row.event_id),
   ).catch(() => [] as string[]);
+
+  // 🔒 The deposit receipt is a PRIVATE file too: a short-lived link scoped to
+  // the booking row's own event deposit folder — never the stored value as an
+  // href (lib/deposit-proof.server.ts).
+  const depositProofUrl = vendor
+    ? await depositProofDisplayUrl(vendor.deposit_proof_url, vendor.event_id).catch(() => null)
+    : null;
 
   // Change-Order Trail (Wave 3) — the immutable both-acknowledged add-on/removal
   // log for this booking, so an admin handling the dispute sees every scope/price
@@ -285,11 +294,11 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                       {vendor.deposit_recorded_at.slice(0, 10)})
                     </span>
                   )}
-                  {vendor.deposit_proof_url ? (
+                  {depositProofUrl ? (
                     <>
                       <br />
                       <a
-                        href={vendor.deposit_proof_url}
+                        href={depositProofUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-mulberry hover:underline"

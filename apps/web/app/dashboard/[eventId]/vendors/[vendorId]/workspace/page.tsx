@@ -88,6 +88,7 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
 import {
   laneForVendorCategory,
@@ -468,6 +469,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     crew_meal_covered: boolean | null;
     created_at: string;
   };
+
+  // 🔒 The couple's deposit receipt is a PRIVATE file — a short-lived link scoped
+  // to this booking's own event deposit folder, never the stored value.
+  const depositProofUrl = await depositProofDisplayUrl(ev.deposit_proof_url, ev.event_id);
 
   // Crew-meal coverage context (2026-07-09): does the event have a crew-meal
   // provider booked (gates the "covered by crew meals" toggle on other vendors),
@@ -1715,7 +1720,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             vendorName={displayName}
             depositRecordedAt={ev.deposit_recorded_at}
             depositAcknowledgedAt={ev.deposit_acknowledged_at}
-            depositProofUrl={ev.deposit_proof_url}
+            depositProofUrl={depositProofUrl}
             depositDeclinedAt={depositRefusal?.declinedAt ?? null}
             depositDeclineReason={depositRefusal?.reason ?? null}
             depositDisputeNote={depositRefusal?.settlementNote ?? null}

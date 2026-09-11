@@ -63,7 +63,7 @@ import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { experienceTier } from '@/lib/vendor-experience';
-import { formatStarRating } from '@/lib/reviews';
+import { formatStarRating, NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
 import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
@@ -499,7 +499,7 @@ export async function VendorCard({
             strokeWidth={1.75}
           />
           <span className="font-mono">
-            {rating > 0 ? formatStarRating(rating) : 'new'}
+            {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
           </span>
           {reviewCount > 0 ? (
             <span className="text-ink/45">

@@ -38,13 +38,12 @@ import { Sheet } from '@/app/_components/sheet';
 import { boothTypeLabel, type Lab3DBooth } from '@/lib/seating-3d';
 import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
 import { BoothCardContent } from '@/app/_components/plan3d/kit/booth-card-content';
+import { shopInitials } from '@/lib/shop-initials';
 
-/** Two-letter initials fallback for a vendor with no logo. */
+/** Two-letter initials fallback for a vendor with no logo. Delegates to the
+ * shared shop/vendor helper (lib/shop-initials.ts). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 /** Title-case a raw vendor_category enum value ("mobile_bar" → "Mobile bar"). */

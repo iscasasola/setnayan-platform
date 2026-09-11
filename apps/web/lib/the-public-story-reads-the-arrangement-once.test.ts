@@ -68,6 +68,22 @@ test('3 · story-pages.ts runs no query of its own — it only calls the gated r
   assert.match(src, /loadStoryArrangement\(\s*admin\s*,\s*eventId\s*,\s*viewer\s*\)/);
 });
 
+test('5 · the print keepsake reads its pages AS THE PRINT VIEWER — the resolved viewer, once (step 7)', () => {
+  // Same shape as test 1, for the second surface that draws arranged sheets:
+  // the print route (both A3 and A4 read from the SAME `sheets` this proves
+  // is fetched exactly once, with the SAME `printViewer` the audience gate
+  // and the layer redaction both already used just above it in the file —
+  // never a second, wider viewer for the keepsake.
+  const src = read('app/[slug]/print/page.tsx');
+  const calls = src.match(/loadStoryPages\s*\(/g) ?? [];
+  assert.equal(calls.length, 1, `expected one read of the arranged pages in the print route, found ${calls.length}`);
+  assert.match(
+    src,
+    /loadStoryPages\(\s*createAdminClient\(\)\s*,\s*event\.event_id\s*,\s*printViewer\s*,/,
+    'the print route must read the arranged pages with the SAME `printViewer` the audience gate and the layer redaction used',
+  );
+});
+
 test('4 · the spine draws the pages, and its minutes never repeat a photograph a page shows', () => {
   // The spine is a server component that needs the live loaders to render, so its WIRING is read
   // from source; the behaviour of each piece is proven in `story-sheet.test.ts`.

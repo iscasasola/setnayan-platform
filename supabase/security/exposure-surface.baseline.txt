@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6646
+# facts: 6649
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4880
+#   col       4883
 #   policy    910
 #   view      9
 #   func      257
@@ -716,6 +716,8 @@ col	public.booking_fee_charges.event_vendor_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.expires_at	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.failed_reason	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.gateway	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.gift_centavos	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.gift_credits	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.kind	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.ledger_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.paid_at	anon=SIU authenticated=SIU
@@ -725,6 +727,7 @@ col	public.booking_fee_charges.proposal_amount_centavos	anon=SIU authenticated=S
 col	public.booking_fee_charges.proposal_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.public_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.schedule_version	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.setnayan_gift_offered	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.source	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.status	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.updated_at	anon=SIU authenticated=SIU

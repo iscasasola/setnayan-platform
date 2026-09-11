@@ -44,10 +44,22 @@ type Props = {
   types: readonly EventTypeRow[];
   /** Fired when an enabled tile is tapped. */
   onSelect: (type: EventTypeRow) => void;
+  /**
+   * Wedding cardinality grey-out (owner ruling 2026-09-11 — "they shouldn't
+   * even allow the creation/step 1 of clicking the wedding event... it should
+   * be greyed out since it is not available"). Keyed by type key → the short
+   * reason to print on the tile. DELIBERATELY DIFFERENT from `enabled=false`:
+   * an admin-disabled type is a genuine dead end ("Coming soon", unclickable),
+   * while an unavailable-for-THIS-account type is still a live door — the tap
+   * still fires `onSelect` so the consumer can show the guided router /
+   * "go to your existing wedding" instead of quietly doing nothing. A greyed
+   * tile is a disabled AFFORDANCE, never a disabled CONTROL.
+   */
+  unavailableReasons?: Partial<Record<string, string>>;
   className?: string;
 };
 
-export function EventTypePhotoPicker({ types, onSelect, className }: Props) {
+export function EventTypePhotoPicker({ types, onSelect, unavailableReasons, className }: Props) {
   return (
     <div
       role="listbox"
@@ -55,7 +67,13 @@ export function EventTypePhotoPicker({ types, onSelect, className }: Props) {
       className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 ${className ?? ''}`}
     >
       {types.map((t, i) => (
-        <PhotoTile key={t.key} type={t} index={i} onSelect={onSelect} />
+        <PhotoTile
+          key={t.key}
+          type={t}
+          index={i}
+          onSelect={onSelect}
+          unavailableReason={unavailableReasons?.[t.key]}
+        />
       ))}
     </div>
   );
@@ -65,10 +83,12 @@ function PhotoTile({
   type: t,
   index,
   onSelect,
+  unavailableReason,
 }: {
   type: EventTypeRow;
   index: number;
   onSelect: (type: EventTypeRow) => void;
+  unavailableReason?: string;
 }) {
   const enabled = t.enabled;
   // Start optimistic (try the photo); flip to the branded placeholder the first
@@ -76,19 +96,24 @@ function PhotoTile({
   // admin-uploaded heroPhotoUrl, without a wrong stand-in photo.
   const [noPhoto, setNoPhoto] = useState(false);
   const tagline = t.description ?? TAGLINES[t.key] ?? '';
+  // Reachable-as-disabled (see the Props doc comment above): never true when
+  // the type itself is admin-disabled — that state already owns "Coming soon".
+  const greyedOut = enabled && !!unavailableReason;
 
   return (
     <button
       type="button"
       role="option"
       aria-selected={false}
-      aria-label={t.label}
+      aria-label={greyedOut ? `${t.label} — ${unavailableReason}` : t.label}
       disabled={!enabled}
       onClick={() => enabled && onSelect(t)}
       className={`group relative aspect-[4/5] overflow-hidden rounded-2xl text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
-        enabled
-          ? 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
-          : 'cursor-not-allowed opacity-60'
+        !enabled
+          ? 'cursor-not-allowed opacity-60'
+          : greyedOut
+            ? 'cursor-pointer opacity-75 grayscale-[0.6] hover:opacity-100 hover:grayscale-0'
+            : 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
       }`}
     >
       {noPhoto ? (
@@ -127,9 +152,13 @@ function PhotoTile({
           {t.label}
         </p>
         <p className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
-          {tagline}
+          {greyedOut ? unavailableReason : tagline}
         </p>
-        {enabled ? (
+        {greyedOut ? (
+          <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/10 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm">
+            Already in planning
+          </span>
+        ) : enabled ? (
           <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-3.5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[11px]">
             Begin &rarr;
           </span>

@@ -23,6 +23,8 @@
 import { useMemo, useState } from 'react';
 import { Gem, MapPin, Sparkles, BadgeCheck } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { shopInitials } from '@/lib/shop-initials';
 
 /** One display-safe vendor row. Money/rating are display fields; no PII, no
  *  contact, no ids beyond the opaque vendor key (unused on the client). */
@@ -91,11 +93,9 @@ html.dark .tsl{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,
 html.dark .tsl .v .bdg.setnayan{color:#C99DB0}
 `;
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
@@ -142,6 +142,9 @@ function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
               <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
               {v.reviewCount !== null ? <span className="rcount">{v.reviewCount}</span> : null}
             </div>
+          ) : v.reviewCount !== null ? (
+            // 0 reviews — "New", never a fake 0.0 (owner ruling 2026-09-11).
+            <div className="stars">{NEW_TO_SETNAYAN_LABEL}</div>
           ) : null}
           {v.isVerified || v.isSetnayan ? (
             <div className="badges">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { fetchVendorSongs } from '@/lib/songs';
+import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
@@ -30,7 +30,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
-import { vendorSeoPlanForVendor } from '@/lib/vendor-seo-tier';
+import { vendorSeoPlanForVendor, effectiveSeoTier } from '@/lib/vendor-seo-tier';
 import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
@@ -809,6 +809,21 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
+  // here and threaded into every tier gate below (tierCaps, micrositeCan,
+  // isTrueNameTier, boothTierCanBrand). Tier lapse is LOGIN-DRIVEN
+  // (`sweep_vendor_tier_expiry` fires from the vendor dashboard layout) and
+  // nobody is logged in on this public render, so a vendor whose
+  // subscription ended months ago still carries a paid `tier_state` in this
+  // row — reading it alone would hand the paid look out forever.
+  // `effectiveSeoTier` already collapses a lapsed paid tier to 'free' (see
+  // its own docblock); `vendorSeoPlanForVendor` below already used it for
+  // the SEO plan, this just extends the SAME collapse to the page's own
+  // rendered look instead of leaving the four gates reading the raw column.
+  const effectiveTierState = effectiveSeoTier({
+    tier_state: vendor.tier_state ?? null,
+    tier_expires_at: vendor.tier_expires_at ?? null,
+  });
   // 3D Booth Ads · Part C: vendors on a booth-brandable tier get a shareable
   // "walk into my booth" 3D showcase at /v/[slug]/booth (same gate that brands a
   // booth — Pro/Enterprise today, every tier once the 2026-07-25 tiered add-on
@@ -819,7 +834,7 @@ export async function renderVendorBySlug({
   // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
   const canShowBooth =
     envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE) &&
-    boothTierCanBrand(vendor.tier_state ?? null) &&
+    boothTierCanBrand(effectiveTierState) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
@@ -1123,9 +1138,9 @@ export async function renderVendorBySlug({
   // hero photo · pinned review · editorials · the 2-column layout. The custom URL
   // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
   // links already handed out); routing keeps resolving it.
-  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
+  const viewerTierCaps = tierCaps(effectiveTierState);
   const premiumLayout = viewerTierCaps.customWebsiteName;
-  const canPersonalizePage = micrositeCan(vendor.tier_state ?? null).canPersonalize;
+  const canPersonalizePage = micrositeCan(effectiveTierState).canPersonalize;
   // Section toggles are a Solo control → below Solo, ignore the saved hide/show
   // set and fall back to defaults (all baseline sections visible).
   const pageSections = canPersonalizePage ? microsite.sections : {};
@@ -1215,7 +1230,7 @@ export async function renderVendorBySlug({
   // Flagship cinematic layer: Enterprise-or-higher (Custom runs as Enterprise).
   // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3) so the
   // Custom tier inherits the flagship hero + films rack without a hard equality.
-  const isEnterprise = micrositeCan(vendor.tier_state ?? null).isEnterprise;
+  const isEnterprise = micrositeCan(effectiveTierState).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
   // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
@@ -1248,7 +1263,7 @@ export async function renderVendorBySlug({
     screen_name: vendor.screen_name ?? null,
     // Phase C: Pro/Enterprise reveal the real business_name day-1. Open-it-up
     // lock: a VERIFIED vendor's name is never gated (revealed on any tier).
-    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    isPaidTier: isTrueNameTier(effectiveTierState),
     is_verified: vendor.verification_state === 'verified',
   });
 
@@ -1860,7 +1875,10 @@ export async function renderVendorBySlug({
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Wedding vendors',
+        // D2 (2026-09-11): was 'Wedding vendors' — event-neutral, matching
+        // the app-wide "Setnayan vendor" term (vendorMetadataBySlug's own
+        // page-title suffix) rather than assuming every shop is wedding-only.
+        name: 'Vendors',
         item: `${SITE_URL}/explore`,
       },
       {
@@ -2404,7 +2422,7 @@ export async function renderVendorBySlug({
           couple this band plays nothing, which is a claim we cannot make about a
           list the band simply has not filled in yet.
         */}
-        {repertoire.length > 0 ? (
+        {repertoire.length > 0 && isMusicToolCategory(vendor.services) ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Songs they play
@@ -2683,7 +2701,11 @@ export async function renderVendorBySlug({
         (vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0) ? (
           <section className="space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Wedding compatibility
+              {/* D2 (2026-09-11): event-neutral — this shop page is not only
+                  for weddings, and a debut/christening host reading "Wedding
+                  compatibility" over a real answer about their own event is a
+                  small but real instance of the same lie row 3838 rules out. */}
+              Event compatibility
             </h2>
             {vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0 ? (
               <div className="space-y-2">

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bcd621ff6",
+  "generatedFromRef": "6e280fc058",
   "routeCount": 427,
-  "destinations": 910,
-  "actions": 633,
-  "blocks": 4406,
+  "destinations": 913,
+  "actions": 637,
+  "blocks": 4435,
   "routes": {
     "/": {
       "files": [
@@ -778,10 +778,12 @@
         "[slug]/_components/std-background-layer.tsx",
         "[slug]/_components/std-film-handoff.tsx",
         "[slug]/_components/std-view-beacon.tsx",
+        "[slug]/_components/story/arranged-sheet.tsx",
         "[slug]/_components/story/back-cover.tsx",
         "[slug]/_components/story/find-in-this-day.tsx",
         "[slug]/_components/story/minute-media.tsx",
         "[slug]/_components/story/relive.tsx",
+        "[slug]/_components/story/sheet-clip.tsx",
         "[slug]/_components/story/spine-data.ts",
         "[slug]/_components/story/story-clock.tsx",
         "[slug]/_components/story/story-index-tabs.tsx",
@@ -861,6 +863,7 @@
       ],
       "blocks": [
         "AnnouncementCard",
+        "ArrangedSheet",
         "ArrivalGreeting",
         "BackCover",
         "BackCoverBlock",
@@ -885,6 +888,7 @@
         "CssFallback",
         "CustomColumnBody",
         "Date",
+        "DayEntry",
         "DayOfAnnouncement",
         "DayOfBanner",
         "DayOfFaceEnroll",
@@ -989,6 +993,7 @@
         "PartHead",
         "Phase",
         "PhaseRibbon",
+        "Photo",
         "PhotoGallery",
         "PhotoMomentModeBadge",
         "PhotoMomentsWidget",
@@ -1039,6 +1044,8 @@
         "SelfieCapture",
         "SetnayanExperience",
         "ShareButtons",
+        "SheetClip",
+        "SheetEntry",
         "SiteBody",
         "SiteMenuBar",
         "SpatialBackdrop",
@@ -1099,6 +1106,7 @@
         "WayfindingMap",
         "WereYouThere",
         "WhatToBringWidget",
+        "Words",
         "YourOwnConsent",
         "YourOwnDay",
         "YourPhotosWidget",
@@ -1271,9 +1279,12 @@
       "blocks": [
         "A4Sheet",
         "ArrangedPage",
+        "ArrangedSheet",
+        "ArrangedSheetPage",
         "ChapterCard",
         "Colophon",
         "CoverPage",
+        "DrawnSheet",
         "HeroMonogram",
         "Link",
         "LockedClose",
@@ -2176,6 +2187,7 @@
     "/admin/disputes": {
       "files": [
         "admin/disputes/_components/deposit-disputes-section.tsx",
+        "admin/disputes/_components/payment-disputes-section.tsx",
         "admin/disputes/actions.ts",
         "admin/disputes/loading.tsx",
         "admin/disputes/page.tsx"
@@ -2183,7 +2195,8 @@
       "destinations": [],
       "actions": [
         "resolveDispute",
-        "settleDepositDispute"
+        "settleDepositDispute",
+        "settlePaymentDispute"
       ],
       "blocks": [
         "ConfirmForm",
@@ -2194,6 +2207,7 @@
         "HandoverEvidence",
         "KpiStatCard",
         "PageMasthead",
+        "PaymentDisputesSection",
         "PolicyEvidence",
         "StatsBanner",
         "SubmitButton",
@@ -3892,6 +3906,7 @@
         "ApplicationsSurface",
         "ApplicationsTabs",
         "Avatar",
+        "BadgeDeadlineLine",
         "CategoryMatchBadge",
         "CheckLine",
         "CheckResultsBlock",
@@ -5653,6 +5668,8 @@
         "inviteHost",
         "removeHost",
         "revokeHostInvite",
+        "routes.dashboard.messages.detail",
+        "routes.dashboard.messages.index",
         "setDelegateBudget",
         "setDelegatePhotos"
       ],
@@ -6372,14 +6389,18 @@
       "files": [
         "dashboard/[eventId]/story/_components/cover-step.tsx",
         "dashboard/[eventId]/story/_components/editorial-editor.tsx",
+        "dashboard/[eventId]/story/_components/make-it-yours.tsx",
         "dashboard/[eventId]/story/_components/story-rail.tsx",
         "dashboard/[eventId]/story/_components/the-desk.tsx",
         "dashboard/[eventId]/story/_components/theme-step.tsx",
         "dashboard/[eventId]/story/_components/whats-next-step.tsx",
         "dashboard/[eventId]/story/_lib/host-authority.ts",
+        "dashboard/[eventId]/story/_lib/load-arrangement.ts",
         "dashboard/[eventId]/story/_lib/load-cover-candidates.ts",
         "dashboard/[eventId]/story/_lib/load-desk.ts",
+        "dashboard/[eventId]/story/_lib/load-make-it-yours.ts",
         "dashboard/[eventId]/story/actions.ts",
+        "dashboard/[eventId]/story/arrangement-actions.ts",
         "dashboard/[eventId]/story/cover-actions.ts",
         "dashboard/[eventId]/story/desk-actions.ts",
         "dashboard/[eventId]/story/page.tsx",
@@ -6387,6 +6408,7 @@
       ],
       "destinations": [
         "/[seg]?phase=editorial",
+        "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/living-hero",
@@ -6408,12 +6430,25 @@
         "EditorialEditorInput",
         "Field",
         "FileUpload",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLInputElement",
+        "HTMLSpanElement",
         "K",
         "Link",
+        "LoadedArrangement",
+        "MakeItYours",
+        "MakeItYoursInput",
+        "NameField",
+        "Naming",
         "NextActionResult",
         "PageMasthead",
         "ProChip",
         "ProUpsellLine",
+        "ResolvedArrangement",
+        "SaveArrangementResult",
+        "SaveState",
         "ShareButtons",
         "StoryCoverKind",
         "StoryRail",
@@ -6422,8 +6457,10 @@
         "SwatchPopover",
         "TheDesk",
         "ThemeStep",
+        "Toast",
         "WhatsNextStep",
-        "WishRow"
+        "WishRow",
+        "WordsBox"
       ]
     },
     "/dashboard/[eventId]/studio": {
@@ -8549,6 +8586,8 @@
         "onboarding/wedding/types.ts"
       ],
       "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard?hub=1",
         "/login?next=[seg]"
       ],
       "actions": [
@@ -8556,6 +8595,7 @@
         "signUp"
       ],
       "blocks": [
+        "AlreadyPlanningWedding",
         "Ans",
         "ArtState",
         "CountUp",
@@ -8568,6 +8608,7 @@
         "HTMLElement",
         "HTMLImageElement",
         "HeroImg",
+        "Link",
         "LocationStep",
         "Mode",
         "MonoLockup",
@@ -9426,7 +9467,6 @@
         "ModalState",
         "NavLinksRow",
         "PackageCard",
-        "PlatformIcon",
         "PublicVendorRow",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -10359,6 +10399,7 @@
         "declineInquiry",
         "declinePaxSurcharge",
         "recordInquiryOutcome",
+        "refuseVendorPayment",
         "sendProposalFromChat"
       ],
       "blocks": [
@@ -10376,9 +10417,11 @@
         "Link",
         "LinkTool",
         "NegotiationComposerMenu",
+        "NotReceivedForm",
         "OfferServiceResult",
         "OutcomeState",
         "PaymentPlanStepper",
+        "PendingPaymentAnswer",
         "PipelinePressureLine",
         "ProposalMaker",
         "QuoteSeed",

@@ -20,6 +20,7 @@
  * but NOT linked from any production surface yet.
  */
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { getSelfPersonalization } from '@/lib/self-personalization';
@@ -36,6 +37,7 @@ import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-fl
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value';
+import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 
@@ -89,11 +91,31 @@ export default async function OnboardingWeddingPage({
   // keeps it to internal paths only.
   const nextPath = safeNext(sp.next);
   const supabase = await createClient();
+
+  // Wedding cardinality grey-out (owner ruling 2026-09-11 — "they shouldn't
+  // even allow the creation/step 1 of clicking the wedding event... it should
+  // be greyed out since it is not available"). Checked FIRST, before any of
+  // the onboarding data fetches below, so a signed-in account with a wedding
+  // still IN PLANNING never walks a single screen of the wizard — it lands on
+  // this notice instead. Signed-out visitors are unaffected (getInPlanningWedding
+  // is only ever called with a real user id). Same rule, same helper the
+  // create-event picker uses — see wedding-guard.ts (owner-locked 2026-07-12).
+  const {
+    data: { user: earlyUser },
+  } = await supabase.auth.getUser();
+  const inPlanningWedding = earlyUser
+    ? await getInPlanningWedding(supabase, earlyUser.id)
+    : null;
+  if (inPlanningWedding) {
+    return <AlreadyPlanningWedding wedding={inPlanningWedding} />;
+  }
+
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, bgMusicUrls, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
-    supabase.auth.getUser(),
+  // `user` is already resolved above (the cardinality check needed it first).
+  const user = earlyUser;
+  const [activeFaiths, customerSkus, bundles, bgMusicUrl, bgMusicUrls, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
@@ -114,7 +136,6 @@ export default async function OnboardingWeddingPage({
     // falls back to BUDGET_BANDS_FALLBACK on any read error/empty.
     getBudgetBands(),
   ]);
-  const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
   // committed event yet (lazy commit at the final button) → estimated_pax is
   // unknown → pass no pax. No live SKU is pax-priced since the 2026-07-29
@@ -176,5 +197,64 @@ export default async function OnboardingWeddingPage({
       budgetBands={budgetBands}
       nextPath={nextPath !== '/' ? nextPath : null}
     />
+  );
+}
+
+/**
+ * The entrance notice for a signed-in account that already has a wedding IN
+ * PLANNING (owner ruling 2026-09-11). Replaces the ENTIRE wizard — no screen
+ * of it renders, not even Welcome — because the rule (wedding-guard.ts,
+ * owner-locked 2026-07-12) is unconditional: at most one wedding in planning
+ * at a time. "Start" is visibly unavailable with the plain reason; the way
+ * forward is the existing wedding, exactly as the create-event picker's own
+ * guided router (event-type-picker.tsx) already offers.
+ */
+function AlreadyPlanningWedding({
+  wedding,
+}: {
+  wedding: { eventId: string; displayName: string };
+}) {
+  return (
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-16 sm:px-6">
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+        Plan your wedding
+      </p>
+      <h1 className="mt-3 font-serif text-3xl italic text-ink sm:text-4xl">
+        You’re already planning a wedding
+      </h1>
+      <p className="mt-4 text-base leading-relaxed text-ink/70">
+        You have <span className="font-medium text-ink">{wedding.displayName}</span> in planning
+        right now — you can only plan one wedding at a time, so starting another isn’t offered
+        here. Finish it first, or open it and choose “Put this away” to free the slot.
+      </p>
+
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <Link
+          className="inline-flex items-center justify-center rounded-lg bg-mulberry px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-mulberry-600"
+          href={`/dashboard/${wedding.eventId}`}
+        >
+          Go to {wedding.displayName}
+        </Link>
+        <Link
+          className="inline-flex items-center justify-center rounded-lg border border-ink/12 px-5 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:border-ink/25 hover:text-ink"
+          href="/dashboard?hub=1"
+        >
+          Back to my events
+        </Link>
+      </div>
+
+      {/* The unavailable "start" affordance itself — greyed, not a dead link:
+          it names the reason inline rather than pretending the wizard begins
+          here. No control routes into the wizard from this screen. */}
+      <div
+        aria-hidden
+        className="mt-10 flex cursor-not-allowed items-center justify-between rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-4 opacity-60"
+      >
+        <span className="text-sm font-medium text-ink/60">Start planning a wedding</span>
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/45">
+          Not available
+        </span>
+      </div>
+    </div>
   );
 }

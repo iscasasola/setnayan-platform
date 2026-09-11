@@ -26,13 +26,22 @@ import sharp from 'sharp';
  * others can evolve independently — a concurrent edit to one never breaks
  * another.
  *
- * The logo (when the shop has one) is embedded as a base64 DATA URI, not a
- * remote satori `<img src>` fetch — one network round trip (done by THIS
- * module, through the same public-bucket-only signer every other read of
- * `vendor_profiles.logo_url` goes through — see `displayUrlForStoredAsset` /
- * `lib/site-media-ref.ts`) instead of leaving satori to fetch it during
- * layout. A failed fetch/decode degrades to the wordmark-only card — a
- * broken logo must never break the whole share.
+ * 🪤 THE LOGO IS NEVER A SATORI `<img>` NODE. An earlier version embedded the
+ * fetched logo as a data-URI `<img>` inside the satori tree and it threw
+ * "Image source is not provided" for every shop that actually HAS a logo
+ * (reproduced locally against the real fixture: `saysay-live-band…` — no
+ * logo — rendered fine; `setnaprod` — has a logo — 302'd to the brand
+ * fallback in production). Root cause: this file's own `el()` helper puts
+ * its second argument under `props.style`, which is correct for every other
+ * node type here (satori reads a div's box model off `style`) but wrong for
+ * `<img>`, whose `src` satori reads off a TOP-LEVEL prop — so the image
+ * source silently never reached satori at all. Rather than hand-roll a
+ * second prop-shape through `el()` (and re-risk the same class of bug), the
+ * logo is composited the SAME way `profile-card.tsx` composites its hero
+ * photo: satori renders TEXT ONLY (zero image awareness, zero risk), and a
+ * separately-fetched, `sharp`-normalized logo tile is `.composite()`-d onto
+ * the finished PNG at a fixed, hand-chosen corner position — pure raster
+ * layering, the proven pattern, never satori image resolution.
  *
  * PNG, not JPEG: unlike the other social cards in this file's siblings, a
  * shop's card composites a small square logo tile that may carry
@@ -59,7 +68,13 @@ const SATORI_FONTS = [
 
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
-const LOGO_BOX = 108;
+
+// Fixed corner badge — NOT part of satori's flex layout, so no layout math
+// needs reverse-engineering to know where to composite it. Sits inside the
+// card's own border, clear of the centered eyebrow/name/description column.
+const LOGO_SIZE = 88;
+const LOGO_TOP = 64;
+const LOGO_LEFT = 64;
 
 export type VendorCardInput = {
   /** The resolved, hybrid-anonymity-safe display label — never the raw business_name. */
@@ -74,7 +89,8 @@ export type VendorCardInput = {
    * An ALREADY-RESOLVED, fetchable logo URL (the caller has already run it
    * through `displayUrlForStoredAsset` / `lib/site-media-ref.ts`) — or null
    * for a shop with no logo. This module fetches the bytes itself so the
-   * card can embed them as a data URI rather than hand satori a remote URL.
+   * card can composite them onto the finished PNG (see the module docblock —
+   * never handed to satori).
    */
   logoUrl?: string | null;
 };
@@ -121,29 +137,8 @@ function wordmark(color: string = INK): VNode {
   );
 }
 
-/** A small square logo tile as a data-URI `<img>` node, or the plain eyebrow row without one. */
-function markRow(logoDataUri: string | null): VNode {
-  if (logoDataUri) {
-    return el(
-      'div',
-      {
-        display: 'flex',
-        width: `${LOGO_BOX}px`,
-        height: `${LOGO_BOX}px`,
-        borderRadius: '16px',
-        border: `1px solid ${GOLD}`,
-        backgroundColor: '#FFFFFF',
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-      el('img', {
-        src: logoDataUri,
-        width: `${LOGO_BOX - 2}px`,
-        height: `${LOGO_BOX - 2}px`,
-      }),
-    );
-  }
+/** The eyebrow row — ALWAYS this text, whether or not the shop has a logo (the logo, when present, is a corner badge composited after render — see the module docblock). */
+function eyebrowRow(): VNode {
   return el(
     'div',
     { display: 'flex', alignItems: 'center', gap: '14px' },
@@ -165,7 +160,7 @@ function markRow(logoDataUri: string | null): VNode {
   );
 }
 
-function cardTree(input: VendorCardInput, logoDataUri: string | null): VNode {
+function cardTree(input: VendorCardInput): VNode {
   return el(
     'div',
     {
@@ -190,7 +185,7 @@ function cardTree(input: VendorCardInput, logoDataUri: string | null): VNode {
           padding: '48px 60px',
         },
         [
-          markRow(logoDataUri),
+          eyebrowRow(),
           el(
             'div',
             { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' },
@@ -231,21 +226,25 @@ function cardTree(input: VendorCardInput, logoDataUri: string | null): VNode {
 }
 
 /**
- * Fetch the resolved logo URL and normalize it into a small square PNG data
- * URI. Never throws — a broken/unreachable logo degrades to `null` and the
- * card renders the eyebrow row instead, exactly like a shop with no logo.
+ * Fetch the resolved logo URL and normalize it into a small square PNG tile,
+ * framed with a thin gold border (matching the card's own rule) via a 1px
+ * `sharp` extend. Never throws — a broken/unreachable/undecodable logo
+ * degrades to `null` and the card composites nothing, exactly like a shop
+ * with no logo.
  */
-async function logoAsDataUri(logoUrl: string | null | undefined): Promise<string | null> {
+async function logoTile(logoUrl: string | null | undefined): Promise<Buffer | null> {
   if (!logoUrl) return null;
   try {
     const res = await fetch(logoUrl);
     if (!res.ok) return null;
     const bytes = Buffer.from(await res.arrayBuffer());
-    const tile = await sharp(bytes)
-      .resize(LOGO_BOX - 2, LOGO_BOX - 2, { fit: 'contain', background: '#FFFFFF' })
+    const inner = LOGO_SIZE - 2;
+    const framed = await sharp(bytes)
+      .resize(inner, inner, { fit: 'contain', background: '#FFFFFF' })
+      .extend({ top: 1, bottom: 1, left: 1, right: 1, background: GOLD })
       .png()
       .toBuffer();
-    return `data:image/png;base64,${tile.toString('base64')}`;
+    return framed;
   } catch {
     return null;
   }
@@ -257,11 +256,16 @@ async function logoAsDataUri(logoUrl: string | null | undefined): Promise<string
  * static brand image so a crawler never gets a broken response.
  */
 export async function renderVendorOgPng(input: VendorCardInput): Promise<Buffer> {
-  const logoDataUri = await logoAsDataUri(input.logoUrl);
-  const svg = await satori(cardTree(input, logoDataUri) as unknown as React.ReactNode, {
+  const svg = await satori(cardTree(input) as unknown as React.ReactNode, {
     width: OG_WIDTH,
     height: OG_HEIGHT,
     fonts: SATORI_FONTS,
   });
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  const base = sharp(Buffer.from(svg)).png();
+  const tile = await logoTile(input.logoUrl);
+  if (!tile) return base.toBuffer();
+  return base
+    .composite([{ input: tile, top: LOGO_TOP, left: LOGO_LEFT }])
+    .png()
+    .toBuffer();
 }

@@ -70,6 +70,12 @@ export type WizardVendorRec = {
    *  badge. Read from `vendor_profiles.verification_state` (separate
    *  column from `public_visibility`). */
   verification_state: string | null;
+  /** Q7 (owner 2026-09-11) — the Verified badge's own deadline, alongside
+   *  verification_state. Pass BOTH to `hasVerifiedBadge` (lib/verified-badge.ts)
+   *  to decide the badge — verification_state alone is stale once a shop's
+   *  deadline has passed (the shop stays listed/bookable; only the badge
+   *  reacts). Pulled in the same vendor_profiles batch. */
+  next_renewal_due_at: string | null;
   /** Hybrid-anonymity reveal timestamp (V2.1 brief amendment #2 ·
    *  2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED"
    *  row § 1(d) + memory rule
@@ -444,6 +450,7 @@ export async function fetchWizardVendorRecommendations(
     WizardVendorRec,
     | 'primary_photo_url'
     | 'verification_state'
+    | 'next_renewal_due_at'
     | 'name_revealed_at'
     | 'presentation_pattern'
     | 'services_preview'
@@ -658,6 +665,8 @@ export async function fetchWizardVendorRecommendations(
         string,
         {
           verification_state: string | null;
+          /** Q7 — the badge's own deadline, see the type doc above. */
+          next_renewal_due_at: string | null;
           presentation_pattern: 'creations' | 'locked' | null;
           /** Per V2.1 brief amendment #2 (2026-05-30) — hybrid-anonymity
            *  reveal timestamp. Pulled in the same vendor_profiles batch
@@ -680,7 +689,7 @@ export async function fetchWizardVendorRecommendations(
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at,screen_name,tier_state',
+          'vendor_profile_id,verification_state,next_renewal_due_at,presentation_pattern,name_revealed_at,screen_name,tier_state',
         )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
@@ -688,6 +697,7 @@ export async function fetchWizardVendorRecommendations(
         string,
         {
           verification_state: string | null;
+          next_renewal_due_at: string | null;
           presentation_pattern: 'creations' | 'locked' | null;
           name_revealed_at: string | null;
           screen_name: string | null;
@@ -697,6 +707,7 @@ export async function fetchWizardVendorRecommendations(
       for (const row of rows as Array<{
         vendor_profile_id: string;
         verification_state: string | null;
+        next_renewal_due_at?: string | null;
         presentation_pattern: string | null;
         name_revealed_at?: string | null;
         screen_name?: string | null;
@@ -709,6 +720,7 @@ export async function fetchWizardVendorRecommendations(
             : null;
         out.set(row.vendor_profile_id, {
           verification_state: row.verification_state ?? null,
+          next_renewal_due_at: row.next_renewal_due_at ?? null,
           presentation_pattern: pattern,
           name_revealed_at: row.name_revealed_at ?? null,
           screen_name: row.screen_name ?? null,
@@ -776,6 +788,7 @@ export async function fetchWizardVendorRecommendations(
         ? publicUrlForStoredAsset(firstPhotoKey)
         : null,
       verification_state: meta?.verification_state ?? null,
+      next_renewal_due_at: meta?.next_renewal_due_at ?? null,
       name_revealed_at: meta?.name_revealed_at ?? null,
       screen_name: meta?.screen_name ?? null,
       tier_state: meta?.tier_state ?? null,

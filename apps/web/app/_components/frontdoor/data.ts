@@ -38,6 +38,7 @@ import 'server-only';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayLogoUrl } from '@/lib/uploads';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import {
   publishedBlogArticles,
   blogCategoryLabel,
@@ -282,7 +283,7 @@ export type FrontDoorData = {
 
 /** The columns both readers need, named once. */
 const SHOP_COLUMNS =
-  'business_name, business_slug, location_city, services, verification_state, logo_url';
+  'business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url';
 
 /**
  * One row → one card. Shared for the same reason the gate is: the logo here is
@@ -311,7 +312,14 @@ async function toFrontDoorShop(
     name,
     folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
     city: typeof row.location_city === 'string' ? row.location_city : null,
-    verified: row.verification_state === 'verified',
+    // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+    // deadline, not verification_state alone.
+    verified: hasVerifiedBadge({
+      verification_state:
+        typeof row.verification_state === 'string' ? row.verification_state : null,
+      next_renewal_due_at:
+        typeof row.next_renewal_due_at === 'string' ? row.next_renewal_due_at : null,
+    }),
   };
 }
 

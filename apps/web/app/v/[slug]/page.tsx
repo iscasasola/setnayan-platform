@@ -290,6 +290,11 @@ export type PublicVendorRow = {
   // in demo mode. Optional + `!== 'verified'` everywhere so a missing column
   // degrades to hidden (safe).
   verification_state?: string | null;
+  // Q4/Q5/Q7 (owner 2026-09-11) — the Verified BADGE's own deadline, read
+  // alongside verification_state. Feeds hasVerifiedBadge (lib/verified-
+  // badge.ts) wherever this row's badge is decided; never the public-
+  // visibility gate above, which Q5 keeps on the raw state on purpose.
+  next_renewal_due_at?: string | null;
   // PR-B self-preview. `user_id` is the owning vendor account. When the
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
@@ -376,7 +381,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -387,7 +392,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id)/i.test(
       error.message,
     )
   ) {

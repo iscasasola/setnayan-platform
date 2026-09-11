@@ -26,6 +26,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -84,8 +85,15 @@ async function newShop(): Promise<{ vpid: string; userId: string; sid: string }>
     );
   }
   const s = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1,'photography',40000,'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1,'photography',40000,'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vpid],
   );
   return { vpid, userId, sid: s.rows[0]!.vendor_service_id };

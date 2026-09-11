@@ -23,6 +23,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -46,8 +47,15 @@ async function newVendor(email: string): Promise<string> {
 
 async function newService(vendor: string): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1, 'photography', 50000, 'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'photography', 50000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vendor],
   );
   return r.rows[0]!.vendor_service_id;
@@ -196,13 +204,16 @@ test('save_vendor_service (the WIZARD path) persists the ladder, not just the ra
        jsonb_build_object(
          'category','photography',
          'starting_price_php','60000',
-         'exclusive_perk_text','Free engagement shoot'
+         'exclusive_perk_text','Free engagement shoot',
+         -- A card going live carries a cover (H2, 20271222415682).
+         'primary_photo_r2_key', $3::text
        ),
        '[]'::jsonb,
        '[]'::jsonb,
        $2::jsonb,
        '[]'::jsonb,
-       '[]'::jsonb,
+       -- …and one "what's included" line (H2).
+       jsonb_build_array(jsonb_build_object('label', $4::text)),
        TRUE
      )`,
     [
@@ -212,6 +223,8 @@ test('save_vendor_service (the WIZARD path) persists the ladder, not just the ra
         { discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: 6, sort_order: 1 },
         { discount_type: 'off_peak', rate: 5, unit: 'pct', sort_order: 2 },
       ]),
+      FIXTURE_COVER,
+      FIXTURE_INCLUSION,
     ],
   );
   const newServiceId = saved.rows[0]!.save_vendor_service;

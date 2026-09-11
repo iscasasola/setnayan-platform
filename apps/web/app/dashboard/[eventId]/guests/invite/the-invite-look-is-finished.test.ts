@@ -187,7 +187,17 @@ test('the picker MEASURES the fence and hands it down — it is never assumed', 
     /resolveWeddingOnlyParts\(p\)\.save_the_date_film/,
     'the page no longer asks the reveal’s own fence',
   );
-  assert.match(page, /\.catch\(\(\) => false\)/, 'an unreadable profile must fall to the free door, not open a paid one');
+  /*
+    🪤 ANCHORED TO THIS CHAIN, NOT TO THE FILE. This page holds TWO
+    `.catch(() => false)` — the ownership read has one too — and a bare match on
+    the string was satisfied by the OTHER one: the sabotage that turns THIS
+    fallback into `true` left the guard green. Measured, then narrowed.
+  */
+  assert.match(
+    page,
+    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
+    'an unreadable profile must fall to the free door, not open a paid one',
+  );
   assert.match(page, /mayShowStdFilm=\{mayShowStdFilm\}/, 'the answer is measured and then not passed');
   const picker = read(PICKER);
   assert.match(picker, /pickableInviteThemes\(\{ mayShowStdFilm \}\)/, 'the picker offers themes without asking the fence');
@@ -216,9 +226,32 @@ test('🔒 the SAVE refuses a Pro theme there — after the couple check, before
   assert.ok(refusal < write, 'a Pro theme could be written onto a celebration that can never show it');
   assert.match(
     body,
-    /\.catch\(\(\) => false\)/,
+    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
     'a refused profile read must refuse the save — an unmeasured type is not a wedding',
   );
+});
+
+test('the DOOR asks the fence too — the only one that protects an already-saved value', () => {
+  /*
+    The picker refusing and the action refusing both act BEFORE a write. Neither
+    can help a couple who saved Capiz as a wedding and then had the celebration's
+    type changed — the row is already there. This read is the one that turns it
+    back into House with no write, and it is the one a guest actually meets.
+  */
+  const look = read('app/[slug]/invite/_lib/load-invite-look.ts');
+  assert.match(look, /resolveWeddingOnlyParts\(p\)\.save_the_date_film/, 'the door no longer asks the fence');
+  assert.match(
+    look,
+    /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/,
+    'an unreadable profile opens a paid theme on the door — an unmeasured type is not a wedding',
+  );
+  assert.match(
+    look,
+    /resolveInviteTheme\(\{ saved, ownsPro, mayShowStdFilm \}\)/,
+    'the measurement is taken and then not used',
+  );
+  // …and it costs a House event nothing: both reads sit behind `wantsPro`.
+  assert.match(look, /\? await Promise\.all\(\[/, 'the fence read is no longer skipped for a House event');
 });
 
 test('the fence is the reveal’s, not a second copy of it', () => {

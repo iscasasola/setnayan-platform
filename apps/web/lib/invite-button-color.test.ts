@@ -141,8 +141,8 @@ test('the pair travels together — DoorShell paints the fill AND the label', ()
     a pale couple colour that is white on white.
   */
   const shell = read('app/_components/door/door-shell.tsx');
-  assert.match(shell, /--door-action['"]?\s*\]?\s*:\s*skin\.action\.background/, 'the fill is not carried');
-  assert.match(shell, /--door-action-label['"]?\s*\]?\s*:\s*skin\.action\.label/, 'the LABEL is not carried');
+  assert.match(shell, /'--door-action'[^\n]*\]:\s*skin\.action\.background/, 'the fill is not carried');
+  assert.match(shell, /'--door-action-label'[^\n]*\]:\s*skin\.action\.label/, 'the LABEL is not carried');
   assert.match(shell, /data-door-action=\{skin\?\.action \? '' : undefined\}/, 'the scope attribute is gone or unconditional');
 
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');

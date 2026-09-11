@@ -55,7 +55,8 @@ let replay: ReplayResult;
 let db: PGlite;
 
 /**
- * The eleven columns 20271217955839 takes off `authenticated`.
+ * The eleven columns 20271217955839 takes off `authenticated` — plus the badge
+ * deadline, which 20271222518385 took off afterwards (the last entry).
  *
  * A NAMED list on purpose. The BIR columns all landed in one migration
  * (20260516100000) and the DTI/SEC ones in another (20270925937630), so the
@@ -77,7 +78,20 @@ const DENIED_TO_AUTHENTICATED = [
   'registration_number_needs_review',
   // the owner as a private person
   'business_owner_name',
+  // the Verified badge's deadline — a 182-day vouch vs a one-year approval, for
+  // every verified shop (L3 #5433 found it; N5 migration 20271222518385 took it
+  // off `authenticated`). The shop reads it through vendor_profiles_self; the
+  // marketplace, the admin desk and the sweep read it on the service role.
+  'next_renewal_due_at',
 ] as const;
+
+/**
+ * Taken off `authenticated` LATER, by 20271221366210 (a shop is reached through
+ * Setnayan, never around it). Listed apart from the eleven so this suite keeps
+ * testing exactly what 20271217955839 did; the contact half is proven in
+ * a-shops-contact-is-not-in-the-database.db.test.ts.
+ */
+const DENIED_LATER_CONTACT = ['contact_email', 'contact_phone'] as const;
 
 /**
  * Columns a signed-in stranger MUST keep. Not decoration: this is the half
@@ -92,8 +106,6 @@ const STILL_READABLE_BY_STRANGERS = [
   'logo_url',
   'services',
   'location_city',
-  'contact_email',
-  'contact_phone',
   'hq_address',
   'verification_state',
   'public_visibility',
@@ -321,7 +333,7 @@ test('EVERY non-denied column is still readable by `authenticated` — one at a 
       WHERE table_schema='public' AND table_name='vendor_profiles'
         AND NOT (column_name = ANY($1::text[]))
       ORDER BY column_name`,
-    [[...DENIED_TO_AUTHENTICATED]],
+    [[...DENIED_TO_AUTHENTICATED, ...DENIED_LATER_CONTACT]],
   );
   await reset();
   assert.ok(cols.rows.length > 50, `only ${cols.rows.length} non-denied columns — this is not vendor_profiles`);
@@ -468,7 +480,7 @@ test('vendor_profiles_self is READ-ONLY — a definer view that is auto-updatabl
 
 /* ── 4. anon IS UNTOUCHED ───────────────────────────────────────────────── */
 
-test('anon’s column surface is unchanged — 21 columns, none of the eleven', async () => {
+test('anon’s column surface is 20 columns, none of the eleven (21 until 20271221366210 took contact_email)', async () => {
   const n = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM information_schema.columns
       WHERE table_schema='public' AND table_name='vendor_profiles'
@@ -476,8 +488,8 @@ test('anon’s column surface is unchanged — 21 columns, none of the eleven', 
   );
   assert.equal(
     n.rows[0]!.n,
-    21,
-    'anon’s surface moved — 20271217955839 must not name anon in any statement',
+    20,
+    'anon’s surface moved — 20271217955839 must not name anon; 20271221366210 takes exactly contact_email (21 → 20)',
   );
 
   await asAnon();

@@ -1453,7 +1453,10 @@ export async function finalizeVendor(
   //      below (slotPathLocked short-circuits it).
   //   #2 (daily_capacity): services with ZERO active slots keep the existing
   //      per-day count gate — repointed from the (ungenerated) wedding_date
-  //      mirror to the canonical events.event_date column (verifier C5/C6).
+  //      mirror to the canonical events.event_date column (verifier C5/C6), and
+  //      counted by the server-only service_card_bookings_on (LOCK-PATH
+  //      CAPACITY) because the couple's own session cannot see other couples'
+  //      bookings. Day-precise events only.
   // Both degrade OPEN on missing data so a lock is never wrongly blocked.
   let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
@@ -1603,38 +1606,49 @@ export async function finalizeVendor(
       if (typeof capacity === 'number' && capacity > 0) {
         // event_date is the canonical DATE column; wedding_date is a generated
         // mirror with NO migration DDL, so it can silently no-op on a fresh DB
-        // (verifier C5/C6). Repointed to event_date in this same PR.
-        const { data: capEventRow } = await supabase
+        // (verifier C5/C6). Read through the couple's session: it is their own
+        // event, and that read is what proves the date is theirs to ask about.
+        const { data: capEventRow, error: capEventErr } = await supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle();
-        const capDate =
-          (capEventRow as { event_date?: string | null } | null)?.event_date ?? null;
-        if (capDate) {
-          const { data: capSameDate } = await supabase
-            .from('events')
-            .select('event_id')
-            .eq('event_date', capDate);
-          const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
-          if (capEventIds.length > 0) {
-            const { count: capCount } = await supabase
-              .from('event_vendors')
-              .select('vendor_id', { count: 'exact', head: true })
-              .eq('service_id', targetVendor.service_id)
-              .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
-              .is('archived_at', null)
-              .in('event_id', capEventIds)
-              .neq('vendor_id', vendorId);
-            if ((capCount ?? 0) >= capacity) {
-              return {
-                status: 'soft_hold_limit_reached',
-                vendorId,
-                vendorName: targetVendor.vendor_name as string,
-                currentLimit: capacity,
-                existingHoldCount: capCount ?? 0,
-              };
-            }
+        if (capEventErr) {
+          console.error('[finalizeVendor] #2 daily-limit: event read failed', capEventErr.message);
+        }
+        const capEvent = capEventRow as
+          | { event_date?: string | null; event_date_precision?: string | null }
+          | null;
+        const capDate = capEvent?.event_date ?? null;
+        // 🔒 LOCK-PATH CAPACITY (N5, 2026-09-11). This used to count the card's
+        // bookings by reading `events` + `event_vendors` through the COUPLE'S
+        // session — and RLS shows a couple only their own events, so it always
+        // counted 0 and a daily limit of 2 took a third, fourth, fifth couple.
+        // Now ONE server-only definer count answers (migration 20271222330608),
+        // the same one the bench search hides full cards with. Its inputs are
+        // the card on the couple's own booking row and the date on the couple's
+        // own event, both just read through their session. Day-precise only: a
+        // month-only event is stored as the 1st, and is no booking on the 1st.
+        if (capDate && capEvent?.event_date_precision === 'day') {
+          const { data: booked, error: bookedErr } = await createAdminClient().rpc(
+            'service_card_bookings_on',
+            {
+              p_service_id: targetVendor.service_id,
+              p_day: capDate,
+              p_exclude_vendor_id: vendorId,
+            },
+          );
+          if (bookedErr) {
+            // Degrades OPEN, like every capacity read here — but never silently.
+            console.error('[finalizeVendor] #2 daily-limit: count failed', bookedErr.message);
+          } else if (typeof booked === 'number' && booked >= capacity) {
+            return {
+              status: 'soft_hold_limit_reached',
+              vendorId,
+              vendorName: targetVendor.vendor_name as string,
+              currentLimit: capacity,
+              existingHoldCount: booked,
+            };
           }
         }
       }

@@ -19,11 +19,13 @@
  *      acquire function is found again in the mirror. Mutation-checked below:
  *      every predicate is shown to fail the audit when removed from either side.
  *   3. THE POOLS — the resolver still reads exactly the sources the mirror reads.
- *   4. THE TRIPWIRE — vendor_services.daily_capacity is deliberately NOT a
- *      refusal, because its only gate ("#2" in vendors/actions.ts) counts other
- *      couples' bookings through the COUPLE'S session and so, under RLS, never
- *      sees one. The day that gate can see them, it starts refusing, and the
- *      mirror must learn daily_capacity. (The RLS half is pinned in the db test.)
+ *   4. THE DAILY LIMIT — vendor_services.daily_capacity refuses through ONE
+ *      count, `service_card_bookings_on` (LOCK-PATH CAPACITY, migration
+ *      20271222330608). The lock's "#2" gate (vendors/actions.ts) and the mirror
+ *      both ask it, both compare it to the card's limit the same way, and it
+ *      counts exactly lib/events.ts CONFIRMED_VENDOR_STATUSES on day-precise
+ *      events. (This replaced H6's tripwire, which existed to fail the day the
+ *      gate stopped counting through the couple's RLS-blind session.)
  *   5. THE CALLERS — only the bench asks to hide; everyone else is unchanged;
  *      and only server code, with the admin client, ever calls the mirror.
  */
@@ -66,6 +68,24 @@ const pools = latestBody('acquire_schedule_pools');
 const slots = latestBody('acquire_service_time_slot');
 const resolver = latestBody('resolve_schedule_pool');
 const mirror = latestBody(MIRROR_FN);
+const COUNT_FN = 'service_card_bookings_on';
+const count = latestBody(COUNT_FN);
+
+/**
+ * The lock's "#2" daily-limit gate, read from finalizeVendor: from where it
+ * reads the card's limit to where it refuses. Comment-stripped.
+ */
+const ACTIONS = 'app/dashboard/[eventId]/vendors/actions.ts';
+function dailyLimitGate(src: string): string {
+  const start = src.search(/export async function finalizeVendor\(/);
+  assert.ok(start >= 0, 'finalizeVendor is gone — re-derive where the daily limit is enforced');
+  const from = src.indexOf(".select('daily_capacity')", start);
+  assert.ok(from > start, 'the #2 gate no longer reads daily_capacity — re-derive it');
+  const to = src.indexOf("'soft_hold_limit_reached'", from);
+  assert.ok(to > from, 'the #2 gate no longer refuses with soft_hold_limit_reached — re-derive it');
+  return src.slice(from, to);
+}
+const gate = squash(dailyLimitGate(stripComments(readFileSync(join(WEB, ACTIONS), 'utf8'))));
 
 // ── 1 · THE STATUSES ─────────────────────────────────────────────────────
 
@@ -122,7 +142,7 @@ test('every status the booking path can return is classified', () => {
  * hold, not anywhere in the body — several conditions appear in more than one
  * CTE, and "somewhere" would let one copy be deleted unseen.
  */
-const CTES = ['wanted_category', 'real_pool', 'virtual_pool_card', 'active_pool', 'shop_closed', 'pool_refused', 'slot', 'slot_refused'] as const;
+const CTES = ['svc', 'wanted_category', 'real_pool', 'virtual_pool_card', 'active_pool', 'shop_closed', 'pool_refused', 'slot', 'slot_refused', 'capacity_refused'] as const;
 type Cte = (typeof CTES)[number];
 
 function mirrorParts(body: string): Record<Cte, string> {
@@ -141,7 +161,7 @@ function mirrorParts(body: string): Record<Cte, string> {
   return out;
 }
 
-type Predicate = { name: string; side: 'pools' | 'slots'; booking: RegExp; mirror: Array<[Cte, RegExp]> };
+type Predicate = { name: string; side: 'pools' | 'slots' | 'count' | 'gate'; booking: RegExp; mirror: Array<[Cte, RegExp]> };
 
 const DAY_COVERS = (d: string) =>
   new RegExp(
@@ -251,9 +271,67 @@ const PREDICATES: Predicate[] = [
     booking: /v_used >= v_capacity/,
     mirror: [['slot_refused', /< sl\.cap/]],
   },
+  // ── the per-card daily limit: the count, then the gate, then the mirror ──
+  {
+    name: 'the daily limit counts only booked rows',
+    side: 'count',
+    booking: /ev\.status IN \('contracted', 'deposit_paid', 'delivered', 'complete'\)/,
+    mirror: [['capacity_refused', /public\.service_card_bookings_on\(svc\.sid, d\.day\)/]],
+  },
+  {
+    name: 'an archived booking does not count toward the daily limit',
+    side: 'count',
+    booking: /AND ev\.archived_at IS NULL/,
+    mirror: [['capacity_refused', /public\.service_card_bookings_on\(/]],
+  },
+  {
+    name: 'only a day-precise event counts toward the daily limit',
+    side: 'count',
+    booking: /e\.event_date = p_day AND e\.event_date_precision = 'day'/,
+    mirror: [['capacity_refused', /public\.service_card_bookings_on\(/]],
+  },
+  {
+    name: 'the gate asks only on a day-precise event',
+    side: 'gate',
+    booking: /if \(capDate && capEvent\?\.event_date_precision === 'day'\)/,
+    mirror: [['capacity_refused', /CROSS JOIN d/]],
+  },
+  {
+    name: 'the gate and the mirror ask the SAME count',
+    side: 'gate',
+    booking: /await createAdminClient\(\)\.rpc\( 'service_card_bookings_on', \{ p_service_id: targetVendor\.service_id, p_day: capDate, p_exclude_vendor_id: vendorId, \}, \)/,
+    mirror: [['capacity_refused', /AND public\.service_card_bookings_on\(svc\.sid, d\.day\)/]],
+  },
+  {
+    name: 'the limit is the card’s daily_capacity, only when set above zero',
+    side: 'gate',
+    booking: /typeof capacity === 'number' && capacity > 0/,
+    mirror: [
+      ['svc', /s\.daily_capacity AS dcap/],
+      ['capacity_refused', /WHERE svc\.dcap IS NOT NULL AND svc\.dcap > 0/],
+    ],
+  },
+  {
+    name: 'full AT the limit, not past it',
+    side: 'gate',
+    booking: /typeof booked === 'number' && booked >= capacity/,
+    mirror: [['capacity_refused', /\) >= svc\.dcap/]],
+  },
+  {
+    name: 'the date is the couple’s own event, read through their session',
+    side: 'gate',
+    booking: /await supabase \.from\('events'\) \.select\('event_date, event_date_precision'\) \.eq\('event_id', eventId\)/,
+    mirror: [['capacity_refused', /FROM svc/]],
+  },
+  {
+    name: 'a slotted card is judged by its slots, never the daily limit',
+    side: 'slots',
+    booking: /AND vendor_service_id = p_service_id AND is_active/,
+    mirror: [['capacity_refused', /AND NOT EXISTS \(SELECT 1 FROM slot sl WHERE sl\.sid = svc\.sid\)/]],
+  },
 ];
 
-type Bodies = { pools: string; slots: string; mirror: string; parts: Record<Cte, string> };
+type Bodies = { pools: string; slots: string; count: string; gate: string; mirror: string; parts: Record<Cte, string> };
 
 /** Every predicate that is missing from either side — the audit itself. */
 function auditMirror(b: Bodies): string[] {
@@ -265,15 +343,24 @@ function auditMirror(b: Bodies): string[] {
     }
   }
   if (/'whitelist'/.test(b.mirror)) out.push("mirror refuses 'whitelist' (ruled shown)");
-  if (/\bdaily_capacity\b/.test(b.mirror)) out.push('mirror reads daily_capacity (see the tripwire)');
+  if (!/UNION SELECT r\.sid, r\.day FROM capacity_refused r;/.test(b.mirror)) {
+    out.push('mirror does not return the daily-limit refusals');
+  }
   return out;
 }
 
-const real: Bodies = { pools: pools.body, slots: slots.body, mirror: mirror.body, parts: mirrorParts(mirror.body) };
+const real: Bodies = {
+  pools: pools.body,
+  slots: slots.body,
+  count: count.body,
+  gate,
+  mirror: mirror.body,
+  parts: mirrorParts(mirror.body),
+};
 const everywhere = (re: RegExp) => new RegExp(re.source, 'g');
 
 test('the mirror restates every refusal condition in the booking path in force', () => {
-  assert.deepEqual(auditMirror(real), [], `against ${pools.file} · ${slots.file} · ${mirror.file}`);
+  assert.deepEqual(auditMirror(real), [], `against ${pools.file} · ${slots.file} · ${count.file} · ${ACTIONS} · ${mirror.file}`);
 });
 
 test('MUTATION · every predicate fails the audit when removed from either side', () => {
@@ -293,8 +380,41 @@ test('MUTATION · every predicate fails the audit when removed from either side'
   }
   const whitelisted = real.mirror.replace("day_state = 'locked'", "day_state IN ('locked','whitelist')");
   assert.ok(auditMirror({ ...real, mirror: whitelisted }).includes("mirror refuses 'whitelist' (ruled shown)"));
-  const withCapacity = real.mirror.replace('p.daily_booking_capacity AS cap', 'LEAST(p.daily_booking_capacity, s.daily_capacity) AS cap');
-  assert.ok(auditMirror({ ...real, mirror: withCapacity }).includes('mirror reads daily_capacity (see the tripwire)'));
+  const unreturned = real.mirror.replace(' UNION SELECT r.sid, r.day FROM capacity_refused r;', ';');
+  assert.notEqual(unreturned, real.mirror, 'mutation did not apply');
+  assert.ok(auditMirror({ ...real, mirror: unreturned }).includes('mirror does not return the daily-limit refusals'));
+});
+
+test('the daily-limit count counts exactly lib/events.ts CONFIRMED_VENDOR_STATUSES', () => {
+  const events = stripComments(readFileSync(join(WEB, 'lib/events.ts'), 'utf8'));
+  const m = /export const CONFIRMED_VENDOR_STATUSES = \[([^\]]*)\] as const;/.exec(events);
+  assert.ok(m, 'CONFIRMED_VENDOR_STATUSES is gone from lib/events.ts');
+  const ts = [...m[1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+  const sql = /ev\.status IN \(([^)]*)\)/.exec(count.body);
+  assert.ok(sql, `${count.file}: the count names no status list`);
+  const counted = [...sql[1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+  assert.deepEqual(counted, ts, 'the daily-limit count and the app disagree on what a booking is');
+  assert.ok(ts.length >= 4);
+});
+
+test('the count never writes, and only the server may call it', () => {
+  const sql = stripSqlComments(readFileSync(join(MIGRATIONS, count.file), 'utf8'));
+  assert.doesNotMatch(count.body, /\b(INSERT|UPDATE|DELETE)\b/);
+  const sig = `public\\.${COUNT_FN}\\([^)]*\\)`;
+  assert.match(sql, new RegExp(`CREATE OR REPLACE FUNCTION public\\.${COUNT_FN}\\([\\s\\S]*?\\bSTABLE\\b[\\s\\S]*?SECURITY DEFINER[\\s\\S]*?SET search_path`));
+  assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION ${sig} FROM PUBLIC, anon, authenticated;`));
+  const grants = [...sql.matchAll(new RegExp(`GRANT [^;]* ON FUNCTION ${sig} TO ([^;]+);`, 'g'))].map((x) => x[1]!.trim());
+  assert.deepEqual(grants, ['service_role'], 'a signed-in browser must never be able to count a supplier’s bookings');
+});
+
+test('only the lock’s gate and the mirror ask the count — nobody else', () => {
+  const callers: string[] = [];
+  for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    if (src.includes(`'${COUNT_FN}'`)) callers.push(relative(WEB, file));
+  }
+  assert.deepEqual(callers, [ACTIONS]);
+  assert.equal((gate.match(/'service_card_bookings_on'/g) ?? []).length, 1);
 });
 
 test('the mirror never writes, and only the server may call it', () => {
@@ -349,67 +469,6 @@ test('the pool resolver still reads exactly what the mirror reads', () => {
   }
   // The search passes the same switch.
   assert.match(tsSource('lib/bench-bookable-days.server.ts'), /p_named_calendars:\s*namedCalendarsEnabled\(\)/);
-});
-
-// ── 4 · THE TRIPWIRE ─────────────────────────────────────────────────────
-
-const ACTIONS = 'app/dashboard/[eventId]/vendors/actions.ts';
-
-/** Why the #2 gate cannot refuse today — or the reasons it now can. */
-function dailyCapacityGateIsBlind(src: string): string[] {
-  const problems: string[] = [];
-  const body = functionBody(src, /export async function finalizeVendor\(/);
-  const from = body.indexOf(".select('daily_capacity')");
-  if (from < 0) return ['the #2 gate is gone or moved — re-derive whether daily_capacity now refuses'];
-  const to = body.indexOf("'soft_hold_limit_reached'", from);
-  if (to < 0) return ['the #2 gate no longer refuses with soft_hold_limit_reached — re-derive it'];
-  const gate = body.slice(from, to);
-  const assignments = [...body.matchAll(/\bsupabase\s*=(?!=)/g)].length;
-  if (!/const supabase = await createClient\(\);/.test(body.slice(0, from)) || assignments !== 1) {
-    problems.push('`supabase` in finalizeVendor is no longer only the couple session');
-  }
-  if (/createAdminClient|createMoneyWriterClient|\.rpc\(/.test(gate)) {
-    problems.push('the #2 gate now reads through an admin client or an RPC');
-  }
-  const reads = new Set<string>();
-  for (const m of gate.matchAll(/\.from\(\s*'(events|event_vendors)'\s*\)/g)) {
-    const before = gate.slice(0, m.index).trimEnd();
-    if (!/(^|[^\w.])supabase$/.test(before)) problems.push(`the #2 gate reads ${m[1]} through something other than the couple session`);
-    reads.add(m[1]!);
-  }
-  if (reads.size < 2) problems.push('the #2 gate no longer counts events + event_vendors the way this tripwire read it');
-  return problems;
-}
-
-test('TRIPWIRE · daily_capacity can still refuse nothing — its gate reads through the couple session', () => {
-  const problems = dailyCapacityGateIsBlind(tsSource(ACTIONS));
-  assert.deepEqual(
-    problems,
-    [],
-    'The #2 daily_capacity gate may now SEE other couples\' bookings — which means it REFUSES in production. ' +
-      `${MIRROR_FN} deliberately ignores daily_capacity (migration header §2) and must now learn it, ` +
-      'or the bench search will show suppliers the lock refuses. Tracked as "LOCK-PATH CAPACITY".',
-  );
-});
-
-test('MUTATION · the tripwire fires when the gate stops being blind', () => {
-  const src = tsSource(ACTIONS);
-  const gateAt = src.indexOf(".select('daily_capacity')");
-  const tail = src.slice(gateAt);
-  const withAdmin =
-    src.slice(0, gateAt) + tail.replace(/await supabase(\s*\.from\(\s*'event_vendors'\s*\))/, 'await createAdminClient()$1');
-  assert.notEqual(withAdmin, src, 'mutation did not apply');
-  assert.ok(dailyCapacityGateIsBlind(withAdmin).length > 0, 'an admin read in the gate went unseen');
-  const withRpc = src.slice(0, gateAt) + tail.replace(
-    /const \{ count: capCount \}/,
-    "const _x = await supabase.rpc('count_everyone'); const { count: capCount }",
-  );
-  assert.notEqual(withRpc, src, 'mutation did not apply');
-  assert.ok(dailyCapacityGateIsBlind(withRpc).length > 0, 'an RPC in the gate went unseen');
-  const reassigned = src.replace('const supabase = await createClient();\n', 'let supabase = await createClient();\n');
-  const withSwap = reassigned.slice(0, reassigned.indexOf(".select('daily_capacity')")) +
-    'supabase = createAdminClient();' + reassigned.slice(reassigned.indexOf(".select('daily_capacity')"));
-  assert.ok(dailyCapacityGateIsBlind(withSwap).length > 0, 'swapping the client before the gate went unseen');
 });
 
 // ── 5 · THE CALLERS ──────────────────────────────────────────────────────

@@ -4826,8 +4826,8 @@ col	public.vendor_profiles.capacity_max	anon=- authenticated=SIU
 col	public.vendor_profiles.capacity_min	anon=- authenticated=SIU
 col	public.vendor_profiles.compatible_ceremony_types	anon=S authenticated=SIU
 col	public.vendor_profiles.compatible_venue_settings	anon=S authenticated=SIU
-col	public.vendor_profiles.contact_email	anon=S authenticated=SIU
-col	public.vendor_profiles.contact_phone	anon=- authenticated=SIU
+col	public.vendor_profiles.contact_email	anon=- authenticated=IU
+col	public.vendor_profiles.contact_phone	anon=- authenticated=IU
 col	public.vendor_profiles.created_at	anon=S authenticated=SIU
 col	public.vendor_profiles.created_by_admin_user_id	anon=- authenticated=SIU
 col	public.vendor_profiles.demo_batch_id	anon=- authenticated=SIU
@@ -4867,7 +4867,7 @@ col	public.vendor_profiles.microsite_pinned_review_id	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_sections	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_video_ids	anon=- authenticated=SIU
 col	public.vendor_profiles.name_revealed_at	anon=- authenticated=SIU
-col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=SIU
+col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=IU
 col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
 col	public.vendor_profiles.papic_challenge_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier	anon=- authenticated=SIU

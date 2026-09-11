@@ -209,6 +209,7 @@ import {
 } from '@/app/_components/requirements-modal';
 import type { RequirementField } from '@/lib/requirements-capture';
 import { shopInitials } from '@/lib/shop-initials';
+import { benchCardImage } from '@/lib/bench-card-image';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import {
   loadCategoryRequirements,
@@ -1378,9 +1379,9 @@ function InlineMoreCard({
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
       <span className="vc">
         <span className="img">
-          {v.logoUrl ? (
+          {benchCardImage(v) ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={v.logoUrl} alt="" loading="lazy" />
+            <img src={benchCardImage(v)!} alt="" loading="lazy" />
           ) : (
             <span className="ini">{initials(v.name)}</span>
           )}
@@ -2322,6 +2323,10 @@ export function ShortlistCategories({
       // account with two events flagged is_primary, one of them a "Movie
       // Night", where which one won was arbitrary per request.)
       fd.set('event_id', eventId);
+      // …and the TILE: the save is for the shop's card in this row, not the
+      // shop in general (owner's test round 1 — a two-service shop saved from
+      // its second row was filed under its first, with no card recorded).
+      if (moreTile) fd.set('tile', moreTile);
       const res = await saveVendorToPicks(fd);
       if (res.status !== 'ok' && res.status !== 'already_saved') {
         // Say WHICH refusal happened where we can. The catch-all sentence

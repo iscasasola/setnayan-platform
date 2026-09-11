@@ -1,7 +1,6 @@
 'use server';
 
 import { after } from 'next/server';
-import { titleCase } from '@/lib/personalized-menu';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -15,6 +14,7 @@ import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import { perkUnlockBody } from '@/lib/perk-unlock-message';
 import {
   FOUNDER_INQUIRY_NOTIFICATION_TITLE,
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
@@ -589,7 +589,7 @@ async function revealExclusivePerks(args: {
         // keys fixed on 2026-08-20 (`1st_birthday`, `ninong`, `cord_yugal`).
         // The missing titles are their own fix; this makes the fallback safe
         // even when one is missing again.
-        const label = s.title?.trim() || titleCase(s.category);
+        const label = s.title?.trim() || s.category;
         return {
           thread_id: args.threadId,
           event_id: args.eventId,
@@ -597,7 +597,10 @@ async function revealExclusivePerks(args: {
           // service-role insert — sender_user_id can be null for system msgs.
           sender_user_id: null as unknown as string,
           sender_role: 'system' as const,
-          body: `**Setnayan Exclusive unlocked 🎁** ${label}: ${s.exclusive_perk_text}`,
+          // lib/perk-unlock-message: plain text (the chat shows system lines
+          // as-is, so markdown printed its asterisks), the card's LABEL (never
+          // its key), and not the retired "Exclusive" name.
+          body: perkUnlockBody(label, s.exclusive_perk_text),
         };
       });
 

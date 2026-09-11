@@ -23,6 +23,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
 import { SavedPhotoMarker } from './saved-photo-marker';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
+import { benchCardImage } from '@/lib/bench-card-image';
 import { haptic } from '@/lib/haptics';
 import { formatPhp, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import {
@@ -370,6 +371,12 @@ export function CategorySearchOverlay({
     try {
       const fd = new FormData();
       fd.set('vendor_profile_id', vendorProfileId);
+      // The event on screen, and the tile being searched — the same two facts
+      // the bench row sends. Without the event the save re-derived a "primary"
+      // one and could land the pick in a different celebration; without the
+      // tile it recorded the shop, not the card the couple chose.
+      fd.set('event_id', eventId);
+      if (tile) fd.set('tile', tile);
       const res = await saveVendorToPicks(fd);
       if (res.status === 'ok' || res.status === 'already_saved') {
         setAdded((prev) => new Set(prev).add(vendorProfileId));
@@ -440,10 +447,10 @@ export function CategorySearchOverlay({
     return (
       <div className={`r${isAdded ? ' added' : ''}`} key={r.vendorProfileId}>
         <div className="img">
-          {r.logoUrl && !failedLogos.has(r.vendorProfileId) ? (
+          {benchCardImage(r) && !failedLogos.has(r.vendorProfileId) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={r.logoUrl}
+              src={benchCardImage(r)!}
               alt=""
               onError={() =>
                 setFailedLogos((s) => {

@@ -60,6 +60,7 @@ import {
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
+import { inclusionsAreSet } from '@/lib/service-publish-gate';
 import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
@@ -426,7 +427,8 @@ export function CanvasMaker({
    * *"looks better"*.)
    *
    * A blank card asks the ONLY things the publish gate requires — a cover
-   * photo, a starting price and one Setnayan Exclusive — one at a time, in the
+   * photo, a starting price and what's included (H2, 2026-09-11) — plus the
+   * optional Setnayan gift, one at a time, in the
    * sheets the maker already owns, with the card visible above painting itself.
    * Everything else on this screen is optional and always was; it simply looked
    * required because it was all on at once.
@@ -452,7 +454,7 @@ export function CanvasMaker({
     const steps: SheetKey[] = [];
     if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
-    steps.push('media', 'price', 'excl');
+    steps.push('media', 'price', 'custom', 'excl');
     return steps;
     // Frozen at mount ON PURPOSE — answering must not renumber the question the
     // vendor is looking at, so `category` and `firstCardEver` are read once.
@@ -893,7 +895,9 @@ export function CanvasMaker({
       ? snap.hasCover
       : passStep === 'price'
         ? snap.hasPrice
-        : true;
+        : passStep === 'custom'
+          ? inclusionsAreSet(snap.inclusionLabels)
+          : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
       <button
@@ -1800,10 +1804,16 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-custom"
-          title="What couples get"
+          title={inPass ? 'What’s included?' : 'What couples get'}
           open={sheet === 'custom'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : undefined}
+          guided={inPass}
+          footer={passStep === 'custom' ? passFooter : null}
         >
+          {/* H2 · the pass asks for at least one line here — "what's
+              included" joined the publish gate 2026-09-11 (owner: "the
+              cover-photo · title · inclusions requirements stay"). */}
           <InclusionsEditor initial={initial?.inclusions ?? []} />
           {/* The #3846 merged customization editor, mounted whole. Flag-dark on
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no

@@ -41,6 +41,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -80,9 +81,16 @@ before(async () => {
          VALUES ($1, $2::vendor_public_visibility, 'verified'::vendor_verification_state, $3, NOW())
          RETURNING vendor_profile_id
        )
-       INSERT INTO public.vendor_services
-         (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text)
-       SELECT vendor_profile_id, 'photographer', true, 25000, 'probe perk' FROM v`,
+       , s AS (
+         -- A LIVE card carries a cover and one "what's included" line since
+         -- H2 (20271222415682) — see tests/db/live-card-fixture.ts.
+         INSERT INTO public.vendor_services
+           (vendor_profile_id, category, is_active, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+         SELECT vendor_profile_id, 'photographer', true, 25000, 'probe perk', '${FIXTURE_COVER}' FROM v
+         RETURNING vendor_service_id, vendor_profile_id
+       )
+       INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+       SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s`,
       [s.name, s.vis, s.published],
     );
   }

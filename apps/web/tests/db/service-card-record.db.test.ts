@@ -33,6 +33,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -67,8 +68,15 @@ async function readRecord(svc: string): Promise<RecordRow> {
 /** A fresh card on the fixture shop, so a test's counts are not diluted. */
 async function newCard(category: string): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1, $2, 1000, 'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, $2, 1000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vendorProfileId, category],
   );
   return r.rows[0]!.vendor_service_id;
@@ -195,15 +203,29 @@ before(async () => {
   vendorProfileId = vp.rows[0]!.vendor_profile_id;
 
   const svc = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1, 'photography', 50000, 'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'photography', 50000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vendorProfileId],
   );
   serviceId = svc.rows[0]!.vendor_service_id;
 
   const svc2 = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1, 'videography', 60000, 'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'videography', 60000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vendorProfileId],
   );
   otherServiceId = svc2.rows[0]!.vendor_service_id;
@@ -465,8 +487,15 @@ test('pax is BANDED in SQL at the documented thresholds, never returned raw', as
   // A dedicated card so the banding fixture is not diluted by earlier events.
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-       VALUES ($1, 'catering', 1000, 'Free extra hour') RETURNING vendor_service_id`,
+      `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'catering', 1000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;
@@ -546,8 +575,15 @@ test('a ledger row carries EXACTLY three keys — no id, no name, no exact date'
 test('the ledger is PAST-ONLY — a future booking counts but never becomes a row', async () => {
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-       VALUES ($1, 'florist', 1000, 'Free extra hour') RETURNING vendor_service_id`,
+      `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'florist', 1000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;
@@ -572,8 +608,15 @@ test('the ledger is PAST-ONLY — a future booking counts but never becomes a ro
 test('the ledger is capped at 6 and ordered newest-first', async () => {
   const svc = (
     await db.query<{ vendor_service_id: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-       VALUES ($1, 'hair_makeup', 1000, 'Free extra hour') RETURNING vendor_service_id`,
+      `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'hair_makeup', 1000, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
       [vendorProfileId],
     )
   ).rows[0]!.vendor_service_id;

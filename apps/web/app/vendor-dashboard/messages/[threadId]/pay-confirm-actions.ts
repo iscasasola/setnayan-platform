@@ -110,6 +110,97 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
 }
 
 /**
+ * H4 · "It never reached me" — for ANY payment the couple logged.
+ *
+ * ⚖ Owner 2026-09-11, "one path for every payment": `refuse_vendor_payment`
+ * sends the DEPOSIT's row through the deposit's own refusal
+ * (reject_vendor_deposit → /admin/disputes), and marks an INSTALLMENT on its
+ * own row for Setnayan to referee. Nothing the couple sent is deleted either way.
+ *
+ * Same shape as `confirmVendorPayment`: an ownership pre-gate so the RPC is
+ * never called for a booking that isn't ours, the RPC under the supplier's own
+ * session (it reads auth.uid()), and a best-effort notify of the couple on a
+ * fresh refusal only. The RPC re-checks everything; this is not the gate.
+ */
+export async function refuseVendorPayment(formData: FormData): Promise<void> {
+  const paymentId = String(formData.get('payment_id') ?? '');
+  const threadId = String(formData.get('thread_id') ?? '');
+  const reasonRaw = String(formData.get('reason') ?? '').trim();
+  const reason = reasonRaw.length > 0 ? reasonRaw.slice(0, 240) : null;
+  if (!paymentId) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return;
+
+  const admin = createAdminClient();
+  const { data: pay } = await admin
+    .from('event_vendor_payments')
+    .select('payment_id, event_id, vendor_id, amount_php')
+    .eq('payment_id', paymentId)
+    .maybeSingle();
+  if (!pay) return;
+  const { data: ev } = await admin
+    .from('event_vendors')
+    .select('vendor_id, marketplace_vendor_id')
+    .eq('vendor_id', pay.vendor_id)
+    .maybeSingle();
+  if (!ev || ev.marketplace_vendor_id !== profile.vendor_profile_id) return;
+
+  const { data, error } = await supabase.rpc('refuse_vendor_payment', {
+    p_payment_id: paymentId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error('[pay-refuse] refuse_vendor_payment failed:', error.message);
+    return;
+  }
+  const env = (data ?? {}) as { status?: string; routed?: string };
+
+  // Notify the couple — only on a FRESH refusal, so a double-tap is silent.
+  if (env.status === 'ok') {
+    try {
+      const vendorName = profile.business_name?.trim() || 'Your supplier';
+      const amount = `₱${Number(pay.amount_php ?? 0).toLocaleString('en-PH')}`;
+      const isDeposit = env.routed === 'deposit';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', pay.event_id)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_rejected',
+          title: isDeposit
+            ? `${vendorName} couldn't confirm your downpayment`
+            : `${vendorName} says your ${amount} payment hasn't reached them`,
+          body: reason
+            ? `Their words: “${reason}”. Nothing you sent is deleted — Setnayan checks it with both of you.`
+            : 'Nothing you sent is deleted — Setnayan checks it with both of you.',
+          // The deposit's answer lives on the workspace card; an installment's
+          // on the conversation's Decisions line.
+          relatedUrl:
+            isDeposit || !threadId
+              ? `/dashboard/${pay.event_id}/vendors/${pay.vendor_id}/workspace`
+              : `/dashboard/${pay.event_id}/messages/${threadId}?view=decisions`,
+        });
+      }
+    } catch (e) {
+      console.error('[pay-refuse] couple notify failed:', e);
+    }
+  }
+
+  if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  revalidatePath('/vendor-dashboard/messages');
+}
+
+/**
  * Vendor Transaction Lifecycle · Phase 2 · PR-D — the vendor marks a booking's
  * whole PAYMENT PLAN cleared once every installment is paid + confirmed (or the
  * booking carries no formal schedule). Flows through the DB guard

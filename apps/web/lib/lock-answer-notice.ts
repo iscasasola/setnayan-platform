@@ -70,6 +70,13 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     tone: 'refused',
     text: 'That time slot is already full on that date, so this booking cannot be added to it. Raise the slot\u2019s capacity in your calendar if you can take more, or turn this one down.',
   }),
+  daily_limit_reached: () => ({
+    // The card's own "Bookings per day" (vendor_services.daily_capacity) is
+    // already used up on that date — counted by the same number the couple's
+    // ask and the bench search use. No number is printed: the RPC decides it.
+    tone: 'refused',
+    text: 'That date already has as many bookings for this service as your “Bookings per day” allows, so this one cannot be added. If you can take more, raise “Bookings per day” on this service; if not, turn this one down so the couple can look elsewhere.',
+  }),
   not_verified: () => ({
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',

@@ -124,11 +124,19 @@ before(async () => {
   ).rows[0]!.v;
   F.serviceId = (
     await db.query<{ s: string }>(
-      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-       VALUES ($1, 'photography', 40000, 'Free extra hour') RETURNING vendor_service_id AS s`,
+      // Drafted with a cover, given a "what's included" line, then published —
+      // the order the H2 publish gate (20271222415682) asks.
+      `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+       VALUES ($1, 'photography', 40000, 'Free extra hour', FALSE, 'vendor-media/opener-test/cover.jpg') RETURNING vendor_service_id AS s`,
       [F.vendorId],
     )
   ).rows[0]!.s;
+  await db.query(
+    `INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+     VALUES ($1, $2, 'Full-day coverage', 0, 0)`,
+    [F.serviceId, F.vendorId],
+  );
+  await db.query(`UPDATE public.vendor_services SET is_active = TRUE WHERE vendor_service_id = $1`, [F.serviceId]);
 
   const ev = async (name: string, coupleUid: string) => {
     const id = (

@@ -25,7 +25,13 @@ import {
   type PlanProgress,
 } from '@/lib/vendor-service-payment-schedules';
 import type { PendingVendorPayment } from '@/lib/vendor-service-payment-schedules.server';
-import { confirmVendorPayment, clearVendorPaymentPlan, getVendorPaymentState } from '../pay-confirm-actions';
+import {
+  confirmVendorPayment,
+  clearVendorPaymentPlan,
+  getVendorPaymentState,
+  refuseVendorPayment,
+} from '../pay-confirm-actions';
+import { NotReceivedForm } from '@/app/_components/not-received-form';
 
 type PlanProgressItem = PlanProgress & {
   eventVendorId: string;
@@ -42,6 +48,85 @@ function fmtAckDate(iso: string): string {
 }
 
 const peso = (n: number) => `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
+
+const CONFIRM_CLASS =
+  'inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800';
+const QUIET_CLASS =
+  'inline-flex h-9 items-center rounded-lg border border-ink/15 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]';
+
+/**
+ * The supplier's answer to one logged payment — "Confirm received" or "Not
+ * received" (H4, owner 2026-09-11: one path for every payment). The second opens
+ * the shared `NotReceivedForm`, the same form Decisions opens.
+ *
+ * Once refused, the card says where it stands instead of asking again: the
+ * supplier's own words, then Setnayan's ruling. "Confirm received" stays — the
+ * money can turn up late, and confirming lifts the refusal (the database does
+ * that, for the deposit and for an installment alike).
+ */
+function PendingPaymentAnswer({
+  payment,
+  threadId,
+}: {
+  payment: PendingVendorPayment;
+  threadId: string;
+}) {
+  const [notReceivedOpen, setNotReceivedOpen] = useState(false);
+  const d = payment.dispute;
+  const refused = d?.refusedAtMs != null;
+  const hidden = (
+    <>
+      <input type="hidden" name="payment_id" value={payment.paymentId} />
+      <input type="hidden" name="thread_id" value={threadId} />
+    </>
+  );
+  return (
+    <>
+      {refused ? (
+        <p className="mt-2 rounded-lg bg-ink/[0.04] px-3 py-2 text-xs text-ink/75">
+          {d?.settlement?.outcome === 'not_received'
+            ? `Setnayan found it didn’t reach you${d.settlement.note ? ` — “${d.settlement.note}”` : ''}.`
+            : `You said this never reached you${d?.reason ? ` — “${d.reason}”` : ''}. Setnayan is checking it with both of you.`}
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-ink/55">
+          Setnayan never holds this money — confirm only what you actually
+          received.
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <form action={confirmVendorPayment}>
+          {hidden}
+          <SubmitButton pendingLabel="Confirming…" className={CONFIRM_CLASS}>
+            {refused ? 'It arrived — confirm received' : 'Confirm received'}
+          </SubmitButton>
+        </form>
+        {refused ? null : (
+          <button
+            type="button"
+            onClick={() => setNotReceivedOpen((v) => !v)}
+            aria-expanded={notReceivedOpen}
+            className={QUIET_CLASS}
+          >
+            Not received
+          </button>
+        )}
+      </div>
+      {!refused && notReceivedOpen ? (
+        <NotReceivedForm
+          action={refuseVendorPayment}
+          hidden={hidden}
+          fieldClassName="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink"
+          submit={
+            <SubmitButton pendingLabel="Sending…" className={`${QUIET_CLASS} self-start`}>
+              Tell them it hasn’t arrived
+            </SubmitButton>
+          }
+        />
+      ) : null}
+    </>
+  );
+}
 
 export function VendorPaymentLive({
   threadId,
@@ -148,22 +233,7 @@ export function VendorPaymentLive({
               </a>
             </p>
           ) : null}
-          <p className="mt-2 text-xs text-ink/55">
-            Setnayan never holds this money — confirm only what you actually
-            received.
-          </p>
-          <div className="mt-3">
-            <form action={confirmVendorPayment}>
-              <input type="hidden" name="payment_id" value={p.paymentId} />
-              <input type="hidden" name="thread_id" value={threadId} />
-              <SubmitButton
-                pendingLabel="Confirming…"
-                className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800"
-              >
-                Confirm received
-              </SubmitButton>
-            </form>
-          </div>
+          <PendingPaymentAnswer payment={p} threadId={threadId} />
         </div>
       ))}
 

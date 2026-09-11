@@ -41,14 +41,19 @@ export function vendorExperienceEnabled(): boolean {
 
 /**
  * Compute whole years in business from a declared start year. Returns null when
- * unset or implausible. Uses the provided "now" year so callers stay testable.
+ * unset, implausible, OR less than a full year (D2, 2026-09-11: row 3838 rules
+ * a public page never prints "0 yrs" — a shop that started this year has
+ * nothing to count yet, and null is what every render site already treats as
+ * "no line", so the clamp belongs here once rather than at every call site).
+ * Uses the provided "now" year so callers stay testable.
  */
 export function yearsInBusiness(
   sinceYear: number | null | undefined,
   nowYear: number,
 ): number | null {
   if (sinceYear == null || sinceYear < 1900 || sinceYear > nowYear) return null;
-  return nowYear - sinceYear;
+  const years = nowYear - sinceYear;
+  return years < 1 ? null : years;
 }
 
 export type ExperienceTierKey = 'new' | 'established' | 'experienced' | 'expert' | 'elite';

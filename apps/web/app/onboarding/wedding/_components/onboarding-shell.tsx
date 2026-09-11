@@ -1434,6 +1434,18 @@ export function OnboardingShell({
     EMPTY_SERVICES_SELECTION,
   );
   const [commitError, setCommitError] = useState<string | null>(null);
+  /**
+   * Set only on a `wedding_exists` refusal (owner-locked one-wedding-at-a-time
+   * rule, 2026-07-12). `true` once we know the account has an in-planning
+   * wedding; carries its event id when the server could read it cheaply off
+   * the same guard row (absent ⇒ send them to the dashboard launcher, which
+   * picks it for them). From here on every "finish" CTA MUST navigate instead
+   * of re-committing — the server will only ever answer `wedding_exists` again,
+   * which is the dead end this fixes (owner report 2026-09-11). The unsaved
+   * onboarding draft is deliberately left untouched: the message tells them
+   * they can put the other wedding away and come back to this one.
+   */
+  const [weddingExists, setWeddingExists] = useState<{ eventId: string | null } | null>(null);
   const committingRef = useRef(false);
   /* Finishing overlay — blocking "creating your dashboard" screen shown the instant
      the couple taps the final button (owner 2026-06-02). The completion overlay's
@@ -2758,6 +2770,33 @@ export function OnboardingShell({
       }, ANALYZING_HOLD_MS + 4000);
     };
 
+    // Wedding cardinality dead end (owner report 2026-09-11): a previous tap
+    // already told us this account has a wedding in planning. Committing again
+    // can only answer `wedding_exists` again — every "finish" CTA on this
+    // screen must navigate instead, never re-commit. The draft stays exactly
+    // as it is (NOT removed) — the message tells them they can put the other
+    // wedding away and come back to this one; never mint a second wedding.
+    if (weddingExists) {
+      setFinishing(true);
+      // Straight navigation — never goToDashboard's eventId-templated prefetch
+      // set, which is tuned for a FRESH commit (nextPath errand, Papic bill,
+      // Purchase Now checkout). This is someone else's already-existing
+      // wedding; the only right destination is that wedding's dashboard, or
+      // the launcher when the id wasn't cheaply readable.
+      const dest = weddingExists.eventId ? `/dashboard/${weddingExists.eventId}` : '/dashboard';
+      try {
+        router.prefetch(dest);
+      } catch {
+        /* prefetch is best-effort */
+      }
+      try {
+        router.push(dest);
+      } catch {
+        window.location.assign(dest);
+      }
+      return;
+    }
+
     // Idempotent: event already exists (back-then-forward) — show the overlay + go.
     if (committedEventId) {
       setFinishing(true);
@@ -2825,7 +2864,14 @@ export function OnboardingShell({
         // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
         // path 2026-07-17): one wedding in planning at a time — same rule the
         // create-event picker already explains with its guided router.
+        //
+        // Record it so the CTA stops re-committing (owner report 2026-09-11:
+        // pressing "Go to my dashboard" here just re-asked the server, which
+        // can only ever answer wedding_exists again — a dead end). Every
+        // subsequent tap of this button now navigates instead; see the
+        // `weddingExists` guard at the top of this callback.
         setFinishing(false);
+        setWeddingExists({ eventId: res.existingEventId ?? null });
         setCommitError(
           'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard and choose “Put this away”, or finish it first.',
         );
@@ -2861,7 +2907,7 @@ export function OnboardingShell({
     // captured on its last render — in practice the empty one, so the couple's
     // choice silently evaporates and they are charged nothing. Nothing errors;
     // the order simply never exists. Caught by react-hooks/exhaustive-deps.
-  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists]);
 
   return (
     <div className="onbw">
@@ -2871,7 +2917,12 @@ export function OnboardingShell({
       {finishing && (
         <div className="fin-overlay" role="status" aria-live="polite" aria-busy="true">
           <div className="fin-inner">
-            <div className="fin-title">Creating your personalized dashboard</div>
+            {/* Honest label: this overlay also covers the wedding_exists
+                redirect, which creates nothing — it opens the couple's
+                existing wedding (owner report 2026-09-11 fix). */}
+            <div className="fin-title">
+              {weddingExists ? 'Opening your dashboard' : 'Creating your personalized dashboard'}
+            </div>
             {/*
               Shared brand loader (Organic loaders handoff 2026-06-07) — the
               animated mark gathers + the status line narrates the stages while

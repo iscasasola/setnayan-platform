@@ -12,7 +12,6 @@ export const TOOLS_COUPLES_SEE: ShopTool[] = [
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
   { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
   { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
-  { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
   // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no
@@ -43,12 +42,26 @@ export const TOOLS_PROTECTION: ShopTool[] = [
 // the couples-see shelf because that is what it feeds.
 export const MOODBOARD_LIBRARY_TOOL: ShopTool = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Photos couples browse when picking their look — pulled from your own work.' };
 
-export function shopToolShelves(hasMoodboardLibraryAccess: boolean): ShopToolShelf[] {
+// D2 (2026-09-11): was a fixed row in TOOLS_COUPLES_SEE, listed for every
+// shop regardless of category — a caterer got a "Song bank & setlist" card
+// that led to a page they could never use (repertoire/page.tsx's own access
+// gate would just redirect them back out). Same conditional-card pattern as
+// MOODBOARD_LIBRARY_TOOL above, gated on the shared music rule
+// (isMusicToolCategory, lib/songs.ts) instead of always included.
+export const REPERTOIRE_TOOL: ShopTool = { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' };
+
+export function shopToolShelves(
+  hasMoodboardLibraryAccess: boolean,
+  hasMusicRepertoireAccess: boolean,
+): ShopToolShelf[] {
+  const couplesSee = hasMusicRepertoireAccess
+    ? [...TOOLS_COUPLES_SEE, REPERTOIRE_TOOL]
+    : TOOLS_COUPLES_SEE;
   return [
     {
       key: 'couples-see',
       label: 'What couples see',
-      tools: hasMoodboardLibraryAccess ? [MOODBOARD_LIBRARY_TOOL, ...TOOLS_COUPLES_SEE] : TOOLS_COUPLES_SEE,
+      tools: hasMoodboardLibraryAccess ? [MOODBOARD_LIBRARY_TOOL, ...couplesSee] : couplesSee,
     },
     { key: 'with-others', label: 'Working with others', tools: TOOLS_WITH_OTHERS },
     { key: 'protection', label: 'Protection', tools: TOOLS_PROTECTION },

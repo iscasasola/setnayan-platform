@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6636
+# facts: 6646
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4872
+#   col       4880
 #   policy    910
 #   view      9
-#   func      255
+#   func      257
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -1923,11 +1923,19 @@ col	public.event_vendor_payment_plan.updated_at	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.created_at	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.event_id	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.is_deposit_record	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.line_item_id	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.method	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.notes	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.paid_at	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_dispute_note	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_dispute_outcome	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_dispute_settled_at	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_dispute_settled_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.payment_id	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_refusal_reason	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_refused_at	anon=SIU authenticated=SIU
+col	public.event_vendor_payments.payment_refused_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.proof_r2_key	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.reference	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.schedule_instance_seq	anon=SIU authenticated=SIU
@@ -6560,6 +6568,7 @@ func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated se
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.refund_displaced_inquiry_unlock(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.refuse_vendor_payment(p_payment_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.register_guest_claim_otp_attempt(p_claim_id uuid)	secdef=yes exec=anon search_path=public
 func	public.reject_colour_change(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.reject_vendor_deposit(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
@@ -6591,6 +6600,7 @@ func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uu
 func	public.set_vendor_colour_access(p_event_id uuid, p_vendor_id uuid, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public

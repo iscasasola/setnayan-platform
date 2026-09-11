@@ -185,3 +185,22 @@ test('a blank card’s kind falls back to the taxonomy tree’s label before the
   assert.ok(canon > 0 && tree > canon && human > tree, 'the kind chain is out of order or missing a link');
   assert.match(body, /v_kind \|\| ' by ' \|\| v_shop/, 'the name shape changed');
 });
+
+// ── 5 · the two server doors ask the same question, with the real facts ─────
+
+test('commitVendorService and the list switch feed the gate the REAL cover and inclusions', async () => {
+  const { stripComments } = await import('./strip-comments');
+  const src = stripComments(
+    readFileSync(join(import.meta.dirname, '..', 'app/vendor-dashboard/services/actions.ts'), 'utf8'),
+  );
+  // The maker/wizard save: facts from the parsed payload, live cards held to price only.
+  assert.match(src, /hasCover: coverIsSet\(fields\.primary_photo_r2_key as string \| null\)/);
+  assert.match(src, /hasInclusions: inclusionsAreSet\(inclusionRows\.map\(\(n\) => n\.label\)\)/);
+  assert.match(src, /alreadyLive \? unmetForALiveCard\(facts\) : unmetPublishRequirements\(facts\)/);
+  // The Services-list on/off switch: facts from the stored row + its inclusions.
+  assert.match(src, /hasCover: coverIsSet\(row\.primary_photo_r2_key\)/);
+  assert.match(src, /\.from\('vendor_service_inclusions'\)\s*\.select\('label'\)/);
+  assert.match(src, /row\.is_active === true \? unmetForALiveCard\(facts\) : unmetPublishRequirements\(facts\)/);
+  // The old one-off cover check is gone — the shared gate carries it now.
+  assert.ok(!src.includes("Add a cover photo before publishing — drafts can save without one."));
+});

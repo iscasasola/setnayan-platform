@@ -12,7 +12,9 @@
 // ⚖ SUPERSEDED IN PART 2026-09-10 — the "phone, email" half of that directive.
 // Owner: "our goal is to let them integrate their event with the vendor they
 // find. not to let them communicate outside the app". The Contact card now
-// carries the in-app way to reach the shop instead; website + city stay.
+// carries the in-app way to reach the shop instead.
+// ⚖ SUPERSEDED AGAIN 2026-09-11 (DECISION_LOG Q3, "Never show links") — the
+// website link this comment used to say "stays" is gone too; only city stays.
 //
 // Three cards rendered as a stacked group below the existing Payments /
 // Documents / Schedules grid. Each card empty-states politely if the data
@@ -42,7 +44,6 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   MessageCircle,
-  Globe,
   Star,
   Sparkles,
   AlertCircle,
@@ -86,8 +87,9 @@ import {
  * `tel:` and `mailto:`. The two fields are no longer SELECTED, so no later edit
  * to the card can print what the page never fetched. The couple reaches the
  * shop through the conversation on this page (`reach`, below).
- * `website` stays: whether a shop's own site is a door out is an OPEN owner
- * decision, deliberately untouched here.
+ * `website` is still SELECTED (the saved value is never deleted — My Shop can
+ * still read it) but, per the owner's 2026-09-11 ruling (Q3: "Never show
+ * links"), no longer RENDERED here — see ContactCard below.
  */
 export type MarketplaceContact = {
   website: string | null;
@@ -366,7 +368,7 @@ export function VendorMarketplaceInfo({
   const hasAnything =
     services === null ||
     services.length > 0 ||
-    Boolean(contact?.website) ||
+    Boolean(contact?.location_city) ||
     reach !== null ||
     reviewsData.stats.total_count > 0;
   if (!hasAnything) {
@@ -523,24 +525,17 @@ function ContactCard({
         and booking stays with this celebration.
       </p>
       {reach}
-      {contact?.website || contact?.location_city ? (
+      {/* The shop's own website used to sit here as a link-out. Owner ruling
+          2026-09-11 (DECISION_LOG "SEVEN SUPPLIER-SIDE QUESTIONS" Q3): "Never
+          show links" — no tappable website link, before or after booking (the
+          2026-09-10 note above this component that kept "website + city" is
+          superseded by this later, stricter ruling; the saved value stays in
+          the database, only the render is gone).
+          `lib/no-door-out-of-the-app.test.ts` Rule 5 fails on a website href
+          anywhere on a couple-facing surface. */}
+      {contact?.location_city ? (
         <ul className="space-y-2">
-          {contact?.website ? (
-            <li>
-              <a
-                href={contact.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-ink hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                <Globe aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
-                Website
-              </a>
-            </li>
-          ) : null}
-          {contact?.location_city ? (
-            <li className="text-xs text-ink/55">{contact.location_city}</li>
-          ) : null}
+          <li className="text-xs text-ink/55">{contact.location_city}</li>
         </ul>
       ) : null}
     </section>

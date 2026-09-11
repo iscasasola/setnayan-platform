@@ -17,7 +17,8 @@ import {
   resolveEventOwnerSlug,
 } from '@/lib/public-event-url';
 import { ogCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
-import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { readStoryShareState } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { linkPreviewFor } from '@/lib/who-sees-the-link-preview';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
@@ -152,9 +153,17 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const visibility = resolveEffectiveVisibility(event);
 
   // Unlisted = reachable by link but not discoverable; private = lock screen
-  // for strangers. Neither should be in a search index, and neither should
-  // leak the couple's names into SERP snippets via metadata.
-  if (visibility !== 'public') {
+  // for strangers. Neither is in a search index. The couple's names and card go
+  // into the metadata only where `linkPreviewFor` says so: a Public site, or —
+  // owner ruling 2026-09-11 (NEEDS_THE_OWNER item 13 → A) — an Unlisted site
+  // whose story is PUBLISHED, still noindex. The story's state is read only
+  // when it can change the answer, and the read fails closed (not published).
+  const shareState =
+    visibility === 'public' || visibility === 'unlisted'
+      ? await readStoryShareState(event.event_id)
+      : { versionAt: null, published: false };
+  const preview = linkPreviewFor(visibility, shareState.published);
+  if (!preview.namesTheCouple) {
     return {
       // The event type's own word, capitalised — "Wedding invitation" on a
     // wedding (byte-identical), "Birthday invitation" on a birthday. Was a
@@ -198,13 +207,15 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
     version stamp could have taken down a couple's wedding page.** One guarded
     reader now owns it: a failed stamp costs the stamp, never the page.
   */
-  const ogCard = ogCardUrlFor(siteUrl, event.slug, await readStoryVersionAt(event.event_id));
+  const ogCard = ogCardUrlFor(siteUrl, event.slug, shareState.versionAt);
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
     description,
+    // An Unlisted site that shows its card is still kept out of search.
+    ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'website',

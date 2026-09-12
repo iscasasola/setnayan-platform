@@ -186,8 +186,35 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         </p>
       ) : ANY_OAUTH_ENABLED ? (
         <div className="space-y-3">
+          {/* ⚠ THE WORDS USED TO ASSUME AN ACCOUNT. This line read "Fills this in
+              for you, and becomes how you sign in later." — owner, 2026-09-11:
+              *"if they do not have an account yet, you say that it fills it up
+              for them. how is that if they do not have an account yet."* He is
+              right: the BEHAVIOUR was always correct (a provider sign-in MAKES
+              the account and hands back a name and an email), but the sentence
+              only made sense to somebody who already had one.
+
+              🔑 AND IT NOW CARRIES THE REASON THAT IS WORTH SOMETHING. Owner, same
+              day: *"logging in will sync and save their photos."* Written
+              against what SHIPS, and nothing wider:
+                · `photos-of-you-gallery.tsx` is mounted by site-body for
+                  `isLive || isPost` — on the day, this page really does show a
+                  guest the photos they are in;
+                · the account is what reaches the event afterwards. The
+                  guest-link cookie carries ONE event and dies at 60 days with no
+                  sliding refresh (lib/guest-session.ts); Path C in
+                  app/[slug]/page.tsx admits a signed-in person through their
+                  `event_members.guest_id` seat instead — any device, no link.
+              ⛔ NOT a cross-event "photo collection". No such surface was found,
+              so no such sentence is written. */}
           <p className="text-sm text-ink/70">
-            Fills this in for you, and becomes how you sign in later.
+            No Setnayan account yet? Continuing with Google or Apple makes one in a tap — it
+            fills your name and email in below, and it becomes how you sign in from then on.
+          </p>
+          <p className="text-sm text-ink/70">
+            It also keeps the photos of you: on the day, this page shows each guest the photos
+            they are in, and the account is how you reach this {words.eventWord} again later —
+            from any phone, without the invite link.
           </p>
           <OAuthButtonRow next={connectPath} />
           <p className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
@@ -208,6 +235,16 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         replyLocked={replyLocked}
         profileDetails={profileDetails}
         doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
+        /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
+           tagging does not happen on the invite. it happens on their first view
+           on the day of the event? or on the day papic becomes available to use
+           for them."). The catch he describes ALREADY SHIPS —
+           `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
+           in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
+           self-hiding once enrolled. So this is a removal from ONE surface, not
+           a feature taken away: a prop, because this card is shared with the
+           Event Hub's own RSVP card, which keeps its selfie. */
+        offerSelfie={false}
       />
 
       {user ? null : (

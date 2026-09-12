@@ -7,6 +7,9 @@ import { readGuestSession } from '@/lib/guest-session';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { arrivalSteps, INVITE_LINK_SENT_COOKIE } from '@/lib/invite-arrival';
+import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { INVITE_LOOK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
 
 export const metadata = { title: "You're in", robots: { index: false, follow: false } };
@@ -36,7 +39,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select(`event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}`)
+    .select(
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_type, event_end_date, venue_latitude, venue_longitude`,
+    )
     .ilike('slug', slug)
     .maybeSingle();
   if (eventError) {
@@ -83,6 +88,29 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           : null;
 
   const look = await loadInviteLook(event);
+
+  /* ── WHAT THIS DOOR IS ABOUT TO OPEN ────────────────────────────────────────
+     The link below is `/{slug}` and it is RIGHT: the couple's site IS the Event
+     Hub. What was wrong was the sentence over it. The Hub wears a face chosen by
+     how far off the day is, and far out that face is the SAVE THE DATE — where
+     `qr_card` is out of phase — so "your QR … waiting on it" was a promise the
+     next screen did not keep. Owner, 2026-09-11: *"it went back to save the
+     date"*.
+
+     🔒 ASKED, NEVER RESTATED. `arrivalDestinationFor` runs the SAME composition
+     app/[slug]/page.tsx runs to pick its own face — `getLifecyclePhase` on the
+     venue's clock, then `solemnAdjustedPhase` — so the door cannot drift from
+     the page. No threshold is named here or in that module. */
+  const destination = arrivalDestinationFor({
+    profile: await resolveProfile(event.event_type as string),
+    eventDate: event.event_date as string | null,
+    eventEndDate: (event.event_end_date as string | null) ?? null,
+    venueTz: eventTimezoneFromCoords(
+      event.venue_latitude as number | null,
+      event.venue_longitude as number | null,
+    ),
+  });
+  const destinationWords = arrivalDestinationWords(destination);
   const role = ((guest.role as GuestRole | null) ?? 'guest') as GuestRole;
   const unlisted = guest.entry_source === 'self_added_unlisted';
 
@@ -125,12 +153,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         </DoorNotice>
       ) : null}
 
-      <p className="text-sm text-ink/70">
-        Your invitation is ready — your seat, your QR and everything shared with guests are
-        waiting on it.
-      </p>
+      <p className="text-sm text-ink/70">{destinationWords.blurb}</p>
       <Link className="button-primary w-full" href={`/${home}`}>
-        Open your invitation
+        {destinationWords.cta}
       </Link>
     </DoorShell>
   );

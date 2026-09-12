@@ -85,7 +85,7 @@ import {
 import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
-import { interestChipLabel } from '@/lib/thread-interests';
+import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import {
   deriveThreadStage,
   THREAD_STAGE_LABEL,
@@ -614,7 +614,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Service/category of the inquiry — the first recorded interest chip (the
   // same source the interest chips + cross-sell already use on this page).
   const firstInterest = existingInterests[0];
-  const railService = firstInterest ? interestChipLabel(firstInterest) : null;
+  const railService = firstInterest
+    ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
+    : null;
   const railStage = threadIsPendingInquiry
     ? ('inquiry' as const)
     : await deriveThreadStage({
@@ -764,7 +766,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     listThreadIds.length > 0
       ? supabase
           .from('thread_service_interests')
-          .select('thread_id, category_key, created_at')
+          .select('thread_id, category_key, vendor_service_id, created_at')
           .in('thread_id', listThreadIds)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
@@ -836,13 +838,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     );
   }
   const interestByThread = new Map<string, string>();
-  for (const i of (listInterestRes.data ?? []) as Array<{
+  const listInterests = (listInterestRes.data ?? []) as Array<{
     thread_id: string;
     category_key: string | null;
-  }>) {
+    vendor_service_id: string | null;
+  }>;
+  const labelListInterest = await interestLabeller(paxAdmin, listInterests);
+  for (const i of listInterests) {
     // First interest wins — the same "what did they ask about" the rail shows.
-    if (!interestByThread.has(i.thread_id) && i.category_key) {
-      interestByThread.set(i.thread_id, interestChipLabel({ category_key: i.category_key }));
+    if (!interestByThread.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
+      interestByThread.set(i.thread_id, labelListInterest(i));
     }
   }
 

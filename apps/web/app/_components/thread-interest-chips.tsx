@@ -2,9 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchThreadInterests,
-  interestChipLabel,
   type ThreadServiceInterestRow,
 } from '@/lib/thread-interests';
+import { interestLabeller } from '@/lib/thread-interest-labels.server';
 
 /**
  * ThreadInterestChips — compact "Inquiring about: Catering · Cake · Mobile Bar"
@@ -27,32 +27,9 @@ export async function ThreadInterestChips({
   const interests = await fetchThreadInterests(supabase, threadId);
   if (interests.length === 0) return null;
 
-  // Resolve display titles for interests that point at a concrete service.
-  const serviceIds = Array.from(
-    new Set(
-      interests
-        .map((r) => r.vendor_service_id)
-        .filter((v): v is string => v !== null),
-    ),
-  );
-  const titleById = new Map<string, string | null>();
-  if (serviceIds.length > 0) {
-    try {
-      const admin = createAdminClient();
-      const { data } = await admin
-        .from('vendor_services')
-        .select('vendor_service_id, title, category')
-        .in('vendor_service_id', serviceIds);
-      for (const s of data ?? []) {
-        const row = s as { vendor_service_id: string; title: string | null; category: string | null };
-        // Prefer the per-listing title; else leave null so interestChipLabel
-        // falls back to the interest's category_key.
-        titleById.set(row.vendor_service_id, row.title);
-      }
-    } catch {
-      /* label-only enrichment — degrade to category_key labels */
-    }
-  }
+  // One labelling rule for every "Inquiring about" surface — the card's title,
+  // else the card's own category, else the interest's category_key.
+  const labelFor = await interestLabeller(createAdminClient(), interests as ThreadServiceInterestRow[]);
 
   // De-dupe by resolved label so an 'initial' + a 'couple_added' that resolve
   // to the same human label don't double-render.
@@ -60,10 +37,7 @@ export async function ThreadInterestChips({
   const labels: string[] = [];
   for (const r of interests as ThreadServiceInterestRow[]) {
     if (r.status === 'withdrawn') continue;
-    const label = interestChipLabel(
-      r,
-      r.vendor_service_id ? titleById.get(r.vendor_service_id) : null,
-    );
+    const label = labelFor(r);
     if (seen.has(label)) continue;
     seen.add(label);
     labels.push(label);

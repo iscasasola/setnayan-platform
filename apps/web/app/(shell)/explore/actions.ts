@@ -10,6 +10,9 @@ import {
 } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
+import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { cardForTile, type ShopCard } from '@/lib/bench-save-card';
+import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -240,14 +243,49 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'vendor_not_found' };
   }
 
+  /*
+    2b. WHICH CARD (owner's test round 1, 2026-09-11). A bench row or sheet says
+    which tile the couple is browsing ("More in Live Band"); the save is then
+    for the shop's card IN that tile, not for the shop. Its category comes from
+    that card, and service_id records it — so a two-service shop saved from its
+    second tile is filed there, the inquiry anchors on that card, and the saved
+    card shows that card's cover, price and inclusions. /explore sends no tile
+    and keeps the shop-level behaviour below.
+  */
+  const tile = String(formData.get('tile') ?? '').trim();
+  let tileCard: ShopCard | null = null;
+  if (tile) {
+    const { data: cards } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id, category, created_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true);
+    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, canonicalServicesForTile(tile as WeddingTile));
+  }
+  const tileCategory: VendorCategory | null = (() => {
+    if (!tileCard?.category) return null;
+    const c = vendorCategoryForLeaf(tileCard.category, tile);
+    return c === 'misc' ? null : c;
+  })();
+
   // 3. Already saved? Return idempotently.
   const { data: existing } = await admin
     .from('event_vendors')
-    .select('vendor_id')
+    .select('vendor_id, category, service_id')
     .eq('event_id', primaryEvent.event_id)
     .eq('marketplace_vendor_id', vendorProfileId)
     .maybeSingle();
   if (existing?.vendor_id) {
+    // A row saved before cards were recorded gets its card now — but only when
+    // the card agrees with where the row already sits, so a re-save never
+    // MOVES a pick between tiles behind the couple's back.
+    if (tileCard && existing.service_id == null && tileCategory && existing.category === tileCategory) {
+      await admin
+        .from('event_vendors')
+        .update({ service_id: tileCard.vendor_service_id })
+        .eq('vendor_id', existing.vendor_id)
+        .is('service_id', null);
+    }
     return {
       status: 'already_saved',
       eventVendorId: existing.vendor_id,
@@ -258,13 +296,14 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
   // you" badge doesn't fire on rows the host added themselves from the
   // /vendors marketplace.
-  const category = coerceCategory((vendor.services ?? []) as string[]);
+  const category = tileCategory ?? coerceCategory((vendor.services ?? []) as string[]);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
     .insert({
       event_id: primaryEvent.event_id,
       marketplace_vendor_id: vendorProfileId,
       category,
+      service_id: tileCard?.vendor_service_id ?? null,
       vendor_name: vendor.business_name,
       status: 'considering',
       source: 'host_manual',

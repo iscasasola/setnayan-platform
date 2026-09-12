@@ -49,7 +49,13 @@ async function resolveActiveServiceForVendor(
     .from('vendor_services')
     .select('vendor_service_id, category')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    // "The vendor's first active service" must MEAN one card. Two cards made in
+    // one statement share created_at, and an unordered read returned them in
+    // any order — which card an inquiry anchored on was undefined (owner's
+    // test round 1: Saysay's two cards, both NULL-titled, same timestamp).
+    .order('created_at', { ascending: true })
+    .order('vendor_service_id', { ascending: true });
   const active = (activeSvcs ?? []) as {
     vendor_service_id: string;
     category: string | null;

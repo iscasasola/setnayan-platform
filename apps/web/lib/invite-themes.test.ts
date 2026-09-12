@@ -22,19 +22,87 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
+/** A wedding: holds the unlock and may carry the Save-the-Date film. */
+const WEDDING = { ownsPro: true, mayShowStdFilm: true } as const;
+
 test('nothing repaints a live invite: unsaved, junk or unshipped all render as House', () => {
   for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'galeriya', 'abaca']) {
-    assert.equal(resolveInviteTheme({ saved, ownsPro: true }), 'house', `${String(saved)} must render as House`);
+    assert.equal(resolveInviteTheme({ saved, ...WEDDING }), 'house', `${String(saved)} must render as House`);
   }
   // …and a theme whose skin HAS shipped renders itself, which is what makes the
   // line above a real check rather than "everything is House".
-  assert.equal(resolveInviteTheme({ saved: 'velvet', ownsPro: true }), 'velvet', 'Velvet shipped its skin (2026-09-11) and must render');
+  assert.equal(resolveInviteTheme({ saved: 'velvet', ...WEDDING }), 'velvet', 'Velvet shipped its skin (2026-09-11) and must render');
 });
 
 test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
-  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: true }), 'capiz');
-  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: false }), 'house', 'a lapsed or never-bought Pro theme leaked through');
-  assert.equal(resolveInviteTheme({ saved: 'house', ownsPro: false }), 'house');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ...WEDDING }), 'capiz');
+  assert.equal(
+    resolveInviteTheme({ saved: 'capiz', ownsPro: false, mayShowStdFilm: true }),
+    'house',
+    'a lapsed or never-bought Pro theme leaked through',
+  );
+  assert.equal(resolveInviteTheme({ saved: 'house', ownsPro: false, mayShowStdFilm: true }), 'house');
+});
+
+/* ── 🔒 WEDDINGS ONLY (owner Q7 = A, 2026-09-11) ──────────────────────────────
+   The four Pro themes belong only where the event type may show the Save-the-
+   Date film. Three separate surfaces have to agree about that — the picker (what
+   is offered), `setInviteTheme` (what may be saved) and this resolver (what a
+   guest is actually shown) — and only the last one protects a value that is
+   ALREADY in the database. A couple who picked Capiz as a wedding and then had
+   the type changed must get House, with no write in between, exactly as a lapsed
+   unlock does. */
+
+test('a Pro theme never opens on a celebration that cannot carry the Save-the-Date film', () => {
+  assert.equal(
+    resolveInviteTheme({ saved: 'capiz', ownsPro: true, mayShowStdFilm: false }),
+    'house',
+    'a birthday that owns Event Hub Pro was shown a wedding-only invite theme',
+  );
+  // …and the free door is unaffected: House is for every celebration.
+  assert.equal(
+    resolveInviteTheme({ saved: 'house', ownsPro: false, mayShowStdFilm: false }),
+    'house',
+  );
+});
+
+test('the fence is not optional — ownership alone can never open a Pro theme', () => {
+  /*
+    🛡 THE TWO CONDITIONS ARE TESTED APART. One query, many predicates: a test
+    that only ever passed `{ownsPro: true, mayShowStdFilm: true}` and
+    `{false, false}` would stay green if either half were deleted. Each row below
+    is the one the OTHER predicate alone would wrongly admit.
+  */
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: true, mayShowStdFilm: false }), 'house');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: false, mayShowStdFilm: true }), 'house');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: false, mayShowStdFilm: false }), 'house');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: true, mayShowStdFilm: true }), 'capiz');
+});
+
+test('the picker offers no Pro theme where no purchase could ever turn one on', () => {
+  const offered = pickableInviteThemes({ mayShowStdFilm: false }).map((t) => t.id);
+  assert.deepEqual(offered, ['house'], 'a birthday was offered a wedding-only theme');
+  assert.ok(
+    pickableInviteThemes({ mayShowStdFilm: true }).some((t) => t.id === 'capiz'),
+    'and a wedding still gets the Pro themes — the fence is a fence, not a wall',
+  );
+});
+
+test('the pre-selection follows the fence too, saved value included', () => {
+  // A saved Pro theme used to be returned unconditionally. The radio would then
+  // sit on a theme the door is NOT showing — the picker contradicting the door.
+  assert.equal(
+    suggestedInviteTheme({ saved: 'capiz', moodFeelKey: 'timeless', ownsPro: true, mayShowStdFilm: false }),
+    'house',
+  );
+  assert.equal(
+    suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: true, mayShowStdFilm: false }),
+    'house',
+  );
+  assert.equal(
+    suggestedInviteTheme({ saved: 'capiz', moodFeelKey: 'timeless', ownsPro: true, mayShowStdFilm: true }),
+    'capiz',
+  );
 });
 
 test('House is the one free theme, and the other four are Pro', () => {
@@ -51,24 +119,33 @@ test('every onboarding feel is suggested exactly one theme — no couple is sugg
 });
 
 test('the picker pre-selects from the feel, but only a theme the couple can actually use', () => {
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: true }), 'capiz');
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: false }), 'house');
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: true }), 'velvet');
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: false }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ...WEDDING }), 'capiz');
+  assert.equal(
+    suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: false, mayShowStdFilm: true }),
+    'house',
+  );
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ...WEDDING }), 'velvet');
+  assert.equal(
+    suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: false, mayShowStdFilm: true }),
+    'house',
+  );
   // An unshipped skin is never suggested, even to a Pro couple whose feel points
   // at it — 'modern' is Galeriya's feel and Galeriya has no skin yet.
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ownsPro: true }), 'house');
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: null, ownsPro: true }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...WEDDING }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: null, ...WEDDING }), 'house');
   // A saved choice always wins over the feel.
-  assert.equal(suggestedInviteTheme({ saved: 'house', moodFeelKey: 'timeless', ownsPro: true }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: 'house', moodFeelKey: 'timeless', ...WEDDING }), 'house');
 });
 
 test('the picker offers only shipped skins', () => {
   assert.deepEqual(
-    pickableInviteThemes().map((t) => t.id),
+    pickableInviteThemes({ mayShowStdFilm: true }).map((t) => t.id),
     INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready),
   );
-  assert.ok(pickableInviteThemes().some((t) => t.id === 'house'), 'House must always be pickable');
+  assert.ok(
+    pickableInviteThemes({ mayShowStdFilm: true }).some((t) => t.id === 'house'),
+    'House must always be pickable',
+  );
 });
 
 test('the app and the database agree on the five names', () => {

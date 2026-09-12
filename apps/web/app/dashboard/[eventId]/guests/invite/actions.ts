@@ -36,6 +36,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 
 export type RegenerateInviteQrResult =
   | { ok: true }
@@ -113,6 +115,13 @@ export async function regenerateInviteQr(
  *
  * Unready skins are refused, so a crafted post cannot save a theme that would
  * only render as House.
+ *
+ * 🔒 AND SO ARE PRO THEMES ON A CELEBRATION THAT CANNOT HAVE ONE (owner Q7 = A,
+ * 2026-09-11): the fence is `resolveWeddingOnlyParts(profile).save_the_date_film`
+ * — the reveal's own, not a second opinion about it. The picker already hides
+ * them there, and that is a courtesy; this is the refusal. It sits beside the
+ * ownership re-check for the same reason and in the same place: after the couple
+ * check, before the write.
  */
 export async function setInviteTheme(eventId: string, formData: FormData): Promise<void> {
   try {
@@ -127,11 +136,44 @@ export async function setInviteTheme(eventId: string, formData: FormData): Promi
   const theme = raw as InviteThemeId;
   const admin = createAdminClient();
   if (INVITE_THEMES[theme].tier === 'pro') {
+    // WEDDINGS ONLY first — it is the cheaper read and the one no purchase can
+    // change, so a birthday is sent back to the picker rather than to a buy
+    // page for something it could never use.
+    const { data: row } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const mayShowStdFilm = await resolveProfile((row?.event_type as string | null) ?? '')
+      .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+      // An unmeasured type is not a wedding. A refused read must never be the
+      // reason a paid theme is saved.
+      .catch(() => false);
+    if (!mayShowStdFilm) redirect(`/dashboard/${eventId}/guests/invite`);
     const ownsPro = await eventCoupleWebsiteProActive(admin, eventId);
     if (!ownsPro) redirect(`/dashboard/${eventId}/studio/website-pro`);
   }
-  const { error } = await admin.from('events').update({ invite_theme: theme }).eq('event_id', eventId);
-  if (error) {
+  /*
+    🔑 THE WRITE MUST PROVE A ROW CHANGED. A PostgREST UPDATE that matches ZERO
+    rows returns NO error — `error` is null, the action falls through, and the
+    picker prints "Saved — your invite link now opens in this look." over a
+    database that was never touched. Nothing on screen would differ from a real
+    save. So this asks for the rows back and counts them.
+
+    The sibling action in this same file (`regenerateInviteQr`) already does
+    exactly this; the shape is copied from it rather than invented.
+
+    Zero rows is not a theoretical: the `.eq('event_id', …)` can miss (a deleted
+    or renamed event, an id that never was), and an RLS or GRANT refusal on the
+    admin path would land here too. All of them mean the same thing to a couple —
+    their choice is not saved — so all of them say so.
+  */
+  const { data, error } = await admin
+    .from('events')
+    .update({ invite_theme: theme })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !data || data.length === 0) {
     redirect(`/dashboard/${eventId}/guests/invite?theme=error`);
   }
   revalidatePath(`/dashboard/${eventId}/guests/invite`);

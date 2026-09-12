@@ -65,16 +65,16 @@ test('the invitation is sold on the photos, not on the reveal', () => {
   assert.equal(offer.lead, 'Photo gallery');
 });
 
-test('SEVEN chips, in catalog order, with exactly ONE lit', () => {
+test('EIGHT chips, in catalog order, with exactly ONE lit', () => {
   const offer = resolveHubProOffer({ channel: 'rsvp', phase: 'plan', ownsPro: false });
   assert.ok(offer);
   assert.deepEqual(
     offer.chips.map((c) => c.name),
     [...WEBSITE_PRO_ITEMS],
-    'the chips ARE the seven items — one list, not a second copy of it',
+    'the chips ARE the eight items — one list, not a second copy of it',
   );
   const lit = offer.chips.filter((c) => c.here);
-  assert.equal(lit.length, 1, 'one price seven times, not seven prices — exactly one chip is lit');
+  assert.equal(lit.length, 1, 'one price eight times, not eight prices — exactly one chip is lit');
   assert.equal(lit[0]?.name, offer.lead, 'and the lit one is where the couple is standing');
 });
 
@@ -125,7 +125,7 @@ test('⛔ THE UMBRELLA IS NEVER SOLD ON SOMETHING THAT IS ALREADY FREE', () => {
   }
 });
 
-test('all seven items are still SHOWN, including the free one', () => {
+test('all eight items are still SHOWN, including the free one', () => {
   const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
   assert.ok(offer);
   assert.ok(

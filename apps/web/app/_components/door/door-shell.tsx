@@ -91,6 +91,26 @@ export type DoorSkin = {
    * never sits on the printed invitation itself.
    */
   hinge?: React.ReactNode;
+  /**
+   * ⚖ THE ONE EXCEPTION TO "A SKIN NEVER OWNS THE ACTION" — and it is the
+   * OWNER'S, not a drift (Q2 = A, 2026-09-11, DECISION_LOG "the seven
+   * invite-theme questions"): on a PRO invite theme the single button takes the
+   * couple's own `events.site_button_color`. House — and every other door in the
+   * app — keeps #C24E25.
+   *
+   * 🔑 IT DOES NOT COME FROM A THEME FILE. `app/[slug]/invite/_lib/
+   * load-invite-look.ts` resolves it ONCE, for all four Pro themes at once, so
+   * the button is the couple's colour the moment a skin ships rather than a line
+   * each skin has to remember — and so no theme can quietly paint a different
+   * one. Nothing in `app/[slug]/invite/_components/themes/` touches it, which is
+   * what keeps `themes-stay-skins.test.ts`'s "a skin never restyles the card's
+   * controls" true of the theme stylesheets it guards.
+   *
+   * The PAIR is deliberate: `lib/invite-button-color.ts` chooses the fill and
+   * the label TOGETHER, because a fill whose label nobody can read is worse than
+   * the house colour. Never take one half of it into a style without the other.
+   */
+  action?: { background: string; label: string; hover: string };
 };
 
 export type DoorShellProps = {
@@ -138,13 +158,44 @@ export function DoorShell({
   const threshold = tone === 'threshold';
   const rail = steps && steps.length > 1 ? <StepRail steps={steps} /> : null;
 
+  /*
+    THE COUPLE'S BUTTON COLOUR — carried as three custom properties (fill, label,
+    hover) and read by ONE rule in globals.css (`[data-door-action]
+    .button-primary`), scoped to this frame. Three reasons it is done this way
+    and not another:
+
+      · NO NEW STYLESHEET. `main` sits a hair under a locked 200 KB and a
+        separate .css file is another module in the shared chunk — the same
+        constraint the header note above records. globals.css is already on
+        every page, and one more rule in it adds no module. The precedent is
+        `.app-surface .button-primary`, which re-points the same class for the
+        dashboards.
+      · IT REACHES THE BUTTON WITHOUT NAMING IT. The action lives inside
+        `children` — `JoinFlow`'s Continue, the Reply card's Save, Enter's "Open
+        your invitation" — so the shell cannot pass it a prop without every door
+        threading one. A scoped rule colours whichever primary the door renders,
+        and colours nothing on any door that brings no `action`.
+      · IT CANNOT LEAK. The attribute is set only when a skin carries an
+        `action`, which only `loadInviteLook` does, only for a Pro theme. Every
+        other door — and the Event Hub's own copy of that same RSVP card — is
+        outside the scope and renders byte-identically.
+  */
+  const actionVars = skin?.action
+    ? ({
+        ['--door-action' as string]: skin.action.background,
+        ['--door-action-label' as string]: skin.action.label,
+        ['--door-action-hover' as string]: skin.action.hover,
+      } as React.CSSProperties)
+    : null;
+
   return (
     <main
       className={[
         'relative isolate flex min-h-dvh w-full flex-col items-center justify-center px-4 py-10 sm:px-6',
         skin ? skin.className : 'bg-cream',
       ].join(' ')}
-      style={skin?.style}
+      style={actionVars ? { ...skin?.style, ...actionVars } : skin?.style}
+      data-door-action={skin?.action ? '' : undefined}
     >
       {skin?.ground ? (
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">

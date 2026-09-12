@@ -11,8 +11,8 @@ import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the seven Pro items are ONE ₱3,500 unlock (owner
- * 2026-07-24), so seven separate purchase affordances would misrepresent it.
+ * per-feature buy button — the eight Pro items are ONE ₱3,500 unlock (owner
+ * 2026-07-24), so eight separate purchase affordances would misrepresent it.
  *
  * `ColorsPanel` is the first unlocked Pro panel: two hex fields posting to the
  * SAME `updateSiteColors` action the sub-page uses, with the hidden `return_to`
@@ -25,11 +25,11 @@ import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
  */
 
 /**
- * The seven Pro items, named the way the couple sees them.
+ * The eight Pro items, named the way the couple sees them.
  *
  * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
  * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
- * whichever channel the couple is standing on, and it needs these seven names on
+ * whichever channel the couple is standing on, and it needs these eight names on
  * the server. Copying them would have made two lists of one fact, each passing
  * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
  */
@@ -49,7 +49,7 @@ export function ProLockPanel({
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
-        One unlock covers all seven: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
+        One unlock covers all eight: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
       <Link

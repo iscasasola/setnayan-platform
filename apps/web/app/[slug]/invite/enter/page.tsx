@@ -40,7 +40,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_type, event_end_date, venue_latitude, venue_longitude`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_end_date, venue_latitude, venue_longitude`,
     )
     .ilike('slug', slug)
     .maybeSingle();

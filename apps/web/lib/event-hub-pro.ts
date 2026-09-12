@@ -161,9 +161,13 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     added — the same reason 'Editorial editing' carries copy it never shows.
   */
   'Invite link theme': {
-    headline: 'Your invite link opens like an invitation.',
+    // Drafted with the Fable model (the owner's standing preference for product
+    // copy), 2026-09-13. Its opening clause — "With Event Hub Pro," — is the one
+    // edit: this chip is rendered INSIDE the Event Hub Pro offer, so the words
+    // named the panel the reader is already looking at.
+    headline: 'Your invite opens the way you pictured it.',
     blurb:
-      'The link you send stops being a plain page. It opens with your reveal, then your own photo behind the card, your mark as the seal, and your colour on the button your guests press.',
+      'A guest tapping your link first watches a veil lift, then lands on a card set against your own photo. Your monogram sits on its edge like a wax seal, and the one button on the card is painted in the colour you chose.',
   },
 };
 

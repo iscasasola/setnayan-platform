@@ -108,6 +108,33 @@ test('the two halves are wired to the two pages, and to the right ones', () => {
   // holds — never re-derived at a call site.
   const server = read('app/[slug]/_components/reveal/reveal-overlay-server.tsx');
   assert.match(server, /seenEventId=\{eventId \?\? null\}/, 'the event id is not forwarded, so the mark has nothing to key on');
+
+  /*
+    🔑 BOTH STAGES, PROVEN BY THERE BEING ONLY ONE MOUNT. The owner asked for
+    save-the-date AND invitation. The Event Hub reveal is a SINGLE
+    `<RevealOverlayServer>` in site-body, gated on `plan.revealEnabled` — which
+    has covered both stages since 2026-08-29 — so the deferral reaches both by
+    construction rather than by being passed twice and remembered twice.
+
+    That is only true while the mount stays single. If a later change splits it
+    per stage, one of the two will get the prop and the other will not, and the
+    veil a guest just lifted comes back down on exactly one stage — the hardest
+    kind of half-fix to see. So the COUNT is the assertion, not the presence.
+  */
+  const hubMounts = hub.match(/<RevealOverlayServer\b/g) ?? [];
+  assert.equal(
+    hubMounts.length,
+    1,
+    `the Event Hub mounts the reveal ${hubMounts.length} times — one of them will miss oncePerVisit, ` +
+      'and the second veil will come back on one stage only',
+  );
+  const deferMounts = hub.match(/oncePerVisit="defer"/g) ?? [];
+  assert.equal(deferMounts.length, hubMounts.length, 'a hub reveal mount exists that does not step aside');
+
+  // …and the door side is single too, for the mirror-image reason: a second,
+  // unrecorded door mount would mean the hub's veil returns after that door.
+  const doorMounts = door.match(/<RevealOverlayServer\b/g) ?? [];
+  assert.equal(doorMounts.length, 1, `the invite door mounts the reveal ${doorMounts.length} times`);
 });
 
 test('a House invite records nothing — that guest’s first reveal is still the hub’s', () => {

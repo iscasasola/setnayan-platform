@@ -153,8 +153,27 @@ export async function setInviteTheme(eventId: string, formData: FormData): Promi
     const ownsPro = await eventCoupleWebsiteProActive(admin, eventId);
     if (!ownsPro) redirect(`/dashboard/${eventId}/studio/website-pro`);
   }
-  const { error } = await admin.from('events').update({ invite_theme: theme }).eq('event_id', eventId);
-  if (error) {
+  /*
+    🔑 THE WRITE MUST PROVE A ROW CHANGED. A PostgREST UPDATE that matches ZERO
+    rows returns NO error — `error` is null, the action falls through, and the
+    picker prints "Saved — your invite link now opens in this look." over a
+    database that was never touched. Nothing on screen would differ from a real
+    save. So this asks for the rows back and counts them.
+
+    The sibling action in this same file (`regenerateInviteQr`) already does
+    exactly this; the shape is copied from it rather than invented.
+
+    Zero rows is not a theoretical: the `.eq('event_id', …)` can miss (a deleted
+    or renamed event, an id that never was), and an RLS or GRANT refusal on the
+    admin path would land here too. All of them mean the same thing to a couple —
+    their choice is not saved — so all of them say so.
+  */
+  const { data, error } = await admin
+    .from('events')
+    .update({ invite_theme: theme })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !data || data.length === 0) {
     redirect(`/dashboard/${eventId}/guests/invite?theme=error`);
   }
   revalidatePath(`/dashboard/${eventId}/guests/invite`);

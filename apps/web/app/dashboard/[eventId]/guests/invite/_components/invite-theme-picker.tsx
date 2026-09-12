@@ -27,14 +27,21 @@ export function InviteThemePicker({
   selected,
   ownsPro,
   mayShowStdFilm,
-  saved,
+  notice,
 }: {
   eventId: string;
   selected: InviteThemeId;
   ownsPro: boolean;
   /** `resolveWeddingOnlyParts(profile).save_the_date_film` — the reveal's fence. */
   mayShowStdFilm: boolean;
-  saved: boolean;
+  /**
+   * What the last save did — `?theme=saved` or `?theme=error` from
+   * `setInviteTheme`. 🔑 BOTH ARE RENDERED. The failure used to come back as a
+   * bare page: the banner was gone, the radio still showed the old choice, and
+   * nothing said why — which reads as "I must not have pressed it". A log line
+   * never changed a pixel.
+   */
+  notice: 'saved' | 'error' | null;
 }) {
   const themes = pickableInviteThemes({ mayShowStdFilm });
   const action = setInviteTheme.bind(null, eventId);
@@ -78,9 +85,17 @@ export function InviteThemePicker({
         </Link>
         .
       </p>
-      {saved ? (
+      {notice === 'saved' ? (
         <p role="status" className="mt-3 rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
           Saved — your invite link now opens in this look.
+        </p>
+      ) : null}
+      {notice === 'error' ? (
+        <p
+          role="alert"
+          className="mt-3 rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-sm text-ink/80"
+        >
+          That didn’t save — your invite link still opens in the look it had. Please try again.
         </p>
       ) : null}
       <form action={action} className="mt-4 space-y-3">

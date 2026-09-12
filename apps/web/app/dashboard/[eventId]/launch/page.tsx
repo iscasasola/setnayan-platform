@@ -390,8 +390,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the seven Pro items are ONE purchase, so the controller does not grow
-    seven upgrade slots — it grows one, and moves it to whichever of the four
+    § 5.3: the eight Pro items are ONE purchase, so the controller does not grow
+    eight upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
     after it.

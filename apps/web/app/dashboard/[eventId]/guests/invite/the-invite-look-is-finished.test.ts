@@ -163,6 +163,28 @@ test('nothing still calls them "the seven"', () => {
     /One unlock covers all eight:/,
     'the editor tells the couple the wrong number',
   );
+
+  /*
+    🪤 AND TWO MORE THE SWEEP ABOVE COULD NOT SEE. `read()` STRIPS COMMENTS, and
+    the remaining stale counts were both comments — one in the controller's
+    docblock ("the seven Pro items are ONE purchase"), one beside the rail's own
+    CTA ("One CTA for all seven"). Neither renders, so neither could fail a test;
+    the sweep that was written to catch "seven" was reading source with exactly
+    that text removed. These two are read RAW.
+  */
+  for (const rel of [
+    'app/dashboard/[eventId]/launch/page.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
+  ]) {
+    const raw = readFileSync(join(WEB, rel), 'utf8');
+    assert.ok(raw.length > 200, `${rel} scanned nearly empty — the guard is looking at nothing`);
+    assert.doesNotMatch(
+      raw,
+      /(seven Pro items|for all seven)/,
+      `${rel} still says "seven" about a list of ${WEBSITE_PRO_ITEMS.length}`,
+    );
+    assert.match(raw, /(eight Pro items|for all eight)/, `${rel} stopped naming the count at all`);
+  }
 });
 
 test('the buy page already names the invite link — and must keep naming it', () => {
@@ -301,4 +323,82 @@ test('no invite door names a look column twice in its own select', () => {
       );
     }
   }
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5 · THE SAVE MUST PROVE A ROW CHANGED
+   ══════════════════════════════════════════════════════════════════════════ */
+
+test('🔑 setInviteTheme counts the rows it wrote — a zero-row UPDATE is not a save', () => {
+  /*
+    A PostgREST UPDATE matching ZERO rows returns NO error. Without `.select()`
+    the action cannot tell a real write from a write that hit nothing, so it
+    redirected to `?theme=saved` and the couple was told their invite link now
+    opens in a look that was never stored. Success and silence rendered
+    identically.
+
+    The sibling `regenerateInviteQr` IN THIS SAME FILE already counted rows; this
+    pins that `setInviteTheme` does too, and that the count is what decides.
+  */
+  const src = read(ACTIONS);
+  const start = src.indexOf('export async function setInviteTheme(');
+  assert.notEqual(start, -1, 'setInviteTheme is gone or renamed');
+  const body = src.slice(start);
+
+  const write = body.indexOf('.update({ invite_theme');
+  assert.ok(write > -1, 'the theme write is gone or reshaped');
+  // The window is the write's own chain and the decision that follows it — not
+  // the whole file, where `regenerateInviteQr`'s correct row-count would satisfy
+  // every one of these on its own.
+  const tail = body.slice(write);
+
+  assert.match(
+    tail,
+    /\.update\(\{ invite_theme: theme \}\)\s*\.eq\('event_id', eventId\)\s*\.select\(/,
+    'the theme UPDATE does not ask for the rows back — a zero-row write is indistinguishable from a save',
+  );
+  assert.match(
+    tail,
+    /data\.length === 0/,
+    'the rows come back and are never counted',
+  );
+  assert.match(
+    tail,
+    /if \(error \|\| !data \|\| data\.length === 0\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/guests\/invite\?theme=error`\)/,
+    'a write that changed nothing must not redirect to ?theme=saved',
+  );
+  // …and the happy path is still reachable, so the assertions above are not
+  // satisfied by an action that can only ever fail.
+  assert.match(tail, /\?theme=saved`\)/, 'the successful save no longer reports itself');
+});
+
+test('🔑 a failed save SAYS so on screen — ?theme=error is rendered, not just redirected to', () => {
+  /*
+    `setInviteTheme` has redirected to `?theme=error` since it shipped, and the
+    picker rendered a banner for `saved` and NOTHING for `error`. So a refusal
+    came back as a plain page: same radio, same copy, no banner — which reads as
+    "my click did not register", and invites the couple to press Save again into
+    the same failure. A log line never changed a pixel; the measurement has to
+    reach the render.
+  */
+  const picker = read(PICKER);
+  assert.match(picker, /notice === 'saved'/, 'the picker no longer renders the successful save');
+  assert.match(picker, /notice === 'error'/, 'a refused save renders nothing — it looks exactly like a page reload');
+  assert.match(picker, /role="alert"/, 'the failure is drawn, but not announced as a failure');
+  // The words a couple actually reads must not claim the look changed.
+  const errorBlock = picker.slice(picker.indexOf("notice === 'error'"));
+  assert.match(
+    errorBlock,
+    /didn’t save/,
+    'the failure banner does not say the save failed',
+  );
+
+  // …and the page must actually hand both outcomes over. A picker that can draw
+  // the alert is worth nothing if the prop is always null.
+  const page = read(PAGE);
+  assert.match(
+    page,
+    /notice=\{search\.theme === 'saved' \? 'saved' : search\.theme === 'error' \? 'error' : null\}/,
+    'the page drops one of the two outcomes on its way to the picker',
+  );
 });

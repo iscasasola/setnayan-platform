@@ -256,7 +256,10 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
         selected={selectedTheme}
         ownsPro={ownsPro}
         mayShowStdFilm={mayShowStdFilm}
-        saved={search.theme === 'saved'}
+        /* Both outcomes reach the screen. `?theme=error` used to render
+           nothing at all, so a refused save looked like a page that had simply
+           been reloaded. */
+        notice={search.theme === 'saved' ? 'saved' : search.theme === 'error' ? 'error' : null}
       />
 
       {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.

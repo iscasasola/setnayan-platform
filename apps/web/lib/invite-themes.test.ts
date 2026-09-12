@@ -26,9 +26,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEDDING = { ownsPro: true, mayShowStdFilm: true } as const;
 
 test('nothing repaints a live invite: unsaved, junk or unshipped all render as House', () => {
-  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'velvet', 'galeriya', 'abaca']) {
+  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'galeriya', 'abaca']) {
     assert.equal(resolveInviteTheme({ saved, ...WEDDING }), 'house', `${String(saved)} must render as House`);
   }
+  // …and a theme whose skin HAS shipped renders itself, which is what makes the
+  // line above a real check rather than "everything is House".
+  assert.equal(resolveInviteTheme({ saved: 'velvet', ...WEDDING }), 'velvet', 'Velvet shipped its skin (2026-09-11) and must render');
 });
 
 test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
@@ -121,8 +124,14 @@ test('the picker pre-selects from the feel, but only a theme the couple can actu
     suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: false, mayShowStdFilm: true }),
     'house',
   );
-  // An unshipped skin is never suggested, even to a Pro couple whose feel points at it.
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ...WEDDING }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ...WEDDING }), 'velvet');
+  assert.equal(
+    suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: false, mayShowStdFilm: true }),
+    'house',
+  );
+  // An unshipped skin is never suggested, even to a Pro couple whose feel points
+  // at it — 'modern' is Galeriya's feel and Galeriya has no skin yet.
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ...WEDDING }), 'house');
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: null, ...WEDDING }), 'house');
   // A saved choice always wins over the feel.
   assert.equal(suggestedInviteTheme({ saved: 'house', moodFeelKey: 'timeless', ...WEDDING }), 'house');

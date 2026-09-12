@@ -82,7 +82,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     tier: 'pro',
     feels: ['glam', 'royalty'],
     opening: 'four-flap',
-    ready: false,
+    ready: true,
     blurb: 'An engraved card resting on velvet in your colour.',
   },
   galeriya: {

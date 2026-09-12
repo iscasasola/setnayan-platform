@@ -3,6 +3,7 @@
 import { Briefcase } from 'lucide-react';
 
 import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
+import { SUPPLIER_DESK_ANCHOR } from './supplier-desk-anchor';
 
 /**
  * SUPPLIER RIBBON — a supplier never sits through a film to get to work.
@@ -42,8 +43,6 @@ import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
  * scroll-inch above it would be chrome repeating what it sits on.
  */
 
-/** The desk's own anchor, so the ribbon can put a supplier in front of it. */
-export const SUPPLIER_DESK_ANCHOR = 'your-desk';
 
 export function SupplierRibbon({
   businessName,

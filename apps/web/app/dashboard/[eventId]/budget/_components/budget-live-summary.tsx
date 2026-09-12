@@ -5,15 +5,8 @@ import { CalendarClock, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPhp, type BudgetLiveSummary } from '@/lib/budget';
 import { getBudgetLiveSummary } from '../actions';
+import { BUDGET_TOP_SUMMARY_HEADER_ID } from './budget-summary-ids';
 
-/**
- * The DOM id `BudgetTopSummary` (page.tsx) sets on its `<header>` — the
- * element with no border of its own. BA4: the pinned condensed bar below
- * measures THIS box, never the outer `.sn-tile` card, because that card's
- * rect includes its 1px border and every measurement drawn from it drifts a
- * pixel off the real content edge.
- */
-export const BUDGET_TOP_SUMMARY_HEADER_ID = 'budget-top-summary-header';
 
 /**
  * Live payment-progress + pinned-summary card for the budget page (BA4). Sits

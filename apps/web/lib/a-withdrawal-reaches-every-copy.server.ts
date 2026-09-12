@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storySurfacesFor } from './a-withdrawal-reaches-every-copy';
+import { storyAudienceOf } from './who-can-see-your-story';
 
 /**
  * THE ONE CALL A CONSENT WRITE MAKES — `04` §3 · `07` Q6 · 08 step 4.1.
@@ -144,5 +145,31 @@ export async function readStoryVersionAt(eventId: string): Promise<string | null
       and keeps its page.
     */
     return null;
+  }
+}
+
+/**
+ * The story's version stamp AND whether it is published, in ONE read — what a page's metadata
+ * needs to decide its link preview (lib/who-sees-the-link-preview.ts). Same two arms as
+ * `readStoryVersionAt` above, and it fails CLOSED: a refused or thrown read says "not
+ * published", so an Unlisted site keeps its stub rather than naming the couple on a guess.
+ */
+export async function readStoryShareState(
+  eventId: string,
+): Promise<{ versionAt: string | null; published: boolean }> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('event_editorial')
+      .select('story_version_at, status')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) return { versionAt: null, published: false };
+    const row = data as { story_version_at?: unknown; status?: unknown } | null;
+    return {
+      versionAt: typeof row?.story_version_at === 'string' ? row.story_version_at : null,
+      published: storyAudienceOf(row?.status) === 'published',
+    };
+  } catch {
+    return { versionAt: null, published: false };
   }
 }

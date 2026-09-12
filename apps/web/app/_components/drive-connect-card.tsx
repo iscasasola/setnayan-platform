@@ -107,13 +107,13 @@ export function DriveConnectCard({
 
       {oauthReady ? (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 pt-1">
-          <Link
+          <a
             href={connectHref}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600 sm:w-auto"
           >
             <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {primaryLabel}
-          </Link>
+          </a>
           {deferHref && deferLabel ? (
             <Link
               href={deferHref}
@@ -171,13 +171,13 @@ export function DriveReconnectBanner({
             </p>
           </div>
         </div>
-        <Link
+        <a
           href={reconnectHref}
           className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream transition hover:bg-mulberry-600"
         >
           <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Reconnect Drive
-        </Link>
+        </a>
       </div>
     </aside>
   );

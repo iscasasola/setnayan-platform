@@ -24,6 +24,8 @@ import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from './_components/save-story-card-button';
 import { recapCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
 import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { linkPreviewFor } from '@/lib/who-sees-the-link-preview';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -48,7 +50,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, event_type, role_palette, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+      `event_id, slug, event_type, role_palette, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -89,6 +91,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!event || !websiteOn || solemn || !(await isRecapPublished(event.event_id))) {
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
+  /*
+    🔴 THIS METADATA NEVER ASKED WHO MAY SEE THE SITE. The page body refuses a
+    private site's stranger (`canViewSlugEvent`), but its metadata named the
+    couple and carried their card for ANY published recap — so a Private
+    celebration's recap link previewed their names to whoever had the address.
+    Found building the owner's 2026-09-11 ruling (item 13): the same rule as
+    `/{slug}` now decides, and the recap's own published switch is the
+    "published" it asks about (it has its own, `isRecapPublished`, above).
+  */
+  const preview = linkPreviewFor(resolveEffectiveVisibility(event), true);
+  if (!preview.namesTheCouple) {
+    return { title: 'The Recap', robots: { index: false, follow: false } };
+  }
   const title = `${event.display_name} — The Recap`;
   // Was a hand-typed two-way patch (`!== 'wedding' ? 'event' : 'wedding'`) —
   // a third vocabulary being born beside the two the product already has. It
@@ -99,6 +114,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
+    ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
     alternates: { canonical: `${SITE_URL}/${event.slug}/recap` },
     openGraph: {
       type: 'website',
@@ -107,7 +123,20 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      images: [{ url: `${SITE_URL}/api/og/recap/${event.slug}`, width: 1200, height: 630, alt: title }],
+      /*
+        VERSIONED, like the story's card. S14 built `recapCardUrlFor` so a guest's
+        withdrawal moves the recap card's address past every cache — and the page's
+        share button used it, but THIS og:image (the one every platform reads) was
+        still the bare address, so the move never reached a link preview.
+      */
+      images: [
+        {
+          url: recapCardUrlFor(SITE_URL, event.slug, await readStoryVersionAt(event.event_id)),
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: { card: 'summary_large_image' as const },
   };

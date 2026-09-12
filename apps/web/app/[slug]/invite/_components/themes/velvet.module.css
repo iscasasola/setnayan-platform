@@ -1,0 +1,224 @@
+/*
+ * VELVET — the Classy invite theme (Event Hub Pro · lib/invite-themes.ts).
+ *
+ * An engraved card resting on velvet in the couple's colour: their reveal
+ * background held under a graded velvet veil, a foil double hairline engraved
+ * inside the card's own padding, their mark as a paper seal above the title,
+ * and a foil rule with one gem as the hinge. Design: designs/velvet.html
+ * ("Five Invite Doors" · Velvet), ported — not redrawn.
+ *
+ * Imported ONLY by the invite routes (via app/[slug]/invite/_components/themes),
+ * never by DoorShell — so no theme reaches the shared chunk.
+ *
+ * 🎨 The couple's colour (`--accent`) is the VELVET and the ORNAMENT: the box it
+ * all rests in, the seal's ring, the gem in the hinge. It never carries a word.
+ * The seal's letters are ink on paper (17.6:1). Foil (#C5A059, 2.34:1 on this
+ * paper) is a hairline and a ring here, never a word. The card, its 3px edge and
+ * its one action stay DoorShell's.
+ */
+.velvet {
+  /* the family spine — the plate is bright cotton card, not cream */
+  --vl-paper: #fbf9f6;
+  --vl-ink: #15121a; /* 17.6:1 on paper */
+  --vl-foil: #c5a059;
+  --vl-hair: #ddd7cc;
+  /* neutral oxblood fallbacks where color-mix is unavailable */
+  --vl-velvet: #2b1610;
+  --vl-veil-deep: rgba(28, 14, 10, 0.94);
+  --vl-veil-mid: rgba(28, 14, 10, 0.5);
+  --vl-veil-low: rgba(28, 14, 10, 0.72);
+  --vl-foil-ring: rgba(197, 160, 89, 0.38);
+
+  background-color: var(--vl-velvet);
+}
+
+/*
+ * The velvet takes the couple's colour: 52% near-black, 48% their accent, in
+ * oklab. Oxblood → oxblood velvet · navy → midnight · copper → burnt umber.
+ * The veil is that same velvet at three depths, so the photo is always tinted
+ * THEIR colour.
+ */
+@supports (color: color-mix(in oklab, red 50%, blue)) {
+  .velvet {
+    --vl-velvet: color-mix(in oklab, #0d090c 52%, var(--accent));
+    --vl-veil-deep: color-mix(in srgb, var(--vl-velvet) 94%, transparent);
+    --vl-veil-mid: color-mix(in srgb, var(--vl-velvet) 50%, transparent);
+    --vl-veil-low: color-mix(in srgb, var(--vl-velvet) 72%, transparent);
+    --vl-foil-ring: color-mix(in srgb, var(--vl-foil) 38%, transparent);
+  }
+}
+
+/* The couple's photo, held in the box. */
+.photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/*
+ * The box, over the photo: the velvet sheen, the box floor, and the graded
+ * veil in their colour.
+ *
+ * 🪤 THE DEEP BAND RUNS TO 320px, NOT THE DESIGN'S 78px — a port correction,
+ * not a redraw. The design board is a 375×812 page that starts at the top, so
+ * its wordmark sits at the crown and 78px of deep veil is enough. <DoorShell>
+ * CENTRES its column in `min-h-dvh`, so the wordmark — the ONE line of
+ * lettering that ever sits on the velvet — floats with the card's height.
+ * Measured in the browser at 375×812: door 01's wordmark spans y=174→204; a
+ * card stripped back to its header alone (shorter than any door that exists)
+ * falls to y=250→280; at 1280×800 it is y=160→190. A band to 320px holds every
+ * one of them, and none of the extra depth is visible — on a phone the card's
+ * own top edge is at y≈230, so the band is behind the card except for the 16px
+ * margins beside it.
+ *
+ * Measured contrast, paper #FBF9F6 over a WHITE photo (the worst ground):
+ * deep band 9.4:1 with the default accent and 4.0:1 with a pure-white accent
+ * (the worst colour a couple can pick); the design's mid band gives the same
+ * wordmark 2.7:1 and 1.9:1. The wordmark is 25px/800 — large text, AA 3:1 — so
+ * the deep band clears it for every accent and the mid band does not.
+ */
+.ground {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(360px 300px at 50% 300px, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(640px 320px at 50% 100%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%),
+    linear-gradient(
+      180deg,
+      var(--vl-veil-deep) 0,
+      var(--vl-veil-deep) 320px,
+      var(--vl-veil-mid) 420px,
+      var(--vl-veil-mid) 76%,
+      var(--vl-veil-low) 100%
+    );
+}
+
+/*
+ * The crest is three pieces of ornament and nothing else. It is STATIC on
+ * purpose: the ring and the engraved hairlines are absolute, so they resolve
+ * against the card (the one positioned ancestor) and trace it without the skin
+ * restyling it.
+ */
+.crest {
+  display: block;
+}
+
+/* The foil ring and the drop into the velvet — drawn just OUTSIDE the card. */
+.ring {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--vl-foil-ring);
+  /* The card's own corner, one pixel out. `--m-r-lg` IS `rounded-2xl` — the
+     radius DoorShell gives the card (22px, the design's figure) — so the ring
+     and the engraving below can never drift away from the corner they trace. */
+  border-radius: calc(var(--m-r-lg) + 1px);
+  box-shadow:
+    0 34px 64px -26px rgba(0, 0, 0, 0.85),
+    0 14px 28px -14px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* The engraved double hairline, foil-thin, 3px apart — inside the card's own
+   padding, never over a word. */
+.engraveOuter,
+.engraveInner {
+  position: absolute;
+  border: 1px solid var(--vl-foil);
+  pointer-events: none;
+}
+.engraveOuter {
+  inset: 6px 9px 9px;
+  border-radius: calc(var(--m-r-lg) - 9px);
+  opacity: 0.9;
+}
+.engraveInner {
+  inset: 9px 12px 12px;
+  border-radius: calc(var(--m-r-lg) - 12px);
+  opacity: 0.42;
+}
+
+/* Their mark, pressed as a paper seal above the title. */
+.seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--vl-paper);
+  border: 1px solid var(--accent);
+  box-shadow:
+    0 0 0 3px var(--vl-paper),
+    0 0 0 4px var(--vl-foil);
+  /* The design asks for Bodoni Moda italic 400. The face in this repo is the
+     SemiBold roman (assets/cipher-fonts/bodoni-moda.ttf, usWeightClass 600) and
+     a synthesised oblique is a fake that looks almost right — so the seal is
+     upright at the weight we actually have. */
+  font-family: var(--font-velvet-display), 'Didot', 'Bodoni 72', Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--vl-ink);
+  white-space: nowrap;
+}
+
+/*
+ * Above the hinge the card reads as an engraved invitation — centred, in the
+ * theme's own type. This is the skin's ONE reach inside the card
+ * (themes-stay-skins.test.ts) and it stops at the header: the eyebrow keeps
+ * DoorShell's #C24E25, because the doorway label belongs to the app side.
+ */
+.velvet :global(header) {
+  text-align: center;
+}
+.velvet :global(header) h1 {
+  font-family: var(--font-velvet-display), 'Didot', 'Bodoni 72', Georgia, serif;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+.velvet :global(header) p {
+  font-family: var(--font-velvet-utility), 'Futura', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+}
+/* the eyebrow */
+.velvet :global(header) p:first-of-type {
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  padding-left: 0.32em;
+}
+/* the date line — `:not(:first-of-type)` so an eyebrow standing alone is still
+   the eyebrow */
+.velvet :global(header) p:last-of-type:not(:first-of-type) {
+  letter-spacing: 0.18em;
+  padding-left: 0.18em;
+}
+
+/* The hinge: a foil rule with one gem in their colour. */
+.hinge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 168px;
+  margin: 1rem auto 0;
+}
+.hinge::before,
+.hinge::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--vl-foil);
+}
+.gem {
+  display: block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: var(--accent);
+}

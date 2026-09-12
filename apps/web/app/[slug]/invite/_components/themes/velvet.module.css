@@ -29,15 +29,6 @@
   --vl-veil-low: rgba(28, 14, 10, 0.72);
   --vl-foil-ring: rgba(197, 160, 89, 0.38);
 
-  /*
-   * THE WORDMARK IS THE ONLY LETTERING THAT EVER SITS ON THE VELVET, and
-   * <Wordmark> takes its colour from the inline `var(--m-ink)` — so the skin
-   * repaints it here rather than reaching into the shell. `--m-ink` is a
-   * marketing-tree token: nothing under app/[slug]/invite, app/join or
-   * app/_components/door reads it (grepped), so this moves the wordmark and
-   * nothing else.
-   */
-  --m-ink: var(--vl-paper);
   background-color: var(--vl-velvet);
 }
 
@@ -70,16 +61,23 @@
  * The box, over the photo: the velvet sheen, the box floor, and the graded
  * veil in their colour.
  *
- * 🪤 THE DEEP BAND RUNS TO 210px, NOT THE DESIGN'S 78px — and that is a port
- * correction, not a redraw. The design board is a 375×812 page that starts at
- * the top; <DoorShell> CENTRES its column in `min-h-dvh`, so on door 01
- * (measured at 375×812: the card is ~470px tall, leaving the wordmark at
- * y≈150) the wordmark lands exactly where the design's veil had already
- * thinned to half. Measured, paper #FBF9F6 over a WHITE photo: at the deep
- * band 9.4:1 with the default accent and 4.0:1 with a pure-white accent (the
- * worst colour a couple can pick); at the design's mid band the same wordmark
- * is 2.7:1 and 1.9:1. The wordmark is 25px/800 — large text, AA 3:1 — so the
- * deep band clears it for every accent and the mid band does not.
+ * 🪤 THE DEEP BAND RUNS TO 320px, NOT THE DESIGN'S 78px — a port correction,
+ * not a redraw. The design board is a 375×812 page that starts at the top, so
+ * its wordmark sits at the crown and 78px of deep veil is enough. <DoorShell>
+ * CENTRES its column in `min-h-dvh`, so the wordmark — the ONE line of
+ * lettering that ever sits on the velvet — floats with the card's height.
+ * Measured in the browser at 375×812: door 01's wordmark spans y=174→204; a
+ * card stripped back to its header alone (shorter than any door that exists)
+ * falls to y=250→280; at 1280×800 it is y=160→190. A band to 320px holds every
+ * one of them, and none of the extra depth is visible — on a phone the card's
+ * own top edge is at y≈230, so the band is behind the card except for the 16px
+ * margins beside it.
+ *
+ * Measured contrast, paper #FBF9F6 over a WHITE photo (the worst ground):
+ * deep band 9.4:1 with the default accent and 4.0:1 with a pure-white accent
+ * (the worst colour a couple can pick); the design's mid band gives the same
+ * wordmark 2.7:1 and 1.9:1. The wordmark is 25px/800 — large text, AA 3:1 — so
+ * the deep band clears it for every accent and the mid band does not.
  */
 .ground {
   position: absolute;
@@ -90,8 +88,8 @@
     linear-gradient(
       180deg,
       var(--vl-veil-deep) 0,
-      var(--vl-veil-deep) 210px,
-      var(--vl-veil-mid) 320px,
+      var(--vl-veil-deep) 320px,
+      var(--vl-veil-mid) 420px,
       var(--vl-veil-mid) 76%,
       var(--vl-veil-low) 100%
     );
@@ -112,7 +110,10 @@
   position: absolute;
   inset: -1px;
   border: 1px solid var(--vl-foil-ring);
-  border-radius: 17px;
+  /* The card's own corner, one pixel out. `--m-r-lg` IS `rounded-2xl` — the
+     radius DoorShell gives the card (22px, the design's figure) — so the ring
+     and the engraving below can never drift away from the corner they trace. */
+  border-radius: calc(var(--m-r-lg) + 1px);
   box-shadow:
     0 34px 64px -26px rgba(0, 0, 0, 0.85),
     0 14px 28px -14px rgba(0, 0, 0, 0.6);
@@ -129,12 +130,12 @@
 }
 .engraveOuter {
   inset: 6px 9px 9px;
-  border-radius: 13px;
+  border-radius: calc(var(--m-r-lg) - 9px);
   opacity: 0.9;
 }
 .engraveInner {
   inset: 9px 12px 12px;
-  border-radius: 10px;
+  border-radius: calc(var(--m-r-lg) - 12px);
   opacity: 0.42;
 }
 

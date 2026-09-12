@@ -19,13 +19,29 @@ ground and the reveal on door 01 all already shipped (#5409, #5410):
   latin and converted to woff2) — declared in the theme's own module with
   `next/font/local`, so they ship on the invite doors and on no other page.
 
-Two ports, not redraws, worth naming: the veil's deep band runs to 210px rather
+Two ports, not redraws, worth naming: the veil's deep band runs to 320px rather
 than the design's 78px because `DoorShell` centres its column, which puts the
 wordmark — the only lettering that ever sits on the velvet — where the design's
 veil had already thinned (measured over a white photo: 9.4:1 at the deep band
-with the default accent, 2.7:1 at the mid band); and the wordmark is repainted
-paper by scoping `--m-ink` inside the theme, because `<Wordmark>` carries its
-colour inline.
+with the default accent, 2.7:1 at the mid band; measured in the browser at
+375x812 the wordmark spans y=174-204 on door 01 and y=250-280 on a card cut back
+to its header alone, so the band holds every door that exists); and the wordmark
+is repainted paper by rebinding `--m-ink` in the skin's own inline `style`,
+because `<Wordmark>` carries its colour inline and no stylesheet can reach it.
+
+That rebind is deliberately NOT a declaration in `velvet.module.css`.
+`scripts/lint-label-on-fill-contrast.mjs` builds its token map from every `.css`
+under `app/` and takes the first definition of a name as the definition, and
+`app/[slug]/...` sorts before `app/globals.css` — so declaring `--m-ink` in the
+theme's stylesheet told that guard the whole app's ink was paper and failed 40
+pairings on pages this theme never touches. Same tree, one line moved: 0 of 1469
+flagged with the theme removed, 0 as it ships, 40 with the stylesheet
+declaration.
+
+The foil ring and the two engraved hairlines take their radius from
+`calc(var(--m-r-lg) ...)` rather than hand-typed pixels: `--m-r-lg` IS what
+`rounded-2xl` resolves to (tailwind.config.ts), which is the radius `DoorShell`
+gives the card, so the ornament can never drift off the corner it traces.
 
 `themes-stay-skins.test.ts` gains the guard the theme registry needed: every
 theme marked `ready` must have a case in `inviteSkin` AND both of its files,

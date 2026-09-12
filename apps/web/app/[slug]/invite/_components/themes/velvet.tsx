@@ -56,7 +56,29 @@ const jost = localFont({
 export function velvetSkin({ photo, accent, monogram }: InviteSkinInput): DoorSkin {
   return {
     className: [styles.velvet ?? '', bodoni.variable, jost.variable].join(' '),
-    style: { ['--accent' as string]: accent } as React.CSSProperties,
+    /*
+     * THE WORDMARK IS THE ONLY LETTERING THAT EVER SITS ON THE VELVET, and it
+     * is unreadable in ink on a dark ground. `<Wordmark>` takes its colour from
+     * an INLINE `color: var(--m-ink)`, which no stylesheet can override — so
+     * the theme rebinds that one token for its own page instead of reaching
+     * into the shell. `--m-ink` is a marketing-tree token: nothing under
+     * app/[slug]/invite, app/join or app/_components/door reads it (grepped),
+     * so this moves the wordmark and nothing else.
+     *
+     * 🪤 IT IS SET HERE AND NOT IN THE STYLESHEET, and that is not a style
+     * preference. `scripts/lint-label-on-fill-contrast.mjs` builds its token
+     * map from every .css file under app/ and takes the FIRST definition of a
+     * name as THE definition — and `app/[slug]/…` sorts before `app/globals.css`.
+     * Declaring `--m-ink` in velvet.module.css therefore told that guard the
+     * whole app's ink was paper, and it failed on 40 pairings across pages this
+     * theme never touches. Measured, same tree, one line moved: 0 of 1469
+     * pairings flagged with the theme's files removed entirely, 0 with the
+     * theme as it ships, 40 with that one declaration in the stylesheet.
+     */
+    style: {
+      ['--accent' as string]: accent,
+      ['--m-ink' as string]: 'var(--vl-paper)',
+    } as React.CSSProperties,
     ground: (
       <>
         {photo ? (

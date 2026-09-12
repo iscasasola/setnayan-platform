@@ -118,7 +118,7 @@ test('every ready theme resolves to a skin — and every skin belongs to a ready
   const cases = [...src.slice(start).matchAll(/case\s+'([a-z]+)'\s*:/g)].map((m) => m[1] ?? '');
 
   // House is the bare door on purpose — it has no skin and must have no case.
-  const shipped = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
+  const shipped: string[] = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
 
   // POSITIVE CONTROL: with no ready Pro theme the two assertions below are
   // satisfied by an empty switch, which reads exactly like a passing guard.

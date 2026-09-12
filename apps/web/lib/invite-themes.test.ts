@@ -23,9 +23,12 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 test('nothing repaints a live invite: unsaved, junk or unshipped all render as House', () => {
-  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'velvet', 'galeriya', 'abaca']) {
+  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'galeriya', 'abaca']) {
     assert.equal(resolveInviteTheme({ saved, ownsPro: true }), 'house', `${String(saved)} must render as House`);
   }
+  // …and a theme whose skin HAS shipped renders itself, which is what makes the
+  // line above a real check rather than "everything is House".
+  assert.equal(resolveInviteTheme({ saved: 'velvet', ownsPro: true }), 'velvet', 'Velvet shipped its skin (2026-09-11) and must render');
 });
 
 test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
@@ -50,8 +53,11 @@ test('every onboarding feel is suggested exactly one theme — no couple is sugg
 test('the picker pre-selects from the feel, but only a theme the couple can actually use', () => {
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: true }), 'capiz');
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'timeless', ownsPro: false }), 'house');
-  // An unshipped skin is never suggested, even to a Pro couple whose feel points at it.
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: true }), 'house');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: true }), 'velvet');
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'glam', ownsPro: false }), 'house');
+  // An unshipped skin is never suggested, even to a Pro couple whose feel points
+  // at it — 'modern' is Galeriya's feel and Galeriya has no skin yet.
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ownsPro: true }), 'house');
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: null, ownsPro: true }), 'house');
   // A saved choice always wins over the feel.
   assert.equal(suggestedInviteTheme({ saved: 'house', moodFeelKey: 'timeless', ownsPro: true }), 'house');

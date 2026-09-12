@@ -14,6 +14,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { groundFromBackground } from '@/lib/invite-ground-rule';
+import { INVITE_THEME_IDS, INVITE_THEMES } from '@/lib/invite-themes';
 
 /** A presign that proves it was reached — the rule decides; the wrapper signs. */
 const fakePresign = async (ref: string) => `signed:${ref}`;
@@ -93,4 +94,55 @@ test('the ground honours a genuine upload only, and never mistakes "unset" for a
   assert.equal(scene.photo, '/std/backgrounds/golden-hour.webp');
   const upload = await resolveInviteGround({ kind: 'upload', value: 'r2://setnayan-media/events/x/std-background/a.jpg' });
   assert.equal(upload.photo, 'signed:r2://setnayan-media/events/x/std-background/a.jpg', 'a genuine upload is not signed and shown');
+});
+
+/**
+ * READY IS A PROMISE THAT A SKIN EXISTS.
+ *
+ * `resolveInviteTheme` sends an UNREADY theme to House, so a theme flipped to
+ * `ready: true` before its skin lands is the one combination nothing else
+ * catches: the picker offers it, the couple saves it, the Pro gate passes, and
+ * their guests get the bare door with no sign anything went wrong — a theme
+ * chosen and silently not shown.
+ *
+ * The switch is read as SOURCE rather than imported, because importing it pulls
+ * in a `.module.css` that `node:test` cannot load. So the case labels are the
+ * evidence, and the file check beneath them is what stops a case that points at
+ * nothing.
+ */
+test('every ready theme resolves to a skin — and every skin belongs to a ready theme', () => {
+  const themesDir = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');
+  const src = stripComments(read('app/[slug]/invite/_components/themes/invite-skin.tsx'));
+  const start = src.indexOf('export function inviteSkin(');
+  assert.notEqual(start, -1, 'inviteSkin is gone or renamed — the switch is what dresses a door');
+  const cases = [...src.slice(start).matchAll(/case\s+'([a-z]+)'\s*:/g)].map((m) => m[1] ?? '');
+
+  // House is the bare door on purpose — it has no skin and must have no case.
+  const shipped: string[] = INVITE_THEME_IDS.filter((id) => id !== 'house' && INVITE_THEMES[id].ready);
+
+  // POSITIVE CONTROL: with no ready Pro theme the two assertions below are
+  // satisfied by an empty switch, which reads exactly like a passing guard.
+  assert.ok(
+    shipped.length >= 1,
+    'No Pro theme is marked ready. Either every skin was un-shipped or this guard stopped seeing them.',
+  );
+
+  assert.deepEqual(
+    shipped.filter((id) => !cases.includes(id)),
+    [],
+    'a theme is ready: true with no case in inviteSkin — the picker offers it, the couple saves it, and their guests get the bare door',
+  );
+  assert.deepEqual(
+    cases.filter((id) => !shipped.includes(id)),
+    [],
+    'inviteSkin dresses a theme that is not ready: true — resolveInviteTheme turns it into House, so that skin can never be reached',
+  );
+  assert.ok(!cases.includes('house'), 'House is the bare door — a skin for it is a contradiction');
+
+  // A case is only a promise; these are the files that keep it.
+  for (const id of shipped) {
+    for (const file of [`${id}.tsx`, `${id}.module.css`]) {
+      assert.ok(statSync(join(themesDir, file)).isFile(), `${file} is missing — ${id} is ready with no skin to render`);
+    }
+  }
 });

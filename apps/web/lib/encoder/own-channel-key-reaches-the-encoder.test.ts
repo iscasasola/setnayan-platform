@@ -148,3 +148,15 @@ test('the card renders nothing outside the desktop shell', () => {
     'the by-hand card must be gated on isTauri() and own-channel only',
   );
 });
+
+test('the retry is scoped to THIS event, not woken by another wedding', () => {
+  // The bus notifies every subscriber for every event (same shape as
+  // encoder-health-bus), so the READER is what narrows it. Without this, a paste
+  // on one wedding's controller fires a start attempt for another's.
+  const src = code(HOST);
+  assert.match(
+    src,
+    /readStreamKeyHandoffs\(eventId\) === 0\) return;/,
+    'the key-held listener must ignore handoffs belonging to another event',
+  );
+});

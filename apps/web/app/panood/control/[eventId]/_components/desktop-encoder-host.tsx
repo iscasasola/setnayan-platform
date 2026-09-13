@@ -12,7 +12,7 @@ import type { EncoderHealthInput, EncoderRtmpState } from '@/lib/live-studio-ing
 /** Must match `HEALTH_EVENT` in `src-tauri/src/encoder_ipc.rs`. */
 const HEALTH_EVENT = 'encoder://health';
 import { publishEncoderHealth } from '@/lib/encoder/encoder-health-bus';
-import { subscribeStreamKeyHeld } from '@/lib/encoder/encoder-key-bus';
+import { readStreamKeyHandoffs, subscribeStreamKeyHeld } from '@/lib/encoder/encoder-key-bus';
 import { shouldAttemptStart } from '@/lib/encoder/encoder-start-attempt';
 
 /**
@@ -246,7 +246,13 @@ export function DesktopEncoderHost({
     // the paste above changes a fact nothing re-reads — the same shape as the
     // controller that resolved camera status correctly and still showed a stale
     // screen because nothing re-rendered it.
+    // SCOPED TO THIS EVENT. The subscription is notified for every event's
+    // paste, exactly like `encoder-health-bus`, so the reader is what narrows it
+    // — a module-level singleton outlives a route change, and without this a
+    // paste on one wedding's controller would fire a start attempt for the
+    // wedding whose page happened to be open before it.
     const offKeyHeld = subscribeStreamKeyHeld(() => {
+      if (readStreamKeyHandoffs(eventId) === 0) return;
       void attemptStart();
     });
 

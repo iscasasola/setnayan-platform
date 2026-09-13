@@ -14,9 +14,8 @@ migration 20270826385580:
 All three fields are admin-editable without a deploy and PRICING-RELEVANT by
 that table's own comment. `estimateCreditsNeeded` delegates to
 `computeEventPool` — the pure, unit-tested implementation the SQL function
-`papic_event_pool_status` mirrors — so the figure a couple is shown is the same
-figure the capture fence enforces, and neither can drift from the other or from
-what the owner set.
+`papic_event_pool_status` mirrors — so this module states no figure of its own
+and cannot invent one.
 
 ⚠ **A GUESS WAS WRITTEN, SHIPPED TO A PR, AND HAS BEEN REMOVED.** The first cut
 of this module carried its own `DEFAULT_CAPTURE_MIX` — "6 photos + 1 clip per
@@ -51,5 +50,63 @@ pool/held/copy-guardrail suites): replacing the delegation with a hand-rolled
 `guests * 6 + 150` turns FIVE tests red, including the no-guess guard; the
 covered-boundary `>=` → `>` and an over-recommending rung each turn it red too.
 
+---
+
+## 2026-09-12 · fix(papic): landing the above, and correcting what it claimed about itself
+
+The commit above was finished 2026-08-31, pushed to a branch whose PR (#5037)
+had **already merged the day before**, and therefore never got a PR of its own.
+It sat unmerged for twelve days while the guess it removes stayed live in
+production. Landed here. Three things had to be fixed first.
+
+**1 · IT WOULD HAVE FAILED CI.** `lint-one-comment-stripper` exits 1 on this
+branch: the source guard read the module through a hand-rolled two-replace
+regex — the exact shape that guard exists to refuse, because taking block
+comments first lets a line comment containing a block-open marker swallow
+everything to the next close, after which the assertion runs against a blank
+and passes. Swapped to `stripComments` from `lib/strip-comments.ts`. **Proved
+the swap did not defang it:** injecting `const AVERAGE_PHOTOS_PER_GUEST = 6`
+into the module turns test 14 red and names the number.
+
+**2 · THE PROSE CLAIMED A MECHANISM THE CODE DOES NOT HAVE.** This fragment, the
+module docblock and the dashboard comment all said the surface reads
+`papic_event_pool_config`, "every field admin-editable without a deploy". It
+does not. `config` is optional and `event-dashboard.tsx` calls
+`papicCreditVerdict(papicHome.shotsLeft, guests.length)` — **no config** — so
+the figure comes from `DEFAULT_EVENT_POOL_CONFIG`, the formula's last-resort
+fallbacks. The row is not loaded on that surface, deliberately: the verdict was
+built to cost no extra query.
+
+**Measured against production** (`njrupjnvkjkitfctetvi`, 2026-09-12): the single
+`default` row is `points_per_guest 150 · floor_points 5,000 · ceiling_points
+30,000` — byte-identical to the fallbacks. **So the number a couple sees today
+IS the owner's, and does match what the capture fence enforces.** But that is a
+coincidence maintained by hand, not a mechanism: edit the row in `/admin/pricing`
+without editing the constants and the tile quotes the old figure while the fence
+meters by the new one. All three places now say exactly that.
+
+**3 · A TRIPWIRE, because a comment cannot fail.** `an unpassed config uses the
+fallbacks, and they still match prod` pins the three constants to the measured
+row and carries the re-measure query. **Sabotage, measured:** `pointsPerGuest`
+150 → 140 turns it red (15 tests → 14 pass / 1 fail). The instruction in the
+test is explicit — if they have genuinely diverged, load the row on the tile's
+surface; do not retune a constant until the test goes green again.
+
+🔑 **OPEN, AND THE OWNER'S CALL, NOT TAKEN HERE:** whether the couple's home tile
+should spend one indexed single-row read to follow `papic_event_pool_config`
+live. Doing it would make "admin-editable without a deploy" true of this
+surface. It is flagged rather than done because it changes what a money surface
+queries, and the tripwire holds the line meanwhile.
+
+**Re-verified on the branch MERGED INTO current `origin/main`, with the
+worktree's own dependencies installed** (a fresh worktree has none, and `tsc`
+there resolves nothing while looking like it ran): `papic-credit-estimate`
+15/15 · `papic-copy-guardrails` 51/51 · re-inventing `guests * 6 + 150` turns
+**six** tests red, not the five the original commit measured — the tripwire is
+the sixth. Guards green: `lint-one-comment-stripper` · `lint-changelog-dir` ·
+`lint-dup-rule-baseline` · `lint-port-no-lost-controls` · `lint-colour-exists` ·
+`lint-no-engineering-notes-in-ui` · `lint-server-only-boundary`.
+
 SPEC IMPACT: None. No pricing, schema or catalog change; the estimate is
-display-only, reads owner-set config, and nothing here can charge.
+display-only and nothing here can charge. The open question in 3 above is
+recorded for the owner's desk, not applied.

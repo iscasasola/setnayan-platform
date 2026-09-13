@@ -3,7 +3,9 @@
  *
  * Two owner rules are pinned here:
  *   • 2026-08-31 "don't guess" — every figure about what an event NEEDS comes
- *     from the admin-editable pool config, never from a constant in our module.
+ *     from the pool formula, never from a constant in our module. ⚠ A caller
+ *     that passes no config gets that formula's LAST-RESORT fallbacks, not the
+ *     live admin row; see the tripwire test below.
  *   • 2026-08-30 "not over not under … if their count is good, then do not
  *     recommend."
  *
@@ -29,6 +31,38 @@ test('THE ESTIMATE IS THE OWNER-CONFIGURED POOL FORMULA — not our own sum', ()
       estimateCreditsNeeded(guests),
       computeEventPool(guests).basePoints,
       `${guests} guests must defer to computeEventPool`,
+    );
+  }
+});
+
+test('AN UNPASSED CONFIG USES THE FALLBACKS, AND THEY STILL MATCH PROD', () => {
+  /*
+    THE TRIPWIRE. `config` is optional, and the couple's home tile
+    (event-dashboard.tsx) passes NONE — the live papic_event_pool_config row is
+    not loaded on that surface. So what a couple is told they need comes from
+    DEFAULT_EVENT_POOL_CONFIG, the formula's last-resort fallbacks.
+
+    That is only safe while the fallbacks equal the live row. Measured against
+    production (project njrupjnvkjkitfctetvi) on 2026-09-12, the single 'default'
+    row was points_per_guest 150 · floor_points 5,000 · ceiling_points 30,000 —
+    identical to the constants below.
+
+    If you change a fallback, this goes RED. That is the point: re-measure the
+    prod row, and if they have genuinely diverged, the answer is to LOAD THE ROW
+    on the tile's surface, not to retune a constant so the test passes again.
+      select points_per_guest, floor_points, ceiling_points
+        from public.papic_event_pool_config where config_key = 'default';
+  */
+  assert.equal(DEFAULT_EVENT_POOL_CONFIG.pointsPerGuest, 150);
+  assert.equal(DEFAULT_EVENT_POOL_CONFIG.floorPoints, 5_000);
+  assert.equal(DEFAULT_EVENT_POOL_CONFIG.ceilingPoints, 30_000);
+
+  // And the no-config path really is that path — not some third behaviour.
+  for (const guests of [1, 33, 150, 200, 900]) {
+    assert.equal(
+      estimateCreditsNeeded(guests),
+      computeEventPool(guests, DEFAULT_EVENT_POOL_CONFIG).basePoints,
+      `${guests} guests: the unpassed-config path must be the fallback path`,
     );
   }
 });

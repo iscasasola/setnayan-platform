@@ -1067,11 +1067,19 @@ export async function EventDashboard({
 
     🔑 NOTHING HERE INVENTS A NUMBER (owner 2026-08-31: "don't guess"). What an
     event needs is the OWNER-CONFIGURED pool formula — clamp(guests ×
-    points_per_guest, floor, ceiling) from `papic_event_pool_config`, every
-    field admin-editable without a deploy — and the verdict just compares the
+    points_per_guest, floor, ceiling) — and the verdict just compares the
     balance against it. An earlier cut of this carried its own "6 photos + 1
     clip per guest" assumption; that was a guess on a surface that tells couples
     to spend money, and it is gone.
+
+    ⚠ BUT THIS CALL PASSES NO CONFIG, SO IT IS NOT READING `papic_event_pool_config`.
+    It gets `DEFAULT_EVENT_POOL_CONFIG`, the formula's last-resort fallbacks.
+    Today they are byte-identical to the live row (150 / 5,000 / 30,000 —
+    measured against prod 2026-09-12), so the figure is the owner's and matches
+    what the capture fence enforces. It stays true only while both are edited
+    together. Loading the row here costs one indexed single-row read and would
+    make "admin-editable without a deploy" true of this surface — an owner call,
+    flagged rather than taken. The tripwire is in lib/papic-credit-estimate.test.ts.
 
     ⚠ IT REPORTS THE GAP, NOT A RUNG. Naming a purchasable figure needs the live
     16-rung `PAPIC_GUEST*` pool ladder, which is admin-editable catalog data and

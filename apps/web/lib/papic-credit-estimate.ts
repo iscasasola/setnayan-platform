@@ -20,9 +20,26 @@
  * Every one of those three numbers is admin-editable, PRICING-RELEVANT by its
  * own table comment, and already live in prod. `computeEventPool` in
  * lib/papic-event-pool.ts is the pure, unit-tested implementation that the SQL
- * function `papic_event_pool_status` mirrors — so the figure a couple is shown
- * here is the same figure the capture fence enforces, and neither can drift
- * from the other or from what the owner configured.
+ * function `papic_event_pool_status` mirrors — so this module states no figure
+ * of its own and cannot invent one.
+ *
+ * ⚠ READ THIS BEFORE BELIEVING "ADMIN-EDITABLE" ON ANY SURFACE THAT CALLS IT.
+ * `config` is OPTIONAL. A caller that passes nothing gets `computeEventPool`'s
+ * LAST-RESORT fallbacks (`DEFAULT_EVENT_POOL_CONFIG`), NOT the live
+ * `papic_event_pool_config` row. The couple's home tile
+ * (app/dashboard/[eventId]/_components/event-dashboard.tsx) is such a caller:
+ * it passes no config, because the row is not loaded on that surface and the
+ * verdict was built to cost no extra query.
+ *
+ * Today those fallbacks are byte-identical to the live row
+ * (points_per_guest 150 · floor 5,000 · ceiling 30,000 — measured against prod
+ * 2026-09-12), so what the tile shows IS what the owner set and what the fence
+ * enforces. **But that is a coincidence maintained by hand, not a mechanism.**
+ * The moment the row is edited in /admin/pricing and the fallbacks are not, the
+ * tile keeps quoting the old figure while the fence meters by the new one.
+ * `an unpassed config uses the fallbacks, and they still match prod` in the
+ * test beside this file is the tripwire; the durable fix is to load the row on
+ * this surface, which is an owner call about spending a query.
  *
  * This module therefore contributes NO arithmetic of its own about what an
  * event needs. It only compares that owner-derived figure against the balance

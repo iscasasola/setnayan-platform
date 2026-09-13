@@ -56,7 +56,11 @@ const JOIN_FLOW = read('join/[eventId]/_components/join-flow.tsx');
 // ═══ A · the door hands the code over ══════════════════════════════════════
 
 test('door 03 mounts the QR panel, and builds the image from the SESSION guest', () => {
-  assert.match(ENTER, /<InviteQrPanel/, 'the last door no longer shows the guest their QR');
+  // 🪤 `\b`, NOT a bare substring. Measured: the first cut of this line matched
+  // `<InviteQrPanel` and stayed GREEN when the mount was renamed to
+  // `<InviteQrPanelX` — a component that does not exist, on a door that would
+  // no longer build. The word boundary is what makes the sabotage go red.
+  assert.match(ENTER, /<InviteQrPanel\b/, 'the last door no longer shows the guest their QR');
   assert.match(ENTER, /renderInvitationQrSvg\(/, 'the door no longer renders a code — a mount with nothing behind it');
   assert.match(ENTER, /qrToken: guest\.qr_token as string/, 'the code is no longer built from the guest row the session resolved');
   assert.match(
@@ -160,14 +164,36 @@ async function renderPanel() {
   };
 }
 
+/** The markup INSIDE the labelled QR container — never the whole document. */
+function qrContainer(html: string): string {
+  const i = html.indexOf('aria-label="Invitation QR code for Ana Cruz"');
+  assert.notEqual(i, -1, 'the code is unlabelled to a screen reader, or the label was renamed');
+  const j = html.indexOf('</div>', i);
+  assert.notEqual(j, -1, 'the QR container never closes — update this test');
+  return html.slice(i, j);
+}
+
 test('the panel draws a real scannable code, not an empty frame', async () => {
+  // 🪤 A DOCUMENT-WIDE `/<svg/` IS BLIND HERE, and this file shipped that way
+  // for one run. `GuestCodeKeepers` renders two lucide icons, which are also
+  // `<svg>` with `<path>` inside — so replacing the QR's
+  // `dangerouslySetInnerHTML` with an escaped attribute left the assertion
+  // GREEN over a card showing no code at all. The window must face the sabotage.
   const { html } = await renderPanel();
-  assert.match(html, /<svg/, 'no SVG reached the page — the guest is looking at an empty frame');
-  // Level H + a quiet zone is what survives a phone screen held up at a door.
-  // A code with no dark modules renders as a blank square and still "has an svg".
-  const modules = (html.match(/<path|<rect/g) ?? []).length;
-  assert.ok(modules > 0, 'the SVG carries no modules — a blank square is not a QR');
-  assert.match(html, /aria-label="Invitation QR code for Ana Cruz"/, 'the code is unlabelled to a screen reader');
+  const box = qrContainer(html);
+  assert.match(box, /<svg/, 'no SVG reached the QR container — the guest is looking at an empty frame');
+  const modules = (box.match(/<path|<rect/g) ?? []).length;
+  assert.ok(modules > 0, 'the QR container carries no modules — a blank square is not a QR');
+});
+
+test('the code is DERIVED from this guest’s token, not a fixed picture', async () => {
+  // The strongest thing that can be asserted about an image without decoding
+  // it: two guests must not be handed the same one. A hard-coded or cached
+  // sample would pass every other test in this file.
+  const base = { appUrl: 'https://setnayan.com', slug: 'cale-ice', ownerSlug: null };
+  const a = await renderInvitationQrSvg({ ...base, qrToken: 'tok-abc123' });
+  const b = await renderInvitationQrSvg({ ...base, qrToken: 'tok-zzz999' });
+  assert.notEqual(a, b, 'two different guest tokens render the same QR — the code is not theirs');
 });
 
 test('the address the code encodes is printed under it, and it is THIS guest’s', async () => {

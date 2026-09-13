@@ -18,6 +18,8 @@ export function RsvpWidget({
   replyLocked = false,
   profileDetails = null,
   words,
+  doorAction,
+  offerSelfie = true,
 }: {
   words: EventWords;
   guest: GuestRow;
@@ -64,8 +66,43 @@ export function RsvpWidget({
     phone: string | null;
     displayName: string | null;
   } | null;
+  /**
+   * DOOR 02 · REPLY of the invite arrival (lib/invite-arrival.ts) passes its own
+   * save here — `submitInviteReply`, which sends the sign-in link and then calls
+   * this card's own `submitRsvp`. Present = the DOOR variant of this card: the
+   * same fields, the same reveals and the same write, without the site's
+   * letterpress card head and without the start-free pitch — a door carries one
+   * decision, and this card is already inside one.
+   *
+   * 🔑 PASSED IN, NOT IMPORTED. The door's action lives in a server-only module
+   * chain; importing it here would drag that chain into every test that renders
+   * this card. The card stays one component with one set of fields, so the site
+   * and the door can never drift apart.
+   */
+  doorAction?: (formData: FormData) => Promise<void>;
+  /**
+   * MAY THIS SURFACE ASK FOR THE SELFIE + FACE-RECOGNITION CONSENT?
+   *
+   * 🔑 FACE TAGGING DOES NOT HAPPEN ON THE INVITE (owner, verbatim 2026-09-11):
+   * *"face tagging does not happen on the invite. it happens on their first view
+   * on the day of the event? or on the day papic becomes available to use for
+   * them."* The invite arrival's Reply door passes `false`.
+   *
+   * ⚠ A PROP, NOT A DELETION, AND THAT IS THE WHOLE POINT. This card is SHARED —
+   * the Event Hub's own RSVP card renders it too (site-body.tsx). Deleting the
+   * block would have taken the selfie off the Event Hub card as well, which the
+   * owner did not ask for.
+   *
+   * ⇒ NOTHING IS LOST, because the catch already ships: `day-of-face-enroll.tsx`
+   * ("the day-of catch for a guest who skipped the optional RSVP selfie") is
+   * mounted in three live places and self-hides once enrolled. The consequence,
+   * stated plainly: fewer guests enrol early, so more are asked on the day —
+   * which is the owner's stated intent, not an oversight.
+   */
+  offerSelfie?: boolean;
 }) {
-  const action = submitRsvp.bind(null, eventId, guest.guest_id);
+  const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
+  const onDoor = Boolean(doorAction);
 
   // The three boxes, declared ONCE so the folded and unfolded arms can never
   // drift apart. Both arms render them, so both POST them.
@@ -116,7 +153,7 @@ export function RsvpWidget({
     .join(' · ');
 
   return (
-    <form action={action} className="rsvp-form pahina-deckle space-y-6 sm:p-8">
+    <form action={action} className={onDoor ? 'rsvp-form space-y-6' : 'rsvp-form pahina-deckle space-y-6 sm:p-8'}>
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -139,28 +176,34 @@ export function RsvpWidget({
         <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}`}</style>
       )}
 
-      {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
-          is a card in real life, so it is the only thing still shaped like one:
-          heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
-          the perforation rule. Everything else on the site is a plate. */}
-      <header className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <p className="pahina-eyebrow">
-            <span aria-hidden>№ 07</span>
-            <span>Reply</span>
-          </p>
-          <RsvpPill status={guest.rsvp_status} />
-        </div>
-        <div className="flex items-end justify-between gap-4">
-          <p className="pahina-letterpress font-pahina text-[3.2rem] font-light leading-[0.9] tracking-tight text-ink">
-            RSVP
-          </p>
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-            Nº {stubNo(guest.guest_id)}
-          </p>
-        </div>
-        <hr className="pahina-perforation" />
-      </header>
+      {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
+          the guest's name and the rail already say what this is. */}
+      {onDoor ? null : (
+        <>
+          {/* THE REPLY CARD (design 2026-07-25 §7) — the only thing on the page that
+              is a card in real life, so it is the only thing still shaped like one:
+              heavier paper-deep stock, letterpress "RSVP", a gild ticket stub, and
+              the perforation rule. Everything else on the site is a plate. */}
+          <header className="space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <p className="pahina-eyebrow">
+                <span aria-hidden>№ 07</span>
+                <span>Reply</span>
+              </p>
+              <RsvpPill status={guest.rsvp_status} />
+            </div>
+            <div className="flex items-end justify-between gap-4">
+              <p className="pahina-letterpress font-pahina text-[3.2rem] font-light leading-[0.9] tracking-tight text-ink">
+                RSVP
+              </p>
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+                Nº {stubNo(guest.guest_id)}
+              </p>
+            </div>
+            <hr className="pahina-perforation" />
+          </header>
+        </>
+      )}
 
       {/* Seat reservation: confirming attendance holds the guest's place (the
           couple seats them later). Show the reassurance whenever they're
@@ -175,7 +218,7 @@ export function RsvpWidget({
           </p>
           {/* No pitch on a solemn page: "Planning your own celebration? Start
               free" under a wake RSVP is the defect class itself. */}
-          {words.solemn ? null : (
+          {onDoor ? null : words.solemn ? null : (
             <GuestToHostCta
               surface="rsvp_confirmation"
               eventId={eventId}
@@ -236,7 +279,7 @@ export function RsvpWidget({
           and the selfie step would vanish for exactly the guests who are
           coming — in the fortnight before the day, when getting their photos to
           find them is the whole point. Locked + attending renders it outright. */}
-      {replyLocked ? (
+      {!offerSelfie ? null : replyLocked ? (
         guest.rsvp_status === 'attending' ? (
           <div>
             <SelfieCapture faceMode={faceMode} />
@@ -248,28 +291,55 @@ export function RsvpWidget({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Select
-          id="meal_preference"
-          label="Meal preference"
-          defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
-          options={[
-            ['no_preference', 'No preference'],
-            ['beef', 'Beef'],
-            ['chicken', 'Chicken'],
-            ['fish', 'Fish'],
-            ['vegetarian', 'Vegetarian'],
-            ['vegan', 'Vegan'],
-            ['kids', 'Kids'],
-          ]}
-        />
-        <Field
-          id="dietary_restrictions"
-          label="Dietary notes"
-          defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
-          placeholder="halal · nut allergy · …"
-        />
-      </div>
+      {/* ── MEAL + DIETARY: ONLY FOR SOMEBODY WHO IS COMING ──────────────────
+          Owner, 2026-09-11, walking the Reply door: a decline must not go on to
+          ask for the rest. A guest who is not coming does not eat, and a form
+          that keeps asking after "no" reads as if the answer was not heard.
+
+          ⚠ NO NEW MECHANISM. This rides the `attending-reveal` class the
+          plus-one block already uses — one CSS `:has()` rule, declared once at
+          the top of this form, no client state, still a server component. The
+          wrapper exists because the reveal sets `display:block`, which would
+          flatten the grid if the class sat on the grid itself.
+
+          🪤 AND THE CSS IS NOT THE ONLY PATH. With `replyLocked` the reveal rule
+          is not rendered AT ALL (there is no radio to watch), so the class is
+          inert and the boxes show — which is right, and deliberate: the list
+          finalizes about two weeks out, exactly when "nut allergy" matters most
+          (see the docblock on `replyLocked`). The one case that must still be
+          silenced there is a guest whose frozen answer IS "declined" — the same
+          shape as the locked selfie arm directly above.
+
+          WHAT SURVIVES A DECLINE (orchestrator's call on the owner's behalf,
+          2026-09-11, reversible): the contact boxes and the note to the host.
+          The host still needs a way to reach them, the email is also their
+          sign-in, and a declining guest most often wants to leave a message. */}
+      {replyLocked && guest.rsvp_status === 'declined' ? null : (
+        <div className={replyLocked ? undefined : 'attending-reveal'}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select
+              id="meal_preference"
+              label="Meal preference"
+              defaultValue={guest.meal_preference ?? profileDetails?.mealPreference ?? 'no_preference'}
+              options={[
+                ['no_preference', 'No preference'],
+                ['beef', 'Beef'],
+                ['chicken', 'Chicken'],
+                ['fish', 'Fish'],
+                ['vegetarian', 'Vegetarian'],
+                ['vegan', 'Vegan'],
+                ['kids', 'Kids'],
+              ]}
+            />
+            <Field
+              id="dietary_restrictions"
+              label="Dietary notes"
+              defaultValue={guest.dietary_restrictions ?? profileDetails?.dietaryRestrictions ?? ''}
+              placeholder="halal · nut allergy · …"
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── HOW THEY REACH YOU ──────────────────────────────────────────────
           🔴 THESE THREE BOXES DID NOT EXIST. The host's own guest page carries

@@ -104,8 +104,9 @@ test('the library holds every row the pool module declares, and nothing else', a
     library_id: number; slug: string; category: string; title: string;
     prompt: string; capture_kind: string; mission_type: string;
     priority_rank: number | null; event_types: string[] | null;
+    moment_keys: string[] | null;
   }>(`SELECT library_id, slug, category, title, prompt, capture_kind, mission_type,
-             priority_rank, event_types
+             priority_rank, event_types, moment_keys
         FROM public.papic_challenge_library ORDER BY library_id`);
 
   assert.equal(rows.rows.length, CHALLENGE_POOL.length,
@@ -125,6 +126,11 @@ test('the library holds every row the pool module declares, and nothing else', a
     assert.equal(got.priority_rank === null ? null : Number(got.priority_rank),
       want.priorityRank, `rank drift at ${want.slug}`);
     assert.deepEqual(got.event_types, want.eventTypes, `scope drift at ${want.slug}`);
+    // The ceremony-sequence mapping (build order § 5) is per-challenge data and
+    // is authored in the pool like everything else here, so it belongs in the
+    // SAME field-by-field comparison. Left out, this test would keep claiming
+    // "and nothing else" about a row it was no longer reading in full.
+    assert.deepEqual(got.moment_keys, want.momentKeys, `moment drift at ${want.slug}`);
   });
 });
 

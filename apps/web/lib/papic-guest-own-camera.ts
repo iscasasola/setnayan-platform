@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
 import { resolvePointsGate, type PointsGateVerdict } from '@/lib/papic-cameras';
-import { dedicatedShotsStanding, type DedicatedShotsStanding } from '@/lib/papic-guest-buy';
+import { papicGuestStanding, type DedicatedShotsStanding } from '@/lib/papic-guest-buy';
 
 /**
  * apps/web/lib/papic-guest-own-camera.ts
@@ -94,19 +94,23 @@ export async function resolveGuestOwnCamera(
 }
 
 /**
- * What one camera holds and has spent — the read behind spec § 7b's "give the
- * unused ones to the room". Same two reads `resolveGuestOwnCamera` already
- * makes for `dedicated` (papic_seat_dedicated_points — grants + hand-outs,
- * already GRANTed to service_role since 20271019231590), plus
- * `papic_seat_point_usage.points_used` for what is gone for good.
+ * What one camera holds, has spent, and could still give back — the read behind
+ * spec § 7b's "give the unused ones to the celebration".
  *
- * DISPLAY ONLY. The release action re-derives the target itself at the moment
- * it writes, under papic_dedicate_shots' own row lock — this read is what a
- * guest sees on the button before she taps it, not what the RPC trusts.
+ * THREE reads, and the third one is the point. `releasable` comes from
+ * `papic_seat_releasable_grants`, the SAME function
+ * `papic_release_seat_grants` re-evaluates under its row lock when it writes.
+ * It is not derived here and must never be: PR #5028 derived it in TypeScript
+ * as `dedicated - spent`, the RPC did different arithmetic, and the button that
+ * offered 96 credits moved 41 in the wrong direction.
  *
- * Returns null on anything unexpected, same degrade-to-nothing posture as
- * resolveGuestOwnCamera: a guest who cannot be shown her standing sees no
- * release offer, never a broken one.
+ * DISPLAY ONLY. This is what a guest sees on the button before she taps it, not
+ * what the write trusts — she may shoot in between, and then she gives back
+ * correspondingly less, which is correct.
+ *
+ * Returns null on anything unexpected, the same degrade-to-nothing posture as
+ * `resolveGuestOwnCamera`: a guest whose standing cannot be read is shown no
+ * offer, never a broken one.
  */
 export async function resolveSeatDedicatedStanding(
   admin: SupabaseClient,
@@ -114,18 +118,22 @@ export async function resolveSeatDedicatedStanding(
 ): Promise<DedicatedShotsStanding | null> {
   if (!seatId) return null;
   try {
-    const [dedRes, spentRes] = await Promise.all([
+    const [dedRes, releasableRes, spentRes] = await Promise.all([
       admin.rpc('papic_seat_dedicated_points', { p_seat_id: seatId }),
+      admin.rpc('papic_seat_releasable_grants', { p_seat_id: seatId }),
       admin
         .from('papic_seat_point_usage')
         .select('points_used')
         .eq('seat_id', seatId)
         .maybeSingle(),
     ]);
-    if (dedRes.error) return null;
-    return dedicatedShotsStanding(
+    // A failed releasable read must not fall back to a computed number — that
+    // computed number is precisely the defect. No answer means no offer.
+    if (dedRes.error || releasableRes.error) return null;
+    return papicGuestStanding(
       Number(dedRes.data ?? 0),
       Number((spentRes.data as { points_used?: number } | null)?.points_used ?? 0),
+      Number(releasableRes.data ?? 0),
     );
   } catch {
     return null;

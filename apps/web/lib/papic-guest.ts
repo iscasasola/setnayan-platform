@@ -171,9 +171,17 @@ export type GuestQuota = {
    * is the same total the RPC would refuse against.
    */
   total: number;
-  /** Credits the guest has already spent against `total` above (1 photo = 1,
-   *  a ten-second clip = up to 8) — a row count only on a pre-migration DB
-   *  where every capture cost exactly 1. */
+  /**
+   * Credits the guest has already spent against `total` above (1 photo = 1,
+   * a ten-second clip = up to 8) — a row count only on a pre-migration DB
+   * where every capture cost exactly 1.
+   *
+   * ⚠ UNDER A COUPLE'S CEILING THIS IS WHAT THE CEILING METERS, not everything
+   * she has shot: the credits her own "keep them for me" purchase paid for are
+   * hers and the couple's limit does not touch them (owner 2026-08-28,
+   * migration 20271185324597). Same number the RPC's own refusal reports, off
+   * the same function — `papic_guest_ceiling_spend`.
+   */
   used: number;
   /** total − used, floored at 0. When `unlimited`, a large sentinel so the
    *  remaining-based gate (route pre-check + client `exhausted`) never trips. */
@@ -205,6 +213,13 @@ export type GuestQuota = {
   poolRemaining: number | null;
   /** True once the pot crosses its own soft-stop line — "running low". */
   poolLow: boolean;
+  /**
+   * The number on her counter is a SPONSOR'S share — two or three of the equal
+   * shares, not one (migration 20271220526938). Only when the couple's ceiling
+   * is what binds AND she is not named: a named guest is on a number the couple
+   * typed, and telling her it is a sponsor's share would be a guess.
+   */
+  sponsorShare: boolean;
 };
 
 /** Sentinel `remaining` for an unlimited (Unlock) guest — large enough that the
@@ -246,6 +261,76 @@ async function readGuestSpendCeiling(
 }
 
 /**
+ * Read-only mirror of what the couple's ceiling ACTUALLY METERS on this guest —
+ * `papic_guest_ceiling_spend(guest_id)` (migration 20271185324597),
+ * `service_role`-only, so `supabase` here MUST be the admin client.
+ *
+ * ── 🔑 WHY THIS IS AN RPC AND NOT THREE LINES OF TYPESCRIPT ────────────────
+ * A guest who chose "keep them for me" spent HER OWN money, and the couple's
+ * limit does not touch those credits (owner 2026-08-28). Deriving that
+ * subtraction here would put a money rule in two places — the gate's copy and
+ * the display's — and this surface has already paid for that once: the browser
+ * mirrored only half of `v_unlimited` and enforced a 150 the database was not
+ * applying anywhere. So the pill asks the SAME function the refusal asks, with
+ * the extra cost at zero.
+ *
+ * Returns null on ANY failure, including 42883 function-not-found on a database
+ * that predates this migration — the caller then falls back to the raw credit
+ * total, which is what it displayed before and is never LOWER than the truth.
+ */
+async function readGuestCeilingSpend(
+  supabase: SupabaseClient,
+  guestId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('papic_guest_ceiling_spend', {
+      p_guest_id: guestId,
+    });
+    if (error) {
+      if (!isMissingRelationError(error)) {
+        logQueryError('readGuestCeilingSpend', error, { guest_id: guestId }, 'graceful_degrade');
+      }
+      return null;
+    }
+    return typeof data === 'number' ? data : null;
+  } catch (err) {
+    logQueryError('readGuestCeilingSpend', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
+}
+
+/**
+ * How many equal shares this guest takes — `papic_guest_share_weight(guest_id)`
+ * (migration 20271220526938), `service_role`-only, so `supabase` MUST be the
+ * admin client. 1 for a plain guest, 2 or 3 for a sponsor, NULL for a guest the
+ * couple named. Asked of the database rather than re-derived from the guest's
+ * role here, because the resolver it explains reads the same function.
+ *
+ * Returns null on ANY failure — the counter then simply says nothing about a
+ * sponsor's share, which is the pre-migration display exactly.
+ */
+async function readGuestShareWeight(
+  supabase: SupabaseClient,
+  guestId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('papic_guest_share_weight', {
+      p_guest_id: guestId,
+    });
+    if (error) {
+      if (!isMissingRelationError(error)) {
+        logQueryError('readGuestShareWeight', error, { guest_id: guestId }, 'graceful_degrade');
+      }
+      return null;
+    }
+    return typeof data === 'number' ? data : null;
+  } catch (err) {
+    logQueryError('readGuestShareWeight', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
+}
+
+/**
  * Resolve a single guest's quota from papic_guest_captures. `supabase` here is
  * an admin client (the guest camera route is a public surface with no RLS
  * session) constrained to this event_id + guest_id. Graceful-degrade to a
@@ -271,13 +356,15 @@ export async function fetchGuestQuota(
   // used to mirror only the first, so the browser enforced a 150 the database
   // was not applying anywhere. The rule itself lives in ONE place now —
   // lib/papic-guest-cap.ts — with one entry per write to `v_unlimited`.
-  const [hasUnlock, poolRead, guestCeiling] = await Promise.all([
+  const [hasUnlock, poolRead, guestCeiling, ceilingSpend, shareWeight] = await Promise.all([
     eventHasPapicUnlock(supabase, eventId).catch(() => false),
     readEventPoolStatus(supabase, eventId).catch(() => ({
       ok: false,
       status: EVENT_POOL_ABSENT,
     })),
     readGuestSpendCeiling(supabase, guestId),
+    readGuestCeilingSpend(supabase, guestId),
+    readGuestShareWeight(supabase, guestId),
   ]);
   const poolApplies = poolRead.status.applies === true;
   const unlimitedBase = papicGuestCapLifts({
@@ -365,20 +452,32 @@ export async function fetchGuestQuota(
   }
 
   const total = guestCeiling ?? GUEST_CAPTURE_CREDITS;
+  // ── 🚨 UNDER A CEILING, THE COUNTER SHOWS WHAT THE CEILING METERS ────────
+  // Not every credit she has spent. A guest who bought 50 of her own and is
+  // capped at 20 has spent 50 credits and NONE of the couple's — telling her
+  // "50 of 20 used" would be a true number answering the wrong question, and
+  // the pill would sit at zero while the gate cheerfully kept saying yes.
+  // `usedCredits` is the fallback for a database that predates
+  // papic_guest_ceiling_spend: it is the pre-fix figure, never lower than the
+  // truth, so an old database under-promises rather than over-promises.
+  const meteredCredits = ceilingSpend ?? usedCredits;
   const remaining = unlimited
     ? UNLIMITED_REMAINING
     : guestCeiling !== null
-      ? Math.max(0, guestCeiling - usedCredits)
+      ? Math.max(0, guestCeiling - meteredCredits)
       : Math.max(0, GUEST_CAPTURE_CREDITS - used);
 
   return {
     total,
-    used: guestCeiling !== null ? usedCredits : used,
+    used: guestCeiling !== null ? meteredCredits : used,
     remaining,
     unlimited,
     capApplies,
     poolRemaining,
     poolLow,
+    // The ceiling is the couple's (not the platform's 150, not lifted by a
+    // release) and she takes more than one share of it.
+    sponsorShare: capApplies && guestCeiling !== null && (shareWeight ?? 1) > 1,
   };
 }
 

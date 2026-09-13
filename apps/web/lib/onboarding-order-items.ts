@@ -93,22 +93,32 @@ export async function eventBasketOrdersGranting(
   serviceCode: string,
 ): Promise<Array<{ orderId: string; status: string }>> {
   if (!eventId || !serviceCode) return [];
-  const { data, error } = await db
-    .from('onboarding_order_items')
-    .select('order_id, order:orders!inner(event_id, status)')
-    .eq('service_code', serviceCode)
-    .eq('order.event_id', eventId);
+  // 🔑 AN RPC, NOT A TABLE READ. `onboarding_order_items` is deliberately
+  // unreadable by `anon` and `authenticated` — RLS on, zero policies, grants
+  // revoked — because it is a bill's contents
+  // (`tests/db/onboarding-basket-one-bill.db.test.ts` fails if that ever
+  // changes). Reading it directly from a couple's page produced a 42501 on
+  // every hit since 2026-08-11, and this function's own `return []` turned that
+  // refusal into "does not own it", so a couple who had PAID for Setnayan AI
+  // inside a basket was invited to buy it again.
+  //
+  // `public.event_basket_orders_granting` is SECURITY DEFINER and checks the
+  // caller itself — the couple on this event via `current_couple_event_ids()`,
+  // an admin, or service_role — so the table stays shut and the question still
+  // gets a truthful answer. It resolves the COUPLE, not any event member: an
+  // invited guest must not see what the couple was billed.
+  const { data, error } = await db.rpc('event_basket_orders_granting', {
+    p_event_id: eventId,
+    p_service_code: serviceCode,
+  });
   if (error || !Array.isArray(data)) {
     if (error) {
       console.error('[onboarding-order-items] ownership read failed:', error.message);
     }
     return [];
   }
-  return data.map((r) => {
-    const order = (r as { order?: { status?: string | null } | null }).order;
-    return {
-      orderId: String((r as { order_id?: unknown }).order_id ?? ''),
-      status: order?.status ?? '',
-    };
-  });
+  return (data as Array<{ order_id?: unknown; status?: unknown }>).map((r) => ({
+    orderId: String(r.order_id ?? ''),
+    status: typeof r.status === 'string' ? r.status : '',
+  }));
 }

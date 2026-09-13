@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveRoleSetForEvent, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -69,7 +70,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
       fetchFloorPlan(supabase, eventId),
-      fetchBooths(supabase, eventId),
+      fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
       fetchSigns(supabase, eventId),
       supabase
         .from('events')

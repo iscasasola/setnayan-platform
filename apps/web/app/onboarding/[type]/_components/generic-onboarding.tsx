@@ -16,8 +16,10 @@ import {
  * Iteration 0053 Phase 3 · PR2.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
 import {
   ANCHOR_ORIGIN_LABELS,
   ANCHOR_ORIGINS,
@@ -129,6 +131,20 @@ type Props = {
    * shift the suggestion by a year at the exact anniversary boundary.
    */
   todayISO?: string;
+  /**
+   * Entrance grey-out (owner ruling 2026-09-11 — "same treatment for any other
+   * one-at-a-time event type"). Server-resolved (page.tsx, `getBlockingLifeEvent`
+   * with the DEFAULT — no honoree named yet — candidate): non-null means this
+   * signed-in account is currently blocked from a *blank-honoree* (i.e. "for
+   * myself") version of this type. NULL for every lifestyle type, every
+   * signed-out visitor, and any gated-type account with no blocking row.
+   *
+   * Seeds `blockedBy` below so the notice is visible from the very first
+   * screen, not just after a failed commit. Naming a different celebrant on
+   * the 'honoree' screen still opens a new slot and clears it — this is a
+   * heads-up, not a wall (see the honoree screen, unchanged).
+   */
+  entranceBlocking?: { eventId: string; displayName: string } | null;
 };
 
 type Draft = {
@@ -180,15 +196,22 @@ export function GenericOnboarding(props: Props) {
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
+    entranceBlocking = null,
   } = props;
   const router = useRouter();
   const today = todayISO ?? new Date().toISOString().slice(0, 10);
   const draftKey = `setnayan_onboarding_generic_${eventType}_draft_v1`;
 
   const [step, setStep] = useState(0);
+  // Seeded from the server's entrance check (owner ruling 2026-09-11) so the
+  // notice is on screen from the very first render, not only after a failed
+  // commit. Naming a different celebrant on the 'honoree' screen still clears
+  // it (see that screen's onChange below) — this state is shared with the
+  // post-commit `life_event_exists` path on purpose, since both describe the
+  // exact same fact: "the blank-honoree slot for this type is taken."
   const [blockedBy, setBlockedBy] = useState<
     { eventId: string; displayName: string } | null
-  >(null);
+  >(entranceBlocking);
   const [displayName, setDisplayName] = useState('');
   // The celebrant. Asked only for the five gated life types — it is the key the
   // one-in-planning cap counts on, and the generic flow never collected it, so
@@ -229,6 +252,18 @@ export function GenericOnboarding(props: Props) {
   /** The age a tapped Year row handed over, if any. */
   const [carriedAge, setCarriedAge] = useState<number | null>(null);
   const gatedLifeType = isGatedLifeType(eventType);
+  /**
+   * May this type name a SUBJECT at all? Widened 2026-08-31 beyond the five
+   * gated life types to the two business ones (corporate · gala_night), which
+   * are routinely thrown BY a company and had no way to name it — the id was
+   * collected on the create step and dropped one line before it was verified.
+   *
+   * ⚠ `gatedLifeType` STILL DRIVES THE CAP. A business type contends for no
+   * singleton slot (`blocksLifeEventCreation` returns false outside
+   * LIFE_GATE_BY_TYPE), so the copy below must not promise it one.
+   */
+  const asksHonoree = eventTypeAcceptsHonoreeLink(eventType);
+  const businessHonoree = asksHonoree && !gatedLifeType;
   // The date this event COMMEMORATES, and why — asked only for anniversary,
   // whose whole nature is "the day we're marking". Never asked for
   // birthday/debut/christening: their anchor IS a person's birthdate, which
@@ -264,6 +299,17 @@ export function GenericOnboarding(props: Props) {
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Set only when a `life_event_exists` refusal has NO honoree screen to route
+   * back to (this event type never asks for one — `!asksHonoree` — so there is
+   * no field to disambiguate with). That refusal can never resolve itself: the
+   * account is permanently capped at one of this type until the existing one
+   * is finished or put away, so re-pressing "Create my …" would only ever
+   * re-ask the server and get `life_event_exists` again forever (owner report
+   * 2026-09-11, same dead end as the wedding flow). Once true, the CTA
+   * navigates to the blocking event's dashboard instead of re-committing.
+   */
+  const [blockedTerminal, setBlockedTerminal] = useState(false);
   /**
    * What the couple picked on the Papic services step (owner 2026-08-11).
    *
@@ -303,7 +349,7 @@ export function GenericOnboarding(props: Props) {
     () => [
       'welcome',
       'name',
-      ...(gatedLifeType ? ['honoree'] : []),
+      ...(asksHonoree ? ['honoree'] : []),
       ...(isAnniversary ? ['anchor'] : []),
       'date',
       ...(showRecurToggle ? ['recurs'] : []),
@@ -323,7 +369,7 @@ export function GenericOnboarding(props: Props) {
     ],
     [
       questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
-      gatedLifeType, isAnniversary, showRecurToggle,
+      asksHonoree, isAnniversary, showRecurToggle,
     ],
   );
 
@@ -366,7 +412,7 @@ export function GenericOnboarding(props: Props) {
     // WHO step. Consume the carry (sessionStorage, single-read, 10-min TTL — the
     // name never touches the URL) so this flow CONFIRMS the celebrant instead of
     // asking the same question twice. Only for the types that actually ask.
-    if (gatedLifeType) {
+    if (asksHonoree) {
       const carried = takeHonoree();
       if (carried) {
         setHonoree(carried.name);
@@ -409,7 +455,7 @@ export function GenericOnboarding(props: Props) {
     setDetails(seededDetails);
     setSpecialtyValues(seededSpecialty);
     setHydrated(true);
-  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, gatedLifeType]);
+  }, [draftKey, resume, screens, prefillDetails, prefillSpecialty, asksHonoree]);
 
   // -- Persist the draft on every change (after hydration). --
   useEffect(() => {
@@ -788,6 +834,14 @@ export function GenericOnboarding(props: Props) {
   };
 
   async function handleCreate() {
+    // Terminal life-event-cap dead end (owner report 2026-09-11): this type has
+    // no honoree field to disambiguate with, so a life_event_exists refusal can
+    // never clear on this screen. Navigate to the blocking event instead of
+    // re-committing — never mint a second one of this type.
+    if (blockedTerminal && blockedBy) {
+      router.push(`/dashboard/${blockedBy.eventId}`);
+      return;
+    }
     setCommitting(true);
     setError(null);
     const feel = personaKey ? revealByPersona[personaKey]?.feel ?? null : null;
@@ -795,8 +849,8 @@ export function GenericOnboarding(props: Props) {
     const payload: GenericOnboardingPayload = {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
-      honoreeLabel: gatedLifeType ? honoree.trim() || null : null,
-      honoreeDependentId: gatedLifeType ? honoreeDependentId : null,
+      honoreeLabel: asksHonoree ? honoree.trim() || null : null,
+      honoreeDependentId: asksHonoree ? honoreeDependentId : null,
       anchorDate: isAnniversary ? anchorDate || null : null,
       anchorOrigin: isAnniversary ? anchorOrigin : null,
       // Anniversary and birthday return every year by nature; the toggle types
@@ -910,8 +964,13 @@ export function GenericOnboarding(props: Props) {
           setStep(idx);
           setError(null);
         } else {
+          // No honoree field on this type to disambiguate with — this refusal
+          // can never clear itself. Stop offering a retry that only re-asks
+          // the same question forever (owner report 2026-09-11): the CTA
+          // below now navigates to the blocking event instead.
+          setBlockedTerminal(true);
           setError(
-            'You already have one of these in planning. Finish it first, or open it and choose “Put this away”.',
+            'You already have one of these in planning. Open it from your dashboard and choose “Put this away”, or finish it first.',
           );
         }
         return;
@@ -965,6 +1024,28 @@ export function GenericOnboarding(props: Props) {
               'A few quick questions and we’ll shape a plan made for your celebration.'}
           </Title>
           <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
+          {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very
+              first screen, instead of only after a wizard-length walk ends in
+              the same refusal. `blockedBy` is seeded from the server's entrance
+              check when it is currently non-null for a blank honoree; this is a
+              heads-up, not a dead end — the flow still continues, and naming a
+              different celebrant on the 'honoree' screen a moment from now
+              clears it, exactly as it always has. */}
+          {blockedBy ? (
+            <div className="mx-auto mt-6 max-w-md rounded-[var(--m-r-md)] border border-[color:var(--sn-gold-300)] bg-[color:var(--sn-gold-100)]/70 px-4 py-3 text-left text-sm text-ink/75">
+              <p>
+                You already have a {label.toLowerCase()} in planning
+                {blockedBy.displayName ? ` — “${blockedBy.displayName}”` : ''}. If this one is
+                for someone else, name them in a moment and we’ll keep the two apart.
+              </p>
+              <Link
+                className="mt-2 inline-block font-medium text-mulberry underline underline-offset-2"
+                href={`/dashboard/${blockedBy.eventId}`}
+              >
+                Go to {blockedBy.displayName || `your ${label.toLowerCase()}`}
+              </Link>
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -1039,11 +1120,15 @@ export function GenericOnboarding(props: Props) {
             </>
           ) : (
             <>
-              <Title>Who are we celebrating?</Title>
+              <Title>
+                {businessHonoree ? 'Which business is this for?' : 'Who are we celebrating?'}
+              </Title>
               <p className="mt-2 text-ink/55">
-                {momentForSelf
-                  ? `Put their first name below — leave it empty and this ${label.toLowerCase()} stays under your name.`
-                  : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
+                {businessHonoree
+                  ? `The business name files this ${label.toLowerCase()} on its own page and timeline. It sets no limit — plan as many as you like.`
+                  : momentForSelf
+                    ? `Put their first name below — leave it empty and this ${label.toLowerCase()} stays under your name.`
+                    : `Their first name is enough. It keeps each ${label.toLowerCase()} on its own plan, so you can have one for each person.`}
               </p>
               <input
                 // Focus the field only when it was OPENED on purpose or was
@@ -1059,7 +1144,7 @@ export function GenericOnboarding(props: Props) {
                   setHonoreeDependentId(null);
                   if (blockedBy) setBlockedBy(null);
                 }}
-                placeholder="e.g. Nina"
+                placeholder={businessHonoree ? 'e.g. Aling Nena’s Store' : 'e.g. Nina'}
                 className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
               />
             </>
@@ -1541,7 +1626,11 @@ export function GenericOnboarding(props: Props) {
               disabled={committing}
               className="rounded-full bg-mulberry px-7 py-3 text-sm font-semibold text-paper transition hover:opacity-90 disabled:opacity-60"
             >
-              {committing ? 'Creating…' : `Create my ${label.toLowerCase()}`}
+              {blockedTerminal
+                ? 'Go to my dashboard'
+                : committing
+                  ? 'Creating…'
+                  : `Create my ${label.toLowerCase()}`}
             </button>
           ) : (
             <button

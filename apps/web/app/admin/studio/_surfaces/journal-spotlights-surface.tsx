@@ -51,7 +51,7 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-type PendingApproval = { approval_id: string; target_id: string; initiated_by: string };
+type PendingApproval = { approval_id: string; target_id: string; initiated_by: string | null };
 
 /**
  * `vendor_profiles.logo_url` holds an `r2://bucket/key` REFERENCE, not a URL —

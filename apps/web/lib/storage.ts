@@ -14,6 +14,7 @@ import {
   publicUrlFor,
 } from '@/lib/r2';
 import { bucketForPrefix } from '@/lib/bucket-routing';
+import { parseStoredAsset } from '@/lib/uploads';
 
 /**
  * Server-side upload helper used by Server Actions (admin merchant-QR,
@@ -400,9 +401,26 @@ export type PublicAssetDeleteResult =
  * orphaned storage.
  */
 export async function deletePublicAsset(args: {
+  /**
+   * A public URL **or** a stored-asset ref (`r2://<bucket>/<key>`).
+   *
+   * ⚠ THE REF FORM WAS ADDED 2026-09-09 AND IT WAS A REAL GAP, not tidying.
+   * `parseR2Url` only understands a public URL; handed an `r2://` ref it
+   * returns null and the call fell through to "unrecognized" — a **silent
+   * no-op**. Every caller that stores the house ref (chat attachments, and
+   * anything that follows them) would have reported a successful erasure while
+   * the file stayed in the bucket. An RA 10173 failure whose only symptom is
+   * silence.
+   */
   publicUrl: string;
 }): Promise<PublicAssetDeleteResult> {
-  const r2 = parseR2Url(args.publicUrl);
+  // The house ref first — it is what a stored asset actually looks like now.
+  // `parseStoredAsset` hands back a legacy_url for anything that is not one,
+  // so an ordinary public URL falls straight through to `parseR2Url` below.
+  const stored = parseStoredAsset(args.publicUrl);
+  const r2 = stored?.kind === 'r2'
+    ? { bucket: stored.bucket as string, key: stored.key }
+    : parseR2Url(args.publicUrl);
   if (r2) {
     try {
       const client = getR2Client();

@@ -3,9 +3,21 @@
 /**
  * kit/chibi-figure — the reusable chibi character renderer (Build ② PR-1,
  * `OnTheDay_App_Build_Studies_2026-07-23.md § 2` · `Chibi_Rig_Production_
- * Spec_2026-07-19.md`). Config in → chibi out. NOTHING mounts this yet — it
- * ships flag-dark behind NEXT_PUBLIC_FIGURE_CHIBI (`FIGURE_CHIBI_ENABLED`,
- * lib/chibi-config.ts) as the foundation the later PRs consume:
+ * Spec_2026-07-19.md`). Config in → chibi out.
+ *
+ * ⚠ THIS BLOCK SAID "NOTHING mounts this yet" AND "ships flag-dark". Both were
+ * true when written and are false now. C5 (#5042) mounts it TWICE — the maker
+ * (app/[slug]/avatar/_components/avatar-maker.tsx) and the guest's own figure
+ * in the room (app/[slug]/venue/_components/guest-venue-3d.tsx) — and
+ * NEXT_PUBLIC_FIGURE_CHIBI was set to true in Vercel Production on 2026-08-31,
+ * so it is not dark either. Only the guest's OWN figure reads it; the seated
+ * crowd never has.
+ *
+ * Of the "later PRs" below, PR-2 (poses) and PR-3 (the instanced chibi crowd)
+ * NEVER LANDED — chibi-geometry.ts carries the batching contract but nothing
+ * renders a chibi crowd. Kept as the design record, not as a statement of what
+ * exists. It gated behind NEXT_PUBLIC_FIGURE_CHIBI (`FIGURE_CHIBI_ENABLED`,
+ * lib/chibi-config.ts) as the foundation these were to consume:
  *   · PR-2 poses (idle bounce / head tilt / waddle on the REDUCED joint set —
  *     head + body-lean only, § 11: arms are integral, no shoulder joints),
  *   · PR-3 part-batched instanced crowd (see the BATCHING CONTRACT in

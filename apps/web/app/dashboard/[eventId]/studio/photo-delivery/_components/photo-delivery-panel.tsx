@@ -338,12 +338,12 @@ function ConnectedState({
               {accountMismatch ? (
                 <p className="text-xs text-success-900/80">
                   Not your sign-in ({loginEmail}) — that&rsquo;s fine.{' '}
-                  <Link
+                  <a
                     href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}&switch=1`}
                     className="font-medium underline underline-offset-2"
                   >
                     Use a different account
-                  </Link>
+                  </a>
                 </p>
               ) : null}
             </div>

@@ -35,7 +35,7 @@ import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
-import { Vendor3dPlanUnlockSection } from './_components/vendor-3d-plan-unlock-section';
+import { BoothEventSection } from './_components/booth-event-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -49,6 +49,7 @@ import {
   fetchPlanProgressForVendor,
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
+import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import {
   PROPOSAL_STATUS_LABEL,
@@ -78,6 +79,14 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+// ONE definition of a category's name. A file-local `CATEGORY_LABELS` used to
+// live here with 28 of the 52 categories, so `CATEGORY_LABELS[c] ?? c` printed
+// the RAW ENUM KEY for the other 24 — `funeral_home`, `crew_meals`,
+// `av_production` — and the call-time row wrote that key into a PERSISTED
+// `proposed_label`. Ten of the 28 it did have also disagreed with the shared
+// map ("Cake" vs "Cake maker"), so one category read two ways on two supplier
+// screens. See `lib/one-word-per-category.test.ts`.
+import { displayServiceLabel } from '@/lib/vendors';
 import { ActivityFeed, type ActivityEvent } from './_components/customer-card-activity';
 import type { ClientNote } from './_components/customer-card-notes';
 import {
@@ -123,6 +132,7 @@ import {
   markThreadRead,
 } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -138,11 +148,17 @@ import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import {
+  buildSharedFiles,
+  type ChatFileInput,
+  type SharedFileEntry,
+} from '@/lib/chat-shared-files';
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -243,36 +259,6 @@ const MEAL_LABELS: Record<string, string> = {
   no_preference: 'No preference',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  venue: 'Venue',
-  catering: 'Catering',
-  photographer: 'Photographer',
-  videographer: 'Videographer',
-  florist: 'Florist',
-  cake_maker: 'Cake',
-  host_emcee: 'Host / Emcee',
-  band_dj: 'Band / DJ',
-  string_quartet: 'String quartet',
-  choir: 'Choir',
-  officiant: 'Officiant',
-  planner_coordinator: 'Planner / Coordinator',
-  makeup_artist: 'Makeup',
-  hair_stylist: 'Hair',
-  gown_designer: 'Gown',
-  suit_designer: 'Suit',
-  rings: 'Rings',
-  invitations_stationery: 'Stationery',
-  transportation: 'Transportation',
-  lights_and_sound: 'Lights & sound',
-  led_screens: 'LED screens',
-  photobooth: 'Photo booth',
-  mobile_bar: 'Mobile bar',
-  church_fees: 'Church',
-  reception_decor: 'Reception décor',
-  security: 'Security',
-  gifts_and_giveaways: 'Gifts & giveaways',
-  misc: 'Other',
-};
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set yet';
@@ -587,7 +573,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ]),
   );
 
-  const completion = (evRow ?? null) as {
+  const completionRow = (evRow ?? null) as {
     vendor_id: string | null;
     source: string | null;
     completion_status: string | null;
@@ -599,6 +585,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
   } | null;
+  // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
+  // a short-lived link scoped to THIS event's deposit folder — never the stored
+  // value, which the couple's session can write (a `https://wa.me/…` there
+  // would otherwise render here as "View proof"). lib/deposit-proof.server.ts
+  const completion = completionRow
+    ? {
+        ...completionRow,
+        deposit_proof_url: await depositProofDisplayUrl(completionRow.deposit_proof_url, eventId),
+      }
+    : null;
 
   // Source badge: event_vendors.source = 'vendor_invite' → Imported (they came in
   // through the vendor's own invite QR); anything else (host_manual, cascade,
@@ -632,6 +628,51 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flow lives inside the thread) in the header action row.
   const thread = threads.find((t) => t.event_id === eventId) ?? null;
   const threadId = thread?.thread_id ?? null;
+
+  /*
+    FILES THE COUPLE SENT IN THE CONVERSATION — the third source of the Files
+    tab, and the one it was missing.
+
+    ⚠ IT RIDES THE SCOPE THIS PAGE ALREADY HAS. Same user client, same thread
+    the header's [Open chat] button opens, same RLS. No admin client, no new
+    SECURITY DEFINER, no widening: if the supplier may open the thread they may
+    see what is in it, and if they may not, this read returns nothing — which is
+    exactly what the FilesTab is told below.
+
+    ⚠ `chatFilesMeasured` EXISTS BECAUSE A REFUSAL LOOKS LIKE AN EMPTY ROOM.
+    In this app a denied query comes back as zero rows, so "nothing was ever
+    shared" and "you were not allowed to see it" render identically unless the
+    error is checked. Production has never had a single chat attachment, so the
+    empty state is what every supplier sees today — all the more reason it must
+    not also be what a refusal says.
+  */
+  let chatFiles: ChatFileInput[] = [];
+  let chatFilesMeasured = true;
+  if (threadId) {
+    const { data: chatFileRows, error: chatFileRowsError } = await supabase
+      .from('chat_messages')
+      .select(
+        'message_id,sender_role,created_at,attachment_name,attachment_mime,attachment_size_bytes,attachment_url',
+      )
+      .eq('thread_id', threadId)
+      // A row counts as a file if EITHER the stored reference or the filename
+      // survived — a name with no reference still tells the supplier the file
+      // exists, and listing it unlinked beats pretending it never arrived.
+      .or('attachment_url.not.is.null,attachment_name.not.is.null')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (chatFileRowsError) {
+      logQueryError(
+        'VendorClientDetail.chatFiles',
+        chatFileRowsError,
+        { eventId, thread_id: threadId },
+        'graceful_degrade',
+      );
+      chatFilesMeasured = false;
+    } else {
+      chatFiles = (chatFileRows ?? []) as ChatFileInput[];
+    }
+  }
 
   // Returning-client marker (Details/Overview tab). A row exists ONLY when this
   // couple previously CONFIRMED-booked THIS vendor on a DIFFERENT event — i.e.
@@ -698,6 +739,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     if (planStepRows?.steps) planSteps = computePlanRollup(planStepRows.steps);
     pendingPayments = pending;
   }
+  // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
+  // Setnayan's to referee, so no "awaiting your confirmation" count includes it;
+  // the live payment section still shows it, with where it stands.
+  const awaitingPayments = pendingPayments.filter(awaitsTheSupplier);
 
   // Change-Order Trail — depends on the event_vendor id resolved above.
   const { data: changeOrderRows, error: changeOrderRowsError } = eventVendorId
@@ -1012,7 +1057,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: `pay-${pp.paymentId}`,
       kind: 'payment',
       title: 'Payment logged by the couple',
-      detail: `${fmtPeso(pp.amountPhp)}${pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · awaiting your confirmation`,
+      detail: `${fmtPeso(pp.amountPhp)}${pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · ${
+        awaitsTheSupplier(pp) ? 'awaiting your confirmation' : 'you said it never arrived · Setnayan is checking'
+      }`,
       at: pp.paidAt,
       sortAt: Date.parse(pp.paidAt),
     });
@@ -1139,7 +1186,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
             >
               {isBooked ? 'Booked · ' : ''}
-              {CATEGORY_LABELS[c] ?? c}
+              {displayServiceLabel(c)}
             </span>
           ))}
         </div>
@@ -1308,14 +1355,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       isBooked={isBooked}
       planRollup={planSteps}
       planStepRows={planStepRows}
-      pendingPayments={pendingPayments}
+      // Only what still waits on the supplier — a refused payment is Setnayan's.
+      pendingPayments={awaitingPayments}
       threadId={threadId}
       askPanel={askPanel}
     />
   );
 
   const filesNode = (
-    <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
+    <FilesTab
+      files={buildSharedFiles({
+        contracts,
+        handovers,
+        chatFiles,
+        coupleLabel: eventName,
+      })}
+      chatFilesMeasured={chatFilesMeasured}
+      threadId={threadId}
+      isBooked={isBooked}
+    />
   );
 
   const scheduleNode = (
@@ -1461,6 +1519,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }
       const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
       const initialMessages = await fetchMessages(supabase, threadId);
+      // PR-H · booked, or merely asked? A supplier CANNOT read `event_vendors`
+      // through their own session — every policy on that table is couple- or
+      // moderator-scoped — so this is the admin client, scoped to this shop's
+      // own profile, the same shape as the customer-card read above.
+      const chatLockHandshake = await fetchThreadLockHandshake(admin, {
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+      });
       const declineReason = fullThread.decline_reason?.trim() || null;
       // The per-date ceiling, said out loud before it refuses. Pending-only, read
       // through the supplier's own session (the RPC is caller-scoped), null-safe:
@@ -1506,6 +1572,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             currentUserId={user.id}
             viewerRole="vendor"
             counterpartyLabel={eventName}
+            lockHandshake={chatLockHandshake}
           />
           {/* Vendor accept-gate — replicate the thread page's exact branches: a
               vendor cannot reply until they ACCEPT the inquiry. Do not loosen. */}
@@ -1719,8 +1786,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (inquiryStatus === 'pending') {
     vRailTitle = 'Respond to the inquiry';
     vRailBody = `${eventName} reached out. Accept to open the chat, or decline if you’re not available.`;
-  } else if (pendingPayments.length > 0) {
-    const n = pendingPayments.length;
+  } else if (awaitingPayments.length > 0) {
+    const n = awaitingPayments.length;
     vRailTitle = `Confirm ${n} payment${n === 1 ? '' : 's'}`;
     vRailBody = `${eventName} logged ${n === 1 ? 'a payment' : 'payments'} — confirm receipt to keep the plan on track.`;
   } else if (isDelivered) {
@@ -1757,9 +1824,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
         <h3 className="mt-2 text-sm font-semibold text-ink">{vRailTitle}</h3>
         <p className="mt-1 text-xs leading-relaxed text-ink/60">{vRailBody}</p>
-        {pendingPayments.length > 0 ? (
+        {awaitingPayments.length > 0 ? (
           <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
-            {pendingPayments.length} awaiting confirmation
+            {awaitingPayments.length} awaiting confirmation
           </p>
         ) : null}
       </ShopCard>
@@ -2568,12 +2635,13 @@ function OverviewTab(props: {
         <VendorChallengeSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
 
-      {/* 3D Plan unlock (booked-only). A vendor with an ACTIVE 3D Booth add-on
-          unlocks the discounted ₱1,000 SEATING_3D for this couple; self-gates on
-          the add-on window (shows the honest "add the 3D Booth add-on" state when
-          inactive). */}
+      {/* Your booth in THEIR 3D Plan (booked-only). The "unlock the 3D Plan for
+          this couple" section that stood here is RETIRED (owner 2026-09-05): the
+          room is free for couples. What a vendor buys for it is BRANDING — ₱500
+          for this one celebration here, or the ₱3,000 / 4-week cycle for every
+          client on the subscription page. Self-gates on the 3D kill-switch. */}
       {isBooked ? (
-        <Vendor3dPlanUnlockSection eventId={eventId} vendorProfileId={vendorProfileId} />
+        <BoothEventSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
     </div>
   );
@@ -2776,30 +2844,43 @@ function QuoteTab(props: {
 // FILES TAB
 // ===========================================================================
 function FilesTab(props: {
-  contracts: ContractRow[];
+  /**
+   * Contracts, handover deliverables AND the files shared in the couple's
+   * conversation, already merged and sorted newest-first by
+   * `buildSharedFiles`. THREE sources, one list: the supplier is looking for
+   * the thing that happened recently and does not know which door it came
+   * through.
+   */
+  files: SharedFileEntry[];
+  /**
+   * FALSE when the read of the conversation's files was REFUSED rather than
+   * empty. Both return zero rows in this app, and only one of them means "there
+   * is nothing here" — so the tab is told which, and says so.
+   */
+  chatFilesMeasured: boolean;
   threadId: string | null;
-  handovers: HandoverRow[];
   isBooked: boolean;
 }) {
-  const { contracts, threadId, handovers, isBooked } = props;
-  // Handover deliverables that carry a file/link the vendor sent (a light
-  // "files shared" view alongside contracts, since 0019 thread attachments are
-  // deferred in V1 — there is no thread-attachments table to read).
-  const handoverFiles = handovers.filter(
-    (h) => (h.kind === 'file' || h.kind === 'gallery_link') && h.payload,
-  );
-  const hasAny = contracts.length > 0 || handoverFiles.length > 0;
+  const { files, chatFilesMeasured, threadId, isBooked } = props;
+  const hasAny = files.length > 0;
 
   return (
     <div className="space-y-4">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Shared files</p>
 
+      {!chatFilesMeasured ? (
+        <p className="rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/60">
+          Files shared in your conversation could not be loaded just now, so this list may be
+          incomplete. Everything is still in the chat itself.
+        </p>
+      ) : null}
+
       {!hasAny ? (
         <ShopEmpty>
           <FolderOpen aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/55">
-            No files here yet. Contracts you upload for this couple show up here; share other files
-            in your chat.
+            No files shared yet. Contracts you upload for this couple appear here, and so does
+            anything either of you attaches in the conversation.
           </p>
           {threadId ? (
             <Link
@@ -2812,57 +2893,33 @@ function FilesTab(props: {
         </ShopEmpty>
       ) : (
         <ul className="space-y-2">
-          {contracts.map((c) => (
+          {files.map((f) => (
             <li
-              key={c.contract_id}
+              key={f.key}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
-                <FileText aria-hidden className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {c.file_name ?? c.title ?? 'Contract.pdf'}
-                </p>
-                <p className="text-xs text-ink/55">
-                  Contract · {c.status.replace(/_/g, ' ')} · {fmtShortDate(c.created_at)}
-                </p>
-              </div>
-              {c.file_url ? (
-                <a
-                  href={c.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
-                >
-                  Open →
-                </a>
-              ) : null}
-            </li>
-          ))}
-          {handoverFiles.map((h) => (
-            <li
-              key={h.handover_id}
-              className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
-                {h.kind === 'gallery_link' ? (
+                {f.kind === 'chat' ? (
+                  <MessageSquare aria-hidden className="h-4 w-4" />
+                ) : f.kind === 'gallery_link' ? (
                   <Link2 aria-hidden className="h-4 w-4" />
-                ) : (
+                ) : f.kind === 'handover' ? (
                   <PackageCheck aria-hidden className="h-4 w-4" />
+                ) : (
+                  <FileText aria-hidden className="h-4 w-4" />
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {h.label ?? HANDOVER_KIND_LABEL[h.kind]}
-                </p>
+                <p className="truncate text-sm font-medium">{f.name}</p>
                 <p className="text-xs text-ink/55">
-                  You shared · {fmtShortDate(h.delivered_at)}
+                  {[f.origin, f.typeLabel, f.sizeLabel, fmtShortDate(f.at)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
-              {h.payload ? (
+              {f.href ? (
                 <a
-                  href={h.payload}
+                  href={f.href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 text-xs font-medium text-mulberry hover:underline"
@@ -3021,7 +3078,7 @@ function ScheduleTab(props: {
               <input
                 type="hidden"
                 name="proposed_label"
-                value={`${CATEGORY_LABELS[callTime.category] ?? callTime.category} setup / call time`}
+                value={`${displayServiceLabel(callTime.category)} setup / call time`}
               />
               <input type="hidden" name="proposed_start_at" value={callTime.call_time} />
               <input type="hidden" name="proposed_end_at" value={callTime.anchor_start_at} />

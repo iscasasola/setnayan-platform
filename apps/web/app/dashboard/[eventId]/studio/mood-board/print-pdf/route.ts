@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import type { ReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
 import { buildMoodboardPrintable } from '@/lib/moodboard-printable';
 
 export const dynamic = 'force-dynamic';
@@ -32,10 +32,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
-  const design: ReceptionDesign =
-    event.reception_design && typeof event.reception_design === 'object'
-      ? (event.reception_design as ReceptionDesign)
-      : {};
+  // Through the sanitizer (not a bare cast) so the multi-select cap and the
+  // valid-option-id rule hold on the way into the printable too.
+  const design: ReceptionDesign = sanitizeReceptionDesign(event.reception_design);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   let logoPng: Uint8Array | null = null;

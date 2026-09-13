@@ -27,11 +27,6 @@ import type {
   CatalogChargeResolution as CatalogChargeResolutionType,
   BundleChargeResolution as BundleChargeResolutionType,
 } from '@/lib/order-charge-math';
-import {
-  VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
-  applyVendor3dPlanUnlockDiscountCentavos,
-  eventVendor3dPlanUnlockDiscountActive,
-} from '@/lib/vendor-3d-plan-unlock';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { resolveLivePax } from '@/lib/pax';
 import {
@@ -87,7 +82,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PANOOD_SYSTEM:       'live',     // = Live Studio — the ONE SKU, ₱2,500/day, unlocks everything (owner 2026-07-21) · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
   PANOOD_SYSTEM_MOBILE: 'live',    // RETIRED 2026-07-21 — never purchasable (no buy surface, zero orders); catalog row deactivated. Kept here so any historical holder still resolves. (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
   LIVE_STUDIO_ROAM:    'partial',  // = Live Studio Roam ₱3,500/day (owner 2026-07-23). RETIRED into LIVE_STUDIO 2026-07-25 (is_active=false, migration 20271001110000). Kept for historical order rows.
-  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio ₱2,999/event (owner 2026-07-25) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
+  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio, once per event (owner 2026-07-25; repriced to a one-time unlock by LS6 2026-09-02, migration 20271194920190 — never quote a figure here, read the catalog) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
+  LIVE_STUDIO_HOSTED_CHANNEL: 'partial', // = optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02). STACKS on LIVE_STUDIO — grants no entitlement of its own. DEACTIVATED by LS6 (2026-09-02, migration 20271194920190) when its price pairing with LIVE_STUDIO broke and no replacement figure was given. Sold on the same flag-gated buy page when reactivated; excluded from /pricing by name until launch, same idiom as LIVE_STUDIO. Bump to 'live' at launch. · migration 20271192528988
   PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
@@ -194,11 +190,16 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   if (!liveStudioRoamEnabled()) {
     query = query
       .neq('service_code', 'LIVE_STUDIO_ROAM')
-      // The unified Live Studio SKU (₱2,999 · owner 2026-07-25) is is_active=TRUE so
+      // The unified Live Studio SKU (owner 2026-07-25; a one-time unlock since LS6,
+      // 2026-09-02) is is_active=TRUE so
       // its flag-gated buy path resolves a price, but must stay OFF /pricing until
       // launch — same idiom. When the owner flips the flag, Live Studio appears on
       // /pricing AND the Studio tile lights up together — one launch switch.
-      .neq('service_code', 'LIVE_STUDIO');
+      .neq('service_code', 'LIVE_STUDIO')
+      // The hosted-channel upsell (owner ruling 2026-09-02) is sold on the SAME
+      // flag-gated buy page as LIVE_STUDIO, so it stays dark on /pricing under the
+      // same switch — never its own, separate launch.
+      .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
   }
 
   const { data, error } = await query.order('service_code', { ascending: true });
@@ -566,31 +567,9 @@ export async function resolveRetailChargeCentavos(
 
   const standardCentavos = computePaxPriceCentavos(config, pax);
 
-  // ── Vendor-enabled couple discount (owner 2026-07-22) ──────────────────────
-  // A booked vendor with an ACTIVE 3D Booth add-on can unlock the 3D Plan for
-  // their couple → SEATING_3D drops from the standard catalog price (₱2,999) to
-  // ₱1,000. Server-authoritative: eventVendor3dPlanUnlockDiscountActive RE-VALIDATES
-  // the unlock AT CHARGE TIME — the record must exist AND the attributing vendor
-  // must STILL have a live 3D Booth add-on AND still be booked on the event — then
-  // the PURE selector picks the price (only SEATING_3D, only when honored, only
-  // ever LOWERS). So a lapsed booth / un-booked / cancelled vendor no longer
-  // yields ₱1,000, a tampered/stale client price still can't beat ₱1,000, and a
-  // couple with no live vendor-unlock pays the full ₱2,999. The unlock is
-  // discount-eligibility ONLY — it grants no free access, and the couple still
-  // buys SEATING_3D through this same apply-then-pay checkout.
-  if (serviceCode === VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY) {
-    const unlocked = await eventVendor3dPlanUnlockDiscountActive(admin, eventId);
-    return {
-      status: 'resolved',
-      is_pax_priced: config.is_pax_priced,
-      pax,
-      centavos: applyVendor3dPlanUnlockDiscountCentavos(
-        serviceCode,
-        standardCentavos,
-        unlocked,
-      ),
-    };
-  }
+  // The vendor-enabled SEATING_3D discount branch (owner 2026-07-22, ₱2,999 →
+  // ₱1,000) that stood here is RETIRED (owner 2026-09-05): the 3D Plan is free
+  // for couples (FREE_FOR_ALL_SKUS), so there is no couple price to lower.
 
   return {
     status: 'resolved',

@@ -1,0 +1,1018 @@
+/**
+ * reception-decor-pilot-prompts.ts
+ *
+ * Pure data: the exact (zone, style_family) → prompt + Recraft V4.1 params
+ * used to generate the 10-image reception-decor pilot
+ * (changelog.d/moodboard-ai-decor-layers-pilot.md). Kept as data — not a
+ * runnable script — because the actual generation this session went through
+ * the Higgsfield MCP `generate_image_batch` tool interactively (no
+ * RECRAFT_API_KEY was available in that environment to call
+ * apps/web/lib/recraft.ts's HTTP client directly). This module is the
+ * reproducible record of what to (re)send, however it gets sent.
+ *
+ * TO EXPAND COVERAGE LATER (more zones, or regenerate a style that didn't
+ * land well):
+ *
+ *   Option A — Higgsfield MCP (what this session used):
+ *     Add entries to DECOR_PROMPTS below for the new (zone, style) cells,
+ *     then call the `generate_image_batch` tool with one requests[] entry per
+ *     cell: { model: 'recraft_v4_1', prompt: entry.prompt, params: {
+ *     model_type: 'vector', resolution: '2k', aspect_ratio: entry.aspectRatio,
+ *     background_color: entry.backgroundColor, colors: [entry.seedColor,
+ *     entry.backgroundColor] } }. Batch cap is 12 requests per call — for the
+ *     other zones (5 remaining × 5 styles = 25 more cells) split into 3 calls.
+ *
+ *   Option B — apps/web/lib/recraft.ts (once RECRAFT_API_KEY is available):
+ *     Mirrors apps/web/scripts/generate-attire-guide-figures.ts's shape
+ *     almost exactly — swap its ROLES/STYLES loop for DECOR_PROMPTS below,
+ *     call `generateVectorSvg({ prompt, style: 'vector_illustration', size:
+ *     '1024x1024' })`, and reuse that script's R2-upload + seed-SQL-emit
+ *     tail verbatim (getR2Client / uploadSvgToR2 / the WHERE-NOT-EXISTS
+ *     INSERT template) — it already does exactly this job for figure_attire.
+ *
+ * THEN — for either path — re-run the color-sampling step: rasterize each new
+ * SVG (sharp `.resize(...).raw()`), exclude pixels near the exact
+ * background_color used (NOT a generic saturation threshold — a warm cream
+ * background has enough HSL "saturation" from its low lightness denominator
+ * to fool a naive filter; excluding by RGB distance to the known
+ * background_color is what actually works, learned the hard way this
+ * session) and near-white/near-black line-art strokes, then take the
+ * largest remaining color cluster as slot 1's sampledHex.
+ *
+ * ⚠ CORRECTED 2026-09-07 (RA1). This file used to end "toleranceDe = 15,
+ * matching the figure_attire seed's existing value." THAT IS WRONG and it has
+ * cost two sessions. A UNIFORM TOLERANCE IS NOT A MEASUREMENT — it is the
+ * defect MB28 spent a session correcting, and on the `stage` zone it shipped
+ * THREE tolerances that repaint the room (migration 20271212320441 corrects
+ * them). Across the nine cells measured so far the values are 9, 8, 12, 15, 9,
+ * 8, 7, 5 and 6 — no two files agree, and 15 is right for exactly one of them.
+ *
+ * Measure each file, per `build-sessions/RECEPTION-ART-PLAN.md` Part 2:
+ * rasterise at the component's own MAX_PREVIEW_PX (520) with `sharp`, push it
+ * through the REAL `recolorRGBA`, and take the largest integer tolerance at
+ * which nothing OUTSIDE the tagged object recolours — a spatial question, not
+ * a census one, and with NO area floor. A "fills >= 0.2% of the opaque area"
+ * census cannot see hairline strokes, and hairline strokes are exactly what a
+ * too-wide tolerance repaints first.
+ */
+
+export const PILOT_ZONES = [
+  'backdrop',
+  'ceiling',
+  'stage',
+  'tables',
+  'feast',
+  'booths',
+  'program',
+  'walls',
+  'photo_wall',
+  'tunnel',
+] as const;
+export type PilotZone = (typeof PILOT_ZONES)[number];
+
+export const STYLE_SLUGS = {
+  'elegant · simple · classic': 'elegant-simple-classic',
+  'bridgerton · regal': 'bridgerton-regal',
+  'editorial cream': 'editorial-cream',
+  'tropical heritage': 'tropical-heritage',
+  'modern minimalist': 'modern-minimalist',
+} as const;
+export type StyleFamily = keyof typeof STYLE_SLUGS;
+
+const COMMON_SUFFIX =
+  'Full-bleed flat vector illustration, no text, no watermark, no people, ' +
+  'one dominant color region occupies most of the frame, rest of scene in ' +
+  'muted neutral tones so the region is easy to isolate for recoloring. ' +
+  'Clean flat color blocking, minimal outlines, soft magazine-illustration style.';
+
+export type DecorPromptEntry = {
+  zone: PilotZone;
+  style: StyleFamily;
+  prompt: string;
+  /** `9:16` joined for `walls`, whose band is 56 wide and 372 high; `4:3` for
+   *  `tunnel`, whose arch group is 356 wide and 268 high. */
+  aspectRatio: '4:3' | '4:5' | '9:16' | '16:9';
+  backgroundColor: string;
+  /** Seed hex fed to Recraft's `colors` control — NOT necessarily the final
+   *  sampled hex (Recraft followed these closely this run, but always
+   *  re-sample the actual pixels rather than trusting the seed). */
+  seedColor: string;
+  /** The `colors` array ACTUALLY passed to Recraft, verbatim.
+   *
+   *  🔑 THE PILOT'S THIRD FINDING, MADE EXPLICIT IN THE DATA. The ten
+   *  backdrop/ceiling entries above all passed `[seedColor, backgroundColor]`,
+   *  and on `bridgerton · regal` that second hex is where the run went wrong:
+   *  Recraft invented its own dominant region and spent the passed seed on a
+   *  DIFFERENT object, producing two same-hue regions 12.6 apart — one
+   *  recolours, one does not. A second hex is a second object the model may
+   *  choose to paint with it. Every entry below passes ONE colour and names the
+   *  neutral palette in WORDS instead. Omit this field to mean the legacy pair. */
+  colorsPassed?: readonly string[];
+  /** What the generation was judged to be, on a REAL recolour through
+   *  `recolorRGBA` — never a fill-swap simulation, which structurally cannot
+   *  show a tolerance bleeding into a neighbour. Recorded so the next session
+   *  inherits the misses as well as the hits. */
+  outcome?: string;
+};
+
+export const DECOR_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'backdrop',
+    style: 'elegant · simple · classic',
+    aspectRatio: '4:5',
+    backgroundColor: '#ECE6DD',
+    seedColor: '#C9A059',
+    prompt:
+      "A wedding reception backdrop panel behind a couple's stage: an elegant draped fabric backdrop in a single solid warm gold color, floor-to-ceiling vertical folds, softly lit, set against a plain cream wall. Sophisticated editorial illustration, refined minimal aesthetic, magazine-clipping style. " +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'backdrop',
+    style: 'bridgerton · regal',
+    aspectRatio: '4:5',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    prompt:
+      "A wedding reception backdrop panel behind a couple's stage: an ornate Regency-era floral wall backdrop covered edge-to-edge in a single rich jewel-tone purple flower color, with gold leaf accents at the frame corners, dramatic and romantic. Bridgerton aesthetic, ornate flat-vector detail. " +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'backdrop',
+    style: 'editorial cream',
+    aspectRatio: '4:5',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    prompt:
+      "A wedding reception backdrop panel behind a couple's stage: a soft draped fabric backdrop in a single blush-pink color, with delicate corner floral sprays in cream and champagne-gold, refined wedding-magazine editorial look. " +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'backdrop',
+    style: 'tropical heritage',
+    aspectRatio: '4:5',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    prompt:
+      "A wedding reception backdrop panel behind a couple's stage: a Filipino-heritage backdrop of iridescent capiz shell panels and banana-leaf fronds at the edges, with one large draped fabric swag across the center in a single bold sage-green color as the dominant accent, warm earthy neutral surround. Tropical Filipino heritage illustration, abaca and piña textile inspiration. " +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'backdrop',
+    style: 'modern minimalist',
+    aspectRatio: '4:5',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    prompt:
+      'A wedding reception backdrop panel behind a couple\'s stage: a clean architectural backdrop, one flat rectangular color block in a single deep charcoal-plum color centered on a plain white wall, no ornamentation, sharp geometric lines. Modern minimalist illustration, architectural clean lines. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'ceiling',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    prompt:
+      'A wedding reception ceiling treatment viewed from below: an elegant draped fabric canopy in a single solid warm gold color swooping across the ceiling, soft warm string lights peeking through, plain cream ceiling surround. Sophisticated editorial illustration, refined minimal aesthetic. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'ceiling',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    prompt:
+      'A wedding reception ceiling treatment viewed from below: a dramatic draped fabric canopy in a single rich jewel-tone purple color paired with crystal chandeliers, ornate Regency romance, cream plaster ceiling surround. Bridgerton aesthetic, ornate flat-vector detail. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'ceiling',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    prompt:
+      'A wedding reception ceiling treatment viewed from below: a soft flowing fabric canopy in a single blush-pink color with delicate hanging floral clusters in cream and champagne-gold, refined editorial wedding-magazine aesthetic. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'ceiling',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    prompt:
+      'A wedding reception ceiling treatment viewed from below: a canopy of banana leaf and monstera fronds with hanging capiz shell lanterns, and one long fabric ribbon streamer in a single bold sage-green color as the dominant accent, warm neutral surround. Tropical Filipino heritage illustration. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'ceiling',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    prompt:
+      'A wedding reception ceiling treatment viewed from below: a geometric hanging installation, one flat polygon shape in a single deep charcoal-plum color suspended against a plain white ceiling, architectural clean lines, no ornamentation. Modern minimalist illustration. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── TABLES · RA1 PART B, 2026-09-07 ────────────────────────────────────────
+ *
+ * 🔑 FIVE KEEPERS FROM FIVE GENERATIONS — against the stage's 1 per 2.25, and
+ * including the `tropical heritage` cell the stage never solved in four
+ * attempts. The difference is not the prompt wording, it is the COMPOSITION.
+ *
+ * Every stage failure needed a room to put the colour in: across four attempts
+ * Recraft spent the sage seed on the wall, the floor or the riser and left the
+ * cloth cream or mint. These five say "no floor, no wall, no room, no horizon
+ * line" and put the tables in a horizontal band with empty margins above and
+ * below — so there is no surface left to mis-paint, and the model has nowhere
+ * to put the colour except the cloth.
+ *
+ * That composition was chosen for a RENDERING reason (a scene zone's background
+ * is knocked out before compositing, and `tables` spans four scattered tables
+ * with the aisle between them, so the room has to show through), and the yield
+ * improvement came free. ➡ Prefer object-on-plain-background for every
+ * remaining zone: it is cheaper to generate AND it composites correctly.
+ *
+ * All five pass ONE colour in `colors`, name the neutrals in words, and tag a
+ * draped surface — the pilot's findings 3 and 4, now with a third.
+ */
+/**
+ * ── STAGE · RA1, 2026-09-06 ────────────────────────────────────────────────
+ *
+ * ⚠ THE PILOT'S OWN FOUR STAGE PROMPTS WERE NEVER WRITTEN DOWN. That session
+ * generated nine stage images and kept four but recorded neither its prompts
+ * nor its files; oversight recovered the SVGs from the Higgsfield history by
+ * job id. Their prompts are lost. That is the reason this file exists, and the
+ * reason the entry below is recorded even though only one cell needed it.
+ *
+ * 🔑 `bridgerton · regal` WAS UNSOLVED AFTER FOUR PILOT GENERATIONS (ornate
+ * carved chairs and a piped sofa were tagged, or two same-hue regions appeared
+ * 12.6 apart so one recoloured and one did not). It landed FIRST TRY on the
+ * pilot's own findings applied together: pass ONE colour in `colors` rather
+ * than two — a second hex is a second object the model can spend it on — name
+ * the neutral palette in WORDS, and tag a DRAPED surface, never ornate
+ * furniture.
+ *
+ * ⚠ `tropical heritage` FAILED THREE MORE TIMES ON THIS ZONE (four in total,
+ * past the plan's stop rule) and always the same way: Recraft painted the WALL,
+ * the FLOOR or the RISER sage and left the cloth cream or mint. See
+ * TABLES_PROMPTS below for what finally fixed that — removing the room.
+ */
+export const STAGE_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'stage',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER (job 755b04e0-e19c-439d-bad1-b51e8447acee) — solved a cell four pilot ' +
+      'generations could not. NOT shipped in the end: PR #5270 landed a richer 286-path ' +
+      'bridgerton from another session first, which measures to the same clean maximum of 8. ' +
+      'Kept here because the PROMPT is the finding, not the file.',
+    prompt:
+      "A wedding reception stage viewed head-on: a round sweetheart table for two on a low platform, covered by a floor-length draped tablecloth in ONE single flat solid jewel-tone purple, the SAME single purple across the whole cloth including its top surface and every fold — no second shade, no highlight, no lighter top, no piping or trim. The chairs behind are plain simple outlines with no carving and no upholstery. Everything else in the scene — the platform, the wall, the floor, the chair outlines, the glassware — is drawn in muted warm cream, oatmeal and soft grey neutrals only. Bridgerton Regency aesthetic conveyed by the drape and the room, not by ornament. " +
+      COMMON_SUFFIX,
+  },
+];
+
+export const TABLES_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'tables',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER — shipped, slot #C9A059 tol 9. Job e866d8aa.',
+    prompt:
+      'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid warm gold, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tables',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER — shipped, slot #8C6BA6 tol 8 (its cliff: 6 px outside at 8, 593 at 9). Job aff7123c.',
+    prompt:
+      'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid jewel-tone purple, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tables',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER — shipped, slot #D98BA6 tol 7. Job bfb9bd90.',
+    prompt:
+      'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid blush pink, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tables',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER — shipped, slot #9CB29A tol 5. FIRST ATTEMPT, after four failures on the stage: with no wall, floor or foliage in frame there was nothing else for the sage to land on. Job 903a3114.',
+    prompt:
+      'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid sage green, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tables',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER — shipped, slot #4A3B45 tol 6. Job 07102f92.',
+    prompt:
+      'A horizontal row of four round wedding guest tables seen straight on, each covered by a floor-length draped tablecloth in ONE single flat solid deep charcoal plum, the SAME single colour across every cloth including its top surface and every fold — no second shade, no highlight, no trim. The tables sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Plain simple chair outlines and tableware drawn in muted warm grey and cream neutrals only. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── FEAST · RA1 PART B, 2026-09-07 ─────────────────────────────────────────
+ *
+ * Five keepers from SIX generations — the object-on-plain-background
+ * composition holding for a third zone.
+ *
+ * 🔑 THE ONE RETRY IS THE FINDING. `tropical heritage` v1 MEASURED CLEAN and
+ * was still wrong: it drew the FOOD on the platters in the same sage as the
+ * cloth, so a burgundy palette produced a table of burgundy food. Nothing in
+ * the recipe could see it — the food sits INSIDE the tagged region, so
+ * "nothing outside the cloth moved" was true, the region recoloured
+ * completely, and tolerance 5 measured clean. Caught by rendering the room.
+ *
+ * ➡ The fix is a prompt rule, not a measurement: NAME THE COLOURS OF EVERY
+ * OBJECT THAT SITS ON THE TAGGED SURFACE, and say what they are not. The v2
+ * prompt below is the v1 prompt plus that clause, and it landed first try.
+ */
+export const FEAST_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'feast',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome: 'KEEPER — slot #C9A059 tol 8 (cliff: 8 px outside at 8, 52 at 9). Job df180dad.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid warm gold cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of chafing dishes and serving platters stands along the top, drawn in muted silver, warm grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome: 'KEEPER — slot #8C6BA6 tol 8 (cliff: 11 px at 8, 411 at 9). Job 30e426af.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid jewel-tone purple cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of covered silver serving dishes and a tiered stand stands along the top, drawn in muted silver, warm grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome: 'KEEPER — slot #D98BA6 tol 10, no cliff (18 px at 10, 39 at 11); bounded by the antialiasing budget. Job ad8ee36f.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid blush pink cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of platters, boards and small bowls stands along the top, drawn in muted warm grey, oatmeal and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome: 'KEEPER — slot #4A3B45 tol 5, no cliff (26 px at 5, 55 at 6). Job d67121f1.',
+    prompt:
+      'A long wedding buffet table seen straight on, draped to the floor in ONE single flat solid deep charcoal plum cloth, the SAME single colour across the whole cloth including its top surface and every fold — no second shade, no highlight, no trim. A row of simple rectangular serving vessels stands along the top, drawn in muted grey and cream neutrals only. The table sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no horizon line. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'feast',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, SECOND GENERATION — slot #9CB29A tol 5 (cliff: 0 px at 5, 132 at 6). Job ' +
+      'ea2110dc. v1 (job 4af29bf0) MEASURED CLEAN at the same tolerance and was still wrong: ' +
+      'it drew the food in the same sage as the cloth, so a burgundy palette gave a table of ' +
+      'burgundy food. The only difference below is the clause naming the food\'s colours and ' +
+      'saying what they are not.',
+    prompt:
+      'A long Filipino wedding feast table seen straight on, draped to the floor in ONE single flat solid sage green cloth, the SAME single sage across the whole cloth including its top surface and every fold — no second shade, no lighter top, no highlight. On top stand serving platters and capiz-shell bowls holding food; the FOOD and the platters must be warm brown, terracotta, cream and oatmeal — NOTHING on the table is green, only the cloth itself is green. The table sits on a completely plain empty background with generous empty margins above and below it: NO floor, NO wall, NO room, no horizon line and no foliage anywhere. Tropical Filipino heritage illustration. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── BOOTHS · RA2, 2026-09-07 ───────────────────────────────────────────────
+ *
+ * 5 keepers from 7 generations (1 per 1.4) — the best yield of the session, and
+ * the zone that produced the most useful finding in it. The tagged surface is
+ * the booths' AWNING CANOPY. Composition is TABLES_PROMPTS'
+ * object-on-plain-background, confirmed on a fourth zone.
+ *
+ * 🔑 THE FINDING: SWAP THE NEUTRALS OUT OF GREY, NOT THE SLOT COLOUR.
+ *
+ * `modern minimalist` had been UNSEEDABLE on `program` three times (nearest
+ * neutral 3.01, 3.08, 3.01). A desaturated plum and a GREY are near-neighbours
+ * in `colorDistance` by construction, so every drawing that uses grey for its
+ * line work and its objects puts something inside the CHECK floor of 5. Two
+ * levers had already failed: removing outlines, and moving the seed to a mid
+ * tone. Both of those change the SLOT. The one that works changes everything
+ * ELSE:
+ *
+ *     "…drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS
+ *      anywhere in the picture, no black, no charcoal, no silver."
+ *
+ * `modern minimalist` landed FIRST ATTEMPT here, nearest neutral 4.51. The same
+ * line rescued `bridgerton · regal` and `tropical heritage` on their second
+ * attempts. Four of the five drawings move ZERO pixels outside their canopy at
+ * the seeded tolerance — the cleanest set this session measured.
+ * ➡ PUT WARM-CREAM NEUTRALS IN THE FIRST PROMPT FOR ANY DARK OR DESATURATED
+ *   FAMILY. It costs nothing and it is the difference between 3.01 and 4.51.
+ *
+ * ⚠ IT IS NOT UNIVERSAL, AND THAT WAS MEASURED. Re-run on `program` with this
+ * exact wording (job a02dcf50) it still came back 3.01: that drawing's subject
+ * IS grey equipment, and Recraft keeps musicians' outlines and instrument
+ * bodies dark whatever the surround is asked to be.
+ *
+ * 🪤 AND THE REJECT NO NUMBER CAUGHT — the reason "look at every keeper" is in
+ * the plan. `bridgerton`'s FIRST generation (job 7792a979) measured perfectly:
+ * ZERO pixels outside the canopy at tolerance 13, a clean cliff at 14. It was a
+ * reject. Its canopy is TWO stacked panels — a flat top `#7A60FC` and a
+ * scalloped valance `#5C43BB` under it, 13.76 apart — so the recolour turned
+ * three canopy tops teal and left three purple valances hanging beneath them.
+ * No outside-pixel assertion can see that (the valance is genuinely outside the
+ * tagged region), and a dedicated bi-tonal check written this session passed it
+ * too, because the second tone forms its OWN connected region rather than
+ * sitting inside the first one's silhouette.
+ * ➡ Ask for "ONE SINGLE FLAT RECTANGULAR PANEL … no scalloped valance, no
+ *   second panel, no hanging fringe, no trim edge, no darker band along its
+ *   lower edge". That is what the shipped file was generated with.
+ */
+export const BOOTHS_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'booths',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 11 (0 px outside at 11, 485 at 12). ' +
+      'Job 5381385c.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid warm gold, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in pale silver grey and white only — nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #7356FE tol 20 (0 px outside at 20, 1198 ' +
+      'at 21). Job 6ba846c2. The FIRST attempt (job 7792a979) measured PERFECTLY — zero ' +
+      'outside pixels at tol 13, clean cliff at 14 — and was a reject on sight: a two-panel ' +
+      'canopy whose scalloped valance stayed purple while its top recoloured. See the finding ' +
+      'above. ⚠ The slot is #7356FE, NOT the #8C6BA6 passed in `colors` — re-sampled, as ' +
+      'always.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. Each canopy is ONE SINGLE FLAT RECTANGULAR PANEL of solid jewel-tone purple — no scalloped valance, no second panel, no hanging fringe, no trim edge, no darker band along its lower edge, no shading, no gradient, no highlight. All three canopies are the SAME single purple, and that purple appears nowhere else. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no silver, and nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 12 (0 px outside at 12, 48 at 13). ' +
+      'Job 404d4747.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid blush pink, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in pale silver grey and white only — nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #9CB29A tol 5 (0 px outside at 5, 633 at ' +
+      '6). Job 3ce05832. The first attempt (job 7a279583) was UNSEEDABLE at 3.02: its COOL ' +
+      'charcoal-and-white neutrals produced a grey-green #9CA89B right beside the sage. Warm ' +
+      'cream neutrals fixed it — the same lever as `modern minimalist`, and note it works in ' +
+      'the opposite direction from the wording that rescued `feast`’s tropical cell, where ' +
+      'COOL neutrals were what was needed. Neither is a rule; the rule is to measure the ' +
+      'nearest neutral and move the NEUTRALS away from the slot.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. Each canopy is ONE SINGLE FLAT RECTANGULAR PANEL of solid sage green — no scalloped valance, no second panel, no hanging fringe, no trim edge, no darker band along its lower edge, no shading, no gradient, no highlight. All three canopies are the SAME single sage green, and that green appears nowhere else. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. The booth frames, counters and everything standing inside them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no charcoal, no black, no silver, no olive, and nothing else in the picture is green. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'booths',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, FIRST ATTEMPT — shipped, slot #4A3B45 tol 14 (26 px outside at 14, 39 at 15). ' +
+      'Job 228aa3a7. 🔑 THE CELL `program` COULD NOT SOLVE IN THREE GENERATIONS, LANDED IN ONE ' +
+      'by asking for warm-cream neutrals instead of grey ones. Nearest neutral 4.51, against ' +
+      "3.01 / 3.08 / 3.01 on `program`. The slot colour was never the problem; the drawing's " +
+      'greys were.',
+    prompt:
+      'A row of three small wedding party booths seen straight on, side by side, each a little stall with a wide flat awning canopy across its top. All three canopies are ONE single flat solid deep charcoal plum, the SAME single colour on every canopy — one completely flat colour with NO shading of any kind: no darker panels, no shadow shapes, no gradient, no highlight, no stripes, no scalloped trim. The booths sit on a completely plain empty background with generous empty margins above and below the row: no floor, no wall, no room, no horizon line. Everything that is not a canopy — the booth frames, counters, contents and every outline stroke — is drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the canopies are the only cool dark thing in it. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── PROGRAM · RA2, 2026-09-07 ──────────────────────────────────────────────
+ *
+ * 4 keepers from 7 generations (1 per 1.75), and the fifth family is a MEASURED
+ * REFUSAL rather than a miss. The tagged surface is the performance riser's
+ * floor-length draped skirt — the plan's "draped or flat-clad surface", and the
+ * same shape as the stage's clad riser. Composition is TABLES_PROMPTS'
+ * object-on-plain-background, confirmed on a third zone.
+ *
+ * 🔎 THE FINDING: A DESATURATED SLOT COLOUR IS UNSEEDABLE ON A ZONE WHOSE
+ * SUBJECT IS EQUIPMENT. `modern minimalist` failed twice and the diagnosis is
+ * about the ZONE, not the wording:
+ *
+ *   attempt 1  deep charcoal plum `#4A3B45`  nearest neutral 3.01 (grey line work)
+ *   attempt 2  mid slate plum     `#6E5A68`  nearest neutral 3.08 (mid greys)
+ *
+ * `tolerance_de` is CHECKed `BETWEEN 5 AND 30`, so both are unseedable at any
+ * legal value. This drawing is a band — musicians, instruments, amplifiers,
+ * cymbals, mic stands — and Recraft renders all of it in GREY at every value
+ * from near-black to near-white, however the neutrals are named. A family whose
+ * colour IS a desaturated grey-violet has no gap to sit in. Moving the seed
+ * lighter just moved the collision from the dark greys to the mid greys, and
+ * "NO OUTLINES AT ALL" — which solved the identical-looking problem on `feast`
+ * — did nothing here, because on this zone the greys are the SUBJECT rather
+ * than the line work. The four families that landed are all SATURATED hues.
+ * ➡ Before spending a generation, ask whether the zone's own subject is grey.
+ *   If it is, a desaturated family is a refusal, not a re-run.
+ *
+ * 🔎 AND FINDING 3 AGAIN, ON `tropical heritage`: Recraft ignored the `#9CB29A`
+ * sage in `colors`, invented a bright mint dominant (39% of the frame) and spent
+ * the sage on a MINOR fill 18.10 away. The seeded hex is `#66DEBA`, measured off
+ * the pixels. Tagging the seed would have tagged almost nothing and left the
+ * visible skirt stock. RE-SAMPLE; `colors` is a hint, never a promise.
+ */
+export const PROGRAM_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'program',
+    style: 'elegant · simple · classic',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 11 (0 px outside at 11, 325 at 12). ' +
+      'Job 549f1b26. The widest clean margin of the four: its nearest neutral is 11.09 away.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid warm gold. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second gold, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'bridgerton · regal',
+    aspectRatio: '16:9',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #8C6BA6 tol 8 (22 px outside at 8, 268 at 9). ' +
+      'Job 7866ce96.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid jewel-tone purple. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second purple, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'editorial cream',
+    aspectRatio: '16:9',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 12 (25 px outside at 12, 99 at 13). ' +
+      "Job 1cd031b8. ⚠ The drummer's shirt is drawn in the skirt's own fill, so it recolours " +
+      'with the skirt. Measured and kept: at the composited size the figure is a few pixels ' +
+      'tall. Worth a prompt line next time — "nobody in the picture wears the skirt colour".',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid blush pink. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second pink, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. The musicians, instruments, amplifier and microphone stands are drawn in pale silver grey, white and soft charcoal only — nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'tropical heritage',
+    aspectRatio: '16:9',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #66DEBA tol 18 (0 px outside at 18, 68 at 19). ' +
+      'Job 210fc7f0. 🪤 THE SLOT IS NOT THE SEED. Recraft invented a bright mint dominant ' +
+      '(39% of the frame) and spent the passed #9CB29A sage on a minor fill 18.10 away — which ' +
+      "is also what bounds this file's tolerance. Tagging the seed would have tagged almost " +
+      'nothing and left the visible skirt stock.',
+    prompt:
+      'A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid sage green. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second green, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline — is drawn in COOL dark charcoal grey and pure white only: no beige, no warm grey, no taupe, no cream, no olive, and nothing else in the picture is green. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'program',
+    style: 'modern minimalist',
+    aspectRatio: '16:9',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#6E5A68',
+    colorsPassed: ['#6E5A68'],
+    outcome:
+      'NOT SHIPPED — UNSEEDABLE, twice. This is attempt 2 (job 3dd63d1c): a MID-TONE slate ' +
+      'plum, with every other shape asked for in pure black and white so nothing would sit ' +
+      'near its value. Nearest neutral came back 3.08 (mid greys), against 3.01 for attempt 1 ' +
+      "(job c1af9eba, deep charcoal plum #4A3B45, the family's usual seed, with the " +
+      '"NO OUTLINES AT ALL" wording that solved the same-looking problem on `feast`). Both ' +
+      "under tolerance_de's CHECK floor of 5. The cell ships UNCOVERED and renders flat, byte " +
+      'for byte. See the finding above: on a zone whose subject IS grey equipment, a ' +
+      'desaturated family has nowhere to sit, and a third generation would not have changed it.',
+    prompt:
+      "A wedding band performing on a low wide performance riser seen straight on. The riser is wrapped in a floor-length draped skirt in ONE single flat solid MID-TONE muted slate plum — a medium value, clearly lighter than black and clearly darker than white. The skirt is ONE completely flat colour with NO shading of any kind: no darker folds, no shadow shapes, no gradient, no highlight, no second plum, no trim. Its folds are indicated ONLY by thin outline strokes, never by filled darker shapes. Two simple musician figures with a guitar and a drum stand on the riser. The riser sits on a completely plain empty background with generous empty margins above and below it: no floor, no wall, no room, no stage, no horizon line. Everything that is not the skirt — the musicians, instruments, amplifier, microphone stands and every outline stroke — is drawn in pure BLACK and pure WHITE only, with no greys and no colours at all, so nothing in the picture sits near the skirt's value. " +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── PHOTO WALL · RA2, 2026-09-07 ───────────────────────────────────────────
+ *
+ * 5 keepers from 6 generations (1 per 1.2). The `booths` warm-cream-neutrals
+ * lever was in the FIRST prompt for every family here and four landed first
+ * time.
+ *
+ * 🔑 A PANEL ZONE, SO THE PROMPT SHAPE IS DIFFERENT FROM EVERY ZONE SINCE
+ * `stage`. The scene zones ask for an OBJECT on a plain field with generous
+ * empty margins, because their background is knocked out and the couple's room
+ * shows through. A panel drawing FILLS its rect — its ground IS the wall — so
+ * these ask for the opposite: "FILLING THE ENTIRE FRAME edge to edge with no
+ * border and no margin … cropped by the frame on all four sides", and `4:5`
+ * portrait rather than `16:9`. Getting this backwards would put a small wall
+ * floating in the middle of the couple's panel with a border of foreign cream
+ * around it.
+ *
+ * 🔎 THE FINDING: "ONE FLAT COLOUR" IS HEARD AS *PER SHAPE*, NOT *ACROSS THE
+ * WALL*. `elegant`'s first generation (job 8555b7a3) looked right and measured
+ * UNSEEDABLE — 545 px outside the tagged region at the tightest legal
+ * tolerance. Diagnosed positionally rather than argued about: 238 of those
+ * pixels sit MORE THAN 6px from any tagged pixel, scattered across the frame,
+ * and every one is a near-duplicate gold (`#CFAB6D`, 4.4 away) the model used
+ * for a SUBSET OF THE BLOOMS. A second tone of the same object, spatially
+ * disjoint from the first — no tolerance reaches it without also reaching the
+ * ground, and no mask can call it an edge.
+ * ➡ For a repeating-motif wall, say the motifs must not vary FROM EACH OTHER:
+ *   "EVERY SINGLE BLOOM IS THE EXACT SAME ONE GOLD … no tonal variation of any
+ *   kind between one flower and another". It landed on that.
+ *
+ * 🪤 AND FINDING 3 TWICE MORE. `editorial cream` came back a hot `#F75B74`
+ * rather than the `#D98BA6` blush passed in `colors`; `elegant` came back a
+ * bright `#EE8827` rather than `#C9A059` gold. Both are seeded from the pixels.
+ * Across this session the seed has been wrong on 4 of 20 files — treat `colors`
+ * as a hint, never as a promise, and re-sample every time.
+ */
+export const PHOTO_WALL_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'photo_wall',
+    style: 'elegant · simple · classic',
+    aspectRatio: '4:5',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #EE8827 tol 6 (42 px outside at 6, its ' +
+      'budget exactly; no cliff until 22). Job fbeb5daa. The first attempt (job 8555b7a3) was ' +
+      'UNSEEDABLE for the reason in the finding above: a second gold on a subset of the blooms.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid warm gold. EVERY SINGLE BLOOM IS THE EXACT SAME ONE GOLD — there is no second gold, no lighter gold, no darker gold, no highlight, no shading, no gradient, no tonal variation of any kind between one flower and another. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is gold, amber, tan or brown. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'bridgerton · regal',
+    aspectRatio: '4:5',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome: 'KEEPER, first attempt — shipped, slot #8C6BA6 tol 8 (22 px outside). Job 7d4b12a4.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid jewel-tone purple. The blooms are ONE completely flat colour with NO shading of any kind: no darker petals, no shadow shapes, no gradient, no highlight, no second purple. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is purple, violet, mauve or lilac. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'editorial cream',
+    aspectRatio: '4:5',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #F75B74 (NOT the #D98BA6 blush asked for) tol 30. ' +
+      'Job f446ac80. Bounded by the CHECK ceiling, not by a cliff: its nearest neighbour is ' +
+      '4.78, its own antialiased edge, so nothing in the picture is reachable at any legal ' +
+      'tolerance and the measurement runs clean all the way to 30.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of blooms in ONE single flat solid blush pink. The blooms are ONE completely flat colour with NO shading of any kind: no darker petals, no shadow shapes, no gradient, no highlight, no second pink. The few leaves and stems between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is pink, rose or blush. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'tropical heritage',
+    aspectRatio: '4:5',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #9CB29A tol 20 (4 px outside at 20, 5,416 at 21). ' +
+      'Job fbe16cb4. The only one of the five with a genuine cliff, and therefore the one that ' +
+      'carries "can this harness still see a bleed" for the set.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense wall of monstera and banana leaves in ONE single flat solid sage green. The leaves are ONE completely flat colour with NO shading of any kind: no darker leaves, no shadow shapes, no gradient, no highlight, no second green. The few capiz shell discs between them are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, no olive, and nothing else in the picture is green. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'photo_wall',
+    style: 'modern minimalist',
+    aspectRatio: '4:5',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the CHECK ' +
+      'ceiling. Job 4e167a9b. 🔑 NEAREST NEUTRAL 70.07 — the widest margin measured anywhere ' +
+      'this session, against 3.01 for the same family on `program`. The difference is entirely ' +
+      'the warm-cream-neutrals lever plus a subject with no equipment in it.',
+    prompt:
+      'A wedding photo backdrop wall seen straight on, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a plain architectural panel wall of flat rectangular tiles in ONE single flat solid deep charcoal plum. The tiles are ONE completely flat colour with NO shading of any kind: no darker tiles, no shadow shapes, no gradient, no highlight, no second plum. The thin seams between the tiles are drawn in WARM CREAM and pale sand only. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the tiles are the only dark thing in it. No floor, no room, no furniture, no people — only the wall itself, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+];
+
+/**
+ * ── WALLS · RA2, 2026-09-07 ────────────────────────────────────────────────
+ *
+ * 5 keepers from 5 GENERATIONS — a 1:1 round, the second of the session after
+ * `tables`, and the clearest evidence that the findings compound. Every lesson
+ * this session paid for went into the FIRST prompt:
+ *
+ *   · full-bleed, not object-on-a-field — `walls` is a PANEL zone, so its
+ *     drawing fills its band and its ground IS the wall (`photo_wall`'s lesson);
+ *   · WARM-CREAM neutrals, no greys anywhere (`booths`' lesson, which is what
+ *     lets `modern minimalist`'s dark plum sit 70.07 from its nearest
+ *     neighbour here against 3.01 on `program`);
+ *   · "no tonal variation of any kind from one fold to the next" — the motifs
+ *     must not vary FROM EACH OTHER (`photo_wall`'s lesson);
+ *   · ONE colour in `colors`, neutrals named in words (the pilot's finding 3).
+ *
+ * 🔑 THE FIRST PORTRAIT-TALL SOURCES IN THE FEATURE: `9:16`, for a band 56 wide
+ * and 372 high. `slice` then crops a vertical centre strip of the drawing into
+ * each band, which is why the prompts ask for folds running the FULL HEIGHT —
+ * a drawing with a top or bottom feature would lose it to the crop.
+ *
+ * 🪤 AND FINDING 3 TWICE MORE: `bridgerton` came back `#5643A0` rather than the
+ * `#8C6BA6` passed in `colors`, `tropical` `#519374` rather than `#9CB29A`.
+ * Across this session the seed has been wrong on 6 of 25 files — roughly one in
+ * four. RE-SAMPLE EVERY FILE.
+ */
+export const WALLS_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'walls',
+    style: 'elegant · simple · classic',
+    aspectRatio: '9:16',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 15 (23 px outside). Job 1e78893e. The ' +
+      'ONLY one of the five with a real neighbour close enough to bound it (5.89), which is why ' +
+      'it is the one file on this zone that is not seeded at the CHECK ceiling — and why it ' +
+      "carries the harness's eyesight proof for the set.",
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid warm gold. The whole drape is the EXACT SAME ONE GOLD from top to bottom — no second gold, no lighter gold, no darker gold, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'bridgerton · regal',
+    aspectRatio: '9:16',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #5643A0 (NOT the #8C6BA6 asked for) tol 30, ZERO ' +
+      'px outside at the ceiling. Job d6f4e76e. Nearest neighbour 42.60.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid jewel-tone purple. The whole drape is the EXACT SAME ONE PURPLE from top to bottom — no second purple, no lighter purple, no darker purple, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'editorial cream',
+    aspectRatio: '9:16',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 30 (4 px outside at the ceiling). ' +
+      'Job dc44a5fc. Nearest neighbour 22.02.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid blush pink. The whole drape is the EXACT SAME ONE PINK from top to bottom — no second pink, no lighter pink, no darker pink, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM. There are no greys, no black and no charcoal anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'tropical heritage',
+    aspectRatio: '9:16',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #519374 (NOT the #9CB29A asked for) tol 30 (9 px ' +
+      'outside at the ceiling). Job 900b3068. A greenery wall rather than a drape, which is ' +
+      "the family's own wall treatment.",
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling foliage, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: a dense greenery wall of leaves running the full height, in ONE single flat solid sage green. Every leaf is the EXACT SAME ONE GREEN — no second green, no lighter green, no darker green, no shadow, no gradient, no highlight, no tonal variation of any kind from one leaf to the next. The few stems between them are drawn in WARM CREAM only. There are no greys, no black, no charcoal and no olive anywhere in the picture. No room, no floor, no ceiling, no furniture, no people — only the foliage, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'walls',
+    style: 'modern minimalist',
+    aspectRatio: '9:16',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the ceiling. ' +
+      'Job 72834633. Nearest neighbour 70.07, the joint-widest margin of the session (with its ' +
+      "own `photo_wall` file) — and the same family that was UNSEEDABLE three times on " +
+      '`program` at 3.01. The whole difference is warm-cream neutrals and a subject with no ' +
+      'grey equipment in it.',
+    prompt:
+      'A tall narrow vertical panel of floor-to-ceiling draped fabric, FILLING THE ENTIRE FRAME edge to edge with no border and no margin: soft vertical folds running the full height, in ONE single flat solid deep charcoal plum. The whole drape is the EXACT SAME ONE PLUM from top to bottom — no second plum, no shadow between the folds, no gradient, no highlight, no tonal variation of any kind from one fold to the next. The folds are indicated ONLY by thin outline strokes in WARM CREAM and pale sand. There are NO GREYS anywhere in the picture, no black, no charcoal, no silver: the drape is the only dark thing in it. No room, no floor, no ceiling, no furniture, no people — only the fabric, cropped by the frame on all four sides. ' +
+      COMMON_SUFFIX,
+  },
+];
+/**
+ * ── TUNNEL · RA2, 2026-09-07 ───────────────────────────────────────────────
+ *
+ * 5 keepers from 6 generations (1 per 1.2). The tagged surface is the blooms,
+ * leaves or hoops on the arches.
+ *
+ * 🔑 THE FIRST ZONE WHOSE COMPOSITION HAD TO MATCH A PERSPECTIVE, NOT JUST A
+ * SHAPE. Every other zone in this feature is an object seen flat-on.
+ * `tunnelLayer` draws THREE arches receding down the aisle in one-point
+ * perspective at depths (470,178,636) (432,124,588) (404,86,548), so the prompt
+ * names exactly that — "a large arch nearest, a medium one behind it, a small
+ * one furthest, forming a walkway tunnel" — and all five came back with the
+ * recession reading correctly against the aisle. First `4:3` sources in the
+ * feature, matching a group 356 wide and 268 high.
+ *
+ * 🔎 THE FINDING: ON A PERSPECTIVE ZONE, FORBID DEPTH-SHADING EXPLICITLY.
+ * `tropical heritage`'s first attempt (job 76643e4b) was UNSEEDABLE — 100 px
+ * outside at the tightest legal tolerance, against a `#94A992` sitting 3.37
+ * away, which was a slightly DARKER sage used for the leaves on the arches
+ * further back. The prompt had already said "no second green, no darker green";
+ * the model read that as a rule about each leaf and still shaded BY DEPTH.
+ * What worked was naming the mechanism:
+ *
+ *     "THE ENTIRE PICTURE CONTAINS EXACTLY ONE SHADE OF GREEN AND NO OTHER
+ *      GREEN AT ALL … Depth is shown ONLY by the size of the arches, never by
+ *      colour."
+ *
+ * ➡ This is the third form of the same lesson. "One flat colour" is heard as a
+ *   rule about each SHAPE — not across the wall (`photo_wall`), not across the
+ *   row (`booths`), and not across depth (here). Say which axis you mean.
+ *
+ * 🪤 AND TWO OF THE FIVE HAVE A NEAREST NEUTRAL UNDER 5 AND SHIP ANYWAY. That
+ * is the plan's 2026-09-07 correction working: "nearest neutral" is a COLOUR
+ * distance, and the rule that decides is POSITIONAL. Those sub-5 colours are the
+ * arches' own antialiased edges, inside the 2px dilation; what counts is the 18
+ * and 37 px that move OUTSIDE it, both under the 40 px budget. Judging by
+ * colour distance alone would have thrown away two good files.
+ */
+export const TUNNEL_PROMPTS: DecorPromptEntry[] = [
+  {
+    zone: 'tunnel',
+    style: 'elegant · simple · classic',
+    aspectRatio: '4:3',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#C9A059',
+    colorsPassed: ['#C9A059'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #C9A059 tol 14 (0 px outside at 14, 655 at 15). ' +
+      'Job 3e837c71.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid warm gold. All three arches are the EXACT SAME ONE GOLD — no second gold, no lighter gold, no darker gold, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is gold, amber, tan or brown. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'bridgerton · regal',
+    aspectRatio: '4:3',
+    backgroundColor: '#F3ECE0',
+    seedColor: '#8C6BA6',
+    colorsPassed: ['#8C6BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #481C77 (NOT the #8C6BA6 asked for) tol 11 ' +
+      '(0 px outside at 11, 133 at 12). Job 45344e15.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid jewel-tone purple. All three arches are the EXACT SAME ONE PURPLE — no second purple, no lighter purple, no darker purple, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is purple, violet, mauve or lilac. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'editorial cream',
+    aspectRatio: '4:3',
+    backgroundColor: '#F7F3EA',
+    seedColor: '#D98BA6',
+    colorsPassed: ['#D98BA6'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #D98BA6 tol 6 (37 px outside, just under the 40 px ' +
+      'budget; no cliff, it climbs gradually). Job d1ed1087. ⚠ Its nearest neutral is 3.21 — its ' +
+      "own antialiased edge. It ships because the POSITIONAL count is what decides.",
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in blooms in ONE single flat solid blush pink. All three arches are the EXACT SAME ONE PINK — no second pink, no lighter pink, no darker pink, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another or between one bloom and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The few leaves and the arch frames are drawn in WARM CREAM, oatmeal and pale sand only — no greys, no black, no charcoal, and nothing else in the picture is pink, rose or blush. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'tropical heritage',
+    aspectRatio: '4:3',
+    backgroundColor: '#E4D9CC',
+    seedColor: '#9CB29A',
+    colorsPassed: ['#9CB29A'],
+    outcome:
+      'KEEPER on the second attempt — shipped, slot #9CB29A tol 5 (18 px outside at 5, 131 at ' +
+      '6). Job 4ada9f96. The first attempt (job 76643e4b) was UNSEEDABLE at 3.37 because the ' +
+      'leaves on the further arches were drawn a shade DARKER — depth-shading, which "no darker ' +
+      'green" did not forbid because the model read it per-leaf. See the finding above.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. Every arch is covered in tropical leaves. THE ENTIRE PICTURE CONTAINS EXACTLY ONE SHADE OF GREEN AND NO OTHER GREEN AT ALL — every leaf on every arch, near and far, is filled with that one identical flat sage green. There is absolutely no gradient anywhere, no second green, no darker green for the leaves behind, no lighter green for the leaves in front, no shadow, no highlight, no tint, no shade. Depth is shown ONLY by the size of the arches, never by colour. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. The arch frames are drawn in WARM CREAM and pale sand only — no greys, no black, no charcoal, no olive. ' +
+      COMMON_SUFFIX,
+  },
+  {
+    zone: 'tunnel',
+    style: 'modern minimalist',
+    aspectRatio: '4:3',
+    backgroundColor: '#F5F3EF',
+    seedColor: '#4A3B45',
+    colorsPassed: ['#4A3B45'],
+    outcome:
+      'KEEPER, first attempt — shipped, slot #4A3B45 tol 30, ZERO px outside at the CHECK ' +
+      'ceiling, nearest neighbour 70.07. Job 754f4175. Bare geometric hoops rather than ' +
+      'flowers, which is what the family means by an arch.',
+    prompt:
+      'Three wedding aisle arches receding away from the viewer in one-point perspective, seen head-on and centred: a large arch nearest, a medium one behind it, a small one furthest, forming a walkway tunnel. The arches are plain bare geometric hoops with no flowers, each a solid band of ONE single flat solid deep charcoal plum. All three arches are the EXACT SAME ONE PLUM — no second plum, no shading, no gradient, no highlight, no tonal variation of any kind between one arch and another. The arches stand on a completely plain empty background with generous empty margins all around and NOTHING between or beneath them: no floor, no aisle, no carpet, no wall, no room, no horizon line, no people. Everything else in the picture is drawn in WARM CREAM, oatmeal and pale sand only. There are NO GREYS anywhere in it, no black, no charcoal, no silver: the arches are the only dark thing in the picture. ' +
+      COMMON_SUFFIX,
+  },
+];

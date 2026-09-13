@@ -165,7 +165,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱2,999 PER EVENT (owner-locked 2026-07-25 ·
+      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱3,000 PER EVENT (owner-locked 2026-07-25 ·
       // Live_Studio_Unified_Spec § 3: Cast + Roam merged into one switching product).
       //
       // 🚨 IT MUST BE LISTED HERE OR IT CAN NEVER APPEAR. `resolvedGroups` maps over
@@ -181,10 +181,10 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
       // and appears the moment the owner flips the flag — one launch switch, no second
       // code change. (Free single-camera livestream is unaffected and stays free.)
-      { code: 'LIVE_STUDIO' }, // Live Studio ₱2,999/event — the unified switching SKU
+      { code: 'LIVE_STUDIO' }, // Live Studio — once per event, unlimited streams (LS6, 2026-09-02) — the unified switching SKU
       // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
       // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
-      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱2,999 unified
+      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱3,000 unified
       // controller (a ₱500 arbitrage on a live buy button). PANOOD_SYSTEM_MOBILE was
       // retired 2026-07-21 and was never purchasable anyway (no buy surface ever posted
       // it, zero orders). Both drop out of resolvedGroups automatically; the code stays
@@ -204,7 +204,7 @@ const ADDON_GROUPS: CatalogGroup[] = [
       // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
       // 2026-08-11 — it is is_active=false and drops out of resolvedGroups
       // automatically, and there is no longer a maker behind it to sell.
-      { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
+      { code: 'SEATING_3D' }, // FREE 2026-09-05 — no longer a paid row (was activated 2026-07-10)
     ],
   },
   {

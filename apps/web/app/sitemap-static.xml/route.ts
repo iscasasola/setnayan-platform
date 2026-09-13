@@ -79,12 +79,7 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
   { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
-  // /how-it-works — iteration 0015 marketing site.
-  { path: '/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
 
-  // /tl/how-it-works — Taglish edition of /how-it-works (localization,
-  // 2026-06-13). hreflang reciprocal lives in both pages' metadata.
-  { path: '/tl/how-it-works', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },
 
   // /help moved to its own sitemap-help.xml (2026-06-13) — it now owns the
   // /help hub + 61 per-article /help/[slug] URLs, so listing /help here too
@@ -124,11 +119,19 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/patiktok', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
   // The song. Sold since 2026-05-14, public page added 2026-08-21.
   { path: '/pakanta', lastmod: '2026-08-21', changefreq: 'monthly', priority: '0.7' },
+  // The mood board. FREE with every account (the only free tool in this block),
+  // public page added 2026-09-03 when it joined the Studio rail.
+  { path: '/mood-board', lastmod: '2026-09-03', changefreq: 'monthly', priority: '0.7' },
+  // The three free planning tools, public pages added 2026-09-05 when they
+  // joined the Studio rail: the marketplace (search + compare), the guest
+  // list and the seat plan.
+  { path: '/marketplace', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  { path: '/guest-list', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  { path: '/seat-plan', lastmod: '2026-09-05', changefreq: 'monthly', priority: '0.7' },
+  // The last two free workspace tools to get a doorway (owner 2026-09-06).
+  { path: '/budget', lastmod: '2026-09-06', changefreq: 'monthly', priority: '0.7' },
+  { path: '/schedule', lastmod: '2026-09-06', changefreq: 'monthly', priority: '0.7' },
 
-  // /why-setnayan — comparison / differentiation page (WebPage + FAQPage JSON-LD).
-  // New 2026-06-20; the GEO/SEO surface for "wedding app comparison" / "best
-  // wedding app Philippines" — the citable "three apps in one" frame.
-  { path: '/why-setnayan', lastmod: '2026-06-20', changefreq: 'monthly', priority: '0.7' },
 
   // /waitlist — pre-launch surface. Updated when pilot/launch dates shift.
   { path: '/waitlist', lastmod: '2026-05-28', changefreq: 'weekly', priority: '0.7' },

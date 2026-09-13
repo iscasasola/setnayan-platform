@@ -28,7 +28,7 @@ import {
   type PaletteKey,
   type RolePalette,
 } from '@/lib/mood-board';
-import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
+import { RECEPTION_PARTS, selAll, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
 
 export type PrintableEvent = {
   display_name: string | null;
@@ -61,6 +61,10 @@ const PART_ORDER: PartId[] = [
   'tables',
   'tunnel',
   'entrance',
+  // 3 Filipino-relevant zones added 2026-09-03 — see reception-scene.ts.
+  'walls',
+  'photo_wall',
+  'welcome_signage',
   'people',
 ];
 
@@ -89,21 +93,41 @@ function ascii(s: string): string {
     .replace(/[^\x00-\xFF]/g, ' ');
 }
 
-/** Palette grouped per role — only rows the couple actually saved a color for. */
+/**
+ * Palette grouped per role — only rows the couple actually saved a color for.
+ * Couple-authored `custom_roles` (beyond the fixed taxonomy — e.g. "Ring
+ * bearer's dog") are appended AFTER the fixed rows, never replacing any of
+ * them, so a printed board never silently drops a role the couple named.
+ */
 function paletteRows(palette: RolePalette): Array<{ label: string; colors: string[] }> {
-  return PALETTE_ORDER.map((key) => ({
+  const fixed = PALETTE_ORDER.map((key) => ({
     label: PALETTE_LIMITS[key as PaletteKey]?.label ?? String(key),
     colors: (palette[key as PaletteKey] ?? []).filter((c) => /^#?[0-9a-f]{6}$/i.test(c)),
   })).filter((r) => r.colors.length > 0);
+  const custom = (palette.custom_roles ?? [])
+    .map((r) => ({
+      label: r.label,
+      colors: r.colors.filter((c) => /^#?[0-9a-f]{6}$/i.test(c)),
+    }))
+    .filter((r) => r.colors.length > 0);
+  return [...fixed, ...custom];
 }
 
 /** The per-part material choices, derived from the live taxonomy. */
 function designChoices(design: ReceptionDesign): Array<{ label: string; value: string }> {
   return PART_ORDER.map((pid) => {
     const part = RECEPTION_PARTS.find((p) => p.id === pid)!;
+    // selAll, not sel: a printed board that showed only the FIRST of a
+    // couple's two ceiling treatments would look exactly like a board that
+    // was right.
     const vals = part.attributes
-      .map((a) => a.options.find((o) => o.id === sel(design, pid, a.id))?.label)
-      .filter(Boolean) as string[];
+      .map((a) =>
+        selAll(design, pid, a.id)
+          .map((id) => a.options.find((o) => o.id === id)?.label)
+          .filter((l): l is string => Boolean(l))
+          .join(' + '),
+      )
+      .filter((v) => v.length > 0);
     return { label: part.label, value: vals.join(' · ') };
   }).filter((r) => r.value.length > 0);
 }

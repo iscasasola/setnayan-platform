@@ -15,7 +15,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
-import { R2_BUCKETS, publicUrlFor } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { retireReplacedMedia } from '@/lib/website-media-server';
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -48,6 +48,11 @@ export async function saveBackgroundVideo(input: {
     const adminId = await assertAdmin();
     if (!validSlot(input.slot)) return { ok: false, error: 'Invalid slot.' };
     if (!input.videoKey) return { ok: false, error: 'No uploaded video to save.' };
+    // The homepage renders `video_url` directly, so an address we cannot build
+    // must never be WRITTEN. `presignAndPut` hands back a bare object key;
+    // anything else that cannot be addressed publicly stops here.
+    const videoUrl = publicUrlForStoredAsset(input.videoKey);
+    if (!videoUrl) return { ok: false, error: 'That upload has no public address.' };
     const db = createAdminClient();
 
     // Read the outgoing key BEFORE the update — after it, the row no longer
@@ -62,7 +67,7 @@ export async function saveBackgroundVideo(input: {
     const { error } = await db
       .from('homepage_background_videos')
       .update({
-        video_url: publicUrlFor(R2_BUCKETS.media, input.videoKey),
+        video_url: videoUrl,
         video_r2_key: input.videoKey,
         video_mime_type: input.videoMime,
         // a freshly-uploaded clip lands as a DRAFT — the admin publishes explicitly

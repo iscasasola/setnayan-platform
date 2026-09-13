@@ -133,13 +133,13 @@ test('ROUTE — the internal data key is unchanged by the rename', () => {
 });
 
 test('LOCKED — a free (un-purchased) host has the multi-cam extras locked', () => {
-  const state = liveStudioControlLock(false, '₱2,999');
+  const state = liveStudioControlLock(false, '₱3,000');
   assert.equal(state.multiCamUnlocked, false);
-  assert.equal(state.unlockCtaLabel, 'Unlock · ₱2,999');
+  assert.equal(state.unlockCtaLabel, 'Unlock · ₱3,000');
 });
 
 test('UNLOCK — a host who owns LIVE_STUDIO has the multi-cam extras unlocked', () => {
-  const state = liveStudioControlLock(true, '₱2,999');
+  const state = liveStudioControlLock(true, '₱3,000');
   assert.equal(state.multiCamUnlocked, true);
 });
 
@@ -341,8 +341,8 @@ test('NOTICE — the go-live line appears only when there is something they cann
 
 test('NOTICE — the price comes from the catalog and degrades rather than inventing one', () => {
   assert.equal(
-    rehearseFreeNotice('₱2,999'),
-    'Rehearse free · Unlock ₱2,999 to broadcast all your cameras',
+    rehearseFreeNotice('₱3,000'),
+    'Rehearse free · Unlock ₱3,000 to broadcast all your cameras',
   );
   const noPrice = rehearseFreeNotice(null);
   assert.ok(noPrice.startsWith('Rehearse free · Unlock to broadcast'));

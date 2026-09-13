@@ -40,6 +40,25 @@ export type ExploreChip = {
   href: string;
 };
 
+/**
+ * A chip's href → the value of one of its query params.
+ *
+ * The chips were built server-side as full hrefs (`/explore?category=live_band`)
+ * and the dropdowns need the VALUE, not the link. Reading it back out beats
+ * changing every producer of `ExploreChip`: one parser here cannot disagree with
+ * itself, whereas a second field on the type would have to be kept in step by
+ * every caller that builds a chip.
+ *
+ * Returns '' when the param is absent, which renders as the "Any …" option — a
+ * chip that stops carrying its own filter simply stops being selectable, rather
+ * than submitting a broken value.
+ */
+function chipParam(href: string, param: string): string {
+  const q = href.indexOf('?');
+  if (q < 0) return '';
+  return new URLSearchParams(href.slice(q + 1)).get(param) ?? '';
+}
+
 export function ExploreSearchHero({
   taxonomyOptions,
   scopedFolder,
@@ -121,38 +140,81 @@ export function ExploreSearchHero({
           ) : null}
         </form>
 
-        {chips.length > 0 ? (
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--m-slate-3)]">
-              Popular
-            </span>
-            {chips.map((chip) => (
-              <Link
-                key={chip.href}
-                href={chip.href}
-                className="inline-flex items-center rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3.5 py-1.5 text-[13px] font-medium text-[color:var(--m-slate)] transition-colors hover:border-[color:var(--m-orange)] hover:text-[color:var(--m-ink)]"
-              >
-                {chip.label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
+        {/* ── TWO DROPDOWNS, NOT TWO WALLS OF CHIPS ────────────────────────
+            Owner 2026-09-08, looking at 4 service chips over 16 occasion
+            chips: *"if they want to search a category or per ocassion. they
+            can pick from a drop down. but we don't need to show as many
+            buttons up front. we want it simple and clean and easy to search.
+            not bombarded with a lot of choices."*
 
-        {occasionChips.length > 0 ? (
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--m-slate-3)]">
-              Occasion
-            </span>
-            {occasionChips.map((chip) => (
-              <Link
-                key={chip.href}
-                href={chip.href}
-                className="inline-flex items-center rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3.5 py-1.5 text-[13px] font-medium text-[color:var(--m-slate)] transition-colors hover:border-[color:var(--m-orange)] hover:text-[color:var(--m-ink)]"
-              >
-                {chip.label}
-              </Link>
-            ))}
-          </div>
+            Both filters SURVIVE — `?category=` and `?event_type=` are the same
+            query params the chips linked to, and every existing deep link into
+            them still resolves. What changes is that a visitor is asked one
+            question (what are you looking for?) instead of being shown twenty
+            answers before they have been asked anything.
+
+            🔑 THE OCCASION ROW EXISTED FOR A REASON WORTH KEEPING. Its own note
+            said `?event_type=` had shipped since Iteration 0041 with NOTHING on
+            any public surface able to set it — the filter drawer does not render
+            on this landing. Deleting the row outright would have re-orphaned the
+            filter. A `<select>` is the smaller surface that keeps it reachable.
+
+            Native `<select>` inside the same GET form, deliberately: it submits
+            without JavaScript, it is keyboard- and screen-reader-native, and on
+            a phone it opens the platform picker instead of a 20-target tap area.
+            They stay SEPARATE controls because services and occasions answer
+            different questions — one merged list would read as though "Debut"
+            and "Florists" were alternatives. */}
+        {chips.length > 0 || occasionChips.length > 0 ? (
+          <form
+            method="get"
+            action="/explore"
+            className="mt-5 flex w-full max-w-2xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-center"
+          >
+            {scopedFolder ? (
+              <input type="hidden" name="folder" value={scopedFolder} />
+            ) : null}
+            {chips.length > 0 ? (
+              <label className="flex-1">
+                <span className="sr-only">Filter by category</span>
+                <select
+                  name="category"
+                  defaultValue=""
+                  className="w-full rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-4 py-2 text-[13px] font-medium text-[color:var(--m-slate)]"
+                >
+                  <option value="">Any category</option>
+                  {chips.map((chip) => (
+                    <option key={chip.href} value={chipParam(chip.href, 'category')}>
+                      {chip.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {occasionChips.length > 0 ? (
+              <label className="flex-1">
+                <span className="sr-only">Filter by occasion</span>
+                <select
+                  name="event_type"
+                  defaultValue=""
+                  className="w-full rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-4 py-2 text-[13px] font-medium text-[color:var(--m-slate)]"
+                >
+                  <option value="">Any occasion</option>
+                  {occasionChips.map((chip) => (
+                    <option key={chip.href} value={chipParam(chip.href, 'event_type')}>
+                      {chip.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <button
+              type="submit"
+              className="rounded-full border border-[color:var(--m-ink)] bg-[color:var(--m-ink)] px-5 py-2 text-[13px] font-medium text-[color:var(--m-paper)]"
+            >
+              Show
+            </button>
+          </form>
         ) : null}
 
         <p className="mt-6 text-[13px] text-[color:var(--m-slate)]">

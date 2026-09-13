@@ -32,7 +32,8 @@ import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
-import { LockDateConfirmModal, LockMilestoneToast } from './lock-milestone';
+import { LockConfirmModal, LockMilestoneToast } from './lock-milestone';
+import type { LockImpact } from '@/lib/lock-impact';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
 import { markCategoryComplete } from '../category-decision-actions';
@@ -91,6 +92,18 @@ type LockState =
   | {
       kind: 'date_confirm';
       dateLabel: string;
+      /** What ELSE this lock closes — rendered in the SAME confirm (owner
+       *  2026-09-06), never as a second modal stacked behind this one. */
+      impact: LockImpact | null;
+      override: boolean;
+      slotId: string | null;
+    }
+  // Owner 2026-09-06: this lock kills saved plans and/or sinks bench vendors,
+  // but does NOT set the date. Same modal, impact half only. Carries the
+  // override/slot context so the confirmed re-call preserves any prior choice.
+  | {
+      kind: 'impact_confirm';
+      impact: LockImpact;
       override: boolean;
       slotId: string | null;
     }
@@ -181,6 +194,16 @@ export function AccordionLockButton({
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
   const mountedRef = useRef(false);
+  // ⚠ A REF, NOT A THREADED FLAG, AND THAT IS THE POINT (owner 2026-09-06).
+  // Once the couple has read what this lock closes and pressed "lock anyway",
+  // that consent must survive EVERY later gate — reservation terms, the
+  // downpayment picker, a slot re-pick — each of which re-enters performLock.
+  // `confirmDateLock` is threaded through those states one field at a time, so
+  // a gate added later that forgets to carry it silently re-opens a modal the
+  // couple already answered. A ref cannot be dropped by a gate that does not
+  // know about it. Scoped per button, i.e. per vendor, so it never leaks to
+  // another card; a dismiss leaves it false, so "Not yet" really means not yet.
+  const impactConfirmedRef = useRef(false);
   const save = useSaveLoader();
 
   useEffect(() => {
@@ -254,6 +277,7 @@ export function AccordionLockButton({
       if (override) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
       if (confirmDateLock) fd.set('confirm_date_lock', '1');
+      if (impactConfirmedRef.current) fd.set('confirm_lock_impact', '1');
       if (acknowledgeReservationTerms) fd.set('acknowledge_reservation_terms', '1');
       // Payment-gated lock (HARD gate): the downpayment submitted from the modal
       // rides on THIS finalize call, which validates it pre-commit then commits +
@@ -355,9 +379,23 @@ export function AccordionLockButton({
         case 'date_will_lock':
           // Locking narrows the couple's candidates to one date — confirm the
           // date lock, preserving the override/slot context of this attempt.
+          // The server folds in what ELSE this lock closes so both facts land
+          // in one dialog (owner 2026-09-06); null when it closes nothing.
           setState({
             kind: 'date_confirm',
             dateLabel: result.dateLabel,
+            impact: result.impact,
+            override,
+            slotId,
+          });
+          return;
+        case 'lock_will_cost':
+          // This lock kills saved plans and/or sinks bench vendors without
+          // setting the date. Same modal, impact half only. The server only
+          // ever sends this with a NON-EMPTY impact.
+          setState({
+            kind: 'impact_confirm',
+            impact: result.impact,
             override,
             slotId,
           });
@@ -507,13 +545,33 @@ export function AccordionLockButton({
           />,
         )}
 
-      {/* Date-lock confirmation — locking this vendor finalizes the date. */}
+      {/* Pre-lock confirmation — this lock finalizes the date, and/or closes
+          saved plans + sinks bench vendors. ONE modal for both (owner
+          2026-09-06); it is never opened for a lock that costs nothing. */}
       {state.kind === 'date_confirm' ? (
-        <LockDateConfirmModal
+        <LockConfirmModal
           vendorName={vendorName}
           dateLabel={state.dateLabel}
+          impact={state.impact}
           isPending={isPending}
-          onConfirm={() => performLock(state.override, state.slotId, true)}
+          onConfirm={() => {
+            impactConfirmedRef.current = true;
+            performLock(state.override, state.slotId, true);
+          }}
+          onDismiss={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
+
+      {state.kind === 'impact_confirm' ? (
+        <LockConfirmModal
+          vendorName={vendorName}
+          dateLabel={null}
+          impact={state.impact}
+          isPending={isPending}
+          onConfirm={() => {
+            impactConfirmedRef.current = true;
+            performLock(state.override, state.slotId, false);
+          }}
           onDismiss={() => setState({ kind: 'idle' })}
         />
       ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { cameraLinkNotice } from '@/lib/panood-signal-status';
 import { Video, VideoOff, CircleAlert, Wifi } from 'lucide-react';
 import {
   publishPanoodCamera,
@@ -104,6 +105,7 @@ export function PanoodCameraPublish({
     'starting',
   );
   const [link, setLink] = useState<PeerConnectionState | null>(null);
+  const [signalRefused, setSignalRefused] = useState(false);
   /** How many wedding guests are currently watching THIS camera (Wave 10). */
   const [guestViewers, setGuestViewers] = useState(0);
 
@@ -152,6 +154,10 @@ export function PanoodCameraPublish({
           slot: cameraSlotForIndex(cameraIndex),
           stream,
           onState: setLink,
+          // ⭐ A REFUSED CHANNEL SAYS SO. Without this the operator reads
+          // "connecting to the controller…" forever and cannot tell a refusal from
+          // a slow network — which is the whole reason this bug cost an hour.
+          onSignalRefused: () => setSignalRefused(true),
           iceServers,
         });
 
@@ -326,14 +332,14 @@ export function PanoodCameraPublish({
           <Wifi aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-cream/55" strokeWidth={1.75} />
           <p className="text-xs leading-relaxed text-cream/70">
             You&rsquo;re <span className="font-medium text-cream">{camLabel}</span> ·{' '}
-            {streamingEnabled
-              ? link === 'connected'
-                ? "live to the controller — the operator picks when you're on screen."
-                : link === 'failed'
-                  ? "couldn't reach the controller on this network — try the same Wi-Fi as the operator."
-                  : 'connecting to the controller…'
-              : 'connected · the operator will bring you live from the controller.'}{' '}
-            Keep this screen open and your camera pointed where you want.
+            {/* One selector, in `lib/panood-signal-status.ts`, so PRECEDENCE is a
+                tested property rather than the order somebody happened to nest the
+                ternaries in. A refusal used to lose to the `failed` that always
+                accompanies it, and the refusal sentence could not render at all. */}
+            {cameraLinkNotice({ streamingEnabled, link, signalRefused })}{' '}
+            Keep this screen open and your camera pointed where you want. Hold
+            your phone sideways (landscape) so your shot fills the screen —
+            upright shots go out with black bars on the sides.
           </p>
         </div>
 

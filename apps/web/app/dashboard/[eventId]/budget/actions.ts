@@ -11,6 +11,9 @@ import {
   buildBudgetLiveSummary,
   type BudgetLiveSummary,
 } from '@/lib/budget';
+import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
+import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
+import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -584,6 +587,30 @@ export async function deletePayment(formData: FormData) {
  * caller's own event. Returns null on no-auth / bad input / transient
  * failure; the card keeps its last-known values rather than flashing an
  * error (Realtime auto-reconnects and the next event heals the gap).
+ *
+ * ─── BA2 · why this asks the flag (found 2026-09-02) ─────────────────────
+ * This is the SECOND writer of the same card. `budget/page.tsx` computes the
+ * first paint through `budgetLiveSummaryMoney`; this action computed every
+ * subsequent one from the raw legacy summary, whose `budget` is *every
+ * vendor's itemized total, whatever their status* — with the headline
+ * `total_cost_php` as its fallback.
+ *
+ * So with `NEXT_PUBLIC_BUDGET_TRUTH_ENABLED` on (Production since 2026-09-02),
+ * a card that first painted the committed total would SWAP to the legacy one
+ * the instant any payment or line item changed on the event: on the prod
+ * fixture `044f7e64…` that is ₱0 becoming ₱80,000 — one `considering`
+ * vendor's quote, back on the page BA2 just removed it from, with no card
+ * anywhere to explain it.
+ *
+ * Measured 2026-09-02 against prod: LATENT, not yet observable — no event has
+ * both an unconfirmed vendor carrying money and the confirmed-vendor payment
+ * activity that fires the channel (`044f7e64…` has 0 line items and 0
+ * payments). It is wired anyway, because the two writers must not be able to
+ * disagree about one number.
+ *
+ * Same degrade rule as the two render surfaces: any resolver failure returns
+ * `null` and the summary falls back to the legacy figures rather than a
+ * confident ₱0.
  */
 export async function getBudgetLiveSummary(
   eventId: string,
@@ -594,9 +621,19 @@ export async function getBudgetLiveSummary(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+  const budgetTruth = isBudgetTruthEnabled();
   try {
-    const snapshot = await fetchBudgetSnapshot(supabase, eventId);
-    return buildBudgetLiveSummary(snapshot);
+    const [snapshot, money] = await Promise.all([
+      fetchBudgetSnapshot(supabase, eventId),
+      budgetTruth
+        ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
+        : Promise.resolve<EventMoney | null>(null),
+    ]);
+    return budgetLiveSummaryMoney({
+      enabled: budgetTruth,
+      money,
+      legacy: buildBudgetLiveSummary(snapshot),
+    });
   } catch {
     return null;
   }

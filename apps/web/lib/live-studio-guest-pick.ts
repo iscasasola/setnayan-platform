@@ -27,7 +27,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { cameraSlotForIndex } from '@/lib/live-studio-channel-cameras';
+import { cameraSlotForIndex, resolveChannelStatus } from '@/lib/live-studio-channel-cameras';
 
 /**
  * ⭐ THE CAP — how many guests may watch ONE side camera at the same time.
@@ -246,6 +246,7 @@ type ZoneRow = {
   venue_label: string | null;
   sort_order: number | null;
   camera_operator_id: number | null;
+  status: string | null;
 };
 
 type OperatorRow = {
@@ -254,6 +255,11 @@ type OperatorRow = {
   claimer_user_id: string | null;
   revoked_at: string | null;
   status: string | null;
+  /**
+   * The bound phone's heartbeat. WITHOUT THIS COLUMN THE ROSTER CANNOT TELL A
+   * RUNNING CAMERA FROM A DEAD ONE — see the projection below.
+   */
+  last_seen_at: string | null;
 };
 
 /**
@@ -274,7 +280,7 @@ export async function fetchGuestPickCameras(
 ): Promise<GuestPickCamera[]> {
   const { data: zoneData, error: zoneError } = await supabase
     .from('live_studio_roam_zones')
-    .select('zone_index, label, venue_label, sort_order, camera_operator_id')
+    .select('zone_index, label, venue_label, sort_order, camera_operator_id, status')
     .eq('event_id', eventId)
     .eq('status', 'live')
     .order('sort_order', { ascending: true })
@@ -296,7 +302,12 @@ export async function fetchGuestPickCameras(
   // and for the same reason: the two tables have different RLS.
   const { data: opData, error: opError } = await supabase
     .from('panood_camera_operators')
-    .select('id, camera_index, claimer_user_id, revoked_at, status')
+    // ⚠ `last_seen_at` IS LOAD-BEARING, not diagnostic. Drop it from this
+    // projection and every seat's stamp arrives `undefined`, which
+    // `resolveChannelStatus` reads as "never beat" — the roster would then go
+    // permanently EMPTY rather than permanently wrong. Pinned by
+    // "the roster asks the database for the heartbeat it filters on".
+    .select('id, camera_index, claimer_user_id, revoked_at, status, last_seen_at')
     .eq('event_id', eventId)
     .in('id', zones.map((z) => z.camera_operator_id as number));
   if (opError || !opData) return [];
@@ -304,16 +315,44 @@ export async function fetchGuestPickCameras(
   const seats = new Map<number, OperatorRow>();
   for (const row of opData as OperatorRow[]) seats.set(row.id, row);
 
+  const now = new Date();
+
   const out: GuestPickCamera[] = [];
   for (const z of zones) {
     const seat = seats.get(z.camera_operator_id as number);
     // No seat on THIS event (composite FK makes cross-event impossible, so this is
-    // simply "unbound"), or a seat nobody is holding, or one whose token was pulled
-    // — none of those is a camera a guest can reach. Offering it would be a pill
-    // that spins forever.
+    // simply "unbound"), or one whose token was pulled — neither is a camera a guest
+    // can reach. Offering it would be a pill that spins forever.
     if (!seat) continue;
     if (seat.revoked_at || seat.status === 'revoked') continue;
-    if (!seat.claimer_user_id) continue;
+
+    // ⭐ AND NEITHER IS A PHONE THAT LEFT. `status = 'live'` on the zone is the last
+    // transition anyone OBSERVED, and the one transition nobody observes is a phone
+    // leaving — a browser closed, backgrounded, or carried out of signal sends no
+    // goodbye. Worse, `panood_camera_heartbeat`'s demotion sweep is deliberately
+    // CRON-FREE (one live camera reports its dead neighbours), so when the LAST
+    // camera on an event leaves there is no next heartbeat and NOTHING ever demotes
+    // it. Measured in production 2026-09-01: a zone reading 'live' against a seat
+    // last seen 13,843 seconds earlier — and this roster offered that camera.
+    //
+    // `resolveChannelStatus` is the SAME function the controller has used for its
+    // own honest status since Wave 4, and it also answers "is the seat claimed?" —
+    // so the `claimer_user_id` test that used to sit here is folded into it rather
+    // than written twice. One rule, two surfaces. Migration 20271188365061 applies
+    // the same 60s window to the signaling predicate, so a guest is never OFFERED a
+    // camera whose channel they could not open.
+    if (
+      resolveChannelStatus({
+        status: z.status,
+        lastSeenAt: seat.last_seen_at,
+        bound: true,
+        claimed: Boolean(seat.claimer_user_id),
+        now,
+      }) !== 'live'
+    ) {
+      continue;
+    }
+
     out.push({
       zoneIndex: z.zone_index as number,
       slot: cameraSlotForIndex(seat.camera_index),

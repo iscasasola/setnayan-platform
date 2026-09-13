@@ -681,7 +681,7 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
     gates: [/const draftMeasured = !draftError;/, /\{!draftMeasured \? \(/],
   },
   {
-    file: '[eventId]/website/editorial/page.tsx',
+    file: '[eventId]/story/page.tsx',
     why: 'their whole written story, blank — and saving replaces it',
     gates: [/draftMeasured = !edError;/, /\{!draftMeasured \? \(/],
   },

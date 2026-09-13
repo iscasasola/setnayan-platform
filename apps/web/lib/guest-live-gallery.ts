@@ -16,6 +16,13 @@
  * playback. Presigned 1h GET URLs; thumbnails only, capped small — this
  * renders on a venue-WiFi page.
  *
+ * 🔒 AND THE BLUR RULE (owner ruling 1, 2026-08-17). A guest is not the couple,
+ * so this read goes through `lib/papic-guest-blur-gate.ts` — the single place
+ * that asks production's own `papic_captures_needing_blur`. A capture tagging
+ * someone who withdrew photo consent, or any capture on a FaceBlock event, is
+ * served as its BLURRED stand-in or withheld entirely. It was missing here for
+ * three weeks after the wall, the public page and the shared pool all had it.
+ *
  * ── THE RETURN CONTRACT (and it is load-bearing) ────────────────────────────
  *   `{ photos, total }` — the read SUCCEEDED. `photos` may be empty; an empty
  *                         result is a real answer and the commonest one early
@@ -44,6 +51,12 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
+import { readGuestWallStates, wallTileKey, type WallTileState } from '@/lib/guest-wall-unpost';
+import {
+  loadGuestBlurGate,
+  guestSafeKeyForCapture,
+  type CaptureSourceTable,
+} from '@/lib/papic-guest-blur-gate';
 
 const URL_TTL_SECONDS = 60 * 60;
 
@@ -78,6 +91,17 @@ export type GuestLivePhoto = {
    * the same as "no credit" while meaning "nobody decided". Null is a decision.
    */
   capturedBy: string | null;
+  /**
+   * IS IT ON THE VENUE WALL RIGHT NOW — and if it is down, whose doing?
+   *
+   * Owner ruling 2026-09-02: a guest can un-post her own photograph. The tile
+   * is where she does it, so the tile has to know. `'off'` (the wall never held
+   * this one) is the commonest value and renders no control at all; `'unknown'`
+   * means the wall read FAILED and still offers the control, because a privacy
+   * button that disappears when a secondary read breaks is the same defect as
+   * one that does nothing. See lib/guest-wall-unpost.ts for the full table.
+   */
+  wall: WallTileState;
 };
 
 export type GuestLiveGallery = {
@@ -226,6 +250,45 @@ export async function getGuestLiveGallery(
       }
     }
 
+    // ── MUST ANY OF THESE BE BLURRED FIRST? ──────────────────────────────
+    // Owner ruling 1 of 2026-08-17: "Public = everyone except the couple." A
+    // guest reading "photos of you" is not the couple, so a capture tagging
+    // somebody who withdrew photo consent — or ANY capture on an event with a
+    // FaceBlock guest — is served as its blurred stand-in, or not at all.
+    //
+    // 🔑 THE QUESTION IS ASKED ONCE, IN lib/papic-guest-blur-gate.ts, which
+    // calls the SAME SQL predicate the venue wall and the shared pool ask. Six
+    // surfaces read through this function; teaching each of them the rule is
+    // six chances to forget, and that is precisely how this hole was dug.
+    const sourceTableById = new Map<string, CaptureSourceTable>();
+    for (const p of photosRes.data ?? []) sourceTableById.set(p.photo_id, 'papic_photos');
+    for (const c of capturesRes.data ?? [])
+      sourceTableById.set(c.capture_id, 'papic_guest_captures');
+    const blurGate = await loadGuestBlurGate(
+      admin,
+      eventId,
+      [...keyById.keys()].map((id) => ({
+        sourceTable: sourceTableById.get(id) ?? 'papic_photos',
+        sourceId: id,
+      })),
+    );
+    // The gate could not answer. That is a FAILED read, not an empty one — the
+    // page's words for the two differ, and "no one has tagged you yet" printed
+    // over photos we simply could not clear is a lie told to a guest.
+    if (blurGate.failed) return null;
+    for (const [id, key] of [...keyById]) {
+      const resolved = guestSafeKeyForCapture(
+        blurGate,
+        { sourceTable: sourceTableById.get(id) ?? 'papic_photos', sourceId: id },
+        key,
+        preferDisplay ? 'display' : 'thumb',
+      );
+      // Withheld: needs a blur and no baked stand-in exists (or it is a clip,
+      // which has no safe form). Dropped from the feed AND from `total`.
+      if (!resolved) keyById.delete(id);
+      else if (resolved !== key) keyById.set(id, resolved);
+    }
+
     // ── WHO TOOK EACH ONE ────────────────────────────────────────────────
     // Resolved once, from the ids on the rows this read already returned. See
     // lib/capture-credit.ts for why the name lookup is service-role and why that
@@ -301,6 +364,17 @@ export async function getGuestLiveGallery(
       );
 
     const top = ordered.slice(0, limit);
+
+    // Wall state for the tiles actually being rendered — never for the whole
+    // feed. Best-effort: readGuestWallStates swallows its own failures into
+    // 'unknown' rather than throwing, so the gallery cannot be lost to it.
+    const wallStates = await readGuestWallStates(
+      admin,
+      eventId,
+      guestId,
+      top.map(({ id, sourceTable }) => ({ sourceTable, sourceId: id })),
+    );
+
     const photos = (
       await Promise.all(
         top.map(async ({ id, sourceTable, key }) => {
@@ -312,6 +386,7 @@ export async function getGuestLiveGallery(
                 url,
                 capturedAt: shotAtById.get(id) ?? null,
                 capturedBy: creditFor(id),
+                wall: wallStates.get(wallTileKey(sourceTable, id)) ?? 'unknown',
               }
             : null;
         }),

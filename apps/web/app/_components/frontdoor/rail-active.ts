@@ -104,7 +104,7 @@ function specificityOf(
  * list, and the tests call it.
  *
  * 🪤 THE MARKETPLACE FOLDERS AND THE STUDIO TOOLS ARE DELIBERATELY ABSENT.
- * They point at `/explore?folder=…` and the eight public doorways — surfaces
+ * They point at `/explore?folder=…` and the Studio doorways — surfaces
  * no converted route can reach, so they can never be the current page and are
  * never lit. Telling them apart needs the current QUERY; that arrives with the
  * slice that converts `/explore`. A row that cannot be right is better left

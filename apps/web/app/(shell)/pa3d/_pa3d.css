@@ -1,0 +1,100 @@
+/*
+ * _pa3d.css — page-scoped motion for /pa3d, co-located like `front-door.css`
+ * and `home-reskin.css` rather than pushed into globals: nothing else on the
+ * site uses these, and a landing page's flourishes should not be loaded by
+ * every route that imports the global sheet.
+ *
+ * ⚠ EVERY ANIMATION BELOW IS DISABLED UNDER `prefers-reduced-motion: reduce`,
+ * and that is not politeness — drift, zoom and auto-scroll are precisely the
+ * motions that make vestibular-sensitive people ill. The page must read
+ * perfectly with all of it off. If a section only makes sense once it moves,
+ * the section is wrong, not the media query.
+ *
+ * Colours come from `--m-*` tokens only. `doorway-palette.test.ts` scans the
+ * .tsx in this folder rather than this file, so the discipline here is on the
+ * honour system — keep it anyway; a hard-coded cream in a stylesheet is the
+ * same defect the guard was written for, just somewhere it cannot see.
+ */
+
+/* ── The hero photograph: a slow push, well past the speed the eye tracks as
+      movement, so it reads as depth rather than as animation. ────────────── */
+.pa3d-kb img {
+  animation: pa3d-kenburns 22s ease-in-out infinite alternate;
+  transform-origin: 50% 55%;
+  will-change: transform;
+}
+
+@keyframes pa3d-kenburns {
+  from {
+    transform: scale(1.04);
+  }
+  to {
+    transform: scale(1.13) translate3d(0, -1.2%, 0);
+  }
+}
+
+/* ── Cards lift toward the reader on hover. Transform only — no layout
+      property animates, so this cannot reflow the page mid-scroll. ──────── */
+.pa3d-lift {
+  transition:
+    transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.pa3d-lift:hover {
+  transform: translate3d(0, -3px, 0);
+  box-shadow: var(--m-shadow-sm);
+}
+
+/* A photograph inside a card leans in with it, a touch further than the card
+   moves, which is what makes the pair read as one object with depth. */
+.pa3d-lift img {
+  transition: transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.pa3d-lift:hover img {
+  transform: scale(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa3d-kb img {
+    animation: none !important;
+  }
+
+  /* The Ken Burns end-state is a crop, not a pose — hold the plain frame. */
+  .pa3d-kb img {
+    transform: none;
+  }
+
+  .pa3d-lift,
+  .pa3d-lift img {
+    transition: none;
+  }
+
+  .pa3d-lift:hover,
+  .pa3d-lift:hover img {
+    transform: none;
+  }
+}
+
+/* ── Caption scrim ──────────────────────────────────────────────────────
+   A caption sits over a PHOTOGRAPH, and a photograph's brightness is not
+   knowable at build time — the toast frame is candlelit and blew straight
+   through a single 80%-ink gradient. `lint-label-on-fill-contrast.mjs`
+   cannot judge this pairing (it skips anything non-opaque), so the fix is
+   not a lighter guess: it is a taller, denser, two-stop scrim plus a soft
+   text shadow, which holds on every frame in the set including the
+   brightest. Ink token only — no literal. */
+.pa3d-scrim {
+  background-image: linear-gradient(
+    to top,
+    var(--m-ink) 0%,
+    color-mix(in srgb, var(--m-ink) 78%, transparent) 38%,
+    color-mix(in srgb, var(--m-ink) 34%, transparent) 68%,
+    transparent 100%
+  );
+}
+
+.pa3d-scrim > * {
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.55);
+}

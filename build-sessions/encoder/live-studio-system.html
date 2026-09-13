@@ -1,0 +1,160 @@
+<title>Live Studio End to End</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{--ground:#faf7f2;--raised:#fffdfa;--ink:#221d1a;--ink-soft:#5d534c;--rule:#e2d9cd;
+    --burgundy:#6d2233;--amber:#8a5a12;--amber-wash:#f6ecd8;--good:#2f5d3a;--good-wash:#eaf2eb;
+    --bad:#8c2f22;--bad-wash:#f9ece9;--wait:#7a5c1f}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#16130f;--raised:#1e1a16;--ink:#efe7dc;--ink-soft:#b0a496;--rule:#372f27;
+    --burgundy:#d98a9c;--amber:#e0b25f;--amber-wash:#2b2318;--good:#8fc79c;--good-wash:#1c2a1f;
+    --bad:#e3907f;--bad-wash:#2e1d1a;--wait:#e0b25f}}
+  :root[data-theme="dark"]{--ground:#16130f;--raised:#1e1a16;--ink:#efe7dc;--ink-soft:#b0a496;
+    --rule:#372f27;--burgundy:#d98a9c;--amber:#e0b25f;--amber-wash:#2b2318;--good:#8fc79c;
+    --good-wash:#1c2a1f;--bad:#e3907f;--bad-wash:#2e1d1a;--wait:#e0b25f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:"Public Sans",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:64rem;margin:0 auto;padding:clamp(1.5rem,4vw,4rem) clamp(1.1rem,4vw,2.5rem) 5rem}
+  h1{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:clamp(2rem,5.5vw,3rem);line-height:1.1;letter-spacing:-.02em;margin:0 0 .5rem;text-wrap:balance}
+  h2{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:clamp(1.35rem,3.2vw,1.75rem);margin:3rem 0 .8rem;text-wrap:balance}
+  h3{font-size:.98rem;font-weight:600;margin:1.6rem 0 .4rem}
+  p{margin:0 0 1rem;max-width:64ch}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 .7rem}
+  .lede{font-size:1.1rem;color:var(--ink-soft);max-width:58ch;margin-bottom:1.6rem}
+  .callout{border-left:3px solid var(--amber);background:var(--amber-wash);padding:1rem 1.2rem;margin:1.4rem 0;border-radius:0 6px 6px 0}
+  .callout.stop{border-color:var(--bad);background:var(--bad-wash)}
+  .callout.ok{border-color:var(--good);background:var(--good-wash)}
+  .callout p{margin:0;max-width:60ch}.callout p+p{margin-top:.6rem}
+  .steps{counter-reset:s;display:grid;gap:.55rem;margin:1.3rem 0}
+  .step{counter-increment:s;background:var(--raised);border:1px solid var(--rule);border-radius:8px;padding:.75rem .95rem .75rem 3rem;position:relative}
+  .step::before{content:counter(s);position:absolute;left:.85rem;top:.72rem;font-family:"IBM Plex Mono",monospace;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
+  .step b{font-weight:600}
+  .step p{margin:.15rem 0 0;font-size:.87rem;color:var(--ink-soft);max-width:60ch}
+  .pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:.1rem .45rem;border-radius:99px;margin-left:.4rem;vertical-align:.08em}
+  .p-ok{background:var(--good-wash);color:var(--good);border:1px solid var(--good)}
+  .p-manual{background:var(--amber-wash);color:var(--wait);border:1px solid var(--wait)}
+  .p-gap{background:var(--bad-wash);color:var(--bad);border:1px solid var(--bad)}
+  .p-flight{background:var(--raised);color:var(--burgundy);border:1px solid var(--burgundy)}
+  .scroll{overflow-x:auto;margin:1.2rem 0;border:1px solid var(--rule);border-radius:8px;background:var(--raised)}
+  table{border-collapse:collapse;width:100%;min-width:38rem;font-size:.87rem}
+  th,td{text-align:left;padding:.6rem .75rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  thead th{font-family:"IBM Plex Mono",monospace;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  tbody tr:last-child td{border-bottom:none}
+  .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--amber-wash);padding:.05em .3em;border-radius:3px}
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-size:.8rem;color:var(--ink-soft)}
+  footer a{color:var(--burgundy)}
+  figure{margin:1.5rem 0;overflow-x:auto}
+  figcaption{font-size:.82rem;color:var(--ink-soft);margin-top:.5rem;max-width:60ch}
+  svg{max-width:100%;height:auto;display:block}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Setnayan · Live Studio · system of record · 3 Sept 2026</p>
+  <h1>Live Studio, end to end</h1>
+  <p class="lede">Everything a wedding needs, in the order it needs it — what works today, what a human still does by hand, and what is genuinely missing.</p>
+
+  <div class="callout ok">
+    <p><strong>Live Studio works today.</strong> A couple can buy it, connect phones, switch cameras, broadcast, and keep the film in their story afterwards. Everything below is about the seams — the places where a human fills a gap the software should.</p>
+  </div>
+
+  <h2>The path a wedding takes</h2>
+
+  <div class="steps">
+    <div class="step"><b>Buy Live Studio — ₱2,500, one unlock<span class="pill p-ok">works</span></b>
+      <p>One unlock per event. Unlimited streams, no day limit. Four warnings show before payment: our <b>24-hour</b> by-hand approval SLA (hence the advice to buy at least 2 days ahead), YouTube's 24-hour activation, the laptop, and the music risk. <b>&ldquo;Unlimited video links&rdquo; is promised by the catalog description but not yet delivered</b> — see step 12. A tick box gates checkout until they confirm their channel is ready — asked once, ever.</p></div>
+
+    <div class="step"><b>Payment reconciled<span class="pill p-manual">by hand · 24h</span></b>
+      <p>Apply-then-pay. A human checks every payment. This is why the buy screen says "buy at least 2 days before" — an unlock bought the night before may not clear in time.</p></div>
+
+    <div class="step"><b>The channel question — theirs, or yours<span class="pill p-flight">half in flight</span></b>
+      <p><b>Default (their own YouTube):</b> works. They create the broadcast, paste the watch link, no Google authorisation ever touches Setnayan. <b>Hosted (Setnayan's channel):</b> the SKU is currently <em>deactivated</em> — LS8 is reactivating it at ₱3,000/day.</p></div>
+
+    <div class="step"><b>YouTube activation — 24 hours<span class="pill p-manual">couple, once ever</span></b>
+      <p>Their channel must be live-enabled. First time takes ~24 hours and nothing can shorten it. Disclosed at purchase, with the check page named and the 50-subscriber myth pre-empted (that rule is phone-app only).</p></div>
+
+    <div class="step"><b>Cameras join<span class="pill p-ok">works</span></b>
+      <p>Phones scan the event QR. No install, no per-camera fee, up to 12. WebRTC over the internet — a camera can be on mobile data or at another venue, which every competitor's LAN-based product cannot do.</p></div>
+
+    <div class="step"><b>The laptop + OBS<span class="pill p-gap">the real gap</span></b>
+      <p>A browser cannot push a livestream. Someone must run OBS on a Windows or Mac laptop, window-capturing the program output. Disclosed before purchase — but it is the friction the nine-session encoder plan exists to remove.</p></div>
+
+    <div class="step"><b>Audio<span class="pill p-manual">configured in OBS</span></b>
+      <p>The camera phones' audio rides the same WebRTC transport as their video, but <b>OBS window-captures the program output's picture — sound is a separate OBS source the operator must set up.</b> Get it wrong and the vows are silent while everything looks fine. This is one of the strongest reasons for the encoder plan: taking audio off the <code>MediaStream</code> as a track removes the OS routing step entirely.</p></div>
+
+    <div class="step"><b>Go live<span class="pill p-ok">works</span></b>
+      <p>A pool channel is claimed, the YouTube broadcast is created and bound, and the watch URL is written back. Or the couple presses "We're on air" if they started the broadcast themselves.</p></div>
+
+    <div class="step"><b>Directing<span class="pill p-ok">works</span></b>
+      <p>Cut between cameras, split-screen at any ratio, monogram and lower third. The free tier gets one camera and POWERED BY SETNAYAN; ₱2,500 unlocks the rest. The paywall lives in the program output, so it cannot be routed around by using a different channel.</p></div>
+
+    <div class="step"><b>If the encoder dies<span class="pill p-ok">visible since 3 Sept</span></b>
+      <p>YouTube knows within ~10 seconds and now so does the controller. A stale poll reads as <code>no_data</code>, never "still fine", and a failed read says "cannot tell" rather than "receiving".</p></div>
+
+    <div class="step"><b>If the music is copyrighted<span class="pill p-manual">disclosed, not prevented</span></b>
+      <p>YouTube scans live and can cut the stream mid-ceremony — even for music the couple licensed, unless their channel is on the rights-holder allowlist. Warned before purchase, with the fix named (live musicians, or royalty-free).</p></div>
+
+    <div class="step"><b>Guests watch on the Event Hub<span class="pill p-ok">works</span></b>
+      <p>Embedded in their colours. <b>Unlisted only when Setnayan creates the broadcast</b> (pool channel or one-tap go-live) — on the default paste-a-link path the couple sets their own privacy, and a public broadcast <em>is</em> in YouTube search. Unlimited viewers at ₱0 — YouTube's CDN is doing something genuinely expensive for free.</p></div>
+
+    <div class="step"><b>Afterwards — the film stays<span class="pill p-gap">PR failing CI</span></b>
+      <p>The replay appears on their story page and survives the broadcast ending (fixed 2 Sept — before that it could never render at all). Attaching <em>other</em> films — same-day edit, prenup, the videographer's cut — is <b>PR #5140, open and FAILING its required check</b> (an RLS policy scoped member-wide instead of couple-only, caught by <code>couple-host-policy-scope.db.test.ts</code>). It does not merge on its own.</p></div>
+
+    <div class="step"><b>The channel comes back<span class="pill p-manual">automatic after 24h</span></b>
+      <p>A checkout older than 24 hours whose streams are idle is reclaimed the next time the pool is empty. Before that window, an admin clicks Release. Deliberate: auto-release would strand a host who ends after the ceremony and restarts for the reception.</p></div>
+  </div>
+
+  <h2>Three cases the path above does not cover</h2>
+
+  <h3>The free tier's route to air</h3>
+  <p>One-tap go-live is gated on <em>owning</em> Live Studio. A free host's only route is their own YouTube plus OBS, and their program output is pinned to a single camera — cutting to another moves their monitor and deliberately not the air. So &ldquo;free&rdquo; means one camera, their own channel, their own encoder, with POWERED BY SETNAYAN burned in.</p>
+
+  <h3>A multi-day celebration</h3>
+  <p>The ₱2,500 unlock genuinely has no day limit. But two things are still per-day: the hosted channel is priced per day, and <b>the pool reclaims a checkout older than 24 hours whose streams are idle</b> — so on a two-day fiesta, night one's channel can be handed to another event before day two, if the pool is contended. With two claimable channels that is unlikely; it is not impossible, and nothing warns about it.</p>
+
+  <h3>What guests see when it goes wrong</h3>
+  <p>The <em>controller</em> is now honest about a dead encoder. The <b>guest page is not covered</b>: if the couple never pastes their watch link, guests simply see no stream and no explanation. That asymmetry — operator warned, guest silent — is the one place the day's work did not reach.</p>
+
+  <h2>What is genuinely missing</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Gap</th><th>Effect</th><th>Owner</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td><b>The encoder is OBS</b></td><td>Couple installs and configures third-party software in their wedding week</td><td>Engineering</td><td class="num">21–32 d · E0–E9</td></tr>
+        <tr><td>Hosted-channel SKU inactive</td><td>No way to buy "Setnayan supplies the channel"</td><td>LS8, in flight</td><td class="num">hours</td></tr>
+        <tr><td>ICASA MODIFIED unverified</td><td>2 claimable channels instead of 3</td><td><b>You</b></td><td class="num">1 click, after YouTube activates</td></tr>
+        <tr><td>OAuth app is External + unverified</td><td>"Google hasn't verified this app" on every channel connect; 100-consent lifetime cap</td><td><b>You</b></td><td class="num">needs Workspace for Internal</td></tr>
+        <tr><td>Windows build unsigned</td><td>SmartScreen warning on install</td><td><b>You</b></td><td class="num">certificate purchase</td></tr>
+        <tr><td>YouTube API quota</td><td>Ceiling ≈ 12–15 weddings/day — derived from the 10,000-unit/day default quota against per-broadcast unit costs; re-derive after any quota grant</td><td><b>You</b></td><td class="num">file for increase early</td></tr>
+        <tr><td>"Event Hub" means two things</td><td>Dashboard rail and guest site share one word</td><td>LS8, in flight</td><td class="num">copy only</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout stop">
+    <p><strong>The 100-consent cap is lifetime and cannot be reset.</strong> Google's own wording. Three are spent — re-read it at <code>console.cloud.google.com/auth/audience</code>; it is not visible from the codebase or the database. It only ever binds if couples connect <em>their own</em> channels through your OAuth app — which the paste-a-link default deliberately avoids. Do not reintroduce a "connect your YouTube" button without weighing that.</p>
+  </div>
+
+  <div class="callout">
+    <p><strong>Live Studio surface this page does not describe</strong>, all shipped and all worth knowing before anyone plans against it: paid highlight <em>Moments</em>; the free event-QR overlay burned into the broadcast; the Roam multi-zone guest camera picker; the recordings/archive card and its download path; and the four <code>/help</code> articles — including the dry-run advice, which is what actually proves a channel is ready.</p>
+  </div>
+
+  <h2>Owner actions — nothing engineering can do for you</h2>
+  <div class="steps">
+    <div class="step"><b>Tick Verified on ICASA MODIFIED</b><p>Only after <code>youtube.com/features</code> shows <b>Live streaming: Enabled</b> for that specific channel. The tick is the only thing gating a channel into the pool, and nothing verifies it.</p></div>
+    <div class="step"><b>Reconnect the Setnayan channel</b><p><code>granted_at</code> is still 2026-08-31. Whether that token carries a 7-day fuse depends on a publishing status nobody recorded. Two minutes closes the question.</p></div>
+    <div class="step"><b>File for a YouTube quota increase</b><p>Long before you need it — grants take time, and the ceiling bites on a busy Saturday.</p></div>
+    <div class="step"><b>Decide: Google Workspace</b><p>An Internal audience removes verification and the user cap permanently. Only possible with a Workspace or Cloud Identity org. Worth doing when you get Workspace for email anyway.</p></div>
+    <div class="step"><b>Decide: Windows code signing</b><p>A purchase and a few days. Without it, every Windows couple sees "Windows protected your PC" — the same friction as Google's unverified screen, in their wedding week.</p></div>
+  </div>
+
+  <h2>What "fully functional" means</h2>
+  <p>A couple buys Live Studio, opens the Setnayan app on a laptop, hands phones to friends, and presses Go live. Nothing else is installed, no stream key is pasted, no third-party software is configured. The broadcast reaches their guests on their own page, the controller tells them the truth about whether it is working, and afterwards the film sits in their story beside the photos. (Not <em>guaranteed</em> permanent: the buy screen's own music warning says a saved recording can still be claimed or muted by Content ID after the day.)</p>
+  <p>Every part of that sentence is true today <strong>except "opens the Setnayan app"</strong>. That is the encoder, and it is the last structural gap. Everything else on this page is a click, a purchase decision, or a PR — though PR #5140 is currently <em>failing</em> its required check, not merely waiting.</p>
+
+  <footer>
+    Measured against <code>origin/main</code> and the live database, 3 Sept 2026 — re-measure before acting on any figure.
+    Encoder build plan: <a href="https://claude.ai/code/artifact/bc4f3469-fa86-4473-848d-4bb73677de78">nine sessions</a>.
+    Pricing research: <a href="https://claude.ai/code/artifact/d001761a-279f-4546-ad2b-1ea728529059">the laptop problem</a>.
+    Source of truth for prices is <code>platform_retail_catalog_v2</code>, never this page.
+  </footer>
+</div>

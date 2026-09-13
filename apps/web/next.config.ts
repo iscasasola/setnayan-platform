@@ -184,7 +184,27 @@ const CSP_REPORT_ONLY = [
   // NOT added: `connect-src`. Turnstile's own traffic runs INSIDE its iframe,
   // on its own origin. If a parent-context call to it ever appears, that is
   // precisely the report this header exists to raise — do not pre-empt it.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://*.vercel-insights.com",
+  // `ipc:` / `http://ipc.localhost` — S5 (build-sessions/encoder/S5.md, trap 2):
+  // Tauri's custom-protocol IPC on WINDOWS (WebView2) requests
+  // `http://ipc.localhost/<command>`; WITHOUT this origin in connect-src, that
+  // fetch is a CSP violation and `ipc-protocol.js` permanently latches into its
+  // JSON/postMessage fallback for the rest of the session — a self-inflicted
+  // version of the exact trap `contract.rs`'s docblock describes. Listing it
+  // is NECESSARY for Windows, but NOT SUFFICIENT to reach `InvokeBody::Raw`
+  // everywhere: S0 measured that on macOS/WebKit the `ipc://` custom protocol
+  // is refused from an `https://` document regardless of this header (mixed
+  // content, not CSP) — see `contract.rs`'s own docblock and
+  // `ipc-envelope.ts`'s go-live guard, which is why the chosen transport is
+  // the base64-JSON envelope on EVERY platform, not just macOS. Guarded by
+  // `csp-encoder-ipc.test.ts`.
+  // `media.setnayan.com` never resolves — owner ruling 2026-09-05, it is not
+  // being set up (S14, build-sessions/encoder/S14.md). Production actually
+  // serves the `setnayan-media` bucket from its `r2.dev` dev subdomain
+  // (measured live 2026-09-08 against `/download` and the homepage's own
+  // rendered asset URLs), which is ADDED alongside the dead host below
+  // rather than replacing it — `R2_PUBLIC_URL` is unset in production today,
+  // so a future custom domain would need the same treatment, not a swap.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the
@@ -201,8 +221,8 @@ const CSP_REPORT_ONLY = [
   // fails if the enforced list gains a host this one lacks. The chain is anchored
   // in code at both ends: source iframes/scripts → enforced list → this draft.
   "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org https://challenges.cloudflare.com",
-  "img-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
-  "media-src 'self' data: blob: https://media.setnayan.com https://*.r2.cloudflarestorage.com",
+  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
+  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "worker-src 'self' blob:",
@@ -482,6 +502,33 @@ const nextConfig: NextConfig = {
         destination: '/help/papic-giving-a-camera-its-own-shots',
         permanent: true,
       },
+      /*
+        2026-09-01 — THREE EXPLAINERS BECAME ONE. `/why-setnayan`,
+        `/how-it-works` and `/features` each answered part of "what is this and
+        what does it do", and only `/features` had the bilingual dictionary
+        architecture. The other two folded into it as sections, so these carry
+        their ranking, bookmarks, and any indexed link to the merged page
+        instead of a 404.
+
+        🔑 THE TAGLISH TWIN GOES TO THE TAGLISH PAGE. `/tl/how-it-works` must
+        land on `/tl/features`, NOT `/features` — sending a Taglish reader to
+        the English page is a locale regression that reads as a bug, and it
+        would break the EN↔TL hreflang reciprocity the pair depends on.
+
+        Permanent (308) so the ranking transfers. EXACT sources only: none of
+        these had subpaths, and a `:path*` catch-all would swallow future
+        routes nested under them.
+      */
+      { source: '/how-it-works', destination: '/features', permanent: true },
+      { source: '/tl/how-it-works', destination: '/tl/features', permanent: true },
+      /*
+        ⚠ `/why-setnayan` HAD NO TAGLISH TWIN — it was English-only, which is
+        part of why it was merged: the frame now HAS a Taglish edition it never
+        had. There is deliberately no `/tl/why-setnayan` rule below, because
+        that URL never existed and inventing a redirect for it would advertise
+        a page nobody can have linked to.
+      */
+      { source: '/why-setnayan', destination: '/features', permanent: true },
       { source: '/weddings', destination: '/realstories', permanent: true },
       { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
       // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`

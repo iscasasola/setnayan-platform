@@ -40,7 +40,10 @@ import { envFlagEnabled } from '@/lib/env-flag';
  *  byte-identical off path. Default OFF (the desktop-oauth-buttons idiom). */
 export const PLAN3D_SHARED_ROOM_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_SHARED_ROOM);
 
-export type LocalPlayer = { id: string; name: string; color: string };
+/** `avatar` — the viewer's OWN resolved chibi config (or null). Tracked in
+ *  presence beside name + colour so every peer, including one who joins later,
+ *  can draw this person as their avatar while they cross the room. */
+export type LocalPlayer = { id: string; name: string; color: string; avatar?: unknown | null };
 
 export type Plan3dRoom = {
   /** Live peers to render (present + recently-left, still walking home). */
@@ -93,6 +96,7 @@ export function usePlan3dRoom(eventId: string | null | undefined, me: LocalPlaye
   const meId = me?.id;
   const meName = me?.name;
   const meColor = me?.color;
+  const meAvatar = me?.avatar ?? null;
 
   useEffect(() => {
     if (!active || !eventId || !meId) return;
@@ -103,12 +107,12 @@ export function usePlan3dRoom(eventId: string | null | undefined, me: LocalPlaye
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ name: string; color: string }>();
+        const state = channel.presenceState<{ name: string; color: string; avatar?: unknown }>();
         const roster: RoomPeer[] = [];
         for (const [id, metas] of Object.entries(state)) {
           const meta = metas[0];
           if (!meta) continue;
-          roster.push({ id, name: meta.name || 'Guest', color: meta.color || '#c9a24a' });
+          roster.push({ id, name: meta.name || 'Guest', color: meta.color || '#c9a24a', avatar: meta.avatar ?? null });
         }
         setRemotes((prev) => reconcilePresence(prev, roster, meId, Date.now()));
       })
@@ -122,7 +126,7 @@ export function usePlan3dRoom(eventId: string | null | undefined, me: LocalPlaye
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          void channel.track({ name: meRef.current?.name ?? 'Guest', color: meRef.current?.color ?? '#c9a24a' });
+          void channel.track({ name: meRef.current?.name ?? 'Guest', color: meRef.current?.color ?? '#c9a24a', avatar: meRef.current?.avatar ?? null });
         }
       });
 
@@ -144,9 +148,9 @@ export function usePlan3dRoom(eventId: string | null | undefined, me: LocalPlaye
   useEffect(() => {
     const ch = channelRef.current;
     if (ch && ch.state === 'joined' && meName) {
-      void ch.track({ name: meName, color: meColor ?? '#c9a24a' });
+      void ch.track({ name: meName, color: meColor ?? '#c9a24a', avatar: meAvatar });
     }
-  }, [meName, meColor]);
+  }, [meName, meColor, meAvatar]);
 
   const sendMove = useCallback(
     (x: number, z: number, vx: number, vz: number, heading: number, moving: boolean) => {

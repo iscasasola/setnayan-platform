@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ExternalLink, Globe } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { UNNAMED_EDITORIAL_LABEL } from '@/lib/editorial-event-types';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { adminTakedownRecap } from '@/app/admin/recaps/actions';
 
@@ -86,7 +87,7 @@ export async function RecapsSurface({
         <ul className="space-y-3">
           {rows.map(({ recap, ev }) => {
             const slug = ev?.slug as string | null;
-            const name = (ev?.display_name as string) ?? 'A Setnayan wedding';
+            const name = (ev?.display_name as string) ?? UNNAMED_EDITORIAL_LABEL;
             const publishedAt = recap.published_at
               ? new Date(recap.published_at as string).toLocaleDateString('en-PH', {
                   year: 'numeric',

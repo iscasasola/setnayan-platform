@@ -1,0 +1,6 @@
+{
+  "identifier": "s0-probe-debug-local",
+  "description": "S0 spike harness CONTROL — DEBUG BUILDS ONLY (same build.rs gate as probe.json). Grants the two probe commands to LOCAL windows (tauri://localhost) so the IPC-body probe can be repeated on the shell origin as a control for the real-origin result. Weaker origin; never the finding's primary number.",
+  "windows": ["main"],
+  "permissions": ["allow-probe-report", "allow-probe-ipc"]
+}

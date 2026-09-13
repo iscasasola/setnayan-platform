@@ -1,0 +1,52 @@
+-- 🔒 ANON MAY NO LONGER WRITE TO `public.users` — OR TRUNCATE IT.
+--
+-- `anon` held SELECT, UPDATE, TRUNCATE, TRIGGER and REFERENCES on this table, on all 53
+-- columns, by a blanket table grant. Supabase publishes every `public` table as a REST
+-- endpoint and the anon key ships in the page source, so these are capabilities reachable
+-- with curl — the UI is not a gate.
+--
+-- ── WHAT THIS DOES *NOT* DO, AND WHY NOT ───────────────────────────────────
+-- IT DOES NOT REVOKE `SELECT`, EVEN THOUGH THAT IS THE ONE THAT LOOKS WORST.
+-- PostgreSQL evaluates an RLS policy expression AS THE CALLING USER, so a policy whose
+-- USING clause reads `users` needs the caller to hold SELECT on `users`. Twenty-plus
+-- policies in this database do exactly that, and one of them —
+-- `creator_chapters.public_can_read_published_chapter`, roles `{anon,authenticated}` —
+-- is evaluated by ANON on every public creator-chapter page:
+--
+--     EXISTS (SELECT 1 FROM users u
+--             WHERE u.user_id = creator_chapters.user_id
+--               AND u.public_profile_enabled = true)
+--
+-- Revoke anon's SELECT and that policy cannot evaluate. It does not then deny the row —
+-- it RAISES, and the public page breaks. 🔑 A RAISE INSIDE RLS IS NOT "THIS POLICY SAID
+-- NO", IT IS "THE WHOLE CHECK FAILED" — the same mechanism that took down private
+-- Realtime channels here (migration `20271187719883`), where one ungranted predicate
+-- refused every topic at once.
+--
+-- Narrowing the READ is still worth doing — anon needs only `user_id`,
+-- `public_profile_enabled`, `is_internal`, `is_team_member` and `account_type` out of 53
+-- columns, so names, emails and all six `*_consent_at` timestamps could be taken off it.
+-- But a table-level grant cannot be narrowed column-wise in place (PostgreSQL will not
+-- subtract a column privilege from a table grant — attempting it dissolves the table
+-- grant into per-column grants instead), so that change must revoke and re-grant
+-- explicitly, and it needs a db test proving BOTH directions: that a public chapter page
+-- still resolves, and that `email` is no longer readable. That is its own piece of work
+-- with its own blast radius, and bundling it here would put a live public page at risk
+-- inside a migration whose point is to reduce risk.
+--
+-- ── WHAT IT DOES ───────────────────────────────────────────────────────────
+-- Removes every capability anon has that NO policy and NO code path needs:
+--   · UPDATE     — no policy on `users` admits anon for any command; every policy on this
+--                  table is `{authenticated}` (`user_owns_row`, `admin_full_access_users`).
+--                  Nothing anonymous has ever had a reason to write here.
+--   · TRUNCATE   — the sharpest of the five. TRUNCATE IS NOT FILTERED BY RLS AT ALL, so
+--                  unlike SELECT/UPDATE it is not held back by the absence of an anon
+--                  policy. It is unreachable through PostgREST today, which is a property
+--                  of the client, not of the grant.
+--   · TRIGGER, REFERENCES — DDL-adjacent, unreachable over REST, and needed by nobody.
+--
+-- Revoking a WRITE cannot break a policy READ, which is what makes this the safe half.
+--
+-- Idempotent: REVOKE on a privilege already absent is a no-op.
+
+REVOKE UPDATE, TRUNCATE, TRIGGER, REFERENCES ON public.users FROM anon;

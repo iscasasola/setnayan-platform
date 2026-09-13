@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { connectEventForUser } from '@/lib/event-account-link';
+import { CONNECT_THEN_REPLY, inviteReplyPath } from '@/lib/invite-arrival';
 
 /**
  * Post-magic-link destination (Invite/Join v2). The email sign-in link lands on
@@ -34,7 +35,13 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> },
 ) {
   const { eventId } = await params;
-  const origin = new URL(request.url).origin;
+  const url = new URL(request.url);
+  const origin = url.origin;
+  // The invite arrival's Reply door sends a Google / Apple / password sign-in
+  // through here so the seat is bound to the account, and asks to come BACK to
+  // that door rather than on to the site. A KEYWORD, never a path: the door's
+  // address is built below from the slug the database returns.
+  const thenReply = url.searchParams.get('then') === CONNECT_THEN_REPLY;
 
   const supabase = await createClient();
   const {
@@ -44,7 +51,12 @@ export async function GET(
   // Link expired / opened in a logged-out context → send to login, returning here.
   if (!user) {
     return NextResponse.redirect(
-      new URL(`/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`, origin),
+      new URL(
+        `/login?next=${encodeURIComponent(
+          `/join/${eventId}/connect${thenReply ? `?then=${CONNECT_THEN_REPLY}` : ''}`,
+        )}`,
+        origin,
+      ),
     );
   }
 
@@ -69,6 +81,10 @@ export async function GET(
       .maybeSingle();
     const slug = (event?.slug as string | null)?.trim();
     if (slug) dest = `/${slug}`;
+    // From the invite arrival's Reply door: back to that door, not on to the
+    // site. A separate line on purpose — the one above is pinned by
+    // an-invited-person-is-recognised.test.ts and stays byte-identical.
+    if (slug && thenReply) dest = inviteReplyPath(slug);
   }
 
   // Set-password gate (owner directive): a passwordless email-link account is

@@ -1,0 +1,39 @@
+# Scenes that top-align their content inside the 460x972 capture frame.
+#
+# ── EVERY LINE HERE WAS MEASURED, NOT ASSUMED (2026-09-08) ─────────────────
+# Each still was decoded and its content's bounding box measured. Of the 23
+# scenes originally listed, 12 were genuinely short (24-68% fill), were centred
+# and re-captured. The rest are here because centring them would make the
+# picture WORSE, and the source cannot tell you which is which -- every one of
+# them reads `absolute inset-0 flex flex-col`.
+#
+# Two different reasons, both verified in pixels:
+#
+#   • ALREADY FULL (92-100% fill) -- PAKANTA_SCENES:3 is 100%: its content is
+#     TALLER than the frame. Centring clips the FIRST row instead of the last.
+#
+#   • INDOOR_BLUEPRINT_SCENES:2 -- centring is a NO-OP: its last child is
+#     `flex-1`, so the column is already full height. Its still is empty below
+#     the fold for an unrelated reason, and centring it changed nothing (the
+#     re-captured JPEG was byte-identical). ⚠ That scene is separately BROKEN
+#     on main and this baseline is not the place to fix it: the floor map's
+#     markers escape their container and land on top of the header -- the green
+#     "T3" sits over "Setnayan", the "Entrance" pill over "Blue Leaf Pavilion".
+#     Verified pre-existing by diffing against origin/main. Needs its own fix.
+#
+# So a line here means "measured, and top-aligned is correct or irrelevant",
+# NOT "todo". Before removing one, decode its still and confirm.
+#
+# Regenerate deliberately, never to go green:
+#   node apps/web/scripts/lint-scene-fills-its-frame.mjs --write
+PAPIC_SCENES:0
+ANIMATED_MONOGRAM_SCENES:0
+ANIMATED_MONOGRAM_SCENES:1
+MOOD_BOARD_SCENES:0
+MOOD_BOARD_SCENES:2
+CUSTOM_QR_SCENES:1
+CUSTOM_QR_SCENES:3
+INDOOR_BLUEPRINT_SCENES:0
+INDOOR_BLUEPRINT_SCENES:1
+INDOOR_BLUEPRINT_SCENES:2
+PAKANTA_SCENES:3

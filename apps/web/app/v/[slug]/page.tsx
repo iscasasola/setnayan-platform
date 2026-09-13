@@ -1,12 +1,12 @@
 import Link from 'next/link';
-import { fetchVendorSongs } from '@/lib/songs';
+import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
+import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -30,7 +30,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
-import { vendorSeoPlanForVendor } from '@/lib/vendor-seo-tier';
+import { vendorSeoPlanForVendor, effectiveSeoTier } from '@/lib/vendor-seo-tier';
 import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
@@ -47,6 +47,10 @@ import {
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import {
+  toServiceCard,
+  type ServiceShowcaseMedia,
+} from '@/lib/service-card-view-model';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
@@ -91,7 +95,7 @@ import { ShareButton } from './_components/share-button';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
-import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
+import { parseVideoLink } from '@/lib/video-embed';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
@@ -202,7 +206,11 @@ type Props = {
   }>;
 };
 
-type PublicVendorRow = {
+// E1 (2026-09-11) — exported so the OG-card route (app/api/og/v/[slug]/
+// route.tsx) can reuse the EXACT same row shape `vendorMetadataBySlug` reads
+// from, rather than hand-typing a second copy that silently drifts from this
+// one (the class of bug lib/site-media-ref.ts's own docblock warns about).
+export type PublicVendorRow = {
   vendor_profile_id: string;
   public_id: string;
   business_name: string;
@@ -219,8 +227,10 @@ type PublicVendorRow = {
   hq_latitude: number | null;
   hq_longitude: number | null;
   website: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
+  // public and signed-out-readable; a field it never fetches can never be
+  // printed, serialized into a client prop or put in structured data by a later
+  // edit. The shop keeps both in My Shop. See `lib/no-door-out-of-the-app.test.ts`.
   public_visibility: VendorPublicVisibility;
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
@@ -280,6 +290,11 @@ type PublicVendorRow = {
   // in demo mode. Optional + `!== 'verified'` everywhere so a missing column
   // degrades to hidden (safe).
   verification_state?: string | null;
+  // Q4/Q5/Q7 (owner 2026-09-11) — the Verified BADGE's own deadline, read
+  // alongside verification_state. Feeds hasVerifiedBadge (lib/verified-
+  // badge.ts) wherever this row's badge is decided; never the public-
+  // visibility gate above, which Q5 keeps on the raw state on purpose.
+  next_renewal_due_at?: string | null;
   // PR-B self-preview. `user_id` is the owning vendor account. When the
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
@@ -333,7 +348,12 @@ async function isAdminInDemoMode(): Promise<boolean> {
   return isAdminProfile(profile);
 }
 
-async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+// E1 (2026-09-11) — exported for the same reason as `PublicVendorRow` above:
+// the OG-card route needs the identical hide-if-hidden / hide-if-demo read
+// `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
+// fallback (a second hand-rolled query would silently fall out of sync with
+// this one the next time a column is added or renamed here).
+export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -361,9 +381,9 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id';
   const legacySelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
   let { data, error } = await admin
     .from('vendor_profiles')
@@ -372,7 +392,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id)/i.test(
       error.message,
     )
   ) {
@@ -459,13 +479,25 @@ export async function vendorMetadataBySlug(slug: string) {
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
-  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
-  // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — extend the
-  // base metadata from PR #573 with canonical URL + OpenGraph profile card
-  // + Twitter summary_large_image so social shares of a vendor profile
-  // render with the vendor's logo + name instead of the layout-default
-  // /brand/og-card.webp. Falls back to logo_url when present; layout-level
-  // og:image (Bucket 2 PR #607) covers the no-logo case.
+  // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
+  // resolve `vendor.logo_url` straight into a presigned R2 URL
+  // (X-Amz-Expires=86400): a share sent today was a broken image tomorrow,
+  // and a shop with no logo got no og:image at all (the layout-default brand
+  // card took over, or — worse on some crawlers — nothing). Both cards now
+  // point at the PERMANENT `/api/og/v/[slug]` address instead: it renders a
+  // fresh PNG on every crawl (no expiry to outrun) and degrades to the same
+  // wordmark-only card when there's no logo, so a share is never broken and
+  // never bare. See `app/api/og/v/[slug]/route.tsx` / `lib/social/vendor-card.tsx`.
+  const ogImageUrl = `${siteUrl}/api/og/v/${vendor.business_slug ?? slug}`;
+  const ogImage = {
+    url: ogImageUrl,
+    width: 1200,
+    height: 630,
+    /* Hybrid-anonymity (V2.1 amendment #2): alt text uses the resolved
+       display label so social previews don't leak a hidden business_name
+       via crawler-friendly alt. */
+    alt: displayLabel,
+  };
   return {
     title: titleText,
     description: descText,
@@ -477,28 +509,13 @@ export async function vendorMetadataBySlug(slug: string) {
       description: descText,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      // Same r2:// trap as the on-page logo — an unresolved reference here is a
-      // social card with a broken picture, which nobody sees until a link is
-      // already shared. Resolved once, reused by both cards below.
-      ...(logoDisplayUrl
-        ? {
-            images: [
-              {
-                url: logoDisplayUrl,
-                /* Hybrid-anonymity (V2.1 amendment #2): alt text uses
-                   the resolved display label so social previews don't
-                   leak a hidden business_name via crawler-friendly alt. */
-                alt: `${displayLabel} logo`,
-              },
-            ],
-          }
-        : {}),
+      images: [ogImage],
     },
     twitter: {
       card: 'summary_large_image',
       title: titleText,
       description: descText,
-      ...(logoDisplayUrl ? { images: [logoDisplayUrl] } : {}),
+      images: [ogImageUrl],
     },
   };
 }
@@ -651,18 +668,7 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   }
 }
 
-/** Platform glyph for a Featured-videos link-out card. This lucide build ships
- *  no brand marks, so play-style platforms use Play and everything else the
- *  neutral Video glyph — the platform NAME carries the identity in the label. */
-function PlatformIcon({ platform }: { platform: VideoPlatform }) {
-  const cls = 'h-4 w-4';
-  if (platform === 'youtube' || platform === 'vimeo')
-    return <Play aria-hidden className={cls} strokeWidth={2} />;
-  return <Video aria-hidden className={cls} strokeWidth={2} />;
-}
-
 /** Display URLs for one service card's showcase media. */
-type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
 /**
  * Showcase media per active service (couple-side serves payoff, 2026-07-03) —
@@ -804,6 +810,21 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
+  // here and threaded into every tier gate below (tierCaps, micrositeCan,
+  // isTrueNameTier, boothTierCanBrand). Tier lapse is LOGIN-DRIVEN
+  // (`sweep_vendor_tier_expiry` fires from the vendor dashboard layout) and
+  // nobody is logged in on this public render, so a vendor whose
+  // subscription ended months ago still carries a paid `tier_state` in this
+  // row — reading it alone would hand the paid look out forever.
+  // `effectiveSeoTier` already collapses a lapsed paid tier to 'free' (see
+  // its own docblock); `vendorSeoPlanForVendor` below already used it for
+  // the SEO plan, this just extends the SAME collapse to the page's own
+  // rendered look instead of leaving the four gates reading the raw column.
+  const effectiveTierState = effectiveSeoTier({
+    tier_state: vendor.tier_state ?? null,
+    tier_expires_at: vendor.tier_expires_at ?? null,
+  });
   // 3D Booth Ads · Part C: vendors on a booth-brandable tier get a shareable
   // "walk into my booth" 3D showcase at /v/[slug]/booth (same gate that brands a
   // booth — Pro/Enterprise today, every tier once the 2026-07-25 tiered add-on
@@ -814,7 +835,7 @@ export async function renderVendorBySlug({
   // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
   const canShowBooth =
     envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE) &&
-    boothTierCanBrand(vendor.tier_state ?? null) &&
+    boothTierCanBrand(effectiveTierState) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
@@ -1118,9 +1139,9 @@ export async function renderVendorBySlug({
   // hero photo · pinned review · editorials · the 2-column layout. The custom URL
   // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
   // links already handed out); routing keeps resolving it.
-  const viewerTierCaps = tierCaps(vendor.tier_state ?? null);
+  const viewerTierCaps = tierCaps(effectiveTierState);
   const premiumLayout = viewerTierCaps.customWebsiteName;
-  const canPersonalizePage = micrositeCan(vendor.tier_state ?? null).canPersonalize;
+  const canPersonalizePage = micrositeCan(effectiveTierState).canPersonalize;
   // Section toggles are a Solo control → below Solo, ignore the saved hide/show
   // set and fall back to defaults (all baseline sections visible).
   const pageSections = canPersonalizePage ? microsite.sections : {};
@@ -1210,18 +1231,23 @@ export async function renderVendorBySlug({
   // Flagship cinematic layer: Enterprise-or-higher (Custom runs as Enterprise).
   // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3) so the
   // Custom tier inherits the flagship hero + films rack without a hard equality.
-  const isEnterprise = micrositeCan(vendor.tier_state ?? null).isEnterprise;
+  const isEnterprise = micrositeCan(effectiveTierState).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
   // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
   // was folded into gallery_video_links (data migration
   // 20270519000000_merge_microsite_videos_into_gallery), so every video now
   // renders here. Each pasted link is classified: YouTube / Vimeo → inline 16:9
-  // iframes; Instagram / Facebook / TikTok / other → link-out cards. Unparseable
-  // entries are dropped.
+  // iframes (embedded, never a link out — kept); Instagram / Facebook / TikTok /
+  // other → `kind: 'link'`, dropped here (owner ruling 2026-09-11 Q3: "Never
+  // show links" — a click-through card to an outside platform is exactly the
+  // door out Q3 closes). The vendor's pasted value stays saved in
+  // gallery_video_links; only the public render narrows to what actually plays
+  // in-page. Unparseable entries are dropped too.
   const featuredVideos = (vendor.gallery_video_links ?? [])
     .map((url) => parseVideoLink(url))
-    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null);
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null)
+    .filter((v) => v.kind === 'iframe');
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
     vendor.location_city,
@@ -1243,7 +1269,7 @@ export async function renderVendorBySlug({
     screen_name: vendor.screen_name ?? null,
     // Phase C: Pro/Enterprise reveal the real business_name day-1. Open-it-up
     // lock: a VERIFIED vendor's name is never gated (revealed on any tier).
-    isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    isPaidTier: isTrueNameTier(effectiveTierState),
     is_verified: vendor.verification_state === 'verified',
   });
 
@@ -1273,6 +1299,10 @@ export async function renderVendorBySlug({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  /** The shop's own account is looking at its own page. Fails CLOSED: the
+   *  fallback select carries no `user_id`, so a degraded read is a stranger. */
+  const viewerOwnsShop =
+    user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
   let coupleEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
@@ -1710,7 +1740,10 @@ export async function renderVendorBySlug({
     name: displayLabel,
     url: `${SITE_URL}/${slug}`,
     description: vendor.tagline ?? `${displayLabel} on Setnayan.`,
-    image: logoDisplayUrl ?? `${SITE_URL}/icon-512.svg`,
+    // E1 (2026-09-11) — same permanent card as the OG/Twitter images above,
+    // not the raw (expiring) presigned logo URL. See
+    // `vendorMetadataBySlug`'s `ogImageUrl` for the full rationale.
+    image: `${SITE_URL}/api/og/v/${vendor.business_slug ?? slug}`,
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'PH',
@@ -1851,7 +1884,10 @@ export async function renderVendorBySlug({
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Wedding vendors',
+        // D2 (2026-09-11): was 'Wedding vendors' — event-neutral, matching
+        // the app-wide "Setnayan vendor" term (vendorMetadataBySlug's own
+        // page-title suffix) rather than assuming every shop is wedding-only.
+        name: 'Vendors',
         item: `${SITE_URL}/explore`,
       },
       {
@@ -2228,38 +2264,53 @@ export async function renderVendorBySlug({
                   {vendor.location_city}
                 </span>
               ) : null}
-              {/* Contact links surface only for verified (bookable) vendors —
-                  coming-soon profiles are read-only previews per 0022 § 2.1c. */}
-              {bookable && vendor.contact_email ? (
-                <a
-                  href={`mailto:${vendor.contact_email}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_email}
-                </a>
+              {/*
+                🚪 NO DOOR OUT OF THE APP (owner 2026-09-10, verbatim: "our goal is
+                to let them integrate their event with the vendor they find. not
+                to let them communicate outside the app").
+
+                This row used to print the shop's email as a `mailto:` and its
+                phone as a `tel:` — to ANYONE, signed out included — one scroll
+                above an Inquire section saying the reply comes in the Setnayan
+                inbox. A couple who found a shop here and emailed it booked
+                off-platform: no booking fee, no in-app record, no lock, no price
+                freeze, no protection for either side.
+
+                What stands in their place says HOW you reach this shop — here —
+                so the row never reads as two items that silently went missing.
+                It is deliberately a STATEMENT, not a second link: the way in is
+                the Inquire button a few centimetres below (or the hero's, or the
+                desktop rail's), and a second control to the same anchor that close
+                is the duplicate the owner already ruled out on 2026-08-06
+                (`one-inquire-button.test.ts`).
+                `lib/no-door-out-of-the-app.test.ts` fails if a contact scheme or
+                a contact field comes back to any couple-facing or public surface.
+              */}
+              {bookable ? (
+                <span className="inline-flex items-center gap-1">
+                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Replies in your Setnayan inbox
+                </span>
               ) : null}
-              {bookable && vendor.contact_phone ? (
-                <a
-                  href={`tel:${vendor.contact_phone.replace(/\s/g, '')}`}
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.contact_phone}
-                </a>
-              ) : null}
-              {vendor.website ? (
-                <a
-                  href={vendor.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-terracotta"
-                >
-                  <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Website
-                </a>
-              ) : null}
+              {/* Owner ruling 2026-09-11 (DECISION_LOG "SEVEN SUPPLIER-SIDE
+                  QUESTIONS" Q3): "Never show links" — no tappable website or
+                  social link on the shop page, before or after booking. The
+                  shop's own `website` value stays SAVED (never deleted, still
+                  readable in My Shop) — this page just never renders it as a
+                  door out. `lib/no-door-out-of-the-app.test.ts` fails if a
+                  website href reaches any couple-facing or public surface. */}
             </div>
+            {/* The shop previewing itself learns WHY its email and phone are not
+                here, instead of reading their absence as a broken page. Only the
+                owning account ever renders this line; the values stay in My Shop
+                (and this page no longer fetches them at all). */}
+            {viewerOwnsShop ? (
+              <p className="max-w-2xl text-xs text-ink/60">
+                Only you see this note: your email and phone are not shown to couples.
+                They message you here on Setnayan, and every reply, quote and booking
+                stays with their event.
+              </p>
+            ) : null}
             {/* Primary actions (2026-07-02): Inquire (scrolls to the
                 composer) + Share. Retires the old Follow / Save-to-picks row.
                 On desktop the sticky Inquire rail carries these too.
@@ -2376,7 +2427,7 @@ export async function renderVendorBySlug({
           couple this band plays nothing, which is a claim we cannot make about a
           list the band simply has not filled in yet.
         */}
-        {repertoire.length > 0 ? (
+        {repertoire.length > 0 && isMusicToolCategory(vendor.services) ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Songs they play
@@ -2412,10 +2463,13 @@ export async function renderVendorBySlug({
 
         {/* Portfolio — ONE unified gallery of the vendor's photos + their own
             pasted video links (all tiers). Photos lead, then videos: YouTube &
-            Vimeo mount as responsive inline 16:9 players; Instagram / Facebook /
-            TikTok / other links render as click-through cards. Unparseable video
-            entries are dropped upstream. Governed by the vendor's Portfolio
-            visibility toggle; auto-hidden when there's nothing to show. */}
+            Vimeo mount as responsive inline 16:9 players. Instagram / Facebook /
+            TikTok / other pasted links are dropped upstream (`featuredVideos`
+            is pre-filtered to `kind === 'iframe'`) — owner ruling 2026-09-11 Q3:
+            "Never show links", so no click-through card to an outside platform
+            renders here, embedded or not. Unparseable video entries are also
+            dropped upstream. Governed by the vendor's Portfolio visibility
+            toggle; auto-hidden when there's nothing to show. */}
         {showPortfolio &&
         (portfolioUrls.length > 0 ||
           featuredVideos.length > 0 ||
@@ -2440,9 +2494,12 @@ export async function renderVendorBySlug({
                 </div>
               ))}
               {featuredVideos.map((v, idx) =>
-                v.kind === 'iframe' && v.embedUrl ? (
+                v.embedUrl ? (
                   // Inline player spans two grid columns so its 16:9 frame reads
                   // as the signature "watch this" moment amid the photo tiles.
+                  // `featuredVideos` is pre-filtered to `kind === 'iframe'`, so
+                  // every entry reaching this map plays in-page — never a link
+                  // out (owner ruling 2026-09-11 Q3).
                   <div
                     key={`${v.originalUrl}-${idx}`}
                     className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
@@ -2457,44 +2514,20 @@ export async function renderVendorBySlug({
                       className="absolute inset-0 h-full w-full border-0"
                     />
                   </div>
-                ) : (
-                  // Link-out platforms (IG / FB / TikTok / other) get a play-badge
-                  // card sized like a photo tile so the grid stays even.
-                  <a
-                    key={`${v.originalUrl}-${idx}`}
-                    href={v.originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="group relative flex aspect-[4/3] flex-col justify-between overflow-hidden rounded-xl border border-ink/10 bg-cream/50 p-4 transition-colors hover:border-terracotta/40"
-                  >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors group-hover:bg-terracotta/10 group-hover:text-terracotta">
-                      <PlatformIcon platform={v.platform} />
-                    </span>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-ink">
-                        Watch on {v.label}
-                      </span>
-                      <ArrowRight
-                        aria-hidden
-                        className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
-                        strokeWidth={2}
-                      />
-                    </span>
-                  </a>
-                ),
+                ) : null,
               )}
               {/* Synced Instagram posts (show_on_profile) — images re-hosted in
-                  R2 render as photo tiles; videos link out to the IG permalink
-                  with a play badge, sized like a photo tile so the grid stays
-                  even. Entries without a resolvable URL are dropped. */}
+                  R2 render as photo tiles; a video post shows the SAME re-hosted
+                  thumbnail with a play badge (still a truthful "this was a
+                  video"), sized like a photo tile so the grid stays even — but
+                  never links out to the IG permalink (owner ruling 2026-09-11
+                  Q3: "Never show links"). Entries without a resolvable URL are
+                  dropped. */}
               {igMedia.map((m, idx) =>
                 m.mediaType === 'VIDEO' ? (
-                  <a
+                  <div
                     key={`ig-${m.id}`}
-                    href={m.permalink ?? '#'}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                    className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
                   >
                     {m.displayUrl ? (
                       <Image
@@ -2510,11 +2543,11 @@ export async function renderVendorBySlug({
                       </span>
                     )}
                     <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors group-hover:bg-black/70">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white">
                         <Play aria-hidden className="h-5 w-5" strokeWidth={2} />
                       </span>
                     </span>
-                  </a>
+                  </div>
                 ) : m.displayUrl ? (
                   <div
                     key={`ig-${m.id}`}
@@ -2568,7 +2601,7 @@ export async function renderVendorBySlug({
                         idx === 0 ? 'text-2xl' : 'text-lg'
                       }`}
                     >
-                      {story.coupleNames}
+                      {story.hostNames}
                     </p>
                     <p className="mt-1 text-sm text-ink/60">
                       {[story.city, story.dateLabel].filter(Boolean).join(' · ')}
@@ -2655,7 +2688,11 @@ export async function renderVendorBySlug({
         (vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0) ? (
           <section className="space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Wedding compatibility
+              {/* D2 (2026-09-11): event-neutral — this shop page is not only
+                  for weddings, and a debut/christening host reading "Wedding
+                  compatibility" over a real answer about their own event is a
+                  small but real instance of the same lie row 3838 rules out. */}
+              Event compatibility
             </h2>
             {vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0 ? (
               <div className="space-y-2">
@@ -2809,30 +2846,32 @@ export async function renderVendorBySlug({
                 vendor surfaces as e.g. "Manila Wedding Photographer"
                 instead of leaking the real name through the
                 contact-info section. */}
+            {/*
+              🚪 THIS PROSE USED TO GATE ON `vendor.contact_email` AND TO CONTRADICT
+              ITSELF. With an address on file it said "Identity stays masked until
+              you choose to share" — one scroll below a header that had already
+              printed the shop's email and phone, and a promise about the COUPLE's
+              identity that the owner retired on 2026-09-08 ("we do not need to
+              hide anything, since no more tokens" — a shop now sees who is asking).
+              Without an address it said the shop "hasn't published a contact
+              email yet", as if an email were how you reach them. It is not: both
+              composers below are in-app and never read the address. So the
+              sentence now keys on the only thing that decides whether a couple
+              can ask here — whether a composer renders — and says only what is
+              true of the in-app path.
+            */}
             {bookable ? (
-              vendor.contact_email ? (
-                showInquiryComposer || anonComposerServices.length > 0 ? (
-                  // A composer renders below — don't send them to a "dashboard"
-                  // an eventless visitor doesn't have (the contradiction the
-                  // review flagged). Speak to the composer instead.
-                  <>
-                    Send{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> an
-                    inquiry below — they&rsquo;ll reply in your Setnayan inbox.
-                    Identity stays masked until you choose to share.
-                  </>
-                ) : (
-                  <>
-                    Already a Setnayan couple? Start a thread directly with{' '}
-                    <span className="font-medium text-ink">{displayLabel}</span> from
-                    your dashboard using the contact email above. Identity stays masked
-                    until you choose to share.
-                  </>
-                )
+              showInquiryComposer || anonComposerServices.length > 0 ? (
+                <>
+                  Send <span className="font-medium text-ink">{displayLabel}</span> an
+                  inquiry below — they&rsquo;ll reply in your Setnayan inbox, and the
+                  conversation stays with your event.
+                </>
               ) : (
                 <>
-                  {displayLabel} is on Setnayan but hasn&rsquo;t published a contact
-                  email yet. Check back soon.
+                  <span className="font-medium text-ink">{displayLabel}</span>{' '}
+                  hasn&rsquo;t listed a service you can ask about yet. Check back soon —
+                  when they do, you&rsquo;ll message them right here on Setnayan.
                 </>
               )
             ) : (
@@ -3292,9 +3331,6 @@ function ServicesPricingSection({
   );
 }
 
-/** Max inclusions listed before we collapse the rest into "+N more included". */
-const SERVICE_CARD_INCLUSION_LIMIT = 3;
-
 /**
  * One `event_vendor_preferences` row → the composer's pre-fill shape.
  *
@@ -3331,159 +3367,6 @@ function toSavedRequirements(
  * discount, FREE inclusions (with their stated worth), and "not included"
  * expectation flags so couples see the value + the caveats before quoting.
  */
-function toServiceCard(
-  row: VendorServiceRow,
-  inclusions: VendorServiceInclusion[] | undefined,
-  discounts: VendorServiceDiscount[] | undefined,
-  serves: string | undefined,
-  showcase: ServiceShowcaseMedia | undefined,
-  /** Council #6: when true the vendor opted to hide public prices — every peso
-   *  amount below is suppressed (labels/inclusions still show; only figures go). */
-  hidePrices: boolean,
-  /** Viewing couple's event date (ISO YYYY-MM-DD) or null — picks the
-   *  early-booking ladder tier (owner-locked 2026-07-27). */
-  coupleEventDate: string | null,
-  /** The render's single clock (injected — never Date.now() down here). */
-  now: Date,
-  /** This card's compiled record, or null when the flag is off. */
-  cardRecord: CompiledCardRecord | null,
-  /** Shop-wide trusted rating for the record block, or null. */
-  cardRecordRating: CardRecordRating | null,
-  /** `serviceDetailsEnabled()` — gates the details-sheet-only payload below, so
-   *  the flag-OFF card ships exactly the bytes it ships today. */
-  detailsEnabled: boolean,
-): ServiceCard {
-  // ⚠ MUST read the vendor's own title first. This card is what the
-  // maker's live preview promises "exactly what couples see" — a card
-  // authored with a name (or the maker's own kind-derived default) must
-  // show that name, not silently fall back to the bare category. And for
-  // a CUSTOM category the fallback must go through `displayServiceLabel`,
-  // never the raw stored key — see its own docblock on why a couple must
-  // never be shown a database key on this exact card.
-  const label = row.title?.trim() || displayServiceLabel(row.category);
-  const priceLabel =
-    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
-      ? `from ${formatPhp(row.starting_price_php)}`
-      : 'Inquire';
-
-  // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
-  // the per-guest rate (+ the min floor when set); per-hour shows the base
-  // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
-  // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
-  // above is untouched.
-  const isCrewMeals = row.category === 'crew_meals';
-  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
-  let priceDetail: string | null = null;
-  if (hidePrices) {
-    // Vendor hid prices — no per-pax/per-hour rate breakdown.
-    priceDetail = null;
-  } else if (
-    row.pricing_basis === 'per_pax' &&
-    row.per_pax_price_php !== null &&
-    row.per_pax_price_php > 0
-  ) {
-    const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
-  } else if (
-    row.pricing_basis === 'per_hour' &&
-    row.hour_base_php !== null &&
-    row.hour_base_php > 0
-  ) {
-    const base =
-      row.min_hours !== null && row.min_hours > 0
-        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
-        : formatPhp(row.hour_base_php);
-    const extra =
-      row.extra_hour_php !== null && row.extra_hour_php > 0
-        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
-        : '';
-    priceDetail = `${base}${extra}`;
-  }
-
-  // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers). Suppressed when the vendor
-  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
-  //
-  // Early-booking LADDER (owner-locked 2026-07-27): when the viewer is a couple
-  // with an event date, that date picks the tier and the badge names it
-  // ("Booked 6+ months ahead · −10%"); rungs they are too late for are dropped.
-  // Anonymous viewers see the ladder advertised as "Save up to 15% booking
-  // early". Display only — the quote still happens in chat.
-  const best = hidePrices
-    ? null
-    : pickBestDiscount(discounts, row.starting_price_php, {
-        eventDate: coupleEventDate,
-        now,
-      });
-
-  // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
-  // peso worth). Trim to a few; the overflow surfaces as "+N more".
-  const allInclusions = (inclusions ?? []).map((inc) =>
-    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
-      ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
-      : inc.label,
-  );
-  const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
-  const inclusionsMore = Math.max(0, allInclusions.length - shownInclusions.length);
-
-  // Crew / meta line (unchanged behaviour).
-  const crewParts: string[] = [];
-  if (row.crew_size !== null && row.crew_size > 0) {
-    crewParts.push(`${row.crew_size} crew on-site`);
-  }
-  if (row.crew_meal_required && !isCrewMeals) {
-    crewParts.push('crew meal required');
-  }
-
-  // "Not included" expectation flags — feed the couple's budget + set
-  // expectations before the quote (0007 budget line items).
-  const notIncluded: string[] = [];
-  if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
-  if (!row.transport_included) {
-    notIncluded.push(
-      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
-        ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
-        : 'Transport not included',
-    );
-  }
-
-  return {
-    id: row.vendor_service_id,
-    label,
-    priceLabel,
-    meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
-    discountLabel: best?.label ?? null,
-    inclusions: shownInclusions,
-    inclusionsMore,
-    // ── Details-sheet-only payload ────────────────────────────────────────
-    // A CONDITIONAL SPREAD, not `: []` / `: null` defaults. "Flag off ⇒
-    // byte-identical" has to cover the serialized RSC payload the browser
-    // downloads, not just the rendered DOM — shipping two extra keys per card
-    // to every anonymous visitor would quietly break that contract. With the
-    // flag off these keys are ABSENT, so the card streams exactly the bytes it
-    // streams today. Pinned by `service-details-dark.test.ts`.
-    ...(detailsEnabled
-      ? {
-          publicId: row.public_id,
-          // The sheet is the one place the "+N more included" tail is readable.
-          inclusionsFull: allInclusions,
-        }
-      : {}),
-    notIncluded,
-    priceDetail,
-    serves: serves ?? null,
-    photos: showcase?.photos ?? [],
-    videoUrl: showcase?.videoUrl ?? null,
-    // A card with no history shows NOTHING new — the record only exists once
-    // this card has actually been booked (owner: a zero-history card must not
-    // advertise its emptiness).
-    record: cardRecordHasSomethingToSay(cardRecord) ? cardRecord : null,
-    recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
-  };
-}
-
 // Min-N floor for the public "saved by N" chip — a count below this stays
 // hidden so a tiny number never de-anonymizes or reads as vanity (owner default
 // 2026-07-02: favorites public / viewers vendor-only; behavioral-data min-N lock).

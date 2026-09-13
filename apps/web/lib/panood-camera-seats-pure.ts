@@ -52,6 +52,18 @@ export function panoodCameraAnonEnabled(): boolean {
 }
 
 /**
+ * The Add-camera tile's caption, tied to `panoodCameraAnonEnabled()` so it can
+ * never promise a login-free join that /panood/cam/[token] won't honor: that
+ * page shows the real "scan QR → tap → camera" CTA only when the flag is ON,
+ * and a sign-in wall when it's OFF. Takes the resolved flag rather than reading
+ * it itself so callers can't drift onto a second, independent read of the env
+ * var.
+ */
+export function cameraJoinCaption(anonEnabled: boolean): string {
+  return anonEnabled ? 'scan QR · no login' : 'scan QR · needs Setnayan sign-in';
+}
+
+/**
  * Real-media streaming flag (owner-gated · default OFF), independent of the
  * login-free claim flag above. When ON, the camera-operator publish view opens a
  * WebRTC peer connection to the controller (lib/panood-webrtc.ts) and the control

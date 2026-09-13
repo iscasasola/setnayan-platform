@@ -8,6 +8,7 @@ import type {
   ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
 import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish-pure';
+import { WITHHELD_CARD, pinnedChannelNotice } from '@/lib/encoder/program-strings';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -242,12 +243,20 @@ function BroadcastOverlays({
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-20">
       {overlays.monogram ? (
-        <span
-          className={`absolute ${positionClass(
-            overlays.monogram.position,
-          )} rounded-full border border-white/35 bg-black/35 px-5 py-2 font-serif text-2xl italic text-white`}
-        >
-          {overlays.monogram.text}
+        <span className={`absolute ${positionClass(overlays.monogram.position)}`}>
+          {overlays.monogram.markDataUri ? (
+            // Inert data URI, already sanitized by safeMonogramSvg (SEC-3) — no optimizer benefit.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={overlays.monogram.markDataUri}
+              alt=""
+              className="h-16 w-16 object-contain drop-shadow-lg"
+            />
+          ) : (
+            <span className="rounded-full border border-white/35 bg-black/35 px-5 py-2 font-serif text-2xl italic text-white">
+              {overlays.monogram.text}
+            </span>
+          )}
         </span>
       ) : null}
 
@@ -414,18 +423,14 @@ function NoSignalCard({ label }: { label: string }) {
 function WithheldCard() {
   return (
     <div className="max-w-lg px-8 text-center text-white">
+      {/* Copy lives in lib/encoder/program-strings.ts — the encoder's canvas (S1) draws the
+          same words for the same state, and neither surface may carry its own literal. */}
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-white/45">
-        Live Studio
+        {WITHHELD_CARD.kicker}
       </p>
-      <h1 className="mt-3 text-xl font-semibold">Unlock to broadcast all your cameras</h1>
-      <p className="mt-3 text-sm leading-relaxed text-white/65">
-        Your free broadcast carries one camera — the channel marked ★ default in the controller.
-        Switching between cameras on air is what the Live Studio unlock buys.
-      </p>
-      <p className="mt-3 text-sm leading-relaxed text-white/45">
-        Just changed your default channel? Close this window and open it again from the
-        controller.
-      </p>
+      <h1 className="mt-3 text-xl font-semibold">{WITHHELD_CARD.title}</h1>
+      <p className="mt-3 text-sm leading-relaxed text-white/65">{WITHHELD_CARD.body}</p>
+      <p className="mt-3 text-sm leading-relaxed text-white/45">{WITHHELD_CARD.hint}</p>
     </div>
   );
 }
@@ -457,7 +462,7 @@ function PinnedChannelNotice({
       }`}
     >
       <p className="text-[11px] uppercase tracking-[0.14em] text-white/55">
-        On air: {label} · switching cameras needs the Live Studio unlock
+        {pinnedChannelNotice(label)}
       </p>
     </div>
   );

@@ -26,7 +26,6 @@ import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
   bulkApplyRoleAndGroup,
-  bulkSoftDeleteGuests,
   bulkSoftDeleteGuestsForUndo,
   createGuestGroup,
   removeGuestFromGroup,
@@ -896,6 +895,12 @@ export function GuestListMultiselect({
                         selectMode={selectMode}
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        palette={palette}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                       />
                     ),
@@ -923,8 +928,10 @@ export function GuestListMultiselect({
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
                         groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
                         groupsById={groupsById}
                         currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
                       />
                     ),
@@ -981,7 +988,7 @@ function SelectionBar({
           *
           *  BulkApplyForm + BulkDeleteForm are two separate <form>
           *  elements (each has its own server action — Apply hits
-          *  bulkApplyRoleAndGroup, Delete hits bulkSoftDeleteGuests).
+          *  bulkApplyRoleAndGroup, Delete goes through useGuestRemoval).
           *  Wrapping them in this flex flex-wrap parent so they sit on
           *  the SAME ROW at desktop widths instead of stacking. On
           *  narrow screens flex-wrap kicks in and Delete drops to its
@@ -1027,25 +1034,34 @@ function SelectionBar({
 // undo snackbar whose Undo restores the guests + their released seats; on a
 // server-side gate rejection (couple/RSVP) it rolls the overlay back and toasts
 // the reason. No confirm dialog — undo is the safety net.
-function OptimisticDeleteButton({
-  eventId,
-  selectedIds,
-  count,
-}: {
-  eventId: string;
-  selectedIds: string[];
-  count: number;
-}) {
+/**
+ * useGuestRemoval — the ONE way this page removes a guest.
+ *
+ * ⚠ IT EXISTS BECAUSE THERE WERE TWO, AND ONLY ONE OF THEM COULD BE UNDONE.
+ * The desktop bulk bar called `bulkSoftDeleteGuestsForUndo`, which CAPTURES the
+ * seats it releases so an undo can re-place them. The mobile swipe posted a
+ * plain form to `bulkSoftDeleteGuests`, which does not — and
+ * `event_seat_assignments` rows are HARD deleted (a soft delete does not trip
+ * the FK cascade, so the seat is dropped on purpose). So the same act, from a
+ * phone, permanently lost the guest's chair with no undo offered, and a host
+ * who re-added them found a hole in the seating plan they had to rediscover.
+ *
+ * Two call sites, one rule. A test asserts this hook is the only thing that
+ * calls the delete action.
+ */
+function useGuestRemoval(eventId: string) {
   const toast = useToast();
-  const [deleting, setDeleting] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
-  async function handleDelete() {
-    if (deleting) return;
-    const ids = [...selectedIds];
+  /** @param onRemoved runs only after the server confirms; the swipe uses it to
+   *  reset its own gesture state, the bulk bar has nothing to reset. */
+  async function remove(guestIds: string[], onRemoved?: () => void) {
+    if (removing) return;
+    const ids = [...guestIds];
     if (ids.length === 0) return;
     const mutation = { kind: 'remove' as const, guestIds: ids };
 
-    setDeleting(true);
+    setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
     guestSelection.clear(); // retract the bar (the acted-on guests are gone)
 
@@ -1054,17 +1070,18 @@ function OptimisticDeleteButton({
       result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
     } catch {
       guestOptimistic.clear(mutation); // rollback the hide
-      setDeleting(false);
+      setRemoving(false);
       toast.error('Could not remove — check your connection and try again.');
       return;
     }
-    setDeleting(false);
+    setRemoving(false);
 
     if (!result.ok) {
       guestOptimistic.clear(mutation); // rollback — server refused (gate)
       toast.error(result.error);
       return;
     }
+    onRemoved?.();
 
     // buildUndo carries the released seats through, so restore re-places them.
     const plan = buildUndo(
@@ -1085,6 +1102,24 @@ function OptimisticDeleteButton({
         }
       },
     });
+  }
+
+  return { removing, remove };
+}
+
+function OptimisticDeleteButton({
+  eventId,
+  selectedIds,
+  count,
+}: {
+  eventId: string;
+  selectedIds: string[];
+  count: number;
+}) {
+  const { removing: deleting, remove } = useGuestRemoval(eventId);
+
+  async function handleDelete() {
+    await remove(selectedIds);
   }
 
   return (
@@ -1368,8 +1403,10 @@ function GuestCard({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1380,8 +1417,13 @@ function GuestCard({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  /** The event's groups — AddToGroupControl's picker (mobile parity 2026-09-05). */
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  /** Grouped role options for RoleChipEditor — the SAME sections the desktop
+   *  row and the bulk bar use, so a phone offers no different set of roles. */
+  bulkRoleSections: RoleSection[];
   // Reactive seat (Living Roster P4 · mobile parity) — same placed/suggested
   // contract the desktop row gets. Undefined when no seat data reached this card.
   seat?: { placed: string | null; suggested: string | null };
@@ -1427,8 +1469,14 @@ function GuestCard({
       <div className="pointer-events-none relative z-10">
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink/[0.04]">
           <GuestPhoto guest={guest} displayUrl={displayUrl} />
-          <span className="absolute right-2 top-2">
-            <SidePill side={guest.side} />
+          {/* Side is EDITABLE here (mobile parity 2026-09-05) — it was a bare
+              <SidePill> while the desktop row's identical pill opened a picker,
+              so the same chip did nothing on a phone. pointer-events-auto lifts
+              it above the card's stretched detail link. */}
+          <span className="pointer-events-auto absolute right-2 top-2">
+            <SideChipEditor eventId={eventId} guest={guest}>
+              <SidePill side={guest.side} />
+            </SideChipEditor>
           </span>
         </div>
         <div className="space-y-1.5 p-2.5">
@@ -1442,11 +1490,19 @@ function GuestCard({
               </p>
             ) : null}
           </div>
-          {/* Role stays read-only here; RSVP is a one-tap cycle (P4) and the
-              seat chip mirrors the desktop row. pointer-events-auto so the RSVP
-              button sits above the card's stretched detail link. */}
+          {/* Role is EDITABLE here too (mobile parity 2026-09-05); RSVP is a
+              one-tap cycle (P4) and the seat chip mirrors the desktop row.
+              pointer-events-auto so these buttons sit above the card's
+              stretched detail link. RoleChipEditor keeps its own bride/groom
+              lock — the phone offers exactly what the desktop row offers. */}
           <div className="pointer-events-auto flex flex-wrap items-center gap-1">
-            <RoleChips guest={guest} palette={palette} />
+            <RoleChipEditor
+              eventId={eventId}
+              guest={guest}
+              roleSections={bulkRoleSections}
+            >
+              <RoleChips guest={guest} palette={palette} />
+            </RoleChipEditor>
             <RsvpChipEditor
               eventId={eventId}
               guest={guest}
@@ -1463,8 +1519,12 @@ function GuestCard({
             />
           </div>
           {/* GroupChipList can render a remove-from-group <form>; give it back
-              pointer events so that button works above the stretched link. */}
-          <div className="pointer-events-auto">
+              pointer events so that button works above the stretched link.
+              AddToGroupControl is the other half (mobile parity 2026-09-05):
+              without it a phone could take a guest OUT of a group and never put
+              one back — the only one of these gaps that loses an association
+              rather than merely blocking an edit. */}
+          <div className="pointer-events-auto flex items-center gap-1.5">
             <GroupChipList
               eventId={eventId}
               guestId={guest.guest_id}
@@ -1472,6 +1532,12 @@ function GuestCard({
               groupsById={groupsById}
               currentGroupId={currentGroupId}
               compact
+            />
+            <AddToGroupControl
+              eventId={eventId}
+              guest={guest}
+              groups={groups}
+              memberGroupIds={groupIds}
             />
           </div>
         </div>
@@ -1492,8 +1558,10 @@ function MobileGridItem({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1504,8 +1572,10 @@ function MobileGridItem({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
   const card = (
@@ -1518,16 +1588,18 @@ function MobileGridItem({
       selected={selected}
       onToggle={onToggle}
       groupIds={groupIds}
+      groups={groups}
       groupsById={groupsById}
       currentGroupId={currentGroupId}
+      bulkRoleSections={bulkRoleSections}
       seat={seat}
     />
   );
 
   // Swipe-left-to-delete — only when NOT in select mode (there the card is for
   // checkbox bulk ops) and not the couple (bride & groom can't be removed;
-  // bulkSoftDeleteGuests blocks them server-side, so don't dangle a Delete
-  // that will always fail).
+  // the server refuses them either way, so don't dangle a Delete that can only
+  // fail).
   const swipeable =
     !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
 
@@ -1553,6 +1625,16 @@ function MobileGridItem({
 // reactive seat chip on the right (Living Roster P4 · mobile parity). A stretched
 // Link covers the row for tap-to-detail; the checkbox + the RSVP button re-enable
 // their own pointer events above it, exactly like GuestCard.
+//
+// SWIPE-TO-DELETE PARITY (2026-09-05): this row shipped WITHOUT the left-swipe
+// Delete that its grid twin (MobileGridItem) has had since 2026-06-03. Removing
+// somebody is one of the four things a host does to a roster, and flipping the
+// carousel's density toggle to `?density=list` silently took it away — the same
+// list, the same guests, one affordance gone. The gate, the action and the
+// server-side blocks are IDENTICAL to the grid path (both go through
+// `useGuestRemoval`: the couple is protected, an RSVP'd guest must be reset
+// first, and the delete is a recoverable soft one) — this is the wrapper, not a
+// second delete.
 function MobileListRow({
   guest,
   eventId,
@@ -1560,6 +1642,12 @@ function MobileListRow({
   selectMode,
   selected,
   onToggle,
+  palette,
+  groupIds,
+  groups,
+  groupsById,
+  currentGroupId,
+  bulkRoleSections,
   seat,
 }: {
   guest: GuestRow;
@@ -1568,63 +1656,133 @@ function MobileListRow({
   selectMode: boolean;
   selected: boolean;
   onToggle: () => void;
+  palette: RolePalette;
+  groupIds: string[];
+  groups: GuestGroupWithCount[];
+  groupsById: Record<string, GuestGroupWithCount>;
+  currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
   seat?: { placed: string | null; suggested: string | null };
 }) {
-  return (
-    <li className="list-none">
-      <div
-        className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
-          selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
-        }`}
-      >
-        {/* Stretched detail link (z-0); content sits above it (z-10) and the
-            interactive bits re-enable pointer events (z-20). */}
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          aria-label={guestDisplayName(guest)}
-          className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-        />
-        {selectMode ? (
-          <label
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
-          >
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggle}
-              aria-label={`Select ${guestDisplayName(guest)}`}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-          </label>
-        ) : (
-          <span className="pointer-events-none relative z-10">
+  // Same gate as MobileGridItem: select mode owns the card for checkbox bulk
+  // ops, and the couple can never be removed (the server refuses them, so don't
+  // dangle a Delete that can only fail).
+  const swipeable =
+    !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+
+  const row = (
+    <div
+      className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
+        selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
+      }`}
+    >
+      {/* Stretched detail link (z-0); content sits above it (z-10) and the
+          interactive bits re-enable pointer events (z-20). */}
+      <Link
+        href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+        aria-label={guestDisplayName(guest)}
+        className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+      />
+      {selectMode ? (
+        <label
+          onClick={(e) => e.stopPropagation()}
+          className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${guestDisplayName(guest)}`}
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+        </label>
+      ) : (
+        // The avatar ALREADY carries the side (RowAvatar tints it, and
+        // SIDE_RING tints the row's border), so making it the side trigger adds
+        // no pixels to a row whose whole point is density — it turns an existing
+        // signal into the control for the thing it signals.
+        <span className="pointer-events-auto relative z-20">
+          <SideChipEditor eventId={eventId} guest={guest}>
             <RowAvatar guest={guest} displayUrl={displayUrl} />
-          </span>
-        )}
-        <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
-          {guest.plus_one_allowed ? (
-            <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
-          ) : null}
-        </div>
-        <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
-          <RsvpChipEditor
+          </SideChipEditor>
+        </span>
+      )}
+      <div className="relative z-10 min-w-0 flex-1">
+        <p className="pointer-events-none truncate text-sm font-medium text-ink">
+          {guestDisplayName(guest)}
+        </p>
+        {/* Sub-line. Role and groups CANNOT be edited without being shown, so
+            allowing that here costs a second line on rows that previously had
+            one (owner call 2026-09-05 — "allow it if possible"). It is kept to
+            one flex line that scrolls rather than wraps, so a guest with four
+            groups never grows the row a third time. */}
+        <div className="m-no-scrollbar pointer-events-auto -mx-0.5 mt-0.5 overflow-x-auto px-0.5">
+          {/* `w-max` so the chips keep their natural width and scroll instead of
+              squashing — the row has no space to give, and a half-width role
+              chip is worse than one the host has to nudge sideways. */}
+          <div className="flex w-max items-center gap-1">
+          <RoleChipEditor
             eventId={eventId}
             guest={guest}
-            mobileCycle
-            seatedTableLabel={seat?.placed ?? null}
+            roleSections={bulkRoleSections}
           >
-            <RsvpPill status={guest.rsvp_status} />
-          </RsvpChipEditor>
-          <SeatChip
-            placed={seat?.placed ?? null}
-            suggested={seat?.suggested ?? null}
-            rsvp={guest.rsvp_status}
-            hasPlusOne={guest.plus_one_allowed}
+            <RoleChips guest={guest} palette={palette} />
+          </RoleChipEditor>
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={groupsById}
+            currentGroupId={currentGroupId}
+            compact
           />
+          <AddToGroupControl
+            eventId={eventId}
+            guest={guest}
+            groups={groups}
+            memberGroupIds={groupIds}
+          />
+          {guest.plus_one_allowed ? (
+            <span className="pointer-events-none whitespace-nowrap text-xs text-ink/55">
+              + {guest.plus_one_name ?? 'TBA'}
+            </span>
+          ) : null}
+          </div>
         </div>
       </div>
+      <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
+        <RsvpChipEditor
+          eventId={eventId}
+          guest={guest}
+          mobileCycle
+          seatedTableLabel={seat?.placed ?? null}
+        >
+          <RsvpPill status={guest.rsvp_status} />
+        </RsvpChipEditor>
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          hasPlusOne={guest.plus_one_allowed}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <li className="list-none">
+      {swipeable ? (
+        <SwipeToDelete
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+          radiusClass="rounded-xl"
+        >
+          {row}
+        </SwipeToDelete>
+      ) : (
+        row
+      )}
     </li>
   );
 }
@@ -1703,23 +1861,31 @@ function MobileSelfJoinCard({
 // -----------------------------------------------------------------------
 // SwipeToDelete — wraps a mobile guest card so a left-swipe reveals a Delete
 // action (owner directive 2026-06-03). The swipe-then-tap IS the confirmation
-// (iOS-style), and deletion reuses bulkSoftDeleteGuests, so the same gates
-// apply (couple blocked upstream · RSVP'd guests get the reset-first message)
-// and it's a recoverable SOFT delete. Touch-only — the desktop table keeps
-// its own row affordances; rendered only in the `sm:hidden` card list.
+// (iOS-style), and deletion goes through `useGuestRemoval` — the SAME path
+// the desktop bulk bar uses — so the same gates apply (couple blocked upstream
+// · RSVP'd guests get the reset-first message), the delete is a recoverable
+// SOFT one, AND the released seat is captured so an undo can re-place it. Touch-only — the desktop table keeps
+// its own row affordances; rendered in BOTH `sm:hidden` densities — the photo
+// grid (MobileGridItem) and the compact list (MobileListRow).
 // -----------------------------------------------------------------------
 function SwipeToDelete({
   eventId,
   guestId,
   guestName,
   children,
+  // The clipping wrapper rounds to match the card it wraps — the grid card is
+  // rounded-lg, the compact list row rounded-xl. Passing it keeps the swipe
+  // container from shaving the child's corners.
+  radiusClass = 'rounded-lg',
 }: {
   eventId: string;
   guestId: string;
   guestName: string;
   children: ReactNode;
+  radiusClass?: string;
 }) {
   const REVEAL = 84; // px width of the revealed Delete action
+  const { removing, remove } = useGuestRemoval(eventId);
   const [tx, setTx] = useState(0);
   const [dragging, setDragging] = useState(false);
   // Gesture state in a ref so the touch handlers never read a stale closure.
@@ -1757,24 +1923,31 @@ function SwipeToDelete({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
+    <div className={`relative overflow-hidden ${radiusClass}`}>
       {/* Delete action, revealed behind the card on a left-swipe. */}
-      <form
-        action={bulkSoftDeleteGuests.bind(null, eventId)}
+      <div
         className="absolute inset-y-0 right-0 flex"
         style={{ width: REVEAL }}
       >
-        <input type="hidden" name="guest_ids[]" value={guestId} />
+        {/* NOT a form post any more. It used to submit to `bulkSoftDeleteGuests`,
+            which releases the guest's seat WITHOUT capturing it — so a swipe
+            permanently dropped their chair and offered no undo, while the same
+            act from the desktop bulk bar could be taken back in full. Both now
+            go through `useGuestRemoval`. */}
         <button
-          type="submit"
+          type="button"
+          onClick={() => remove([guestId], () => setTx(0))}
+          disabled={removing}
           aria-label={`Delete ${guestName}`}
           tabIndex={tx === 0 ? -1 : 0}
-          className="flex w-full flex-col items-center justify-center gap-0.5 bg-danger-600 text-cream"
+          className="flex w-full flex-col items-center justify-center gap-0.5 bg-danger-600 text-cream disabled:opacity-70"
         >
           <Trash2 aria-hidden className="h-5 w-5" strokeWidth={2} />
-          <span className="text-[11px] font-semibold">Delete</span>
+          <span className="text-[11px] font-semibold">
+            {removing ? '…' : 'Delete'}
+          </span>
         </button>
-      </form>
+      </div>
 
       {/* Front card — translates on swipe; opaque (bg-cream on the child) so it
           fully covers the Delete action when closed. */}

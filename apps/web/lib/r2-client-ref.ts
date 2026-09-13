@@ -109,6 +109,38 @@ export class R2RefRefused extends Error {
   }
 }
 
+/**
+ * Does this string LOOK LIKE a storage ref, by the SAME rule the database's
+ * RESTRICTIVE `..._refs_are_own_*` policies use (migration
+ * `20271219262486_every_cleanup_delete_is_pinned.sql`, § 4)?
+ *
+ * 🪤 THE BUG THIS REPLACES. Two call sites (verify/actions.ts, shop/
+ * inline-docs-actions.ts) used to gate their own ownership check on plain
+ * `ref.startsWith('r2://')` — an exact-case, untrimmed-beyond-`.trim()` test.
+ * A value spelled `R2://…`, padded with a leading tab/NBSP/BOM the form
+ * field's own `.trim()` didn't anticipate stacking with, or simply differently
+ * cased, made that test FALSE, which took the `!startsWith(...)` branch of an
+ * `||` chain and treated the value as "not a ref, nothing to check" — skipping
+ * `parseClientRef` entirely and writing it straight into `doc_uploads`. The
+ * database's own policy normalises before judging (see below) and so refused
+ * the write anyway, but as a raw `new row violates row-level security policy`
+ * error with no app-level translation.
+ *
+ * This is the same normalisation, so anything the database would recognise as
+ * ref-shaped is caught HERE first and can be given a plain refusal instead of
+ * surfacing that error: strip every leading character that is not an ASCII
+ * letter or digit (a strict superset of what `.trim()` removes — plain
+ * whitespace, NBSP, BOM, line separators, and also zero-width/control
+ * characters no reader strips), lower-case what remains, and ask whether it
+ * begins `r2:`. A value that answers yes here but fails `parseClientRef`'s
+ * strict, case-sensitive, exact-prefix check is refused before any database
+ * round trip.
+ */
+export function looksLikeStorageRef(value: string): boolean {
+  const stripped = value.replace(/^[^0-9A-Za-z]+/, '');
+  return stripped.toLowerCase().startsWith('r2:');
+}
+
 /** S3/R2 hard limit on key length. */
 const MAX_KEY_LENGTH = 1024;
 
@@ -341,6 +373,39 @@ export function guestSelfiePolicy(eventId: string, guestId: string): ClientRefPo
   return { prefixes: [`events/${eventId}/guest-selfies/${guestId}/`] };
 }
 
+/**
+ * A Papic seat camera's own capture — the raw, its poster frame and its web
+ * copy, as recorded by `recordSeatCapture` / `persistSeatClipWebCopy`
+ * (app/papic/actions.ts).
+ *
+ * Every live seat path presigns with `papicSeatToken`, and `/api/upload`'s seat
+ * branch then mints the key SERVER-SIDE under `papic/event-<event>/seat-<seat>/`
+ * — measured in production 2026-09-10, all 14 captures. Pinning the recorded
+ * ref to that folder is what stops a camera's claimer handing the recording
+ * action a key from somewhere else: the row is written by the SERVICE ROLE, and
+ * the full-resolution sweep later deletes whatever that key names.
+ *
+ * ⚠ `papic/seat-<seat_index>/` IS ALSO ACCEPTED, and it is NOT a tenancy: the
+ * dark-launched Camera Bridge (`lib/camera-bridge/papic-sink.ts`, visible only
+ * behind `?bridge=demo` or `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED`) still presigns
+ * through the generic branch with that prefix, so its keys carry the seat's
+ * INDEX and no event. Accepting it keeps that path recording; it is safe only
+ * because no cleanup job will ever DELETE such a key (lib/cleanup-delete-scope.ts
+ * holds Papic deletes to `papic/event-<event>/…`). Moving the bridge onto
+ * `papicSeatToken` retires this line.
+ */
+export function papicSeatCapturePolicy(
+  eventId: string,
+  seatId: string,
+  seatIndex: number | null,
+): ClientRefPolicy {
+  const prefixes = [`papic/event-${eventId}/seat-${seatId}/`];
+  if (typeof seatIndex === 'number' && Number.isInteger(seatIndex) && seatIndex >= 0) {
+    prefixes.push(`papic/seat-${seatIndex}/`);
+  }
+  return { prefixes };
+}
+
 /** A vendor's payment QR image. */
 export function vendorPaymentQrPolicy(vendorProfileId: string): ClientRefPolicy {
   return { prefixes: [`vendors/${vendorProfileId}/payment-qr/`] };
@@ -477,6 +542,38 @@ export function budgetPaymentProofPolicy(eventId: string): ClientRefPolicy {
 }
 
 /**
+ * The folder a couple's DEPOSIT receipt is filed under — the screenshot they
+ * attach when they lock with a downpayment, or record a deposit afterwards
+ * (`event_vendors.deposit_proof_url`, written by `vendors/actions.ts` through
+ * `lib/deposit-proof.server.ts`).
+ *
+ * 🔒 WHY IT LIVES HERE (N5, 2026-09-11). Those receipts used to be written
+ * under `deposit-proof/<eventId>/` — a prefix `bucketForPrefix` routes to the
+ * PUBLIC media bucket — and stored as a permanent public URL: a bank or GCash
+ * screenshot, readable by anyone the link reached. Under `payment-proof/` the
+ * PREFIX alone routes it to the private thread-files bucket, beside the host's
+ * other receipts, and it is read back only through `depositProofPolicy` below.
+ *
+ * No trailing slash: this is the upload `pathPrefix`; the policy adds it.
+ */
+export function depositProofFolder(eventId: string): string {
+  return `payment-proof/events/${eventId}/deposit`;
+}
+
+/**
+ * READ side of a deposit receipt: the private thread-files bucket, and only
+ * this event's deposit folder. The event id MUST come from the booking row the
+ * caller was allowed to read (the couple's own, the supplier's own client, or
+ * the admin's queue) — never from the stored value.
+ */
+export function depositProofPolicy(eventId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`${depositProofFolder(eventId)}/`],
+  };
+}
+
+/**
  * A buyer's payment-proof screenshot on their OWN order.
  *
  * ⚠ Unlike `budgetPaymentProofPolicy` above, this one IS a confidentiality
@@ -517,6 +614,55 @@ export function inlineCheckoutProofPolicy(
 }
 
 /**
+ * READ side of a payment-proof screenshot (`payments.screenshot_url`): every
+ * folder an uploader of THIS order's proof may have used — the order's own
+ * `payments/<orderId>/` (pay panel, booking-fee page, Papic guest buy) and the
+ * inline checkout drawer's `payment-screenshots/inline-checkout/<event|user>/`
+ * (written before the order row exists). Composed from the two WRITE policies
+ * above so the reader can never accept a folder no writer uses — nor miss one
+ * a writer does.
+ *
+ * Every id MUST come from the order row the caller has already been allowed to
+ * read (the buyer's own order, a vendor's own fee order, or the admin queue) —
+ * never from the stored value itself.
+ */
+export function paymentProofPolicy(args: {
+  orderId: string;
+  eventId: string | null;
+  userId: string | null;
+}): ClientRefPolicy {
+  const prefixes = [...orderPaymentProofPolicy(args.orderId).prefixes];
+  if (args.userId) prefixes.push(...inlineCheckoutProofPolicy(args.eventId, args.userId).prefixes);
+  else if (args.eventId) prefixes.push(`payment-screenshots/inline-checkout/${args.eventId}/`);
+  return { bucket: 'setnayan-thread-files', prefixes };
+}
+
+/**
+ * Force-majeure / dispute evidence a couple attaches on their own event.
+ *
+ * The one uploader (`disputes/page.tsx`, `<FileUpload bucket="thread-files">`)
+ * writes `events/<eventId>/disputes/…` in the PRIVATE thread-files bucket.
+ * Scoped to the event's `disputes/` folder, not merely to `events/<eventId>/`,
+ * so a dispute can never be used to have the server sign another thread-files
+ * object that happens to live under the same event.
+ */
+export function disputeEvidencePolicy(eventId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`events/${eventId}/disputes/`] };
+}
+
+/**
+ * Admin-authored catalogue art in the PRIVATE `setnayan-samples` bucket — the
+ * category tile photos (`taxonomy/<tile>/`) and the onboarding refinement
+ * photos (`refinements/<leaf>/`) the taxonomy studio uploads. Shown to couples
+ * on Explore and in onboarding, so it is signed on the way out — but only from
+ * the two roots the studio writes (the same two `privateBucketRootIsAllowed`
+ * admits for this bucket).
+ */
+export function catalogueArtPolicy(): ClientRefPolicy {
+  return { bucket: 'setnayan-samples', prefixes: ['taxonomy/', 'refinements/'] };
+}
+
+/**
  * A vendor's proof-of-downpayment / remembrance photo on a locked-QR invite.
  *
  * ⚠ The uploader writes to a FLAT, untenanted `locked-qr-proof/` prefix
@@ -554,4 +700,23 @@ export function editorialVendorMediaPolicy(
   eventId: string,
 ): ClientRefPolicy {
   return { prefixes: [`editorial-vendor/${vendorProfileId}/${eventId}/`] };
+}
+
+/**
+ * A file shared in a conversation — the ONLY thing `/api/chat/attachment` will
+ * sign.
+ *
+ * 🚪 THE DOOR THIS SHUT (2026-09-10). The route used to read the stored value
+ * through `displayUrlForStoredAsset`, whose contract is to pass any non-`r2://`
+ * value through verbatim — so a row carrying `https://wa.me/…`, `viber://…` or
+ * `m.me/…` rendered as a file card on setnayan.com and 302-redirected the
+ * reader to WhatsApp or Viber: a way out of the app AND an open redirect.
+ *
+ * Scoped to the THREAD, not the sender: every party to a conversation may open
+ * every file in it. The per-sender folder (`chat/<thread>/<uid>/`) is enforced
+ * where it matters — on WRITE, by the database (migration 20271221089848), so
+ * a row can only name its own sender's file.
+ */
+export function chatAttachmentPolicy(threadId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`chat/${threadId}/`] };
 }

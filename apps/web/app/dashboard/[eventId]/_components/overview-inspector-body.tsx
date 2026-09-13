@@ -4,7 +4,7 @@ import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 
 /**
  * Inspector bodies for the event Overview — a new PRESENTATION of decision /
- * "Suri on watch" rows the board already renders. Every fact (label, amount/chip,
+ * "Sai on watch" rows the board already renders. Every fact (label, amount/chip,
  * copy) and the single action (the decision's own CTA → its room) is passed in
  * unchanged from event-dashboard.tsx; nothing here is fabricated or a new action.
  */
@@ -85,10 +85,10 @@ export function OverviewWatchInspector({
   const roleLabel = isGuard ? 'Guard' : 'Secretary';
   return (
     <InspectorColumn
-      eyebrow="Suri on watch"
+      eyebrow="Sai on watch"
       title={roleLabel}
       swapKey={swapKey}
-      ariaLabel="Suri on watch"
+      ariaLabel="Sai on watch"
     >
       <div className="space-y-3">
         <p

@@ -80,6 +80,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from './security/migration-schema';
+import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED } from './export-payment-ledger';
 import {
   VENDOR_PROFILE_EXPORT_COLUMNS,
   VENDOR_PROFILE_EXPORT_OMITTED,
@@ -177,6 +178,24 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-09-04 with the table itself (MB16) ──
+  event_colour_grants:
+    'The VENDOR half of the standing colour grant. Its only subject-identifying ' +
+    'column is `granted_by_user_id` — which partner flipped the switch — and the ' +
+    'row is about a BOOKING on an EVENT, not about that person: it says a shop ' +
+    'may adjust florals, and it goes on saying so after either partner leaves. ' +
+    'The account holder is not its data subject; the SHOP is, and a shop is not ' +
+    'a person with an RA 10173 right against us here. ' +
+    '⚖ THE COORDINATOR HALF IS DIFFERENT AND IS EXPORTED: ' +
+    '`event_colour_grants_coordinator.user_id` names a PERSON and says what ' +
+    'they, specifically, may change — a live capability attached to their ' +
+    'account — so the route reads it scoped to `user_id`. The two tables were ' +
+    'split for referential reasons (a booking vs a membership) and it turns out ' +
+    'the RA 10173 answer differs across the same seam. ' +
+    '⚠ What the subject DID under this grant is not hidden by this exclusion: ' +
+    '`event_colour_changes` is exported, author-scoped, so every colour they ' +
+    'actually changed is in the file.',
+
   // ⚠ REWRITTEN 2026-08-22 — THE TABLE IS GONE, AND THE OLD REASON ENDED IN A
   // PROMISE THAT WOULD NOW BE FALSE: "the subject can see and reset the link on
   // My Events at any time, which is the surface that right belongs on." That
@@ -201,6 +220,33 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'a live access key in it turns a privacy right into a disclosure risk. The ' +
     'celebrations the feed described are exported in full from `events` and ' +
     '`event_members` regardless.',
+  // ── added 2026-09-04 with the table itself (MB12) ──
+  moodboard_part_finalizations:
+    'Not the account holder\u2019s data to export. A row is a HANDSHAKE between ' +
+    'a celebration and a SHOP about one part of a design \u2014 "will you build ' +
+    'this ceiling as drawn?" \u2014 and its four `*_user_id` columns ' +
+    '(requested_by / answered_by / reopen_requested_by / reopen_answered_by) ' +
+    'are ACTOR STAMPS, the same call `event_stage_notes` and ' +
+    '`vendor_payment_asks` make for the same shape. No reader selects one: the ' +
+    'couple is shown the SHOP answering and the shop is shown the COUPLE ' +
+    'asking, never a named person on either side, and no RLS policy consults ' +
+    'them (the couple gate is event_members, the supplier gate is ' +
+    'current_vendor_event_vendor_ids). Exporting the row to a shop staffer ' +
+    'would hand one employee a record of somebody else\u2019s wedding design; ' +
+    'exporting it to a co-partner would hand them a supplier\u2019s commercial ' +
+    'answer as though it were their own personal data. ' +
+    'THE CONTENT IS NOT THE SUBJECT\u2019S EITHER. `design_snapshot` is the ' +
+    'COUPLE\u2019S BOARD, already exported in full from `events.role_palette`; ' +
+    '`decline_reason` / `reopen_decline_reason` are the SHOP\u2019S statement ' +
+    'about the work ("we cannot source that peony in November"), which belongs ' +
+    'to the business, not to whoever typed it. ' +
+    'STATED PLAINLY RATHER THAN LEFT IMPLIED: the COUPLE is a data subject of ' +
+    'this row on the event axis, and this exclusion does not answer their side. ' +
+    'It sits with every other event-scoped supplier record \u2014 bookings, ' +
+    'change orders, the payment ledger, payment asks \u2014 none of which the ' +
+    'export reaches today, and belongs with them the day that whole class is ' +
+    'covered, not as a special case. The erasure verdict for the four stamps is ' +
+    'separately written down in AUTHOR_UUID_NULLS (lib/erasure/coverage.ts).',
   // ── added 2026-08-28 with the table itself (S4) ──
   vendor_payment_asks:
     'Not the account holder’s data to export, on the axis this guardrail ' +
@@ -228,17 +274,14 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'right of access asks for. The subject’s own authorship is already evidenced by the ' +
     'event membership and booking records that ARE exported.',
 
-  // Became "user-identifying" on 2026-08-04 when the lock handshake added
-  // lock_requested_by_user_id / lock_answered_by_user_id. Both are ACTOR STAMPS
-  // (SET NULL + nullable — the same actor-or-subject test the erasure guardrail
-  // applies), recording WHICH person clicked ask/agree, not facts about them.
-  // The row's subject is the BOOKING between a couple and a vendor, and it is
-  // already reachable in an export through the EVENT, scoped to the account
-  // holder's own events — not through whoever happened to press the button. A
-  // vendor's staffer appearing in lock_answered_by_user_id must not pull a
-  // couple's whole booking into that staffer's personal export.
-  event_vendors:
-    'Booking row shared by a couple and a vendor. Its two *_user_id columns are actor stamps (who asked, who answered), not subject data — exporting by them would hand one party the other party’s commercial record.',
+  // event_vendors and event_vendor_payments LEFT this list on 2026-09-11: the
+  // export now reads them (the couple's payment ledger, and the supplier each
+  // payment went to), couple-grain — see T14/T15 below. The old event_vendors
+  // reason claimed bookings were "already reachable in an export through the
+  // EVENT"; that was never true (the route read neither table).
+  // FOLLOW-UPS A (2026-09-11): Setnayan's history of deposit refusals that ended.
+  event_vendor_deposit_refusals:
+    'Setnayan’s REFEREE RECORD of deposit refusals that have ended — admin-only (RLS on, no session grant). It is not withheld from the couple: the couple still sees the CURRENT refusal, and any ruling on it, on their own booking, and every payment they logged — refused or not — is in their export under payment_ledger. Its three *_user_id columns are actor stamps (who refused, which admin ruled, who ended it), not subject data; exporting by them would hand one party the other’s dispute record.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',
@@ -801,6 +844,65 @@ test('T12 · the vendor_profiles export projection is COMPLETE (no column silent
       reason.trim().length > 20,
       `VENDOR_PROFILE_EXPORT_OMITTED.${col} needs a real reason, not a placeholder. ` +
         'Withholding a column from a subject-access response is a decision someone must defend.',
+    );
+  }
+});
+
+test('T14 · the payment_ledger projection is COMPLETE (no ledger column silently drops out)', () => {
+  // The same derived check as T12, for the couple's payment ledger (2026-09-11).
+  // A named projection can forget a column; the wildcard it replaces never
+  // could. Equality, not a subset: an unexported column is an incomplete
+  // subject-access answer, a phantom one fails the whole section, and a stale
+  // withholding is a reason nobody re-read.
+  const table = readSchema().get('event_vendor_payments');
+  assert.ok(table, 'No CREATE TABLE public.event_vendor_payments found — the parser regressed.');
+  assert.ok(
+    table.cols.size >= 20,
+    `readSchema() sees only ${table.cols.size} ledger columns; there were 22 on 2026-09-11. Fix the parser.`,
+  );
+  const projected = new Set(LEDGER_EXPORT_FIELDS);
+  const omitted = Object.keys(LEDGER_EXPORT_OMITTED);
+  assert.equal(projected.size, LEDGER_EXPORT_FIELDS.length, 'the ledger projection repeats a column');
+  const missing = [...table.cols].filter((c) => !projected.has(c) && !omitted.includes(c)).sort();
+  assert.deepEqual(
+    missing,
+    [],
+    `UNDER-EXPORT: ledger column(s) reach no data subject: ${missing.join(', ')}. Add each to ` +
+      'LEDGER_EXPORT_PROJECTION in lib/export-payment-ledger.ts, or to LEDGER_EXPORT_OMITTED with the reason.',
+  );
+  const phantom = [...projected].filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(phantom, [], `Projected ledger column(s) no migration declares: ${phantom.join(', ')}.`);
+  const stale = omitted.filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(stale, [], `LEDGER_EXPORT_OMITTED names column(s) that no longer exist: ${stale.join(', ')}.`);
+  for (const [col, reason] of Object.entries(LEDGER_EXPORT_OMITTED)) {
+    assert.ok(reason.trim().length > 20, `LEDGER_EXPORT_OMITTED.${col} needs a real reason.`);
+    assert.ok(!projected.has(col), `${col} is both exported and withheld`);
+  }
+});
+
+test('T15 · the ledger and its suppliers are COUPLE-scoped, on the session client', () => {
+  // Couple-grain like the birth data: a coordinator on someone else's event
+  // must never export that couple's payments. Pinned three ways, because a
+  // green build must not survive any one of them being undone.
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // 1 · "the couple's events" is the member_type='couple' membership read.
+  assert.match(
+    src,
+    /const coupleEventIds[\s\S]{0,600}?\.from\('event_members'\)[\s\S]{0,200}?\.eq\('user_id', user\.id\)\s*\.eq\('member_type', 'couple'\)/,
+    'coupleEventIds no longer resolves the caller’s OWN member_type=\'couple\' events.',
+  );
+  // 2 · both reads are bounded to those ids …
+  for (const table of ['event_vendor_payments', 'event_vendors']) {
+    assert.match(
+      src,
+      new RegExp(`const owned = await coupleEventIds;[\\s\\S]{0,300}?supabase\\s*\\.from\\('${table}'\\)[\\s\\S]{0,200}?\\.in\\('event_id', owned\\.ids\\)`),
+      `${table} is no longer read for the couple’s own events (coupleEventIds → .in('event_id', owned.ids)).`,
+    );
+    // 3 · … on the SESSION client, where the couple read policy is a second bound.
+    assert.doesNotMatch(
+      src,
+      new RegExp(`admin[\\s\\S]{0,40}?\\.from\\('${table}'\\)`),
+      `${table} must not be read on the service client — RLS is the second bound on this couple-grain read.`,
     );
   }
 });

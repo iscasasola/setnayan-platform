@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { buildBusinessAlagaInsert, isAlreadyRecorded } from '@/lib/business-alaga';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
@@ -444,6 +447,66 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       '/open-shop?error=' +
         encodeURIComponent(dup ? OPEN_SHOP_ERRORS.slugTaken : updErr.message),
     );
+  }
+
+  // ── AND THE BUSINESS BECOMES A RECORD, NOT JUST A LISTING ────────────────
+  //
+  // A business existed twice and the two halves had never met: this action wrote
+  // `vendor_profiles`, and the People page's "A business" alaga was reachable
+  // only by typing the same name in again on a different screen. So a supplier
+  // who had just spent four screens naming their business was told, on People,
+  // that they care for nothing — and the business had no page and no timeline,
+  // because it had no record to hang one on.
+  //
+  // ⚠ BEST-EFFORT, ALWAYS. Nothing below can redirect, throw or change what this
+  // action returns. Opening a shop is the vendor's business; keeping a
+  // record-keeping row in step is ours, and ours failing must never cost them
+  // theirs. Same posture as the founding team seat and the account-name write
+  // above.
+  //
+  // ⚠ EXACTLY ONE, EVER. The read-then-write below loses a concurrent double
+  // submit — both requests read nothing — so the guarantee lives in the database:
+  // `dependents_owner_vendor_profile_key` (partial UNIQUE on
+  // (owner_user_id, vendor_profile_id), migration 20271186070892). The loser gets
+  // 23505, which `isAlreadyRecorded` reads as the success it is.
+  //
+  // ⚠ GATED LIKE EVERY OTHER WRITE TO THIS TABLE. `dependentPeopleEnabled()` AND
+  // the `dependent_minor_profiles` control, exactly as `addDependent` gates —
+  // both measured ON in production (P0-b, 2026-08-30). A business row carries no
+  // minor's data, but the SURFACE that renders it AND-gates the same pair, and
+  // writing a row nobody can see is worse than not writing it.
+  if (
+    dependentPeopleEnabled() &&
+    vendorProfileId &&
+    (await isDataPrivacyControlActive('dependent_minor_profiles'))
+  ) {
+    const alaga = buildBusinessAlagaInsert({
+      ownerUserId: user.id,
+      vendorProfileId,
+      shopName,
+    });
+    if (alaga) {
+      // ⚠ ADMIN CLIENT, AND THE `owner_user_id` IT WRITES IS THE AUTHENTICATED
+      // CALLER — never a form value. RLS is off for this client, so that
+      // assignment IS the ownership boundary, the same way it is in
+      // `resolveHonoreeDependentId`.
+      const { data: already, error: readErr } = await admin
+        .from('dependents')
+        .select('dependent_id')
+        .eq('owner_user_id', user.id)
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      // A REFUSED READ IS NOT "NO RECORD YET". Writing on a failed read would be
+      // the duplicate this whole mechanism exists to prevent, so an unreadable
+      // table skips the write entirely and the next save picks it up.
+      if (!readErr && !already) {
+        const { error: insErr } = await admin.from('dependents').insert(alaga);
+        if (insErr && !isAlreadyRecorded(insErr)) {
+          // Not fatal, and not silent: the shop is fine, the record is not.
+          console.error('[becomeVendor] business alaga insert failed:', insErr.message);
+        }
+      }
+    }
   }
 
   revalidatePath('/vendor-dashboard');

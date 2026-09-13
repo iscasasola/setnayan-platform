@@ -21,7 +21,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  mayBroadcastOnSharedChannel,
+  poolOnlyConnectNotice,
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
@@ -34,7 +36,7 @@ import {
   type RoamRecording,
 } from '@/lib/live-studio-recordings';
 import { eventSkuActive } from '@/lib/entitlements';
-import { liveStudioControllerHref } from '@/lib/live-studio-control';
+import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
@@ -184,9 +186,14 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // admin-approval-gated) — replaces the old mockPanoodSetup() that faked a
   // base + add-on config. eventSkuActive degrades to false on a missing orders
   // table (42P01/42703), so a pre-bootstrap env safely shows "not owned".
-  const [baseOwned, customMonogramOwned] = await Promise.all([
+  const [baseOwned, customMonogramOwned, ownsHostedChannel] = await Promise.all([
     eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM'),
     eventSkuActive(supabase, eventId, 'ANIMATED_MONOGRAM'),
+    // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+    // 2026-09-02)? Decides which pool-only connect notice renders below —
+    // NOT multicam entitlement, which stays keyed on PANOOD_SYSTEM/LIVE_STUDIO
+    // alone. See lib/live-studio-control.ts's docblock on the SKU.
+    eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
   ]);
 
   const setup: PanoodSetup = {
@@ -312,7 +319,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
         >
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+          <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>
         </p>
       ) : youtubeError ? (
         <p
@@ -332,6 +339,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         eventId={eventId}
         oauthReady={oauthReady}
         youtubeGrant={youtubeGrant}
+        ownsHostedChannel={ownsHostedChannel}
         grantMeasured={grantMeasured}
       />
 
@@ -346,6 +354,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         // lays upgrade, opened via liveStudioControllerHref). Pass true to unlock
         // the go-live button; the add-on rows below still reflect REAL ownership.
         ownsPanood={true}
+        ownsHostedChannel={ownsHostedChannel}
         active={
           activeBroadcast
             ? {
@@ -404,11 +413,13 @@ function YoutubeConnect({
   oauthReady,
   youtubeGrant,
   grantMeasured,
+  ownsHostedChannel,
 }: {
   eventId: string;
   oauthReady: boolean;
   youtubeGrant: YoutubeGrant | null;
   grantMeasured: boolean;
+  ownsHostedChannel: boolean;
 }) {
   return (
     <section
@@ -452,8 +463,22 @@ function YoutubeConnect({
           moment rather than linking it again.
         </p>
       ) : (
-        <ConnectCTA eventId={eventId} />
+        <ConnectCTA eventId={eventId} ownsHostedChannel={ownsHostedChannel} />
       )}
+
+      {/* 🚨 OUTSIDE the four-way branch above, on purpose. This first went inside
+          ConnectCTA — one arm of four — so a host who had ALREADY connected their own
+          channel (the ConnectedPanel arm) never saw it. That host is not safe: the
+          go-live action resolves a POOL token FIRST and only falls back to their BYO
+          grant, so a connected host lands on a shared Setnayan channel just as easily.
+          Whether this event may be pooled has nothing to do with which connect state
+          the panel is showing, so the warning must not live in one of its arms.
+          Predicate is the action's own — see mayBroadcastOnSharedChannel(). */}
+      {mayBroadcastOnSharedChannel() ? (
+        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+        </p>
+      ) : null}
 
       {/* ⚠ This chip must keep byte-matching YOUTUBE_OAUTH_SCOPES in
           lib/panood-youtube.ts AND the OAuth consent screen. It said "YouTube
@@ -515,28 +540,36 @@ function ComingSoonPlaceholder() {
   );
 }
 
-function ConnectCTA({ eventId }: { eventId: string }) {
-  // ⭐ POOL-ONLY: Setnayan supplies the channel, so there is nothing to connect and
-  // the door is closed server-side (api/oauth/youtube/start returns 409). Rendering
-  // the button anyway would be a fake door — and under an Internal-audience OAuth
-  // client Google would refuse these users with `org_internal` regardless.
+function ConnectCTA({
+  eventId,
+  ownsHostedChannel,
+}: {
+  eventId: string;
+  ownsHostedChannel: boolean;
+}) {
+  // ⭐ POOL-ONLY: the door is closed server-side either way (api/oauth/youtube/start
+  // returns 409) — under an Internal-audience OAuth client Google would refuse these
+  // users with `org_internal` regardless. Rendering the button anyway would be a fake
+  // door. Which NOTICE renders depends on ownsHostedChannel: only an event that
+  // bought the hosted-channel add-on has "nothing to connect" as the whole truth —
+  // everyone else still has their own route to air (the paste-link box below).
   if (liveStudioPoolOnly()) {
     return (
       <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
-        {POOL_ONLY_CONNECT_NOTICE}
+        {poolOnlyConnectNotice(ownsHostedChannel)}
       </p>
     );
   }
 
   return (
     <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
-      <Link
+      <a
         href={`/api/oauth/youtube/start?event_id=${eventId}`}
         className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
       >
         <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Connect YouTube
-      </Link>
+      </a>
       <p className="text-xs text-ink/55">
         You&rsquo;ll be redirected to Google to grant access, then bounced back here.
         Takes about 20 seconds.
@@ -631,8 +664,8 @@ function SetupStatus({ eventId }: { eventId: string }) {
       </div>
 
       <p className="text-sm text-ink/70">
-        Single-camera live broadcast &middot; one event-day, embedded on your event
-        page, YouTube delivery + auto-archive on your own channel &middot;{' '}
+        Single-camera live broadcast &middot; embedded on your event page, YouTube
+        delivery + auto-archive on your own channel &middot;{' '}
         <span className="font-medium text-success-700">free for every couple</span>
       </p>
 
@@ -645,8 +678,8 @@ function SetupStatus({ eventId }: { eventId: string }) {
         />
         <Stat
           label="Coverage"
-          value="One event-day"
-          sub="Add a day per event-day"
+          value="No day limit"
+          sub="Free, always available"
           Icon={Clock3}
         />
         <Stat

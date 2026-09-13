@@ -8,7 +8,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -78,7 +79,12 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   await Promise.all(
     payments.map(async (p) => {
       if (!p.screenshot_url) return;
-      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      // 🔒 Scoped to this fee order's own proof folders (the generic signer is
+      // public-bucket-only); the order was matched to this vendor above.
+      const url = await displayUrlForPrivateStoredAsset(
+        p.screenshot_url,
+        paymentProofPolicy({ orderId: order.order_id, eventId: order.event_id ?? null, userId: order.user_id ?? null }),
+      );
       if (url) paymentScreenshotMap[p.payment_id] = url;
     }),
   );

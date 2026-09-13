@@ -22,6 +22,10 @@ import {
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from './_components/save-story-card-button';
+import { recapCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { linkPreviewFor } from '@/lib/who-sees-the-link-preview';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -46,7 +50,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, event_type, role_palette, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+      `event_id, slug, event_type, role_palette, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -69,7 +73,35 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const websiteOn = event
     ? surfaceEnabled(await resolveProfile(event.event_type), 'website')
     : false;
-  if (!event || !websiteOn || !(await isRecapPublished(event.event_id))) {
+  /*
+    🔴 THE SOLEMN REGISTER GETS NO AUTO-COMPOSED RECAP — owner ruling 2026-09-09.
+    A wake gets the QUIET STORY, written by the family; the recap is composed in
+    a joyful voice with nobody's hand on it, and that is what stays refused.
+
+    ⚠ THIS ROUTE HAD NO SOLEMN GATE AT ALL, and the corpus said it did. The
+    refusal everyone believed in lives in `solemnAdjustedPhase`, which governs
+    what a guest receives at `/{slug}` — the recap has its OWN address and
+    checked only "does this event have a website" and "did the host publish".
+    A grieving family that published would have been handed the cheerful one.
+    Inert when found (no wake exists in production), and found by S13 reading
+    the route rather than the comment. A sentence in a docblock is not a gate on
+    every route.
+  */
+  const solemn = event ? (await eventWordsFor(event.event_type)).solemn : false;
+  if (!event || !websiteOn || solemn || !(await isRecapPublished(event.event_id))) {
+    return { title: 'The Recap', robots: { index: false, follow: false } };
+  }
+  /*
+    🔴 THIS METADATA NEVER ASKED WHO MAY SEE THE SITE. The page body refuses a
+    private site's stranger (`canViewSlugEvent`), but its metadata named the
+    couple and carried their card for ANY published recap — so a Private
+    celebration's recap link previewed their names to whoever had the address.
+    Found building the owner's 2026-09-11 ruling (item 13): the same rule as
+    `/{slug}` now decides, and the recap's own published switch is the
+    "published" it asks about (it has its own, `isRecapPublished`, above).
+  */
+  const preview = linkPreviewFor(resolveEffectiveVisibility(event), true);
+  if (!preview.namesTheCouple) {
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
@@ -82,6 +114,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
+    ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
     alternates: { canonical: `${SITE_URL}/${event.slug}/recap` },
     openGraph: {
       type: 'website',
@@ -90,7 +123,20 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
-      images: [{ url: `${SITE_URL}/api/og/recap/${event.slug}`, width: 1200, height: 630, alt: title }],
+      /*
+        VERSIONED, like the story's card. S14 built `recapCardUrlFor` so a guest's
+        withdrawal moves the recap card's address past every cache — and the page's
+        share button used it, but THIS og:image (the one every platform reads) was
+        still the bare address, so the move never reached a link preview.
+      */
+      images: [
+        {
+          url: recapCardUrlFor(SITE_URL, event.slug, await readStoryVersionAt(event.event_id)),
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: { card: 'summary_large_image' as const },
   };
@@ -104,6 +150,17 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   // there records, it is TRUE for every event type shipped today. A non-wedding
   // therefore RENDERS this page; it is not filtered out here.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  /*
+    THE SAME REFUSAL, ON THE RENDER PATH. Both arms are needed: the metadata arm
+    above stops the page being indexed and titled, and this one stops it being
+    served at all. Gating only one of them is how a page comes to be reachable
+    while claiming not to exist.
+    🔑 Keyed on the REGISTER, never on a surface flag — `website` is enabled for
+    every type shipped today (see the note above), so a `surfaceEnabled` test
+    here would refuse nobody.
+  */
+  if ((await eventWordsFor(event.event_type)).solemn) notFound();
 
   // …which is why this page needs the event's own words. A birthday's guests
   // reach the stand-in below from the hub's "See the recap gallery" link, which
@@ -174,9 +231,28 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const mono = await resolveEventMonogram(createAdminClient(), event.event_id, event);
 
   const shareUrl = `${SITE_URL}/${event.slug}/recap`;
-  const shareImage = `${SITE_URL}/api/og/recap/${event.slug}`;
+  /*
+    ══ THE RECAP'S CARD MOVES WITH THE STORY (S14 · `04` §3 · `07` Q6) ════════
+
+    🔑 THERE ARE TWO SHARE CARDS, NOT ONE, and `04` §3's phrase "the OG card"
+    reads as one. This card renders `loadRecapCardData`'s hero, which comes from
+    `loadEditorialData` and can therefore BE A GUEST'S PHOTOGRAPH — and it
+    carries the same `max-age=3600, stale-while-revalidate=86400` that no
+    `revalidatePath` can reach. Fixing the story's card and not this one would
+    have been a fix that looks complete and is not.
+
+    ⚠ AND THE STORY-SIZED ASSET APPENDS ITS OWN PARAMETER, which is why the
+    join is written out rather than a second `?`. A versioned base already
+    carries a query string, and `…?v=123?format=story` is not a URL — it would
+    have silently served the 1200×630 unfurl card as the 9:16 asset.
+  */
+  const shareImage = recapCardUrlFor(
+    SITE_URL,
+    event.slug,
+    await readStoryVersionAt(event.event_id),
+  );
   // 1080×1920 story-sized file-asset — the IG/TikTok/Stories share path.
-  const storyCardUrl = `${shareImage}?format=story`;
+  const storyCardUrl = `${shareImage}${shareImage.includes('?') ? '&' : '?'}format=story`;
   const storyFilename = `${event.slug}-recap`;
 
   return (

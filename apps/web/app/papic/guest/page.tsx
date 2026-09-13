@@ -10,6 +10,7 @@ import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 
@@ -40,6 +41,7 @@ export default async function PapicGuestPage({
 }) {
   const sp = await searchParams;
   const buyError = sp?.papic_buy_error ?? null;
+  const storeShell = await isStoreShellRequest();
   const released = sp?.papic_release ?? null;
   /**
    * The event this camera was opened FROM, so a refusal can hand the visitor
@@ -107,7 +109,7 @@ export default async function PapicGuestPage({
       .select(`display_name, papic_face_mode, event_type, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
-    // Own only for spec § 7b's "change your mind" offer — the buy panel
+    // Resolved only for spec § 7b's "change your mind" offer. The buy panel
     // self-gates on the flag too, but skipping this read when it is off saves
     // a query nobody will see the result of.
     papicGuestBuyEnabled()
@@ -280,6 +282,7 @@ export default async function PapicGuestPage({
       capApplies={quota.capApplies}
       poolRemaining={quota.poolRemaining}
       poolLow={quota.poolLow}
+      sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
@@ -294,6 +297,11 @@ export default async function PapicGuestPage({
         use), so the "this camera only" rungs now have somewhere to land. Before
         this the event-site guest — the free-pool guest the owner asked about —
         could only top up the HOST's pool. */}
+    {/* 🔒 Withheld in the store shell (App Review 3.1.1): this panel prints
+        live camera rung prices and takes a purchase. The guest's FREE camera
+        above is untouched — a guest who scanned a QR can still shoot; they
+        just are not sold anything inside the app. See lib/store-shell.ts. */}
+    {!storeShell && (
     <PapicGuestBuyPanel
       returnTo="/papic/guest"
       error={buyError}
@@ -302,6 +310,7 @@ export default async function PapicGuestPage({
       ownSeatId={ownCamera?.seatId ?? null}
       released={released}
     />
+    )}
     </>
   );
 }

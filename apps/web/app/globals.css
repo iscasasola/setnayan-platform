@@ -753,6 +753,50 @@ html.subnav-docked [data-shell-main] {
   }
 
   /*
+   * THE INVITE DOOR'S BUTTON, IN THE COUPLE'S OWN COLOUR (owner Q2 = A,
+   * 2026-09-11). Scoped to `[data-door-action]`, which `DoorShell` sets ONLY
+   * when its skin carries an `action` — i.e. only a Pro invite theme, resolved
+   * once in `app/[slug]/invite/_lib/load-invite-look.ts`. House, every other
+   * door, and the Event Hub's own copy of the same RSVP card are all outside
+   * this scope and render byte-identically.
+   *
+   * 📦 A RULE HERE, NOT A STYLESHEET. globals.css already ships on every page,
+   * so this adds no module to the shared chunk — the constraint `door-shell.tsx`
+   * records ("`main` is a hair under a locked 200 KB"). The precedent is
+   * `.app-surface .button-primary` further down, which re-points this same class
+   * for the dashboards.
+   *
+   * ⚠ THE LABEL IS NOT OPTIONAL. `--door-action-label` is chosen against the
+   * fill by `lib/invite-button-color.ts` (white or ink, 4.5:1 or the terracotta
+   * floor). Setting the background here without it would leave the class's own
+   * `text-cream` on a colour nobody measured — which on a pale couple colour is
+   * white on white. Fill and label are one decision; they move together.
+   *
+   * ⚠ THE HOVER IS A RESOLVED COLOUR, NOT `filter: brightness()`. A brightness
+   * step moves the fill in ONE direction whatever label is on it, so on a light
+   * fill wearing the ink label it walks the pair closer together — a colour
+   * resolved at exactly 4.5:1 would drop under AA the moment a thumb rests on
+   * it, in a state nobody screenshots. `lib/invite-button-color.ts` computes a
+   * hover that always moves AWAY from the label, and the sweep in its test
+   * asserts the hover reads at least as well as the resting state.
+   *
+   * ⚖ THE FOCUS RING IS DELIBERATELY LEFT ALONE. It stays the house #C24E25:
+   * a ring's job is to be visible against the page GROUND, which on a Pro theme
+   * is the couple's own photograph, and nothing here has measured the couple's
+   * colour against that. Setting `--tw-ring-color` here would also be inert —
+   * Tailwind's `focus-visible:ring-mulberry` utility is emitted in a later layer
+   * at equal specificity and wins — and a declaration that changes no pixel is
+   * worse than none.
+   */
+  [data-door-action] .button-primary {
+    background-color: var(--door-action);
+    color: var(--door-action-label);
+  }
+  [data-door-action] .button-primary:hover {
+    background-color: var(--door-action-hover);
+  }
+
+  /*
    * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
    * One of the two sanctioned homes for the new `link` token (the other being
    * inline anchors). Border and label carry the indigo; the fill stays cream so
@@ -3948,4 +3992,85 @@ html:active-view-transition .sn-page-enter { animation: none; }
   color: var(--sn-ob-text);
   border-radius: 18px;
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STORY, BY THE MINUTE — the spine's own two rules
+   (Design_Editorial_By_The_Minute_2026-09-07 · 01_The_Story.md §3.3 + §7)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The write-up's drop cap. A minute reads as a piece of writing, not a caption. */
+.sn-dropcap::first-letter {
+  font-family: var(--font-condensed), 'Saira Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.78;
+  padding: 5px 9px 0 0;
+}
+
+/* ENTRIES RISE — THEY NEVER FADE (review finding).
+   The first cut held every entry at opacity .65 until an observer fired, which
+   is dim in a screenshot, dim to a crawler, dim with JS off, and took muted text
+   down to about 2.5:1. So: no opacity anywhere in this, and the offset itself is
+   applied ONLY once the script has run — `data-story-js` is set on mount. With
+   JavaScript off the entries have no transform at all and the page is simply
+   the page. `prefers-reduced-motion` removes it as well, in the stylesheet AND
+   in the script that would otherwise still animate the count-up. */
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story[data-story-js] [data-story-entry] {
+    transform: translateY(14px);
+    transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sn-story[data-story-js] [data-story-entry][data-story-in] {
+    transform: none;
+  }
+}
+
+/* THE COUNT-UP IS PAINTED OVER THE TEXT, NEVER WRITTEN INTO IT (story-clock.tsx).
+   While a minute's stamp counts up, the digits in flight sit in
+   `data-story-counting` and are drawn by ::before; the server's own text keeps
+   its box (so nothing moves) and is only hidden underneath. Writing the text
+   instead broke hydration on parts of the story that had not hydrated yet. */
+[data-story-countup][data-story-counting] {
+  position: relative;
+  visibility: hidden;
+}
+[data-story-countup][data-story-counting]::before {
+  content: attr(data-story-counting);
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: visible;
+}
+
+/* Wide content scrolls inside its own container — the body never scrolls
+   sideways at 390px (§11). */
+.sn-story {
+  overflow-x: clip;
+}
+.sn-story [data-story-scroller] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sn-story [data-story-scroller]::-webkit-scrollbar {
+  display: none;
+}
+
+/* FIND IN THIS DAY — non-matching minutes dim (§8).
+   A PRESENTATIONAL marker and never a gate. Everything it dims is already in
+   the served HTML, which is exactly why the LAYERS this reader may not have are
+   taken out of the payload upstream instead of being hidden here: `opacity` on
+   a node whose contents were serialised into the page is the same paragraph,
+   one View Source away.
+   It is cleared when the search closes, and on unmount, so nobody is left
+   reading a greyed-out story. */
+.sn-story [data-story-entry][data-story-dim] {
+  opacity: 0.3;
+  filter: saturate(0.5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sn-story [data-story-entry] {
+    transition-property: transform, opacity;
+  }
 }

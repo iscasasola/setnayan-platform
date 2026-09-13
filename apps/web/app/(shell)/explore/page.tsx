@@ -38,6 +38,12 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // structural type so the const passes through unchanged.
 import type { FolderTab } from './_components/mega-column-tabs';
 import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
+import { countLiveShops } from '@/lib/live-shops';
+import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
+import { toServiceCard } from '@/lib/service-card-view-model';
+import { ServiceCardView } from '@/app/_components/service-card-view';
+import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
 import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
 import type { FilterDrawerProps } from './_components/filter-drawer';
@@ -60,7 +66,11 @@ import {
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  displayLogoUrl,
+  displayUrlForCatalogueArt,
+  publicUrlForStoredAsset,
+} from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import {
@@ -106,7 +116,6 @@ import {
   type VendorBadge,
 } from '@/lib/vendor-badges';
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
-import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
 import { searchReads, type ReadHit } from '@/lib/site-search';
 
@@ -643,7 +652,8 @@ type VendorCardRow = {
   location_city: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  contact_email: string | null;
+  // No contact_email (2026-09-10): the marketplace never rendered it, and a
+  // public page that never fetches a shop's address can never print it.
   public_visibility: VendorPublicVisibility;
   created_at: string;
   // Iteration 0006 — sourced from vendor_market_stats view (see migration
@@ -677,6 +687,10 @@ type VendorCardRow = {
    *  carry it pre-2026-05-22. Drives the badge engine in
    *  `lib/vendor-badges.ts`. */
   verification_state?: string | null;
+  /** `vendor_profiles.next_renewal_due_at` — the Verified badge's deadline
+   *  (owner 2026-09-11 · Q4 + Q5). Same follow-up batch; the badge engine
+   *  withholds `verified` past it while the shop stays listed. */
+  next_renewal_due_at?: string | null;
   /** V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
    *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
    *  [[project_setnayan_vendor_hybrid_anonymity]]). Pulled in the
@@ -706,7 +720,7 @@ type VendorCardRow = {
    *  pre-migration deploy → free → name still hidden. */
   tier_state?: string | null;
   /** Resolved public URL for the vendor's hero service photo
-   *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
+   *  (`vendor_services.primary_photo_r2_key` → publicUrlForStoredAsset). Null when
    *  the vendor has no service with a photo set. */
   primary_photo_url?: string | null;
   /** Lowest active `vendor_services.starting_price_php` across all
@@ -1369,14 +1383,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     ? mapCeremonyTypeToFaith(matchableEvent.ceremony_type)
     : null;
 
-  // Catalog mode — landing view when no narrowing filter is set. Renders the
-  // full 192-category taxonomy grouped by mega-column so couples see the full
-  // breadth of services Setnayan covers, even before vendor pools fill in.
-  // Replaces the bare empty-state that previously rendered when zero vendors
-  // satisfied the publishing gate. Any filter (category, search, city,
-  // verified-only, match, event_type) drops the user into vendor-grid mode
-  // below so they can drill into a specific service.
-  const isCatalogMode =
+  // Landing view — no narrowing filter set.
+  //
+  // ⚠ THIS USED TO MEAN "SHOW THE TAXONOMY INSTEAD OF VENDORS", AND ITS OWN
+  // REASON HAD EXPIRED. The rule was written for an empty marketplace — its
+  // comment said so: the catalog "replaces the bare empty-state that
+  // previously rendered when ZERO VENDORS satisfied the publishing gate".
+  // That was right when nothing could be shown. It is wrong the moment a shop
+  // opens: a visitor landing on /explore saw a wall of category tiles and not
+  // one of the shops that actually exist, and the owner asked why (2026-09-08:
+  // *"entering on this page should automatically show service cards already.
+  // why don't I see any"*).
+  //
+  // 🔑 THE FIX IS TO ASK THE DATABASE INSTEAD OF ASSUMING. The catalog-only
+  // landing now renders only when the marketplace is GENUINELY empty, which is
+  // the condition the original comment claimed. With shops live, the landing
+  // shows them and keeps the catalog underneath — nothing is taken away.
+  //
+  // Any filter (category, search, city, verified-only, match, event_type)
+  // still drops straight into vendor-grid mode with no catalog below it.
+  const isLandingView =
     !filters.category &&
     !filters.q &&
     !filters.city &&
@@ -1476,7 +1502,139 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // main public entry drives them daily. Per-job daily DB claim; never throws.
   after(() => runDailyEmailJobs().catch(() => {}));
 
-  if (isCatalogMode) {
+  /*
+    💸 ONE `head: true` COUNT ON THE LANDING ONLY. It is not run on a filtered
+    view (which never shows the catalog) and it fetches no rows. `null` means
+    the read FAILED — never 0 — so a broken count can only fall back to the
+    catalog, the same thing this page rendered yesterday, instead of claiming
+    an empty marketplace. Failure degrades to the old behaviour, not to a lie.
+  */
+  const liveShopCount = isLandingView ? await countLiveShops(admin) : null;
+
+  /*
+    ═ THE BODY LISTS SERVICES, NOT SHOPS ═
+    Owner, 2026-09-08, twice: *"i still do not see the service cards"*, and
+    earlier *"Marketplace is where they can view all services and search what
+    they want … so on the body, it will only show all service cards."*
+
+    🔑 RULE 0 — THE QUERY ALREADY EXISTED AND HAD NO CALLER.
+    `lib/marketplace-service-cards.ts` shipped EARLIER TODAY with a docblock
+    naming this exact defect, and nothing imported it outside its own test. The
+    card component (`ServiceCardView`, "THE service card, the one a couple
+    sees") shipped today too. Both halves were built; the page was never wired
+    to them. This is the wire, not a third implementation.
+
+    The bug the module records, reproduced verbatim on the owner's screen: the
+    grid drew ONE card per VENDOR and picked a service to stand for the shop —
+    "Live Band by Saysay Live Band & Hosting" — so Saysay's second card was
+    nowhere, and a couple searching for a host was shown a band at the band's
+    price. One row per card makes that unrepresentable.
+
+    ⚠ IT THROWS RATHER THAN RETURNING []. Deliberate, and stated in the module:
+    an empty array renders identically to a genuinely empty marketplace. Caught
+    here so a broken read falls back to the vendor grid this page shipped
+    yesterday — degraded, never a convincing lie.
+
+    🔴 `admin`, NOT `supabase` — AND THE VISITOR SESSION IS WHY THE GRID WAS
+    EMPTY TO EVERY STRANGER. Measured 2026-09-09 against production through a
+    real anonymous PostgREST client, not inferred from a policy file:
+
+        vendor_profiles ..... 2 rows   (Saysay, SetnaProd)
+        vendor_services ..... 0 rows
+
+    `vendor_services_public_read` is `TO authenticated`; its sibling
+    `vendor_profiles_public_read` is `TO authenticated, anon`. So a signed-out
+    couple — the FIRST person to touch this product — opened /explore, read the
+    heading "The first shops", and got a grid with no children. RLS refuses
+    without raising, so `serviceCards` came back `[]`, the `.catch` never fired,
+    and an access decision rendered as "nobody has listed anything yet".
+
+    🔑 EVERY OTHER READ ON THIS PAGE ALREADY USES `admin` FOR EXACTLY THIS
+    REASON — see the marketplace query's own note below: *"the marketplace is a
+    public surface … the admin client carries no viewer identity so the read is
+    consistent for everyone."* One read out of ~20 took the viewer's session,
+    and it was the one that draws the body.
+
+    🔒 THIS DOES NOT WIDEN ANYTHING. The module states the visibility rule in
+    its own query — active card AND a shop whose `verification_state` and
+    `public_visibility` are both `verified` — and its docblock says why: it
+    runs with whatever client the caller passes, so the answer must not change
+    with the caller. The rule is the same rule the policy encodes; the admin
+    client is what the function was written to be handed.
+
+    ⛔ THE OTHER REPAIR WAS ADDING `anon` TO THE POLICY, AND IT IS NOT
+    EQUIVALENT. `anon` already holds table-level SELECT on `vendor_services`
+    (measured in prod: no column allowlist, all 40 columns), so admitting it to
+    the policy publishes the whole row to any holder of the public key —
+    `is_demo`/`demo_batch_id`, `daily_capacity`, `credit_price_centavos`,
+    `branch_id` included, none of which any customer surface renders. That is
+    widening a TABLE when the thing that needed widening was a PAGE. It would
+    also move the exposure baseline and need a migration to undo. This is one
+    identifier, revertible in one line.
+  */
+  const serviceCards = isLandingView
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
+    : null;
+  /*
+    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
+    Owner, 2026-09-09: the card body opens that service's details, the LOGO
+    opens the shop.
+
+    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
+    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
+    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
+    resolver for this column — never a second one, and never `publicUrlFor`,
+    whose argument is an object KEY and which would fold the `r2://` scheme into
+    the object path.
+
+    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
+    shop with four cards would otherwise be signed four times for one picture.
+    Signing is a round trip each.
+
+    A failure costs a picture, never the grid — the card falls back to the
+    initials tile, which is a real design state, not an error state.
+  */
+  const serviceCardLogoUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    const byShop = new Map<string, string | null>();
+    for (const c of serviceCards) {
+      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
+    }
+    const shops = [...byShop.entries()];
+    const resolved = await Promise.all(
+      shops.map(([, ref]) =>
+        displayLogoUrl({ logo_url: ref }).catch(() => null),
+      ),
+    );
+    shops.forEach(([vendorProfileId], i) => {
+      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
+    });
+  }
+  /*
+    ═ C2 (2026-09-11): A CARD WITH A COVER SHOWS IT ON THE MAIN GRID ═
+    This grid never resolved showcase photos at all (the `toServiceCard` call
+    below always passed `showcase: undefined`), so a card drew with nothing to
+    look at unless its category's icon glyph counted. The cover
+    (`primary_photo_r2_key`, required to publish per `lib/vendor-services.ts`)
+    was already read into `c.row` by `fetchMarketplaceServiceCards` — it just
+    had no display URL and no wire to the card.
+    `publicUrlForStoredAsset` — NOT `displayUrlForStoredAsset` — per its own
+    docblock: this exact grid is a named example of the public, unsigned
+    surface it exists for, and it's synchronous (no signing round trip), so
+    resolving one per card costs nothing.
+  */
+  const serviceCardCoverUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      serviceCardCoverUrls.set(
+        c.row.vendor_service_id,
+        publicUrlForStoredAsset(c.row.primary_photo_r2_key),
+      );
+    }
+  }
+  const marketplaceIsEmpty = liveShopCount === 0;
+
+  if (isLandingView && marketplaceIsEmpty) {
     return (
       /*
         🔑 THE SHARED SHELL IS NOT MOUNTED HERE — it lives in
@@ -1584,7 +1742,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
       // only used in .order() before) so the in-memory rating/review re-sort
       // below can preserve the first-party float precedence explicitly.
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
@@ -2149,6 +2307,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           string,
           {
             verification_state: string | null;
+            next_renewal_due_at: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
             tier_state: string | null;
@@ -2177,7 +2336,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         const { data, error } = await admin
           .from('vendor_profiles')
           .select(
-            'vendor_profile_id, verification_state, name_revealed_at, screen_name, tier_state',
+            'vendor_profile_id, verification_state, next_renewal_due_at, name_revealed_at, screen_name, tier_state',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
@@ -2193,6 +2352,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           string,
           {
             verification_state: string | null;
+            next_renewal_due_at: string | null;
             name_revealed_at: string | null;
             screen_name: string | null;
             tier_state: string | null;
@@ -2202,12 +2362,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           const r = row as {
             vendor_profile_id: string;
             verification_state: string | null;
+            next_renewal_due_at?: string | null;
             name_revealed_at?: string | null;
             screen_name?: string | null;
             tier_state?: string | null;
           };
           out.set(r.vendor_profile_id, {
             verification_state: r.verification_state ?? null,
+            next_renewal_due_at: r.next_renewal_due_at ?? null,
             name_revealed_at: r.name_revealed_at ?? null,
             screen_name: r.screen_name ?? null,
             tier_state: r.tier_state ?? null,
@@ -2611,6 +2773,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // measured", and the card must say nothing rather than guess.
     v.anonymity_resolved = meta !== null;
     v.verification_state = meta?.verification_state ?? null;
+    v.next_renewal_due_at = meta?.next_renewal_due_at ?? null;
     /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. NULL =
        business_name hidden in this card (Free + Verified pre-first-
        reply). Consumed by VendorCard via resolveVendorDisplayName. */
@@ -2625,7 +2788,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     v.tier_state = meta?.tier_state ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
-      ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
+      ? publicUrlForStoredAsset(svc.photoR2Key)
       : null;
     // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
     // the card shows the "Off-season savings" badge + the filter can narrow.
@@ -2852,6 +3015,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       return {
         vendor_profile_id: v.vendor_profile_id,
         verification_state: v.verification_state ?? null,
+        next_renewal_due_at: v.next_renewal_due_at ?? null,
         created_at: v.created_at,
         avg_rating_overall: v.avg_rating_overall ?? 0,
         review_count: v.review_count ?? 0,
@@ -3162,27 +3326,80 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               </div>
             ) : null}
 
-            {/* Compact context strip — back to catalog + current filter
-                summary. Kept below the sticky header so it doesn't bloat
-                the sticky chrome but stays reachable on every grid page. */}
-            <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
-              <Link
-                href="/explore?match=0"
-                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
-              >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-                Browse all 192 categories
-              </Link>
-              {filters.category ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Showing: {taxonomyLabel(filters.category)}
+            {/*
+              ═ THE LANDING'S OWN HEADING — and the word it is NOT allowed to
+              use yet.
+
+              🔒 "TRENDING IS EARNED, NEVER SOLD" (FRONT_DOOR_CORRECTNESS_PASS
+              2026-08-11), and a ranking over a handful of shops is noise
+              wearing the clothes of merit. The owner set the number where it
+              stops being noise — `TRENDING_MIN_LIVE_SHOPS`, imported rather
+              than re-typed, and *"yours to move"* per FRONT_DOOR_AND_SEAM_FINAL
+              §1. Below it the front door already says "The first shops"; this
+              page now says the same thing, from the same constant, so the two
+              surfaces cannot disagree about whether the marketplace is
+              trending.
+
+              ⚠ NO COUNT IS PRINTED. `liveShopCount` decides the WORD and is
+              never rendered — a number beside it would be a second claim that
+              rots, which is the defect this file just had removed from it.
+            */}
+            {isLandingView ? (
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Trending shops'
+                    : 'The first shops'}
+                </h2>
+                <p className="mt-1 text-sm text-ink/60">
+                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Ranked by what couples actually book and review.'
+                    : 'The suppliers who opened first. New shops appear here as they join.'}
                 </p>
-              ) : filters.q ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  Search: &ldquo;{filters.q}&rdquo;
-                </p>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+            {/*
+              Current-filter summary.
+
+              ⛔ THE "BROWSE ALL 192 CATEGORIES" BACK-LINK USED TO LEAD THIS
+              STRIP AND IS GONE (owner 2026-09-08: *"we also do not need the
+              browse line since we are already browsing the whole taxonomy"*).
+              Two things were wrong with it and only one was the wording:
+
+                1. It rendered on EVERY grid page, including the unfiltered
+                   catalog — where `/explore?match=0` is the page you are
+                   already on. A link to where you are is not an affordance.
+                2. It said 192. That number was typed by hand when
+                   `TAXONOMY_MAP` held 192 entries; the map now holds 288, so
+                   the marketplace was advertising a third fewer categories
+                   than it has. Nothing derived it and nothing watched it —
+                   exactly the rot CLAUDE.md rule 7 is about ("an anchor is a
+                   string, never a number").
+
+              🔑 REMOVING IT DOES NOT STRAND A NARROWED VISITOR, which was the
+              only reason to keep it. `filter-drawer.tsx` has a pinned Clear
+              button whose visibility is driven by whether any filter is
+              active, reachable from the sticky header's Filters button, and
+              the zero-results EmptyState carries its own "Clear all filters".
+              Checked before deleting rather than assumed.
+
+              The summary itself stays — it says what you are narrowed BY,
+              which nothing else on the grid tells you — and now renders only
+              when there is something to say, instead of holding an empty row.
+            */}
+            {filters.category || filters.q.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-baseline justify-end gap-3">
+                {filters.category ? (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Showing: {taxonomyLabel(filters.category)}
+                  </p>
+                ) : (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Search: &ldquo;{filters.q}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : null}
           </>
         ) : (
           /* Focused-mode replacement: a slim search form with only the
@@ -3302,6 +3519,67 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             }
           />
         ) : (
+          serviceCards !== null ? (
+          /*
+            THE LANDING'S BODY — one card per SERVICE.
+
+            `detailsEnabled={false}` renders the card to be LOOKED AT: every
+            interactive branch inside the view is already gated on that flag, so
+            a server component can render it without a client wrapper existing
+            only to satisfy a type. Same call shape the vendor's own card list
+            uses, so all three surfaces draw the identical card.
+          */
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {serviceCards.map((c) => (
+              <li key={c.row.vendor_service_id}>
+                {/*
+                  TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
+                  service's details, the shop LOGO opens the shop. The card used
+                  to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
+                  why a second link could not simply be added inside it.
+
+                  ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
+                  argument stays FALSE, and that is deliberate, not a slip. They
+                  are two different questions:
+                    · the view's flag asks "is this card a doorway?" — it is now,
+                      because it has an address to go to.
+                    · the builder's flag asks "put the details-sheet-only keys in
+                      the payload?" — no. Those exist for the in-page sheet on
+                      the shop's own page, they are gated on
+                      NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
+                      would break the byte-identical-payload contract that
+                      `service-details-dark.test.ts` pins.
+                  The public id the address needs is read from the DATABASE ROW,
+                  which always carries it — see `lib/service-card-address.ts`.
+                */}
+                <ServiceCardView
+                  card={toServiceCard(
+                    c.row,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    false,
+                    null,
+                    new Date(),
+                    null,
+                    null,
+                    false,
+                    serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
+                  )}
+                  detailsEnabled
+                  detailsHref={serviceCardAddress(c)}
+                  shop={{
+                    name: c.businessName,
+                    href: shopAddress(c.businessSlug),
+                    logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
+                    city: c.locationCity,
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+          ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
               /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
@@ -3347,6 +3625,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               );
             })}
           </ul>
+          )
         )}
 
         <Pagination
@@ -3368,6 +3647,27 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             writing to reach one. When the vendor list is empty this section is
             simply the first thing with an answer in it. */}
         <ReadsResults hits={readHits} query={filters.q} />
+
+
+        {/*
+          ⛔ NO CATALOG, AND NO SECOND SEARCH BAR, UNDER THE RESULTS.
+
+          Earlier today this rendered <CatalogView> here so the category
+          breadth survived below the shops. It also dragged CatalogView's
+          `ExploreSearchHero` down with it — so the page grew a SECOND search
+          field under the sticky one at the top. Owner, immediately: *"why are
+          there 2 search bar when i explicitly said use the search bar on
+          top"*. Correct, and it was my regression.
+
+          🔑 A COMPONENT IS NOT A SECTION. CatalogView is a whole landing —
+          hero, search, folder strip — not a "category grid" you can park under
+          something else. Reaching for it to get one of its parts brought all
+          of them.
+
+          The catalog is still one tap away: the hero's own "Browse all
+          categories" link and `?browse=1`, exactly as `browseMode` already
+          documents.
+        */}
       </section>
     </main>
   );
@@ -4317,7 +4617,9 @@ async function CatalogView({
     if (cardsWithPhoto.length > 0) {
       const urls = await Promise.all(
         cardsWithPhoto.map(({ ref }) =>
-          displayUrlForStoredAsset(ref).catch(() => null),
+          // Catalogue art may sit in the PRIVATE samples bucket (the taxonomy
+          // studio's uploads) — signed only from its own two roots.
+          displayUrlForCatalogueArt(ref).catch(() => null),
         ),
       );
       cardsWithPhoto.forEach(({ card }, i) => {
@@ -4665,7 +4967,7 @@ function VenueFilterBanner({
 // longer needed.
 
 // Task #47 — scoped-folder banner. Renders when the catalog is showing
-// only one of the 12 folders (driven by ?folder=… from the dashboard
+// only ONE folder (driven by ?folder=… from the dashboard
 // planning-group [Search] buttons). Tells the couple what they're looking
 // at and gives them a one-click escape to the full universal catalog if
 // they want to browse outside the locked scope. The FolderTabs strip
@@ -4681,7 +4983,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         <span className="font-medium text-ink">
           {tax.folderLabel[folder] ?? folder}
         </span>{' '}
-        only — the other 11 folders are hidden so you can focus.
+        only — the other folders are hidden so you can focus.
       </p>
       <Link
         href="/explore"

@@ -128,7 +128,7 @@ export function ProgramBridgeHost({
       // deliberate abstention rather than a removal:
       //   • its 24-hour window is anchored on `panood_control_state.first_live_at`,
       //     which the unified go-live path (`goLivePanood`) never writes — feeding
-      //     it here would put a full-screen watermark over a host who PAID ₱2,999,
+      //     it here would put a full-screen watermark over a host who PAID ₱3,000,
       //     because a never-written anchor reads as 'awaiting-go-live'; and
       //   • free-tier branding on this surface is already resolved SERVER-SIDE on the
       //     pop-out itself, from the real entitlement, as the forced "POWERED BY

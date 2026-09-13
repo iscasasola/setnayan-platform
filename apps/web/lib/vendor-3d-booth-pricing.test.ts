@@ -16,17 +16,19 @@ test('3D booth: first cycle (trial unused) is ₱0 — the free intro', () => {
   assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: false, cyclePricePhp: 1500 }), 0);
 });
 
-test('3D booth: after the trial → ₱2,500 (catalog fallback when no price passed)', () => {
+test('3D booth: after the trial → ₱3,000 (catalog fallback when no price passed)', () => {
   assert.equal(
     resolveVendor3dBoothPricePhp({ trialUsed: true }),
     VENDOR_3D_BOOTH_FALLBACK_PHP,
   );
   // ⚖ THE LITERAL IS PINNED BESIDE THE CONSTANT ON PURPOSE — asserting only
   // the constant would pass against ANY value it happened to hold. It moved
-  // ₱1,500 → ₱2,500 with the catalog row on 2026-08-27 (owner price sheet);
-  // the fallback must equal the live row or a failed catalog read bills the
-  // old price. `fallback-prices-match-the-catalog.db.test.ts` enforces that.
-  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true }), 2500);
+  // ₱1,500 → ₱2,500 with the catalog row on 2026-08-27 (owner price sheet),
+  // then → ₱3,000 on 2026-09-05 ("flat prices for all of them", migration
+  // 20271205977137); the fallback must equal the live row or a failed catalog
+  // read bills the old price. `fallback-prices-match-the-catalog.db.test.ts`
+  // enforces that.
+  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true }), 3000);
 });
 
 test('3D booth: after the trial → uses the admin-managed catalog price when present', () => {
@@ -35,13 +37,13 @@ test('3D booth: after the trial → uses the admin-managed catalog price when pr
   assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: 1800 }), 1800);
 });
 
-test('3D booth: after the trial → invalid/zero catalog price falls back to ₱2,500', () => {
-  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: 0 }), 2500);
-  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: -5 }), 2500);
-  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: null }), 2500);
+test('3D booth: after the trial → invalid/zero catalog price falls back to ₱3,000', () => {
+  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: 0 }), 3000);
+  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: -5 }), 3000);
+  assert.equal(resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: null }), 3000);
   assert.equal(
     resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp: Number.NaN }),
-    2500,
+    3000,
   );
 });
 

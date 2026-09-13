@@ -167,8 +167,9 @@ export async function countStuckCompletions(
 /**
  * The `disputes` count, asking the same question the disputes PAGE asks.
  *
- * 🔴 WHY IT IS A DIGEST AND NOT A FILTER. /admin/disputes shows TWO kinds of
- * dispute since 2026-08-28: the `vendor_disputes` queue it always had, and a
+ * 🔴 WHY IT IS A DIGEST AND NOT A FILTER. /admin/disputes shows THREE kinds of
+ * dispute: the `vendor_disputes` queue it always had, an installment's "it never
+ * reached me" on `event_vendor_payments` (H4, 2026-09-11), and (since 2026-08-28) a
  * supplier's "the downpayment never reached me" (owner: "we will confirm it
  * manually"), which lives on `event_vendors` because vendor_disputes' own
  * CHECK (payout_id IS NOT NULL OR order_id IS NOT NULL) cannot be satisfied by
@@ -191,7 +192,7 @@ export async function countOpenDisputes(
   admin: SupabaseClient,
   _nowMs: number,
 ): Promise<AdminQueueDigestRow> {
-  const [classic, deposits] = await Promise.all([
+  const [classic, deposits, installments] = await Promise.all([
     admin
       .from('vendor_disputes')
       .select('created_at')
@@ -203,6 +204,14 @@ export async function countOpenDisputes(
       .not('deposit_declined_at', 'is', null)
       .is('deposit_dispute_settled_at', null)
       .order('deposit_declined_at', { ascending: true }),
+    // H4 (2026-09-11) — an installment's "it never reached me", the page's
+    // third section. Same two halves: refused AND not yet settled.
+    admin
+      .from('event_vendor_payments')
+      .select('payment_refused_at')
+      .not('payment_refused_at', 'is', null)
+      .is('payment_dispute_settled_at', null)
+      .order('payment_refused_at', { ascending: true }),
   ]);
 
   if (classic.error || !Array.isArray(classic.data)) {
@@ -214,10 +223,16 @@ export async function countOpenDisputes(
     return { count: null, oldestAt: null };
   }
 
-  const count = classic.data.length + deposits.data.length;
+  if (installments.error || !Array.isArray(installments.data)) {
+    logQueryError('countOpenDisputes (installment)', installments.error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+
+  const count = classic.data.length + deposits.data.length + installments.data.length;
   const oldests = [
     (classic.data[0] as { created_at?: string } | undefined)?.created_at ?? null,
     (deposits.data[0] as { deposit_declined_at?: string } | undefined)?.deposit_declined_at ?? null,
+    (installments.data[0] as { payment_refused_at?: string } | undefined)?.payment_refused_at ?? null,
   ].filter((v): v is string => Boolean(v));
   const oldestAt = oldests.length > 0 ? oldests.reduce((a, b) => (a < b ? a : b)) : null;
   return { count, oldestAt };

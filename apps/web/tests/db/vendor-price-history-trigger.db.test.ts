@@ -9,6 +9,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -30,8 +31,15 @@ async function newVendor(email: string): Promise<string> {
 
 async function newService(vendorId: string, price: number, isDemo = false): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, is_demo, exclusive_perk_text)
-     VALUES ($1, 'photography', $2, $3, 'Free extra hour') RETURNING vendor_service_id`,
+    `WITH s AS (
+     INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, is_demo, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1, 'photography', $2, $3, 'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT vendor_service_id FROM s`,
     [vendorId, price, isDemo],
   );
   return r.rows[0]!.vendor_service_id;

@@ -12,8 +12,14 @@
  *                     never be told "no recording" because our token expired.
  *   3. BARRIER      — a malformed video id never reaches a watch URL.
  *   4. FLAG-OFF     — teardown is a no-op, and touches no table.
- *   5. NO DELETES   — this module and panood-youtube expose no way to delete a
- *                     broadcast (§ 6 promises indefinite retention).
+ *   5. NO BROADCAST DELETES — this module and panood-youtube expose no way to
+ *                     delete a broadcast or recording (§ 6 promises indefinite
+ *                     retention). S8 (2026-09-05) added `deleteYoutubeStream`,
+ *                     a DIFFERENT YouTube resource (the liveStreams RTMP-key
+ *                     holder, not the liveBroadcasts recording container) —
+ *                     deleting it revokes a leaked/ended stream key fast and
+ *                     touches no recording. The guard below was narrowed to
+ *                     match: still zero tolerance for a BROADCAST delete.
  *   6. DURATION     — ISO-8601 parsing, including the PT0S-while-processing case.
  *
  * Run: `pnpm test:unit`
@@ -423,21 +429,51 @@ test('a failed chunk throws, so the caller degrades to "unknown" not to a false 
   }
 });
 
-/* ── 5 · No deletes, anywhere ─────────────────────────────────────────────── */
+/* ── 5 · No deletes OF A BROADCAST ────────────────────────────────────────── */
 
 test('🔒 nothing in the recording path can DELETE a broadcast', () => {
   // § 6 promises the archive indefinite retention, and no column records whether
   // a broadcast carried video (went_live_at has no writer), so no code here can
-  // tell an empty container from a ceremony. Deletion must stay absent.
+  // tell an empty container from a ceremony. Deletion of a BROADCAST (or a
+  // recording) must stay absent.
+  //
+  // S8 (2026-09-05) added `deleteYoutubeStream`, a real `'DELETE'` — but
+  // against `YOUTUBE_LIVE_STREAMS_URL` (the liveStreams RTMP-ingest / stream-
+  // key resource), never `YOUTUBE_LIVE_BROADCASTS_URL` (the recording
+  // container this test exists to protect). So the guard below no longer
+  // forbids EVERY 'DELETE' in the file — it forbids one that is closer to a
+  // BROADCASTS url reference than to a STREAMS one, and pins the count so a
+  // second, undeclared delete forces a deliberate look at this test again.
   const recordings = repoFile('lib/live-studio-recordings.ts');
   const youtube = repoFile('lib/panood-youtube.ts');
   const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
+  const youtubeCode = code(youtube);
   assert.ok(
-    !/liveBroadcasts\/?\S*['"`]?\s*,?\s*\S*method:\s*'DELETE'/.test(code(youtube)),
+    !/liveBroadcasts\/?\S*['"`]?\s*,?\s*\S*method:\s*'DELETE'/.test(youtubeCode),
     'panood-youtube must expose no broadcast delete',
   );
-  assert.ok(!/'DELETE'/.test(code(youtube)), 'no DELETE method anywhere in the YouTube client');
+
+  let deleteCount = 0;
+  let idx = youtubeCode.indexOf("'DELETE'");
+  while (idx !== -1) {
+    deleteCount += 1;
+    const before = youtubeCode.slice(0, idx);
+    const streamsAt = before.lastIndexOf('YOUTUBE_LIVE_STREAMS_URL');
+    const broadcastsAt = before.lastIndexOf('YOUTUBE_LIVE_BROADCASTS_URL');
+    assert.notEqual(streamsAt, -1, `a 'DELETE' at offset ${idx} has no preceding YOUTUBE_LIVE_STREAMS_URL reference at all`);
+    assert.ok(
+      streamsAt > broadcastsAt,
+      `a 'DELETE' at offset ${idx} is closer to YOUTUBE_LIVE_BROADCASTS_URL than to YOUTUBE_LIVE_STREAMS_URL — this deletes a broadcast, not a stream`,
+    );
+    idx = youtubeCode.indexOf("'DELETE'", idx + 1);
+  }
+  assert.equal(
+    deleteCount,
+    1,
+    `expected exactly 1 DELETE call (deleteYoutubeStream) scoped to liveStreams, found ${deleteCount} — update this guard deliberately if a new one was added`,
+  );
+
   assert.ok(
     !/\.delete\(/.test(code(recordings)),
     'the recordings module must never delete a row or a video',

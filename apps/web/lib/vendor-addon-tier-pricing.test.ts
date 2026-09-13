@@ -44,9 +44,12 @@ test('price: Papic Challenge — ₱2,500 for EVERY tier (owner 2026-08-28)', ()
   assert.equal(resolveVendorAddonPricePhp('papic_challenge', 'enterprise'), 2500);
 });
 
-test('price: 3D Plan Ads — ₱2,000 entry, ₱1,500 growth', () => {
-  assert.equal(resolveVendorAddonPricePhp('ads_3d_plan', 'free'), 2000);
-  assert.equal(resolveVendorAddonPricePhp('ads_3d_plan', 'enterprise'), 1500);
+test('price: 3D Booth — ₱3,000 FLAT on every tier (owner 2026-09-05)', () => {
+  // Bands deliberately EQUAL, like papic_challenge: the tiered-pricing flag must
+  // not be able to pick a number the catalogue does not hold.
+  for (const tier of ['free', 'solo', 'pro', 'enterprise', 'custom']) {
+    assert.equal(resolveVendorAddonPricePhp('ads_3d_plan', tier), 3000, tier);
+  }
 });
 
 test('price: AI Chatbot Basic — ₱2,000 entry, ₱1,500 growth', () => {

@@ -24,6 +24,7 @@ import {
 } from '@/lib/vendor-verification';
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import {
+  looksLikeStorageRef,
   parseClientRef,
   vendorOwnedMediaPolicy,
   vendorVerificationDocPolicy,
@@ -172,6 +173,12 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
   // vendor's DTI / BIR 2303 / Mayor's Permit. Pin it to this vendor's own
   // folder; grandfather a ref already stored on this slot, which the edit form
   // echoes back. Mirrors the shop-side sibling in shop/inline-docs-actions.ts.
+  //
+  // Gated on `looksLikeStorageRef`, NOT a plain `startsWith('r2://')` — see its
+  // docblock. The plain check let an `R2://…`, padded or BOM-led foreign ref
+  // skip this whole block (treated as "not a ref"), only to be refused by the
+  // database's own #5414 policy with a raw RLS error. Normalising the same way
+  // the database does catches it here and refuses it with a plain message.
   if (r2Ref) {
     const storedSlot = currentUploads[slotKey];
     const storedRef =
@@ -179,7 +186,7 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
         ? (storedSlot.r2_key as string | null)
         : null;
     const owned =
-      !r2Ref.startsWith('r2://') ||
+      !looksLikeStorageRef(r2Ref) ||
       r2Ref === storedRef ||
       parseClientRef(r2Ref, vendorVerificationDocPolicy(profile.vendor_profile_id)) !== null ||
       parseClientRef(r2Ref, vendorOwnedMediaPolicy(profile.vendor_profile_id)) !== null;
@@ -300,7 +307,12 @@ export async function submitApplication(formData: FormData): Promise<void> {
   // on file. Soft-probe so a pre-migration DB degrades to "not present" rather
   // than crashing; a collided number keeps raw (needs_review) → still counts.
   const { data: regRow } = await supabase
-    .from('vendor_profiles')
+    // `vendor_profiles_self` (migration 20271217955839), never the table:
+    // `registration_number_raw` is off `authenticated`'s column allowlist and the
+    // `.then` below turns any error into `data: null`. Read off the table, this
+    // would HARD-BLOCK every shop from ever submitting verification, with a
+    // message telling them to supply a number they already supplied.
+    .from('vendor_profiles_self')
     .select('registration_number_raw')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle()

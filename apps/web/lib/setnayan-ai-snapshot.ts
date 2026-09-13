@@ -9,9 +9,13 @@
  * budget-only money floor):
  *   • payment-due (GRD-01)   ← event_vendor_line_items (amount + due_date) with
  *     per-line settlement via event_vendor_payments.line_item_id
- *   • over-budget (GRD-05)   ← the Overview/progress "committed" formula:
- *     paid+fulfilled orders + contracted-or-better event_vendors cost, vs the
- *     events.estimated_budget_centavos target; pending = pending_payment orders
+ *   • over-budget (GRD-05)   ← `resolveEventMoney` (lib/budget-truth.ts), THE
+ *     money resolver — the same call `/budget` renders. Until BA8 this file ran
+ *     its own formula (paid+fulfilled orders + contracted-or-better
+ *     total_cost_php), so the guard the couple PAID for was blind to a locked
+ *     package's agreed total, catalogue line items, manual lines on an
+ *     off-platform supplier, credits, transport, crew meals and `event_costs`,
+ *     and could warn on a number the next screen did not print.
  *   • statutory (GRD-02)     ← event_paperwork pipeline + lib/paperwork
  *     completeByDate deadline math (wedding-only; the trigger enforces that)
  *   • vendor-quiet (SEC-04)  ← chat_threads with inquiry_status='pending' (the
@@ -67,8 +71,9 @@ import {
   type PaperworkDocumentType,
   type PaperworkStatus,
 } from './paperwork';
-import { statusOfVendor } from './wedding-plan-groups';
 import { formatBlockTime } from './schedule';
+import { bucketLabel, resolveEventMoney, type EventMoney } from './budget-truth';
+import { logQueryError } from './supabase/error-detect';
 
 /** A budget line item as stored (event_vendor_line_items + the vendor name). */
 export type BudgetLineItem = {
@@ -112,57 +117,50 @@ export function paymentsFromBudget(
     });
 }
 
-/** A paid/fulfilled order row, as the Overview's committed formula reads it. */
-export type CommittedOrderRow = {
-  confirmedTotalPhp: number | null;
-  requestedTotalPhp: number | null;
-};
-
-/** An event_vendors row, as the Overview's committed formula reads it. */
-export type CommittedVendorRow = {
-  status: string | null;
-  totalCostPhp: number | null;
-  category: string | null;
-  vendorName: string | null;
-};
-
 /**
- * Map order + vendor rows → SnapshotBudget (or null when no target is set).
- * `committed` is the SAME formula the Overview + /progress pages render (paid +
- * fulfilled orders at confirmed-else-requested totals, plus every
- * contracted-or-better vendor with a known cost — statusOfVendor === 'locked');
- * `pending` is the pending_payment orders total (money already at checkout);
- * `topDriver` is the costliest locked vendor's category. The over-budget
- * trigger fires when committed + pending exceeds the target.
+ * THE money → GRD-05 mapper (BA8). `EventMoney` in, `SnapshotBudget` out — the
+ * ONLY way a snapshot's `budget` may be built, on either surface that runs the
+ * over-budget guard (the notification sweep here, and the Overview's "Sai on
+ * watch" rail).
+ *
+ * ─── What this replaced, and why it mattered ──────────────────────────────
+ * `SETNAYAN_AI` sells, verbatim on its buy page: *"Warns you before you go
+ * over budget — it adds up what you've committed against your target while
+ * there's still room to trim."* The guard behind that sentence ran its own
+ * addition: paid/fulfilled `orders` plus `contracted`-or-better
+ * `event_vendors.total_cost_php`. `/budget` has asked `resolveEventMoney`
+ * since BUD-2. So the PAID guard was the narrower of two books, and could not
+ * see a locked package's agreed total (R4), a vendor's catalogue line items, a
+ * manual line on an off-platform supplier, a change-order credit, transport,
+ * crew meals (R5), a `event_costs` row with no supplier at all (BA7), or a
+ * payment logged against a vendor nothing was agreed with. Every one of those
+ * moves the couple's committed total on the screen they open next.
+ *
+ * ⚠ THE NUMBER CAN MOVE IN EITHER DIRECTION, by design. Up: the six sources
+ * above become visible. Down: credits net off, the resolver excludes
+ * `archived_at` / `voided_by_fraud` / `package_role='covered'` rows and
+ * vendor-payer booking fees, never mixes a headline with its own line items
+ * (R12), and files a `submitted` order under `estimated` rather than
+ * `committed`.
+ *
+ * `topDriverCategory` is the biggest COMMITTED bucket's label — the capability
+ * the GRD-05 copy has always had a slot for ("mostly {top_driver_category}")
+ * and never had the data for: the old formula named the single costliest
+ * vendor's raw category slug (`reception_venue`), not the category the money
+ * is actually in. Ties break on bucket id so the sentence is deterministic.
+ *
+ * Returns null when there is no target — no target, nothing to be over.
  */
-export function budgetFromCommitted(args: {
-  targetPhp: number | null;
-  paidOrders: CommittedOrderRow[];
-  vendors: CommittedVendorRow[];
-  pendingOrdersPhp: number;
-}): SnapshotBudget | null {
-  if (args.targetPhp == null) return null;
-  const paidOrdersPhp = args.paidOrders.reduce((s, o) => {
-    const amount = o.confirmedTotalPhp ?? o.requestedTotalPhp ?? 0;
-    return s + (Number.isFinite(amount) ? amount : 0);
-  }, 0);
-  let contractedPhp = 0;
-  let topDriverCategory: string | undefined;
-  let topCost = -1;
-  for (const v of args.vendors) {
-    if (statusOfVendor(v.status) !== 'locked') continue;
-    const cost = Number.isFinite(v.totalCostPhp ?? NaN) ? (v.totalCostPhp as number) : 0;
-    contractedPhp += cost;
-    if (cost > topCost) {
-      topCost = cost;
-      topDriverCategory = v.category ?? v.vendorName ?? undefined;
-    }
-  }
+export function budgetFromEventMoney(money: EventMoney | null): SnapshotBudget | null {
+  if (!money || money.targetPhp === null) return null;
+  const ranked = money.byBucket
+    .filter((b) => b.committedPhp > 0)
+    .sort((a, b) => b.committedPhp - a.committedPhp || a.bucketId.localeCompare(b.bucketId));
+  const top = ranked[0];
   return {
-    totalPhp: args.targetPhp,
-    committedPhp: paidOrdersPhp + contractedPhp,
-    pendingPhp: Math.max(0, args.pendingOrdersPhp),
-    topDriverCategory,
+    totalPhp: money.targetPhp,
+    committedPhp: money.committed,
+    ...(top ? { topDriverCategory: bucketLabel(top.bucketId) } : {}),
   };
 }
 
@@ -511,12 +509,15 @@ export async function buildPlanningSnapshot(
 ): Promise<PlanningSnapshot> {
   const snap = emptySnapshot(eventType);
 
+  // GRD-05's money comes from `resolveEventMoney` — THE resolver, the same call
+  // `/budget` renders (BA8). It is issued alongside the guard-specific reads
+  // rather than inside them: it owns its own SELECTs, is fail-soft on a missing
+  // table, and is the ONE place the couple's committed total is computed.
   const [
     { data: eventRow },
     { data: lineRows },
     { data: payRows },
-    { data: paidOrderRows },
-    { data: pendingOrderRows },
+    money,
     { data: vendorRows },
     { data: paperworkRows },
     { data: threadRows },
@@ -524,7 +525,11 @@ export async function buildPlanningSnapshot(
   ] = await Promise.all([
     admin
       .from('events')
-      .select('event_date, estimated_budget_centavos')
+      // `estimated_budget_centavos` is NOT read here any more — the resolver
+      // reads it (from `events_host`, which grants service_role explicitly) and
+      // returns it as `EventMoney.targetPhp`. Two reads of one target is how
+      // two books start.
+      .select('event_date')
       .eq('event_id', eventId)
       .maybeSingle(),
     admin
@@ -535,29 +540,21 @@ export async function buildPlanningSnapshot(
       .from('event_vendor_payments')
       .select('amount_php, line_item_id')
       .eq('event_id', eventId),
-    admin
-      .from('orders')
-      .select('requested_total_php, confirmed_total_php')
-      .eq('event_id', eventId)
-      .in('status', ['paid', 'fulfilled']),
-    admin
-      .from('orders')
-      .select('requested_total_php')
-      .eq('event_id', eventId)
-      // 🔴 BOTH UNPAID STATES, NOT JUST ONE. `awaiting_payment` is real, but
-      // almost nothing WRITES it — one admin action does (payments/actions.ts,
-      // bouncing an order back for better proof). Every mint in the app —
-      // onboarding, the studio buy paths, checkout, booking fees, vendor add-ons
-      // — writes `submitted`. Prod holds exactly one order and it is `submitted`.
-      //
-      // 🔑 THE EARLIER CORRECTION STOPPED ONE STEP SHORT. This filter used to be
-      // the non-existent 'pending_payment', which threw 22P02 and degraded to
-      // []. That was fixed to a REAL enum member — and never checked against the
-      // member the app actually mints, so it kept reading empty for the ordinary
-      // case. A fix that makes a query legal is not a fix that makes it true.
-      // (`add-on-state`, `entitlements`, `vendor-booking-fees.server` and
-      // `ugat/data` all already ask for both.)
-      .in('status', ['submitted', 'awaiting_payment']),
+    // GRD-05 · the couple's money, from the one calculator. `orders` are read
+    // in here too — under the resolver's rules, which exclude a vendor-payer
+    // booking fee stamped with this event_id and file a `submitted` order as an
+    // ESTIMATE rather than a commitment. Fail-soft: a throw leaves GRD-05
+    // silent, which is the honest failure. Warning on a number no other screen
+    // prints is the defect this whole change exists to close.
+    resolveEventMoney(admin, eventId).catch((e: unknown) => {
+      logQueryError(
+        'buildPlanningSnapshot (resolveEventMoney)',
+        e as { message?: string },
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+      return null;
+    }),
     admin
       .from('event_vendors')
       .select('status, total_cost_php, category, vendor_name, marketplace_vendor_id')
@@ -611,39 +608,8 @@ export async function buildPlanningSnapshot(
   }
   snap.payments = paymentsFromBudget(lineItems, totalPaymentsPhp, paidPhpByLineItem);
 
-  // --- GRD-05 budget (the Overview's committed-vs-target formula) ------------
-  const targetCentavos = (eventRow as { estimated_budget_centavos?: number | string | null } | null)
-    ?.estimated_budget_centavos;
-  const targetPhp =
-    targetCentavos != null && Number.isFinite(Number(targetCentavos))
-      ? Number(targetCentavos) / 100
-      : null;
-  snap.budget = budgetFromCommitted({
-    targetPhp,
-    paidOrders: (paidOrderRows ?? []).map((o) => ({
-      confirmedTotalPhp:
-        (o as { confirmed_total_php: number | string | null }).confirmed_total_php != null
-          ? Number((o as { confirmed_total_php: number | string }).confirmed_total_php)
-          : null,
-      requestedTotalPhp:
-        (o as { requested_total_php: number | string | null }).requested_total_php != null
-          ? Number((o as { requested_total_php: number | string }).requested_total_php)
-          : null,
-    })),
-    vendors: (vendorRows ?? []).map((v) => ({
-      status: (v as { status: string | null }).status,
-      totalCostPhp:
-        (v as { total_cost_php: number | string | null }).total_cost_php != null
-          ? Number((v as { total_cost_php: number | string }).total_cost_php)
-          : null,
-      category: (v as { category: string | null }).category,
-      vendorName: (v as { vendor_name: string | null }).vendor_name,
-    })),
-    pendingOrdersPhp: (pendingOrderRows ?? []).reduce(
-      (s, o) => s + (Number((o as { requested_total_php: number | string | null }).requested_total_php) || 0),
-      0,
-    ),
-  });
+  // --- GRD-05 budget (ONE set of books — the resolver's, BA8) ---------------
+  snap.budget = budgetFromEventMoney(money);
 
   // --- GRD-02 statutory (paperwork pipeline + deadline math) ------------------
   const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;

@@ -181,6 +181,12 @@ type Shot = {
   ext: string;
   poster?: Blob | null;
   durationMs?: number;
+  /** 🕐 THE SHUTTER — when this frame was TAKEN, stamped here and never re-read
+   *  downstream. A shot can sit in the in-memory queue, then the IndexedDB
+   *  offline queue, for hours; every later clock in that chain measures when the
+   *  bytes moved, which is exactly the thing the story's dial must not be built
+   *  on. For a clip it is when recording STARTED, not when it stopped. */
+  capturedAtMs: number;
   /** Last-known location fix at capture time (papic_geo_metadata). undefined when
    *  geo is disabled; { unavailable: true } when enabled but no fix was had. */
   geo?: PapicGeoInput;
@@ -614,6 +620,10 @@ export function PapicSeatCapture({
           kind: shot.kind,
           contentType: shot.contentType,
           blob: shot.blob,
+          // Without this the queue defaults to Date.now() — the moment the
+          // UPLOAD FAILED, which is the very minute this build exists to stop
+          // filing photographs under.
+          capturedAtMs: shot.capturedAtMs,
           durationMs: shot.durationMs,
           geo: shot.geo,
           reason: 'low_bandwidth',
@@ -644,8 +654,24 @@ export function PapicSeatCapture({
         // the raw `mainRef` (already in R2) stays the only playable copy.
         const result =
           shot.kind === 'photo'
-            ? await recordSeatCapture(token, mainRef, 'photo', undefined, undefined, shot.geo)
-            : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs, shot.geo);
+            ? await recordSeatCapture(
+                token,
+                mainRef,
+                'photo',
+                undefined,
+                undefined,
+                shot.geo,
+                shot.capturedAtMs,
+              )
+            : await recordSeatCapture(
+                token,
+                mainRef,
+                'clip',
+                posterRef,
+                shot.durationMs,
+                shot.geo,
+                shot.capturedAtMs,
+              );
 
         if (!result.ok) {
           if (isCapCode(result.error)) {
@@ -754,6 +780,10 @@ export function PapicSeatCapture({
           kind: shot.kind,
           contentType: shot.contentType,
           blob: shot.blob,
+          // Without this the queue defaults to Date.now() — the moment the
+          // UPLOAD FAILED, which is the very minute this build exists to stop
+          // filing photographs under.
+          capturedAtMs: shot.capturedAtMs,
           durationMs: shot.durationMs,
           geo: shot.geo,
           reason: code || 'network',
@@ -863,6 +893,7 @@ export function PapicSeatCapture({
       blob,
       contentType: 'image/jpeg',
       ext: 'jpg',
+      capturedAtMs: Date.now(),
       geo: currentGeo(),
       faceBlob: clean,
     });
@@ -938,6 +969,12 @@ export function PapicSeatCapture({
         contentType: mime,
         ext,
         poster,
+        // The shutter is when the clip BEGAN. `clipStartRef` is already the
+        // recorder's own start instant (durationMs is derived from it), so a
+        // ten-second clip files under the moment it opened rather than the
+        // moment it closed. 0 would be a 1970 stamp the server would reject, so
+        // an unset ref falls back to the derived start.
+        capturedAtMs: clipStartRef.current || Date.now() - durationMs,
         geo: currentGeo(),
         faceBlob: grabbed?.clean ?? null,
         durationMs,

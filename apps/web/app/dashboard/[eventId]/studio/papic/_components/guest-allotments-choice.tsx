@@ -28,6 +28,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
+  allotmentRoleOf,
   suggestedAllotment,
   splitTheRest,
   summariseAllotments,
@@ -35,6 +36,7 @@ import {
 } from '@/lib/papic-guest-allotments';
 import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../actions';
 import { SettingRow } from './setting-row';
+import { GuestAllotmentPicker } from './guest-allotment-picker';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -113,12 +115,12 @@ export async function GuestAllotmentsChoice({
   // we will ever draw this row on. Dividing by it gives a nonsense share, and
   // the couple would be shown one number while their guests were given another.
   // The database divides by this function; so do we.
-  const [pool, headcountResult, guestsResult, allotmentsResult, sponsorsResult] = await Promise.all([
+  const [pool, headcountResult, guestsResult, allotmentsResult] = await Promise.all([
     readEventPoolStatus(admin, eventId).catch(() => null),
     admin.rpc(ALLOTMENT_RPC.headcount, { p_event_id: eventId }),
     admin
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name, rsvp_status')
+      .select('guest_id, first_name, last_name, display_name, rsvp_status, role, extra_roles')
       .eq('event_id', eventId)
       .is('deleted_at', null)
       .order('first_name', { ascending: true }),
@@ -131,11 +133,6 @@ export async function GuestAllotmentsChoice({
       .from(ALLOTMENT_STORAGE.table)
       .select('guest_id, ceiling_points')
       .eq('event_id', eventId),
-    admin
-      .from('event_sponsors')
-      .select('sponsor_tier, linked_guest_id')
-      .eq('event_id', eventId)
-      .not('linked_guest_id', 'is', null),
   ]);
 
   const guests = (guestsResult.data ?? []) as Array<{
@@ -144,6 +141,8 @@ export async function GuestAllotmentsChoice({
     last_name: string | null;
     display_name: string | null;
     rsvp_status: string | null;
+    role: string | null;
+    extra_roles: string[] | null;
   }>;
   const allotments = new Map<string, number>(
     (
@@ -170,15 +169,13 @@ export async function GuestAllotmentsChoice({
     guests.filter((g) => (g.rsvp_status ?? '') !== 'declined').map((g) => g.guest_id),
   );
 
-  // 🔑 SPONSORS ARE REAL, USER-AUTHORED DATA — `event_sponsors` is written by a
-  // shipped dashboard, and `linked_guest_id` is the join back to the list. The
-  // role only supplies a SUGGESTED opening number; a saved allotment always
-  // wins, and nothing re-applies the suggestion over an edit.
+  // 🔑 SPONSORS ARE READ OFF THE GUEST LIST — the same `role` + `extra_roles`
+  // the database's `papic_share_weight` reads, so the sheet and the ceiling
+  // agree on who is a sponsor. (It used to read `event_sponsors.linked_guest_id`,
+  // which recognised none of the 8 sponsors in production on 2026-09-11 — see
+  // `allotmentRoleOf`.) A saved allotment still always wins.
   const roleOf = new Map<string, AllotmentRole>(
-    ((sponsorsResult.data ?? []) as Array<{
-      sponsor_tier: AllotmentRole;
-      linked_guest_id: string;
-    }>).map((s) => [s.linked_guest_id, s.sponsor_tier]),
+    guests.map((g) => [g.guest_id, allotmentRoleOf(g.role, g.extra_roles)]),
   );
 
   // ⚠ `pool.status.totalPoints` is the POT. It is NOT `points_per_guest`, which
@@ -192,7 +189,13 @@ export async function GuestAllotmentsChoice({
   const named = [...allotments.entries()]
     .filter(([guestId]) => stillComing.has(guestId))
     .map(([, points]) => points);
-  const inputs = { pot, guestCount, named, everyoneElse };
+  // Un-named and still coming — the same three conditions the resolver's
+  // extra-heads sum applies (not deleted, not declined, not named).
+  const sponsors = guests
+    .filter((g) => stillComing.has(g.guest_id) && !allotments.has(g.guest_id))
+    .map((g) => roleOf.get(g.guest_id) ?? 'guest')
+    .filter((r) => r !== 'guest');
+  const inputs = { pot, guestCount, named, everyoneElse, sponsors };
   const split = splitTheRest(inputs);
   const summary = summariseAllotments(inputs);
 
@@ -252,10 +255,23 @@ export async function GuestAllotmentsChoice({
               />
               <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
             </div>
+            {/* A TYPED NUMBER IS "AT MOST" (migration 20271221350945): the
+                database holds it to the equal share, exactly as `splitTheRest`
+                does. Without this line the couple types 50, reads 14, and has
+                no idea why their number was not the one that applied. */}
+            {everyoneElse !== null && everyoneElse > split.perHead ? (
+              <p className="text-xs text-terracotta">
+                Your celebration holds enough for {split.perHead} credits each right now, so that is
+                what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
+              </p>
+            ) : null}
             <p className="text-xs text-ink/55">
               Leave this empty and they simply share what is left — {split.perHead} credits each
               right now. The smallest you can set is 1: everyone who comes gets at least one
               photograph. To give one person nothing, name them below and set them to 0.
+              {sponsors.length > 0
+                ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
+                : null}
             </p>
           </form>
 
@@ -267,48 +283,36 @@ export async function GuestAllotmentsChoice({
                 Your guest list is empty. Add guests and you can name them here.
               </p>
             ) : (
-              <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                {guests.map((g) => {
+              /*
+                THE ROWS MOVED INTO A CLIENT COMPONENT so the couple can SEARCH
+                them (owner 2026-08-31 — "there might be over 200 guests, and we
+                should not list them all"). Every row is still its own <form>
+                posting this same server action, so naming a guest works exactly
+                as before, JavaScript or not; the client only decides which rows
+                are visible and puts already-named guests first.
+
+                The suggested opening number is still computed HERE, from
+                `split.perHead`, so the client never re-derives a figure.
+              */
+              <GuestAllotmentPicker
+                eventId={eventId}
+                action={setGuestAllotment}
+                guests={guests.map((g) => {
                   const role = roleOf.get(g.guest_id) ?? 'guest';
-                  const saved = allotments.get(g.guest_id);
-                  return (
-                    <li key={g.guest_id}>
-                      <form
-                        action={setGuestAllotment}
-                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-ink/[0.03]"
-                      >
-                        <input type="hidden" name="event_id" value={eventId} />
-                        <input type="hidden" name="guest_id" value={g.guest_id} />
-                        <span className="flex-1 truncate text-sm text-ink">
-                          {nameOf(g)}
-                          {role !== 'guest' ? (
-                            <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                              {role}
-                            </span>
-                          ) : null}
-                        </span>
-                        <input
-                          type="number"
-                          name="allotment"
-                          min={0}
-                          step={1}
-                          defaultValue={saved ?? ''}
-                          placeholder={String(suggestedAllotment(role, split.perHead))}
-                          aria-label={`Credits for ${nameOf(g)}`}
-                          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm"
-                        />
-                        <SubmitButton className="rounded-lg bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10">
-                          Save
-                        </SubmitButton>
-                      </form>
-                    </li>
-                  );
+                  return {
+                    guestId: g.guest_id,
+                    name: nameOf(g),
+                    role,
+                    saved: allotments.get(g.guest_id) ?? null,
+                    suggested: suggestedAllotment(role, split.perHead),
+                  };
                 })}
-              </ul>
+              />
             )}
             <p className="text-xs text-ink/55">
-              Sponsors open with a bigger suggested number — clear a box to stop naming that guest.
-              Whatever a named guest does not use stays theirs.
+              The grey number is what each guest gets now — sponsors already get a bigger share.
+              Type a number to set it yourself; clear the box to go back. Whatever a named guest
+              does not use stays theirs.
             </p>
           </div>
 

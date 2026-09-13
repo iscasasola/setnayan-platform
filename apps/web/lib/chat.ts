@@ -130,17 +130,23 @@ export type VendorThreadWithEvent = ChatThreadRow & {
   /** See CoupleThreadWithVendor.archived — same per-viewer archive state, vendor side. */
   archived: boolean;
   /**
-   * Anonymization-until-accept (Glass PR-6b · Vendor_Inquiry_Anonymization_Spec
-   * _2026-07-15). PRE-ACCEPT the couple's identity must NOT ship to the vendor
-   * client at all: `display_name` (the event title carries the couple's names)
-   * and `public_id` (a link to the couple's public event page) are STRIPPED to
-   * null for any thread that isn't revealed (see isInquiryRevealed / the mapper
-   * below). `event_date` is retained — the spec permits showing the date. This
-   * is data-layer enforcement, independent of the RLS backstop (a vendor holds
-   * no `events` RLS, so the embed is already null for them — this makes the
-   * masking explicit and intentional rather than an implicit accident that a
-   * future policy change could silently undo). Post-accept the row passes
-   * through unchanged.
+   * ⚠ ALWAYS NULL IN PRACTICE, ON EVERY VENDOR THREAD. A vendor holds no
+   * `events` RLS — not even after accepting (measured in prod 2026-09-08: an
+   * accepted thread's vendor had `vendor_is_event_member = 0`) — so PostgREST
+   * resolves this embed to null and no accept state changes that.
+   *
+   * A `maskVendorThreadEvent` mapper used to additionally strip `display_name`
+   * and `public_id` here for unaccepted threads (Glass PR-6b ·
+   * `Vendor_Inquiry_Anonymization_Spec_2026-07-15`). It was removed with the
+   * rest of the mask on the owner's 2026-09-08 ruling — but note that removing
+   * it changed NOTHING on screen, because the embed it was stripping was
+   * already null. Its own docblock had said as much and called itself a
+   * belt-and-braces backstop.
+   *
+   * 🔑 SO DO NOT READ THE CUSTOMER'S NAME FROM HERE. Surfaces that need it use
+   * `fetchInquiryCustomerFacts` (admin-scoped, gated on the caller having
+   * proven vendor ownership). Two surfaces spent months rendering "Event"
+   * because they trusted this field on an ACCEPTED thread.
    */
   event: {
     display_name: string | null;
@@ -181,11 +187,27 @@ export type ChatMessageRow = {
    */
   amendment_id?: string | null;
   /**
+   * Set when this message offers one of the thread vendor's own services —
+   * renders as that supplier's service card (cover photo, showcase clip, price,
+   * inclusions) instead of a plain bubble. Migration 20271214894972. NULL on
+   * every other message. Unlike the negotiation markers this is NOT behind a
+   * flag: the offer control it replaces has shipped since 2026-06-12 and would
+   * otherwise keep producing a word in a chip row.
+   */
+  offered_service_id?: string | null;
+  /**
    * Optional file attachment (chat file sharing, PR 2). All four are NULL on
    * text-only messages. `attachment_url` is the public R2 URL; the renderer
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
    */
   attachment_url?: string | null;
+  /**
+   * Stored-asset ref for a PRIVATE attachment (2026-09-09). Present instead of
+   * `attachment_url` on everything sent since. Never rendered directly — the
+   * viewer fetches `/api/chat/attachment/<message_id>`, which re-proves thread
+   * membership on every request.
+   */
+  attachment_r2_key?: string | null;
   attachment_name?: string | null;
   attachment_mime?: string | null;
   attachment_size_bytes?: number | null;
@@ -381,24 +403,6 @@ export async function fetchCoupleThreads(
   return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as CoupleThreadWithVendor[];
 }
 
-/**
- * Anonymization-until-accept enforcement (Glass PR-6b). For any vendor thread
- * that isn't revealed (the vendor hasn't burned the token to accept), strip the
- * couple's identity fields — event title (`display_name`) + public-page link
- * (`public_id`) — from the DTO so they never reach the vendor client. Keeps
- * `event_date` (permitted). Revealed threads pass through unchanged. Mirrors
- * isInquiryRevealed in lib/inquiry-mask.ts; inlined here to keep chat.ts free of
- * a server-only import (this module is imported by couple-side code too).
- */
-function maskVendorThreadEvent(row: VendorThreadWithEvent): VendorThreadWithEvent {
-  const revealed = row.accepted_at != null || row.inquiry_status === 'accepted';
-  if (revealed || !row.event) return row;
-  return {
-    ...row,
-    event: { display_name: null, event_date: row.event.event_date, public_id: null },
-  };
-}
-
 export async function fetchVendorThreads(
   supabase: SupabaseClient,
   vendorProfileId: string,
@@ -414,10 +418,10 @@ export async function fetchVendorThreads(
       const { reads: _reads, ...rest } = row as Record<string, unknown> & {
         reads?: { archived_at: string | null }[] | null;
       };
-      return maskVendorThreadEvent({
+      return {
         ...rest,
         archived: computeArchived(row as never),
-      } as unknown as VendorThreadWithEvent);
+      } as unknown as VendorThreadWithEvent;
     });
   }
   logQueryError(
@@ -432,8 +436,8 @@ export async function fetchVendorThreads(
     .eq('vendor_profile_id', vendorProfileId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchVendorThreads failed: ${error.message}`);
-  return (data ?? []).map((row) =>
-    maskVendorThreadEvent({ ...(row as object), archived: false } as unknown as VendorThreadWithEvent),
+  return (data ?? []).map(
+    (row) => ({ ...(row as object), archived: false }) as unknown as VendorThreadWithEvent,
   );
 }
 
@@ -543,7 +547,7 @@ export async function fetchThreadById(
 }
 
 const MESSAGE_SELECT =
-  'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes';
+  'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_r2_key,attachment_name,attachment_mime,attachment_size_bytes';
 
 export async function fetchMessages(
   supabase: SupabaseClient,
@@ -557,7 +561,9 @@ export async function fetchMessages(
   // plain human bubble. The thread page must never crash ahead of a migration.
   const withBot = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id`)
+    .select(
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`,
+    )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];

@@ -4,8 +4,8 @@
  * FreeVenueShortlistOffer — the free first-venue-shortlist card/CTA
  * (owner-locked 2026-07-09 · Pricing.md § 00 free-venue-assist carve-out).
  *
- * Framed as a free Setnayan-AI benefit introducing what Suri does: one tap
- * and Suri builds the couple's first reception-venue shortlist from real
+ * Framed as a free Setnayan-AI benefit introducing what Sai does: one tap
+ * and Sai builds the couple's first reception-venue shortlist from real
  * marketplace matches (see `_actions/free-venue-shortlist.ts`). The parent
  * server page renders this ONLY while the venue shortlist is empty and the
  * viewer is in the free (non-AI) state, so the offer disappears on its own
@@ -94,7 +94,7 @@ export function FreeVenueShortlistOffer({
     body = (
       <>
         <p className="text-[13.5px] leading-relaxed text-ink/80">
-          You already have venues on your shortlist — Suri&rsquo;s free first
+          You already have venues on your shortlist — Sai&rsquo;s free first
           shortlist has been used.
         </p>
         <div className="mt-2">{benchLink('Open your venue shortlist')}</div>
@@ -104,7 +104,7 @@ export function FreeVenueShortlistOffer({
     body = (
       <>
         <p className="text-[13.5px] leading-relaxed text-ink/80">
-          Suri couldn&rsquo;t find matching reception venues just yet — browse
+          Sai couldn&rsquo;t find matching reception venues just yet — browse
           the venue category and save your favorites instead.
         </p>
         <div className="mt-2">{benchLink('Browse reception venues')}</div>
@@ -126,7 +126,7 @@ export function FreeVenueShortlistOffer({
             disabled={working}
             className="rounded-full bg-gradient-to-r from-mulberry-700 to-mulberry px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           >
-            {working ? 'Suri is looking…' : 'Build my venue shortlist'}
+            {working ? 'Sai is looking…' : 'Build my venue shortlist'}
           </button>
           {benchLink('Browse on your own')}
         </div>

@@ -235,7 +235,12 @@ export default function AboutPage() {
               one living memory you keep. Your wedding is where it starts.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="/how-it-works" className="button-primary h-11 px-5 text-sm">
+              {/* 2026-09-01 — /how-it-works folded into /features. Deep-linked
+                  to the section so the button still lands on exactly the
+                  content it names, and pointed at the DESTINATION rather than
+                  at the 308: an internal link through a redirect costs the
+                  reader a round trip and leaks a retired URL into the page. */}
+              <Link href="/features#how-it-works" className="button-primary h-11 px-5 text-sm">
                 How it works
               </Link>
               <Link

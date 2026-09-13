@@ -40,12 +40,21 @@ has a shop** to *"Create your shop"*. Full list with file:line in the corpus han
 ⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
 
 ✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
-⏭ **What is left is small and listed in the handoff §5**, chiefly: the wedding-onboarding account
-gate posts `public_summary_consent=yes` as a **hidden field**, silently opting a couple into public
-publication, while `/signup` has the same field as an **unticked box** — because the owner already
-ruled that on 2026-07-12. **One door missed an existing ruling; one line; do NOT re-ask him.** Also
-`guests.invitation_sent_at` has **zero writers**, so the guest list's "N to send" can never
-decrease.
+✅ **AND THE TWO ITEMS THIS FILE LISTED AS "WHAT IS LEFT" ARE DONE TOO — re-measured against
+`origin/main` on 2026-08-31.** Both are now fenced by a guard, so they stay done:
+
+- the wedding-onboarding gate no longer posts `public_summary_consent` as a hidden field —
+  `onboarding-shell.tsx` carries a `🔒 NO HIDDEN CONSENT` marker, held by
+  `apps/web/app/signup/consent-is-affirmative.test.ts`;
+- `guests.invitation_sent_at` now HAS a writer (`apps/web/app/dashboard/[eventId]/sponsors/actions.ts`),
+  held by `apps/web/lib/the-invite-step-counts-what-is-true.test.ts` — so the guest list's
+  "N to send" can decrease.
+
+🔑 **THIS PARAGRAPH IS ITSELF THE LESSON.** For an unknown stretch of sessions, this file's own
+"what is left" — the passage at the TOP, which every session reads first — pointed at two jobs that
+were already finished and fenced. **A handoff decays fastest exactly where it is read most.**
+Re-measure with the greppable anchors above before acting on any line in this block, including this
+one.
 
 🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
 0 packages** · ~~**0 ORDERS EVER**~~ ⚠ **CORRECTED 2026-08-30 (C10/C10b): 6 orders as of
@@ -146,6 +155,33 @@ If you cannot name the existing component and the existing design, **you have no
    108/61, then 186/55, then 223/69 — across one week). Cite a **greppable symbol** or the exact
    command that re-measures it (`grep -n <symbol> <path>`, `select count(*) from …`), never the
    number itself.
+8. **RULE 0 APPLIES TO THE WORK IN FLIGHT, NOT ONLY TO `main`.** Grepping `origin/main` answers
+   "does this ship"; it does not answer "is somebody building this right now". Before starting a
+   feature, also run:
+
+   ```bash
+   gh pr list --state open --limit 40 --json number,title,headRefName   # who is mid-flight
+   git worktree list                                                    # what this machine is building
+   git log origin/main --oneline -15                                    # what landed in the last hours
+   ```
+
+   Measured 2026-08-31, one session, twice in a row: a comeback-offer feature was rebuilt from
+   scratch while another session had **already opened a better version as a PR** (theirs had caught
+   a hard-coded rate the rebuild reproduced); and a `guests.papic_excluded` migration was one step
+   from being written when `papic_guest_spend_ceilings` — shipped the day before — already expressed
+   exactly that, with `ceiling_points = 0` as the documented "may not spend". That column would have
+   become a **second, competing source of truth for one fact.**
+
+   🔑 **THE NEAR-MISS IS THE POINT: both were caught by looking, and neither would have been caught
+   by a test.** Two mechanisms that disagree about the same fact each pass their own suite.
+
+9. **"I flagged it" does not make a guessed number safe.** Owner, 2026-08-31, on a
+   `DEFAULT_CAPTURE_MIX` shipped as an owner-tunable default: **"don't guess."** It was labelled a
+   guess in the code, the changelog and the PR body, and shipping it was still wrong — it sized a
+   **top-up recommendation**, i.e. it told couples how much money to spend, and nobody had measured
+   it. The real answer was already in the tree: `papic_event_pool_config`, admin-editable, live
+   since migration `20270826385580`. If a number governs money and you cannot cite where it came
+   from, find its existing home or stop — do not annotate the invention and ship it.
 
 ## What this repo is
 
@@ -217,23 +253,79 @@ fails every `*.db.test.ts` while prod is fine. Allocate forward with `pnpm migra
 `scripts/check-migration-timestamps.mjs` enforces UNIQUE + not-hand-typed-round; its own docblock
 says **"NOT A RULE — ORDERING."**
 
+## ⛔ NEVER APPLY A MIGRATION DIRECTLY TO PRODUCTION — let the pipeline push the committed file
+
+**On 2026-09-02, a migration applied straight to prod outside the pipeline stranded SEVEN merged
+PRs (#5078 → #5084) for over three hours.** `.github/workflows/deploy-prod.yml` runs
+`supabase db push --include-all --yes` **before** it triggers the Vercel deploy hook, fail-closed —
+when `db push` refuses, the hook never fires and no build is created. A direct apply (a local
+`db push` from a feature worktree, an MCP `apply_migration` call, a raw `db query`) stamps the prod
+ledger with a version that has **no corresponding file on `main`** — the ORPHAN class
+`scripts/migration-doctor.mjs` diagnoses — which then makes `supabase db push` refuse for
+**every subsequent merge**, not just the one that caused it.
+
+**Measured:** the orphaned version was `20260902023553`. Every `deploy-prod` run from
+`03:16:09Z` to `05:31:46Z` failed with `Remote migration versions not found in local migrations` —
+5 failed runs in a row, each one green-looking from the PR side (CI never runs the deploy step) and
+each auto-merging normally. Production kept serving an old commit while `origin/main` moved SEVEN
+merges ahead of it, undetected, because **nothing compared what Vercel was actually serving against
+`origin/main`** — the only place the truth existed was the Actions tab for `deploy-prod`, which
+nobody reads when every PR says green. Fixed by an owner-run
+`supabase migration repair --status reverted 20260902023553` (the fix itself is deliberately an
+OWNER action — see `.github/workflows/deploy-drift-monitor.yml` and
+`scripts/deploy-drift-doctor.mjs`, which now catch this class going forward by diffing the Vercel
+production deployment's commit against `origin/main`, independent of whether `deploy-prod` even
+ran).
+
+🔑 **The repair command REWRITES the production migration ledger. A session must never run it, and
+must never hand-delete the row via SQL as a shortcut either** — a hand-edited ledger is what caused
+this in the first place. Surface it to the owner and stop.
+
+🔑 **Same shape as the migration-prefix belief above, different direction.** That section is about a
+migration that reaches the ledger via the pipeline being safe regardless of its number. This one is
+about a migration that reaches the ledger WITHOUT the pipeline at all — the number was never the
+risk; bypassing `db push --include-all`'s single, ordered application path is.
+
 ## Locked decisions you must respect
+
+> 🔎 **EVERY RULE BELOW SAYS WHO CHECKS IT.** Added 2026-09-07 after each was tested the only
+> way a rule can be tested — by breaking it and seeing whether anything failed.
+> **✅ CHECKED BY** names a test that provably goes red. **⚠ NOBODY IS CHECKING THIS** means
+> exactly that: break it and the build stays green, so it holds only as long as somebody
+> remembers it. Owner ruled (2026-09-07) that unenforceable rules stay, *labelled*, rather than
+> being deleted — but the label must stay honest. **Do not write ✅ without a test that fails.**
+>
+> Why: on 2026-09-07 an SMS sender was added to `lib/` and the full 13,619-test suite went
+> green. Four separate registers had already gone stale that week for the same reason — prose
+> cannot fail.
 
 Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.
 
-- **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
-- **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct charm pricing (-1 endings).
-- **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
-- **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
-- **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
+- ⚠ **NOBODY IS CHECKING THIS** (architectural, not mechanically testable) · **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
+- ✅ **CHECKED BY `apps/web/lib/token-economy-is-retired.test.ts`** (verified 2026-09-07: writing a live `token_grant_count` fails it) · **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
+  ⚠ **CHARM ENDINGS ARE NO LONGER THE RULE.** This line said "charm pricing (-1 endings)" for months,
+  but the owner's 2026-08-27 price sheet (`DECISION_LOG.md`) rounded three SKUs OFF their -1 endings in
+  one day — `LIVE_STUDIO` ₱2,999 → **₱3,000**, `PAPIC_ADDON_THANK_YOU` ₱2,499 → ₱2,500, and the custom
+  catalogue's `reachNationwide` — owner, verbatim: *"make the whole number 500, 2500"*. Some SKUs still
+  end in -1 and that is fine; there is no convention to enforce either way.
+  🔑 **NEVER derive a price from this file or from a code comment — read
+  `platform_retail_catalog_v2`, which is admin-managed and is the only price a customer is charged.**
+- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one — do not assume either way) · **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
+- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one) · **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
+- ✅ **CHECKED BY `apps/web/lib/one-mark-everywhere.test.ts`** (verified 2026-09-07 twice: renaming the brand in the watermark AND in an ordinary lib module both fail it) · **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
   `setnayan.ph`** — owner, verbatim, 2026-08-11: *"we do not have setnayan.ph"*. This line
   claimed both for months and sent sessions looking for DNS that was never ours. It is
   unregistered, so anyone can take it; whether to buy it is an open owner call, not a fact.
-  Brand strings centralized in `brand.config.ts`.
-- **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
-- **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
-- **No SMS in V1.** Email-only via Resend.
-- **No public API endpoints in V1.** Iteration 0033 plumbs the gateway only.
+  ⚠ **`brand.config.ts` DOES NOT EXIST.** This line said "Brand strings centralized in
+  `brand.config.ts`" until 2026-09-07; `git ls-tree origin/main` finds no such file anywhere in
+  the repo. The brand string is not centralised in one module — it appears across `lib/`
+  (`platform-settings.ts`, `monogram.ts`, `watermark-text.ts`, …). Whether to actually
+  centralise it is an open question; what is fixed here is that the file being cited was
+  imaginary.
+- ⚠ **NOBODY IS CHECKING THIS** — and nobody here can: it describes the spec corpus, a different repository · **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
+- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: a video-editor page was added and the full suite stayed green on the rule. (A top-level one trips the reserved-slug guard and a nested one trips the one-`<main>` guard — both incidental, neither is this rule.) **It cannot be guarded until somebody defines what counts as a "manual video editor"** · **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
+- ✅ **CHECKED BY `apps/web/lib/no-sms-in-v1.test.ts`** (written 2026-09-07 *because* breaking this rule changed nothing; catches an SMS provider dependency and an SMS-sending symbol, and deliberately does NOT fire on copy that mentions SMS) · **No SMS in V1.** Email-only via Resend.
+- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: an unauthenticated public `GET /api/public/v1/events` was added and nothing failed. **It cannot be guarded until somebody defines what separates a "public API endpoint" from the 111 `/api` routes the app already serves itself** · **No public API endpoints in V1.** Iteration 0033 plumbs the gateway only.
 
 See spec corpus `CLAUDE.md` for the full decision log.
 

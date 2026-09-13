@@ -44,6 +44,7 @@ import { fileURLToPath } from 'node:url';
 import {
   computeEventMoney,
   checkMoneyInvariant,
+  type EventCostMoneyRow,
   type LineItemMoneyRow,
   type OrderMoneyRow,
   type PaymentMoneyRow,
@@ -65,6 +66,8 @@ type Capture = {
     lineItems: LineItemMoneyRow[];
     payments: PaymentMoneyRow[];
     orders: OrderMoneyRow[];
+    /** BA7 · `event_costs` — money with no supplier. Absent in older captures. */
+    costs?: EventCostMoneyRow[];
   }>;
 };
 
@@ -247,6 +250,10 @@ function main(): void {
       lineItems: e.lineItems,
       payments: e.payments,
       orders: e.orders,
+      // A capture taken before BA7 has no `costs` key. `[]` is the honest
+      // reading of an older capture -- the table did not exist when it was
+      // taken -- not a default that could hide live money.
+      costs: e.costs ?? [],
       pricing: new Map() as VendorPricingLookup,
       packageLockedCentavos: new Map(),
       benchmarks: capture.benchmarks ?? [],

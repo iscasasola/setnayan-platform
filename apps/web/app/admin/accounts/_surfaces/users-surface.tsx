@@ -19,6 +19,7 @@ import {
   unblacklistEmail,
 } from '@/app/admin/users/actions';
 import {
+  describeReach,
   describeScope,
   describeSource,
   fetchCompGrantsForUser,
@@ -1017,6 +1018,11 @@ function GrantCard({ grant, revoked }: { grant: CompGrantRow; revoked: boolean }
           </p>
           <p className="text-sm font-medium text-ink">
             {describeScope(grant.scope, grant.scoped_skus)}
+          </p>
+          {/* Reach, never omitted — an event-scoped comp and an account-wide
+              one printed identically here until 2026-09-06. */}
+          <p className="text-xs font-medium text-ink/70">
+            <span className="text-ink/45">Applies to:</span> {describeReach(grant)}
           </p>
           <p className="text-xs text-ink/60">
             {describeSource(grant.source)} ·{' '}

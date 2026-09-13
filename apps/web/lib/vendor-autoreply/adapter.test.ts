@@ -37,6 +37,7 @@ function mkService(p: Partial<VendorServiceRow> = {}): VendorServiceRow {
     last_minute_end_months: 1,
     last_minute_surcharge_pct: 15,
     daily_capacity: 1,
+    includes_setnayan_gift: false,
     exclusive_perk_text: null,
     base_pax: 150,
     coverage_id: null,

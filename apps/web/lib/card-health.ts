@@ -28,15 +28,17 @@
  * § "NEUTRALISATION".
  *
  * ── WHERE THE RULES COME FROM (nothing here is invented) ───────────────────
- * • price + Setnayan Exclusive — `unmetPublishRequirements`
+ * • price — `unmetPublishRequirements`
  *   (lib/service-publish-gate.ts), the SAME function the two server actions and
  *   the `enforce_service_publish_gate` database trigger ask. This module holds
  *   no copy of that rule.
- * • cover photo — the wizard's own client-side `canPublish`. Deliberately NOT
- *   in the shared gate: the server has never required one, so putting it there
- *   would be a new server rule smuggled in as a refactor. It stays a blocker
- *   HERE, which only ever makes the maker stricter than the save — the safe
- *   direction.
+ * • cover photo and "what's included" — ALSO `unmetPublishRequirements` since
+ *   2026-09-11 (H2, the owner's 2026-09-09 "the cover-photo · title ·
+ *   inclusions requirements stay"). The cover used to be a blocker HERE and
+ *   nowhere in the shared gate, so this meter was stricter than the save; now
+ *   both ask one function and cannot disagree.
+ * • a card ALREADY LIVE that lacks one of them is FLAGGED, never blocked —
+ *   `liveCardHealthFlags` below, shown on that card's editor.
  * • card text — `findVendorTextViolation` (lib/service-text-integrity.ts),
  *   which runs the chat detector's 'card' profile. It is FLAG-GATED: with
  *   NEXT_PUBLIC_SERVICE_TEXT_INTEGRITY_ENABLED off it returns null, so this
@@ -51,8 +53,12 @@
  */
 import { autoName, findVendorTextViolation } from './service-text-integrity';
 import {
+  LIVE_CARD_FLAG_MESSAGE,
   PUBLISH_COACH_MESSAGE,
-  exclusiveIsSet,
+  type PublishFacts,
+  type PublishRequirement,
+  inclusionsAreSet,
+  liveCardFlags,
   unmetPublishRequirements,
 } from './service-publish-gate';
 import { isFollowUp, lineStateOf, type LineState } from './service-customization-draft';
@@ -109,7 +115,6 @@ export type CardHealthSnapshot = {
    */
   hasPrice: boolean;
   title: string;
-  exclusiveText: string;
   /**
    * Inclusion labels and discount conditions, in submitted order.
    *
@@ -213,35 +218,68 @@ function displayName(line: CardHealthLine, index: number): string {
  * Pure and total: every branch returns, nothing throws, and the same snapshot
  * always produces the same CardHealth.
  */
+/**
+ * Where each publish requirement is fixed, and its stable finding code.
+ *
+ * 🔑 KEYED ON `PublishRequirement`, NOT ON A HAND-TYPED UNION — the compiler
+ * makes every requirement the shared gate grows light up here, which is how
+ * the cover and "what's included" arrived (H2) with no second copy of the rule.
+ * `no_cover` keeps the code it had when the cover was this module's own rule.
+ */
+const REQUIREMENT_SHEET: Record<PublishRequirement, CardHealthSheet> = {
+  cover: 'media',
+  price: 'price',
+  inclusions: 'custom', // the InclusionsEditor lives in "What couples get"
+};
+const REQUIREMENT_CODE: Record<PublishRequirement, string> = {
+  cover: 'no_cover',
+  price: 'no_price',
+  inclusions: 'no_inclusions',
+};
+
+/** The shared gate's facts, read off the meter's snapshot — one derivation. */
+export function publishFactsOf(
+  snapshot: Pick<CardHealthSnapshot, 'hasCover' | 'hasPrice' | 'inclusionLabels'>,
+): PublishFacts {
+  return {
+    hasCover: snapshot.hasCover,
+    hasPrice: snapshot.hasPrice,
+    hasInclusions: inclusionsAreSet(snapshot.inclusionLabels),
+  };
+}
+
+/**
+ * THE FLAG FOR A CARD THAT IS ALREADY LIVE (H2 · 2026-09-11). A card published
+ * before the cover and "what's included" became requirements keeps its place in
+ * the marketplace — it is never taken down and never refused an edit — but its
+ * shop is told, in its own editor, what a couple is not seeing. Price is not
+ * here: a live card is still held to it (`unmetForALiveCard`).
+ */
+export function liveCardHealthFlags(facts: PublishFacts): CardHealthFinding[] {
+  return liveCardFlags(facts).map((requirement) => ({
+    code: `live_${REQUIREMENT_CODE[requirement]}`,
+    sheet: REQUIREMENT_SHEET[requirement],
+    message: LIVE_CARD_FLAG_MESSAGE[requirement],
+  }));
+}
+
 export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
   const blockers: CardHealthFinding[] = [];
   const warnings: CardHealthFinding[] = [];
   const hints: CardHealthFinding[] = [];
 
   // ── BLOCKERS — the real publish gate ──────────────────────────────────────
-  if (!snapshot.hasCover) {
-    blockers.push({
-      code: 'no_cover',
-      sheet: 'media',
-      message: 'Add a cover photo — required to publish.',
-    });
-  }
-  // The price and the Setnayan Exclusive are not this module's opinion — they
-  // are THE publish gate, asked of the one function the server actions and the
+  // The cover, the price and what's included are not this module's opinion — they are
+  // THE publish gate, asked of the one function the server actions and the
   // database trigger also ask (lib/service-publish-gate.ts). Adding a
   // requirement there lights it up here with no edit; that is the point.
-  const REQUIREMENT_SHEET: Record<'price' | 'exclusive', CardHealthSheet> = {
-    price: 'price',
-    exclusive: 'excl',
-  };
-  const REQUIREMENT_CODE: Record<'price' | 'exclusive', string> = {
-    price: 'no_price',
-    exclusive: 'no_exclusive',
-  };
-  for (const requirement of unmetPublishRequirements({
-    hasPrice: snapshot.hasPrice,
-    hasExclusive: exclusiveIsSet(snapshot.exclusiveText),
-  })) {
+  //
+  // 🔑 KEYED ON `PublishRequirement`, NOT ON A HAND-TYPED UNION. The comment
+  // above promises that adding a requirement lights it up here with no edit —
+  // which was only true of the loop, not of these two tables. Typing them off
+  // the shared union makes the compiler keep that promise in both directions,
+  // and it is what caught them when the Setnayan gift left the list.
+  for (const requirement of unmetPublishRequirements(publishFactsOf(snapshot))) {
     blockers.push({
       code: REQUIREMENT_CODE[requirement],
       sheet: REQUIREMENT_SHEET[requirement],
@@ -273,11 +311,6 @@ export function scoreCardHealth(snapshot: CardHealthSnapshot): CardHealth {
     // 'Inclusion N', 'Discount N conditions', 'Customization line N option M'.
     // The vendor reads the same sentence here and in a server bounce.
     { code: 'text_title', sheet: 'title', fields: [{ field: 'Title', value: snapshot.title }] },
-    {
-      code: 'text_exclusive',
-      sheet: 'excl',
-      fields: [{ field: 'Setnayan Exclusive', value: snapshot.exclusiveText }],
-    },
     {
       code: 'text_inclusions',
       sheet: 'custom', // the InclusionsEditor lives in "What couples get"

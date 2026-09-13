@@ -53,9 +53,17 @@ function claimSurfaces(): Array<{ where: string; text: string }> {
   assert.ok(entry, "the website-pro catalogue blurb was not found — the scan is blind");
 
   const migrations = join(WEB, '../../supabase/migrations');
-  const migFile = readdirSync(migrations).find((f) =>
-    f.includes('the_catalogue_forgets_what_it_retired'),
-  );
+  // The LATEST migration that sets this SKU's description is the one prod shows.
+  // Derived, not named: a fixed filename kept reading 20271179454449's text after
+  // 20271220364681 replaced it (2026-09-10), which is a stale claim surface.
+  const describing = readdirSync(migrations)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) => {
+      const sql = read(join(migrations, f));
+      return /SET description =/.test(sql) && new RegExp(`service_code = '${SKU}'`).test(sql);
+    });
+  const migFile = describing[describing.length - 1];
   assert.ok(migFile, 'the description migration was not found');
   const mig = read(join(migrations, migFile));
   const desc = /UPDATE public\.platform_retail_catalog_v2[\s\S]*?SET description =([\s\S]*?)updated_at/.exec(mig);
@@ -126,21 +134,46 @@ test('Editorial PRO is not sold as an inclusion while it is free for everyone', 
   }
 });
 
-test('nothing guest-facing is gated on this SKU except the watermark', () => {
+/**
+ * Guest-facing gates on this SKU that are NOT the watermark — each allowed ONLY
+ * while every claim surface names it. Added 2026-09-10 for the invite link's Pro
+ * themes (owner: "the other 4 will be the Event Hub Pro service"). Checked both
+ * ways: an entry whose gate is gone fails too, so the copy cannot outlive it.
+ */
+const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what: string }> = [
+  { under: 'app/[slug]/invite/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
+];
+
+test('every guest-facing gate on this SKU is the watermark or an inclusion the copy names', () => {
   // This is the measurement behind dropping the "RSVP" and "on-the-day" claims.
   // If it ever stops holding, those claims may have become true again.
+  const surfaces = claimSurfaces();
   for (const { file, line } of guestSideGateUses()) {
-    assert.match(
-      line,
-      /atermark/,
+    if (/atermark/.test(line)) continue;
+    const advertised = ADVERTISED_GUEST_GATES.find((g) => file.startsWith(g.under));
+    assert.ok(
+      advertised,
       `${file} gates something guest-facing on ${SKU} that is not a watermark — ` +
         `re-check what Event Hub PRO advertises; it may now include more than it says.`,
+    );
+    for (const { where, text } of surfaces) {
+      assert.match(text, advertised.claim, `${where} does not name ${advertised.what}, which ${file} withholds from non-buyers`);
+    }
+  }
+});
+
+test('every advertised guest gate still exists — the copy cannot outlive what it sells', () => {
+  const uses = guestSideGateUses();
+  for (const g of ADVERTISED_GUEST_GATES) {
+    assert.ok(
+      uses.some((u) => u.file.startsWith(g.under) && !/atermark/.test(u.line)),
+      `the copy sells ${g.what}, but nothing under ${g.under} is gated on ${SKU} any more — take the claim out`,
     );
   }
 });
 
 test('the copy does not promise RSVP or the on-the-day page', () => {
-  // Held only while the test above holds: no guest-side gate, so no claim.
+  // Held while no guest-side gate withholds RSVP or the on-the-day page.
   for (const { where, text } of claimSurfaces()) {
     assert.doesNotMatch(text, /\bRSVP\b/i, `${where} promises RSVP, which no gate withholds`);
     assert.doesNotMatch(

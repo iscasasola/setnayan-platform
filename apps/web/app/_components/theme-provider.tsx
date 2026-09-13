@@ -91,19 +91,3 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
-/**
- * FOUC-safe inline script for `<head>` injection in app/layout.tsx.
- *
- * The app is light-locked (owner 2026-06-04), so this simply guarantees the
- * `.dark` class is absent before first paint — defending against a stale cached
- * shell that shipped with `.dark` already on <html>. Kept as a string export so
- * layout.tsx's reference stays valid. Runs synchronously, wrapped in try/catch
- * so a missing API never blanks the page.
- */
-export const themeBootstrapScript = `
-(function() {
-  try {
-    document.documentElement.classList.remove('dark');
-  } catch (_e) {}
-})();
-`;

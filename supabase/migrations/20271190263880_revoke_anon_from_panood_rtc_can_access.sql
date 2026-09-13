@@ -1,0 +1,21 @@
+-- revoke_anon_from_panood_rtc_can_access
+--
+-- Live on 2026-09-01: `panood_rtc_can_access` carried an EXECUTE grant to `anon`
+-- that its two siblings (`call_rtc_can_access`, `live_studio_guest_rtc_can_access`)
+-- do not — measured with:
+--
+--   SELECT p.proname, r.rolname FROM pg_proc p
+--   JOIN pg_namespace n ON n.oid = p.pronamespace
+--   JOIN aclexplode(p.proacl) a ON true
+--   JOIN pg_roles r ON r.oid = a.grantee
+--   WHERE p.proname IN ('call_rtc_can_access','live_studio_guest_rtc_can_access','panood_rtc_can_access')
+--     AND n.nspname = 'public';
+--
+-- NOT exploitable: the function's first line is `IF auth.uid() IS NULL THEN RETURN FALSE`,
+-- and the RLS policies on realtime.messages that call it are scoped `TO authenticated`, so
+-- the anon role never reaches it through Realtime's own dispatch. But #5064's own migration
+-- header (20271187719883) states the intent for this whole predicate family as
+-- "authenticated only, NOT anon" — and this function contradicts that stated intent with no
+-- comment explaining why. An inconsistency nobody can explain is how the next security sweep
+-- breaks something. Revoking to match its siblings, not because of any live exposure.
+REVOKE EXECUTE ON FUNCTION public.panood_rtc_can_access(TEXT) FROM anon;

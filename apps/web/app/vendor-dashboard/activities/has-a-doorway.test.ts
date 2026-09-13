@@ -31,7 +31,9 @@ import { join, dirname } from 'node:path';
 const HERE = dirname(new URL(import.meta.url).pathname);
 const WEB = join(HERE, '../../..');
 
-const SHOP = join(WEB, 'app/vendor-dashboard/shop/page.tsx');
+// MB17: the tool-card list (and these two hrefs) moved out of page.tsx into
+// this sibling pure-data module — see shop-tool-shelves.ts's own docblock.
+const SHOP = join(WEB, 'app/vendor-dashboard/shop/shop-tool-shelves.ts');
 const NAV = join(WEB, 'app/vendor-dashboard/_components/vendor-bottom-nav.tsx');
 
 test('the segments page is linked from the shop, like its sibling', () => {

@@ -49,14 +49,29 @@ before(async () => {
   db = replay.db;
 });
 
-/** Create an event — fires the real papic_seed_free_grant_trg (seeds 50 pts). */
+/**
+ * Create an event WITH a couple member — that is what seeds the 50-pt free
+ * grant now. `papic_seed_free_grant_trg` moved from `events` to
+ * `event_members` (migration 20271204225094, owner-locked 2026-09-04: the
+ * free pool is per ACCOUNT, first event only), because `events` has no owner
+ * column and could never say whose first event this is. A fresh auth user per
+ * call keeps every event in this suite "somebody's first", so the 50 these
+ * tests count on still lands; two events on one user would get 50 then 1.
+ */
 async function createEvent(name: string): Promise<string> {
   const r = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type)
      VALUES ($1, 'birthday') RETURNING event_id`,
     [name],
   );
-  return r.rows[0]!.event_id;
+  const eventId = r.rows[0]!.event_id;
+  const couple = await createUser(`pool-couple-${eventId}@test.dev`);
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, couple],
+  );
+  return eventId;
 }
 
 /** Insert an auth user (fires the real signup trigger → public.users row). */

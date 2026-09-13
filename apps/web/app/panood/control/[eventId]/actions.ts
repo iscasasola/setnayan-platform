@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { filmInsertFromLink } from '@/lib/event-films';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import {
@@ -65,7 +66,7 @@ import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
  * These actions are now HOST-GATED ONLY. Adding a camera, naming it, cutting
  * between channels on CH 1, placing the monogram / lower third and setting
  * guest-pick are all REHEARSAL: they write control-plane rows that no guest can
- * see, on the host's own phones, at their own rehearsal. Charging ₱2,999 before
+ * see, on the host's own phones, at their own rehearsal. Charging ₱3,000 before
  * they have ever felt that was the defect § 4d exists to fix.
  *
  * The paywall now sits at PUBLICATION — lib/live-studio-publish.ts, enforced in
@@ -258,7 +259,7 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
    cameras and rehearsing with them is FREE (§ 4d "rehearse free, pay to
    broadcast"); the paywall is PUBLICATION and lives in lib/live-studio-publish.ts.
    Gating the join here would recreate the exact defect Wave 3 removed: asking
-   ₱2,999 for an experience the couple has never felt.
+   ₱3,000 for an experience the couple has never felt.
 
    ADMIN CLIENT, AFTER requireHostMembership: `panood_camera_operators` RLS is
    `event_members.member_type IN ('couple','coordinator')`, which does not cover a
@@ -729,6 +730,78 @@ export async function saveControlWatchUrl(formData: FormData): Promise<void> {
   redirect(`${SETUP_PATH(eventId)}?watch_url_saved=1`);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   🎞 EVERY FILM OF THEIR DAY — the couple attaches their own videos to the event
+   ══════════════════════════════════════════════════════════════════════════════
+
+   The ₱2,500 LIVE_STUDIO description promises "unlimited video-link uploads"
+   (migration 20271194920190). Nothing let a COUPLE do it until now — the existing
+   `video-links-editor.tsx` is vendor-dashboard only, for vendor microsites.
+
+   ⚠ HOST-GATED, NOT PAID — deliberately, and it is not an oversight.
+   Owner ruling 2026-09-02: attaching links is FREE and belongs with Story Maker,
+   which is free. LIVE_STUDIO names it because ONE UNLOCK COVERS EVERYTHING, not
+   because it gates it. There is no `requireLiveStudioOwned()` here for the same
+   reason the free single-cam watch-link actions above do not carry one — and
+   putting one here would mean a couple's own prenup film disappearing from their
+   own story the day an entitlement lapsed.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/** Attach a YouTube or Vimeo link to the event. Host-gated, free. */
+export async function addEventFilm(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+
+  const link = typeof formData.get('film_url') === 'string' ? (formData.get('film_url') as string) : '';
+  const label = typeof formData.get('film_label') === 'string' ? (formData.get('film_label') as string) : '';
+
+  // Parsed BEFORE the membership read: an unparseable link is not an authorization
+  // question, and bouncing it early keeps a bad paste from costing a round trip.
+  const row = filmInsertFromLink(link, label);
+  if (!row) redirect(`${SETUP_PATH(eventId)}?film_error=1`);
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+
+  // upsert, not insert: the UNIQUE (event_id, provider, video_id) means pasting the
+  // same film twice is a no-op rather than a duplicate-key error the couple sees as
+  // "something went wrong" for an action that was, in their terms, already done.
+  const { error } = await supabase
+    .from('event_films')
+    .upsert({ event_id: eventId, ...row!, added_by: auth?.user?.id ?? null },
+            { onConflict: 'event_id,provider,video_id' });
+  if (error) {
+    console.error('[live-studio] attach film refused', error);
+    redirect(`${SETUP_PATH(eventId)}?film_error=1`);
+  }
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(`${SETUP_PATH(eventId)}?film_saved=1`);
+}
+
+/** Detach a film. Host-gated, free. */
+export async function removeEventFilm(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const idRaw = formData.get('film_id');
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) return;
+  if (typeof idRaw !== 'string' || !/^\d+$/.test(idRaw)) return;
+  const eventId = eventIdRaw;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  // .eq('event_id') as well as the id: RLS already scopes this, and a delete keyed on
+  // an id alone would depend on that policy being the only thing standing between one
+  // event and another's row.
+  await supabase.from('event_films').delete().eq('id', Number(idRaw)).eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(SETUP_PATH(eventId));
+}
+
 /** Clear the saved watch link (free single-cam). Host-gated, not paid. */
 export async function clearControlWatchUrl(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -858,4 +931,34 @@ export async function clearControlManualAir(formData: FormData): Promise<void> {
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?on_air=0`);
+}
+
+/**
+ * Clear the by-hand on-air flag from the TRANSPORT row's "End" button — same write
+ * as `clearControlManualAir` above, but called directly (no `<form>`/`FormData`,
+ * no redirect) because `TransportRow` drives it through the same JS transition it
+ * uses for `endPanoodBroadcast`.
+ *
+ * ⚠ DEFECT this exists to fix: `TransportRow` shows one red button whenever
+ * `isLive` is true, whatever route put the event on air, and it used to always call
+ * `endPanoodBroadcast` — which closes a `panood_broadcasts` row that a manual-only
+ * host never has, and along the way clears `events.panood_watch_url`, the watch
+ * link that host pasted themselves. `panood_manual_on_air_at` — the thing actually
+ * making them read as live — was never touched, so the button's own claim of
+ * "ended" was false: the control stayed on air. See `endOnAirTarget` in
+ * lib/live-studio-manual-air.ts for which route a given `isLive` source must use.
+ */
+export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { error: string }> {
+  if (!liveStudioRoamEnabled()) return { error: 'Live Studio is not available for this event.' };
+
+  await requireHostMembership(eventId);
+
+  const admin = createAdminClient();
+  await admin
+    .from('events')
+    .update({ panood_manual_on_air_at: null })
+    .eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  return { ok: true };
 }

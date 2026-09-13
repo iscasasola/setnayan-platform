@@ -27,6 +27,7 @@ import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -406,6 +407,101 @@ export async function guestWallMirrorActive(
   return wallGuestMirrorOn(row.live_photo_wall_visibility);
 }
 
+/** The event's currently-armed Papic Challenge, for the wall. */
+export type WallArmedChallenge = {
+  missionId: string;
+  prompt: string;
+  /** Guests who have answered THIS challenge — from papic_mission_completions. */
+  answeredCount: number;
+};
+
+/**
+ * THE CHALLENGE READ IS HONEST — mirrors `fetchGuestsByEventMeasured`
+ * (lib/guests.ts) and `fetchVendorSponsoredShots` (lib/vendor-sponsored-shots.ts):
+ * a refused read and a genuinely un-armed wall are NOT the same fact, and a
+ * caller that cannot tell them apart ends up rendering one as the other — the
+ * exact defect `guests-read-is-honest.test.ts` exists to keep out.
+ *
+ * `measured: false` means "we do not know whether a challenge is armed", not
+ * "there is none". Only a `measured: true` read may say "no challenge right
+ * now".
+ *
+ * Flag-gated: with Papic Games off, there is genuinely no challenge system to
+ * read — that IS a measured fact, not a refusal.
+ */
+export type WallChallengeRead = {
+  measured: boolean;
+  challenge: WallArmedChallenge | null;
+};
+
+/**
+ * THE CURRENTLY-ARMED CHALLENGE — now the real one.
+ *
+ * ── WHAT THIS USED TO DO, AND WHY IT HAD TO ────────────────────────────────
+ * Until 2026-09-01 no per-event challenge clock existed, so this showed the
+ * TOP OF THE GUEST BOARD — the live mission with the lowest `board_slot` — and
+ * called it "armed". It was the honest stand-in available at the time and it
+ * said so. It is now wrong in a way that matters: the board's first slot has
+ * nothing to do with what the room is being asked, so the wall could project
+ * one challenge while the couple's own screen named another, each passing its
+ * own tests. Two mechanisms disagreeing about one fact is precisely the drift
+ * the clock was built to remove.
+ *
+ * 🔑 SO THE ORDERING IS GONE, NOT PORTED. `papic_armed_challenge` is the single
+ * resolver (it delegates the verdict to `papic_challenge_is_open` and the
+ * expiry instant to `papic_challenge_ends_at`), and reproducing ANY part of
+ * that rule here — a board_slot order, a `Date.now()` against `armed_at` — puts
+ * the second answer straight back.
+ *
+ * ⚠ THE WALL NOW GOES QUIET BETWEEN CHALLENGES, AND THAT IS THE POINT. Before,
+ * something was always displayed, whether or not anybody had started it. Now a
+ * challenge appears while it is genuinely running and stops when it expires —
+ * `challenge: null` on a `measured: true` read means "nothing is being asked
+ * right now", which is a true statement the wall was previously unable to make.
+ *
+ * ⛔ AND IT SAYS NOTHING ABOUT THE GUEST'S BOARD. Owner 2026-09-01: "one
+ * challenge, but the other challenges may still be there." A guest keeps every
+ * challenge they had, including this one after it expires.
+ */
+export async function fetchWallArmedChallenge(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<WallChallengeRead> {
+  if (!papicGamesEnabled()) return { measured: true, challenge: null };
+
+  const { data: missions, error: mErr } = await admin.rpc('papic_armed_challenge', {
+    p_event_id: eventId,
+  });
+
+  // Supabase resolves with { error }, it does not throw — treating a refused
+  // read as "no challenges" is exactly how a wall ends up telling a party of
+  // 180 there is nothing to answer.
+  if (mErr) return { measured: false, challenge: null };
+  if (!Array.isArray(missions) || missions.length === 0) {
+    return { measured: true, challenge: null };
+  }
+
+  const mission = missions[0] as { mission_id: string; prompt: string };
+
+  const { count, error: cErr } = await admin
+    .from('papic_mission_completions')
+    .select('completion_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('mission_id', mission.mission_id)
+    .not('capture_id', 'is', null);
+
+  if (cErr) return { measured: false, challenge: null };
+
+  return {
+    measured: true,
+    challenge: {
+      missionId: mission.mission_id,
+      prompt: mission.prompt,
+      answeredCount: count ?? 0,
+    },
+  };
+}
+
 export interface WallSnapshot {
   tiles: WallTile[];
   count: number;
@@ -414,6 +510,10 @@ export interface WallSnapshot {
   eventDate: string | null;
   /** The latest one-tap-approved Kwento for the lower-third (P1: newest wins). */
   caption: { text: string; author: string; atIso: string } | null;
+  /** The currently-armed Papic Challenge + answer count. See WallChallengeRead
+   *  above — `challengeMeasured: false` means unknown, never "none". */
+  challenge: WallArmedChallenge | null;
+  challengeMeasured: boolean;
 }
 
 /** The projection read: visible tiles since a cursor + count + mode. */
@@ -432,7 +532,7 @@ export async function getWallSnapshot(
 ): Promise<WallSnapshot> {
   const admin = createAdminClient();
 
-  const [{ data: feedData }, { data: event }] = await Promise.all([
+  const [{ data: feedData }, { data: event }, challengeRead] = await Promise.all([
     admin.rpc('wall_visible_photos', {
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
@@ -442,6 +542,7 @@ export async function getWallSnapshot(
       .select('display_name, event_date, live_mode_override')
       .eq('event_id', eventId)
       .maybeSingle(),
+    fetchWallArmedChallenge(admin, eventId),
   ]);
 
   let rows = (Array.isArray(feedData) ? feedData : []) as WallFeedRow[];
@@ -516,5 +617,7 @@ export async function getWallSnapshot(
     mode,
     displayName: (event?.display_name as string) ?? null,
     eventDate: (event?.event_date as string) ?? null,
+    challenge: challengeRead.challenge,
+    challengeMeasured: challengeRead.measured,
   };
 }

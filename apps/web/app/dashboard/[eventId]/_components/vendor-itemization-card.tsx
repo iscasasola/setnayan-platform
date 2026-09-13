@@ -51,6 +51,7 @@ import {
   Sparkles,
   MessageCircle,
   PencilLine,
+  ArrowUpRight,
 } from 'lucide-react';
 import {
   describeSupplierBalance,
@@ -61,7 +62,13 @@ import {
   type VendorControlledLineItem,
   type VendorPriceSource,
 } from '@/lib/budget';
-import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
+import {
+  VENDOR_CATEGORY_LABEL,
+  VENDOR_STATUS_LABEL,
+  VENDOR_STATUS_TONE,
+  type EventVendorRow,
+} from '@/lib/vendors';
+import { ContactShortlistVendorButton } from '../vendors/_components/contact-shortlist-vendor-button';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -69,6 +76,8 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
+import { splitVendorLines } from '@/lib/agreed-total-and-its-changes';
+import { pesoLabel } from '@/lib/proposal-amendments';
 import {
   addLineItem,
   deleteLineItem,
@@ -117,6 +126,7 @@ export function VendorItemizationCard({
     lineItems,
     payments,
     itemizedTotal,
+    agreedBeforeChanges,
     paidTotal,
     priceSource,
     vendorControlledItems,
@@ -213,8 +223,8 @@ export function VendorItemizationCard({
           lineItems={lineItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
-          vendorMarketplaceId={vendor.marketplace_vendor_id}
           suggestTotalPhp={itemizedTotal}
+          agreedBeforeChangesPhp={agreedBeforeChanges}
         />
         <PaymentSection
           payments={payments}
@@ -229,12 +239,19 @@ export function VendorItemizationCard({
     </div>
   );
 
+  // 🔗 REACHABLE ON EVERY LINE, regardless of pricing state. Rendered OUTSIDE
+  // `<details>`/`<summary>` — a nested `<a>` inside a `<summary>` fights the
+  // disclosure's own click-to-toggle behavior, so this row sits above the
+  // fold and stays visible whether the ledger row is collapsed or open.
+  const reachLinks = <SupplierReachLinks eventId={eventId} vendor={vendor} variant={variant} />;
+
   // 'embed' variant — no outer <article>, no header, no status pill. The
   // workspace page wraps this in its own Payments <section>.
   if (variant === 'embed') {
     return (
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
         {refusedReadNotice}
+        {reachLinks}
         {ledgerRow}
         {workingSections}
       </div>
@@ -288,6 +305,7 @@ export function VendorItemizationCard({
       className="overflow-hidden rounded-xl border border-ink/10 bg-cream scroll-mt-24"
     >
       {refusedReadNotice}
+      {reachLinks}
       <details className="group/ledger">
         <summary className="cursor-pointer list-none pb-1 pt-4 transition-colors hover:bg-ink/[0.02] [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-start justify-between gap-3 px-5">
@@ -346,6 +364,100 @@ export function VendorItemizationCard({
 // Internal sub-components — pulled directly from the prior budget/page.tsx
 // inline definitions. Behavior preserved 1:1; only the location changes.
 // ----------------------------------------------------------------------------
+
+/**
+ * Two ways to reach this supplier, rendered unconditionally — never gated on
+ * `priceSource`. Before this, the ONLY outbound link in this file lived
+ * inside `LineItemSection` and rendered exclusively while
+ * `priceSource === 'pending' && !hasVendorControlled` — once a vendor HAD
+ * pricing, "message the vendor in chat" was plain text with no link, and an
+ * off-platform supplier (`marketplace_vendor_id` is NULL) built a bare
+ * `?vendor=` with nothing after it, which the messages page never even reads
+ * (it reads `prefill_vendor_email`, not `vendor`).
+ *
+ * The message link prefills from `event_vendors.contact_email` only for an
+ * OFF-platform supplier (a Setnayan shop's copied address is never pre-filled,
+ * 2026-09-10 — see `prefillEmail` below), and degrades to the plain messages index when they don't
+ * — `contact_email` is nullable with no default (see
+ * `20260513100000_iteration_0006_vendors.sql`), and measured live on
+ * 2026-09-02 every one of the 45 `event_vendors` rows in production has it
+ * NULL or blank. So today this link reaches nobody via prefill; the fallback
+ * is deliberate, not a bug, and the workspace link (keyed on `vendor_id`,
+ * which every row has) reaches the supplier's own page regardless. Suppliers
+ * shipping with no contact_email is a separate, upstream defect — not fixed
+ * here.
+ */
+function SupplierReachLinks({
+  eventId,
+  vendor,
+  variant,
+}: {
+  eventId: string;
+  vendor: EventVendorRow;
+  /** 'card' is the budget page; 'embed' is inside the supplier's workspace. */
+  variant: 'card' | 'embed';
+}) {
+  /* 🔴 "MESSAGE" NEVER OPENED THE CONVERSATION. Both branches land on the
+     conversation LIST — one with an email pre-filled into a "start a new
+     thread" form that still needs submitting, one bare — even when the couple
+     has been talking to this supplier for weeks. The prefill also keys on
+     `contact_email`, which most marketplace paths never write, so for exactly
+     the suppliers who CAN be messaged it usually took the bare branch.
+
+     ⚠ ONLY ON THE BUDGET CARD. The 'embed' variant renders inside the
+     supplier's own workspace, which already ships a thread deep-link AND the
+     conversation itself — a second opener there is duplication, not a fix.
+
+     ⚠ AND ONLY FOR A SUPPLIER ON SETNAYAN. The shipped button gates on the
+     marketplace id; an off-platform row a couple typed in by hand cannot be
+     messaged here at all, and offering it would return "This vendor can't be
+     messaged here". That row keeps the plain link. */
+  /* 🚪 THE PREFILL IS ONLY EVER THE ADDRESS THE COUPLE TYPED for a supplier who
+     is NOT on Setnayan (owner 2026-09-10: "our goal is to let them integrate
+     their event with the vendor they find. not to let them communicate outside
+     the app"). A package lock COPIES a Setnayan shop's own email into
+     `event_vendors` (vendors/packages/actions.ts), and the Messages page prints
+     a prefill in plain sight as the value of its "start a thread" box — so
+     keying on `contact_email` alone handed the couple the shop's address. A
+     shop on Setnayan is reached through its conversation instead (the Message
+     button below, or its workspace). Same predicate as `canOpenThread`, and as
+     the LineItemSection prop above; written inline because the reach test
+     evaluates this body as-is. */
+  const prefillEmail = vendor.marketplace_vendor_id ? null : vendor.contact_email?.trim() || null;
+  const messagesHref = prefillEmail
+    ? `/dashboard/${eventId}/messages?prefill_vendor_email=${encodeURIComponent(prefillEmail)}`
+    : `/dashboard/${eventId}/messages`;
+  const canOpenThread = variant === 'card' && vendor.marketplace_vendor_id != null;
+  const workspaceHref = `/dashboard/${eventId}/vendors/${vendor.vendor_id}/workspace`;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 px-5 py-2">
+      {canOpenThread ? (
+        <ContactShortlistVendorButton
+          eventId={eventId}
+          vendorId={vendor.vendor_id}
+          label="Message"
+          pendingLabel="Opening…"
+          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink disabled:opacity-60"
+        />
+      ) : (
+        <Link
+          href={messagesHref}
+          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
+        >
+          <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          Message
+        </Link>
+      )}
+      <Link
+        href={workspaceHref}
+        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-ink/30 hover:text-ink"
+      >
+        <ArrowUpRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        Open workspace
+      </Link>
+    </div>
+  );
+}
 
 function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   if (priceSource === 'manual') return null;
@@ -417,19 +529,29 @@ function LineItemSection({
   lineItems,
   eventId,
   vendorId,
-  vendorMarketplaceId,
   suggestTotalPhp,
+  agreedBeforeChangesPhp,
 }: {
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
   lineItems: LineItemRow[];
   eventId: string;
   vendorId: string;
-  vendorMarketplaceId: string | null;
+  /** The supplier's agreed total NOW — `itemizedTotal`, changes included. */
   suggestTotalPhp: number;
+  /** The agreed price before any change — `agreedBeforeChanges`. */
+  agreedBeforeChangesPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
-  const hasManual = lineItems.length > 0;
+  // ── A CHANGE IS SHOWN SEPARATELY (owner 2026-09-09) ──────────────────────
+  // "Both, shown separately" — the agreed total updates AND the change stays
+  // visible as its own line. A settled change-order delta shares this table
+  // with the couple's own itemisation and means the opposite thing, so it gets
+  // its own heading rather than sitting unlabelled among "Your own additions"
+  // where nothing says the supplier agreed to it.
+  const { breakdown: manualLines, changes: changeLines } = splitVendorLines(lineItems);
+  const hasManual = manualLines.length > 0;
+  const hasChanges = changeLines.length > 0;
   return (
     <section className="space-y-3 p-5">
       <header className="flex items-center gap-2">
@@ -477,13 +599,24 @@ function LineItemSection({
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
-          <Link
-            href={`/dashboard/${eventId}/messages?vendor=${vendorMarketplaceId ?? ''}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950"
-          >
-            <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Ask them for pricing
-          </Link>
+          {/* 💬 "ASK THEM" OPENS THE CONVERSATION WITH THEM (2026-09-11). It used to
+              be a link to the Messages LIST — prefilled with the supplier's
+              address only if the couple had typed one. This box renders only for
+              'pending', which is only ever a supplier ON Setnayan, and since
+              2026-09-10 such a supplier's copied address is never prefilled, so
+              the link could never reach them: it dropped the couple on a list
+              and left them to find the thread. The shipped thread opener (the
+              same one as "Message" above) opens or resumes THIS supplier's
+              conversation for this event, deduped server-side, so a tap can
+              never start a second thread. */}
+          <ContactShortlistVendorButton
+            eventId={eventId}
+            vendorId={vendorId}
+            label="Ask them for pricing"
+            pendingLabel="Opening…"
+            wrapperClassName=""
+            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950 disabled:opacity-60"
+          />
         </div>
       ) : null}
 
@@ -495,7 +628,7 @@ function LineItemSection({
             </p>
           ) : null}
           <ul className="space-y-1.5">
-            {lineItems.map((li) => (
+            {manualLines.map((li) => (
               <li
                 key={li.line_item_id}
                 className="flex items-center justify-between gap-2 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
@@ -533,6 +666,59 @@ function LineItemSection({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {hasChanges ? (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Changes you both agreed
+          </p>
+          {/* 🔢 BOTH NUMBERS, AND THE SUM BETWEEN THEM (owner 2026-09-09, "Both,
+              shown separately"). The price they agreed first, each change on its
+              own line, and what it is now — so ₱100,000, −₱15,000, ₱85,000 reads
+              as arithmetic on one screen instead of a number that silently moved.
+              Both ends come from `resolveAgreedTotal` (basePart and agreed), so
+              the three rows cannot disagree with the Budget figure above. */}
+          <div className="flex items-center justify-between gap-2 px-3 text-sm text-ink/70">
+            <span>Agreed price before changes</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-ink/70">
+              {formatPhp(agreedBeforeChangesPhp)}
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {changeLines.map((li) => (
+              <li
+                key={li.line_item_id}
+                className="flex items-center justify-between gap-2 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate font-medium text-ink">{li.label}</p>
+                  {li.due_date ? (
+                    <p className="inline-flex items-center gap-1 text-xs text-ink/60">
+                      <Calendar className="h-3 w-3" strokeWidth={1.75} />
+                      Due {li.due_date}
+                    </p>
+                  ) : null}
+                </div>
+                {/* NO DELETE CONTROL, DELIBERATELY. A line the couple typed is
+                    theirs to remove; a change order is a record of something the
+                    SUPPLIER also agreed to. Letting one side delete it would put
+                    the budget and the change-order trail — which keeps saying
+                    "accepted" — back into disagreement, which is the whole
+                    defect. The way to undo a change is another change. */}
+                <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                  {pesoLabel(Number(li.amount_php))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-3 pt-2 text-sm">
+            <span className="font-medium text-ink">Agreed total now</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+              {formatPhp(suggestTotalPhp)}
+            </span>
+          </div>
         </div>
       ) : null}
 

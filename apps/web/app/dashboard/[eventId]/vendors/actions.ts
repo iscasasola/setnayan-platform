@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
+import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { resolveLivePax } from '@/lib/pax';
 import {
@@ -45,6 +46,10 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
+import {
+  SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
+  canInviteSupplier,
+} from '@/lib/supplier-invite-eligibility';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
   fetchSlotsForCoupleBooking,
@@ -70,6 +75,22 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import { isBudgetBuildEnabled } from '@/lib/budget-build';
+import { computeLockImpact, type LockImpact } from '@/lib/lock-impact';
+import {
+  lockedGroupIdsFromVendorRows,
+  lockImpactTeams,
+  savedPlansFromBuildRows,
+  sunkVendors,
+  type ImpactBuildRow,
+  type ImpactVendorRow,
+} from '@/lib/lock-impact-inputs';
+import { resolveProbeWindow } from '@/lib/build-date-window';
+import {
+  agreedTotalNow,
+  CHANGE_LINES_EMBED,
+  type ChangeLineRow,
+} from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
@@ -551,6 +572,26 @@ export type FinalizeVendorResult =
       vendorName: string;
       resultingDate: string; // 'YYYY-MM-DD'
       dateLabel: string; // "Saturday, September 12, 2027"
+      // Owner ruling 2026-09-06 — what ELSE this lock costs, carried on the
+      // SAME gate so the couple answers one question, not two in a row. NULL
+      // when the announcement is off (see resolveLockImpact) or the lock costs
+      // nothing; the modal then renders exactly the date sentence it always has.
+      impact: LockImpact | null;
+    }
+  // Owner ruling 2026-09-06: *"announce that the following builds are no longer
+  // possible for you, and these services are no longer possible once you lock
+  // this vendor."* This lock kills something but does NOT set the date, so the
+  // date gate never fires and nothing else would have said so. The UI opens the
+  // same confirm modal; on confirm it re-calls with confirm_lock_impact=1.
+  //
+  // ⚠ ONLY EVER RETURNED WITH A NON-EMPTY IMPACT. A confirm that always fires
+  // gets clicked through unread, which would make the announcement worse than
+  // not shipping it — `computeLockImpact().isEmpty` is the gate, not a hint.
+  | {
+      status: 'lock_will_cost';
+      vendorId: string;
+      vendorName: string;
+      impact: LockImpact;
     }
   | { status: 'not_signed_in' }
   | { status: 'not_secured' }
@@ -681,6 +722,166 @@ async function buildHardSingleConflict(
   };
 }
 
+/**
+ * What does locking this vendor COST the couple? — owner ruling 2026-09-06.
+ *
+ * Returns NULL for "say nothing", which is the answer in every case where a
+ * warning would be a guess or a lie:
+ *
+ *  • **The announcement is off.** It rides `isExploreReplanEnabled()` — and that
+ *    is a correctness gate, not a rollout habit. With the flag OFF, Load applies
+ *    every pick a snapshot holds (`build-compare.tsx` only calls
+ *    `planPicksToApply` when `replan` is true) so a lock costs a saved plan
+ *    NOTHING, and the soft convergence tier never runs so no vendor is ever
+ *    sunk. Warning about either would describe a product the couple is not
+ *    using. `isBudgetBuildEnabled()` joins it because saved plans and the bench
+ *    both live inside the Build takeover.
+ *  • **The press is only an ASK.** Under the lock handshake a marketplace press
+ *    writes `lock_request_state='pending'` and NOT `status='contracted'`, so no
+ *    category is settled, no plan becomes un-loadable and the date window does
+ *    not move. Announcing losses at request time would be the same defect
+ *    §6.1 keeps out of the date gate: acting on a supplier's answer before they
+ *    have given one.
+ *  • **A read failed.** Every read here aborts the whole computation rather
+ *    than degrading to an empty list. That is not the "reads are honest"
+ *    pattern — it is the opposite failure that matters here: a refused
+ *    `event_vendors` read would make `lockedGroupIds` empty, which makes plans
+ *    that DIED THREE LOCKS AGO look newly killed by this one. Under-warning is
+ *    recoverable; naming a casualty that isn't one is not.
+ *
+ * Cost: four small reads plus the SAME batched `getBatchVendorAvailableDays`
+ * the bench uses, on a deliberate, rare press. It re-reads `events` rather than
+ * threading state through the hardened date gate below — one indexed row, for
+ * not touching a gate that guards the couple's wedding date.
+ */
+async function resolveLockImpact(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  eventId: string;
+  targetVendorId: string;
+  /** The plan group this lock settles. Null ⇒ nothing to settle, no impact. */
+  groupId: string | null;
+  /** True when this press is a handshake REQUEST, not a booking. */
+  handshakeAsk: boolean;
+  /** True once the couple has already answered this modal. */
+  alreadyConfirmed: boolean;
+}): Promise<LockImpact | null> {
+  if (args.handshakeAsk || args.alreadyConfirmed || !args.groupId) return null;
+  if (!isExploreReplanEnabled() || !isBudgetBuildEnabled()) return null;
+
+  try {
+    const [{ data: evRow, error: evErr }, { data: vendorRows, error: vendorErr }] =
+      await Promise.all([
+        args.supabase
+          .from('events')
+          .select('event_date, event_date_precision, date_candidates')
+          .eq('event_id', args.eventId)
+          .maybeSingle(),
+        args.supabase
+          .from('event_vendors')
+          .select('vendor_id, vendor_name, category, status, marketplace_vendor_id')
+          .eq('event_id', args.eventId)
+          .is('archived_at', null),
+      ]);
+    if (evErr || vendorErr || !Array.isArray(vendorRows)) return null;
+
+    const [{ data: buildRows, error: buildErr }, { data: pickRows, error: pickErr }] =
+      await Promise.all([
+        args.supabase
+          .from('budget_builds')
+          .select('build_id, label, title, created_at, snapshot')
+          .eq('event_id', args.eventId),
+        args.supabase
+          .from('event_build_picks')
+          .select('vendor_id')
+          .eq('event_id', args.eventId),
+      ]);
+    // A refused saved-plans read is the couple's own work reading as absent —
+    // the exact shape `page.tsx` calls out. Here it would UNDER-report, so we
+    // say nothing at all rather than "this lock is free" on missing evidence.
+    if (buildErr || pickErr || !Array.isArray(buildRows) || !Array.isArray(pickRows)) {
+      return null;
+    }
+
+    const rows: ImpactVendorRow[] = vendorRows.map((r) => ({
+      vendorId: r.vendor_id as string,
+      name: (r.vendor_name as string | null) ?? 'Your vendor',
+      category: (r.category as string | null) ?? null,
+      status: (r.status as string | null) ?? null,
+      profileId: (r.marketplace_vendor_id as string | null) ?? null,
+    }));
+
+    // ── The plans half ──────────────────────────────────────────────────────
+    const lockedGroupIds = lockedGroupIdsFromVendorRows(rows);
+    const savedPlans = savedPlansFromBuildRows(buildRows as unknown as ImpactBuildRow[]);
+
+    // ── The services half ───────────────────────────────────────────────────
+    // Computed with `build-date-window.ts` — the module the bench renders from
+    // — twice: as things stand, and with this vendor folded in as locked. The
+    // DIFF is what this lock costs. When no probe window resolves (a committed
+    // day, or a year-precision date), both sets are empty and the services half
+    // is simply absent — never guessed.
+    const probe = resolveProbeWindow({
+      eventDate: (evRow as { event_date?: string | null } | null)?.event_date ?? null,
+      precision:
+        (evRow as { event_date_precision?: string | null } | null)?.event_date_precision ?? null,
+      candidates: Array.isArray((evRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((evRow as { date_candidates: unknown[] }).date_candidates.filter(
+            (c): c is string => typeof c === 'string',
+          ))
+        : null,
+    });
+
+    let sunkBefore: ReturnType<typeof sunkVendors> = [];
+    let sunkAfter: ReturnType<typeof sunkVendors> = [];
+    if (probe && !probe.anchored) {
+      const profileIds = [
+        ...new Set(rows.map((r) => r.profileId).filter((p): p is string => !!p)),
+      ];
+      if (profileIds.length > 0) {
+        const [ys, ms, ds] = probe.rangeStart.split('-').map(Number);
+        const [ye, me, de] = probe.rangeEnd.split('-').map(Number);
+        const availByProfile = await getBatchVendorAvailableDays(
+          createAdminClient(),
+          profileIds,
+          new Date(ys ?? 1970, (ms ?? 1) - 1, ds ?? 1),
+          new Date(ye ?? 1970, (me ?? 1) - 1, de ?? 1),
+        );
+        // Clip to the probe window, exactly as the page does — a profile the
+        // helper could not answer for stays ABSENT, never an empty set (which
+        // would read as "free nowhere" and sink a vendor on a calendar flake).
+        const probeKeys = new Set(probe.dayKeys);
+        const freeDaysByProfileId = new Map<string, ReadonlySet<string>>();
+        for (const [profileId, days] of availByProfile) {
+          freeDaysByProfileId.set(
+            profileId,
+            new Set([...days].filter((k) => probeKeys.has(k))),
+          );
+        }
+        const { membersBefore, membersAfter, bench } = lockImpactTeams({
+          rows,
+          candidateVendorIds: (pickRows as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
+          freeDaysByProfileId,
+          targetVendorId: args.targetVendorId,
+        });
+        sunkBefore = sunkVendors({ probe, members: membersBefore, bench });
+        sunkAfter = sunkVendors({ probe, members: membersAfter, bench });
+      }
+    }
+
+    return computeLockImpact({
+      groupId: args.groupId,
+      lockedGroupIds,
+      savedPlans,
+      sunkBefore,
+      sunkAfter,
+    });
+  } catch {
+    // A calendar or PostgREST flake must never block a lock the couple wants,
+    // and must never fabricate a casualty. Say nothing.
+    return null;
+  }
+}
+
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
@@ -699,6 +900,12 @@ export async function finalizeVendor(
   // this vendor (which narrows their candidates to one) also finalizes the date.
   const confirmDateLockRaw = formData.get('confirm_date_lock');
   const confirmDateLock = confirmDateLockRaw === '1' || confirmDateLockRaw === 'true';
+  // Set by the lock-impact confirmation (owner 2026-09-06) — the couple has
+  // been shown which saved plans and which bench vendors this lock closes, and
+  // said go ahead. `confirm_date_lock` counts too: that modal carries the same
+  // lists, so answering it answers this. Two flags, one consent.
+  const confirmLockImpactRaw = formData.get('confirm_lock_impact');
+  const confirmLockImpact = confirmLockImpactRaw === '1' || confirmLockImpactRaw === 'true';
   // No-Show Downpayment Protection — set when the couple ticked the reservation-
   // terms acknowledgement in the lock gate. Drives the acknowledgement snapshot.
   const ackTermsRaw = formData.get('acknowledge_reservation_terms');
@@ -733,7 +940,13 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php')
+    // The change lines ride along (named-FK embed) so the downpayment below is a
+    // share of the agreed total NOW — a change order can be accepted before a
+    // lock (owner 2026-09-11, "Show the total now"). A refused embed lands in
+    // `targetErr` and the lock stops with the message, as any refused read does.
+    .select(
+      `vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php, ${CHANGE_LINES_EMBED}`,
+    )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -921,6 +1134,26 @@ export async function finalizeVendor(
   // So: no counterparty ⇒ keep today's direct lock, byte-identical.
   const handshakeAsk = isLockHandshakeEnabled() && !!targetVendor.marketplace_vendor_id;
 
+  // ── What does this lock COST? (owner 2026-09-06) ─────────────────────────
+  // *"of course adjustments on the saved build will change when a vendor is
+  // locked, and announce that the following builds are no longer possible for
+  // you, and these services are no longer possible once you lock this vendor."*
+  //
+  // Both consequences were already REAL and already computed — `isPlanLoadable`
+  // has been silently disabling the Load button, and the convergence tier has
+  // been silently sinking bench cards. They were just never said before the
+  // couple committed. Resolved HERE, once, so the date gate below can carry the
+  // lists on its own confirm rather than showing a second modal after it.
+  // NULL ⇒ announce nothing; see resolveLockImpact for every reason it can be.
+  const lockImpact = await resolveLockImpact({
+    supabase,
+    eventId,
+    targetVendorId: vendorId,
+    groupId,
+    handshakeAsk,
+    alreadyConfirmed: confirmLockImpact || confirmDateLock,
+  });
+
   // ── Candidate-date narrowing gate (date-as-output, force-to-one) ─────────
   // If the couple has NOT yet locked a wedding date but committed candidate
   // dates at onboarding, locking this marketplace vendor narrows those
@@ -998,10 +1231,32 @@ export async function finalizeVendor(
             vendorName: targetVendor.vendor_name as string,
             resultingDate: forcedDateKey,
             dateLabel: formatCandidateDate(forcedDateKey),
+            // One modal, both facts. A couple told "this sets your date", then
+            // told "and it closes these plans" on a second screen, is being
+            // asked to re-decide something they just decided.
+            impact: lockImpact && !lockImpact.isEmpty ? lockImpact : null,
           };
         }
       }
     }
+  }
+
+  // ── The announcement, when the date gate did NOT fire ────────────────────
+  // Owner ruling 2026-09-06 (asked which locks should warn): EVERY lock that
+  // kills something, not only the date-setting one. Silent when a lock costs
+  // nothing — `isEmpty` is what keeps this from becoming a nag, and a nag is
+  // clicked through without reading.
+  //
+  // Placed after the date gate so a date-setting lock shows ONE modal carrying
+  // both, and before every write so the couple can still say no. Nothing has
+  // been written at this point.
+  if (lockImpact && !lockImpact.isEmpty) {
+    return {
+      status: 'lock_will_cost',
+      vendorId,
+      vendorName: targetVendor.vendor_name as string,
+      impact: lockImpact,
+    };
   }
 
   // No-Show Downpayment Protection — reservation-terms acknowledgement gate.
@@ -1032,10 +1287,10 @@ export async function finalizeVendor(
     const policy = downpaymentPolicyFromRows(rows);
     if (isProtectedPolicy(policy) && policy) {
       const dpRow = rows.find((r) => r.seq === 0) ?? null;
-      const totalCostPhp =
-        typeof targetVendor.total_cost_php === 'string'
-          ? Number(targetVendor.total_cost_php)
-          : ((targetVendor.total_cost_php as number | null) ?? null);
+      const totalCostPhp = agreedTotalNow(
+        targetVendor.total_cost_php as number | string | null,
+        (targetVendor as { change_lines?: ChangeLineRow[] | null }).change_lines,
+      );
       // Resolve the downpayment amount for the evidence snapshot when possible.
       let downpaymentAmountPhp: number | null = null;
       if (dpRow) {
@@ -1198,7 +1453,10 @@ export async function finalizeVendor(
   //      below (slotPathLocked short-circuits it).
   //   #2 (daily_capacity): services with ZERO active slots keep the existing
   //      per-day count gate — repointed from the (ungenerated) wedding_date
-  //      mirror to the canonical events.event_date column (verifier C5/C6).
+  //      mirror to the canonical events.event_date column (verifier C5/C6), and
+  //      counted by the server-only service_card_bookings_on (LOCK-PATH
+  //      CAPACITY) because the couple's own session cannot see other couples'
+  //      bookings. Day-precise events only.
   // Both degrade OPEN on missing data so a lock is never wrongly blocked.
   let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
@@ -1348,38 +1606,49 @@ export async function finalizeVendor(
       if (typeof capacity === 'number' && capacity > 0) {
         // event_date is the canonical DATE column; wedding_date is a generated
         // mirror with NO migration DDL, so it can silently no-op on a fresh DB
-        // (verifier C5/C6). Repointed to event_date in this same PR.
-        const { data: capEventRow } = await supabase
+        // (verifier C5/C6). Read through the couple's session: it is their own
+        // event, and that read is what proves the date is theirs to ask about.
+        const { data: capEventRow, error: capEventErr } = await supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle();
-        const capDate =
-          (capEventRow as { event_date?: string | null } | null)?.event_date ?? null;
-        if (capDate) {
-          const { data: capSameDate } = await supabase
-            .from('events')
-            .select('event_id')
-            .eq('event_date', capDate);
-          const capEventIds = (capSameDate ?? []).map((r) => r.event_id as string);
-          if (capEventIds.length > 0) {
-            const { count: capCount } = await supabase
-              .from('event_vendors')
-              .select('vendor_id', { count: 'exact', head: true })
-              .eq('service_id', targetVendor.service_id)
-              .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
-              .is('archived_at', null)
-              .in('event_id', capEventIds)
-              .neq('vendor_id', vendorId);
-            if ((capCount ?? 0) >= capacity) {
-              return {
-                status: 'soft_hold_limit_reached',
-                vendorId,
-                vendorName: targetVendor.vendor_name as string,
-                currentLimit: capacity,
-                existingHoldCount: capCount ?? 0,
-              };
-            }
+        if (capEventErr) {
+          console.error('[finalizeVendor] #2 daily-limit: event read failed', capEventErr.message);
+        }
+        const capEvent = capEventRow as
+          | { event_date?: string | null; event_date_precision?: string | null }
+          | null;
+        const capDate = capEvent?.event_date ?? null;
+        // 🔒 LOCK-PATH CAPACITY (N5, 2026-09-11). This used to count the card's
+        // bookings by reading `events` + `event_vendors` through the COUPLE'S
+        // session — and RLS shows a couple only their own events, so it always
+        // counted 0 and a daily limit of 2 took a third, fourth, fifth couple.
+        // Now ONE server-only definer count answers (migration 20271222330608),
+        // the same one the bench search hides full cards with. Its inputs are
+        // the card on the couple's own booking row and the date on the couple's
+        // own event, both just read through their session. Day-precise only: a
+        // month-only event is stored as the 1st, and is no booking on the 1st.
+        if (capDate && capEvent?.event_date_precision === 'day') {
+          const { data: booked, error: bookedErr } = await createAdminClient().rpc(
+            'service_card_bookings_on',
+            {
+              p_service_id: targetVendor.service_id,
+              p_day: capDate,
+              p_exclude_vendor_id: vendorId,
+            },
+          );
+          if (bookedErr) {
+            // Degrades OPEN, like every capacity read here — but never silently.
+            console.error('[finalizeVendor] #2 daily-limit: count failed', bookedErr.message);
+          } else if (typeof booked === 'number' && booked >= capacity) {
+            return {
+              status: 'soft_hold_limit_reached',
+              vendorId,
+              vendorName: targetVendor.vendor_name as string,
+              currentLimit: capacity,
+              existingHoldCount: booked,
+            };
           }
         }
       }
@@ -1397,7 +1666,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('event_date')
+          .select('event_date, event_date_precision')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -1416,56 +1685,42 @@ export async function finalizeVendor(
     const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
-    // Skip the check when the event has no wedding date, OR when the
+    // Skip the check when the event has no real DAY yet (no date, or only a
+    // month/year — stored as the 1st, which is no hold on the 1st), OR when the
     // vendor's profile/limit can't be resolved. Degrades open.
-    if (weddingDate && typeof limit === 'number') {
-      // Count other event_vendors rows where:
-      //   • same marketplace_vendor_id (same Setnayan vendor account)
-      //   • event_id maps to an event with the same wedding_date
-      //   • status = 'contracted' (soft hold — not 'considering', not 'paid')
-      //   • archived_at IS NULL (not soft-archived)
-      //   • vendor_id != $current_vendor_id (don't count the target row
-      //     itself even though it'll never be 'contracted' here — defensive)
-      //
-      // Two-step query: first fetch the event_ids on the same wedding_date,
-      // then count event_vendors rows scoped to those event_ids. PostgREST
-      // doesn't support a single .in('event_id', subquery) so the two-step
-      // is the canonical shape.
-      const { data: sameDateEvents, error: sdeErr } = await supabase
-        .from('events')
-        .select('event_id')
-        .eq('event_date', weddingDate);
-      if (sdeErr) {
-        return { status: 'error', message: sdeErr.message };
-      }
-      const sameDateEventIds = (sameDateEvents ?? [])
-        .map((r) => r.event_id as string)
-        .filter((id) => id !== eventId);
-
-      // If no OTHER events share this date, there's no way the limit can
-      // be hit (the host's own pick is the only one). Skip the count.
-      if (sameDateEventIds.length > 0) {
-        const { count, error: countErr } = await supabase
-          .from('event_vendors')
-          .select('vendor_id', { count: 'exact', head: true })
-          .eq('marketplace_vendor_id', targetVendor.marketplace_vendor_id)
-          .eq('status', 'contracted')
-          .is('archived_at', null)
-          .in('event_id', sameDateEventIds)
-          .neq('vendor_id', vendorId);
-        if (countErr) {
-          return { status: 'error', message: countErr.message };
-        }
-        const existingHoldCount = count ?? 0;
-        if (existingHoldCount >= limit) {
-          return {
-            status: 'soft_hold_limit_reached',
-            vendorId,
-            vendorName: targetVendor.vendor_name as string,
-            currentLimit: limit,
-            existingHoldCount,
-          };
-        }
+    //
+    // 🔒 LOCK-PATH 2 (2026-09-11, migration 20271223386305). This used to count
+    // the shop's holds by listing same-date `events` and counting
+    // `event_vendors` THROUGH THE COUPLE'S SESSION — and RLS shows a couple only
+    // their own events, so it always counted 0 and a shop "limited to 3" took a
+    // fourth, fifth, sixth couple on one date. Now ONE server-only definer count
+    // answers: the OTHER couples (one per event — a package's covered lines are
+    // not extra holds) holding this shop at status 'contracted' (a soft hold:
+    // agreed, not yet paid), not archived, on a day-precise event that day. Its
+    // inputs are the shop on the couple's own booking row and the date on the
+    // couple's own event, both read through their session just above.
+    if (weddingDate && eventRow?.event_date_precision === 'day' && typeof limit === 'number') {
+      const { data: held, error: heldErr } = await createAdminClient().rpc(
+        'vendor_soft_holds_on',
+        {
+          p_vendor_profile_id: targetVendor.marketplace_vendor_id,
+          p_day: weddingDate,
+          p_exclude_event_id: eventId,
+        },
+      );
+      if (heldErr) {
+        // Degrades OPEN, like the #2 daily-limit count — an internal read
+        // failure the couple cannot act on must not block their lock — but
+        // never silently.
+        console.error('[finalizeVendor] hold limit: count failed', heldErr.message);
+      } else if (typeof held === 'number' && held >= limit) {
+        return {
+          status: 'soft_hold_limit_reached',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+          currentLimit: limit,
+          existingHoldCount: held,
+        };
       }
     }
   }
@@ -1652,19 +1907,14 @@ export async function finalizeVendor(
   // to login and lock this schedule for them. they will have access to the
   // free account for vendors.")
   //
-  // Triggers ONLY when:
-  //   - targetVendor.manual_vendor_id IS NOT NULL  → host attached a manual
-  //     vendor (one of the event_manual_vendors entries — has photo +
-  //     business_name + contact_person + contact_number per
-  //     20260604080000), AND
-  //   - targetVendor.marketplace_vendor_id IS NULL → vendor doesn't yet have
-  //     a Setnayan vendor_profiles row (no Setnayan account).
+  // Triggers when `canInviteSupplier` says so — i.e. when
+  // `marketplace_vendor_id IS NULL`, the supplier has no Setnayan account.
   //
-  // Both conditions are independent of the vendor_name being "manual-y" —
-  // a marketplace-linked row with manual_vendor_id incidentally set (rare
-  // edge case from a future UI that wraps a marketplace pick as a manual
-  // contact) shouldn't get an invite, because the vendor already has an
-  // account.
+  // ⚠ IT USED TO ALSO DEMAND `manual_vendor_id IS NOT NULL`, and that half was
+  // wrong: 43 of 45 production event_vendors rows carry BOTH ids NULL
+  // (measured 2026-09-03), so locking one of them minted no invite at all and
+  // the couple was never offered a QR. The condition now lives in ONE place —
+  // `canInviteSupplier` in lib/vendor-invites.ts — with the measurement.
   //
   // Idempotent — ensureAutoShareInvite re-uses any existing pending row
   // (partial unique index vendor_invites_auto_share_live_unique enforces
@@ -1677,7 +1927,7 @@ export async function finalizeVendor(
   // re-attempts ensure on render (via the same helper), so a transient
   // failure here self-heals next time the host opens the workspace.
   // ----------------------------------------------------------------------
-  if (targetVendor.manual_vendor_id && !targetVendor.marketplace_vendor_id) {
+  if (canInviteSupplier(targetVendor)) {
     try {
       await ensureAutoShareInvite(supabase, {
         eventVendorId: vendorId,
@@ -1793,10 +2043,11 @@ export async function finalizeVendor(
     const planAdmin = createAdminClient();
 
     // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow }, { data: eventRow }] = await Promise.all([
+    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
       planAdmin
         .from('event_vendors')
-        .select('total_cost_php')
+        // Plan amounts are shares of the agreed total NOW (changes included).
+        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
         .eq('event_id', eventId)
         .eq('vendor_id', vendorId)
         .maybeSingle(),
@@ -1806,8 +2057,13 @@ export async function finalizeVendor(
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
-    const totalCostPhp =
-      (evRow as { total_cost_php: number | null } | null)?.total_cost_php ?? null;
+    if (evRowErr) {
+      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
+    }
+    const planRow = evRow as
+      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
+      | null;
+    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
     const eventDateIso =
       (eventRow as { event_date: string | null } | null)?.event_date ?? null;
     const lockDateIso = new Date().toISOString().slice(0, 10);
@@ -2296,13 +2552,12 @@ export async function finalizeVendor(
   if (dpProvided && dpChosen) {
     try {
       const proofEntry = formData.get('proof');
+      // 🔒 The PRIVATE bucket, stored as a ref (lib/deposit-proof.server.ts) —
+      // a deposit screenshot is a bank record, never a public URL.
       let proofUrl: string | null = null;
       if (proofEntry instanceof File && proofEntry.size > 0) {
-        const up = await uploadPublicAsset({
-          pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-          file: proofEntry,
-        });
-        if (up.ok) proofUrl = up.publicUrl;
+        const up = await uploadDepositProof(eventId, proofEntry);
+        if (up.ok) proofUrl = up.ref;
       }
       const methodLabel = buildMethodLabel(dpChosen);
       // SINGLE-WINNER marker stamp: the `.is('deposit_recorded_at', null)`
@@ -3239,17 +3494,22 @@ export async function createManualVendorInvite(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
-  // RLS scopes the read to the host's own events. Only manual (off-platform)
-  // vendors get a claim link — marketplace vendors already have an account.
+  // RLS scopes the read to the host's own events. Only off-platform suppliers
+  // get a claim link — one with a Setnayan account already has somewhere to
+  // log in.
   const { data: row } = await supabase
     .from('event_vendors')
-    .select('vendor_id, vendor_name, category, manual_vendor_id, marketplace_vendor_id')
+    .select('vendor_id, vendor_name, category, marketplace_vendor_id')
     .eq('event_id', input.eventId)
     .eq('vendor_id', input.vendorId)
     .maybeSingle();
   if (!row) return { ok: false, error: 'Vendor not found.' };
-  if (!row.manual_vendor_id || row.marketplace_vendor_id) {
-    return { ok: false, error: 'This vendor is already on Setnayan.' };
+  // 🔑 ONE PREDICATE, in lib/vendor-invites.ts, not a fourth copy. This gate
+  // used to ALSO demand `manual_vendor_id IS NOT NULL` and refused 12 of 12
+  // eligible off-platform suppliers in production — with a sentence saying they
+  // were already on Setnayan, which was false for every one of them.
+  if (!canInviteSupplier(row)) {
+    return { ok: false, error: SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE };
   }
 
   const invite = await ensureAutoShareInvite(supabase, {
@@ -4030,8 +4290,6 @@ export async function cancelBookingAsHost(
 // contract_signed_at). The host can still advance status separately.
 // ==========================================================================
 
-const DEPOSIT_PROOF_PATH_PREFIX = 'deposit-proof';
-
 /**
  * recordDeposit — COUPLE side.
  *
@@ -4126,21 +4384,19 @@ export async function recordDeposit(
     contact_email: string | null;
   };
 
-  // Optional proof artifact. Same uploadPublicAsset pipeline manual-vendor
-  // photos use — validates MIME/size, falls back to Supabase Storage in dev,
-  // returns a public URL we persist. Record-keeping only; Setnayan is not the
-  // payee and does not verify funds.
+  // Optional proof artifact — to the PRIVATE bucket under this event's deposit
+  // folder, stored as a ref and read back only through a short-lived signed
+  // link (lib/deposit-proof.server.ts). It used to go to the public media
+  // bucket as a permanent URL. Record-keeping only; Setnayan is not the payee
+  // and does not verify funds.
   let proofUrl: string | null = null;
   const proofEntry = formData.get('proof');
   if (proofEntry instanceof File && proofEntry.size > 0) {
-    const uploadResult = await uploadPublicAsset({
-      pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
-      file: proofEntry,
-    });
+    const uploadResult = await uploadDepositProof(eventId, proofEntry);
     if (!uploadResult.ok) {
       return { status: 'error', message: uploadResult.error };
     }
-    proofUrl = uploadResult.publicUrl;
+    proofUrl = uploadResult.ref;
   }
 
   // HOLD THE DATE the instant the deposit is logged (not only on full payment).
@@ -4215,43 +4471,32 @@ export async function recordDeposit(
     so a re-send changes no marker a trigger could watch — the couple's act of
     re-recording IS the fresh claim, and this is the only thing that puts the
     question back on the supplier's desk after a refusal.
-    🔒 One direction only: `guard_event_vendor_deposit_ack` lets a couple CLEAR
-    the refusal and never set one.
-    🪤 ITS OWN STATEMENT, AFTER the write above, deliberately. These columns
-    arrive with this change and app code deploys in parallel with the migration;
-    naming them in the main update would make PostgREST refuse the whole thing,
-    so a couple recording money mid-deploy would be told it failed. Here the
-    worst case is a stale refusal for a few minutes, logged, on a claim that has
-    just been re-sent anyway.
+    🔒 THROUGH A DEFINER, NOT THIS SESSION (FOLLOW-UPS A, 2026-09-11). A session
+    may no longer clear the refusal or Setnayan's ruling — guard_event_vendor_
+    deposit_ack refuses it, because a session clear erased the dispute from
+    /admin/disputes without a trace. `resend_vendor_deposit` is server-only: it
+    runs on the admin client, AFTER this action has already proven the caller is
+    the couple or a consent-authorized coordinator (above), and the database
+    archives the refusal and any ruling to event_vendor_deposit_refusals before
+    clearing them. The caller's id goes with it, so the history says who re-sent.
+    🪤 ITS OWN STATEMENT, AFTER the write above, deliberately: a couple recording
+    money must never be told it failed because the re-send's clear did. A failed
+    clear is logged; the worst case is a stale refusal on a claim just re-sent.
   */
   {
-    const { error: clearErr } = await supabase
-      .from('event_vendors')
-      .update({
-        deposit_declined_at: null,
-        deposit_decline_reason: null,
-        deposit_declined_by_user_id: null,
-        // …and with it any Setnayan settlement OF that refusal (2026-08-28).
-        // The settlement describes the refusal on the row; once the couple has
-        // sent it again there is no refusal for it to describe, and leaving it
-        // would let the NEXT refusal look already-settled and never reach the
-        // admin queue. The permanent history is in admin_audit_log.
-        // 🔒 Legal for the couple's own session for the same reason the three
-        // lines above are: guard_event_vendor_deposit_ack refuses SETTING these
-        // and allows CLEARING them.
-        deposit_dispute_settled_at: null,
-        deposit_dispute_outcome: null,
-        deposit_dispute_note: null,
-        deposit_dispute_settled_by_user_id: null,
-      })
-      .eq('vendor_id', vendorId)
-      .eq('event_id', eventId);
+    const { data: resend, error: clearErr } = await createAdminClient().rpc('resend_vendor_deposit', {
+      p_event_vendor_id: vendorId,
+      p_actor_user_id: user.id,
+    });
     if (clearErr) {
       // eslint-disable-next-line no-console
       console.error(
         `[recordDeposit] could not clear the supplier's refusal for vendor_id=${vendorId}:`,
         clearErr.message,
       );
+    } else if ((resend as { status?: string } | null)?.status === 'not_recorded') {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] re-send found no recorded deposit for vendor_id=${vendorId}`);
     }
   }
 

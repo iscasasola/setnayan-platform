@@ -22,7 +22,7 @@ import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { Providers } from './providers';
-import { themeBootstrapScript } from './_components/theme-provider';
+import { themeBootstrapScript } from './_components/theme-bootstrap-script';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_ICON_SVG_192,

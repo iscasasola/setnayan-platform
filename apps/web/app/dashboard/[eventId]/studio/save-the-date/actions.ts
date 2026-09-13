@@ -489,46 +489,15 @@ export async function cancelScheduledLaunch(
   return { ok: true };
 }
 
-export async function saveStdContent(formData: FormData): Promise<void> {
-  const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) throw new Error('Missing event_id');
-  const supabase = await requireCouple(eventId);
+/*
+  ─── `saveStdContent` DELETED (2026-09-03) ───────────────────────────────
 
-  // Writes to the STD-specific snapshot columns (std_film_*), NOT the live
-  // event columns (event_date / venue_name / etc.). This decouples the film
-  // content from subsequent event edits — the snapshot is the source of truth
-  // for the film once finalized. See migration 20270122000000.
-  const updates: Record<string, unknown> = {};
+  Superseded by `saveAllStdContent` above (2026-06-18), the single-shot save the
+  live builder actually calls (`_components/StdBuilderClient.tsx`). That one
+  writes a strict SUPERSET of what this wrote — the same std_film_* snapshot
+  columns plus theme, launch date, accent hex, reveal effects, background, media
+  and the site song — in one round trip.
 
-  const rawDate = String(formData.get('film_date') ?? '').trim();
-  if (rawDate) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-      redirect(`/dashboard/${eventId}/studio/save-the-date?std_error=bad-date#content`);
-    }
-    updates.std_film_date = rawDate;
-  }
-
-  const venueName = String(formData.get('film_venue_name') ?? '').trim();
-  if (venueName) updates.std_film_venue_name = venueName;
-
-  const venueCity = String(formData.get('film_venue_city') ?? '').trim();
-  if (venueCity) updates.std_film_venue_city = venueCity;
-
-  const filmStory = String(formData.get('film_story') ?? '').trim();
-  if (filmStory) updates.std_film_story = filmStory;
-
-  if (Object.keys(updates).length === 0) {
-    redirect(`/dashboard/${eventId}/studio/save-the-date`);
-  }
-
-  const { error } = await supabase
-    .from('events')
-    .update(updates)
-    .eq('event_id', eventId);
-  if (error) {
-    redirect(`/dashboard/${eventId}/studio/save-the-date?std_error=save#content`);
-  }
-
-  revalidate(eventId);
-  redirect(`/dashboard/${eventId}/studio/save-the-date?std=saved#content`);
-}
+  There was never a form to submit this: Step 3's fields are inline-editable and
+  save through the builder. Zero callers on 2026-09-03.
+*/

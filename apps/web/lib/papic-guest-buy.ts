@@ -246,53 +246,72 @@ export function resolveGuestReloadTarget(
 }
 
 // ── "keep them, or give them to the room" (spec § 7b) ──────────────────────
+//
+// The LATER half of 7b: a guest who chose "keep them for me" at the till gives
+// the part she has not shot back to the celebration. Owner asked for it
+// 2026-08-31, after being shown what it was.
+//
+// 🔑 THIS FILE DELIBERATELY DOES NOT COMPUTE HOW MANY CREDITS CAN MOVE. That
+// arithmetic lives in ONE place, `papic_seat_releasable_grants` (migration
+// 20271185813837), which the buy panel displays and `papic_release_seat_grants`
+// re-evaluates under its row lock. PR #5028 is why: it computed
+// `dedicated - spent` HERE, the RPC computed something else, nothing forced
+// them to agree, and the button that said "give 96" moved 41 the wrong way.
+// A number shown by one implementation and moved by another is not one number.
 
-/** What one camera currently holds, and what could still move. */
+/** What one camera holds, and what its guest could still give back. */
 export type DedicatedShotsStanding = {
-  /** Total credits dedicated to this camera (bought + handed out), ever. */
+  /** Credits dedicated to this camera right now (bought + handed out − given back). */
   dedicated: number;
-  /** Of those, how many this camera has already shot. Can never come back. */
+  /** Of those, how many it has already shot. Can never come back. */
   spent: number;
-  /** dedicated − spent, floored at 0. The only part a release can move. */
+  /**
+   * How many she could still give back — READ from
+   * `papic_seat_releasable_grants`, never derived from the two fields above.
+   * It is NOT `dedicated - spent`: credits the HOST handed her camera are the
+   * couple's money and are not hers to give away, so this is usually smaller.
+   */
   releasable: number;
 };
 
-/** PURE. Derive the standing from the two raw numbers a caller reads. */
-export function dedicatedShotsStanding(
+/**
+ * PURE. Normalise the three numbers a caller read into the shape the panel
+ * renders. Floors and clamps only — deliberately no arithmetic that could
+ * disagree with the database.
+ */
+export function papicGuestStanding(
   dedicated: number,
   spent: number,
+  releasable: number,
 ): DedicatedShotsStanding {
-  const d = Number.isFinite(dedicated) && dedicated > 0 ? Math.floor(dedicated) : 0;
-  const s = Number.isFinite(spent) && spent > 0 ? Math.floor(spent) : 0;
-  return { dedicated: d, spent: s, releasable: Math.max(0, d - s) };
+  const whole = (n: number) => (Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+  const d = whole(dedicated);
+  const s = whole(spent);
+  // Never offer more than the camera actually holds, whatever the caller passed.
+  return { dedicated: d, spent: s, releasable: Math.min(whole(releasable), d) };
 }
 
 export type GuestReleaseResolution =
-  | { ok: true; target: number }
+  | { ok: true }
   | { ok: false; reason: 'nothing_to_release' };
 
 /**
- * PURE. Turn "give the unused ones to the room" into the TARGET
- * `papic_dedicate_shots` is called with.
+ * PURE. Whether to offer the button at all.
  *
- * There is no amount to type: the whole point of 7b is that what she has
- * already shot stays hers and everything else moves, so the only honest
- * target is her own spend — never a number she chose, which could either
- * strand credits above her spend or (worse) ask the RPC to take back shots
- * that are already gone, which it refuses anyway.
+ * There is nothing to resolve INTO — the RPC takes no amount, so this is the
+ * whole decision. `nothing_to_release` when releasable is 0: a camera that
+ * never held bought credits, or one that has shot everything it bought, has
+ * nothing to hand over, and a button that can only do nothing must not be
+ * shown.
  *
- * `nothing_to_release` when releasable is 0: a camera that is not dedicated,
- * or one that has already spent everything it was ever given, has nothing
- * left to hand over. The caller must not call the RPC in that case — setting
- * an unchanged target is a wasted round trip, not a refusal, but the UI must
- * not offer a button that can only do nothing.
+ * ⚠ An OFFER, not a permission. The action re-resolves the camera from the
+ * caller's credential and the RPC re-derives the amount under a lock; a guest
+ * who fires the shutter between page-load and submit simply gives back less.
  */
 export function resolveGuestRelease(
   standing: DedicatedShotsStanding,
 ): GuestReleaseResolution {
-  return standing.releasable > 0
-    ? { ok: true, target: standing.spent }
-    : { ok: false, reason: 'nothing_to_release' };
+  return standing.releasable > 0 ? { ok: true } : { ok: false, reason: 'nothing_to_release' };
 }
 
 // ── one pending order at a time ────────────────────────────────────────────

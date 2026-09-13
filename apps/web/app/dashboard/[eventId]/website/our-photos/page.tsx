@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -77,7 +78,10 @@ export default async function OurPhotosEditorPage({
   // Resolve each ref to a 24h presigned display URL so the uploader shows the
   // existing gallery thumbnails on mount.
   const resolved = await Promise.all(
-    currentRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const),
+    // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).
+    currentRefs.map(
+      async (ref) => [ref, await displayUrlForStoredAsset(siteMediaServeRef(ref))] as const,
+    ),
   );
   const initialDisplayUrls: Record<string, string> = {};
   for (const [ref, url] of resolved) {

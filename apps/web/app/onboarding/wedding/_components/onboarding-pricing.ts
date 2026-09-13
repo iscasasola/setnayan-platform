@@ -86,7 +86,7 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   // (`p.label || pesoB(p.set)`) printed **₱0** — a livestream advertised as FREE
   // on the onboarding screen when it costs ₱2,999. Same defect that was fixed on
   // PAPIC_SEATS + PAPIC_GUEST on 2026-07-21; this key was missed.
-  // LIVE_STUDIO is the live product (₱2,999, is_active=true). It is name-excluded
+  // LIVE_STUDIO is the live product (₱3,000, is_active=true). It is name-excluded
   // from the customer catalog only while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is
   // off — that flag is ON in production (verified: the row is on /pricing, which
   // is impossible while it is excluded), so this resolves a real price today, and

@@ -48,7 +48,11 @@ export type UgatEntityType =
   | 'geography'
   | 'seatplan'
   | 'runofshow'
-  | 'livestudio';
+  | 'livestudio'
+  | 'render'
+  | 'gallery'
+  | 'signoff'
+  | 'colourgrant';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -744,7 +748,242 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'cued by', to: 'TYPE-RUNOFSHOW' },
     ],
   },
+  {
+    /**
+     * "Make it real" — the first surface where a couple spends money INSIDE a
+     * planning tool rather than on a service, and therefore the first place a
+     * balance can silently disagree with what was paid for.
+     *
+     * ⚠ THE CREDIT IS THE UNIT, NOT THE PESO. Everything a couple is shown is
+     * counted in credits (1 a part · 5 the whole look); the only peso figure in
+     * the subsystem is the pack price in platform_retail_catalog_v2. A second
+     * peso figure anywhere is a defect by construction.
+     *
+     * ⚠ `reusable` IS GENERATED, AND THAT IS THE PRIVACY BOUNDARY. A render
+     * made with the couple's free-text note is stored but never offered to
+     * another couple. If that were a settable flag it would eventually drift
+     * from the note, and the symptom would be invisible — somebody else's
+     * personal render served as a library match with nothing rendering
+     * differently. It is computed from note/image/failure/quarantine instead,
+     * so it cannot be got wrong by forgetting.
+     */
+    id: 'TYPE-RENDERS',
+    type: 'render',
+    name: 'Mood Board renders',
+    blurb: 'the paid photoreal image — a part, a digest, and the credit it cost',
+    countKey: 'render',
+    icon: 'sparkles',
+    color: 'var(--ug-e-render)',
+    colorBg: 'var(--ug-e-render-bg)',
+    table: 'event_renders',
+    x: 60,
+    y: 60,
+    fields: [
+      { key: 'pk', name: 'part_id', note: 'room:/people:/place:/whole_look — shape-checked, never an enum, because the vocabulary is DERIVED in lib/moodboard-render-parts.ts' },
+      { key: '', name: 'config_digest', note: 'v<n>:<digest> — MB9’s COARSE cache key; the free-text note is deliberately excluded from it' },
+      { key: '', name: 'reusable', note: 'GENERATED — a note-bearing, imageless, failed or quarantined render can never enter the shared pool' },
+    ],
+    edges: [
+      { verb: 'rendered for', to: 'TYPE-EVENTS' },
+      { verb: 'paid for by', to: 'TYPE-ORDERS' },
+    ],
+  },
+  {
+    /**
+     * THE MOOD BOARD LIBRARY — and, since MB10, the SUPPLIER GALLERY inside it.
+     *
+     * The table is old (2026-05-25): admin placeholders, then Recraft-generated
+     * attire figures, then florals. What is new is that one of its asset types
+     * belongs to somebody outside Setnayan. `asset_type = 'supplier_gallery'`
+     * rows are a shop's OWN portfolio photographs, and the chain they start
+     * runs library → board → vendor list:
+     *
+     *   moodboard_library_assets  the photo, tagged with its slot and its shop
+     *            ↓  the couple picks it
+     *   event_inspiration_assets  library_asset_id + source_kind='gallery_pick'
+     *            ↓  tallied per shop
+     *   the vendor list           "You saved 2 of their photos"
+     *
+     * ⚠ THE COUNT IS THE WHOLE LIBRARY, NOT THE GALLERY. Every asset type
+     * shares this table, so the node's number includes admin placeholders and
+     * generated attire figures. Re-measure the gallery slice specifically with
+     * `select count(*) from moodboard_library_assets where asset_type =
+     * 'supplier_gallery'` — do not read this node's figure as "supplier photos
+     * uploaded".
+     *
+     * ⚠ THE SLOT LIVES IN `asset_subtype`, NOT IN A `slot_key` COLUMN, and J45
+     * claims that absence. `idx_moodboard_library_assets_published` is already
+     * `(asset_type, asset_subtype) WHERE approved_at IS NOT NULL AND retired_at
+     * IS NULL` — the picker's query verbatim — and a second column naming what
+     * a photo depicts is a second thing to keep in step. Every reader pins
+     * asset_type before touching asset_subtype; one that does not would read a
+     * cake photo as a gown.
+     *
+     * ⚠ SINCE MB21 THE SCREEN HAS THREE OUTCOMES, NOT TWO. `screen_findings`
+     * is NULL for a clean photo, so `screen_findings IS NOT NULL AND
+     * approved_at IS NULL AND rejected_at IS NULL` IS the admin review queue —
+     * there is no separate queue table and no status enum. A refusal is
+     * `rejected_at` + `rejection_reason`, deliberately NOT `retired_at`:
+     * retiring is reversible housekeeping with no judgement attached, and
+     * collapsing the two would make an ordinary un-publish read to a supplier
+     * as an accusation.
+     *
+     * ⚠ THE PUBLIC-READ POLICY AND THE WARRANTY CHECK OPEN THE SAME DOOR.
+     * Public read is `approved_at IS NOT NULL AND retired_at IS NULL`, and
+     * `moodboard_library_assets_supplier_gallery_shape` refuses an APPROVED
+     * gallery row with no `rights_warranted_at`. So a supplier photo cannot
+     * become publicly readable without a rights warranty — deliberately keyed
+     * on the same predicate rather than on insertion, so a draft may exist
+     * un-warranted and can never be published that way.
+     */
+    id: 'TYPE-GALLERY',
+    type: 'gallery',
+    name: 'Mood Board library',
+    blurb: 'the photo pool behind the board — and suppliers\u2019 own credited work',
+    countKey: 'gallery',
+    icon: 'image',
+    color: 'var(--ug-e-gallery)',
+    colorBg: 'var(--ug-e-gallery-bg)',
+    table: 'moodboard_library_assets',
+    href: '/admin/moodboard-library',
+    x: 860,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'asset_id', note: 'uuid \u2014 what event_inspiration_assets.library_asset_id points at' },
+      { key: '', name: 'vendor_profile_id', note: 'the SHOP credited on the photo \u2014 not uploaded_by, which is a user account' },
+      { key: '', name: 'asset_subtype', note: 'for supplier_gallery rows this is the INSPIRATION SLOT, CHECK-constrained to the same 18 keys' },
+      { key: '', name: 'rights_warranted_at', note: 'required before an approved gallery row may be publicly read; MB11 captures it at upload' },
+      { key: '', name: 'screen_findings', note: 'MB21 \u2014 what the content screen found, plus the text it read. NOT NULL IS the admin queue. Revoked from anon + authenticated: this table has a PUBLIC read policy' },
+      { key: '', name: 'rejection_reason', note: 'MB21 \u2014 a reviewer\u2019s words, shown to the supplier. Paired with rejected_at by a CHECK, so a refusal can never arrive with nothing to read' },
+    ],
+    edges: [
+      { verb: 'credited to', to: 'TYPE-VENDORS' },
+      { verb: 'picked onto the boards of', to: 'TYPE-EVENTS' },
+    ],
+  },
+  {
+    /**
+     * THE SIGN-OFF — the moment a design stops being a wish (MB12).
+     *
+     * A mood board is a couple TELLING a supplier what they want. This table is
+     * the supplier ANSWERING, one part at a time, and the answer has a
+     * consequence: an agreed part stops re-deriving from the couple’s five
+     * main colours.
+     *
+     * ⚠ IT IS THE BOOKING HANDSHAKE’S VOCABULARY AT A SECOND SCOPE, NOT A
+     * SECOND MECHANISM. `state` holds the same five values as
+     * `event_vendors.lock_request_state` — pending / agreed / declined /
+     * cancelled / expired — with the same 48-hour materialised fuse and the
+     * same lazy expiry on the answer path. `apps/web/lib/lock-request-state.ts`
+     * reads both.
+     *
+     * 🔑 AND IT DELIBERATELY DOES NOT INHERIT “A BOOKING OUTRANKS ANY
+     * MARKER” (owner ruling 2026-09-04). `lockRequestStateOf` returns `locked`
+     * for any confirmed booking; `partFinalizationStateOf` takes no status at
+     * all. Being hired is not the same as having reviewed and agreed to a
+     * specific design, and auto-finalizing from a booking would fabricate the
+     * exact agreement this table exists to capture.
+     *
+     * ⚠ THE FREEZE IS NOT IN THIS TABLE. It is in `events.role_palette` —
+     * `touched_roles` plus `room_dressing`, MB5’s existing derivation-stops.
+     * `vendor_agree_to_part` writes both in ONE transaction with the state
+     * flip, and `events_hold_part_finalization_freeze` (a BEFORE UPDATE trigger
+     * on events) puts the freeze back on EVERY palette write from every path,
+     * so a writer that has never heard of finalization cannot drop it by
+     * forgetting. J47 claims that pair.
+     *
+     * ⚠ THE COUNT IS EVERY ROW EVER, INCLUDING CLOSED ROUNDS. A declined or
+     * expired ask stays as history and does not occupy the one-live-handshake
+     * slot. For “how many parts are settled right now”, filter:
+     * `select count(*) from moodboard_part_finalizations where state = 'agreed'`.
+     */
+    id: 'TYPE-SIGNOFF',
+    type: 'signoff',
+    name: 'Design sign-off',
+    blurb: 'a supplier agreed to one part — and it stopped moving',
+    countKey: 'signoff',
+    icon: 'lock',
+    color: 'var(--ug-e-signoff)',
+    colorBg: 'var(--ug-e-signoff-bg)',
+    table: 'moodboard_part_finalizations',
+    x: 660,
+    y: 140,
+    fields: [
+      { key: 'pk', name: 'finalization_id', note: 'uuid — what every RPC takes' },
+      { key: '', name: 'state', note: 'the booking handshake’s five values, second scope; NEVER derived from event_vendors.status' },
+      { key: '', name: 'design_snapshot', note: 'the colours the supplier answered — recorded at ASK time, because the couple keeps editing' },
+      { key: '', name: 'frozen_palette_keys', note: 'what THIS agreement added to touched_roles — not everything the snapshot names, so a re-open cannot discard the couple’s own edit' },
+      { key: '', name: 'reopen_state', note: 'the COUNTER-handshake: a finalized part is released only when the supplier says yes' },
+    ],
+    edges: [
+      { verb: 'settles a part of', to: 'TYPE-EVENTS' },
+      { verb: 'answered by', to: 'TYPE-VENDORS' },
+    ],
+  },
+  {
+    /**
+     * STANDING PERMISSION TO CHANGE SOMEBODY ELSE'S COLOURS (MB16).
+     *
+     * The mood board is the couple's, and `events.role_palette` has been
+     * writable by `member_type = 'couple'` alone since day one. This subsystem
+     * is how a specific trusted person gets to move one part of it — and it
+     * exists as three tables rather than a flag because all three answers have
+     * to be separately true: WHO may (the two grant tables), WHAT they did (the
+     * change log), and WHETHER it still stands (`reverted_at`).
+     *
+     * 🛑 IT DOES NOT WIDEN ANY POLICY, AND THAT IS THE WHOLE DESIGN.
+     * `couple_can_update_event` is byte-for-byte what `20260513040000` wrote.
+     * A grant holder reaches the column ONLY through
+     * `apply_colour_change`, a SECURITY DEFINER function that checks the grant
+     * and performs the write internally — the shape MB8's
+     * `moodboard_begin_render` and MB12's `vendor_agree_to_part` already use.
+     * `tests/db/the-events-update-policy-does-not-move.db.test.ts` reads the
+     * live policy out of pg_policies and fails on a diff in either direction.
+     *
+     * ⚠ TWO GRANT TABLES, AND THE SPLIT IS REFERENTIAL. A vendor's subject is a
+     * BOOKING (`event_vendors.vendor_id`); a coordinator's is a PERSON, and
+     * specifically their `event_members` row — so
+     * `event_colour_grants_coordinator` FKs the composite `(event_id, user_id)` and
+     * `sync_delegate_membership`'s DELETE cascades their colour access away
+     * with no code performing that revoke. One polymorphic table could FK
+     * neither.
+     *
+     * ⚠ THREE CONTROLS, NONE TOUCHING ANOTHER. The switch (`is_active`), the
+     * notification (`colour_changed_in_lane`, on the EMAIL allowlist) and the
+     * reject (`reverted_at`) are independent by construction, not by
+     * convention: `reject_colour_change`'s body never names a grant table and
+     * `set_vendor_colour_access`'s never names the change log. J48 claims that.
+     *
+     * ⚠ THE COUNT IS EVERY LIVE GRANT ROW — vendors and coordinators together,
+     * one row per DOMAIN. A stylist's single on-screen switch is TWO rows
+     * (decor + main_colours), on purpose: the grant stores the lane that was
+     * actually given, so re-categorising a booking later cannot widen it. For
+     * "how many people hold access", count distinct subjects.
+     */
+    id: 'TYPE-COLOURGRANT',
+    type: 'colourgrant',
+    name: 'Colour access',
+    blurb: 'somebody other than the couple may move one part of the palette',
+    countKey: 'colourgrant',
+    icon: 'key',
+    color: 'var(--ug-e-colourgrant)',
+    colorBg: 'var(--ug-e-colourgrant-bg)',
+    table: 'event_colour_grants',
+    x: 660,
+    y: 260,
+    fields: [
+      { key: 'pk', name: 'event_id + vendor_id + domain', note: 'composite — one row per DOMAIN, so a stylist’s one switch is two rows' },
+      { key: '', name: 'domain', note: 'main_colours · decor · florals · attire — resolved from event_vendors.category IN SQL, never passed in by a caller who could widen it' },
+      { key: '', name: 'is_active', note: 'the couple’s switch. FALSE is refused at apply_colour_change itself, not merely hidden in the UI' },
+      { key: '', name: 'revoked_at', note: 'revocation is a FLIP, never a delete — the change log has to stay explainable' },
+    ],
+    edges: [
+      { verb: 'permits a write to', to: 'TYPE-EVENTS' },
+      { verb: 'held by', to: 'TYPE-VENDORS' },
+    ],
+  },
 ];
+
 
 export const UGAT_TYPE_BY_ID: Record<string, UgatTypeMeta> = Object.fromEntries(
   UGAT_TYPES.map((t) => [t.id, t]),
@@ -764,6 +1003,24 @@ export const UGAT_TYPE_VOCAB: Record<
   thread: { label: 'Thread', icon: 'chat', color: 'var(--ug-e-thread)', colorBg: 'var(--ug-e-thread-bg)' },
   billing: { label: 'Billing', icon: 'wallet', color: 'var(--ug-e-billing)', colorBg: 'var(--ug-e-billing-bg)' },
   taxonomy: { label: 'Taxonomy', icon: 'layers', color: 'var(--ug-e-tax)', colorBg: 'var(--ug-e-tax-bg)' },
+  gallery: {
+    label: 'Library photo',
+    icon: 'image',
+    color: 'var(--ug-e-gallery)',
+    colorBg: 'var(--ug-e-gallery-bg)',
+  },
+  signoff: {
+    label: 'Design sign-off',
+    icon: 'lock',
+    color: 'var(--ug-e-signoff)',
+    colorBg: 'var(--ug-e-signoff-bg)',
+  },
+  colourgrant: {
+    label: 'Colour access',
+    icon: 'key',
+    color: 'var(--ug-e-colourgrant)',
+    colorBg: 'var(--ug-e-colourgrant-bg)',
+  },
   community: {
     label: 'Samahan',
     icon: 'group',
@@ -830,10 +1087,20 @@ export const UGAT_TYPE_VOCAB: Record<
     color: 'var(--ug-e-studio)',
     colorBg: 'var(--ug-e-studio-bg)',
   },
+  render: {
+    label: 'Mood Board render',
+    icon: 'sparkles',
+    color: 'var(--ug-e-render)',
+    colorBg: 'var(--ug-e-render-bg)',
+  },
 };
 
 /* ── inline Lucide-style icon paths (no network; SVG innerHTML) ── */
 export const UGAT_ICON_PATHS: Record<string, string> = {
+  // ⚠ A MISSING KEY RENDERS AS NOTHING, SILENTLY — the consumer is
+  // `UGAT_ICON_PATHS[n.icon] ?? ''`. A node whose icon is not in this record
+  // draws a blank circle that looks like a styling bug rather than a missing
+  // entry, so add the path in the same commit as the node.
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   users:
     '<circle cx="9" cy="8" r="3.5"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M17 5a3.5 3.5 0 0 1 0 7M22 21a7 7 0 0 0-4-6.3"/>',
@@ -867,6 +1134,13 @@ export const UGAT_ICON_PATHS: Record<string, string> = {
     '<circle cx="12" cy="7" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><path d="M1.5 18a4 4 0 0 1 4-3.5"/><path d="M22.5 18a4 4 0 0 0-4-3.5"/>',
   camera:
     '<path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.2-2h7.6l1.2 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/>',
+  // Mood Board library (MB10) — a framed photograph, distinct from `camera`
+  // (Papic, which is an act of shooting) and from `sparkles` (a paid render).
+  // ⚠ AN UNKNOWN ICON KEY DOES NOT FAIL, IT FALLS BACK TO `tag` — so a node
+  // added without its path here draws a price label and nobody notices.
+  key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9"/><path d="M17 12v3"/><path d="M20.5 12v2"/>',
+  image:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5-5 3.5 3.5L16 12l4 4"/>',
 };
 
 export function ugatIcon(name: string, cls?: string): string {
@@ -1715,6 +1989,120 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * A SUPPLIER'S OWN Papic — three tables, one meter, and it is not the host's.
+     *
+     * Owner 2026-09-05: *"vendors get 5% of the amount they paid for on booking
+     * fee … they pay 500 pesos for 25 papic credits"*, and, asked what the
+     * credits are for, *"base it all from the supplier's shots per event not from
+     * what the host gives them."* So the supplier's credits are a DIFFERENT
+     * ledger from the couple's pool (J-papic ↔ orders, papic_event_point_grants):
+     * a grant here never reaches papic_event_pool_status and a host-side grant
+     * never reaches here — tests/db/vendor-papic-credits-are-the-suppliers.db.test.ts.
+     *
+     * ⚠ GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; THE SPEND SIDE IS NOT A
+     * COUNTER HERE. What the supplier has spent is their own captures
+     * (vendor_papic_captures, 1 point per photo, 8 per clip) — the same meter
+     * the capture route charges — so there is no second table to drift from
+     * it. G3's portfolio imports must count against the same meter.
+     *
+     * ⚠ vendor_papic_capture_grants is the TIER row (one per vendor×event,
+     * UNIQUE on the pair — free/ltd/unli, admin-comped), not the credit ledger.
+     * It could not hold a second pack for the same event, which is why the
+     * ledger is a table of its own rather than a `source` value on it.
+     *
+     * ⚠ NO WRITE POLICY ON THE LEDGER. A supplier that could INSERT a grant
+     * could grant itself the pack. Writes are service-role only, from
+     * lib/sku-activation.ts on admin payment approval (*"when we approve the
+     * payment"*) — the booking-fee hook (5%, cap 1,000, no floor) and the
+     * vendor_papic_portfolio_pack hook (25). Idempotent per (order_id, source)
+     * by a partial UNIQUE INDEX.
+     */
+    id: 'J49',
+    claims: [
+      { kind: 'table', table: 'vendor_papic_portfolio_credit_grants' },
+      { kind: 'table', table: 'vendor_papic_capture_grants' },
+      { kind: 'table', table: 'vendor_papic_captures' },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_credit_grants',
+        column: 'order_id',
+        references: 'orders',
+      },
+      { kind: 'column', table: 'vendor_papic_portfolio_credit_grants', column: 'credits' },
+      { kind: 'column', table: 'vendor_papic_portfolio_credit_grants', column: 'source' },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_credit_grants',
+        name: 'vendor_papic_portfolio_credit_grants_credits_positive',
+        mentions: 'credits',
+      },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_credit_grants',
+        name: 'vendor_papic_portfolio_credit_grants_source_allowed',
+        mentions: 'source',
+      },
+      // The ₱ price is NOT on the ledger — it is a vendor_billing_catalog row
+      // (sku_code vendor_papic_portfolio_pack), admin-managed.
+      { kind: 'no_column', table: 'vendor_papic_portfolio_credit_grants', column: 'price_php' },
+      // The tier row: one per vendor×event, and the spend side's columns.
+      { kind: 'unique', table: 'vendor_papic_capture_grants', columns: ['vendor_profile_id', 'event_id'] },
+      { kind: 'column', table: 'vendor_papic_capture_grants', column: 'tier' },
+      { kind: 'fk', table: 'vendor_papic_captures', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'vendor_papic_captures', column: 'media_type' },
+      { kind: 'column', table: 'vendor_papic_captures', column: 'hidden_at' },
+      // G3 — the private portfolio album a supplier IMPORTS into (never the
+      // couple's to see), spending the SAME meter as the captures above. A
+      // FOURTH table, not a fourth spend-source on vendor_papic_captures,
+      // because an import is not a camera event (no media_type, no clip
+      // duration) — it is a finished photo the supplier already had.
+      { kind: 'table', table: 'vendor_papic_portfolio_photos' },
+      {
+        kind: 'fk',
+        table: 'vendor_papic_portfolio_photos',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      { kind: 'fk', table: 'vendor_papic_portfolio_photos', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'credits_spent' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'nsfw_checked' },
+      { kind: 'column', table: 'vendor_papic_portfolio_photos', column: 'hidden_at' },
+      {
+        kind: 'check',
+        table: 'vendor_papic_portfolio_photos',
+        name: 'vendor_papic_portfolio_photos_credits_positive',
+        mentions: 'credits_spent',
+      },
+    ],
+    chain: 18,
+    pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
+    title: 'Papic ↔ Vendor (the supplier’s own credits, tier, captures and portfolio album)',
+    joint: 'vendor_papic_portfolio_credit_grants',
+    cardinality:
+      'Many grant rows per (vendor, event) — one per approved booking-fee order, one per approved pack, any number of admin/comp rows · exactly one tier row per (vendor, event) · many captures · many portfolio-album imports',
+    implementedBy:
+      'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
+    writtenBy:
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+    guardedBy:
+      'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
+    traps:
+      'The partial UNIQUE on (order_id, source) is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above — verify with \\d vendor_papic_portfolio_credit_grants. fetchVendorPapicCreditsGranted returns NULL on a failed read and allowancePointsFor treats null as "unproven" (falls back to the tier gift): a reader that coalesces null to 0 is wrong in the same way, but a reader that shows null as "0 credits" tells a supplier who earned 1,000 that they hold nothing. The 50-point Lite gift is a 2026-07-22 lock the 2026-09-05 "no floor" ruling did not mention — allowancePointsFor keeps it as a MAX and the PR body asks the owner; do not treat the tier number as the credit balance. The video-at-800 threshold (2026-08-26) was re-priced, not moved, by the 2026-09-06 pack repricing (₱5/credit again) and stays UNCHANGED. ⚠ vendor_papic_portfolio_photos is a THIRD spend surface on the SAME meter as vendor_papic_captures — a reader that computes "left" from only one of the two under-reports what a supplier can still spend after using the other door.',
+  },
+  {
+    /**
      * The person graph's own edge: a relation between two PEOPLE, not between
      * two guests and not between two accounts. It survives the event that
      * created it — `created_by_event_id` records provenance, it does not scope
@@ -2207,6 +2595,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'live_studio_overlay_settings' },
       { kind: 'table', table: 'live_studio_roam_streams' },
       { kind: 'table', table: 'live_studio_channel_oauth_state' },
+      // S8 (build-sessions/encoder/S8.md): single-use nonce for the desktop
+      // encoder's hosted-channel stream-key handoff. Same shape and posture as
+      // live_studio_channel_oauth_state above — added here rather than as a
+      // new joint, since it is one more artifact of this same control-room →
+      // channel-pool relationship, not a new subsystem.
+      { kind: 'table', table: 'live_studio_encoder_claims' },
+      { kind: 'fk', table: 'live_studio_encoder_claims', column: 'broadcast_id', references: 'panood_broadcasts' },
+      // S5 (build-sessions/encoder/S5.md): single-use, 60s-TTL nonce that
+      // authorizes ONE Tauri encoder_start call, closing the gap that
+      // capabilities/default.json's remote.urls grant is origin-scoped, not
+      // session-scoped. Same posture as live_studio_encoder_claims above —
+      // added here, not as a new joint, for the same reason.
+      { kind: 'table', table: 'live_studio_encoder_tokens' },
+      { kind: 'fk', table: 'live_studio_encoder_tokens', column: 'broadcast_id', references: 'panood_broadcasts' },
+      { kind: 'fk', table: 'live_studio_encoder_tokens', column: 'event_id', references: 'events' },
     ],
     chain: 2,
     pair: ['TYPE-LIVESTUDIO', 'TYPE-EVENTS'],
@@ -2266,6 +2669,658 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
       'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+  },
+  {
+    /**
+     * The render itself \u2014 one row per "Make it real" image.
+     *
+     * \u26a0 THE ONE THING TO UNDERSTAND HERE IS THAT `reusable` IS GENERATED.
+     * Every other flag on the platform is a boolean somebody sets. This one
+     * cannot be: it is the admission test for a POOL SHARED ACROSS COUPLES, and
+     * a flag that can be set can be set wrong, with no visible symptom on
+     * either side of the mistake. It reads note IS NULL AND image_key IS NOT
+     * NULL AND failed_at IS NULL AND NOT reuse_blocked, and the cache index is
+     * PARTIAL on it \u2014 so a note-bearing render is not merely filtered out of a
+     * library match, it is not in the index the match reads.
+     *
+     * \u26a0 part_id IS SHAPE-CHECKED, NOT ENUMERATED, ON PURPOSE. The vocabulary
+     * is DERIVED at runtime from RECEPTION_PARTS + the PaletteKey attire roles
+     * + the inspiration slot keys (lib/moodboard-render-parts.ts). An IN-list
+     * in the CHECK would have to be migrated every time a zone is added, and
+     * the failure of forgetting is silent: the couple designs the zone and
+     * section 04 never offers to render it.
+     */
+    id: 'J42',
+    claims: [
+      { kind: 'table', table: 'event_renders' },
+      { kind: 'fk', table: 'event_renders', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'event_renders', column: 'part_id' },
+      { kind: 'column', table: 'event_renders', column: 'config_digest' },
+      { kind: 'column', table: 'event_renders', column: 'note' },
+      { kind: 'column', table: 'event_renders', column: 'reusable' },
+      { kind: 'column', table: 'event_renders', column: 'reuse_blocked' },
+      { kind: 'column', table: 'event_renders', column: 'credits_debited' },
+      { kind: 'column', table: 'event_renders', column: 'inspiration_asset_ids' },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_part_id_shape',
+        mentions: 'part_id',
+      },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_config_digest_versioned',
+        mentions: 'config_digest',
+      },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_note_shape',
+        mentions: 'note',
+      },
+      // The inspirations that conditioned a render are an ARRAY, not a child
+      // table \u2014 so there is deliberately no FK here to go looking for.
+      { kind: 'no_fk', table: 'event_renders', column: 'inspiration_asset_ids' },
+      // MB8's admin curation. featured_at is set ONLY by
+      // moodboard_set_render_featured, which refuses a render whose event has
+      // not given share consent \u2014 so the featured set is consent-clean by
+      // construction and no read path has to remember to filter.
+      { kind: 'column', table: 'event_renders', column: 'featured_at' },
+      { kind: 'column', table: 'event_renders', column: 'failed_at' },
+      { kind: 'column', table: 'event_renders', column: 'failure_reason' },
+      // MB9. The WATERMARKED copy, at a key that is not image_key. The
+      // inspiration pool selects THIS column and never image_key, which is what
+      // makes "an unmarked render cannot reach another couple" structural
+      // rather than a promise \u2014 there is no flag claiming the mark was applied,
+      // and the couple's own copy stays unmarked because they paid for it.
+      { kind: 'column', table: 'event_renders', column: 'gallery_image_key' },
+      {
+        kind: 'check',
+        table: 'event_renders',
+        name: 'event_renders_gallery_image_key_not_blank',
+        mentions: 'gallery_image_key',
+      },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
+    title: 'Mood Board render \u2194 Event (the paid photoreal image)',
+    joint: 'event_renders',
+    cardinality:
+      'Many per event \u00b7 one row per render, including regenerations of the same part \u2014 a couple may re-render a part as often as they hold credits',
+    implementedBy:
+      'event_renders.event_id \u2192 events, with part_id naming WHICH part (room:/people:/place:/whole_look). \u26d4 config_digest was built to key a cross-event render CACHE and NOTHING READS IT: the owner cancelled that design on 2026-09-03 (\u201calways charge for renders\u201d). The cross-event surface that shipped instead is MB9\u2019s inspiration POOL \u2014 moodboard_inspiration_pool, which matches nothing and returns reference photos, not substitute outputs.',
+    writtenBy:
+      'moodboard_begin_render inserts the row (in flight, image_key NULL) \u00b7 moodboard_finish_render attaches the R2 key \u00b7 moodboard_fail_render marks it failed AND refunds \u00b7 moodboard_set_render_featured curates \u2014 SHIPPED in MB8; moodboard_attach_gallery_copy records the watermarked copy \u2014 SHIPPED in MB9, and it is the ONLY writer of gallery_image_key',
+    guardedBy:
+      'RLS Pattern B (members read \u00b7 couples/coordinators + admin write, the write half REVOKED from authenticated in MB8 so every write goes through a SECURITY DEFINER function); cross-event reads go ONLY through moodboard_inspiration_pool, which requires reusable AND the event\u2019s share consent AND a watermarked gallery_image_key \u2014 three independently droppable predicates, one per row constructed in tests/db/the-inspiration-pool-shows-only-what-was-shared.db.test.ts',
+    traps:
+      'design_snapshot is a HISTORICAL copy, not a live join \u2014 a render must stay explicable after the couple redesigns, so reading the event\u2019s current design to explain an old render is wrong. inspiration_asset_ids is a UUID[] with NO foreign key: inspirations are soft-deleted (removed_at), so the ids keep resolving, but nothing at the database level stops an id from a different event landing there.',
+  },
+  {
+    /**
+     * The money. Two tables, and the split between them is the whole design.
+     *
+     * \u26a0 GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; SPEND IS A COUNTER.
+     * A spend is NOT a negative grant row. The balance has to be checked and
+     * decremented atomically, and there is nothing to lock in an append-only
+     * ledger \u2014 two concurrent renders would both read "one credit left" and
+     * both take it. event_render_credit_usage is one row per event precisely so
+     * SELECT \u2026 FOR UPDATE has something to hold.
+     *
+     * \u26a0 RESERVE-THEN-RELEASE, NOT DEBIT-ON-SUCCESS. moodboard_reserve_render_
+     * credits runs BEFORE the model call and moodboard_release_render_credits
+     * unwinds it when no image arrives. A credit spent on nothing is this
+     * repo\u2019s signature failure \u2014 an outcome that looks identical whether it
+     * worked or not.
+     *
+     * \u26a0 NEITHER TABLE HAS A WRITE POLICY. A couple that could INSERT a grant
+     * could grant itself the pack. Writes are service-role / SECURITY DEFINER
+     * only; the READ policies exist so the balance is visible, because a
+     * balance nobody can see is the invisible-state failure the whole arc is
+     * about.
+     */
+    id: 'J43',
+    claims: [
+      { kind: 'table', table: 'event_render_credit_grants' },
+      { kind: 'table', table: 'event_render_credit_usage' },
+      { kind: 'table', table: 'moodboard_render_config' },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_grants',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_grants',
+        column: 'order_id',
+        references: 'orders',
+      },
+      {
+        kind: 'fk',
+        table: 'event_render_credit_usage',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_render_config',
+        column: 'pack_service_code',
+        references: 'platform_retail_catalog_v2',
+      },
+      // ONE row per event on the spend side \u2014 this is what makes the counter
+      // lockable, and it is the primary key, not a convention.
+      { kind: 'unique', table: 'event_render_credit_usage', columns: ['event_id'] },
+      { kind: 'column', table: 'event_render_credit_usage', column: 'credits_used' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_per_part' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_whole_look' },
+      { kind: 'column', table: 'moodboard_render_config', column: 'credits_per_pack' },
+      // The peso price is NOT here \u2014 the config points at the catalog instead.
+      { kind: 'no_column', table: 'moodboard_render_config', column: 'price_php' },
+      {
+        kind: 'check',
+        table: 'event_render_credit_grants',
+        name: 'event_render_credit_grants_credits_positive',
+        mentions: 'credits',
+      },
+      {
+        kind: 'check',
+        table: 'event_render_credit_usage',
+        name: 'event_render_credit_usage_nonneg',
+        mentions: 'credits_used',
+      },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-ORDERS'],
+    title: 'Render credits \u2194 Order (one pack, 50 credits)',
+    joint: 'event_render_credit_grants',
+    cardinality:
+      'One grant row per paid pack (partial UNIQUE on order_id, so re-running fulfilment cannot double-grant) \u00b7 exactly one usage row per event',
+    implementedBy:
+      'event_render_credit_grants.order_id \u2192 orders for the purchase; balance = SUM(grants.credits) \u2212 usage.credits_used, computed only by moodboard_render_balance',
+    writtenBy:
+      'moodboard_begin_render (spend \u2014 it calls reserve INSIDE the same transaction as the event_renders INSERT, so a debit without a render row is unrepresentable) \u00b7 moodboard_fail_render (refund) \u00b7 the pack-fulfilment path and moodboard_set_share_consent (grant) \u2014 SHIPPED in MB8',
+    guardedBy:
+      'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every SPEND and CONSENT function and admits only the couple or an admin (owner ruling 2026-09-11, migration 20271221631865), while the two READS (balance, inspiration pool) use moodboard_render_caller_may_view \u2014 any member; `anon` is granted EXECUTE on none of them',
+    traps:
+      'The partial UNIQUE on order_id is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants, not by trusting this list. moodboard_render_balance returns ZERO ROWS (not a zero balance) to a caller who may not ask: a reader that coalesces the two together tells a couple who bought a pack that they hold nothing.',
+  },
+  {
+    /**
+     * Share consent \u2014 the +1 bonus render, and the ONE thing consent gates.
+     *
+     * \ud83d\udd12 CONSENT GATES SHOWCASE ELIGIBILITY ONLY. It does NOT gate whether
+     * the admin can see or keep a render. Owner lock 2026-06-09, re-affirmed
+     * 2026-09-03: admin visibility of every render exists so Setnayan can
+     * compile its own content database, and a non-consented render is still
+     * retained and still admin-visible. Anyone reading
+     * moodboard_admin_all_renders and reaching for a `WHERE consented` clause
+     * would be undoing an owner decision while believing they were closing a
+     * leak \u2014 the leak they are imagining is closed at the WRITE, in
+     * moodboard_set_render_featured.
+     *
+     * \u26a0 THE CONSENT AND THE BONUS MOVE TOGETHER. moodboard_set_share_consent
+     * sets the flag AND grants the +1, so a couple can never end up consenting
+     * without the render they were promised. Once-per-event is enforced by a
+     * PARTIAL UNIQUE INDEX on (event_id) WHERE source = 'consent_bonus' \u2014 not
+     * by a check-then-insert, which two concurrent toggles both pass.
+     *
+     * \u26a0 THE BONUS IS PRICED FROM CONFIG (credits_per_part), NOT WRITTEN AS 1.
+     * The lock's "6 total" was arithmetic against the retired 5-render pack;
+     * the surviving pack is 50, so the RATIO was never the decision \u2014 "one
+     * extra render" was.
+     *
+     * \u26a0 WITHDRAWAL IS NOT A DELETE. `consented` flips to FALSE and
+     * withdrawn_at is stamped, so the fact that permission once existed
+     * survives \u2014 a render featured while consent stood is a thing that
+     * happened. Withdrawal un-features every render of the event and
+     * deliberately does NOT claw back the bonus: withdrawal must not cost money.
+     */
+    id: 'J44',
+    claims: [
+      { kind: 'table', table: 'event_render_share_consent' },
+      {
+        kind: 'fk',
+        table: 'event_render_share_consent',
+        column: 'event_id',
+        references: 'events',
+      },
+      // ONE row per event \u2014 the primary key, not a convention.
+      { kind: 'unique', table: 'event_render_share_consent', columns: ['event_id'] },
+      { kind: 'column', table: 'event_render_share_consent', column: 'consented' },
+      { kind: 'column', table: 'event_render_share_consent', column: 'consented_at' },
+      { kind: 'column', table: 'event_render_share_consent', column: 'withdrawn_at' },
+      {
+        kind: 'check',
+        table: 'event_render_share_consent',
+        name: 'event_render_share_consent_timestamped',
+        mentions: 'consented',
+      },
+    ],
+    chain: 19,
+    pair: ['TYPE-RENDERS', 'TYPE-EVENTS'],
+    title: 'Share consent \u2194 Event (the +1 bonus render, and what it does NOT gate)',
+    joint: 'event_render_share_consent',
+    cardinality:
+      'Exactly one row per event, created on the first toggle either way \u00b7 at most ONE consent_bonus grant per event, ever',
+    implementedBy:
+      "event_render_share_consent.event_id \u2192 events (PK); the bonus is an event_render_credit_grants row with source='consent_bonus', made unique per event by a partial index",
+    writtenBy:
+      'moodboard_set_share_consent ONLY \u2014 there is no write policy on the table, because writing consent also GRANTS CREDITS and the two must not be separable by a client that can issue an UPDATE',
+    guardedBy:
+      "RLS Pattern B read half (members + admin read; no write policy) \u00b7 the partial UNIQUE index makes a second bonus unrepresentable \u00b7 moodboard_set_render_featured refuses on a non-consented event, so the featured set is consent-clean at the write",
+    traps:
+      "The partial UNIQUE that makes the bonus once-per-event is an INDEX, not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify it with \\d event_render_credit_grants. And do NOT filter the admin all-creations read by consent: that is a locked owner decision, not an oversight (see the docblock). Withdrawing consent does not remove the bonus grant, so SUM(grants) can exceed what a currently-consenting event would have earned \u2014 that is correct, not drift.",
+  },
+  {
+    /**
+     * WHOSE PHOTO IS THIS \u2014 the half of the chain that makes the other half
+     * worth building (MB10).
+     *
+     * \u26a0 `uploaded_by` IS NOT THE CREDIT. It is the user account that pushed
+     * the bytes; a couple reads a SHOP ("Bloom & Vine"), and one user may hold
+     * more than one shop. Deriving the shop from the uploader at read time
+     * would be a guess that renders identically to a fact, so
+     * `vendor_profile_id` is its own column and the CHECK below refuses a
+     * gallery row without it.
+     *
+     * \u26a0 THE SLOT IS IN `asset_subtype` AND THERE IS DELIBERATELY NO
+     * `slot_key` COLUMN \u2014 claimed as a no_column, so a later "let us just add
+     * slot_key" turns this joint red rather than quietly creating a second
+     * source of truth for what a photo depicts.
+     *
+     * \u26a0 THE WARRANTY GATE IS KEYED ON `approved_at`, NOT ON INSERT. Public
+     * read is `approved_at IS NOT NULL AND retired_at IS NULL`, so the CHECK
+     * and the policy open the same door: an un-warranted draft may exist and
+     * can never become publicly readable. MB11 captures the warranty at
+     * upload; the columns landed here so MB11 is not a second migration.
+     */
+    id: 'J45',
+    claims: [
+      { kind: 'table', table: 'moodboard_library_assets' },
+      { kind: 'table', table: 'moodboard_asset_color_ranges' },
+      {
+        kind: 'fk',
+        table: 'moodboard_library_assets',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_library_assets',
+        column: 'uploaded_by',
+        references: 'users',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_asset_color_ranges',
+        column: 'asset_id',
+        references: 'moodboard_library_assets',
+      },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'asset_type' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'asset_subtype' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'approved_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'retired_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'rights_warranted_at' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'rights_warranty_version' },
+      // The slot lives in asset_subtype. Claiming the ABSENCE is what stops a
+      // second column for one fact from arriving unnoticed.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'slot_key' },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_asset_type_check_v3',
+        mentions: 'asset_type',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_supplier_gallery_shape',
+        mentions: 'rights_warranted_at',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_library_assets',
+        name: 'moodboard_library_assets_rights_warranty_paired',
+        mentions: 'rights_warranty_version',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-VENDORS'],
+    title: 'Library photo \u2194 Vendor (the credit a couple reads)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per shop \u00b7 exactly one shop per supplier-gallery photo (the CHECK requires it); NULL shop on every other asset type, which is Setnayan\u2019s own imagery',
+    implementedBy:
+      'moodboard_library_assets.vendor_profile_id \u2192 vendor_profiles, with asset_type = \'supplier_gallery\' marking the creditable slice and asset_subtype carrying the inspiration slot',
+    writtenBy:
+      'the vendor upload page (app/vendor-dashboard/moodboard-library) \u2014 still gated to reception_decor as of this row; MB11 widens it to the supplying trades and captures the warranty',
+    guardedBy:
+      'RLS Pattern D \u2014 public read of approved-and-not-retired rows, vendor insert/update of their own (uploaded_by = auth.uid(), source = \'stylist_upload\'), admin all; plus moodboard_library_assets_supplier_gallery_shape, which refuses an approved gallery row with no shop, no real slot, or no rights warranty',
+    traps:
+      'asset_subtype means something DIFFERENT per asset_type (\'church\' for a venue_scene, \'bride\' for a figure_attire, an inspiration slot key for supplier_gallery), so every reader must pin asset_type first \u2014 grep `asset_type` under apps/web before adding one that does not. ON DELETE CASCADE on vendor_profile_id means deleting a shop deletes its gallery rows \u2014 SET NULL would fail the shape CHECK and, because users \u2192 vendor_profiles already cascades, would BLOCK account deletion. The storage objects are NOT swept by that cascade. The admin library page lists every asset_type and casts to its own three-value union; a fourth value reaching it renders the raw key.',
+  },
+  {
+    /**
+     * THE PICK \u2014 a library photo becomes a tile on one couple\u2019s board, and
+     * the credit survives the copy (MB10).
+     *
+     * \u26a0 THIS ROW USED TO LIE, AND THE LIE WAS INVISIBLE. `applyMoodboardTemplate`
+     * has copied library photos into inspiration slots since the theme gallery
+     * shipped, writing them as `source_kind = 'url_paste'` \u2014 a Setnayan library
+     * asset permanently recorded as something the couple pasted off the
+     * internet \u2014 because \'url_paste\' was the closer of the only two modes that
+     * existed. Nothing rendered differently, which is why it lasted.
+     *
+     * \u26a0 THE BICONDITIONAL IS THE WIRING GUARD.
+     * `event_inspiration_assets_gallery_pick_has_provenance` asserts
+     * `(source_kind = 'gallery_pick') = (library_asset_id IS NOT NULL)`. A
+     * future edit that drops the id cannot merely lose the credit quietly \u2014 the
+     * INSERT fails. A correct query and a correct component can each pass their
+     * own tests while the line between them is cut; this is that line, held in
+     * the database.
+     *
+     * \u26a0 THE BOARD ROW DOES NOT COPY THE SHOP. There is no
+     * `vendor_profile_id` here and J46 claims that absence: the credit is
+     * resolved THROUGH library_asset_id every time it is rendered, so a shop
+     * that renames itself renames itself on every board at once.
+     */
+    id: 'J46',
+    claims: [
+      { kind: 'table', table: 'event_inspiration_assets' },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'library_asset_id',
+        references: 'moodboard_library_assets',
+      },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'added_by_user_id',
+        references: 'users',
+      },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'source_kind' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'slot_key' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'slot_position' },
+      { kind: 'column', table: 'event_inspiration_assets', column: 'removed_at' },
+      // The credit is resolved through the library asset, never denormalised
+      // onto the board row \u2014 claimed so a "just copy the shop name" shortcut
+      // fails here first.
+      { kind: 'no_column', table: 'event_inspiration_assets', column: 'vendor_profile_id' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_source_kind_check_v3',
+        mentions: 'source_kind',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_gallery_pick_has_provenance',
+        mentions: 'library_asset_id',
+      },
+      // MB9's third provenance, built to the same biconditional shape: a
+      // reference picked out of another couple's shared render.
+      {
+        kind: 'fk',
+        table: 'event_inspiration_assets',
+        column: 'source_render_id',
+        references: 'event_renders',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_render_pick_has_provenance',
+        mentions: 'source_render_id',
+      },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_slot_key_check_v3',
+        mentions: 'slot_key',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
+    title: 'Library photo \u2194 Event (the pick, and the credit that survives it)',
+    joint: 'event_inspiration_assets',
+    cardinality:
+      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 18 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
+    implementedBy:
+      'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
+    writtenBy:
+      'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
+    guardedBy:
+      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 18-key slot CHECK',
+    traps:
+      'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
+  },
+  {
+    /**
+     * THE SIGN-OFF AND THE FREEZE ARE ONE ACT (MB12).
+     *
+     * 🔑 THIS JOINT EXISTS TO CLAIM A WIRE, NOT A TABLE. Two separate writes —
+     * “mark the row agreed” and “stop that part re-deriving” — have two seams,
+     * and both are invisible:
+     *
+     *   · agreed with no freeze → the couple edits their five majors and the
+     *     supplier’s agreed design quietly becomes a different design. Nothing
+     *     renders differently. The supplier builds what they agreed to and it is
+     *     wrong on the day.
+     *   · frozen with no agreement → a role stops following the majors for a
+     *     reason no surface can name.
+     *
+     * `vendor_agree_to_part` does both in one function body, i.e. one
+     * transaction, and `vendor_answer_part_reopen` welds the release the same
+     * way. `events_hold_part_finalization_freeze` is the backstop for every
+     * OTHER writer of `events.role_palette` — the board’s debounced save, a
+     * theme apply, the onboarding wizard, an admin repair — because a guard on
+     * one writer is a guard on one writer.
+     *
+     * ⚠ THE FREEZE LIVES IN MB5’s MECHANISM, NOT A NEW ONE. Agreeing writes the
+     * snapshot’s colours into `events.role_palette.touched_roles` and
+     * `.room_dressing`, which `deriveBoard` and `resolveRoomDressing` already
+     * refuse to overwrite. There is no second definition of “frozen” anywhere,
+     * and that is deliberate: two definitions would each pass their own suite.
+     *
+     * ⚠ AND THE ONE-LIVE-HANDSHAKE RULE IS A PARTIAL UNIQUE INDEX, so it is
+     * invisible to pg_constraint and cannot be claimed below — verify it with
+     * \d moodboard_part_finalizations.
+     */
+    id: 'J47',
+    claims: [
+      { kind: 'table', table: 'moodboard_part_finalizations' },
+      {
+        kind: 'fk',
+        table: 'moodboard_part_finalizations',
+        column: 'event_id',
+        references: 'events',
+      },
+      {
+        kind: 'fk',
+        table: 'moodboard_part_finalizations',
+        column: 'vendor_id',
+        references: 'event_vendors',
+      },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'state' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'design_snapshot' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'expires_at' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'reopen_state' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'reopen_expires_at' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'frozen_palette_keys' },
+      { kind: 'column', table: 'moodboard_part_finalizations', column: 'frozen_dressing_fields' },
+      // 🔑 CLAIMED AS AN ABSENCE. The finalized/frozen fact is NEVER a boolean
+      // on this row: it is `state`, and the freeze it implies lives in
+      // events.role_palette. A `is_frozen` column added here would be a second
+      // source of truth that can disagree with the palette, so this claim turns
+      // that edit red rather than letting it ship.
+      { kind: 'no_column', table: 'moodboard_part_finalizations', column: 'is_frozen' },
+      // 🔑 AND SO IS THIS ONE. Copying event_vendors.status onto the row is the
+      // shape that would let “a booking outranks any marker” creep back in.
+      { kind: 'no_column', table: 'moodboard_part_finalizations', column: 'status' },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_state_chk',
+        mentions: 'state',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_part_id_shape',
+        mentions: 'part_id',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_answer_coherent',
+        mentions: 'agreed_at',
+      },
+      {
+        kind: 'check',
+        table: 'moodboard_part_finalizations',
+        name: 'moodboard_part_finalizations_reopen_needs_agreement',
+        mentions: 'reopen_state',
+      },
+    ],
+    chain: 21,
+    pair: ['TYPE-SIGNOFF', 'TYPE-EVENTS'],
+    title: 'Design sign-off ↔ Event (the agreement, and the freeze welded to it)',
+    joint: 'moodboard_part_finalizations',
+    cardinality:
+      'At most ONE pending-or-agreed row per (event, part) — a part is one design; closed rounds (declined / cancelled / expired) accumulate as history and free the slot for a fresh ask',
+    implementedBy:
+      'moodboard_part_finalizations.state (the booking handshake’s five values at a second scope) + events.role_palette.touched_roles / .room_dressing, which is where the freeze actually lives',
+    writtenBy:
+      'seven SECURITY DEFINER RPCs and nothing else — request_part_finalization / cancel_part_finalization_request / request_part_reopen / cancel_part_reopen_request (the couple) and vendor_agree_to_part / vendor_decline_part / vendor_answer_part_reopen (the supplier). authenticated holds NO insert, update or delete on the table',
+    guardedBy:
+      'RLS Pattern B read half (event members read; the ASKED booking reads via current_vendor_event_vendor_ids; admin all) · no authenticated write policy at all · request_part_finalization refuses unless event_vendors.status is one of the four CONFIRMED values · guard_moodboard_part_finalization materialises the 48-hour fuse on every transition into pending · events_hold_part_finalization_freeze re-asserts the freeze on every write to events.role_palette',
+    traps:
+      'The one-live-handshake rule is a PARTIAL UNIQUE INDEX (WHERE state IN (\'pending\',\'agreed\')), invisible to pg_constraint — verify with \\d. Expiry is LAZY: a lapsed ask keeps state=\'pending\' until somebody presses Agree or Decline, so any count of "waiting" must compare expires_at itself rather than trusting the state. An expired RE-OPEN leaves the part FROZEN — silence is not consent in either direction. And the two RPCs that touch both tables write the ROW FIRST and the palette SECOND on purpose: reassert_part_finalization_freeze reads AGREED rows, so the order decides what the backstop sees.',
+  },
+  {
+    /**
+     * A STANDING GRANT, A WRITE THAT GOES THROUGH A DOOR, AND AN UNDO — MB16.
+     *
+     * 🔑 THIS JOINT CLAIMS THE WIRING, AND THE WIRING IS THE WHOLE FEATURE.
+     * Three connections, each of which fails invisibly if it comes loose:
+     *
+     *   · GRANT → WRITE. `apply_colour_change` refuses without an ACTIVE row in
+     *     the named domain. Hiding the control instead would leave the RPC open
+     *     to anybody who kept a tab from before the revoke.
+     *   · WRITE → NOTICE. There is NO per-change approval in this mechanism, by
+     *     owner ruling — so the notification is the only thing that tells a
+     *     couple their colours moved. `colour_changed_in_lane` is on
+     *     EMAIL_ENABLED_TYPES and out of MARKETING_GATED_EMAIL_TYPES; a notice
+     *     with no allowlist entry reaches nobody, which is the gap MB8 found on
+     *     payments and the six lock_request_* types found before that.
+     *   · WRITE → HISTORY → UNDO. `reject_colour_change` operates on the logged
+     *     row, so a change that was not logged cannot be undone. That is why
+     *     `apply_colour_change` READS THE ROW BACK before logging: MB12's
+     *     freeze trigger reverts an agreed part's colour inside the same
+     *     statement and the UPDATE still reports success, so a logged-but-never-
+     *     applied change would give the couple an undo for something that never
+     *     happened.
+     *
+     * ⚠ AND THE THREE CONTROLS ARE INDEPENDENT BY ABSENCE. Rejecting cannot
+     * revoke and revoking cannot erase, because neither function contains a
+     * statement naming the other's table.
+     * `lib/colour-access-controls-are-independent.test.ts` reads the bodies out
+     * of the migration and fails if either one gains such a statement.
+     *
+     * ⚠ THE COORDINATOR HALF IS A SECOND TABLE, `event_colour_grants_coordinator`, and
+     * it cannot be claimed here — a joint names ONE joint table. Its composite
+     * FK to `event_members (event_id, user_id)` is what makes removing a
+     * delegate revoke their colour access, and it is claimed by its own row in
+     * the claims list below.
+     */
+    id: 'J48',
+    claims: [
+      { kind: 'table', table: 'event_colour_grants' },
+      { kind: 'table', table: 'event_colour_grants_coordinator' },
+      { kind: 'table', table: 'event_colour_changes' },
+      { kind: 'fk', table: 'event_colour_grants', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_colour_grants', column: 'vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'event_colour_changes', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'event_colour_grants', column: 'domain' },
+      { kind: 'column', table: 'event_colour_grants', column: 'is_active' },
+      { kind: 'column', table: 'event_colour_grants', column: 'revoked_at' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'user_id' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'domain' },
+      { kind: 'column', table: 'event_colour_grants_coordinator', column: 'is_active' },
+      { kind: 'column', table: 'event_colour_changes', column: 'old_value' },
+      { kind: 'column', table: 'event_colour_changes', column: 'new_value' },
+      { kind: 'column', table: 'event_colour_changes', column: 'reverted_at' },
+      { kind: 'column', table: 'event_colour_changes', column: 'actor_label' },
+      // 🔑 CLAIMED AS AN ABSENCE. The couple's undo lives on the CHANGE, never
+      // on the grant — a `revoked_by_reject` column here would be exactly the
+      // coupling the owner ruled against, and it would be a second source of
+      // truth that can disagree with is_active.
+      { kind: 'no_column', table: 'event_colour_grants', column: 'reverted_at' },
+      // 🔑 AND SO IS THIS. A grant does not carry an approval queue: "once
+      // granted, no per-change approval" is the ruling, and a pending/approved
+      // column on the change log is the shape that would quietly reintroduce
+      // one.
+      { kind: 'no_column', table: 'event_colour_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_colour_grants',
+        name: 'event_colour_grants_domain_chk',
+        mentions: 'domain',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_grants',
+        name: 'event_colour_grants_revocation_dated',
+        mentions: 'revoked_at',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_grants_coordinator',
+        name: 'event_colour_grants_coordinator_domain_chk',
+        mentions: 'domain',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_value_shape',
+        mentions: 'new_value',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_palette_has_prior',
+        mentions: 'old_value',
+      },
+      {
+        kind: 'check',
+        table: 'event_colour_changes',
+        name: 'event_colour_changes_revert_dated',
+        mentions: 'reverted_at',
+      },
+    ],
+    chain: 21,
+    pair: ['TYPE-COLOURGRANT', 'TYPE-EVENTS'],
+    title: 'Colour access ↔ Event (a standing grant, a logged write, and one undo)',
+    joint: 'event_colour_grants',
+    cardinality:
+      'One row per (event, booking, DOMAIN) — a stylist’s single on-screen switch is two rows (decor + main_colours), and the coordinator half is one row per (event, user, domain) in event_colour_grants_coordinator. Revocation flips is_active; rows are never deleted',
+    implementedBy:
+      'events.role_palette, written by apply_colour_change (SECURITY DEFINER) and by nothing else on this path — the couple keeps their own RLS route through couple_can_update_event, which is unchanged',
+    writtenBy:
+      'four SECURITY DEFINER RPCs and nothing else — set_vendor_colour_access / set_coordinator_colour_access / reject_colour_change (the couple) and apply_colour_change (the grant holder). authenticated holds NO insert, update or delete on any of the three tables',
+    guardedBy:
+      'RLS Pattern B read half on all three (event members read; the granted BOOKING reads its own row via current_vendor_event_vendor_ids; admin all) · no authenticated write policy anywhere · colour_access_caller_is_couple refuses a NULL auth.uid() rather than failing open to a server context · colour_domains_for_category resolves the lane IN SQL so no caller can widen it · colour_domain_covers refuses a target outside the granted domain · event_colour_grants_coordinator_membership_fk CASCADEs from event_members, so removing a delegate revokes their access with no code doing it',
+    traps:
+      'apply_colour_change READS THE ROW BACK after the UPDATE: MB12’s events_hold_part_finalization_freeze reverts an agreed part’s colour inside the same statement and the UPDATE still reports success, so without the read-back the log would carry a change that never happened. A palette slot is CHANGED and never CREATED (no_such_slot) — that is what lets reject be an in-place restore instead of an array splice. And event_colour_changes.vendor_id is ON DELETE SET NULL with deliberately NO companion CHECK requiring it: SET NULL onto a CHECKed column makes the FK behave like RESTRICT while claiming SET NULL, and deleting the booking would fail with a constraint error nobody could place.',
   },
 ];
 

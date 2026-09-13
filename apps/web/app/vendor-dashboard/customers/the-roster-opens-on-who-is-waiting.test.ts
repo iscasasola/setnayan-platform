@@ -144,21 +144,36 @@ test('the roster never reaches for a name except behind identityRevealed', () =>
   );
 });
 
-test('the page builds the placeholder from the SHIPPED mask, not a local one', () => {
-  // ⚠ `\b` IS LOAD-BEARING. Without it this rule was DECORATION, measured:
-  // renaming the call to `DISABLED_fetchInquiryMaskMeta(` left the original as a
-  // SUBSTRING and the guard stayed green while the mask was gone. Same prefix
-  // trap as `f.event_dateX`, and the reason every sabotage here is counted
-  // rather than assumed to have landed.
+test('the roster names its customers and invents no stand-in for a name', () => {
+  // ── WHAT THIS TEST USED TO SAY ──────────────────────────────────────────
+  // It required the page to call the SHIPPED `fetchInquiryMaskMeta` +
+  // `inquiryPlaceholderLabel`, so that a second, subtly different anonymisation
+  // path could not be written locally. That mask was retired by the owner on
+  // 2026-09-08 ("we do not need to hide anything, since no more tokens"), and
+  // its concern inverts cleanly: the risk is no longer a second way to HIDE a
+  // name, it is a locally-invented stand-in that quietly keeps hiding one.
+  //
+  // ⚠ `\b` IS STILL LOAD-BEARING on the positive assertion. Measured on the old
+  // rule: renaming the call to `DISABLED_fetchInquiryMaskMeta(` left the
+  // original as a SUBSTRING and the guard stayed green while the mask was gone.
   assert.ok(
-    /\bfetchInquiryMaskMeta\s*\(/.test(pageSrc),
-    'the roster stopped using fetchInquiryMaskMeta — a second anonymisation path has been written',
+    /\brevealed:\s*true\b/.test(stripComments(pageSrc)),
+    'the roster is masking its own customers again',
   );
+  for (const ghost of ['inquiryPlaceholderLabel', 'fetchInquiryMaskMeta', 'INQUIRY_MASK_UNKNOWN']) {
+    assert.ok(
+      !new RegExp(`\\b${ghost}\\s*[({]`).test(pageSrc),
+      `the retired mask helper ${ghost} is back on the roster`,
+    );
+  }
+  // A local re-implementation would not import the helper at all, so also
+  // refuse the sentence it produced.
   assert.ok(
-    /\binquiryPlaceholderLabel\s*\(\s*\{/.test(pageSrc),
-    'the placeholder call lost its explicit fields — inquiry-mask-every-host cannot see a spread',
+    !/planning a \$\{|planning an? /.test(stripComments(pageSrc)),
+    'the roster is building a "A couple planning a …" descriptor by hand',
   );
 });
+
 
 // ── 3b · THE HOLDING EXPOSURE ─────────────────────────────────────────────
 

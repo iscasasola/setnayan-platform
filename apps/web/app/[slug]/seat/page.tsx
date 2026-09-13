@@ -4,6 +4,7 @@ import type { RoomLink } from '../_lib/room-links';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
+import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -22,6 +23,7 @@ import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
+import { GuestPushPrompt } from './_components/guest-push-prompt';
 
 export const metadata = { title: 'Your seat pass' };
 
@@ -469,6 +471,8 @@ async function PersonalPass({
           arrived={arrived}
         />
 
+        <GuestPushPrompt />
+
         <header className="space-y-2 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
             Your seat pass
@@ -579,7 +583,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -690,11 +694,17 @@ function SeatPassShell({
   slug,
   eventDate,
   roomLinks,
+  avatarHref = null,
   children,
 }: {
   displayName: string;
   slug: string;
   eventDate: string | null;
+  /** THE SECOND DOOR into the avatar maker (owner 2026-09-06). The venue page's
+   *  header link was the only one; a guest who opens their seat pass and never
+   *  the 3D room never learned they could make an avatar. Null → no link (the
+   *  flag is off, or this state has no seated guest to make one for). */
+  avatarHref?: string | null;
   /** REQUIRED on purpose: an optional prop here would let a branch ship without
    *  a way out, which is the exact defect this closes. */
   roomLinks: RoomLink[];
@@ -723,6 +733,13 @@ function SeatPassShell({
         <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
         <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
       </footer>
+      {avatarHref ? (
+        <p className="px-4 pb-4 text-center text-sm">
+          <Link href={avatarHref} className="text-ink/60 underline-offset-2 hover:text-ink hover:underline">
+            Make your avatar for the 3D room →
+          </Link>
+        </p>
+      ) : null}
       <RoomFooter links={roomLinks} />
     </main>
   );

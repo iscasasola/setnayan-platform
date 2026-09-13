@@ -44,6 +44,7 @@ import {
   type WeddingFolder,
   type WeddingTile,
 } from '@/lib/taxonomy';
+import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 
 export type PlanGroupId =
   // A wake's own sections (2026-08-27) — see the three groups at the end of
@@ -219,7 +220,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'ceremony_venue',
     label: 'Ceremony venue',
-    hint: 'Where you say I do — book early, the best places fill 12 months out.',
+    hint: "The aisle, the altar, the light through the windows. The best places fill 12 months out, so start here.",
     tier: 'foundation',
     // 'venue' deliberately NOT here — it lives in reception_venue so a
     // saved hotel/garden doesn't surface in both cards. Combined-venue
@@ -233,7 +234,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'reception_venue',
     label: 'Reception venue',
-    hint: 'Where you celebrate after. Same place as ceremony? Add it under both.',
+    hint: "Where the toasts land and the dancing starts. Same place as the ceremony? Add it under both.",
     tier: 'foundation',
     categories: ['venue'],
     monthsBefore: 12,
@@ -243,7 +244,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'coordinator',
     label: 'Wedding coordinator',
-    hint: 'Your day-of conductor. Top coordinators book 9-12 months out.',
+    hint: "The person who knows where everyone should be, so you never check the time. Top coordinators book 9-12 months out.",
     tier: 'foundation',
     categories: ['planner_coordinator'],
     monthsBefore: 12,
@@ -256,7 +257,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'officiant',
     label: 'Officiant',
-    hint: 'Priest, pastor, or judge. Civil ceremonies need them booked early too.',
+    hint: "The voice that pronounces you married — priest, pastor, or judge. Civil ceremonies need them booked early too.",
     tier: 'big_bookings',
     categories: ['officiant'],
     monthsBefore: 9,
@@ -267,7 +268,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'catering',
     label: 'Catering',
-    hint: 'Food + service. Tastings happen 4-6 months out; book the team earlier.',
+    hint: "The moment guests stop talking because the food arrived. Tastings happen 4-6 months out; book the team earlier.",
     tier: 'big_bookings',
     categories: ['catering'],
     monthsBefore: 9,
@@ -278,7 +279,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'crew_meals',
     label: 'Crew Meals',
-    hint: "Feed your suppliers' crews on the day — usually 15-25 people across your vendors. A kitchen near your venue caters them for far less than your main caterer's per-head. Book close to the day.",
+    hint: "A fed crew works harder — usually 15-25 people across your suppliers. A nearby kitchen costs far less per head than your caterer. Book close to the day.",
     tier: 'extras',
     categories: ['crew_meals'],
     monthsBefore: 1,
@@ -289,7 +290,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'photography',
     label: 'Photography & Video',
-    hint: 'Photo + video team for the day. Often booked together.',
+    hint: "Every glance you were too busy to notice, kept. Photo and video teams are often booked together.",
     tier: 'big_bookings',
     categories: ['photographer', 'videographer'],
     monthsBefore: 9,
@@ -299,7 +300,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'attire',
     label: 'Attire',
-    hint: 'Gown, suit, and the rings. Designers need fitting time.',
+    hint: "Gown, suit, and the rings — the things you'll be looking at in the photos for decades. Designers need fitting time.",
     tier: 'big_bookings',
     // 'rings' moved to its own card in 22-card grid expansion (2026-05-22);
     // attire now owns gown + suit + designers only.
@@ -310,7 +311,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'hair_makeup',
     label: 'Hair & Makeup',
-    hint: 'Bridal + entourage glam. Trials happen 1-2 months before the day.',
+    hint: "You, the entourage, and the mirror moment before the doors open. Trials happen 1-2 months before the day.",
     tier: 'big_bookings',
     categories: ['makeup_artist', 'hair_stylist'],
     monthsBefore: 6,
@@ -321,7 +322,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'wellness_fitness',
     label: 'Wellness & fitness',
-    hint: 'Spa, gym, derma, dental, nutrition — the months-out glow-up before the fittings.',
+    hint: "Spa, gym, derma, dental, nutrition — the months-out work that quietly shows up at every fitting.",
     tier: 'big_bookings',
     categories: ['wellness_fitness'],
     monthsBefore: 6,
@@ -333,7 +334,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'florals_decor',
     label: 'Florals & Decor',
-    hint: 'Bouquets, aisle, reception styling. Pin colors first, then book.',
+    hint: "The bouquet in your hands, petals down the aisle, the tables dressed. Pin your colors first, then book.",
     tier: 'style_program',
     categories: ['florist', 'reception_decor'],
     monthsBefore: 6,
@@ -352,7 +353,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // florals_decor (countsTowardLockable: false).
     id: 'stylist',
     label: 'Stylist',
-    hint: 'Stylist umbrella — coordinates florals + decor + signage + tablescapes to your mood board.',
+    hint: "One eye over florals, decor, signage and tablescapes, so the whole room matches the mood board in your head.",
     tier: 'style_program',
     categories: [],
     monthsBefore: 6,
@@ -364,7 +365,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'live_band',
     label: 'Live band',
-    hint: 'Sets the energy of your reception. Top bands book 6-9 months ahead.',
+    hint: "The first song that pulls your titas onto the floor. Top bands book 6-9 months ahead.",
     tier: 'style_program',
     // Entry-point card — picks bucket under music_entertainment.
     categories: [],
@@ -380,7 +381,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // + music" → "Band / DJ / Performer". The card already covers
     // band_dj + string_quartet + choir; label now matches the breadth.
     label: 'Band / DJ / Performer',
-    hint: 'Band, DJ, string quartet, choir, acoustic duo — whichever performer carries your program.',
+    hint: "Band, DJ, string quartet, choir, acoustic duo — whoever gives your program its heartbeat.",
     tier: 'style_program',
     // host_emcee broken out to its own card in 22-card grid expansion
     // (2026-05-22). Mobile bar moved to cocktail_booths. Photobooth
@@ -400,7 +401,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // yet · uses entry-point pattern (countsTowardLockable: false).
     id: 'dance_instructor',
     label: 'Dance instructor',
-    hint: 'First dance + parents-and-couple dance + entourage choreography. Lessons run 2-3 months before the day.',
+    hint: "The first dance, the parents' dance, the entourage number everyone films. Lessons run 2-3 months before the day.",
     tier: 'style_program',
     categories: [],
     monthsBefore: 4,
@@ -422,7 +423,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // vendor_profiles.services narrows to `dj` only).
     id: 'after_party_music',
     label: 'After-party DJ',
-    hint: 'Late-night dance floor DJ for the after-party block. Lock 4-6 weeks pre-wedding once the reception program is set.',
+    hint: "For everyone who refuses to go home — the late-night DJ. Lock 4-6 weeks out once the reception program is set.",
     tier: 'style_program',
     // Entry-point pattern (empty categories) · mirrors live_band +
     // dance_instructor. Picks locked via this wizard card write
@@ -442,7 +443,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'host_mc',
     label: 'Host / MC',
-    hint: 'Carries the program from cocktail hour through send-off. Book 4-6 months out.',
+    hint: "The voice that keeps cocktail hour, the toasts and the send-off moving without a lull. Book 4-6 months out.",
     tier: 'style_program',
     categories: ['host_emcee'],
     monthsBefore: 5,
@@ -453,7 +454,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'lights_sound',
     label: 'Lights & Sound',
-    hint: 'Reception PA + lights setup. Confirm the venue power supply.',
+    hint: "The PA that carries every toast and the lights that turn a hall into a party. Confirm the venue's power supply.",
     tier: 'style_program',
     categories: ['lights_and_sound'],
     monthsBefore: 5,
@@ -464,7 +465,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'led_background',
     label: 'LED Background',
-    hint: 'Brings your monogram + theme to the stage. Your LED rental vendor supplies and plays the content.',
+    hint: "Your monogram and theme, glowing behind the stage. The LED supplier brings the wall and plays the content.",
     tier: 'style_program',
     categories: ['led_screens'],
     monthsBefore: 3,
@@ -481,7 +482,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'cocktail_booths',
     label: 'Cocktail Booths',
-    hint: 'Mobile bar, coffee, tea, cocktail station — the social glue of cocktail hour.',
+    hint: "Mobile bar, coffee, tea, a cocktail station — where guests linger, laugh, and find their tablemates before dinner.",
     tier: 'extras',
     categories: ['mobile_bar'],
     monthsBefore: 4,
@@ -492,7 +493,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'guest_booth',
     label: 'Guest booths & activities',
-    hint: 'Henna, nail bar, arcade, tarot, caricature, massage chairs — the things guests queue up for.',
+    hint: "Henna, nail bar, arcade, tarot, caricature, massage chairs — the corners guests happily queue for and talk about after.",
     tier: 'extras',
     categories: ['guest_booth'],
     monthsBefore: 3,
@@ -501,7 +502,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'photobooth',
     label: 'Photobooth',
-    hint: 'Classic, mirror, 360, slow-mo, polaroid — pick the style that fits your vibe.',
+    hint: "Classic, mirror, 360, slow-mo, polaroid — the strip guests stick on the fridge. Pick the style that fits your vibe.",
     tier: 'extras',
     categories: ['photobooth'],
     monthsBefore: 3,
@@ -512,7 +513,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'cake',
     label: 'Cake',
-    hint: 'Tastings 3-4 months out. Order locks 1 month before.',
+    hint: "The one dessert everyone photographs before anyone cuts it. Tastings 3-4 months out; the order locks 1 month before.",
     tier: 'extras',
     categories: ['cake_maker'],
     monthsBefore: 4,
@@ -523,7 +524,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'bridal_car',
     label: 'Bridal Car',
-    hint: 'Your wedding-day arrival vehicle. Vintage, luxury, or classic.',
+    hint: "The door opens, the hem follows, and everyone turns. Vintage, luxury, or classic — your arrival on the day.",
     tier: 'extras',
     // 2026-05-24 fix · PLAN_GROUPS.bridal_car.categories was empty until
     // this PR, causing every 'transportation' pick (e.g., bridal-car-card.tsx
@@ -547,7 +548,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'guest_shuttle',
     label: 'Guest Shuttle',
-    hint: 'Keeps far-venue guests stress-free. Book once you have an approximate headcount.',
+    hint: "Nobody hunting for parking or a ride home from a far venue. Book once you have an approximate headcount.",
     tier: 'extras',
     // Entry-point card — picks bucket under logistics.
     categories: [],
@@ -560,7 +561,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'rings',
     label: 'Rings',
-    hint: 'Most-photographed object of your wedding. Custom takes 6-8 weeks.',
+    hint: "The most-photographed object of the whole day, and the one you keep wearing after. Custom takes 6-8 weeks.",
     tier: 'extras',
     categories: ['rings'],
     monthsBefore: 3,
@@ -583,7 +584,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // shapes the day. Folder = planning_logistics_travel because hotels +
     // venue-affiliated room blocks live alongside transportation and
     // travel logistics.
-    hint: 'Where you and your wedding party rest the night before. Sometimes bundled with your reception hotel package — book 1-2 months out before room blocks fill.',
+    hint: "A quiet room the night before, for you and your party. Sometimes bundled with your reception hotel — book 1-2 months out before room blocks fill.",
     tier: 'extras',
     categories: ['accommodation'],
     monthsBefore: 2,
@@ -596,7 +597,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'invitations_stationery',
     label: 'Invitations & Stationery',
-    hint: 'Save-the-dates, invites, monogram, table cards, menus.',
+    hint: "Save-the-dates, invites, monogram, table cards, menus — the first thing guests hold, and the last thing they keep.",
     tier: 'paper',
     categories: ['invitations_stationery'],
     monthsBefore: 4,
@@ -628,7 +629,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // both tiles are `['wedding']`.
     id: 'wedding_paperwork',
     label: 'Marriage papers',
-    hint: 'Someone to run the licence, CENOMAR and the DFA paperwork for you. The licence is only valid 120 days — start about 4 months out.',
+    hint: "Someone else queues for the licence, CENOMAR and DFA papers. The licence is only valid 120 days — start about 4 months out.",
     tier: 'paper',
     categories: ['wedding_paperwork'],
     monthsBefore: 4,
@@ -638,7 +639,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'travel_honeymoon',
     label: 'Honeymoon',
-    hint: 'A planner for the trip after — flights, the resort, the itinerary. Book once the wedding date is fixed.',
+    hint: "The trip where nobody asks you about seating charts — flights, the resort, the itinerary planned. Book once the wedding date is fixed.",
     tier: 'extras',
     categories: ['travel_honeymoon'],
     monthsBefore: 3,
@@ -648,7 +649,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'logistics',
     label: 'Logistics & Misc',
-    hint: 'Transportation, security, giveaways, and the rest.',
+    hint: "Transportation, security, giveaways, and the rest — the quiet things that make a day feel effortless.",
     tier: 'paper',
     categories: [
       'transportation',
@@ -679,7 +680,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'farewell_home',
     label: 'Funeral home',
-    hint: 'The chapel or home wake, the casket, the preparation, the hearse.',
+    hint: "The chapel or home wake, the casket, the preparation, the hearse. They carry the arrangements, so the family can simply be together.",
     tier: 'foundation',
     categories: ['funeral_home'],
     monthsBefore: 0,
@@ -690,7 +691,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'farewell_cremation',
     label: 'Cremation',
-    hint: 'The crematorium, and a niche if the family wants one.',
+    hint: "The crematorium, and a niche if the family wants one. There is no rush on the niche; many families decide later.",
     tier: 'foundation',
     categories: ['cremation'],
     monthsBefore: 0,
@@ -701,7 +702,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'farewell_memorial_park',
     label: 'Memorial park',
-    hint: 'The lot or mausoleum, and the interment itself.',
+    hint: "The lot or mausoleum, and the interment itself — a place the family can return to, for as long as they need.",
     tier: 'foundation',
     categories: ['memorial_park'],
     monthsBefore: 0,
@@ -930,8 +931,16 @@ export type PlanCardPick = {
   total_cost_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
+  // 🚪 NO `contact_email` / `contact_phone` HERE, ON PURPOSE (2026-09-10).
+  // Nothing that reads a pick ever used them, and this type is serialized into
+  // the couple's Vendors page as a CLIENT prop (`PlanBudgetAccordion`'s
+  // `model`) — so every supplier row's email and phone rode along in the page
+  // payload. On a package-locked marketplace row those are the SHOP's own
+  // details, copied in by the lock. Owner 2026-09-10: "our goal is to let them
+  // integrate their event with the vendor they find. not to let them
+  // communicate outside the app". `bucketVendorsByGroup` no longer copies them
+  // across; the optional input fields below are left for callers that pass raw
+  // rows, and are never forwarded.
   /**
    * DIY parity (2026-06-11): host-authored "what's included" lines for a
    * manual vendor's package. Flows to Compare's expandable inclusions. Absent
@@ -947,6 +956,24 @@ export type PlanCardPick = {
    * source_venue_directory_id — we can't check what we don't know).
    */
   compatibility_issue: PlanCardCompatibilityIssue | null;
+  /**
+   * Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
+   * it."): TRUE when this booked pick is off-platform and could still be sent
+   * the Setnayan claim link (the same `canInviteSupplier` gate the per-vendor
+   * workspace page's invite CTA already uses — see
+   * lib/supplier-invite-eligibility.ts). Computed once here, at pick-build
+   * time, from the real `marketplace_vendor_id` column, so every render
+   * consumer reads ONE answer instead of re-deriving the account fact from a
+   * proxy (a missing photo, a null business name) that can't actually
+   * distinguish "no account" from "just no join yet".
+   *
+   * Card consumers gate their own invite affordance on `locked &&
+   * needs_setnayan_invite` — this field alone does not imply the booking is
+   * real enough to bother (an unlocked/considering pick can be off-platform
+   * too); that status AND is deliberately left to each surface, mirroring the
+   * workspace page's own `canOfferInvite`.
+   */
+  needs_setnayan_invite: boolean;
   /**
    * Finalized-vendor-photo-card (2026-05-22, owner directive).
    *
@@ -978,7 +1005,7 @@ export type PlanCardPick = {
   /**
    * 2026-05-22 owner directive — manual vendor photo URL takes PRIORITY 1
    * when the host attached a manual contact. Photo source is
-   * `event_manual_vendors.photo_r2_key` → r2PublicUrl(). NULL on
+   * `event_manual_vendors.photo_r2_key` → publicUrlForStoredAsset(). NULL on
    * marketplace picks (no manual_vendor link) and on manual picks
    * where the host skipped the photo upload. Falls through to
    * service_primary_photo_url → marketplace_logo_url → initials.
@@ -1121,7 +1148,7 @@ export type EventVendorRowInput = {
   /**
    * Resolved public URL for the linked manual vendor's photo (when
    * the host uploaded one at create-time). Source path is
-   * `event_manual_vendors.photo_r2_key` → `r2PublicUrl()` in the
+   * `event_manual_vendors.photo_r2_key` → `publicUrlForStoredAsset()` in the
    * dashboard page.tsx data fetch (NOT a raw R2 key, so consumers can
    * hand it straight to next/image). NULL when no photo OR when the
    * row is not manual-vendor-linked.
@@ -1149,7 +1176,7 @@ export type EventVendorRowInput = {
   /**
    * Finalized-card-service-photo refinement (2026-05-22, follow-up on PR
    * #341). Public URL for `vendor_services.primary_photo_r2_key` —
-   * resolved via `r2PublicUrl()` in the dashboard page.tsx data fetch
+   * resolved via `publicUrlForStoredAsset()` in the dashboard page.tsx data fetch
    * (NOT a raw R2 key, so consumers can hand it straight to next/image).
    *
    * Priority 1 on the locked-state avatars. `null` when (a) the
@@ -1342,14 +1369,13 @@ export function bucketVendorsByGroup(
       total_cost_php: toNum(v.total_cost_php ?? null),
       deposit_paid_php: toNum(v.deposit_paid_php ?? null),
       notes: v.notes ?? null,
-      contact_email: v.contact_email ?? null,
-      contact_phone: v.contact_phone ?? null,
       host_inclusions: v.host_inclusions ?? null,
       compatibility_issue: computeCompatibilityIssue(
         v,
         eventCeremonyType,
         eventVenueSetting,
       ),
+      needs_setnayan_invite: canInviteSupplier(v),
       marketplace_logo_url: v.marketplace_logo_url ?? null,
       marketplace_business_name: v.marketplace_business_name ?? null,
       marketplace_city: v.marketplace_city ?? null,

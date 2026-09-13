@@ -69,6 +69,8 @@ import {
   type AccordionChild,
   type AccordionPick,
 } from '@/lib/vendors-plan-budget';
+import { shopInitials } from '@/lib/shop-initials';
+import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -81,11 +83,9 @@ function isLocked(pick: AccordionPick): boolean {
   return pick.raw_status !== null && LOCKED.has(pick.raw_status);
 }
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). */
 function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return shopInitials(name);
 }
 
 // ── In-app Setnayan services, mapped into the category pile ───────────────
@@ -594,6 +594,10 @@ html.dark .pbacc .lockhint{background:rgba(169,131,75,.14)}
 .pbacc .review-done{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#2f6f4e;background:rgba(47,111,78,.08);border-radius: var(--m-r-sm);padding:7px 9px}
 html.dark .pbacc .review-cta{background:rgba(149,53,83,.16)}
 html.dark .pbacc .review-cta:hover,.pbacc .review-cta:focus{background:rgba(149,53,83,.24)}
+.pbacc .invite-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--gold-deep);background:rgba(169,131,75,.12);border-radius: var(--m-r-sm);padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
+.pbacc .invite-cta:hover,.pbacc .invite-cta:focus{background:rgba(169,131,75,.2)}
+html.dark .pbacc .invite-cta{background:rgba(169,131,75,.2)}
+html.dark .pbacc .invite-cta:hover,.pbacc .invite-cta:focus{background:rgba(169,131,75,.28)}
 
 /* ---- In-app Setnayan service cards (nested, supplementary, float-to-top) ----
    Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
@@ -1613,7 +1617,7 @@ function VendorCardAtom({
             </div>
           )}
 
-          {stars && (
+          {stars ? (
             <div className="stars" aria-label={`${rating} stars`}>
               {stars}
               <span style={{ color: 'rgba(30,26,18,.18)' }}>{starsEmpty}</span>
@@ -1621,7 +1625,13 @@ function VendorCardAtom({
                 <span className="rcount">{reviewCount}</span>
               )}
             </div>
-          )}
+          ) : reviewCount !== null ? (
+            // 0 reviews on a real marketplace pick — "New", never a fake
+            // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a
+            // known number for a marketplace-linked vendor, so this never
+            // fires for an off-platform / manual pick.
+            <div className="stars">{NEW_TO_SETNAYAN_LABEL}</div>
+          ) : null}
 
           {(verified || setnayan || recommendedReason) && (
             <div className="badges">
@@ -1752,6 +1762,26 @@ function VendorCardAtom({
       {/* Locked → "↩ Change pick" reverts to considering (re-expands the rail). */}
       {locked && (
         <ChangePickButton eventId={eventId} vendorId={pick.vendor_id} />
+      )}
+
+      {/* Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so
+          promote it."). Booked suppliers can already be invited onto
+          Setnayan from their own workspace page — `needs_setnayan_invite`
+          (lib/wedding-plan-groups.ts, via the shared `canInviteSupplier`
+          gate) is TRUE exactly when this locked pick has no linked account
+          yet. Before this, that CTA only surfaced if the couple happened to
+          open the vendor's workspace page; 44 of 45 booked suppliers in prod
+          never got invited this way (DECISION_LOG.md 2026-08-30). This is a
+          LINK, not a duplicate write path — it sends the couple to the exact
+          section (#invite-vendor) that already does the invite. */}
+      {locked && pick.needs_setnayan_invite && (
+        <Link
+          href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace#invite-vendor`}
+          className="invite-cta"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Not on Setnayan yet — invite them
+        </Link>
       )}
 
       {/* Review badge — reviewStatus is set by the server fetch in
@@ -2080,8 +2110,14 @@ function CompareSheet({
                 <th>Reviews</th>
                 {vendors.map((v) => (
                   <td key={v.id}>
-                    {v.rating !== null ? `★ ${v.rating}` : '—'}
-                    {v.reviewCount !== null ? ` · ${v.reviewCount} reviews` : ''}
+                    {v.rating !== null
+                      ? `★ ${v.rating}`
+                      : v.reviewCount !== null
+                        ? NEW_TO_SETNAYAN_LABEL
+                        : '—'}
+                    {v.rating !== null && v.reviewCount !== null
+                      ? ` · ${v.reviewCount} reviews`
+                      : ''}
                     {v.rating !== null &&
                       v.rating === maxRating &&
                       ratings.length > 1 && (

@@ -22,12 +22,17 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { storyAudienceAdmits } from '@/lib/who-can-see-your-story';
+import { printedStampLine } from '@/lib/a-withdrawal-reaches-every-copy';
+import { readStoryVersionAt } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventWordsFor } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
@@ -44,8 +49,19 @@ import {
 } from '../_components/editorial/data';
 import { composeCopy, type ComposedCopy } from '../_components/editorial/compose';
 import { KEEPSAKE_CSS } from './keepsake.css';
+import { KEEPSAKE_A4_CSS } from './keepsake-a4.css';
 import { PrintSheet } from './print-sheet';
+import { A4Sheet } from './a4-sheet';
 import { PrintToolbar } from './print-toolbar';
+
+/** The two printable formats this route serves. `?format=a4` selects the
+ *  one-minute-per-page booklet; anything else (including no param) is the
+ *  A3 broadsheet, unchanged from before this format switch existed. */
+type PrintFormat = 'a3' | 'a4';
+
+function resolveFormat(raw: string | string[] | undefined): PrintFormat {
+  return (Array.isArray(raw) ? raw[0] : raw) === 'a4' ? 'a4' : 'a3';
+}
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -73,10 +89,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function EditorialPrintPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ format?: string | string[] }>;
 }) {
   const { slug } = await params;
+  const format = resolveFormat((await searchParams).format);
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEvent(slug);
@@ -85,6 +104,13 @@ export default async function EditorialPrintPage({
   // Iteration 0053: the editorial is the 'website' surface — non-website event
   // types don't have one (config-driven), matching the editorial page.
   if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // Resolved early (depends only on event_type, not on the gated editorial
+  // data below) so both the "not ready yet" stand-in and the finished sheet
+  // apply the SAME solemn-quiet class — one signal, reused everywhere on this
+  // route, never a second "is this event solemn" check.
+  const words = await eventWordsFor(event.event_type);
+  const rootClassName = `keepsake-root${words.solemn ? ' k-solemn' : ''}`;
 
   // (1) Visibility gate — IDENTICAL to the editorial (canViewSlugEvent): a
   // private (pre-launch) page never leaks through this URL to a stranger; a
@@ -181,13 +207,38 @@ export default async function EditorialPrintPage({
     redirect(`/${slug}`);
   }
 
+  /*
+    (3b) THE LAYER FENCE — the same second question the screen asks, for the same
+    reason this route asks the first one: it takes the loader directly, so gating
+    only `EditorialContent` would make the printable keepsake the way around it.
+    A guest layer withheld on screen and printed onto an A3 sheet is the worse
+    leak of the two, because paper does not revalidate.
+  */
+  if (data) data = redactStoryLayers(data, printViewer);
+
+  /*
+    (3c) THE MOMENTS THE HOST ARRANGED BY HAND (step 7 of
+    `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) — reused by BOTH formats below,
+    never a second renderer. `loadStoryPages` is the one door (step 3's
+    `loadStoryArrangement`, applying S3's guest layer and S14's consent veto)
+    — this route never reads the arrangement any other way, same as the
+    public page (`the-public-story-reads-the-arrangement-once.test.ts`).
+    Empty for a story in Automatic, so an unarranged keepsake prints exactly
+    as before this step.
+  */
+  const sheets: DrawnSheet[] = data
+    ? await loadStoryPages(createAdminClient(), event.event_id, printViewer, (key) =>
+        displayUrlForStoredAsset(key),
+      ).catch(() => [])
+    : [];
+
   if (!data) {
     return (
       <main
-        className="keepsake-root"
+        className={rootClassName}
         style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
+        <style dangerouslySetInnerHTML={{ __html: format === 'a4' ? KEEPSAKE_A4_CSS : KEEPSAKE_CSS }} />
         <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', color: '#e7e2d6', fontSize: 18 }}>
           This keepsake isn&rsquo;t ready to print yet.
         </p>
@@ -249,18 +300,52 @@ export default async function EditorialPrintPage({
     qrSvg = '';
   }
 
+  /*
+    ══ THE VERSION STAMP ON PAPER (`07` Q6, ruled 2026-09-09 · 08 step 4.1) ═══
+
+    Read HERE, and deliberately not threaded through `loadEditorialData`. This is
+    a fact about the printed ARTEFACT — when was this sheet true — not a part of
+    the story's content, and every other reader of `EditorialData` would have had
+    to carry a field it has no use for.
+
+    ⚠ NO VERSION ⇒ NO STAMP, never today's date. `readStoryVersionAt` answers
+    `null` for a refused read AND for a thrown one, `printedStampLine` returns
+    null for that, and the colophon prints nothing. A copy we cannot date is
+    exactly the copy printed before this shipped; stamping it with today would
+    be the lie the whole feature exists to avoid.
+  */
+  const stampLine = printedStampLine(
+    await readStoryVersionAt(event.event_id),
+    typeof event.timezone === 'string' ? event.timezone : null,
+  );
+
   return (
-    <main className="keepsake-root">
-      <style dangerouslySetInnerHTML={{ __html: KEEPSAKE_CSS }} />
-      <PrintToolbar backHref={`/${event.slug ?? slug}`} />
-      <PrintSheet
-        data={data}
-        words={await eventWordsFor(event.event_type)}
-        copy={copy}
-        mono={mono}
-        qrSvg={qrSvg}
-        hideWatermark={hideWatermark}
-      />
+    <main className={rootClassName}>
+      <style dangerouslySetInnerHTML={{ __html: format === 'a4' ? KEEPSAKE_A4_CSS : KEEPSAKE_CSS }} />
+      <PrintToolbar backHref={`/${event.slug ?? slug}`} format={format} />
+      {format === 'a4' ? (
+        <A4Sheet
+          data={data}
+          words={words}
+          copy={copy}
+          mono={mono}
+          qrSvg={qrSvg}
+          hideWatermark={hideWatermark}
+          stampLine={stampLine}
+          sheets={sheets}
+        />
+      ) : (
+        <PrintSheet
+          data={data}
+          words={words}
+          copy={copy}
+          mono={mono}
+          qrSvg={qrSvg}
+          hideWatermark={hideWatermark}
+          stampLine={stampLine}
+          sheets={sheets}
+        />
+      )}
     </main>
   );
 }

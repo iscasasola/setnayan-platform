@@ -20,7 +20,11 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
-import { isDependentId, resolveHonoreeDependentId } from '@/lib/honoree-dependent-link';
+import {
+  eventTypeAcceptsHonoreeLink,
+  isDependentId,
+  resolveHonoreeDependentId,
+} from '@/lib/honoree-dependent-link';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -63,6 +67,10 @@ type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 // 20261120000000) accepts the same set. muslim/cultural tradition sub-type
 // is collected + validated by this form already.
 const ALLOWED_CEREMONIES = ALLOWED_CEREMONY_VALUES;
+// RECEPTION venues only. `civil_registrar` left this list on 2026-09-03 when it
+// moved to the ceremony side (migration 20271197508087) — the DB CHECK no longer
+// accepts it here, so leaving it would let this form accept a value the write
+// then rejects.
 const ALLOWED_VENUES = [
   'banquet_hall',
   'restaurant',
@@ -71,7 +79,6 @@ const ALLOWED_VENUES = [
   'destination',
   'heritage',
   'outdoor_tent',
-  'civil_registrar',
 ] as const;
 // Secondary (mixed-wedding) pick — derived from lib/faith-registry like the
 // primary list above: any registry faith or civil, never 'mixed'. Without this
@@ -251,8 +258,16 @@ export async function createWeddingEvent(formData: FormData) {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 80);
+  // WIDENED 2026-08-31: also the two BUSINESS-subject types (corporate ·
+  // gala_night). `isGatedLifeType` was doing double duty here — it is the CAP's
+  // vocabulary, and it was also, by accident, the gate on whether an event could
+  // say who it is for at all. So a corporate event thrown BY a company had no
+  // way to name that company. `eventTypeAcceptsHonoreeLink` separates the two;
+  // the cap itself (`blocksLifeEventCreation`) still keys on `isGatedLifeType`
+  // and is untouched, so a company may still hold twelve gala nights in
+  // planning. A WEDDING is in neither list and still cannot name a subject.
   const honoree_label =
-    isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+    eventTypeAcceptsHonoreeLink(event_type) && honoree_label_raw ? honoree_label_raw : null;
   // …and WHICH alaga that name belongs to, when the who step named one. This is
   // the STRONGER half of the cardinality key (lib/life-event-gate.ts): a link to
   // a record survives renaming the alaga, and two alaga with the same first name
@@ -266,7 +281,7 @@ export async function createWeddingEvent(formData: FormData) {
   // extra round-trip, and no new place for this action to throw.
   const honoree_dependent_id_raw = formData.get('honoree_dependent_id');
   const honoree_dependent_id =
-    isGatedLifeType(event_type) && isDependentId(honoree_dependent_id_raw)
+    eventTypeAcceptsHonoreeLink(event_type) && isDependentId(honoree_dependent_id_raw)
       ? await resolveHonoreeDependentId(createAdminClient(), {
           userId: user.id,
           dependentId: honoree_dependent_id_raw,
@@ -469,7 +484,7 @@ export async function createWeddingEvent(formData: FormData) {
   // ON free for every new event, so the metering fence must exist from the moment
   // the event does — an event with no grant takes papic_event_pool_status()'s
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does
@@ -680,7 +695,7 @@ export async function planNextYearEvent(formData: FormData) {
   // next-year clone is a brand-new event row with its own pool — grants are never
   // copied by buildNextYearClonePayload, so without this the clone would be the
   // one unmetered event in the account. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does

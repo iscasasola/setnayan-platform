@@ -1,0 +1,52 @@
+# Files that hold a second vendor-category→label definition, or humanise a
+# category slug inline instead of calling `displayServiceLabel`.
+#
+# A DEBT, NOT A DECISION. This list may only SHRINK: a NEW offender fails
+# `one-word-per-category.test.ts`, and an entry whose file stops offending must
+# be deleted here in the same change — a stale entry silently re-permits the
+# pattern the day that file offends again, which is how the deleted
+# `CATEGORY_LABELS` map went 24 categories out of date without failing anything.
+#
+# Measured by source sweep 2026-09-08 (8 files). Each line has a reason.
+#
+# ── SECOND MAPS ────────────────────────────────────────────────────────────
+# A tile is not a category, and a plan group is not a category — but their keys
+# collide with category names, so the scan cannot tell them apart from a regex.
+#
+# lib/taxonomy.ts — WEDDING_TILE_LABEL is keyed by TILE. 26 of its keys ARE
+#   literal vendor_category values, and `labelForVendorCategory` deliberately
+#   PREFERS it over the canonical map, so its casing wins on the surfaces that
+#   route through it ("Mobile Bar" vs the canonical "Mobile bar"). Reconciling
+#   that is an owner-visible copy decision, not a refactor. ⚠ REAL DIVERGENCE.
+lib/taxonomy.ts
+# lib/todays-one-thing.ts — Record<PlanGroupId, string> of CTA SENTENCES
+#   ("Browse caterers", "Lock your caterer"), not names for a category. The keys
+#   collide because a plan group is often named after its category.
+lib/todays-one-thing.ts
+#
+# ── PRIVATE HUMANISERS ─────────────────────────────────────────────────────
+# Each turns `band_dj` into "band dj" / "Band dj" where the shared map says
+# "Band / DJ". Left in place because each needs its own judgement, not because
+# any of them is right.
+#
+# app/[slug]/_components/editorial/editorial-content.tsx — PUBLIC wedding page.
+#   Strips underscores without capitalising, and a sibling render is fully raw
+#   under CSS `uppercase`, so a couple's own page can read "BAND_DJ".
+app/[slug]/_components/editorial/editorial-content.tsx
+# app/[slug]/print/keepsake-layout.ts — an exported byte-identical twin of the
+#   editorial humaniser. Printed keepsake; changing it changes a PDF layout.
+app/[slug]/print/keepsake-layout.ts
+# app/_components/plan3d/booth-vendor-card.tsx — sentence-cases the first letter
+#   only ("Band dj"). Feeds a 3D booth card whose sign silently truncates at 22
+#   chars, so a longer resolved label would clip.
+app/_components/plan3d/booth-vendor-card.tsx
+# lib/price-position.ts — exported humaniser whose own docblock calls itself the
+#   "Friendly category label"; two live consumers.
+lib/price-position.ts
+# lib/vendor-category-progress.ts — its output is STORED as the public `label`
+#   field of VendorCategoryProgress, so a change alters written rows, not just a
+#   render. Needs a migration conversation, not an import swap.
+lib/vendor-category-progress.ts
+# lib/vendor-schedule.ts — `humanizeCategory` also serves `pool_label`, which is
+#   free text, so it cannot simply become `displayServiceLabel` at every site.
+lib/vendor-schedule.ts

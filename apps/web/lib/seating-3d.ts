@@ -16,6 +16,7 @@
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { RolePalette } from '@/lib/mood-board';
+import { hashId } from '@/lib/figure-rig';
 // Shared projection API (contract v2 · Sync verdict 2026-07-16 · § 3). The
 // geometry authority is lib/seating.ts; this module holds thin 3D adapters and
 // RE-EXPORTS so plan3d/stage/dance/booth consumers keep compiling untouched.
@@ -181,6 +182,44 @@ export type Lab3DPalette = {
   table: string;
   accent: string;
   wall: string;
+  /**
+   * The couple's EXPLICIT room-dressing overrides, and only those. Both are
+   * OPTIONAL on purpose: absent means "they did not set one", and every
+   * consumer falls back to exactly what it rendered before these existed. That
+   * makes "no override changes nothing" structural rather than a promise
+   * somebody has to keep — `DEMO_PALETTES` and `resolvePalette` never set them.
+   *
+   * ⚠ DO NOT FILL THESE FROM `resolveRoomDressing`'s DERIVED VALUES. That
+   * helper also derives a colour when the couple set none, and it derives
+   * DIFFERENT slots than the scene renders: chairs from reception[2] where the
+   * room uses `wall` (reception[3]), and florals from raw reception[0] where
+   * the room uses a lightened mix of the accent. Filling these with derived
+   * values would silently restyle every existing room. Overrides only.
+   */
+  chairs?: string;
+  florals?: string;
+  /**
+   * THE FIFTH MAJOR COLOUR — `role_palette.reception[4]`, the slot
+   * `PALETTE_LIMITS.reception.slotLabels` calls **"Accent 2"**.
+   *
+   * Owner-locked 2026-09-03 ("themes must be 5 colors"), so all 2,600 seeded
+   * `moodboard_theme_templates` rows ship five. The room drew four of them —
+   * accent/table/floor/wall from reception[0..3] — and reception[4] reached
+   * NOTHING. A couple picked a fifth colour, saw it persist in the swatch
+   * strip, and the room never showed it. Same shape as the chairs/florals
+   * knobs above: saved, preserved, read by nobody.
+   *
+   * OPTIONAL for the same structural reason as those two: `PALETTE_LIMITS`
+   * still allows a 3-colour reception palette, and absent must keep meaning
+   * "they have no fifth colour", so every consumer falls back to exactly what
+   * it rendered before this existed. `resolvePalette([])` and `DEMO_PALETTES`
+   * never set it.
+   *
+   * ⚠ The same warning as `chairs`/`florals` applies, for the same reason: do
+   * NOT fill this from `resolveRoomDressing`. It is `reception[4]` verbatim or
+   * it is absent.
+   */
+  accent2?: string;
 };
 
 export type Vec2 = { x: number; z: number };
@@ -2038,6 +2077,10 @@ export function seatApproachPath(
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+/** Attire tints only. Must stay in lock-step with `MANNEQUIN_TINT_RE`
+ *  (lib/figure-sit-bake.ts) — anything this accepts, that must render. */
+const GUEST_ATTIRE_HEX = /^#[0-9a-f]{6}$/i;
+
 /** Pick a usable scene palette from the mood-board hex list, with warm fallbacks. */
 export function resolvePalette(hexes: string[]): Lab3DPalette {
   const clean = hexes.filter((h) => typeof h === 'string' && HEX.test(h));
@@ -2048,13 +2091,19 @@ export function resolvePalette(hexes: string[]): Lab3DPalette {
     floor: at(2, '#e7e1d8'),
     wall: at(3, '#d8cfc2'),
     ambient: at(0, '#fbe9d8'),
+    // Fifth slot only when the list actually holds one — a 3/4-colour list
+    // must return exactly the object it always did. Every in-tree caller
+    // passes `[]`, so this changes nothing today; it is here so the two
+    // reception→materials paths cannot disagree about slot 4.
+    ...(clean[4] ? { accent2: clean[4] } : {}),
   };
 }
 
 /**
  * Map `events.role_palette` (the couple's mood-board palette) to scene materials.
  * Reception colors drive venue surfaces: [0]=accent/stage, [1]=table linen,
- * [2]=floor, [3]=backdrop wall. Falls back to resolvePalette([]) when unset.
+ * [2]=floor, [3]=backdrop wall, [4]=`accent2` (the fifth major, "Accent 2" —
+ * see the field doc). Falls back to resolvePalette([]) when unset.
  *
  * TAXONOMY v2: the couple's optional room-dressing OVERRIDES (linens/lighting)
  * are applied on top of the reception-derived surfaces — linen → the table
@@ -2072,6 +2121,10 @@ export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
           floor:   r[2] ?? '#e7e1d8',
           wall:    r[3] ?? '#d8cfc2',
           ambient: r[0] ?? '#fbe9d8',
+          // The FIFTH major (see `Lab3DPalette.accent2`). Spread-conditional,
+          // never `r[4] ?? something`: a board with three or four colours must
+          // return the exact object it returned before slot 4 was read at all.
+          ...(r[4] ? { accent2: r[4] } : {}),
         };
   const rd = rp.room_dressing;
   if (!rd) return base;
@@ -2079,7 +2132,80 @@ export function resolvePaletteFromRoles(rp: RolePalette): Lab3DPalette {
     ...base,
     table:   rd.linens ?? base.table,
     ambient: rd.lighting_warmth ?? base.ambient,
+    // The other two halves of the same editor. `linens` and `lighting_warmth`
+    // have always landed here; `chairs` and `florals` were saved by the palette
+    // editor, preserved by `sanitizeRolePalette`, and then read by NOTHING — a
+    // couple set a chair colour and a floral colour and the room never changed.
+    // Passed through only when the couple actually set one (see the type note).
+    ...(rd.chairs ? { chairs: rd.chairs } : {}),
+    ...(rd.florals ? { florals: rd.florals } : {}),
   };
+}
+
+/**
+ * The dress-code colour a seated stranger wears on the PUBLIC guest walk.
+ *
+ * ── OWNER 2026-09-02 ────────────────────────────────────────────────────────
+ * Supersedes the "NEUTRAL untinted mannequins" half of the 2026-06-26 venue
+ * privacy lock. That lock's PURPOSE — anonymised strangers — is untouched, and
+ * this function is why:
+ *
+ *   · the colour comes from the COUPLE's approved guest dress-code palette
+ *     (`role_palette.guest`, the 3–6 options PALETTE_LIMITS lets guests pick
+ *     from), never from anything about the person sitting there;
+ *   · it is keyed off the SEAT. Two different people in the same chair at two
+ *     events get the same colour; one person moved between chairs gets two.
+ *     Nothing about an individual is encoded or recoverable;
+ *   · the walk still never learns who anyone is — `public_venue_scene` sends
+ *     occupancy as `{table, seats}` with no identity, and that is unchanged.
+ *
+ * The lock's remaining half — no names beyond the RPC contract, no per-guest
+ * hair, no role or side tinting — STILL HOLDS. Do not key this off a guest id,
+ * a role, a side, or an RSVP status; that would re-open exactly what the lock
+ * was written to close.
+ *
+ * Mirrors what the 2D reception scene has always done with this same palette
+ * (`reception-scene.ts` → `guestPalette`, "guests render in a mix of them"), so
+ * the 3D walk stops being the one surface that ignores the couple's dress code.
+ *
+ * NO guest palette → `null` → the neutral white mannequin, byte-identical to
+ * the pre-2026-09-02 render. An event whose couple never set one is unchanged.
+ */
+export function guestAttireColor(
+  rp: RolePalette | null | undefined,
+  seatKey: string,
+): string | null {
+  // SIX-DIGIT ONLY — deliberately stricter than this module's shared `HEX`,
+  // which also accepts `#abc` and is load-bearing for the ROOM palettes above.
+  // Downstream, `MANNEQUIN_TINT_RE` in lib/figure-sit-bake.ts is 6-digit only:
+  // a 3-digit hex would be "chosen" here and then silently painted WHITE there,
+  // i.e. a colour the couple picked vanishing with no error. `sanitizeRolePalette`
+  // already stores 6-digit only, so this rejects nothing real — it closes the
+  // gap for a future caller that reaches this function without sanitizing.
+  const options = (rp?.guest ?? []).filter(
+    (h): h is string => typeof h === 'string' && GUEST_ATTIRE_HEX.test(h),
+  );
+  if (options.length === 0) return null;
+  // AVALANCHE BEFORE THE MODULO — Fibonacci hashing (Knuth 6.4).
+  //
+  // `hashId` is FNV-1a, whose final Math.imul never mixes high bits downward,
+  // so `% n` for a power-of-two `n` reads only the low log2(n) bits — and those
+  // barely change between consecutive seat keys. Measured: a 4-colour dress
+  // code (the most common size, `PALETTE_LIMITS.guest` allows 3–6) walked a
+  // table as `3 0 1 2 3 0 1 2 3 0`, so a round table read as a mechanical ABCD
+  // rotation instead of a crowd.
+  //
+  // ⚠ THE OBVIOUS FIX IS WRONG IN JAVASCRIPT. `(h ^ (h >>> 16)) % n` looks
+  // right and is broken: `^` yields a SIGNED int32, so the fold goes negative,
+  // `negative % n` is negative, `options[-1]` is undefined, and the colour
+  // silently disappears — measured spread 65/35/33/35 across 250 seats with
+  // colours simply missing. Multiply-and-shift keeps it unsigned by
+  // construction (`>>> 16`), which is why it is used here.
+  //
+  // Measured over 250 seats × 4 colours: 66/60/62/62 (ideal 62.5), sequence
+  // `2 1 3 2 0 0 1 1 2 2 1 1` — no cycle. Sizes 3/5/6 were already irregular.
+  const h = hashId(seatKey);
+  return options[(Math.imul(h, 2654435761) >>> 16) % options.length] ?? null;
 }
 
 /** A few demo palettes for the live "watch materials recolour" switcher. */

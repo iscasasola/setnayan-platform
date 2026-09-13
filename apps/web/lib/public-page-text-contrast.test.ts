@@ -54,8 +54,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', 'app');
 const CSS = readFileSync(resolve(APP, 'globals.css'), 'utf8');
 
-/** The public routes with no palette guard of their own. */
-const ROUTES = ['why-setnayan', 'tour'] as const;
+/**
+ * The public routes with no palette guard of their own.
+ *
+ * ⚠ `why-setnayan` BECAME `features` ON 2026-09-01 — the scan FOLLOWED the copy
+ * rather than being deleted with the route. The three explainers merged into
+ * /features, and the differentiation copy this guard was written for now lives
+ * at `app/features/_sections/_WhySetnayan.tsx`. Dropping the entry would have
+ * been the easy way to go green and would have silently retired the coverage:
+ * this file records that the original failure was a real 4.42:1 CTA on exactly
+ * that copy, so the copy still needs watching wherever it lives.
+ */
+const ROUTES = ['features', 'tour'] as const;
 
 const AA = 4.5;
 

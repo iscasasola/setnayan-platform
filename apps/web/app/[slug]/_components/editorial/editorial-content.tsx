@@ -19,7 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
-import { type ReactElement, type ReactNode } from 'react';
+import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import {
   loadEditorialData,
@@ -43,11 +43,8 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  storyAudienceAdmits,
-  STRANGER,
-  type StoryViewer,
-} from '@/lib/who-can-see-your-story';
+import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import { byVoiceWeight, voiceOf, roleLabel } from './voices';
@@ -57,10 +54,22 @@ import {
   type HeroMonogramData,
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { StorySpine } from '../story/story-spine';
+import { BackCoverBlock } from '../story/back-cover';
+import { storyTapHref } from '@/lib/a-tap-from-the-story';
+import { loadBackCover } from '../../_lib/back-cover.server';
+import { loadPreviousEdition, type PreviousEdition } from '../../_lib/previous-edition.server';
+import type { BackCover } from '@/lib/the-back-cover';
+import { loadYourOwnDay } from '../../_lib/your-own-day.server';
+import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/story-light';
+import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
+import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
-const SHARE_SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-).replace(/\/$/, '');
+const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
+  /\/$/,
+  '',
+);
 
 /** The "Watch the Film" section's anchor. Named once so the section that OWNS it
  *  and the colophon link that AIMS at it cannot drift apart. */
@@ -139,6 +148,27 @@ export async function EditorialContent({
   if (data.audience && !storyAudienceAdmits(data.audience, viewer)) {
     return <GracefulFallback words={w} />;
   }
+
+  /*
+    THE SECOND FENCE, AND IT IS INSIDE THE FIRST. The gate above answers "may
+    this viewer read this story?" — one audience for the whole thing. This one
+    answers "which LAYERS of it?", and it has to exist because the by-the-minute
+    page grows in public: the invitation, the room and the live broadcast are the
+    host's own and are readable while the day happens, so passing the first gate
+    stops meaning "everything here is yours to read".
+
+    🔴 IT REPLACES THE PAYLOAD, NOT THE MARKUP. The design review found the
+    photos correctly withheld and the SHAPE of them still public — the index, the
+    dial's bar heights, the minute sheet, the cover's counts, the Relive player
+    and the closing words. Every one of those is a value in `data`, so the fix is
+    here, before a single component is handed it, and not a stylesheet rule that
+    leaves the same numbers in the served HTML.
+
+    ⚖ IT CAN ONLY EVER REMOVE. `redactStoryLayers` has no branch that adds
+    anything, so it cannot widen what the gate above already closed — and a
+    viewer who may read every layer gets the identical object back.
+  */
+  data = redactStoryLayers(data, viewer);
 
   let copy: ComposedCopy;
   try {
@@ -231,11 +261,6 @@ export async function EditorialContent({
       ? { id: galleryAnchorId, className: 'scroll-mt-6' }
       : {};
 
-  // Masthead dateline numbers — Volume follows the Setnayan awards cycle (the
-  // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
-  // wedding's number within that cycle.
-  const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
-
   // The couple's canonical mark for the masthead — resolved like the public hero
   // (animates iff they own the paid ANIMATED_MONOGRAM). Best-effort + wrapped so
   // this component keeps its "never throws" contract; null → the text-circle
@@ -290,114 +315,208 @@ export async function EditorialContent({
     }
   }
 
+  /*
+    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
+    the venue's blocks and the dial's bar heights. A supplement to the loader
+    above, never a second opinion about anything it already answered.
+
+    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
+    reason the monogram and the perk probe above are: its id is a sentinel
+    string, not a UUID, and Postgres rejects every query carrying one with
+    22P02 — an ABSENCE, not an error anybody sees.
+  */
+  /*
+    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
+    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
+    and null is not an error state — it is the ordinary, correct-by-default
+    answer for a story whose host announced nothing. A sample has no real row and
+    is skipped for the same reason the monogram above is.
+  */
+  const backCover: BackCover | null = isSample
+    ? null
+    : await loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer });
+
+  /*
+    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
+    started it from the last one's back cover. Same fail-quiet contract as the
+    back cover above, and skipped on a sample for the same reason.
+  */
+  const previousEdition: PreviousEdition | null = isSample
+    ? null
+    : await loadPreviousEdition(eventId);
+
+  let spineFacts: StorySpineFacts;
+  try {
+    spineFacts = isSample
+      ? sampleSpineFacts(data.eventDate, data.eventEndDate)
+      : await loadStorySpineFacts({
+          eventId,
+          eventDate: data.eventDate,
+          eventEndDate: data.eventEndDate,
+          createdAtMs: null,
+          /*
+            The minutes the story writes up, so the lens's heat is read for
+            those instants and no others (`08` step 2.3). Taken from the payload
+            the loader above already resolved — asking the database a second
+            time which minutes exist would be a second opinion about the day.
+
+            🔒 AND IT IS THE REDACTED PAYLOAD. `redactStoryLayers` has already
+            run, so a reader who may not have the guests' layer has no day
+            chapters here — which means no windows are read at all for them,
+            and the heat is empty before the gate downstream even sees it.
+          */
+          writtenMinutesMs: data.dayChapters
+            .map((c) => (c.atIso ? Date.parse(c.atIso) : Number.NaN))
+            .filter((n) => Number.isFinite(n)),
+        });
+  } catch {
+    // Same contract as the rest of this component: it never throws. With no
+    // facts the cover and the day's minutes still render; the road, the dial
+    // and the film timecodes simply are not there.
+    spineFacts = sampleSpineFacts(data.eventDate, data.eventEndDate);
+  }
+
+  /*
+    ═══ THE LIGHT ══════════════════════════════════════════════════════════
+    `01_The_Story.md` §1 + §4 · `08` step 2.2.
+
+    The six stages come from the reception palette the host saved, or the
+    neutral six when they saved none — offered as a choice, never reported as a
+    failure. Derived HERE rather than inside the spine because the element that
+    wears them is this one: the light has to reach the shipped sections under
+    the clock as well, and a page painted only down to the spine would show a
+    seam where one ground meets another.
+
+    🔑 THE PAGE IS ALREADY RIGHT BEFORE ANY SCRIPT RUNS. The wrapper is
+    server-painted with the opening stage, so with JavaScript off, in a
+    screenshot and to a crawler the story is a legible printed page that simply
+    does not change as you scroll. `StoryLight` only takes over the changing.
+
+    🔴 IT REPLACED A HARD-CODED `bg-[#e7e2d6]`. That one colour was every
+    couple's story, whatever they had saved on their own mood board.
+  */
+  const stages = spineFacts.palette.length > 0 ? deriveStages(spineFacts.palette) : neutralStages();
+
+  /*
+    ═══ WERE YOU THERE? — ONE PERSON'S OWN DAY (`01` §3.7 · `08` step 2.5) ════
+
+    🔒 THE IDENTITY IS A SIGNED SESSION AND NOTHING ELSE. Owner ruling
+    2026-09-07: there is no name field, for anyone, ever — a box that took a
+    first name let a stranger with the link learn who attended and where they
+    sat. `loadYourOwnDay` reads the guest cookie, refuses a session belonging to
+    another celebration, and returns the empty shape to everybody else. It never
+    throws, so a broken read costs one reader their own panel and nothing more.
+  */
+  /*
+    ═══ THE PAGES THE HOST ARRANGED BY HAND (step 5 of `10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md`) ══
+
+    Each moment laid out in "Make it yours" is drawn on the day's spine as its sheet. A story in
+    Automatic — and every story nobody has arranged — gets NONE, so its page is exactly what it
+    was before this existed.
+
+    🔒 THE FENCE IS STEP 3'S, NOT THIS COMPONENT'S. This page reads with the admin client, outside
+    every RLS rule; `loadStoryPages` goes through `loadStoryArrangement`, which reads the audience
+    off the arrangement's own row (the guests' layer, S3) and builds every photograph through the
+    consent veto (S14). Nothing here reads the arrangement any other way. A sample has no
+    celebration behind it and is skipped, like every other lookup above.
+  */
+  const sheets: DrawnSheet[] = isSample
+    ? []
+    : await loadStoryPages(createAdminClient(), eventId, viewer, (key) =>
+        displayUrlForStoredAsset(key),
+      ).catch(() => []);
+
+  let own = await loadYourOwnDay(eventId).catch(() => null);
+  own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
+
   return (
-    <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
-      <article className="mx-auto max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
+    <div
+      data-story-light
+      style={paintAtRest(stages, ROAD_STAGE) as CSSProperties}
+      className="min-h-screen bg-cream text-ink"
+    >
+      {/*
+        ═══ THE SPINE — the page IS the event's clock ═══════════════════════
+        08 step 2.1 · Design_Editorial_By_The_Minute_2026-09-07.
+
+        🔑 IT REPLACED THE MASTHEAD AND THE LEAD, IT DID NOT SIT ON TOP OF THEM.
+        The cover carries the mark, the volume, the names very large, one
+        sentence and the four facts — every job the centred masthead + dateline
+        + lead headline used to do. Keeping both would have printed the story's
+        name twice and the edition line twice, three inches apart.
+
+        What is BELOW it is deliberately untouched: the shipped sections still
+        render, in the couple's own order, under the clock. S11 (08 step 2.4)
+        folds them into the eleven index tabs; until it does, nothing a couple
+        switched on has stopped appearing.
+      */}
+      {/*
+        The pointer BACK, at the very top — "No. 2 opens with Previously · No. 1".
+        Absent unless the host started this celebration from the last one's back
+        cover AND that story is published; a line leading to a locked page would
+        disclose that a private story exists and what it is called.
+      */}
+      {previousEdition ? (
+        <p className="mx-auto max-w-5xl px-4 pt-4 text-center">
+          <a
+            href={previousEdition.href}
+            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/60 underline-offset-4 hover:underline"
+          >
+            {previousEdition.label}
+          </a>
+        </p>
+      ) : null}
+
+      <StorySpine
+        data={data}
+        facts={spineFacts}
+        words={w}
+        viewer={viewer}
+        isSample={isSample}
+        stages={stages}
+        eventId={eventId}
+        own={own}
+        sheets={sheets}
+        storyCard={storyCard}
+        monogram={
+          mono ? (
+            <HeroMonogram
+              event={mono.design}
+              monogram={mono.monogram}
+              animatedMonogram={mono.animatedMonogram}
+              studioAnim={mono.studioAnim}
+              bespokeSvg={mono.bespokeSvg}
+            />
+          ) : (
+            <Monogram text={data.monogramText} color={data.monogramColor} />
+          )
+        }
+        actions={
+          effectiveShare ? (
+            <span className="inline-flex items-center gap-2">
+              <ShareButtons
+                compact
+                url={effectiveShare.url}
+                title={effectiveShare.title}
+                image={effectiveShare.image}
+              />
+              {storyCard ? (
+                <SaveStoryCardButton
+                  compact
+                  storyCardUrl={storyCard.url}
+                  filenameBase={storyCard.filenameBase}
+                />
+              ) : null}
+            </span>
+          ) : null
+        }
+      />
+
+      <article className="mx-auto mt-10 max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
         {/* Phase ribbon (cross-links) ----------------------------------------- */}
         <PhaseRibbon slug={data.slug} words={w} />
 
         <div className="border-t-[3px] border-double border-ink" />
-
-        {/* Masthead ------------------------------------------------------------ */}
-        <header className="py-3 text-center">
-          {/* The couple's REAL mark (bare — the masthead sits on cream, so it
-              reads without a backing), replacing the local initials-circle.
-              Falls back to the text-circle when no mark resolves. */}
-          {mono ? (
-            <div className="flex justify-center">
-              <HeroMonogram
-                event={mono.design}
-                monogram={mono.monogram}
-                animatedMonogram={mono.animatedMonogram}
-                studioAnim={mono.studioAnim}
-                bespokeSvg={mono.bespokeSvg}
-              />
-            </div>
-          ) : (
-            <Monogram text={data.monogramText} color={data.monogramColor} />
-          )}
-          {/*
-            ─── THE GOLD EYEBROWS, DEEPENED (2026-08-23) ──────────────────────
-            Every one of these read `text-terracotta`. ⚠ IN THIS REPO THAT SLOT
-            IS THE ATELIER GOLD #A9834B, not the action colour — the names are
-            inherited and backwards, which is the single most common colour
-            mistake made here. Measured on the page ground: **3.48:1**, under
-            the 4.5:1 floor for 12px type, on seven text sites across this
-            component plus one in `living-moments`.
-
-            🔑 A WHOLE-COMPONENT CALL, NOT A RIDER. This file's own docblock
-            names champagne-gold as a deliberate editorial accent, so fixing one
-            eyebrow would have made it the odd one out. And the fix KEEPS the
-            gold rather than trading it for the action colour: `terracotta-700`
-            is the same family one step deeper, and switching to mulberry or the
-            link slate would have changed this page's accent — a design reversal
-            wearing a contrast fix's clothes.
-
-            ✅ MEASURED IN BOTH THEMES, because a light-only check waves through
-            a token that flips on dark: #8C6932 on the light ground is 5.02:1,
-            and the dark value #A88340 on the candlelight ground is 5.17:1.
-
-            ⛔ TWO USES ARE DELIBERATELY LEFT ON THE LIGHTER GOLD, both
-            `aria-hidden` decorative glyphs. They carry no text, so the 3:1
-            non-text bar applies and 3.48:1 clears it. Do not sweep them in.
-          */}
-          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta-700">
-            Set na &rsquo;yan &middot; Commemorative Edition
-          </p>
-          <h1 className="mt-2 font-display text-4xl font-semibold leading-[0.96] tracking-tight sm:text-6xl">
-            {nameplate(data.displayName)}
-          </h1>
-        </header>
-
-        <div className="border-t border-ink/80" />
-        {/* The share control replaces "Priceless" inline in the dateline (no
-            full-width row) — the editorial owns its share affordance, compact in
-            the masthead. Real editorials + curated samples both get it. */}
-        <EditionLine
-          left={editionLeft}
-          center={editionCenter(data)}
-          right={
-            effectiveShare ? (
-              <span className="inline-flex items-center gap-2">
-                <ShareButtons
-                  compact
-                  url={effectiveShare.url}
-                  title={effectiveShare.title}
-                  image={effectiveShare.image}
-                />
-                {storyCard ? (
-                  <SaveStoryCardButton
-                    compact
-                    storyCardUrl={storyCard.url}
-                    filenameBase={storyCard.filenameBase}
-                  />
-                ) : null}
-              </span>
-            ) : (
-              'Priceless'
-            )
-          }
-        />
-        <div className="border-t-[3px] border-ink" />
-
-        {/* Lead headline + deck + byline -------------------------------------- */}
-        <section className="py-5 text-center sm:py-6">
-          <p className="font-mono text-xs uppercase tracking-[0.3em] text-mulberry">
-            {copy.superKicker}
-          </p>
-          <h2 className="mx-auto mt-3 max-w-3xl font-display text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl">
-            {copy.headline}
-          </h2>
-          {copy.deck ? (
-            <p className="mx-auto mt-3 max-w-2xl font-serif text-lg italic leading-snug text-ink/70 sm:text-2xl">
-              {copy.deck}
-            </p>
-          ) : null}
-          <p className="mt-4 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
-            {copy.byline}
-            {data.eventDateFormatted ? ` · ${data.venueCity ?? ''}` : ''}
-          </p>
-        </section>
 
         {/* Full-width hero — the cover spans the whole row. A baked boomerang
             (Living Hero) plays as a looping GIF-like banner; else the still. */}
@@ -437,7 +556,7 @@ export async function EditorialContent({
               pullQuote={copy.pullQuote}
             />
             {isOn('team') && data.vendors.length ? (
-              <TeamBehindTheDay vendors={data.vendors} />
+              <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
             ) : null}
           </div>
 
@@ -467,7 +586,7 @@ export async function EditorialContent({
               photo.chapters === 'living' ? (
                 <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="As the Day Unfolded" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     photos and living moments, in the order they happened
                   </p>
                   <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
@@ -483,7 +602,7 @@ export async function EditorialContent({
               isOn('kwento') && data.kwentoQuotes.length ? (
                 <div key="kwento">
                   <SectionRule title="What They Whispered" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     best wishes, captured on the day
                   </p>
                   <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
@@ -497,7 +616,7 @@ export async function EditorialContent({
               isOn('challengeAnswers') && data.challengeAnswers.length ? (
                 <div key="challengeAnswers">
                   <SectionRule title="What We Asked" />
-                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     the questions, and what they did about them
                   </p>
                   <ChallengeAnswerColumn answers={data.challengeAnswers} />
@@ -509,7 +628,7 @@ export async function EditorialContent({
               isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 ? (
                 <div key="guestColumns">
                   <SectionRule title="Letters to the Editor" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
                     columns from the guests, approved by {w.theOrganizer}
                   </p>
                   <GuestColumnsWall columns={data.guestColumns ?? []} />
@@ -543,17 +662,51 @@ export async function EditorialContent({
             // existed: the destination was on the same page the whole time and
             // simply had nothing to anchor to.
             watchFilm:
-              watchFilmShown && data.watchFilmEmbedUrl ? (
+              watchFilmShown || (data.films?.length ?? 0) > 0 ? (
                 <div key="watchFilm" id={WATCH_FILM_ANCHOR_ID}>
                   <SectionRule title="Watch the Film" />
-                  <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                  {watchFilmShown && data.watchFilmEmbedUrl ? (
+                    <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                  ) : null}
+                  {/* 🎞 The couple's OWN films — same-day edit, prenup, the
+                      videographer's cut. Deliberately in the same section as the
+                      live replay rather than a new one: to a guest these are all
+                      "the video of the day", and splitting them would ask the
+                      reader to know which was broadcast and which was edited.
+                      Ungated on purpose (owner 2026-09-02) — these are the
+                      couple's own links and must not depend on an unlock. */}
+                  {data.films?.length ? (
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                      {data.films.map((film) => (
+                        <figure key={`${film.provider}-${film.videoId}`} className="m-0">
+                          <div className="relative aspect-video overflow-hidden rounded-lg bg-black/5">
+                            <iframe
+                              src={film.embedUrl}
+                              title={film.label ?? 'Wedding film'}
+                              loading="lazy"
+                              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                              allowFullScreen
+                              className="absolute inset-0 h-full w-full border-0"
+                            />
+                          </div>
+                          {film.label ? (
+                            <figcaption className="mt-2 text-sm text-ink/70">{film.label}</figcaption>
+                          ) : null}
+                        </figure>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null,
             // What they said (reviews). Renders even when empty (empty state).
             reviews: isOn('reviews') ? (
               <div key="reviews">
                 <SectionRule title="What They Said" />
-                {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+                {data.reviews.length ? (
+                  <ReviewsWall reviews={data.reviews} />
+                ) : (
+                  <ReviewsEmptyState />
+                )}
               </div>
             ) : null,
             // Powered by Setnayan — the in-app services the couple availed.
@@ -618,6 +771,15 @@ export async function EditorialContent({
           slug={data.slug}
           watchFilmShown={watchFilmShown}
         />
+
+        {/*
+          THE BACK COVER — after the colophon, the way a series page sits after
+          The End. It is OUTSIDE the locked close, which is exactly why it does
+          not break it: the edition still ends on the host's last word and then
+          their song, and nothing below moves either. Absent, not empty, when the
+          host announced nothing.
+        */}
+        <BackCoverBlock cover={backCover} />
       </article>
     </div>
   );
@@ -691,38 +853,8 @@ function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWord
           </a>
         </>
       ) : null}
-      <span className="border-b border-mulberry pb-0.5 text-mulberry">The Story — Today</span>
+      <span className="border-b border-mulberry pb-0.5 text-mulberry-600">The Story — Today</span>
     </nav>
-  );
-}
-
-function EditionLine({
-  left,
-  center,
-  right,
-}: {
-  left: string;
-  center: string;
-  right: ReactNode;
-}): ReactElement {
-  return (
-    <div className="py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink/65">
-      {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
-      <div className="hidden items-center justify-between text-left sm:flex">
-        <span>{left}</span>
-        <span className="tracking-[0.16em]">{center}</span>
-        <span>{right}</span>
-      </div>
-      {/* Mobile: Vol·No + Share flank a single row, the date sits centered below
-          — so Share never takes a whole row and the dateline stays compact. */}
-      <div className="sm:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <span>{left}</span>
-          <span>{right}</span>
-        </div>
-        <div className="mt-1.5 text-center tracking-[0.16em]">{center}</div>
-      </div>
-    </div>
   );
 }
 
@@ -825,7 +957,7 @@ function LeadArticle({
           key={i}
           className={
             i === 0
-              ? "first-letter:float-left first-letter:mr-2 first-letter:pt-1 first-letter:font-display first-letter:text-6xl first-letter:font-bold first-letter:leading-[0.7] first-letter:text-mulberry"
+              ? 'first-letter:float-left first-letter:mr-2 first-letter:pt-1 first-letter:font-display first-letter:text-6xl first-letter:font-bold first-letter:leading-[0.7] first-letter:text-mulberry'
               : undefined
           }
         >
@@ -850,17 +982,32 @@ function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
   return v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' || v.isFirstPick;
 }
 
-function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement {
+function VendorRow({
+  v,
+  eventSlug,
+}: {
+  v: EditorialData['vendors'][number];
+  /** The story this credit sits on — carried so a tap is attributable to it.
+   *  Null on a curated sample, which has no event row. */
+  eventSlug: string | null;
+}): ReactElement {
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
-  const featured =
-    (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
+  const featured = (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
+  // One href, derived once: null when this supplier has no marketplace profile,
+  // and the link is then not rendered at all rather than pointing nowhere.
+  const tapHref = storyTapHref(v.slug, eventSlug);
   return (
     <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
       {v.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={v.logoUrl} alt="" aria-hidden className="h-7 w-7 shrink-0 rounded-sm object-cover" />
+        <img
+          src={v.logoUrl}
+          alt=""
+          aria-hidden
+          className="h-7 w-7 shrink-0 rounded-sm object-cover"
+        />
       ) : (
         <span
           aria-hidden
@@ -868,18 +1015,20 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
         />
       )}
       <span className="min-w-0 flex-1">
-        {featured ? (
+        {featured && tapHref ? (
           <a
-            href={`/v/${v.slug}`}
+            href={tapHref}
             className="block truncate font-serif text-sm font-semibold leading-tight text-ink underline-offset-2 hover:underline"
           >
             {v.name}
           </a>
         ) : (
-          <span className="block truncate font-serif text-sm font-semibold leading-tight">{v.name}</span>
+          <span className="block truncate font-serif text-sm font-semibold leading-tight">
+            {v.name}
+          </span>
         )}
         {v.category ? (
-          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/45">
+          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/60">
             {prettyCategory(v.category)}
           </span>
         ) : null}
@@ -890,7 +1039,7 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           badge. Replaces the old inline "· #1 match" caption so the credit
           reads as a proper badge instead of buried metadata. */}
       {v.isFirstPick ? (
-        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry">
+        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry-600">
           #1 Match
         </span>
       ) : null}
@@ -905,8 +1054,10 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
 
 function TeamBehindTheDay({
   vendors,
+  eventSlug,
 }: {
   vendors: EditorialData['vendors'];
+  eventSlug: string | null;
 }): ReactElement {
   const tagged = vendors.filter(isTaggedVendor);
   const rest = vendors.filter((v) => !isTaggedVendor(v));
@@ -917,12 +1068,12 @@ function TeamBehindTheDay({
 
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
         {shown.map((v, i) => (
-          <VendorRow key={`t-${i}`} v={v} />
+          <VendorRow key={`t-${i}`} v={v} eventSlug={eventSlug} />
         ))}
       </ul>
       {collapsed.length ? (
@@ -932,7 +1083,7 @@ function TeamBehindTheDay({
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
             {collapsed.map((v, i) => (
-              <VendorRow key={`c-${i}`} v={v} />
+              <VendorRow key={`c-${i}`} v={v} eventSlug={eventSlug} />
             ))}
           </ul>
         </details>
@@ -945,11 +1096,7 @@ function TeamBehindTheDay({
  *  recommended, led by their own endorsement. Distinct from the auto-generated
  *  Team credits: here the couple's WORDS are the headline, and a named vendor
  *  links to their marketplace profile so a reading guest can find them. */
-function VendorsWeLoved({
-  vendors,
-}: {
-  vendors: EditorialData['vendorsWeLoved'];
-}): ReactElement {
+function VendorsWeLoved({ vendors }: { vendors: EditorialData['vendorsWeLoved'] }): ReactElement {
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
       {vendors.map((v, i) => (
@@ -965,7 +1112,12 @@ function VendorsWeLoved({
           <figcaption className="mt-2 flex items-center gap-2">
             {v.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={v.logoUrl} alt="" aria-hidden className="h-6 w-6 shrink-0 rounded-sm object-cover" />
+              <img
+                src={v.logoUrl}
+                alt=""
+                aria-hidden
+                className="h-6 w-6 shrink-0 rounded-sm object-cover"
+              />
             ) : (
               <span
                 aria-hidden
@@ -991,15 +1143,40 @@ function VendorsWeLoved({
   );
 }
 
-function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWords }): ReactElement {
+function ByTheNumbers({
+  data,
+  words: w,
+}: {
+  data: EditorialData;
+  words: EventWords;
+}): ReactElement {
   const m = data.metrics;
-  // "Photos & moments" sums the day's stills + living-moment clips when either is
-  // known; the photos cell reads that combined figure. "Living moments" surfaces
-  // the clip count on its own, and "Chapters" the number of story chapters. Each
-  // is omitted (— / hidden) when its underlying count is null, exactly like the
-  // photos stat has always been.
-  const photosAndMoments =
-    m.photos != null || m.clips != null ? (m.photos ?? 0) + (m.clips ?? 0) : null;
+  /*
+    ── TWO COUNTS OF ONE THING, ON ONE PAGE — FIXED 2026-09-09 (S11) ──────────
+
+    🔴 THE COVER SAID **14 captures** AND THIS BLOCK SAID **15 Photos & moments**,
+    on the same page, about the same fourteen photographs. Established from the
+    QUERIES and then from production, not by preferring the number that looked
+    right:
+
+      · `metrics.photos` counts `papic_photos` with NO `photo_type` filter —
+        every clean, un-hidden capture, **stills AND clips**;
+      · `metrics.clips` counts the same table filtered to `photo_type='clip'` —
+        a strict SUBSET of the first;
+      · the old line added the subset to the superset.
+
+    Measured in the one published story in production: 13 stills + 1 clip. So
+    `photos` = 14, `clips` = 1, and `14 + 1` printed 15. **The one clip was
+    counted twice.**
+
+    ⚠ THE TWO NUMBERS WERE NEVER COUNTING DIFFERENT POPULATIONS UNDER ONE WORD —
+    which was the worse possibility this was checked for. They count NESTED
+    populations, and the arithmetic was the whole defect. The fix is therefore
+    not "make one match the other": `photos` already IS "photos & moments", so
+    this cell shows it, and "Living moments" below still shows the clips on
+    their own as the subset it is.
+  */
+  const photosAndMoments = m.photos ?? (m.clips != null ? m.clips : null);
   return (
     <div className="border-2 border-ink">
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
@@ -1023,19 +1200,11 @@ function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWor
 
       {/* M2 — first-pick hit rate */}
       {m.firstPickDen > 0 ? (
-        <Stat
-          big={`${m.firstPickNum}/${m.firstPickDen}`}
-          label="vendors that were our #1 match"
-        />
+        <Stat big={`${m.firstPickNum}/${m.firstPickDen}`} label="vendors that were our #1 match" />
       ) : null}
 
       {/* M3 — estimated time saved */}
-      <Stat
-        big={`≈${m.hoursSaved}`}
-        unit="hrs"
-        label="of planning time saved"
-        note="estimated"
-      />
+      <Stat big={`≈${m.hoursSaved}`} unit="hrs" label="of planning time saved" note="estimated" />
 
       {/* Supporting count strip (2×2). Row 1: guests · photos & moments (stills +
           living-moment clips; falls back to attending when neither is known).
@@ -1061,7 +1230,7 @@ function ByTheNumbers({ data, words: w }: { data: EditorialData; words: EventWor
         </div>
       </div>
 
-      <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry">
+      <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry-600">
         &ldquo;Set na &rsquo;yan.&rdquo; — your {w.eventWord}, handled.
       </p>
     </div>
@@ -1087,7 +1256,7 @@ function Stat({
       </div>
       <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
       {note ? (
-        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/40">
+        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/60">
           {note}
         </div>
       ) : null}
@@ -1107,7 +1276,7 @@ function StripCell({
   return (
     <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
       <b className="block font-display text-lg font-bold leading-none">{value}</b>
-      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/45">{label}</span>
+      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/60">{label}</span>
     </div>
   );
 }
@@ -1134,7 +1303,7 @@ function FromTheCouple({
       <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
         &ldquo;{message}&rdquo;
       </p>
-      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         &mdash; {attribution}
       </footer>
     </blockquote>
@@ -1143,7 +1312,7 @@ function FromTheCouple({
 
 function ReviewsEmptyState(): ReactElement {
   return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/45">
+    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/60">
       Reviews from guests and vendors will appear here.
     </p>
   );
@@ -1217,7 +1386,7 @@ function TheirSong({
           &ldquo;{song.label}&rdquo;
         </figcaption>
       ) : null}
-      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         {names}
         {song.url ? ` · their ${w.eventWord} song` : ' · the song that follows them'}
       </p>
@@ -1285,7 +1454,7 @@ function VendorMediaStrip({
 }): ReactElement {
   return (
     <div className="mt-4 space-y-3">
-      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         Captured by {w.theOrganizerPossessive} vendors
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1357,7 +1526,7 @@ function LivePhotoWall({
 }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
@@ -1384,7 +1553,6 @@ function LivePhotoWall({
     </div>
   );
 }
-
 
 /**
  * "What They Whispered" — approved Kwento guest wishes (photo_messages). Owner
@@ -1433,7 +1601,7 @@ function GuestColumnsWall({
           </h3>
           <p className="mt-3 font-serif text-lg leading-relaxed text-ink/85">{c.body}</p>
           {c.author ? (
-            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/55">
+            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
               {c.author}
               {roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}
             </p>
@@ -1453,7 +1621,7 @@ function GuestColumnsWall({
               </h3>
               <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
               {c.author ? (
-                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
                   {c.author}
                   {/* The badge the spec asks for — best man, maid of honour,
                       principal sponsor. 🔒 It only ever appears beside a NAME:
@@ -1498,7 +1666,7 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
           key={`${i}-${a.prompt}`}
           className="overflow-hidden rounded-2xl border border-ink/10 bg-surface"
         >
-          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
+          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
             we asked
           </p>
           <p className="px-4 pb-3 pt-1 text-sm font-medium text-ink">{a.prompt}</p>
@@ -1526,9 +1694,7 @@ function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
               className="aspect-[4/5] w-full bg-ink/5 object-cover"
             />
           )}
-          {a.byline ? (
-            <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p>
-          ) : null}
+          {a.byline ? <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p> : null}
         </li>
       ))}
     </ul>
@@ -1545,10 +1711,7 @@ function KwentoWall({
   return (
     <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
       {quotes.slice(0, 8).map((q, i) => (
-        <figure
-          key={i}
-          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-        >
+        <figure key={i} className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4">
           {q.media?.type === 'clip' ? (
             <KwentoClip url={q.media.url} posterUrl={q.media.posterUrl} names={names} />
           ) : q.media?.type === 'photo' ? (
@@ -1571,7 +1734,7 @@ function KwentoWall({
             {q.body}
           </blockquote>
           {q.author ? (
-            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
               {q.author}
               {q.role ? ` · ${q.role}` : ''}
             </figcaption>
@@ -1589,16 +1752,10 @@ function KwentoWall({
  * a youtube-nocookie embed (normalize-or-rejected in lib/panood-watch), so the
  * iframe never carries a raw pasted URL. Lazy-loaded, titled.
  */
-function WatchTheFilm({
-  embedUrl,
-  names,
-}: {
-  embedUrl: string;
-  names: string;
-}): ReactElement {
+function WatchTheFilm({ embedUrl, names }: { embedUrl: string; names: string }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
         the ceremony, as it was broadcast
       </p>
       <div className="mx-auto max-w-3xl border-double border-[3px] border-ink/80 p-1.5 shadow-[0_10px_30px_-12px_rgba(20,16,12,0.35)]">
@@ -1627,14 +1784,11 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
       {reviews.slice(0, 8).map((r, i) => (
-        <figure
-          key={i}
-          className="break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-        >
+        <figure key={i} className="break-inside-avoid border-l-2 border-terracotta/40 pl-4">
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
-          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
             {r.stars ? (
               <span aria-hidden className="mr-1 text-terracotta">
                 {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
@@ -1742,73 +1896,26 @@ function Colophon({
       {slug ? (
         <a
           href={`/${slug}/print`}
-          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta-700 print:hidden"
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/60 no-underline hover:text-terracotta-700 print:hidden"
         >
           <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Print the keepsake
         </a>
       ) : null}
-      <p className="mt-3 font-serif text-sm italic text-ink/45">
-        {hideWatermark ? names : <>Powered by Setnayan{city ? ` · ${city}` : ''} · {names}</>}
+      <p className="mt-3 font-serif text-sm italic text-ink/60">
+        {hideWatermark ? (
+          names
+        ) : (
+          <>
+            Powered by Setnayan{city ? ` · ${city}` : ''} · {names}
+          </>
+        )}
       </p>
     </footer>
   );
 }
 
 // ── tiny presentational helpers ───────────────────────────────────────────────
-
-// Setnayan awards-cycle Volume for a wedding date. The edition year runs
-// Nov 18 → Nov 17 (not Jan–Dec): Vol. I = Nov 18 2026 → Nov 17 2027, Vol. II =
-// Nov 18 2027 → Nov 17 2028, … A December wedding starts a Volume; the following
-// June is still that same Volume. Clamped to ≥ I — the inaugural edition covers
-// anything before the first cycle's Nov-18-2026 start.
-const AWARDS_CUTOFF_MONTH = 11; // November
-const AWARDS_CUTOFF_DAY = 18; // 18th
-function editionVolume(eventDate: string | null): number {
-  if (!eventDate) return 1;
-  const [y, m, d] = eventDate.split('-').map(Number);
-  if (!y || !m || !d) return 1;
-  const onOrAfterCutoff =
-    m > AWARDS_CUTOFF_MONTH || (m === AWARDS_CUTOFF_MONTH && d >= AWARDS_CUTOFF_DAY);
-  const cycleStartYear = onOrAfterCutoff ? y : y - 1;
-  return Math.max(1, cycleStartYear - 2025);
-}
-
-// Volume number as a masthead Roman numeral (1 → I, 2 → II, …). Falls back to
-// the Arabic number above the small-numeral table for far-future volumes.
-function toRoman(n: number): string {
-  if (!Number.isFinite(n) || n < 1) return 'I';
-  const table: Array<[number, string]> = [
-    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
-    [5, 'V'], [4, 'IV'], [1, 'I'],
-  ];
-  let out = '';
-  let v = Math.floor(n);
-  for (const [val, sym] of table) {
-    while (v >= val) {
-      out += sym;
-      v -= val;
-    }
-  }
-  return out;
-}
-
-function nameplate(displayName: string): string {
-  const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, '').trim();
-  return `The ${cleaned} Chronicle`;
-}
-
-// The masthead dateline = venue city · the WEDDING date. Owner rule (2026-06-15):
-// the date on the editorial is the couple's wedding date (events.event_date via
-// eventDateFormatted), NEVER the publish date (event_editorial.published_at /
-// real-weddings publishedAt). Publish dates belong only to JSON-LD/sitemap meta.
-// Do not swap this to a published/generated/created date.
-function editionCenter(data: EditorialData): string {
-  const parts: string[] = [];
-  if (data.venueCity) parts.push(data.venueCity);
-  if (data.eventDateFormatted) parts.push(data.eventDateFormatted); // wedding date
-  return parts.join(' · ') || 'Commemorative Edition';
-}
 
 function fmt(n: number): string {
   try {

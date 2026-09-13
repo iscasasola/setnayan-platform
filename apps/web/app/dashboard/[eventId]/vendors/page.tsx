@@ -22,12 +22,16 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
+import { buildBenchStandings } from '@/lib/conversation-list';
+import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
   fetchEventVendors,
   resolveVendorDisplayName,
   isVendorNameRevealed,
 } from '@/lib/vendors';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
@@ -59,7 +63,7 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
-import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import {
   bucketVendorsByGroup,
   canonicalServiceToPlanGroupId,
@@ -79,6 +83,11 @@ import {
 } from './_components/pending-lock-proposals';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
+import {
+  blockedLockReason,
+  resolveBenchCardActions,
+  type BlockedLockReason,
+} from '@/lib/bench-card-actions';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
@@ -200,7 +209,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendors, eventCtx, photoMaps] = await Promise.all([
+  const [vendors, eventCtx, photoMaps, changeLines] = await Promise.all([
     fetchEventVendors(supabase, eventId),
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
@@ -226,7 +235,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // → marketplace_logo_url → initials, but the page never populated the first
     // two. Resolve them here (mirrors event-home's locked-card avatar pass).
     fetchVendorPhotoMaps(supabase, eventId),
+    // Every change agreed after a lock, in ONE read for the whole page — so each
+    // supplier's price on this list is the agreed total NOW (owner 2026-09-11,
+    // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
+    // so the lines are joined here rather than inside it.
+    fetchChangeLinesByVendor(supabase, eventId),
   ]);
+  if (changeLines.error) {
+    // Non-fatal: the list falls back to the price the lock wrote — exactly what
+    // it showed before this read existed — and the refusal is reported.
+    logQueryError(
+      'vendors/page change lines',
+      { message: changeLines.error },
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
 
   // A FAILED read is not "no data". This one row carries the event date, the
   // budget, the venue coordinates, the guest count and the Setnayan-AI
@@ -362,7 +386,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
         .from('vendor_profiles')
-        .select('vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state')
+        .select(
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at',
+        )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
       // picked marketplace vendor for THIS event. Surfaces a Waiting / Open /
@@ -450,6 +476,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       screen_name: string | null;
       tier_state: string | null;
       verification_state: string | null;
+      /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
+      next_renewal_due_at: string | null;
     };
 
     const statsByProfile = new Map<string, StatsRow>();
@@ -652,7 +680,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
-        is_verified: s.public_visibility === 'verified',
+        // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+        // deadline (hasVerifiedBadge), separate from public_visibility
+        // (listing/bookability, untouched — stays listed past the deadline).
+        is_verified: hasVerifiedBadge({
+          verification_state: a?.verification_state ?? null,
+          next_renewal_due_at: a?.next_renewal_due_at ?? null,
+        }),
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
         within_radius: withinRadius,
@@ -681,7 +715,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           name: resolvedName || v.vendor_name || 'Vendor',
           city: s.location_city ?? null,
           waitingSince: pendingSinceByProfile.get(pid) ?? null,
-          href: `/dashboard/${eventId}/messages`,
+          // 🔴 THIS WAS THE INBOX, WITH THE THREAD ID RESOLVED ELEVEN LINES
+          // ABOVE (`thread_id: threadIdByProfile.get(pid)`). The rows most
+          // likely to have something to read — the suppliers a couple is still
+          // waiting on — sent every tap to the full list, and the component
+          // that renders them says the opposite in its own docblock: "tap a row
+          // to jump to the thread". Falls back to the list only when there is
+          // genuinely no thread to open.
+          href: threadIdByProfile.get(pid)
+            ? `/dashboard/${eventId}/messages/${threadIdByProfile.get(pid)}`
+            : `/dashboard/${eventId}/messages`,
         });
       }
     }
@@ -713,11 +756,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // lib/lock-request-state.ts and nowhere else.
       lock_request_state: v.lock_request_state ?? null,
       lock_request_expires_at: v.lock_request_expires_at ?? null,
-      total_cost_php: v.total_cost_php,
+      // The agreed total NOW (lock price + changes since), through the one rule
+      // the budget uses. Every price this page derives from a pick — the card,
+      // the plan-budget roll-up, "remaining budget", the build guard — reads
+      // this field, so this is the one place it is folded. Display only: no
+      // form on this page writes a pick's price back as a headline.
+      total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
       deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
-      contact_email: v.contact_email,
-      contact_phone: v.contact_phone,
+      // No contact_email / contact_phone: nothing downstream reads them, and this
+      // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
       marketplace_vendor_id: v.marketplace_vendor_id,
       marketplace_business_name: mk?.name ?? null,
       marketplace_logo_url: mk?.logo ?? null,
@@ -1377,6 +1425,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     }
   }
 
+  // ── The couple's own order, per category (owner 2026-09-09) ──────────────
+  // Read on the couple's OWN client so RLS answers "is this a host of this
+  // celebration?" rather than a check this file could forget. Fail-open and
+  // SILENT is wrong here and right nowhere else on this page: an unreadable
+  // arrangement must not take the bench down, but it must also not be reported
+  // as "you have not arranged anything" — so the empty map means "no pins we
+  // could see", the rail falls back to the lens's order, and the "Your order"
+  // chip simply does not appear rather than appearing with a Reset that would
+  // delete rows the couple cannot see.
+  const benchArrangement: Record<string, { vendorId: string; position: number }[]> = {};
+  {
+    const { data: pinRows, error: pinError } = await supabase
+      .from('event_bench_arrangement')
+      .select('tile, vendor_id, position')
+      .eq('event_id', eventId);
+    if (pinError) {
+      // A refused read and an empty table look identical through this API — say
+      // which one this was, in the log, rather than letting the bench imply the
+      // couple never arranged anything.
+      console.error('[vendors] bench arrangement unreadable', pinError.message);
+    }
+    for (const row of (pinRows ?? []) as { tile: string; vendor_id: string; position: number }[]) {
+      (benchArrangement[row.tile] ??= []).push({
+        vendorId: row.vendor_id,
+        position: row.position,
+      });
+    }
+  }
+
   // Per-card verdicts, resolved once here (server) rather than per render. NULL
   // for every vendor when the tier isn't running — the client then partitions
   // nothing and disables nothing.
@@ -1427,6 +1504,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     demandByVendorId: aiActive ? demandByVendorId : undefined,
     buildFitByVendorId,
     freeDaysLineByVendorId,
+    freeDaysByVendorId,
     // PR-H · the flag is READ HERE and PASSED IN; the builder is a pure core and
     // must never reach for the env itself.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
@@ -1444,6 +1522,78 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? Math.round(ev.estimated_budget_centavos / 100)
         : null,
   });
+
+  // ── Owner 2026-09-11 · which build picks cannot be locked right now ────────
+  // Read off the CARD's own resolver — the same call the bench makes — so the
+  // Picks column never offers "Lock to confirm" for a supplier whose card hides
+  // Lock (declined inquiry, a slot another booking took) or whose calendar shows
+  // the committed day taken. `inBuild: true` because only build picks reach that
+  // list, and a build pick is exempt from the SOFT window tier by design.
+  // Flag OFF ⇒ the resolver offers nothing ⇒ the map stays empty ⇒ the column
+  // renders as it shipped.
+  const lockBlockedByVendorId = new Map<string, BlockedLockReason>();
+  {
+    const replanOn = isExploreReplanEnabled();
+    for (const folder of shortlistFolders) {
+      for (const tile of folder.tiles) {
+        for (const v of tile.vendors) {
+          const why = blockedLockReason(
+            resolveBenchCardActions({ enabled: replanOn, vendor: v, inBuild: true }),
+          );
+          if (why) lockBlockedByVendorId.set(v.vendorId, why);
+        }
+      }
+    }
+  }
+
+  // ── WHERE EACH SUPPLIER STANDS (2026-09-09) ────────────────────────────────
+  // A bench card used to offer "Check inquiry" and say nothing about WHERE
+  // THINGS STAND — the same button whether the supplier answered an hour ago,
+  // sent a quote waiting on the couple, or went quiet for three weeks. The
+  // couple had to open every one to find out, which makes three caterers side
+  // by side a comparison they cannot actually make.
+  //
+  // ⚡ TWO QUERIES FOR THE WHOLE BENCH. `buildBenchStandings` reuses the same
+  // batched couple-side stage probes the conversation column already runs and
+  // adds one last-message read, then hands the facts to the ONE derivation in
+  // `lib/supplier-standing.ts`. No per-card probe: a rail holds dozens of cards
+  // and the page holds many rails.
+  //
+  // `Date.now()` is read ONCE here so every card on the page agrees about what
+  // "12 days" means — a per-card clock would let two cards rendered in the same
+  // paint disagree across a midnight boundary.
+  const standingsByVendorId: Record<string, SupplierStanding> = await (async () => {
+    const out: Record<string, SupplierStanding> = {};
+    const contactable = shortlistFolders
+      .flatMap((f) => f.tiles.flatMap((t) => t.vendors))
+      .filter((v) => v.marketplaceVendorId != null && v.threadId != null);
+    if (contactable.length === 0) return out;
+    try {
+      const standings = await buildBenchStandings({
+        supabase,
+        eventId,
+        nowMs: Date.now(),
+        vendors: contactable.map((v) => ({
+          key: v.vendorId,
+          vendorProfileId: v.marketplaceVendorId as string,
+          threadId: v.threadId,
+          inquiryStatus: v.inquiryStatus,
+        })),
+        });
+      for (const [key, standing] of standings) if (standing) out[key] = standing;
+    } catch (caught) {
+      // Fail-SILENT, never fail-loud. The standing is an addition to a card that
+      // already works; a thrown read must cost the couple the sentence, never
+      // the bench.
+      logQueryError(
+        'VendorsPage.benchStandings (threw)',
+        caught instanceof Error ? caught : new Error(String(caught)),
+        { event_id: eventId },
+        'graceful_degrade',
+      );
+    }
+    return out;
+  })();
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
   // event_vendor_preferences rows (one query, host-RLS scoped) and resolve, per
@@ -1603,6 +1753,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        // ── Where each supplier stands · one sentence per card, plus the
+        // page's roll-up. Derived once on the server (lib/supplier-standing.ts)
+        // and passed down; the component renders it and decides nothing.
+        standings={standingsByVendorId}
         initialOpenTile={sp.open ?? null}
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
         coveredByTile={coveredByTile}
@@ -1616,6 +1770,27 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
         convergence={convergenceBanner(buildDateWindow, { anchoredLabel: matchFormattedDate })}
+        // Inline "More in {category}" row (owner 2026-09-06) — the SAME window
+        // `buildFitByVendorId` above was resolved from, handed down so row 2
+        // sinks exactly the vendors row 1 sinks. A pass-down of values already
+        // in memory: no second query, and no second copy of the window logic in
+        // the row's server action (see _actions/inline-more-row.ts).
+        buildWindow={buildDateWindow}
+        probeDayKeys={probeWindow?.dayKeys ?? []}
+        // `freeDays` is a Set on the server type; it crosses to the client as an
+        // array and is rebuilt there rather than trusted to survive the boundary.
+        teamCalendar={teamCalendar.map((m) => ({
+          vendorId: m.vendorId,
+          name: m.name,
+          freeDays: [...m.freeDays],
+        }))}
+        // The couple's OWN order (owner 2026-09-09 · "per category", "all hosts
+        // of that event see the same order"). Read on the server, from the
+        // celebration — not from this browser — which is the whole difference
+        // between this and the sort lens beside it: `persistBenchSort` is
+        // localStorage and is deliberately private, an arrangement is a plan the
+        // hosts made together.
+        benchArrangement={benchArrangement}
       />
     </>
   );
@@ -2001,6 +2176,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // renders with the kill switch thrown. Passing it here is what puts
           // "Leave a review" on the surface a couple actually sees.
           reviewStatusByVendorId={reviewStatusByVendorId}
+          lockBlockedByVendorId={lockBlockedByVendorId}
         />
         {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
             renders null when off (owner 2026-07-24). */}
@@ -2224,24 +2400,18 @@ async function fetchVendorPhotoMaps(
   // vendor_id in the same pass that maps service photos below.
   const startingPriceByServiceId = new Map<string, number>();
   for (const row of (svcRes.data ?? []) as SvcRow[]) {
-    if (row.primary_photo_r2_key) {
-      svcUrlByServiceId.set(
-        row.vendor_service_id,
-        r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
-      );
-    }
+    // A ref we cannot address resolves to null — leave the entry OUT so the
+    // card falls back to its placeholder rather than to a broken image.
+    const svcPhotoUrl = publicUrlForStoredAsset(row.primary_photo_r2_key);
+    if (svcPhotoUrl) svcUrlByServiceId.set(row.vendor_service_id, svcPhotoUrl);
     if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
       startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);
     }
   }
   const manualUrlByManualId = new Map<string, string>();
   for (const row of (manRes.data ?? []) as ManRow[]) {
-    if (row.photo_r2_key) {
-      manualUrlByManualId.set(
-        row.manual_vendor_id,
-        r2PublicUrl(R2_BUCKETS.media, row.photo_r2_key),
-      );
-    }
+    const manualPhotoUrl = publicUrlForStoredAsset(row.photo_r2_key);
+    if (manualPhotoUrl) manualUrlByManualId.set(row.manual_vendor_id, manualPhotoUrl);
   }
   for (const [vendorId, serviceId] of serviceIdByVendor) {
     const url = svcUrlByServiceId.get(serviceId);

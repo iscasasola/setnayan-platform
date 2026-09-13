@@ -36,6 +36,8 @@
  * `id` → live-figure fn; this module owns nothing but words.
  */
 
+import type { SpotlightMedia } from '@/app/_components/marketing/_spotlights';
+
 /** The terminology + statutory facts the copy varies on. All from EventTypeProfile. */
 export type AiValueTerms = {
   /** terminology.eventWord — 'wedding' | 'event' | 'trip'. */
@@ -209,6 +211,131 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
             'looking at for your date, so you can lock them in first.',
         },
       ],
+    },
+  ];
+}
+
+
+/**
+ * ─── THE SPOTLIGHTS — the same nine promises, as four pictures ─────────────
+ *
+ * Owner, 2026-09-07, looking at this page: *"this is just a bunch of
+ * rectangles with information. it feel too wordy … we want to push a more
+ * image simple impact on the description"*, pointing at a rival's features
+ * page — the SAME direction that produced `_spotlights.tsx` on 2026-08-29
+ * (*"simple, easy to understand, clean output"*) and put it on the eight
+ * PUBLIC doorways on 2026-09-05. The public `/setnayan-ai` page already reads
+ * this way. The in-app page a couple is asked to PAY on did not.
+ *
+ * 🔑 THE RENDERER IS NOT WRITTEN AGAIN. This module supplies content to the
+ * shipped `Spotlights` kit — the archetype rule `_doorway.tsx` encodes:
+ * design the archetype, never the screen.
+ *
+ * ⛔ NOTHING IS DROPPED TO MAKE THE PAGE SHORT. Every one of the nine
+ * capabilities above is named by exactly one spotlight through `caps`, and
+ * `setnayan-ai-value-copy.test.ts` fails if an id is missed or claimed twice.
+ * A shorter page must never become a page that quietly promises less: what
+ * goes away is nine PARAGRAPHS, not nine PROMISES.
+ */
+export type AiValueSpotlight = {
+  chip: string;
+  t: string;
+  d: string;
+  /** Which capability ids this spotlight speaks for. Every id lands in exactly one. */
+  caps: readonly AiCapabilityId[];
+  media: SpotlightMedia;
+};
+
+export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] {
+  const { eventWord, organizerNoun, hasStatutoryPaperwork } = terms;
+
+  // Same rule as `deadlineBody`: name the real documents only where a
+  // statutory pack exists, never a vague "and your paperwork".
+  const deadlines = hasStatutoryPaperwork
+    ? 'It watches every category’s booking window, and the paperwork a Philippine ' +
+      'wedding actually needs — marriage license, Pre-Cana, PSA — then tells you the ' +
+      'single most urgent thing to do next. It also catches two things booked over ' +
+      'each other while that is still a calendar problem.'
+    : `It watches every category’s booking window and counts it down before it bites, ` +
+      `then tells you the single most urgent thing to do next. It also catches two ` +
+      `things booked over each other while that is still a calendar problem.`;
+
+  /*
+    🖼 THE PICTURE IS A CLAIM (`_spotlights.tsx`: "OPEN THE IMAGE"). The
+    `setnayan-ai-2` still is a frame of our own demo scene and it renders the
+    words "3 couples inquired for your date" INSIDE the image. That sentence is
+    true for a wedding and false for a birthday — the exact wedding-ism this
+    module was created to kill, except baked into a JPEG where no copy test
+    would ever see it.
+
+    So the picture is chosen the way the words are: DERIVED, never named by
+    type. `organizerNoun` is the same signal the sentence beside it uses, and
+    it is keyed off the noun the picture itself prints. A type whose organizer
+    is not a couple gets a photograph instead — a MOMENT rather than a screen,
+    which the kit explicitly allows — rather than a screenshot that contradicts
+    its own caption.
+  */
+  const dateMedia: SpotlightMedia =
+    organizerNoun === 'couple'
+      ? {
+          kind: 'still',
+          src: '/add-ons/demo/stills/setnayan-ai-2.jpg',
+          alt: 'Setnayan AI — a vendor card marked as chosen, with others eyeing the same date',
+        }
+      : {
+          kind: 'photo',
+          src: '/demo/maria-jose/vendor-florist.webp',
+          alt: 'A florist arranging stems at a table before an event',
+        };
+
+  return [
+    {
+      chip: 'Ranked shortlist',
+      t: 'Your best vendors, sorted to the top',
+      d:
+        `The whole directory becomes a shortlist built for your ${eventWord} — ` +
+        'ranked by date, budget and style, and picked by best fit, never cheapest first.',
+      caps: ['rank'],
+      media: {
+        kind: 'still',
+        src: '/add-ons/demo/stills/setnayan-ai-1.jpg',
+        alt: 'Setnayan AI — three vendors ranked by how well they match',
+      },
+    },
+    {
+      chip: 'Your date',
+      t: 'Lock in the right team before it’s gone',
+      d:
+        `Your list marks anyone another ${organizerNoun} starts looking at for your ` +
+        'date, and you hear it from us when someone you’re considering gets booked — ' +
+        'or frees up.',
+      caps: ['demand', 'date_watch'],
+      media: dateMedia,
+    },
+    {
+      chip: 'Deadlines',
+      t: 'It tells you the one next thing',
+      d: deadlines,
+      caps: ['deadlines', 'next_move', 'schedule_clash'],
+      media: {
+        kind: 'still',
+        src: '/add-ons/demo/stills/setnayan-ai-3.jpg',
+        alt: 'Setnayan AI — an up-next list with each task counted down to its due date',
+      },
+    },
+    {
+      chip: 'Your money',
+      t: 'It catches the slips that cost money',
+      d:
+        'A deposit coming due. A total creeping past your budget while there’s still ' +
+        'room to trim. A vendor you’re watching who quietly changes their price — we ' +
+        'keep the figure you were quoted and check it against what they charge now.',
+      caps: ['payments', 'budget', 'price_watch'],
+      media: {
+        kind: 'photo',
+        src: '/demo/maria-jose/vendor-catering.webp',
+        alt: 'A catering buffet laid out on a white tablecloth at a reception',
+      },
     },
   ];
 }

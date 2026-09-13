@@ -31,6 +31,7 @@ import {
   snapshotChargeTotalCentavos,
 } from '@/lib/package-pricing-snapshot';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ContactShortlistVendorButton } from '../../_components/contact-shortlist-vendor-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -466,17 +467,35 @@ export default async function PackageBookingPage({ params }: Props) {
             <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             View contracts
           </Link>
-          <Link
-            href={`/dashboard/${eventId}/messages`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          >
-            <MessageCircle
-              aria-hidden
-              className="h-3.5 w-3.5"
-              strokeWidth={1.75}
-            />
-            Open thread
-          </Link>
+          {/* 🔴 A BUTTON LABELLED "Open thread" THAT OPENED THE LIST OF ALL
+              CONVERSATIONS. This page is about ONE package locked with ONE
+              supplier and it holds that supplier's row id, so there was never
+              any doubt which thread was meant. The shipped button resolves it —
+              and creates it if a lock somehow happened without one — then lands
+              on the conversation, which is what the label has always promised.
+              Dedupes on the chat_threads UNIQUE(event_id, vendor_profile_id)
+              index, so pressing it on an existing thread simply opens it. */}
+          {/* ⚠ `primary_event_vendor_id` is NULLABLE — a package booking can
+              exist without one, and there is then genuinely no single supplier
+              to open. That case keeps the old link to the list rather than
+              guessing. */}
+          {typedBooking.primary_event_vendor_id ? (
+          <ContactShortlistVendorButton
+            eventId={eventId}
+            vendorId={typedBooking.primary_event_vendor_id}
+            label="Open thread"
+            pendingLabel="Opening…"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+          />
+          ) : (
+            <Link
+              href={`/dashboard/${eventId}/messages`}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Messages
+            </Link>
+          )}
         </div>
 
         {isLocked ? (

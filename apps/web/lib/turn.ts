@@ -34,6 +34,21 @@ const DEFAULT_TTL_SECONDS = 30 * 60;
 /** Cloudflare's `generate` endpoint returns a single object; be tolerant of an array too. */
 type CloudflareTurnResponse = { iceServers?: RTCIceServer | RTCIceServer[] };
 
+/**
+ * Is a TURN relay available at all?
+ *
+ * ⚠ THIS WAS EXPORTED AND CALLED BY NOBODY. A dead read is the "gate with no
+ * handle" shape this codebase already names: the answer existed, in one line, and
+ * no surface asked for it — so on 2026-09-01 a host watched every camera fail with
+ * "couldn't reach the controller on this network", ON THE SAME WI-FI, with no way
+ * to learn whether a relay was configured at all.
+ *
+ * 🔑 WITHOUT A RELAY, "same network" IS NOT ENOUGH. Client/AP isolation (every
+ * guest network) and blocked mDNS both defeat host candidates on one LAN, and STUN
+ * cannot help — a relay is indifferent to whether the two ends can see each other.
+ * So this is not a venue-only nicety; it is the difference between cameras that
+ * work and cameras that fail on a network the host believes is fine.
+ */
 export function turnConfigured(): boolean {
   return Boolean(TURN_KEY_ID && TURN_API_TOKEN);
 }
@@ -59,12 +74,24 @@ export async function mintTurnIceServers(ttlSeconds = DEFAULT_TTL_SECONDS): Prom
         cache: 'no-store',
       },
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      // ⭐ NOT THE SAME AS UNCONFIGURED, though it used to be indistinguishable.
+      // A rotated key, a revoked token or a Cloudflare outage all land here, and a
+      // bare `return []` made a BROKEN relay look exactly like one that was never
+      // set up — while every roaming camera failed with "couldn't reach the
+      // controller on this network" and nobody could say why.
+      console.error(`[turn] Cloudflare refused the credential mint: HTTP ${res.status}`);
+      return [];
+    }
     const data = (await res.json()) as CloudflareTurnResponse;
     const raw = data.iceServers;
-    if (!raw) return [];
+    if (!raw) {
+      console.error('[turn] Cloudflare returned no iceServers in an OK response');
+      return [];
+    }
     return Array.isArray(raw) ? raw : [raw];
-  } catch {
+  } catch (e) {
+    console.error('[turn] credential mint threw', e);
     return [];
   }
 }

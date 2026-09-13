@@ -71,6 +71,7 @@ import {
   Tag,
   Tag as TagIcon,
   TestTube,
+  Ticket,
   TrendingUp,
   Trophy,
   UserX,
@@ -354,6 +355,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/founder-seats',
       },
       {
+        // Gifts (2026-09-05) — every comp currently live, in one place: vendor
+        // tier comps (setVendorTier) and user/event comp_grants, with a
+        // search-and-grant flow for a single named target. `Ticket`, not
+        // `Gift` — that icon already means Referrals in the Studio group.
+        key: 'gifts',
+        label: 'Gifts',
+        href: '/admin/gifts',
+        icon: Ticket,
+        matchPrefix: '/admin/gifts',
+      },
+      {
         // Repointed to the Accounts Studio Events tab (slice 1). matchPrefix
         // keeps this item lit on the legacy /admin/events path.
         key: 'events',
@@ -490,6 +502,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/studio?tab=moodboard-library',
         icon: Palette,
         matchPrefix: '/admin/moodboard-library',
+      },
+      {
+        // MB8 — every Mood Board render on the platform, consented or not.
+        // 🔒 Deliberately NOT filtered by consent: this feed is how Setnayan
+        // compiles its own content database (owner lock 2026-06-09). Consent
+        // gates whether a creation may be FEATURED, which is refused at the
+        // write, not hidden at the read.
+        key: 'moodboard-renders',
+        label: 'All creations',
+        href: '/admin/moodboard-renders',
+        icon: Images,
       },
       {
         // Repointed to the Studio Studio Social queue tab (slice 4 · final).

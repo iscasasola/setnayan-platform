@@ -25,7 +25,7 @@ import {
   type PDFPage,
   type RGB,
 } from 'pdf-lib';
-import { RECEPTION_PARTS, sel, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
+import { RECEPTION_PARTS, selAll, type PartId, type ReceptionDesign } from '@/lib/reception-scene';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
 import { deriveMonogram } from '@/lib/monogram';
 
@@ -59,6 +59,10 @@ export type ConceptPdfInput = {
   logoPng: Uint8Array | null;
   /** Website QR PNG (optional). */
   qrPng: Uint8Array | null;
+  /** The couple's Overall Theme (Mood Board redesign, 2026-09-02) — shown as
+   *  the book's title/subtitle when set. Both optional; the book reads exactly
+   *  as before when neither is set. */
+  theme?: { name: string | null; description: string | null };
 };
 
 // A4 portrait, points.
@@ -79,6 +83,10 @@ const PART_ORDER: PartId[] = [
   'tables',
   'tunnel',
   'entrance',
+  // 3 Filipino-relevant zones added 2026-09-03 — see reception-scene.ts.
+  'walls',
+  'photo_wall',
+  'welcome_signage',
   'people',
 ];
 
@@ -108,9 +116,16 @@ function formatDate(iso: string | null): string {
 function designChoices(design: ReceptionDesign): Array<{ label: string; value: string }> {
   return PART_ORDER.map((pid) => {
     const part = RECEPTION_PARTS.find((p) => p.id === pid)!;
+    // selAll, not sel: the concept PDF is what the couple hands a supplier —
+    // dropping their second ceiling treatment here would quote the wrong room.
     const vals = part.attributes
-      .map((a) => part && a.options.find((o) => o.id === sel(design, pid, a.id))?.label)
-      .filter(Boolean) as string[];
+      .map((a) =>
+        selAll(design, pid, a.id)
+          .map((id) => a.options.find((o) => o.id === id)?.label)
+          .filter((l): l is string => Boolean(l))
+          .join(' + '),
+      )
+      .filter((v) => v.length > 0);
     return { label: part.label, value: vals.join(' · ') };
   });
 }
@@ -127,6 +142,8 @@ function ascii(s: string): string {
 
 export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Array> {
   const { event, design, palette } = input;
+  const themeName = input.theme?.name?.trim() || null;
+  const themeDescription = input.theme?.description?.trim() || null;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -277,6 +294,12 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
       thickness: 1,
       color: GOLD,
     });
+    // The couple's theme name — a single line in the gap between the divider
+    // and the hero band. Only drawn when set, so the cover is byte-identical
+    // for a couple who hasn't named a theme.
+    if (themeName) {
+      center(p, themeName, A4.h - 386, fitSize(themeName, font, A4.w - 160, 12, 9), font, SOFT);
+    }
 
     // hero band (3:2) — sits below the divider, clear of the title block
     const bw = A4.w - MARGIN * 2;
@@ -354,18 +377,25 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
       thickness: 2,
       color: GOLD,
     });
-    p.drawText(ascii('Your design and your inspirations, brought together into your render.'), {
-      x: MARGIN,
-      y: A4.h - 106,
-      size: 11,
+    const introText =
+      themeDescription ||
+      'Your design and your inspirations, brought together into your render.';
+    const introEndY = paragraph(
+      p,
+      introText,
+      MARGIN,
+      A4.h - 106,
+      A4.w - MARGIN * 2,
+      11,
       font,
-      color: SOFT,
-    });
+      SOFT,
+      3,
+    );
 
     // ---- LEFT column ----
     const lx = MARGIN;
     const colW = 250;
-    let ly = A4.h - 140;
+    let ly = Math.min(A4.h - 140, introEndY - 10);
 
     const sw = palette.filter((c) => /^#?[0-9a-f]{6}$/i.test(c)).slice(0, 6);
     if (sw.length > 0) {

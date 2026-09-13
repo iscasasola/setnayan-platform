@@ -8,6 +8,10 @@ import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
+import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
+import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
+import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
@@ -1358,6 +1362,53 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
   return { published: stamped?.length ?? 0 };
 }
 
+// Take the plan back down. The MISSING HALF of publishSeating, and the reason
+// it had to exist: `event_floor_plan.published_at IS NOT NULL` is the ONLY
+// condition `public_venue_scene` checks before it serves the room, the tables,
+// the booths and which seats are taken (20270224160000_public_venue_scene.sql —
+// a draft plan gets `{published:false}` and nothing else). Publishing stamped
+// it; NOTHING in the codebase had ever cleared it, so a couple who published
+// once could not make their reception private again. The only escape was
+// flipping the whole celebration to private, which also takes down their
+// landing page — a far bigger hammer than "not yet, actually".
+//
+// 🔑 THIS CLEARS THE PUBLIC GATE ONLY, AND DELIBERATELY LEAVES THE PRINT PACK
+// ALONE. `event_tables.qr_published_at` records that a table's sign sheet was
+// run off; those signs are already standing at the venue and their qr_tokens
+// are never re-rolled (publishSeating's own contract). Un-stamping them would
+// state something untrue — that the pack was never printed — to undo something
+// it has no bearing on. A guest scanning a printed sign still reaches their
+// seat; what stops is the public 3D walk.
+//
+// UPDATE, never upsert: no row means nothing was ever published, and writing
+// one to say "not published" is a row nobody asked for. RLS scopes the write to
+// the couple. Returns whether a published row was actually found, so the editor
+// can tell "taken down" from "it already wasn't up".
+export async function unpublishSeating(formData: FormData): Promise<{ wasPublished: boolean }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: cleared, error } = await supabase
+    .from('event_floor_plan')
+    .update({ published_at: null, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .not('published_at', 'is', null)
+    .select('event_id');
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  revalidatePath(`/dashboard/${eventId}/seating/print`);
+  return { wasPublished: (cleared?.length ?? 0) > 0 };
+}
+
 // Rename a table (the per-table popup's inline rename). Mirrors
 // updateTableRotation: a single guarded UPDATE under the couple's RLS.
 // `table_label` already exists — no schema change. Trim + 1–64 chars, matching
@@ -2193,4 +2244,186 @@ export async function buildSeatingDraft(
     .eq('event_id', eventId);
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { tables: tables.length, seated: rows.length };
+}
+
+/**
+ * Persist the couple's reception design (per-part, per-attribute material
+ * choices) to events.reception_design (migration 20261002000000). Relocated
+ * from studio/mood-board/actions.ts (2026-09-03) — reception_design is the
+ * Seat Plan's own venue-decor settings ("what does the room look like"), so
+ * the ONE editor for it now lives in the seating lab; Mood Board keeps only a
+ * read-only summary + a link here. Nested shape { part: { attribute:
+ * optionId | [optionId, …] } }.
+ *
+ * Sanitizes through `sanitizeReceptionDesign` — the SAME function every reader
+ * passes the stored blob through. It used to re-implement the rules inline
+ * here, which was survivable while there was one rule ("is this a known option
+ * id"); it stopped being survivable when multi-select added four more (arrays
+ * only on `multi` attributes, the per-attribute cap, no duplicates, no
+ * "nothing here" option beside a real one). Two mechanisms that disagree about
+ * one fact each pass their own tests — so there is now one.
+ */
+export async function saveReceptionDesign(
+  eventId: string,
+  design: ReceptionDesign,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const clean = sanitizeReceptionDesign(design);
+
+  // RLS enforces host-only writes on their own events via event_members.
+  const { error } = await supabase
+    .from('events')
+    .update({
+      reception_design: clean,
+      mood_board_updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  // Both surfaces read reception_design: the lab renders it live in 3D, and
+  // the Mood Board shows the compact read-only summary — revalidate both.
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+/**
+ * RV2 — the couple waves a booked-supplier suggestion away, and it stays away.
+ *
+ * Owner ruling 2026-09-06 (Q9): a zone whose trade the couple has already
+ * booked OFFERS that treatment; one click makes it theirs, and their
+ * `reception_design` is never written without that click. Dismissing is the
+ * other half — an offer they have answered with "no" must not come back.
+ *
+ * 🛑 THIS FUNCTION CANNOT CHANGE THE ROOM, AND THAT IS ITS WHOLE DESIGN.
+ * It writes ONE column, `dismissed_room_suggestions`, and it does not take a
+ * `ReceptionDesign`, construct one, or call `saveReceptionDesign`. The
+ * invariant RV2 exists to hold — "showing a chip and dismissing a chip leave
+ * the saved room byte-identical" — is therefore structural rather than
+ * careful: there is no code path from here to that column. Keeping the list
+ * inside `reception_design` (as the brief suggested) would have made the same
+ * promise rest on a diff nobody re-reads, and would additionally have been
+ * DELETED on the next save, because `sanitizeReceptionDesign` keeps only known
+ * part -> attribute -> option triples. See the migration header.
+ *
+ * ⚠ `mood_board_updated_at` IS DELIBERATELY NOT TOUCHED. Waving away an offer
+ * is not a change to the board, and stamping it would tell every surface that
+ * reads that timestamp — and the couple — that their design moved when it did
+ * not. That is the same false claim in miniature that the whole ruling is
+ * against.
+ *
+ * Read-modify-write rather than a jsonb append: the list is a handful of short
+ * strings, `sanitizeDismissedSuggestions` is the same total boundary the reader
+ * uses, and a lost concurrent dismissal costs one re-tap of a chip.
+ */
+export async function dismissRoomSuggestion(eventId: string, dismissKey: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const key = dismissKey.trim();
+  // A blank or absurd key is a bug in the caller, not something to persist —
+  // and an unbounded string here would let the column grow without limit.
+  if (!key || key.length > 200) return;
+
+  // RLS enforces host-only writes on their own events via event_members — the
+  // SAME path `saveReceptionDesign` above relies on. No new policy is needed
+  // because this is not a new surface, only a new column on the same row.
+  const current = await supabase
+    .from('events')
+    .select('dismissed_room_suggestions')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (current.error) throw new Error(current.error.message);
+
+  const kept = sanitizeDismissedSuggestions(
+    (current.data as { dismissed_room_suggestions?: unknown } | null)?.dismissed_room_suggestions,
+  );
+  if (kept.includes(key)) return; // already dismissed — write nothing at all
+
+  const { error } = await supabase
+    .from('events')
+    .update({ dismissed_room_suggestions: [...kept, key] })
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating/lab`);
+}
+
+/**
+ * Reception decor AI-image layers — PILOT. Relocated from
+ * studio/mood-board/actions.ts alongside saveReceptionDesign and the
+ * ReceptionDesignEditor component that calls it (2026-09-03 relocation).
+ * Reads the moodboard_library_assets (+ moodboard_asset_color_ranges) rows
+ * for the pilot zones (backdrop, ceiling — see PILOT_DECOR_ZONES) into the
+ * shape lib/reception-decor-layers.ts's pure `resolveDecorLayer` expects.
+ *
+ * Public (no auth check needed beyond what the table's own RLS already
+ * enforces): moodboard_library_assets_public_read requires approved_at IS
+ * NOT NULL — the pilot rows are inserted with approved_at = NULL on purpose
+ * (generation happened, but the files were never uploaded to R2), so this
+ * query returns an EMPTY catalog in production until a human uploads +
+ * approves them. `resolveDecorLayer` already treats an empty catalog as
+ * "fall back to the flat SVG" — no separate feature flag needed, the
+ * existing draft/published gate IS the rollout mechanism.
+ */
+export async function getReceptionDecorLayerCatalog(): Promise<DecorLayerCatalog> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('moodboard_library_assets')
+    .select(
+      `asset_id, asset_subtype, storage_path, style_theme,
+       moodboard_asset_color_ranges ( slot_id, sampled_hex, tolerance_de, region_label )`,
+    )
+    .eq('asset_type', 'venue_scene')
+    .in('asset_subtype', PILOT_DECOR_ZONES as string[])
+    .not('approved_at', 'is', null)
+    .is('retired_at', null);
+  if (error) throw new Error(error.message);
+
+  const catalog: DecorLayerCatalog = {};
+  for (const row of (data ?? []) as Array<{
+    asset_id: string;
+    asset_subtype: string;
+    storage_path: string;
+    style_theme: string | null;
+    moodboard_asset_color_ranges:
+      | { slot_id: number; sampled_hex: string; tolerance_de: number; region_label: string | null }[]
+      | { slot_id: number; sampled_hex: string; tolerance_de: number; region_label: string | null }
+      | null;
+  }>) {
+    if (!row.style_theme || !(MOODBOARD_STYLE_FAMILIES as readonly string[]).includes(row.style_theme)) {
+      continue; // no style_family, or not one of the 5 known ones — skip rather than guess
+    }
+    const ranges = Array.isArray(row.moodboard_asset_color_ranges)
+      ? row.moodboard_asset_color_ranges
+      : row.moodboard_asset_color_ranges
+        ? [row.moodboard_asset_color_ranges]
+        : [];
+    const slot1 = ranges.find((r) => r.slot_id === 1);
+    if (!slot1) continue; // no tagged region — nothing to retint, skip rather than composite untinted
+
+    const zone = row.asset_subtype as (typeof PILOT_DECOR_ZONES)[number];
+    const style = row.style_theme as MoodboardStyleFamily;
+    catalog[zone] = {
+      ...catalog[zone],
+      [style]: {
+        assetId: row.asset_id,
+        storagePath: row.storage_path,
+        colorRange: {
+          slotId: slot1.slot_id,
+          sampledHex: slot1.sampled_hex,
+          toleranceDe: slot1.tolerance_de,
+          regionLabel: slot1.region_label ?? undefined,
+        },
+      },
+    };
+  }
+  return catalog;
 }

@@ -1,5 +1,6 @@
 import type { RoleGroup } from './role-groups';
 import type { GuestRole } from './guests';
+import type { PaletteStyle } from './palette-styles';
 
 /**
  * Palette keys split into three families:
@@ -10,8 +11,8 @@ import type { GuestRole } from './guests';
  *     family, sponsors, bearers, officiants, muslim_principals (Nikah cast) and
  *     plain `guest` — each shown only when a guest actually holds that role.
  *
- * Reception palette has named slots (dominant, supporting, accents) for the
- * first four indexes; the 5th + 6th are extra accents without labels.
+ * Reception palette is FIVE colors, every slot named: Dominant · Supporting ·
+ * Accent · Neutral · Accent 2 (see PALETTE_LIMITS.reception below).
  */
 export type CouplePaletteKey = 'bride' | 'groom';
 
@@ -59,18 +60,80 @@ export type RoomDressing = {
   lighting_warmth?: string;
 };
 
+/**
+ * A couple-authored palette role beyond the fixed taxonomy above (owner
+ * directive: "Ring bearer's dog," but really anything). `key` is a stable
+ * slug derived from `label` at save time so re-saving the same name is
+ * idempotent — it never creates a duplicate row. Not validated against
+ * `PaletteKey`: a custom role's name is free text, not a fixed vocabulary.
+ */
+export type CustomPaletteRole = {
+  key: string;
+  label: string;
+  colors: string[];
+};
+
 export type RolePalette = Partial<Record<PaletteKey, string[]>> & {
   room_dressing?: RoomDressing;
+  custom_roles?: CustomPaletteRole[];
+  /**
+   * Role keys the couple has edited directly in the Palette section (02) —
+   * MB5's `touchedRoles`. A touched role's own colors are never overwritten
+   * by a change to the majors or the palette style; only releasing it (the
+   * "Match my main colours again" control) removes a key from this set.
+   * Lives inside this same JSONB column, a sibling of `room_dressing` and
+   * `custom_roles`, so no migration is needed — see `DERIVABLE_PALETTE_KEYS`.
+   * `reception` (the majors themselves) and `officiants` (never derived) are
+   * never valid members; `sanitizeRolePalette` enforces this.
+   */
+  touched_roles?: PaletteKey[];
+  /**
+   * The palette-style engine's mode ('simple' | 'depth' | 'complex') for
+   * this board — a sibling of `room_dressing`, same JSONB column. Unknown or
+   * absent values normalize to 'depth' via `sanitizePaletteStyle`, never to
+   * a render-time guess.
+   */
+  palette_style?: PaletteStyle;
 };
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+
+// Caps for couple-authored custom roles — mirrors the fixed taxonomy's own
+// bounds rather than inventing new ones: 6 is the highest per-key `max` any
+// fixed role uses (bridesmaids/groomsmen/wedding_party/guest), and 60 chars
+// is a generous single-line label length for a UI chip.
+export const MAX_CUSTOM_ROLES = 10;
+export const MAX_CUSTOM_ROLE_COLORS = 6;
+export const MAX_CUSTOM_ROLE_LABEL_LENGTH = 60;
+
+/**
+ * Derive a stable slug key from a couple-typed custom role label — lowercase,
+ * non-alphanumeric runs collapsed to a single dash, trimmed. Mirrors the
+ * house `slugify` pattern in `lib/slugs.ts`, reimplemented locally (rather
+ * than imported) so this pure, isomorphic module doesn't pull the slug
+ * module's Supabase-client typed imports into the `palette-editor.tsx`
+ * client bundle. Empty/entirely-punctuation labels fall back to a stable
+ * `custom-role` placeholder so a role is never silently unaddressable.
+ */
+export function slugifyCustomRoleKey(label: string): string {
+  const slug = label
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // strip diacritics
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+  return slug || 'custom-role';
+}
 
 export type PaletteLimits = {
   min: number;
   max: number;
   label: string;
   hint: string;
-  /** Per-index labels (e.g. ["Dominant", "Supporting", "Accent", "Accent 2"]). */
+  /** Per-index labels — one per slot, e.g. reception's
+   *  ["Dominant", "Supporting", "Accent", "Neutral", "Accent 2"]. */
   slotLabels?: ReadonlyArray<string>;
   /** Grouping tag for UI sectioning. */
   family: 'venue' | 'couple' | 'role';
@@ -79,7 +142,7 @@ export type PaletteLimits = {
 /**
  * Per-key min/max color counts.
  *   • Ceremony: 1–3 (smaller, more reverent)
- *   • Reception: 3–4 (dominant + supporting + 1–2 accents)
+ *   • Reception: 3–5 (dominant + supporting + accent + neutral + accent 2)
  *   • Wedding Party: 3–6 (matching attire, more coordination)
  *   • Guests with a role: 1–3 (sponsors, bearers, officiants)
  *   • Plain guests: 3–6 (dress-code options guests pick from)
@@ -92,12 +155,26 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     hint: 'Overall ceremony venue setting — 1 to 3 colors',
     family: 'venue',
   },
+  // RECEPTION IS FIVE (owner directive 2026-09-03: "themes must be 5 colors").
+  // Every one of the 2,600 seeded themes now ships exactly five, in these
+  // slots — see RECEPTION_PALETTE_SIZE / completeReceptionFive in
+  // lib/moodboard-theme-generator.ts, which is the single implementation
+  // behind both the hand-authored and the generated rows.
+  //
+  // 🔑 `max` IS LOAD-BEARING, NOT COSMETIC. `sanitizeRolePalette` below slices
+  // every palette to `max`, and it is the ONLY writer path — so a `max` under
+  // 5 would silently CLAMP every five-color theme back down on its way into
+  // the event and the swatch strip would look exactly like a correct
+  // three-color board. Never lower this below RECEPTION_PALETTE_SIZE.
+  //
+  // `min` stays 3: a couple who wants to simplify their OWN palette may, and
+  // min is only a soft warning in palette-editor.tsx, never a save block.
   reception: {
     min: 3,
-    max: 6,
+    max: 5,
     label: 'Reception palette',
-    hint: 'Dominant + supporting + accents — 3 to 6 colors',
-    slotLabels: ['Dominant', 'Supporting', 'Accent', 'Accent 2'],
+    hint: 'Dominant + supporting + accent + two neutrals — 3 to 5 colors',
+    slotLabels: ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'],
     family: 'venue',
   },
   bride: {
@@ -236,6 +313,28 @@ export const PALETTE_ORDER: ReadonlyArray<PaletteKey> = [
 ];
 
 /**
+ * Every `PaletteKey` the palette-style engine (`lib/palette-styles.ts`) can
+ * derive, and therefore every valid member of `RolePalette.touched_roles`.
+ * `reception` is excluded — the majors are never "derived", they ARE the
+ * source (see the one-directional rule, MB5). `officiants` is excluded too
+ * — vestment color follows the church's own calendar and is never derived,
+ * so there is nothing to release it back to.
+ */
+export const DERIVABLE_PALETTE_KEYS: ReadonlyArray<PaletteKey> = PALETTE_ORDER.filter(
+  (k) => k !== 'reception' && k !== 'officiants',
+);
+
+const PALETTE_STYLE_KEYS: ReadonlyArray<PaletteStyle> = ['simple', 'depth', 'complex'];
+
+/**
+ * Unknown or absent values normalize to 'depth' — never to a render-time
+ * guess. Matches the prototype's `sanitizePaletteStyle` / init default.
+ */
+export function sanitizePaletteStyle(raw: unknown): PaletteStyle {
+  return PALETTE_STYLE_KEYS.includes(raw as PaletteStyle) ? (raw as PaletteStyle) : 'depth';
+}
+
+/**
  * Family membership lookup — drives conditional rendering. Venue and couple
  * palettes always show. Role-family palettes only show when the event has at
  * least one guest with a role mapping to that key, so the Mood Board doesn't
@@ -284,7 +383,98 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
   // are kept; the block is omitted entirely when nothing survives.
   const rd = sanitizeRoomDressing((raw as Record<string, unknown>).room_dressing);
   if (rd) out.room_dressing = rd;
+  const custom = sanitizeCustomRoles((raw as Record<string, unknown>).custom_roles);
+  if (custom) out.custom_roles = custom;
+  const touchedRoles = sanitizeTouchedRoles((raw as Record<string, unknown>).touched_roles);
+  if (touchedRoles) out.touched_roles = touchedRoles;
+  const paletteStyleRaw = (raw as Record<string, unknown>).palette_style;
+  if (paletteStyleRaw != null) out.palette_style = sanitizePaletteStyle(paletteStyleRaw);
   return out;
+}
+
+/** Drop anything not in `DERIVABLE_PALETTE_KEYS`, de-dupe, drop the block
+ *  entirely when nothing valid remains — same contract as
+ *  `sanitizeCustomRoles`/`sanitizeRoomDressing`. */
+function sanitizeTouchedRoles(raw: unknown): PaletteKey[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const valid = new Set(DERIVABLE_PALETTE_KEYS);
+  const out: PaletteKey[] = [];
+  const seen = new Set<PaletteKey>();
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !valid.has(entry as PaletteKey) || seen.has(entry as PaletteKey)) continue;
+    seen.add(entry as PaletteKey);
+    out.push(entry as PaletteKey);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * The couple's five "majors" — the reception palette — are the whole board's
+ * source of truth: every other surface (attire cards, the 3D room, renders)
+ * ultimately follows them or a role the couple set directly. This is the ONE
+ * predicate for "have the majors been chosen by the couple" (ported from the
+ * mood-board prototype's `majorsChosen`, 2026-09-03):
+ *
+ *   const majorsChosen = () => touchedRoles.has('reception') || majorsSetByTheme;
+ *
+ * The prototype tracked two separate ephemeral signals — a direct edit vs an
+ * applied theme's fill — because it never persisted anything; the moment
+ * EITHER happens, `role_palette.reception` stops being empty, and it's the
+ * only thing that ever reaches the database. So in the real app the two
+ * collapse into one durable check: reception has a color. Six separate
+ * defects came from different parts of the prototype's board asking this
+ * question a different way (`hasSavedPalette`-style "any key at all" checks,
+ * `moodboard_theme_name` presence, `isSeeded` flags) and disagreeing with
+ * each other. Every surface that needs to know "has the couple chosen their
+ * theme colours" — the blank-start fork, the eventual Setnayan AI advisory
+ * panel (MB4/MB5), the palette-style engine — MUST read THIS, not invent its
+ * own signal.
+ */
+export function hasChosenMajors(palette: RolePalette): boolean {
+  return (palette.reception ?? []).length > 0;
+}
+
+/**
+ * Validate raw `custom_roles` input the same way fixed keys are validated —
+ * drop invalid hexes, clamp colors to `MAX_CUSTOM_ROLE_COLORS`, clamp the
+ * label length, re-slug the key from the (possibly re-typed) label so a
+ * renamed role never carries a stale key, drop entries with no valid colors
+ * or an empty label, de-dupe by key (first occurrence wins), and clamp the
+ * whole array to `MAX_CUSTOM_ROLES`. Returns undefined when nothing survives
+ * so callers can omit the field entirely, matching `sanitizeRoomDressing`.
+ */
+function sanitizeCustomRoles(raw: unknown): CustomPaletteRole[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: CustomPaletteRole[] = [];
+  for (const entry of raw) {
+    if (out.length >= MAX_CUSTOM_ROLES) break;
+    if (typeof entry !== 'object' || entry === null) continue;
+    const e = entry as Record<string, unknown>;
+    const rawLabel = typeof e.label === 'string' ? e.label.trim() : '';
+    if (!rawLabel) continue;
+    const label = rawLabel.slice(0, MAX_CUSTOM_ROLE_LABEL_LENGTH);
+    const colorsIn = Array.isArray(e.colors) ? e.colors : [];
+    const colors = colorsIn
+      .filter((c): c is string => typeof c === 'string' && HEX_RE.test(c))
+      .map((c) => c.toUpperCase())
+      .slice(0, MAX_CUSTOM_ROLE_COLORS);
+    if (colors.length === 0) continue;
+    // Re-derive the key from the label rather than trusting a stale/forged
+    // one, so a renamed role re-saves idempotently instead of accumulating
+    // duplicates under its old slug.
+    let key = slugifyCustomRoleKey(label);
+    if (seen.has(key)) {
+      // Rare: two custom roles slug to the same key (e.g. "Ring Bearer's Dog"
+      // vs "ring bearer dog"). Suffix rather than silently drop the second.
+      let n = 2;
+      while (seen.has(`${key}-${n}`)) n += 1;
+      key = `${key}-${n}`;
+    }
+    seen.add(key);
+    out.push({ key, label, colors });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** Validate a raw room-dressing object → keep only the #RRGGBB fields. Returns
@@ -319,7 +509,12 @@ export function getPrimaryColor(
 
 export const DEFAULT_PALETTE_SUGGESTIONS: Record<PaletteKey, string[]> = {
   ceremony: ['#FAF7F2', '#824A2A'],
-  reception: ['#C97B4B', '#824A2A', '#D08654'],
+  // Five, one per named slot — `addColor` in palette-editor.tsx picks
+  // `suggestions[arr.length % suggestions.length]`, so a three-entry list
+  // handed the couple a REPEAT of the Dominant color the moment they added a
+  // fourth. Slots 4-5 are the terracotta family's own neutral pair (warm
+  // cream, deep espresso), matching what completeReceptionFive derives.
+  reception: ['#C97B4B', '#824A2A', '#D08654', '#F5EDE4', '#2B1D14'],
   bride: ['#FAF7F2'],
   groom: ['#1A1A1A'],
   // Wedding-party fallback + its four split sub-keys share the terracotta trio so

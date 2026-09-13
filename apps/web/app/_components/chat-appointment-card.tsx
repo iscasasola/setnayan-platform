@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { respondAppointment } from './appointments-actions';
 import { APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
-import { TIME_SLOTS, todayIsoLocal, dayBeforeEventIso } from '@/lib/appointment-slots';
+import { ProposeNewTimeForm } from './propose-new-time-form';
 import { NegotiationCardShell, type NegRow, type NegStatusTone } from './negotiation-card-shell';
 
 export type ChatAppointmentData = {
@@ -60,14 +60,6 @@ export function ChatAppointmentCard({
   eventDate,
 }: Props) {
   const [reviseOpen, setReviseOpen] = useState(false);
-  const [reviseDate, setReviseDate] = useState('');
-  const [reviseTime, setReviseTime] = useState('');
-  const minDate = todayIsoLocal();
-  const maxDate = dayBeforeEventIso(eventDate);
-  // The bare wall clock the person typed. The offset is NOT appended here —
-  // `datetimeLocalToIso` on the receiving side reads it at the venue, so the
-  // rule lives in one place instead of being re-typed by every new form.
-  const reviseWhen = reviseDate && reviseTime ? `${reviseDate}T${reviseTime}:00` : '';
   const isProposer = data.initiated_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
   const st = STATUS[data.status];
@@ -115,46 +107,16 @@ export function ChatAppointmentCard({
         </button>
       </form>
       {reviseOpen ? (
-        <form action={respondAppointment} className="mt-1 flex w-full flex-col gap-2">
-          {hidden}
-          <input type="hidden" name="decision" value="propose_new" />
-          <input type="hidden" name="scheduled_at" value={reviseWhen} />
-          <div className="flex flex-wrap gap-2">
-            <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-ink/60">
-              New date
-              <input
-                type="date"
-                required
-                min={minDate}
-                max={maxDate ?? undefined}
-                value={reviseDate}
-                onChange={(e) => setReviseDate(e.target.value)}
-                className="input-field h-9 text-sm"
-              />
-            </label>
-            <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-ink/60">
-              Time
-              <select
-                required
-                value={reviseTime}
-                onChange={(e) => setReviseTime(e.target.value)}
-                className="input-field h-9 text-sm"
-              >
-                <option value="" disabled>
-                  Pick a time
-                </option>
-                {TIME_SLOTS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button className="inline-flex h-9 items-center self-start rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
-            Send new time
-          </button>
-        </form>
+        <ProposeNewTimeForm
+          hidden={hidden}
+          eventDate={eventDate}
+          fieldClassName="input-field h-9 text-sm"
+          submit={
+            <button className="inline-flex h-9 items-center self-start rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+              Send new time
+            </button>
+          }
+        />
       ) : null}
     </>
   ) : null;

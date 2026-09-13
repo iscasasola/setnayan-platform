@@ -17,6 +17,7 @@
  * valid explicit hint over the detected value.
  */
 import { headers, cookies } from 'next/headers';
+import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -71,4 +72,27 @@ export async function getRequestPlatform(): Promise<RequestPlatform> {
   if (!isNative) return 'web';
   if (/SetnayanApp\/android/i.test(ua) || /Android/i.test(ua)) return 'android';
   return 'ios';
+}
+
+/**
+ * Is this request from the App Store / Play Store shell (Capacitor)?
+ *
+ * ⚠ NOT the same question as `getRequestPlatform() !== 'web'`: that one also
+ * says 'ios' for the desktop Tauri build (`SetnayanApp/desktop`), which Apple
+ * never reviews. Store-review rules — hide paid digital features (3.1.1 via
+ * 3.1.3(b)), no cookie prompt (5.1.2) — must key on THIS. The pure predicate
+ * and the rationale live in lib/store-shell.ts. Safe outside a request scope
+ * (build / cron) → false.
+ */
+export async function isStoreShellRequest(): Promise<boolean> {
+  try {
+    const h = await headers();
+    const c = await cookies();
+    return isStoreShellSignals(
+      h.get('user-agent'),
+      c.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value,
+    );
+  } catch {
+    return false;
+  }
 }

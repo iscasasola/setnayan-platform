@@ -15,19 +15,30 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
 import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
 import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/state-cta';
+import { ChoosePlanSheet, type ChoosePlanSheetProps } from '@/app/_components/app-store/choose-plan-sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
-import { liveStudioControlPath } from '@/lib/live-studio-control';
+import { liveStudioControlPath, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
+import { eventSkuActive } from '@/lib/entitlements';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  mayBroadcastOnSharedChannel,
+  poolOnlyConnectNotice,
+  POOL_CHANNEL_SHARED_STRIKE_NOTICE,
 } from '@/lib/live-studio-pool-only';
-import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
+import {
+  ENCODER_BUY_NOTICE,
+  LEAD_TIME_NOTICE,
+  MUSIC_RIGHTS_NOTICE,
+  YOUTUBE_READY_NOTICE,
+} from '@/lib/live-studio-readiness';
+import { setYoutubeLiveReadyAck } from './actions';
 
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
@@ -38,8 +49,9 @@ import { LEAD_TIME_NOTICE } from '@/lib/live-studio-readiness';
 //     serviceKey LIVE_STUDIO, priced LIVE from the admin catalog via formatV2Sku —
 //     never hardcoded. The buy reuses AddOnStateCta / InlineCheckoutDrawer; the
 //     checkout's serviceKey is LIVE_STUDIO so submitOrderAction re-resolves the price
-//     from platform_retail_catalog_v2 (₱2,999 · per event · one_time) and rides the
-//     QR rail → /admin/payments.
+//     from platform_retail_catalog_v2 (billing_period='one_time' — LS6, 2026-09-02:
+//     one unlock, unlimited streams, for the life of the event, never quote the
+//     figure here — read the table) and rides the QR rail → /admin/payments.
 //   • Once OWNED, the CTA flips to "Open controller" → ./setup (the unified switching
 //     controller: name cameras, cut them onto the Main Stage, set the default view).
 //
@@ -94,6 +106,26 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
+  // ✅ HAS THIS PERSON ALREADY CONFIRMED THEIR YOUTUBE CHANNEL IS LIVE-READY?
+  //
+  // Per-USER, deliberately — a channel belongs to the person, not to one celebration
+  // (owner ruling 2026-09-02: "if they have accepted at least once, then the next
+  // time they purchase, no more tick box"). Read here rather than inside the sheet so
+  // the sheet stays a dumb client component with no data access of its own.
+  //
+  // A REFUSED READ MUST NOT SILENTLY DROP THE GATE. `.select()` returning an error
+  // leaves `data` null, which is indistinguishable from "never acknowledged" — and
+  // that is the SAFE direction here: the buyer is asked once more. The opposite
+  // default (assume acknowledged) would remove the warning from someone who had never
+  // seen it, on the one screen where seeing it matters.
+  const { data: ackRow, error: ackError } = await supabase
+    .from('users')
+    .select('youtube_live_ready_ack_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (ackError) console.error('[live-studio] youtube ack read refused', ackError);
+  const youtubeLiveReadyAcked = !!ackRow?.youtube_live_ready_ack_at;
+
   // ⭐ THE REVOKE CONTROL'S NEW HOME (2026-08-06).
   //
   // Until this page carried it, the ONLY way a host could disconnect their Google
@@ -127,17 +159,38 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // it through the shared helper so this doorway can never point at the old URL.
   const controllerHref = liveStudioControlPath(eventId);
 
-  const [stats, stateCtx, settings, sku] = await Promise.all([
-    fetchAddOnStats(supabase, FEATURE_KEY),
-    resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
-    fetchPlatformSettings(supabase),
-    formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
-  ]);
+  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
+    await Promise.all([
+      fetchAddOnStats(supabase, FEATURE_KEY),
+      resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
+      fetchPlatformSettings(supabase),
+      formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
+      formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
+      // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+      // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
+      // resolveAddOnState, which drive whether the MULTICAM controller unlocks.
+      // This entitlement decides WHICH CHANNEL NOTICE renders below, nothing else.
+      eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
+      // ⭐ LS6 (2026-09-02): is the add-on itself still ON SALE? `formatV2Sku` above
+      // does NOT filter on is_active (it exists so an already-owning couple's
+      // catalog miss only blanks a label, never their access), so it alone cannot
+      // tell a retired row from a live one. `getCustomerSkuPriceLabel` DOES filter
+      // on is_active (its own docblock: "Returns null when the row is unreadable /
+      // inactive") — reused here purely as that boolean, not for its formatted
+      // string. Without this, a couple could open the "Add hosted channel" sheet on
+      // a SKU the admin turned off and be refused only at checkout (the generic
+      // retirement guard in checkout/actions.ts) — a buy button that renders as if
+      // it works and quietly does not, the exact pattern this codebase has shipped
+      // and fixed before.
+      getCustomerSkuPriceLabel(LIVE_STUDIO_HOSTED_CHANNEL_SKU).then((label) => label !== null),
+    ]);
 
   // Live catalog price (display only; the charge is re-resolved server-side from
   // LIVE_STUDIO_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
   const centavos = sku?.price_centavos ?? 0;
   const priceLabel = sku ? formatPhp(sku.price_php) : '—';
+  const hostedChannelCentavos = hostedChannelSku?.price_centavos ?? 0;
+  const hostedChannelPriceLabel = hostedChannelSku ? formatPhp(hostedChannelSku.price_php) : '—';
 
   const planRow: PlanRow = {
     name: 'Live Studio',
@@ -180,12 +233,27 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
 
   // One controller shared by free + paid (owner 2026-07-25): a host who hasn't
   // bought Live Studio can still OPEN the controller and go live free with a single
-  // camera — the multi-camera extras simply show locked there. So for any non-owned
-  // state we surface a secondary "Open the controller" link beside the buy CTA. When
-  // owned ('launch'), the primary CTA already opens the controller, so we don't
-  // duplicate it.
+  // camera — the multi-camera extras simply show locked there.
+  //
+  // L8 (2026-09-02): for a non-owned host this doorway used to lead with the
+  // ₱3,000 buy button and demote the free path to a plain text link beneath it —
+  // at odds with the Wave 3 lock (§ 4d) that "seeing the cameras actually working
+  // IS the conversion mechanism". So for any non-owned state the free controller
+  // link now renders FIRST and at the same button weight as the buy CTA — order
+  // and weight only; the price and the buy button are unchanged. When owned
+  // ('launch'), the primary CTA already opens the controller, so nothing else
+  // renders.
   const cta = (
     <div className="space-y-2">
+      {stateCtx.state !== 'launch' ? (
+        <Link
+          href={controllerHref}
+          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
+        >
+          Open the controller — go live free with one camera
+          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
+      ) : null}
       <AddOnStateCta
         context={stateCtx}
         launchLabel="Open controller"
@@ -214,23 +282,44 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         // below it. Manual payment reconciliation runs to a 24-hour SLA, and a wedding
         // cannot wait for it: an unlock bought the night before may still be
         // unapproved when the ceremony starts, which is one camera on the day. Its
-        // second sentence ("your day starts when you first go live, not when you pay")
-        // is true only because of the 2026-07-27 anchor fix — the pair is what makes
-        // "buy earlier" safe advice rather than advice to burn the day sooner.
-        notice: LEAD_TIME_NOTICE,
+        // second sentence ("your unlock covers the whole event — no day to start, no
+        // clock to burn") is what makes "buy earlier" safe advice: LS6 (2026-09-02)
+        // retired the per-event-day clock, so there is no longer even a window to
+        // mis-anchor by buying ahead — see lib/live-studio-window.ts.
+        // TWO CLOCKS, TWO PARAGRAPHS, BOTH ABOVE THE PRICE. Ours is manual payment
+        // reconciliation; theirs is Google's ~24-hour first-time live activation on
+        // their OWN channel. They run in PARALLEL — a couple can activate YouTube
+        // while payment is pending — so these are two sentences, not 24 hours added
+        // to one. Merging them into a single paragraph would read as a 3-day wait
+        // and talk buyers out of a purchase that only ever needed 2 days.
+        // THREE FACTS THE BUYER CANNOT DISCOVER LATE, in the order they bite:
+        // our payment SLA, YouTube's activation wait, and the laptop. The last is
+        // the only one with NO recovery — a couple who meets the other two too late
+        // can still wait or be approved early; a couple with no laptop on the
+        // morning has no broadcast, and nothing fixes it.
+        // 🎵 THE FOURTH, AND THE ONLY ONE THAT FAILS DURING THE CEREMONY. The three
+        // above all bite BEFORE the day — late, but survivable. YouTube scans the
+        // live stream in real time and a music match replaces it with a placeholder
+        // or cuts it off at the processional, in front of everyone watching from
+        // abroad. It applies to music the couple PAID to license, and it is the
+        // default path for a Filipino wedding, not an edge case. LAST in the array
+        // on purpose: the first three decide whether they can broadcast at all,
+        // this one decides what they play once they can.
+        notice: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE],
+        // Shown ONLY until they have ticked it once, ever. Omitting the prop is how
+        // "already accepted" is expressed — the sheet has no way to pre-tick a box,
+        // which is what keeps this affirmative (see consent-is-affirmative.test.ts).
+        acknowledgement: youtubeLiveReadyAcked
+          ? undefined
+          : {
+              label:
+                'I understand, and I already have a YouTube account that is ready for live streaming.',
+              onChange: setYoutubeLiveReadyAck,
+            },
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}
       />
-      {stateCtx.state !== 'launch' ? (
-        <Link
-          href={controllerHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-        >
-          Open the controller — go live free with one camera
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
-      ) : null}
     </div>
   );
 
@@ -273,7 +362,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
         >
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          <span>{POOL_ONLY_CONNECT_NOTICE}</span>
+          <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>
         </p>
       ) : youtubeError ? (
         <p
@@ -334,8 +423,120 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         eventId={eventId}
         oauthReady={oauthReady}
         grant={youtubeGrant}
+        ownsHostedChannel={ownsHostedChannel}
+      />
+
+      <HostedChannelUpsell
+        eventId={eventId}
+        owns={ownsHostedChannel}
+        onSale={hostedChannelOnSale}
+        priceLabel={hostedChannelPriceLabel}
+        priceCentavos={hostedChannelCentavos}
+        settings={settings}
       />
     </div>
+  );
+}
+
+/**
+ * "Rather have Setnayan run the channel?" — the OPTIONAL upsell (owner ruling
+ * 2026-09-02). Deliberately its OWN <ChoosePlanSheet>, not folded into the
+ * LIVE_STUDIO plan above: `AddOnStateCta` only renders a plan sheet in the
+ * 'add' state (state-cta.tsx) — once an event owns Live Studio the hero CTA
+ * becomes a bare "Open controller" link with no sheet at all, which would
+ * strand a couple who bought Live Studio FIRST and only decides later that
+ * they'd rather not run their own channel. This section is independent of
+ * `stateCtx` entirely, so it is reachable before OR after Live Studio itself
+ * is bought — matching "STACKS on LIVE_STUDIO, does not replace it".
+ *
+ * ⚠ HIDDEN ENTIRELY WHEN OFF SALE AND NOT OWNED (LS6, 2026-09-02). The SKU was
+ * deactivated when LIVE_STUDIO's reprice broke the "the two SUM to ₱3,000" pairing
+ * they were priced under, with no replacement figure given — see the LS6 migration.
+ * `formatV2Sku` does not filter on `is_active`, so without this gate the section
+ * would keep rendering a working-looking "Add hosted channel" button that the
+ * generic retirement guard (checkout/actions.ts) only refuses at submit time — a
+ * buy button that renders as if it works and silently does not. An event that
+ * ALREADY owns it (none do, as of LS6 — zero orders) keeps seeing its confirmation
+ * regardless of `onSale`, same as every other retired-but-still-owned SKU in this
+ * codebase (LIVE_WALL, COUPLE_WEBSITE_PRO).
+ */
+function HostedChannelUpsell({
+  eventId,
+  owns,
+  onSale,
+  priceLabel,
+  priceCentavos,
+  settings,
+}: {
+  eventId: string;
+  owns: boolean;
+  onSale: boolean;
+  priceLabel: string;
+  priceCentavos: number;
+  settings: ChoosePlanSheetProps['settings'];
+}) {
+  if (!owns && !onSale) return null;
+  return (
+    <section
+      aria-labelledby="hosted-channel-heading"
+      className="sn-tile space-y-3 p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <p className="sn-eye">Optional</p>
+        <h2
+          id="hosted-channel-heading"
+          className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+        >
+          <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          Have Setnayan run the channel
+        </h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          By default your broadcast goes out on your own YouTube — paste your watch
+          link, or start your own broadcast, right in the controller. If you don&rsquo;t
+          have live-stream access, or would rather not set it up yourself, add this and
+          Setnayan supplies and runs the channel for you instead. It only changes which
+          channel your broadcast goes to — everything else about Live Studio (cameras,
+          cutting, guest-pick) is unaffected either way.
+        </p>
+        {/* 🚨 THE ONE THING A BUYER CANNOT WORK OUT FOR THEMSELVES, and the reason it
+            sits INSIDE the add-on section rather than in the footnote: the risk this
+            option carries is not the buyer's, it is every OTHER couple's. A Setnayan
+            channel holds other weddings and their archives; YouTube counts strikes
+            against the channel and terminates it at three, removing every video on
+            it. Someone choosing to put their day on a shared channel is entitled to
+            know their music choice reaches strangers' films.
+            One constant, shared with /admin/live-studio-channels, so the buyer and
+            the admin who places the event can never be told different stories. */}
+        <p className="max-w-prose text-sm text-ink/65">{POOL_CHANNEL_SHARED_STRIKE_NOTICE}</p>
+      </div>
+
+      {owns ? (
+        <p className="inline-flex items-center gap-2 rounded-lg border border-success-200/80 bg-success-50/60 px-3 py-2.5 text-sm text-ink">
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2} />
+          Setnayan is providing your channel for this event.
+        </p>
+      ) : (
+        <ChoosePlanSheet
+          eventId={eventId}
+          triggerLabel="Add hosted channel"
+          priceFromLabel={priceLabel === '—' ? undefined : `${priceLabel} / day`}
+          plans={[
+            {
+              sku_code: LIVE_STUDIO_HOSTED_CHANNEL_SKU,
+              name: 'Live Studio — hosted channel',
+              scope:
+                'Setnayan supplies and operates the YouTube channel your broadcast streams to. Buy alongside Live Studio, any time before or after — this does not include the multi-camera controller itself.',
+              price: priceLabel,
+              unit: ' / day',
+              priceCentavos: String(priceCentavos),
+            },
+          ]}
+          settings={settings}
+          introCopy="For couples without live-stream access, or who'd rather not set one up themselves — Setnayan runs the channel so you don't have to."
+          footnote="Apply-then-pay flow · we confirm price before payment. Stacks on Live Studio — buy this any time, before or after."
+        />
+      )}
+    </section>
   );
 }
 
@@ -356,10 +557,12 @@ function YoutubeChannelPanel({
   eventId,
   oauthReady,
   grant,
+  ownsHostedChannel,
 }: {
   eventId: string;
   oauthReady: boolean;
   grant: YoutubeGrant | null;
+  ownsHostedChannel: boolean;
 }) {
   const poolOnly = liveStudioPoolOnly();
   const grantedDate = grant
@@ -392,9 +595,24 @@ function YoutubeChannelPanel({
         </p>
       </div>
 
+
+      {/* 🚨 THE SHARED-CHANNEL RISK, ON THE SURFACE THAT ACTUALLY REACHES THE HOST.
+          LS7 put this inside the hosted-channel add-on section, on the premise that
+          buying the add-on is what puts a couple on a Setnayan channel. It is not:
+          panood/setup/actions.ts claims a pool channel under liveStudioRoamEnabled()
+          alone, with NO entitlement check — and LS6 deactivated that SKU the same
+          day, so the section returned null and the warning reached nobody at all.
+          Gated on the SAME predicate the action uses (mayBroadcastOnSharedChannel),
+          so the copy and the behaviour cannot drift apart. Above the branch, not
+          inside one: it is true whichever channel state this host is in. */}
+      {mayBroadcastOnSharedChannel() ? (
+        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
+        </p>
+      ) : null}
       {poolOnly ? (
         <p className="rounded-xl border border-ink/15 bg-cream/80 p-5 text-sm text-ink/70">
-          {POOL_ONLY_CONNECT_NOTICE}
+          {poolOnlyConnectNotice(ownsHostedChannel)}
         </p>
       ) : !oauthReady ? (
         <div className="sn-row p-5">
@@ -463,13 +681,13 @@ function YoutubeChannelPanel({
         </div>
       ) : (
         <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
-          <Link
+          <a
             href={`/api/oauth/youtube/start?event_id=${eventId}`}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Connect YouTube
-          </Link>
+          </a>
           <p className="text-xs text-ink/55">
             You&rsquo;ll go to Google to grant access, then come straight back here. About
             20 seconds — and you can disconnect from this page any time.

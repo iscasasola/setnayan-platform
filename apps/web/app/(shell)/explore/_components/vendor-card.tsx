@@ -57,12 +57,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
+import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { experienceTier } from '@/lib/vendor-experience';
-import { formatStarRating } from '@/lib/reviews';
+import { formatStarRating, NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
 import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
@@ -77,7 +78,7 @@ import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
  * with two additions: `starting_price_php` (resolved from one of the
  * vendor's services) and `primary_photo_url` (resolved from the same
- * service's `primary_photo_r2_key` → r2PublicUrl). Both are added by
+ * service's `primary_photo_r2_key` → publicUrlForStoredAsset). Both are added by
  * the page-level enrichment pass, kept optional so the card never
  * crashes if the underlying lookup returns null.
  */
@@ -92,7 +93,6 @@ export type VendorCardData = {
   location_city: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
   avg_rating_overall: number;
@@ -499,7 +499,7 @@ export async function VendorCard({
             strokeWidth={1.75}
           />
           <span className="font-mono">
-            {rating > 0 ? formatStarRating(rating) : 'new'}
+            {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
           </span>
           {reviewCount > 0 ? (
             <span className="text-ink/45">
@@ -530,7 +530,6 @@ export async function VendorCard({
                "Follow Manila Wedding Photographer" instead of leaking
                the real business_name through the follow CTA. */
             vendorName={displayLabel}
-            vendorEmail={vendor.contact_email}
             isAuthenticated={isAuthenticated}
             initialFollowing={isFollowing}
             eventId={eventId}
@@ -765,34 +764,3 @@ function VendorHero({
   );
 }
 
-/**
- * next/image needs an absolute URL whose host is in
- * `next.config.ts`'s `images.remotePatterns` whitelist. Vendor uploads
- * land on R2 (setnayan-media bucket → `*.r2.dev` /
- * `*.r2.cloudflarestorage.com`) or Supabase Storage (`*.supabase.co`
- * / `*.supabase.in`). Anything else routes to the initials fallback
- * — a missing image renders as initials, never as broken next/image
- * markup. Mirrors the host whitelist the legacy VendorMarketCard
- * used before extraction.
- */
-function isOptimizableImageUrl(url: string): boolean {
-  if (url.startsWith('/')) return true;
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return false;
-  }
-  return (
-    host.endsWith('.r2.dev') ||
-    host.endsWith('.r2.cloudflarestorage.com') ||
-    host.endsWith('.supabase.co') ||
-    host.endsWith('.supabase.in') ||
-    // Demo/seed placeholder host. Already whitelisted in next.config.ts
-    // remotePatterns + used by the moodboard library seed; aligning the card
-    // guard lets synthetic demo-vendor logos render as a card banner instead
-    // of falling back to initials. Real vendors never store picsum URLs.
-    host === 'picsum.photos' ||
-    host === 'fastly.picsum.photos'
-  );
-}

@@ -65,6 +65,54 @@ export type DoorStep = {
   current?: boolean;
 };
 
+/**
+ * A THEME SKIN — the invite link's themes (lib/invite-themes.ts, owner
+ * 2026-09-10). A skin owns what sits BEHIND and AROUND the card; it never owns
+ * the card, its 3px edge or its one action, which is what keeps five themes one
+ * product. Every slot is decoration (aria-hidden), so a skinned door reads to a
+ * screen reader exactly as the bare one does.
+ *
+ * ⛔ THIS FILE IMPORTS NO STYLESHEET FOR IT. A skin's CSS lives in the skin's own
+ * module, imported only by the route that wears it — see BUNDLE above: `main` is
+ * a hair under a locked budget, and a theme must never reach the shared chunk.
+ */
+export type DoorSkin = {
+  /** The theme's CSS scope, on the page frame. Replaces the bare door's `bg-cream`. */
+  className: string;
+  /** Custom properties the theme reads — the couple's colour, their photo. */
+  style?: React.CSSProperties;
+  /** Painted full-bleed behind the page: the couple's photo, a lattice, a veil. */
+  ground?: React.ReactNode;
+  /** Set on the card's top edge — the couple's seal. */
+  crest?: React.ReactNode;
+  /**
+   * Under the header: the hinge between the invitation (above) and the door
+   * (below). When a skin brings one, the rail moves BELOW it, so a progress rail
+   * never sits on the printed invitation itself.
+   */
+  hinge?: React.ReactNode;
+  /**
+   * ⚖ THE ONE EXCEPTION TO "A SKIN NEVER OWNS THE ACTION" — and it is the
+   * OWNER'S, not a drift (Q2 = A, 2026-09-11, DECISION_LOG "the seven
+   * invite-theme questions"): on a PRO invite theme the single button takes the
+   * couple's own `events.site_button_color`. House — and every other door in the
+   * app — keeps #C24E25.
+   *
+   * 🔑 IT DOES NOT COME FROM A THEME FILE. `app/[slug]/invite/_lib/
+   * load-invite-look.ts` resolves it ONCE, for all four Pro themes at once, so
+   * the button is the couple's colour the moment a skin ships rather than a line
+   * each skin has to remember — and so no theme can quietly paint a different
+   * one. Nothing in `app/[slug]/invite/_components/themes/` touches it, which is
+   * what keeps `themes-stay-skins.test.ts`'s "a skin never restyles the card's
+   * controls" true of the theme stylesheets it guards.
+   *
+   * The PAIR is deliberate: `lib/invite-button-color.ts` chooses the fill and
+   * the label TOGETHER, because a fill whose label nobody can read is worse than
+   * the house colour. Never take one half of it into a style without the other.
+   */
+  action?: { background: string; label: string; hover: string };
+};
+
 export type DoorShellProps = {
   /** Small mono line above the title — the doorway's name. */
   eyebrow?: React.ReactNode;
@@ -86,6 +134,8 @@ export type DoorShellProps = {
   steps?: DoorStep[];
   /** Wider card for doors that carry a real form (signup-shaped, not notice-shaped). */
   width?: 'md' | 'lg';
+  /** A theme skin (the invite link only). Omit and the door is the bare door. */
+  skin?: DoorSkin;
   children?: React.ReactNode;
 };
 
@@ -102,13 +152,57 @@ export function DoorShell({
   tone = 'threshold',
   steps,
   width = 'md',
+  skin,
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
+  const rail = steps && steps.length > 1 ? <StepRail steps={steps} /> : null;
+
+  /*
+    THE COUPLE'S BUTTON COLOUR — carried as three custom properties (fill, label,
+    hover) and read by ONE rule in globals.css (`[data-door-action]
+    .button-primary`), scoped to this frame. Three reasons it is done this way
+    and not another:
+
+      · NO NEW STYLESHEET. `main` sits a hair under a locked 200 KB and a
+        separate .css file is another module in the shared chunk — the same
+        constraint the header note above records. globals.css is already on
+        every page, and one more rule in it adds no module. The precedent is
+        `.app-surface .button-primary`, which re-points the same class for the
+        dashboards.
+      · IT REACHES THE BUTTON WITHOUT NAMING IT. The action lives inside
+        `children` — `JoinFlow`'s Continue, the Reply card's Save, Enter's "Open
+        your invitation" — so the shell cannot pass it a prop without every door
+        threading one. A scoped rule colours whichever primary the door renders,
+        and colours nothing on any door that brings no `action`.
+      · IT CANNOT LEAK. The attribute is set only when a skin carries an
+        `action`, which only `loadInviteLook` does, only for a Pro theme. Every
+        other door — and the Event Hub's own copy of that same RSVP card — is
+        outside the scope and renders byte-identically.
+  */
+  const actionVars = skin?.action
+    ? ({
+        ['--door-action' as string]: skin.action.background,
+        ['--door-action-label' as string]: skin.action.label,
+        ['--door-action-hover' as string]: skin.action.hover,
+      } as React.CSSProperties)
+    : null;
 
   return (
-    <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-cream px-4 py-10 sm:px-6">
-      <div className={`w-full ${WIDTH[width]}`}>
+    <main
+      className={[
+        'relative isolate flex min-h-dvh w-full flex-col items-center justify-center px-4 py-10 sm:px-6',
+        skin ? skin.className : 'bg-cream',
+      ].join(' ')}
+      style={actionVars ? { ...skin?.style, ...actionVars } : skin?.style}
+      data-door-action={skin?.action ? '' : undefined}
+    >
+      {skin?.ground ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          {skin.ground}
+        </div>
+      ) : null}
+      <div className={`relative w-full ${WIDTH[width]}`}>
         {/*
           The way out. A door is often the first Setnayan page a person ever
           opens, and on a dead link it is the ONLY thing they can still do — so
@@ -124,7 +218,7 @@ export function DoorShell({
 
         <div
           className={[
-            'rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
+            'relative rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
             // Only what you can ACT on carries the action colour — the card
             // itself stays paper, exactly as the sign-in panel's own note says
             // ("repainting the whole surface would read as a different
@@ -133,7 +227,8 @@ export function DoorShell({
             threshold ? 'border-t-mulberry' : 'border-t-ink/20',
           ].join(' ')}
         >
-          {steps && steps.length > 1 ? <StepRail steps={steps} /> : null}
+          {skin?.crest ? <div aria-hidden>{skin.crest}</div> : null}
+          {skin?.hinge ? null : rail}
 
           <header className="space-y-2">
             {eyebrow ? (
@@ -161,6 +256,13 @@ export function DoorShell({
               </p>
             ) : null}
           </header>
+
+          {skin?.hinge ? (
+            <>
+              <div aria-hidden>{skin.hinge}</div>
+              {rail ? <div className="mt-6">{rail}</div> : null}
+            </>
+          ) : null}
 
           {children ? <div className="mt-6 space-y-4">{children}</div> : null}
         </div>

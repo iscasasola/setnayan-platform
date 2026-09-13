@@ -156,6 +156,26 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-09-03 with the table itself (BA7) ──
+  // The ONLY subject-identifying column is `created_by_user_id`, declared
+  // nullable + ON DELETE SET NULL in the migration that creates it
+  // (20271193967957) — so account deletion strips the attribution on its own
+  // and what survives is "Wedding rings · ₱40,000", the COUPLE's shared budget
+  // on an event that outlives either partner's account. It is an ACTOR stamp,
+  // not a subject: per the project rule stated in the event_stage_notes entry
+  // below, CASCADE + NOT NULL means the row is ABOUT them, SET NULL means it
+  // records that they acted. A purge rule here would delete the other
+  // partner's record of what their wedding cost.
+  //
+  // ⚠ Deliberately NOT the same answer the EXPORT guardrail gives this table —
+  // there it is referenced by app/api/profile/export/route.ts, author-scoped.
+  // The two questions differ, exactly as they do for event_playlist_slot_vibes:
+  // erasure asks "must this be destroyed" (no, it self-clears), export asks
+  // "must we hand the subject a copy" (yes, of the rows they typed). Same row,
+  // two honest answers.
+  event_costs:
+    'Only subject column is created_by_user_id, ON DELETE SET NULL — account deletion de-identifies the row; the remainder is the couple\'s shared budget for an event that outlives either account. Nothing in it is PII about a third party either: it is a category, a label, and two amounts.',
+
   // ── added 2026-08-05 with the table itself ──
   event_stage_notes:
     'De-identifies itself on account deletion. The ONLY subject-identifying column is ' +
@@ -214,7 +234,6 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   manual_payment_logs: 'Financial record for the manual QR/bank rail: reference_number + amount_php + payment_status against an event_id. No direct subject key (attribution is via event_id) and no staff-authored fields — the reconciliation trail the old note claimed was never built.',
   vendor_2307_filings: 'BIR Form 2307 artifact — a statutory filing.',
   vendor_token_purchases: 'Financial record (token pack purchase).',
-  comp_grants: 'Comp/discount grant — the money-side record of a waived charge.',
   discount_code_redemptions: 'Redemption record attached to a retained order.',
   // ⚠ TABLE DROPPED 2026-08-01 (migration 20271028225106) with the per-USER
   // Setnayan AI path — owner: "it is per event". The entry STAYS because
@@ -294,6 +313,8 @@ const PARTIALLY_PURGED: Record<string, string> = {
   // ── settled 2026-08-02, batch 5 ──
   event_egift_methods:
     'PURGED: created_by_user_id. DEFERRED: account_name, handle (a GCash/Maya number, bank account or PayPal.me URL) and the uploaded payment QR. The stamp records WHO FIRST PRESSED ADD — the update path rewrites the handle but never the stamp — so nothing in the schema maps a payout destination to partner 1 or partner 2. Under the owner’s 2026-07-26 ruling (delete only what is PROVABLY the leaver’s) these are retained, which means a financial identifier can outlive an erasure request when its owner cannot be proven. Same shared-record question as events.our_photos. ⚠ NEEDS A DPO/OWNER CALL.',
+  comp_grants:
+    'PURGED: granted_by and approved_by, the two ADMIN stamps. DEFERRED: user_id, the customer the comp was FOR, and the money itself (retail_value_centavos, rationale) — the row is the platform’s record of a charge it waived, retained on the lawful-retention basis it has always carried. MOVED here from DELIBERATE_EXCLUSIONS on 2026-09-06: the old note said erasure touches nothing on this table, which stopped being true the moment the admin stamps were added to AUTHOR_UUID_NULLS. Same shape as discount_code_eligible_users below — the staff stamp goes, the commercial concession stays.',
   discount_code_eligible_users:
     'PURGED: added_by_admin_id, the staff stamp. DEFERRED: user_id, which is CASCADE + NOT NULL — the schema’s verdict is that the row dies with the account, but the eligibility grant is the platform’s record of a commercial concession it made. Retained on that basis and flagged rather than silently deleted.',
 

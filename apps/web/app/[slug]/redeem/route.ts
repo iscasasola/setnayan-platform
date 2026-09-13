@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
+import { recordScan } from '@/lib/scan-trail';
 
 // Resolves an `?invite=<token>` link by validating the token, signing the
 // guest-session cookie, recording a scan_events row, and redirecting to
@@ -106,18 +107,15 @@ export async function GET(request: NextRequest) {
     qr_token: guest.qr_token,
   });
 
-  // Record the scan. Best-effort; failures don't block the redirect.
-  const userAgent = request.headers.get('user-agent') ?? null;
-  const xff = request.headers.get('x-forwarded-for') ?? '';
-  const ipFull = xff.split(',')[0]?.trim() ?? '';
-  const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
-  await admin.from('scan_events').insert({
-    event_id: guest.event_id,
-    guest_id: guest.guest_id,
-    source: 'browser',
-    user_agent: userAgent,
-    ip_anon: ipAnon,
-    context: { entry: 'invite_link' },
+  // Record the scan. Best-effort; failures don't block the redirect — and a
+  // guest who set `scan_tracking_opt_out` gets no row at all (lib/scan-trail.ts,
+  // the one door that writes this table).
+  await recordScan(admin, {
+    eventId: guest.event_id,
+    guestId: guest.guest_id,
+    entry: 'invite_link',
+    userAgent: request.headers.get('user-agent'),
+    forwardedFor: request.headers.get('x-forwarded-for'),
   });
 
   // TBA +1 onboarding gate: a +1 row with a placeholder first_name routes to

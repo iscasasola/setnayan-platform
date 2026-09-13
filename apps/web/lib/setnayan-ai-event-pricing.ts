@@ -24,6 +24,7 @@ import {
   AI_TIER_SKU,
   setnayanAiTierFallbackPhp,
   type AiPriceContext,
+  type AiPriceTier,
 } from './setnayan-ai-type-pricing';
 import { resolveAiBandForEventType } from './setnayan-ai-band-source';
 
@@ -141,6 +142,102 @@ export async function resolveSetnayanAiTypePriceResolution(
       context === 'onboarding'
         ? AI_TIER_ONBOARDING_FALLBACK_PHP[band]
         : AI_TIER_FALLBACK_PHP[band],
+  };
+}
+
+/**
+ * A tier's TWO stored prices, together, from ONE catalog row.
+ *
+ * 🔑 WHY THIS EXISTS SEPARATELY FROM `resolveSetnayanAiTypePriceResolution`.
+ * The comeback offer's price is the MIDPOINT between a row's regular and
+ * sign-up prices (lib/setnayan-ai-comeback-offer.ts), so it needs both numbers
+ * *from the same row* — a caller that fetched them in two calls could midpoint
+ * across a reprice that landed between them.
+ *
+ * ⚠ DELIBERATELY NOT A REFACTOR OF THE FUNCTION ABOVE, which is live money. The
+ * two differ on one malformed-data edge (a row with a sign-up price and no
+ * regular price): that function honours the sign-up price, this one treats the
+ * row as an unusable price source and falls back to the locked ladder. Folding
+ * them together would have silently moved a charged price to add a feature, so
+ * they read the catalog separately and the existing charge path is untouched.
+ *
+ * `onboardingPhp` is `null` when the row carries no sign-up price — which is a
+ * real state (`SETNAYAN_AI_RENEW`), and which the comeback math must read as
+ * "no offer" rather than as zero.
+ */
+export type AiTierPrices = {
+  band: AiPriceTier;
+  retailPhp: number;
+  onboardingPhp: number | null;
+};
+
+export type AiTierPricesResolution =
+  | { status: 'resolved'; prices: AiTierPrices }
+  | { status: 'read_error'; message: string };
+
+/**
+ * Both of a type's prices, resolved from the catalog. REFUSES on a failed read,
+ * exactly like its single-price sibling — an unanswerable question must never be
+ * answered with a number nobody chose (SEC-7, owner-ruled 2026-08-27).
+ */
+export async function resolveSetnayanAiTierPricesResolution(
+  client: SupabaseClient,
+  eventType: string | null | undefined,
+): Promise<AiTierPricesResolution> {
+  const bandRes = await resolveAiBandForEventType(client, eventType);
+  if (bandRes.status === 'read_error') {
+    return { status: 'read_error', message: bandRes.message };
+  }
+  const band = bandRes.band;
+  const sku = AI_TIER_SKU[band];
+  // Tier E — Setnayan AI is not present for this type. A ₱0 regular price makes
+  // the midpoint unusable downstream, which is the correct answer: there is no
+  // product, so there is no offer. "Not offered" is not "free".
+  if (sku === null) {
+    return { status: 'resolved', prices: { band, retailPhp: 0, onboardingPhp: null } };
+  }
+
+  const { data, error } = await client
+    .from('platform_retail_catalog_v2')
+    .select('retail_price_php, onboarding_price_php')
+    .eq('service_code', sku)
+    .maybeSingle();
+  if (error) {
+    return {
+      status: 'read_error',
+      message: `platform_retail_catalog_v2(${sku}): ${error.message}`,
+    };
+  }
+
+  const row = data as
+    | { retail_price_php?: number | null; onboarding_price_php?: number | null }
+    | null;
+  const usable = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  // The row is a usable price source only if it carries a REGULAR price. If it
+  // does, its own sign-up price stands (null included — that is "no discount on
+  // this row", not "look elsewhere"). If it does not, neither figure can be
+  // trusted and the locked ladder answers for both, so the pair stays coherent.
+  if (usable(row?.retail_price_php)) {
+    return {
+      status: 'resolved',
+      prices: {
+        band,
+        retailPhp: row!.retail_price_php as number,
+        onboardingPhp: usable(row?.onboarding_price_php)
+          ? (row!.onboarding_price_php as number)
+          : null,
+      },
+    };
+  }
+  return {
+    status: 'resolved',
+    prices: {
+      band,
+      retailPhp: AI_TIER_FALLBACK_PHP[band],
+      onboardingPhp: AI_TIER_ONBOARDING_FALLBACK_PHP[band] || null,
+    },
   };
 }
 

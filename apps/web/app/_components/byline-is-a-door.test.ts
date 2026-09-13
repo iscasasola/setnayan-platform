@@ -2,7 +2,7 @@
  * byline-is-a-door.test.ts — the storyteller's name presses through to them.
  *
  * A story card names the person who wrote it. That name is a DOOR to their own
- * page at `/u/{slug}` — on every public shelf, not on three of the four. This
+ * page at `/u/{slug}` — on every public shelf, not on two of the three. This
  * file pins the two things that fail SILENTLY:
  *
  *   1. THE DOOR GOES MISSING FROM ONE SURFACE. The same story renders four
@@ -74,33 +74,22 @@ const CREATOR_PUBLIC = code(readFileSync(join(WEB, 'lib', 'creator-public.ts'), 
 const PROFILE = code(readFileSync(join(APP, 'u', '[userSlug]', 'page.tsx'), 'utf8'));
 
 /**
- * The front door renders the SAME story twice — a 16:9 card and a 9:16 row.
- * Slice them apart so an assertion can name WHICH one lost the door. A check
- * run over the whole file passes while one of the two is gone, which is the
- * precise way this page has regressed before.
+ * The front door renders a story with ONE component, `StoryCard` — reused
+ * as-is everywhere a story appears (New uploads and Trending both call it).
+ *
+ * ⚠ 2026-09-03 — THIS USED TO BE TWO RENDERINGS. A 16:9 "card" grid and a
+ * duplicate 9:16 "story row" grid drew the same stories twice on the same
+ * page, and this slice used to isolate the row so a fix landing on the card
+ * and not its twin would fail here. The 2026-09-03 redesign dropped the
+ * second rendering entirely — see `front-door-invariants.test.ts` test 18's
+ * note — so there is exactly one grammar to check now, not two kept in sync
+ * by hand. The `storyRowSlice` helper this comment used to introduce is gone
+ * with it; do not re-add a "9:16 row" test unless the row itself comes back.
  */
 function storyCardSlice(): string {
   const from = FEED.indexOf('function StoryCard');
   const to = FEED.indexOf('function ShopCard');
   assert.ok(from >= 0 && to > from, 'StoryCard/ShopCard anchors moved — re-anchor this slice');
-  return FEED.slice(from, to);
-}
-
-/**
- * The 9:16 shelf renders BOTH kinds — storyteller cards first, then Journal
- * articles padding the row out. Only the story branch carries a byline; the
- * article branch is legitimately a single `<Link className="fd-story">` and
- * always will be.
- *
- * ⚠ THIS SLICE STARTS NARROW ON PURPOSE. The first cut ran from `fd-storyrow`
- * to end-of-file and its no-nested-anchor check fired on the ARTICLE card,
- * which is correct code. A guard that cries wolf teaches you to skim past the
- * one time it is right.
- */
-function storyRowSlice(): string {
-  const from = FEED.indexOf('shownStories.slice(0, 6).map');
-  const to = FEED.indexOf('{shownArticles', from);
-  assert.ok(from >= 0 && to > from, 'story-row anchors moved — re-anchor this slice');
   return FEED.slice(from, to);
 }
 
@@ -126,16 +115,6 @@ test('the 16:9 story card byline is a link to the storyteller', () => {
   // The card must still open the STORY — a byline door that swallowed the
   // card's own destination would be a regression dressed as a feature.
   assert.match(card, /href=\{s\.href\}/, 'the story card no longer opens the story');
-});
-
-test('the 9:16 story row byline is a link to the storyteller', () => {
-  const row = storyRowSlice();
-  assert.match(
-    row,
-    /<ChannelLink[^>]*slug=\{s\.ownerSlug\}/,
-    'the story ROW lost the door while the card above it kept one — the twin-rendering regression',
-  );
-  assert.match(row, /href=\{s\.href\}/, 'the story row no longer opens the story');
 });
 
 test('the storyteller tile byline is a link to the storyteller', () => {
@@ -180,12 +159,6 @@ test('the story cards are shells, not anchors, so the byline is a sibling', () =
     'the 16:9 card went back to being one <Link> — the byline link inside it is now a nested anchor',
   );
   assert.match(card, /<div className="fd-item">/, 'the 16:9 card lost its shell');
-
-  const row = storyRowSlice();
-  assert.ok(
-    !/<Link[^>]*className="fd-story"/.test(row),
-    'the 9:16 row went back to being one <Link> — nested anchor',
-  );
 });
 
 test('the storyteller tile is a shell, not an anchor', () => {

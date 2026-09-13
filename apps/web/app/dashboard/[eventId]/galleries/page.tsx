@@ -105,7 +105,7 @@ export default async function GalleriesHubPage({ params }: Props) {
     eventPapicActive(supabase, eventId),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
-    // `LIVE_STUDIO` ₱2,999. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
+    // `LIVE_STUDIO` ₱3,000. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
     // keying on `panood` means the first couple who actually PAYS resolves to
     // not-owned — an no "Watch the recording" card after their wedding.
     resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),

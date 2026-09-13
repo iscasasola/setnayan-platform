@@ -79,8 +79,19 @@ export type SupplierDeskModel = {
   /** Live from the RSVPs. */
   attending: number;
   invited: number;
+  /** Whether the guest count is still moving or has been finalized — from
+   *  `get_vendor_event_brief`'s `pax.finalized`, which mirrors
+   *  `guestListIsClosed()` (apps/web/lib/guest-list-closed.ts) exactly. Never
+   *  a new number, just a state flag over the counts already shown. */
+  paxFinalized: boolean;
   /** What this shop was booked to do here — the couple-side category words. */
   bookedCategories: string[];
+  /**
+   * THE OTHER VENDORS LOCKED ON THIS EVENT — name + category only, never
+   * contact info, cost, or the caller's own row. From the brief's
+   * BOOKED-STAGE-ONLY `vendor_roster` key.
+   */
+  vendorRoster: { vendorName: string; category: string }[];
   /** Every running-order line this supplier may see, private ones included and
    *  flagged. Never filtered here — the marking is the whole point. */
   blocks: RunOfShowBlock[];
@@ -116,7 +127,8 @@ type Brief = {
     event_date?: string | null;
   };
   booked_categories?: unknown;
-  pax?: { invited?: number; attending?: number };
+  pax?: { invited?: number; attending?: number; finalized?: boolean };
+  vendor_roster?: unknown;
 };
 
 /**
@@ -167,6 +179,24 @@ export async function loadSupplierDesk(
 
     const bookedCategories = Array.isArray(brief.booked_categories)
       ? (brief.booked_categories as unknown[]).filter((c): c is string => typeof c === 'string')
+      : [];
+
+    // The other locked vendors on this event — name + category only, straight
+    // off the brief's `vendor_roster` (booked-stage-only key). Anything
+    // malformed is dropped rather than guessed at.
+    const vendorRoster = Array.isArray(brief.vendor_roster)
+      ? (brief.vendor_roster as unknown[])
+          .filter(
+            (r): r is { vendor_name: unknown; category: unknown } =>
+              Boolean(r) && typeof r === 'object',
+          )
+          .filter(
+            (r) => typeof r.vendor_name === 'string' && typeof r.category === 'string',
+          )
+          .map((r) => ({
+            vendorName: r.vendor_name as string,
+            category: r.category as string,
+          }))
       : [];
 
     // THE BRIDGE, and it is asked only on the day. Before and after, "you are
@@ -256,7 +286,9 @@ export async function loadSupplierDesk(
       venueAddress: brief.event?.venue_address ?? null,
       attending: brief.pax?.attending ?? 0,
       invited: brief.pax?.invited ?? 0,
+      paxFinalized: brief.pax?.finalized ?? false,
       bookedCategories,
+      vendorRoster,
       blocks: blocks ?? [],
       tools: deskTools(modules, capability.vendorEventId),
       alsoToday,

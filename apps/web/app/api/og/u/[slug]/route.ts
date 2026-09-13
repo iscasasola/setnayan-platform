@@ -1,6 +1,7 @@
 import { type NextRequest } from 'next/server';
 
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import {
   resolvePublicProfile,
   mostRecentPublicChapter,
@@ -69,7 +70,9 @@ export async function GET(
     // through. A null hero simply renders the branded (photoless) card.
     const recent = mostRecentPublicChapter(publicEvents);
     const heroPhotoUrl = recent?.landing_page_hero_image_url
-      ? await displayUrlForStoredAsset(recent.landing_page_hero_image_url).catch(
+      ? // 🔒 The card is rendered server-side and served publicly — a hero ref
+        // naming a private bucket must not be fetched into it (site-media-ref).
+        await displayUrlForStoredAsset(siteMediaServeRef(recent.landing_page_hero_image_url)).catch(
           () => null,
         )
       : null;

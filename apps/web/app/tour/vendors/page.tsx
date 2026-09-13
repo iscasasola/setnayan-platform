@@ -6,6 +6,7 @@ import {
   type WizardVendorRec,
 } from '@/lib/wizard-recommendations';
 import { computeCompatScore, explainCompatScore } from '@/lib/compat-score';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { TourShortlist, type TourCategory, type TourVendor } from './_components/tour-shortlist';
 import { TourChatThread } from '../_components/tour-chat-thread';
@@ -104,7 +105,13 @@ const PER_CATEGORY_LIMIT = 8;
  *  doesn't return a price, so we surface "Price on inquiry" unless a future field
  *  appears — keeps the tour honest (no fabricated money). */
 function toTourVendor(rec: WizardVendorRec, baseRank: number, aiActive: boolean): TourVendor {
+  // The compat-score ranking input stays on raw verification_state (listing/
+  // matching, untouched); the BADGE below follows its own Q7/Q4/Q5 deadline.
   const verified = rec.verification_state === 'verified';
+  const badgeVerified = hasVerifiedBadge({
+    verification_state: rec.verification_state,
+    next_renewal_due_at: rec.next_renewal_due_at,
+  });
   const rating =
     typeof rec.avg_rating_overall === 'number' && rec.avg_rating_overall > 0
       ? rec.avg_rating_overall
@@ -133,7 +140,7 @@ function toTourVendor(rec: WizardVendorRec, baseRank: number, aiActive: boolean)
     rating,
     reviewCount,
     pricePhp: null,
-    isVerified: verified,
+    isVerified: badgeVerified,
     isSetnayan: false,
     matchScore: match?.score ?? null,
     matchTier: match?.tier ?? null,

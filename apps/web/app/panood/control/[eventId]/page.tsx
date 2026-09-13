@@ -23,7 +23,6 @@ import {
   ExternalLink,
   Unlink2,
   Server,
-  KeyRound,
   Zap,
   Crown,
   Captions,
@@ -33,9 +32,15 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
+import { poolRouteToAir } from '@/lib/live-studio-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
-import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import {
+  panoodStreamingEnabled,
+  panoodCameraAnonEnabled,
+  cameraJoinCaption,
+} from '@/lib/panood-camera-seats';
 import {
   fetchChannelCameras,
   resolveChannelStatus,
@@ -43,17 +48,18 @@ import {
 } from '@/lib/live-studio-channel-cameras';
 import { printableCardCount } from '@/lib/live-studio-camera-cards';
 import { formatPhp } from '@/lib/orders';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { turnConfigured } from '@/lib/turn';
 import {
   liveStudioPoolOnly,
-  POOL_ONLY_CONNECT_NOTICE,
+  poolOnlyConnectNotice,
 } from '@/lib/live-studio-pool-only';
+import { eventSkuActive } from '@/lib/entitlements';
 import { fetchEventRecordings } from '@/lib/live-studio-recordings';
 import {
   LIVE_STUDIO_SKU,
+  LIVE_STUDIO_HOSTED_CHANNEL_SKU,
   PROGRAM_CHANNEL_LABEL,
   FIRST_CAMERA_CHANNEL,
   FREE_CAMERA_NAME,
@@ -86,6 +92,8 @@ import {
   type ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
@@ -94,19 +102,23 @@ import {
 import { resolveLiveAir, shouldOfferManualAir } from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
+import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
+import { EncoderKeyPanel } from '@/app/_components/encoder-key-panel';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import { ProgramBridgeHost } from './_components/program-bridge';
+import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
+import { IngestHealthStrip } from './_components/ingest-health-strip';
+import { filmFromRow, type EventFilmRow } from '@/lib/event-films';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -116,6 +128,8 @@ import {
   clearMainStage,
   createChannelJoinLink,
   reissueChannelJoinLink,
+  addEventFilm,
+  removeEventFilm,
   saveControlWatchUrl,
   clearControlWatchUrl,
   saveControlFacebookUrl,
@@ -206,7 +220,7 @@ export const metadata = { title: 'Live Studio controller' };
 //   1. NO PADLOCKS OVER THE TILES. Every configured camera renders at FULL
 //      brightness with its real state, for every host. Seeing the cameras actually
 //      working IS the conversion mechanism; dimming them recreates the exact defect
-//      Wave 3 fixes — asking ₱2,999 for an experience the couple never felt, for a
+//      Wave 3 fixes — asking ₱3,000 for an experience the couple never felt, for a
 //      day that cannot be redone.
 //   2. THE PAYWALL IS STATED AT THE GO-LIVE MOMENT — "Rehearse free · Unlock <price>
 //      to broadcast all your cameras", right under the monitor where going live
@@ -294,6 +308,8 @@ type Props = {
     zone_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    film_saved?: string;
+    film_error?: string;
     facebook_url_saved?: string;
     facebook_url_error?: string;
     overlay_saved?: string;
@@ -322,6 +338,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     zone_error,
     watch_url_saved,
     watch_url_error,
+    film_saved,
+    film_error,
     facebook_url_saved,
     facebook_url_error,
     overlay_saved,
@@ -345,7 +363,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // not exist. The two are distinguishable; they are now distinguished.
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, monogram_text')
+    .select(`event_id, slug, event_date, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) {
@@ -380,6 +398,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const sku = await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
   const detailHref = liveStudioDetailPath(eventId);
+
+  // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
+  // 2026-09-02)? Decides which pool-only connect notice renders in the "Connect"
+  // section below — NOT multicam entitlement, which stays keyed on LIVE_STUDIO_SKU
+  // alone (resolved further down via `entitled`/`lock`). See the SKU's own
+  // docblock in lib/live-studio-control.ts.
+  const ownsHostedChannel = await eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
 
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
   // Refused, the operator sees NO camera zones — identical to an event that has
@@ -477,6 +502,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // placeholder says so rather than a black rectangle pretending to be a feed.
   const streamingOn = panoodStreamingEnabled();
 
+  // The Add-camera tile's caption must not promise a login-free join when the
+  // flag is off — /panood/cam/[token] shows a sign-in wall in that case.
+  const addCameraCaption = cameraJoinCaption(panoodCameraAnonEnabled());
+
+  // Read once, server-side: the two CLOUDFLARE_TURN_* vars are server-only secrets
+  // and must never reach the client — only this boolean does.
+  const relayConfigured = turnConfigured();
+
   // ── FREE single-camera livestream state (reuses the live panood reads verbatim).
   const oauthReady = (await getYoutubeOAuthConfig()).ready;
 
@@ -491,6 +524,52 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     .maybeSingle();
   if (grantError) console.error('[panood/control] youtube grant read refused', grantError);
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant;
+
+  // ⭐ A ROUTE TO AIR IS NOT ONLY A BYO GRANT. The read above asks `oauth_grants`,
+  // which is the COUPLE'S OWN channel and nothing else — but `goLivePanood` has
+  // preferred a SETNAYAN POOL channel since Wave 9. Gating the button on the BYO
+  // table alone told every pool-served host to "Connect your YouTube channel
+  // first", the one instruction Wave 9 exists to abolish, while a healthy Setnayan
+  // channel sat available and the hidden button would have worked.
+  // See lib/live-studio-readiness.ts → poolRouteToAir for the measurement.
+  // Fail-honest: a refused read leaves this false, so the by-hand switch is offered
+  // rather than a one-tap button nobody can prove will work.
+  // No flag guard here on purpose: this page already `notFound()`s above when
+  // liveStudioRoamEnabled() is false, so a second check would be dead code.
+  let pooledRoute = false;
+  try {
+    pooledRoute = poolRouteToAir(await fetchReadinessFacts(admin, eventId));
+  } catch (e) {
+    console.error('[panood/control] pool readiness read refused', e);
+  }
+  const hasRouteToAir = !!youtubeGrant || pooledRoute;
+
+  // 🎞 The films the couple has attached — free, host-gated, and the thing the ₱2,500
+  // description already promises ("unlimited video-link uploads"). Fail-soft: a refused
+  // or pre-migration read yields [] and the section shows its empty state, never an
+  // error over a control room.
+  //
+  // ⚠ Each row is converted ON ITS OWN and keeps its own id. `filmsFromRows` DROPS rows
+  // it cannot validate, so mapping ids back by index would silently attach the wrong id
+  // to the wrong film the moment one row is bad — and the id is what Remove deletes.
+  type ControlFilm = NonNullable<ReturnType<typeof filmFromRow>> & { id: number };
+  let films: ControlFilm[] = [];
+  try {
+    const { data: filmRows } = await supabase
+      .from('event_films')
+      .select('id, provider, video_id, video_hash, label')
+      .eq('event_id', eventId)
+      .order('sort_key', { ascending: true })
+      .order('id', { ascending: true });
+    films = ((filmRows ?? []) as Array<EventFilmRow & { id: number }>)
+      .map((row) => {
+        const film = filmFromRow(row);
+        return film ? { ...film, id: row.id } : null;
+      })
+      .filter((f): f is ControlFilm => f !== null);
+  } catch {
+    films = [];
+  }
 
   let youtubeWatchUrl: string | null = null;
   // DUAL-STREAM (2026-07-26): the couple's simultaneous Facebook Live link.
@@ -564,43 +643,36 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const offerManualAir = shouldOfferManualAir({
     broadcastLive: liveAir.source === 'broadcast',
   });
-  // When the CURRENT run started. This BOUNDS the never-interrupt rule: a broadcast
-  // that began inside the paid window finishes clean, one that began after it lapsed
-  // is a NEXT go-live and gets no protection. A by-hand start is stamped by the
-  // database, never by the caller, so it cannot be backdated into that protection.
+  // When the CURRENT run started. No longer bounds a never-interrupt rule (LS6
+  // retired the clock that rule protected against) — kept because the 12-hour
+  // YouTube archive-cap warning (BroadcastWindowStrip, below) is still per-stream
+  // and still needs it.
   const broadcastStartedAt = liveAir.startedAt;
 
-  // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
-  // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
+  // ── ⭐ THE BROADCAST UNLOCK ───────────────────────────────────────────────────
+  // (LS6 · owner-ruled 2026-09-02 · lib/live-studio-window.ts)
   //
-  // ₱2,999 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
-  // extendable by another ₱2,999, and never interrupted mid-broadcast. This is the
-  // SAME resolver `canPublishMultiCam` delegates to, so the controller, the program
-  // pop-out, the manifest mirror and the public page cannot disagree about whether
-  // this host may put more than one camera on air.
+  // ₱2,500 buys MULTI-CAM broadcasting for the event, once, forever — unlimited
+  // streams, no clock, never expiring. This is the SAME resolver
+  // `canPublishMultiCam` delegates to, so the controller, the program pop-out, the
+  // manifest mirror and the public page cannot disagree about whether this host
+  // may put more than one camera on air.
   //
   // ⚠ ADMIN CLIENT, and this is a correctness fix, not a shortcut. `orders` RLS is
   // purchaser-scoped (orders_owner_read: user_id = auth.uid()), so a coordinator
-  // running the controller for a couple who paid would read "not owned" AND zero
-  // broadcast-days under their own session — silently downgraded to one camera,
-  // mid-wedding, on a day that cannot be re-run. Membership was verified above by
-  // isLiveStudioSetupHost, which is the authorization boundary; the same posture the
-  // Wave 5 program pop-out already documents for the identical read. `isLive` and the
-  // start time are handed in rather than re-queried — this page already read them.
-  const broadcastWindow = await resolveBroadcastWindow(admin, eventId, {
-    isLive,
-    broadcastStartedAt,
-  });
+  // running the controller for a couple who paid would read "not owned" under
+  // their own session — silently downgraded to one camera, mid-wedding.
+  // Membership was verified above by isLiveStudioSetupHost, which is the
+  // authorization boundary; the same posture the Wave 5 program pop-out already
+  // documents for the identical read.
+  const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
 
-  // TWO FACTS, and conflating them would produce dishonest copy.
-  //
-  //   • `owned` — may they broadcast multi-cam RIGHT NOW? The capability. Feeds the
-  //     program-output gate, the on-air overlay resolution, everything that decides
-  //     what actually goes out.
-  //   • `entitled` — have they bought Live Studio at all? Feeds only the WORDS. A
-  //     host whose event-day lapsed still owns the product, so showing them
-  //     "Unlock · ₱2,999" would ask them to buy something they already have; what
-  //     they need is "Add another day", which the window strip offers.
+  // `owned`/`entitled` used to differ (a lapsed event-day was entitled but not
+  // currently owned; LS6 retired that gap). They are the SAME boolean now — kept
+  // as two names because `owned` feeds the program-output gate below and
+  // `entitled` feeds only the WORDS (`liveStudioControlLock`'s "Unlock · price" vs
+  // "Open controller" copy), and a future change to one must not silently change
+  // the other's meaning.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
   const lock = liveStudioControlLock(entitled, priceLabel);
@@ -651,8 +723,16 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const overlaySettings = await fetchOverlaySettings(supabase, eventId);
   const monogramText =
     (event.monogram_text as string | null)?.trim() || deriveMonogram(event.display_name);
-  const rehearsalOverlays = resolveOverlays({ owned: true, settings: overlaySettings, monogramText });
-  const airOverlays = resolveOverlays({ owned, settings: overlaySettings, monogramText });
+  // L11: the couple's real mark, same precedence the public hero resolves
+  // (uploaded ?? custom) — the bug drew derived initials even when this existed.
+  const monogramMarkSvg = resolveEventMonogramSvg(event);
+  const rehearsalOverlays = resolveOverlays({
+    owned: true,
+    settings: overlaySettings,
+    monogramText,
+    monogramMarkSvg,
+  });
+  const airOverlays = resolveOverlays({ owned, settings: overlaySettings, monogramText, monogramMarkSvg });
 
   // What the MONITOR draws. Rehearsal for the things the host is placing, but the
   // lower-third slot falls back to what will actually air — otherwise a free host
@@ -682,12 +762,6 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     owned: entitled,
     configuredChannels: zones.length,
   });
-
-  // BDO + GCash details for the in-context "Add another day" purchase. Same rail as
-  // every other SKU — the shared inline checkout drawer → submitOrderAction → QR →
-  // /admin/payments. Null (a pre-bootstrap settings row) simply hides the CTA rather
-  // than offering a purchase with nowhere to pay.
-  const paySettings = await fetchPlatformSettings(supabase).catch(() => null);
 
   // Guest-pick — the real switch (Wave 2). Guarded read: a pre-migration database
   // must not break the controller, and "unknown" defaults to ON (the owner default).
@@ -909,9 +983,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                RIGID 56.25% of the width, so on a short phone (360×640) the monitor
                would claim ~190px it cannot give back and the grid below would
                collapse to nothing. Capping it in dvh lets the monitor give way
-               first — the picture is object-cover and every overlay is positioned
-               against this box, so a slightly-off ratio costs nothing, while a
-               clipped transport row costs the operator their go-live. */
+               first, and every overlay is positioned against this box, so a
+               slightly-off ratio costs nothing, while a clipped transport row
+               costs the operator their go-live.
+               ⭐ WAVE 9 · the picture is `object-contain`, matching the program
+               output (program-surface.tsx) exactly. This is the ONE monitor an
+               operator composes a shot against — it has to show what actually
+               goes out, portrait letterboxing included, or a frame that looks
+               fine here airs pillarboxed with no way to see it happening. */
             className={`relative aspect-video max-h-[34dvh] w-full shrink-0 overflow-hidden rounded-2xl border-2 bg-ink/90 lg:max-h-[46dvh] ${
               isLive ? 'border-danger-500 ring-2 ring-danger-500/25' : 'border-ink/15'
             }`}
@@ -942,7 +1021,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 transport the legacy control room uses). Sits UNDER the overlay
                 layers below so the monogram / lower third / QR composite over the
                 video exactly as they do on the encode surface. */}
-            <ChannelVideo slot={programSlot} />
+            <ChannelVideo slot={programSlot} className="absolute inset-0 h-full w-full object-contain" />
 
             {/* CH 1 is the controlled screen — the fixed label from the design. */}
             <span className="absolute left-2.5 top-2.5 rounded-md bg-ink/60 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-cream/85">
@@ -1039,8 +1118,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <TransportRow
               eventId={eventId}
               oauthReady={oauthReady}
-              connected={!!youtubeGrant}
+              connected={hasRouteToAir}
               isLive={isLive}
+              liveSource={liveAir.source}
               connectHref="#connect"
             />
 
@@ -1087,6 +1167,23 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </form>
           </div>
 
+          {/* ── INGEST HEALTH — is the encoder actually sending video? ──────────
+              lib/live-studio-ingest-health.ts § the defect: `getYoutubeStreamStatus`
+              cost 1 quota unit and had zero callers, so a dead encoder mid-ceremony
+              rendered identically to a healthy one. Only mounted when a Setnayan-
+              managed broadcast exists to poll — the by-hand route (below) has no
+              stream_id for YouTube to report on. PERSISTENT, beside the tally —
+              never a toast, never console-only. */}
+          {liveAir.source === 'broadcast' || liveAir.source === 'manual' ? (
+            <IngestHealthStrip
+              eventId={eventId}
+              mode={liveAir.source === 'broadcast' ? 'broadcast' : 'manual'}
+              initialLive={liveAir.source === 'broadcast'}
+              initialStreamStatus={null}
+              initialHealthStatus={null}
+            />
+          ) : null}
+
           {/* ── BY-HAND ON AIR ────────────────────────────────────────────────
               The host who starts their own stream and pastes the watch link — the
               route the Watch-link card below sends them down, and until Setnayan's
@@ -1125,60 +1222,41 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </form>
           ) : null}
 
-          {/* ── ⭐ WAVE 7 · THE BROADCAST DAY + THE 12-HOUR ARCHIVE CAP ───────
-              (owner-locked 2026-07-25 · § 4f ②/③.)
+          {/* ── ⭐ THE 12-HOUR ARCHIVE CAP (§ 4f ③) ──────────────────────────
+              🚫 LS6 (2026-09-02) retired the OTHER two warnings that used to live in
+              this slot — the broadcast-day countdown ("ends in 43 minutes", "add
+              another day") and the unanchored-day notice — because multi-cam no
+              longer expires on a clock (lib/live-studio-window.ts). Only the
+              archive cap survives: it is YouTube's own per-stream recording limit,
+              unrelated to how Live Studio is billed.
 
-              Sits directly under the transport because both warnings are about a
-              broadcast that is already running, and both are TIME CROSSINGS mid-show
-              — which is why they live in a client component that ticks rather than in
-              this server render nobody is going to refresh.
-
-              ① at ~1 hour left: say so and offer another day, right here.
-              ② past the end: if on air, promise plainly that nothing is interrupted;
-                 if off air, say the next go-live is the free single camera.
-              ③ approaching 12 hours: YouTube archives only the first 12 hours, so a
-                 longer stream can leave no replay — the sharp edge for a wedding
-                 feeding the Alaala handover.
+              Sits directly under the transport because it is about a broadcast that
+              is already running, and it is a TIME CROSSING mid-show — which is why
+              it lives in a client component that ticks rather than in this server
+              render nobody is going to refresh: approaching 12 hours, YouTube
+              archives only the first 12 hours, so a longer stream can leave no
+              replay — the sharp edge for a wedding feeding the Alaala handover.
 
               It DECIDES nothing: the entitlement is `broadcastWindow` above, resolved
               server-side on every render of this page, the pop-out and the public
               page. Nothing here disables a control or ends a broadcast.
 
               ⭐ WAVE 8: `compact` + a hard `max-h` bound. This block appears WITHOUT
-              WARNING (a time crossing) directly above the transport, and two strips
-              can be up at once. Unbounded, that is the one thing capable of pushing
-              Go live out of a viewport nobody can scroll — the exact failure § 4g
-              exists to prevent. It stays in the FIXED region because a money/archive
-              deadline is not something to bury in a scroller; it is simply not
-              allowed to grow without limit. `overflow-y-auto` is the last-resort
-              valve for the double-warning case, not the steady state (both strips
-              return null in normal operation). */}
+              WARNING (a time crossing) directly above the transport. Unbounded, that
+              is the one thing capable of pushing Go live out of a viewport nobody
+              can scroll — the exact failure § 4g exists to prevent. It stays in the
+              FIXED region because an archive deadline is not something to bury in a
+              scroller; it is simply not allowed to grow without limit.
+              `overflow-y-auto` is the last-resort valve, not the steady state (the
+              strip returns null in normal operation). */}
           <div
             data-lsc-window
             className="max-h-[18dvh] shrink-0 overflow-y-auto overscroll-contain empty:hidden"
           >
           <BroadcastWindowStrip
             compact
-            expiresAt={broadcastWindow.expiresAt}
             isLive={isLive}
             broadcastStartedAt={broadcastStartedAt}
-            addADay={
-              paySettings ? (
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={LIVE_STUDIO_SKU}
-                  displayName={ADD_A_DAY_LABEL}
-                  // Catalog price, threaded for the drawer's voucher math only — the
-                  // CHARGE is re-resolved server-side from the SKU in
-                  // submitOrderAction, so a tampered value cannot change what is
-                  // billed. One price, no ladder (owner: "I just want 1 price").
-                  originalPriceCentavos={String(sku?.price_centavos ?? 0)}
-                  settings={paySettings}
-                  triggerLabel={priceLabel ? `${ADD_A_DAY_LABEL} · ${priceLabel}` : ADD_A_DAY_LABEL}
-                  triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-mulberry px-3 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.04em] text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-70"
-                />
-              ) : null
-            }
           />
           </div>
 
@@ -1278,6 +1356,23 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <span className="ml-auto text-[11px] text-ink/45">tap = put on Channel 1</span>
           </div>
 
+          {/* ⭐ NO RELAY = A NETWORK RULE THE HOST HAS TO KNOW BEFORE THE DAY.
+              turnConfigured() has existed since TURN landed and was read by nothing,
+              so a host whose cameras all failed with "couldn't reach the controller
+              on this network" had no way to learn whether a relay even existed.
+              Stated here, beside the cameras it governs, rather than in a log.
+              ⚠ A NOTICE, NOT A BLOCKER: without a relay cameras still connect on a
+              network that permits peer traffic, so refusing to show the grid would
+              take away something that works. */}
+          {!relayConfigured ? (
+            <p className="shrink-0 rounded-lg border border-terracotta/25 bg-terracotta/5 px-3 py-2 text-[11.5px] leading-snug text-ink/75">
+              <strong className="font-semibold text-ink/85">No camera relay is set up.</strong>{' '}
+              Every camera phone must be on the same Wi-Fi as this controller — and on a
+              network that lets devices talk to each other, which guest Wi-Fi usually does
+              not. If a camera says it can&rsquo;t reach the controller, this is why.
+            </p>
+          ) : null}
+
           <div
             data-testid="lsc-channel-scroller"
             className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-1 pr-0.5"
@@ -1303,7 +1398,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               >
                 <Plus aria-hidden className="h-5 w-5" strokeWidth={2} />
                 Add camera
-                <span className="text-[10px] font-normal text-ink/40">scan QR · no login</span>
+                <span className="text-[10px] font-normal text-ink/40">{addCameraCaption}</span>
               </a>
             ) : null}
           </div>
@@ -1352,6 +1447,41 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             streamingEnabled={streamingOn}
             mainStageSlot={programSlot}
           />
+
+          {/* ⭐ S18 — THE ENCODER ITSELF, inside the desktop shell only.
+              ProgramBridgeHost above delivers the streams to a window an
+              EXTERNAL encoder (OBS) captures. This composites those same
+              streams, encodes H.264/AAC and hands the bytes to Rust's RTMP
+              sender — the path that exists so a couple opens Setnayan instead
+              of configuring OBS the week of their wedding.
+
+              It sits here, beside ProgramBridgeHost and outside the setup
+              sheet, for exactly the reason that one does: a component the
+              sheet can unmount is a component that stops encoding the moment
+              the host closes the sheet. Renders nothing; its health goes to
+              the IngestHealthStrip that already exists. In a plain browser
+              `isTauri()` is false and this does nothing at all. */}
+          <DesktopEncoderHost
+            eventId={eventId}
+            air={air}
+            isLive={isLive}
+            streamingEnabled={streamingOn}
+            overlays={{
+              resolved: airOverlays,
+              qrSrc: qrSrc,
+              lowerThirdFallback: monogramText,
+            }}
+          />
+
+          {/* ⭐ THE RESOLVED STATUS, KEPT CURRENT. `resolveChannelStatus` above runs
+              once per render and this page has no timer of its own, so without this
+              the honest status freezes at page load — which is how a card was seen
+              reading "Camera connected" over a heartbeat 140 seconds stale. Renders
+              nothing; installs no timer at all when no seat is bound. It sits here,
+              beside ProgramBridgeHost and OUTSIDE the setup sheet, for the same
+              reason that one does: a component the sheet can unmount is a component
+              that stops working the moment the host closes the sheet. */}
+          <ChannelFreshness channels={zones.map((z) => ({ hasSeat: Boolean(z.camera) }))} />
 
           {/* THE CUT THAT DID NOT REACH AIR — stated on the controller, in plain
               words, rather than left for the host to discover from their own
@@ -1436,7 +1566,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       </CameraFeedsProvider>
 
       {/* ═══ UNLOCK BAR — the pitch, price from the catalog ════════════════════
-          Wave 3 wording: what the ₱2,999 buys is BROADCASTING the cameras, because
+          Wave 3 wording: what the ₱3,000 buys is BROADCASTING the cameras, because
           using them is already free. This is the sales surface, not a gate.
 
           ⭐ WAVE 8: the prototype's fixed bottom `.unlock` bar. `shrink-0`, so it is
@@ -1505,19 +1635,21 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             Connected{youtubeGrant.external_account_display ? ` — ${youtubeGrant.external_account_display}` : ''}. Your broadcast goes live on this channel.
           </p>
         ) : liveStudioPoolOnly() ? (
-          /* ⭐ POOL-ONLY: nothing to connect — Setnayan supplies the channel. The
-             server refuses this door too (409), so a button here would dead-end. */
+          /* ⭐ POOL-ONLY: the server refuses this door too (409), so a button here
+             would dead-end either way. Only an event that bought the hosted-channel
+             add-on has "nothing to connect" as the whole truth — everyone else
+             still has their own route to air (the "Watch link" section below). */
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/70">
-            {POOL_ONLY_CONNECT_NOTICE}
+            {poolOnlyConnectNotice(ownsHostedChannel)}
           </p>
         ) : (
-          <Link
+          <a
             href={`/api/oauth/youtube/start?event_id=${eventId}`}
             className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Connect YouTube
-          </Link>
+          </a>
         )}
       </section>
 
@@ -1537,6 +1669,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               Streaming” — or open the YouTube app and go live to the same broadcast. Setnayan
               never touches your video.
             </p>
+            {/* ⭐ Deliberately the same sentence as the setup card's encoder block: an
+                operator who only ever opens the controller must not be the one couple who
+                never hears it. A watch link is not a file — lib/live-studio-recordings.ts. */}
+            <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
+              <strong className="font-semibold text-ink/85">Press “Start Recording” too.</strong>{' '}
+              OBS saves a full-quality copy to your own computer while it streams. You keep that
+              file even if the broadcast drops, and if Setnayan supplied the channel it is the
+              only copy you can download.
+            </p>
           </div>
 
           <div className="sn-row space-y-1 p-3">
@@ -1552,25 +1693,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </div>
           </div>
 
-          <div className="sn-row space-y-1 p-3">
-            <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              <KeyRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Stream key · keep this secret
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <code className="break-all font-mono text-sm text-ink/85">
-                {activeStreamKey
-                  ? `${'•'.repeat(Math.max(0, activeStreamKey.length - 4))}${activeStreamKey.slice(-4)}`
-                  : '— unavailable —'}
-              </code>
-              {activeStreamKey ? (
-                <CopyButton value={activeStreamKey} label="Copy" copiedLabel="Copied" />
-              ) : null}
-            </div>
-            <p className="text-[11px] text-ink/50">
-              Treat it like a password — anyone with it can stream to your broadcast.
-            </p>
-          </div>
+          {/* S8: three renderings (browser reveal/copy · desktop own-channel
+              paste · desktop hosted-channel connect) — see EncoderKeyPanel's
+              docblock. Replaces this section's former inline copy of the same
+              reveal/copy JSX that go-live-card.tsx also carried. */}
+          <EncoderKeyPanel
+            eventId={eventId}
+            streamKey={activeStreamKey}
+            ownsHostedChannel={ownsHostedChannel}
+          />
 
           <div className="sn-row space-y-1 p-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -2077,6 +2208,85 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </form>
         )}
 
+        {/* 🎞 EVERY FILM OF THEIR DAY — free, and the promise the ₱2,500 description
+            already makes. Sits under the watch link because it is the same gesture
+            (paste a link) for the same reason (so guests find it in one place), and
+            because a couple thinking about their live stream is exactly who is also
+            holding their videographer's link. */}
+        <div className="mt-6 border-t border-ink/10 pt-5">
+          <p className="sn-eye">Films of your day</p>
+          <h3 className="mt-1 flex items-center gap-2 text-base font-semibold tracking-tight">
+            <MonitorPlay aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            Add your other videos
+          </h3>
+          <p className="mt-1 max-w-prose text-sm text-ink/65">
+            Your same-day edit, prenup, or your videographer&rsquo;s finished film — paste a
+            YouTube or Vimeo link and it joins your story, beside the photos, for good. Free,
+            and there is no limit.
+          </p>
+
+          {film_error ? (
+            <p role="alert" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-2.5 py-1 text-xs text-terracotta-700">
+              <AlertCircle aria-hidden className="h-3.5 w-3.5" /> That link isn&rsquo;t a YouTube
+              or Vimeo video. Those are the two we can play.
+            </p>
+          ) : null}
+          {film_saved ? (
+            <p role="status" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-success-300/70 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
+              <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Added to your story.
+            </p>
+          ) : null}
+
+          {films.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {films.map((film) => (
+                <li key={film.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white/60 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-ink">
+                      {film.label ?? (film.provider === 'youtube' ? 'YouTube video' : 'Vimeo video')}
+                    </span>
+                    <span className="font-mono text-[11px] text-ink/50">{film.provider}</span>
+                  </span>
+                  <form action={removeEventFilm}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="film_id" value={String(film.id)} />
+                    <SubmitButton
+                      pendingLabel="Removing…"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                    >
+                      <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      Remove
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <form action={addEventFilm} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input
+              type="text"
+              name="film_label"
+              placeholder="What is it? e.g. Same-Day Edit"
+              className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none sm:w-56"
+            />
+            <input
+              type="text"
+              name="film_url"
+              required
+              placeholder="Paste a YouTube or Vimeo link"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            />
+            <SubmitButton
+              pendingLabel="Adding…"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-burgundy/20 bg-burgundy px-4 text-sm font-semibold text-cream transition-colors hover:bg-burgundy/90"
+            >
+              Add film
+            </SubmitButton>
+          </form>
+        </div>
+
         {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door.
             Same section as the YouTube link because it is the same question
             ("how do guests watch?"), and because the 30-day warning inside the
@@ -2149,12 +2359,20 @@ function MonitorOverlays({
   return (
     <>
       {overlays.monogram ? (
-        <span
-          className={`absolute ${overlayPositionClass(
-            overlays.monogram.position,
-          )} rounded-full border border-cream/35 bg-ink/40 px-3 py-1 font-serif text-[13px] italic text-cream backdrop-blur-sm`}
-        >
-          {overlays.monogram.text}
+        <span className={`absolute ${overlayPositionClass(overlays.monogram.position)}`}>
+          {overlays.monogram.markDataUri ? (
+            // Inert data URI, already sanitized by safeMonogramSvg (SEC-3) — no optimizer benefit.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={overlays.monogram.markDataUri}
+              alt=""
+              className="h-9 w-9 object-contain drop-shadow"
+            />
+          ) : (
+            <span className="rounded-full border border-cream/35 bg-ink/40 px-3 py-1 font-serif text-[13px] italic text-cream backdrop-blur-sm">
+              {overlays.monogram.text}
+            </span>
+          )}
         </span>
       ) : null}
 

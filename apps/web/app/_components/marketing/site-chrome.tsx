@@ -77,19 +77,20 @@ const NAV_ROUTES = new Set<string>([
   // renders its OWN nav instance (HomeReskin), which carries the cinematic
   // gate state (white glass on the closed gate → ink glass once opened).
   // Mounting this chrome on top of it would double the nav.
-  '/how-it-works',
   '/vendors',
   // /creators — the public storyteller marketing page (2026-07-16); joins the
   // marketing shell alongside its /vendors sibling.
   '/creators',
   '/our-story',
   '/blog',
+  /* 2026-09-01 — /features ABSORBED /how-it-works, /why-setnayan and
+     /tl/how-it-works. Those three left this set with their routes: a chrome
+     entry for a path that no longer renders is dead config, and this set is
+     watched by `doorway-shell.test.ts`. /features and /tl/features stay. */
   '/features',
   '/monogram',
   // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED).
-  '/why-setnayan',
   '/tl/about',
-  '/tl/how-it-works',
   // /tl/features shares FeaturesPageBody with /features (whose old in-body
   // SiteFooter was removed), so it must join the shell to keep a footer + gain
   // the glass nav its EN twin already has.

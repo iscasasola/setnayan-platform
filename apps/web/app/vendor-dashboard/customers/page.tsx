@@ -38,12 +38,6 @@ import {
   type PipelineCustomer,
 } from '@/lib/vendor-customer-pipeline';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
-import {
-  fetchInquiryMaskMeta,
-  inquiryPlaceholderLabel,
-  isInquiryRevealed,
-  INQUIRY_MASK_UNKNOWN,
-} from '@/lib/inquiry-mask.server';
 import { CustomersRoster, type RosterRow } from './_components/customers-roster';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
@@ -383,22 +377,22 @@ async function CustomersPipeline({ searchParams }: Props) {
   }
 
   /*
-    THE MASK. Every row that is NOT entitled to the couple's identity renders
-    the same neutral placeholder the Answers Desk uses — "A couple planning a
-    wedding in Metro Manila" — built from event type + city only.
+    NO MASK (owner ruling 2026-09-08 — "we do not need to hide anything, since
+    no more tokens"). Every row rendered the neutral placeholder — "A couple
+    planning a wedding in Metro Manila" — until the shop was "entitled" to the
+    name, because accepting cost a token and identity was what the token bought.
+    The token wallet was retired on 2026-05-11, so the placeholder was charging
+    nothing for something it withheld from a supplier the couple had written to.
 
-    🔑 THE SHIPPED HELPER, NOT A NEW ONE. `fetchInquiryMaskMeta` selects ONLY
-    `event_type` + `region`; there is no input path through which a display name
-    can reach the placeholder. A second mask written here would be a second
-    chance to get anonymisation-until-accept wrong.
+    🔑 THE NAME WAS ALREADY HERE. `eventNameByEvent` is filled from `rosterAdmin`
+    above — the roster has always held the couple's real display name and threw
+    it away at render. Flipping the caller is the whole change; the masking
+    machinery in `customerLaneOf` is left intact and simply never asked for.
   */
-  const maskMeta = await fetchInquiryMaskMeta(rosterAdmin, rosterEventIds);
-
   const derived: PipelineCustomer[] = [];
   for (const eventId of rosterEventIds) {
     const t = threadByEvent.get(eventId);
     const b = bookingByEvent.get(eventId);
-    const mask = maskMeta.get(eventId) ?? INQUIRY_MASK_UNKNOWN;
     const row = customerLaneOf(
       {
         eventId,
@@ -407,7 +401,9 @@ async function CustomersPipeline({ searchParams }: Props) {
               threadId: t.thread_id,
               inquiryStatus: t.inquiry_status ?? null,
               createdAt: t.created_at ?? null,
-              revealed: isInquiryRevealed(t),
+              // Always. See the ruling above — this is the one input that
+              // decided whether `customerLaneOf` showed a name.
+              revealed: true,
               // The LAST thing that happened, from either side — what separates
               // a live conversation from something the shop is holding.
               lastActivityAt: t.updated_at ?? null,
@@ -426,17 +422,9 @@ async function CustomersPipeline({ searchParams }: Props) {
         // the pure derivation, never here.
         eventName:
           eventNameByEvent.get(eventId) ?? bookedByEvent.get(eventId)?.eventName ?? null,
-        // ⚠ THE THREE FIELDS ARE SPELLED OUT, NOT SPREAD. `hostNoun` is a
-        // REQUIRED parameter with no default precisely so a new call site
-        // cannot silently keep saying "A couple planning a funeral", and
-        // `inquiry-mask-every-host.test.ts` enforces that by reading the CALL —
-        // passing an object it cannot see inside defeats the check even when
-        // the value is correct.
-        descriptor: inquiryPlaceholderLabel({
-          eventType: mask.eventType,
-          city: mask.city,
-          hostNoun: mask.hostNoun,
-        }),
+        // FALLBACK ONLY. With `revealed: true` this is reached solely when the
+        // event genuinely has no `display_name` — never to hide one.
+        descriptor: 'Customer',
         eventDate: eventDateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
         // A live hold in this shop's own pool. The roster this replaced derived

@@ -37,6 +37,12 @@ import {
   VENUE_SETTING_SHORT_LABEL,
   VENUE_SETTING_TO_DIRECTORY_TYPE,
   isVenueSetting,
+  CEREMONY_VENUE_SETTINGS,
+  CEREMONY_VENUE_SETTING_LABEL,
+  CEREMONY_VENUE_SETTING_SHORT_LABEL,
+  isCeremonyVenueSetting,
+  receptionVenuePhrase,
+  AMBIGUOUS_VENUE_SETTING,
 } from './venue-settings';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -144,17 +150,42 @@ test('the labels themselves are complete and human', () => {
   }
 });
 
+/**
+ * The newest migration that (re)states BOTH venue constraints. Reading the
+ * migration rather than the live DB keeps this a unit test; the migration
+ * itself asserts against the catalog when it runs.
+ *
+ * ⚠ REPOINT THIS WHEN A NEWER MIGRATION RESTATES A CONSTRAINT. It moved off
+ * 20271114090000 (the `restaurant` widening) on 2026-09-03. A stale pointer
+ * here does not fail — it passes while checking a file the database no longer
+ * reflects, which is the quietest way for a guard to stop guarding.
+ */
+const CONSTRAINT_MIGRATION = readFileSync(
+  join(
+    REPO,
+    'supabase',
+    'migrations',
+    '20271197508087_ceremony_venue_setting_and_reception_venue_narrowed.sql',
+  ),
+  'utf8',
+);
+
+/** Only the ADD CONSTRAINT body, so prose in the header block cannot satisfy a
+ *  membership check. Both constraints name every value they allow as
+ *  `'value'::text` inside their own ARRAY[…]. */
+function constraintBody(name: string): string {
+  const start = CONSTRAINT_MIGRATION.indexOf(`ADD CONSTRAINT ${name}`);
+  assert.notEqual(start, -1, `${name} is not (re)stated in the pinned migration.`);
+  const end = CONSTRAINT_MIGRATION.indexOf(');', start);
+  assert.notEqual(end, -1, `could not find the end of ${name}`);
+  return CONSTRAINT_MIGRATION.slice(start, end);
+}
+
 test('the database constraint and the code agree', () => {
-  // The newest migration that (re)states the constraint. Reading the migration
-  // rather than the live DB keeps this a unit test; the migration itself
-  // asserts against the catalog when it runs.
-  const migration = readFileSync(
-    join(REPO, 'supabase', 'migrations', '20271114090000_venue_setting_restaurant.sql'),
-    'utf8',
-  );
+  const body = constraintBody('events_venue_setting_check');
   for (const setting of VENUE_SETTINGS) {
     assert.ok(
-      migration.includes(`'${setting}'::text`),
+      body.includes(`'${setting}'::text`),
       `The CHECK constraint does not allow '${setting}'. The UI would offer it ` +
         `and the write would fail at the database — the worst of the four ` +
         `failure modes, because the couple sees a valid form and a broken save.`,
@@ -162,20 +193,179 @@ test('the database constraint and the code agree', () => {
   }
 });
 
-test('every reception setting maps to a marketplace venue type', () => {
-  for (const setting of VENUE_SETTINGS) {
-    if (setting === 'civil_registrar') {
-      // Deliberately unmapped: a registrar's office is a CEREMONY venue and the
-      // reception filter never offers it. Pinned so the exception stays a
-      // decision rather than becoming an oversight someone "fixes".
-      assert.equal(VENUE_SETTING_TO_DIRECTORY_TYPE[setting], undefined);
-      continue;
+/**
+ * The other direction, and the one the `restaurant` widening never needed: the
+ * CHECK must not allow MORE than the code offers.
+ *
+ * `civil_registrar` moved to the ceremony list on 2026-09-03 (owner). If the
+ * constraint kept it, the couple's reception could still be stored as a
+ * registrar's office by any writer that isn't the picker — and "Make it real"
+ * would bill them for a banquet rendered inside one.
+ */
+test('the reception constraint allows NOTHING the reception list omits', () => {
+  const body = constraintBody('events_venue_setting_check');
+  const allowed = [...body.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    [...allowed].sort(),
+    [...VENUE_SETTINGS].sort(),
+    'The reception CHECK and VENUE_SETTINGS hold different value sets. An extra ' +
+      'value in the CHECK is storable and unpickable; a missing one is pickable ' +
+      'and unstorable.',
+  );
+  assert.ok(
+    !allowed.includes('civil_registrar'),
+    'civil_registrar is a CEREMONY venue and must not be storable as a reception.',
+  );
+});
+
+test('the ceremony constraint and the ceremony list are the same set', () => {
+  const body = constraintBody('events_ceremony_venue_setting_check');
+  const allowed = [...body.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]!);
+  assert.deepEqual([...allowed].sort(), [...CEREMONY_VENUE_SETTINGS].sort());
+});
+
+test('isCeremonyVenueSetting accepts the list and nothing else', () => {
+  for (const setting of CEREMONY_VENUE_SETTINGS) assert.ok(isCeremonyVenueSetting(setting));
+  for (const bad of [
+    null,
+    undefined,
+    '',
+    'CHURCH',
+    'churches',
+    'catholic_church', // the DIRECTORY's word — faith belongs in ceremony_type
+    'inc_chapel', // ditto: 'inc' + 'chapel' already says this
+    'banquet_hall', // a RECEPTION setting; the two lists are not interchangeable
+    'destination',
+  ]) {
+    assert.equal(
+      isCeremonyVenueSetting(bad),
+      false,
+      `"${String(bad)}" must not pass as a ceremony venue.`,
+    );
+  }
+});
+
+test('no ceremony venue value encodes a faith', () => {
+  // The rule the list is built on: ceremony_venue_setting names the KIND OF
+  // PLACE, events.ceremony_type names the RITE. A value carrying a faith would
+  // make one fact true in two columns — two mechanisms that can disagree while
+  // each passes its own suite.
+  for (const setting of CEREMONY_VENUE_SETTINGS) {
+    for (const faith of ['catholic', 'christian', 'inc', 'muslim', 'cultural', 'civil_rite']) {
+      assert.ok(
+        !setting.includes(faith),
+        `'${setting}' names the faith '${faith}', which events.ceremony_type ` +
+          `already carries. (Note 'civil_registrar' is a BUILDING — the city ` +
+          `hall — not the civil rite, which is why it is allowed here.)`,
+      );
     }
+  }
+});
+
+test('every ceremony venue is labelled, and none looks like a database key', () => {
+  for (const setting of CEREMONY_VENUE_SETTINGS) {
+    assert.ok(CEREMONY_VENUE_SETTING_LABEL[setting], `no long label for ${setting}`);
+    assert.ok(CEREMONY_VENUE_SETTING_SHORT_LABEL[setting], `no short label for ${setting}`);
+    assert.ok(
+      !CEREMONY_VENUE_SETTING_LABEL[setting].includes('_'),
+      `${setting}'s label still looks like a database key`,
+    );
+  }
+});
+
+test('the couple can actually choose every ceremony venue', () => {
+  // The picker DERIVES its options from CEREMONY_VENUE_SETTINGS, so this
+  // asserts the derivation rather than a re-typed list — a hand-written copy is
+  // what left ten faiths unpickable on this very card.
+  const src = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
+  assert.ok(
+    /CEREMONY_VENUE_OPTIONS[\s\S]{0,200}CEREMONY_VENUE_SETTINGS\.map\(/.test(src),
+    'The ceremony-venue picker stopped deriving its options from ' +
+      'CEREMONY_VENUE_SETTINGS. Whatever replaced it is a second hand-typed list.',
+  );
+  assert.ok(
+    src.includes('CEREMONY_VENUE_OPTIONS.map('),
+    'CEREMONY_VENUE_OPTIONS is built but never rendered — a list of options ' +
+      'nobody can see is the same as no options at all.',
+  );
+});
+
+test('the ceremony venue has a server-side allowlist that holds the whole vocabulary', () => {
+  const src = read('app/dashboard/[eventId]/actions.ts');
+  const start = src.indexOf('const ALLOWED_CEREMONY_VENUE_SETTINGS');
+  assert.notEqual(start, -1, 'the ceremony-venue allowlist is gone or renamed');
+  const body = src.slice(start, src.indexOf('] as const', start));
+  for (const setting of CEREMONY_VENUE_SETTINGS) {
+    assert.ok(
+      body.includes(`'${setting}'`),
+      `updateCeremonyVenueSetting rejects '${setting}'. A host who picks it gets ` +
+        `"Invalid ceremony venue" with nothing naming the reason.`,
+    );
+  }
+});
+
+test('every reception setting maps to a marketplace venue type', () => {
+  // The one that never could map — `civil_registrar` — is no longer a reception
+  // setting at all (2026-09-03), so the exception this loop used to carry is
+  // gone and EVERY value must map. Its absence is asserted separately below, so
+  // deleting this line cannot quietly bring it back.
+  for (const setting of VENUE_SETTINGS) {
     assert.ok(
       VENUE_SETTING_TO_DIRECTORY_TYPE[setting],
       `'${setting}' maps to no venue_directory_type, so the marketplace can ` +
         `never recommend a venue for a host who chose it.`,
     );
+  }
+});
+
+test('civil_registrar is a ceremony venue and ONLY a ceremony venue', () => {
+  assert.ok(
+    !(VENUE_SETTINGS as readonly string[]).includes('civil_registrar'),
+    'civil_registrar is back on the RECEPTION list. It is where you marry, not ' +
+      'where you dine — a "Make it real" render would put a banquet inside a ' +
+      "registrar's office.",
+  );
+  assert.equal(isVenueSetting('civil_registrar'), false);
+  assert.ok((CEREMONY_VENUE_SETTINGS as readonly string[]).includes('civil_registrar'));
+  assert.equal(isCeremonyVenueSetting('civil_registrar'), true);
+});
+
+/**
+ * ── THE ONE VALUE A PAID RENDER MAY NOT ASSERT ──────────────────────────────
+ * `events.venue_setting` cannot distinguish "chose a ballroom" from "never
+ * answered": both writers stamp `banquet_hall` when nothing was picked, and
+ * events_wedding_fields_consistency forbids NULL on a wedding row, so there is
+ * nowhere for "unknown" to live. Everything ELSE in the vocabulary can only
+ * arrive from a real pick.
+ */
+test('receptionVenuePhrase refuses the one value that might be a default', () => {
+  assert.equal(
+    receptionVenuePhrase(AMBIGUOUS_VENUE_SETTING),
+    null,
+    'A bare read of banquet_hall was turned into a claim about the room. That ' +
+      'is a paid render depicting a ballroom the couple may never have chosen.',
+  );
+  // …and yields to actual evidence.
+  assert.ok(receptionVenuePhrase(AMBIGUOUS_VENUE_SETTING, { chosen: true }));
+});
+
+test('receptionVenuePhrase names every setting that can only be a real choice', () => {
+  for (const setting of VENUE_SETTINGS) {
+    if (setting === AMBIGUOUS_VENUE_SETTING) continue;
+    const phrase = receptionVenuePhrase(setting);
+    assert.ok(
+      phrase,
+      `'${setting}' produces no scene phrase, so a couple who chose it gets the ` +
+        `generic brief — the defect this exists to fix, just quieter.`,
+    );
+    assert.ok(!phrase!.includes('_'), `'${setting}' phrase still reads like a database key`);
+  }
+});
+
+test('receptionVenuePhrase asserts nothing about a value it does not know', () => {
+  for (const bad of [null, undefined, '', 'civil_registrar', 'hotel_ballroom', 'castle']) {
+    assert.equal(receptionVenuePhrase(bad), null, `"${String(bad)}" must not be asserted`);
+    assert.equal(receptionVenuePhrase(bad, { chosen: true }), null, 'not even when claimed chosen');
   }
 });
 

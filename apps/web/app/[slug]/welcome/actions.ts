@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession, clearGuestSession } from '@/lib/guest-session';
+import { recordScan } from '@/lib/scan-trail';
 
 export async function confirmPlusOneName(
   slug: string,
@@ -57,12 +58,13 @@ export async function confirmPlusOneName(
   }
 
   // Record this as a separate scan event so the couple's admin can see the
-  // onboarding moment distinctly from regular invitation scans.
-  await admin.from('scan_events').insert({
-    event_id: session.event_id,
-    guest_id: session.guest_id,
-    source: 'browser',
-    context: { entry: 'plus_one_onboarded' },
+  // onboarding moment distinctly from regular invitation scans. Through the one
+  // door (lib/scan-trail.ts), so a guest who set `scan_tracking_opt_out` gets no
+  // row here either — this path is a scan trail like the other three.
+  await recordScan(admin, {
+    eventId: session.event_id,
+    guestId: session.guest_id,
+    entry: 'plus_one_onboarded',
   });
 
   redirect(`/${slug}`);

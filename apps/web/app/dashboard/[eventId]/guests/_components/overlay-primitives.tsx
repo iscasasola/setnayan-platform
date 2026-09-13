@@ -123,12 +123,19 @@ export function Popover({
   anchorRef,
   onClose,
   labelledById,
+  // `menu` is right for the pickers this was built for, but a panel with no
+  // choosable item inside it is NOT a menu — LockedChip's trigger advertises
+  // `aria-haspopup="dialog"` and a `role="menu"` panel with zero menuitems
+  // contradicts it. The trigger and the panel have to agree, so the caller
+  // says which this is.
+  role = 'menu',
   width = 210,
   children,
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   labelledById?: string;
+  role?: 'menu' | 'dialog';
   width?: number;
   children: ReactNode;
 }) {
@@ -159,7 +166,7 @@ export function Popover({
       <Scrim onClose={onClose} z={78} label="Dismiss menu" />
       <div
         ref={ref}
-        role="menu"
+        role={role}
         aria-labelledby={labelledById}
         className="gl-pop fixed z-[80] overflow-hidden rounded-xl border border-ink/10 bg-paper p-1.5 shadow-lg outline-none"
         style={{

@@ -114,6 +114,22 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
     snippet: "from '@/lib/couple-website-pro'",
     why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',
   },
+  {
+    file: 'invite/_lib/load-invite-look.ts',
+    snippet: "from '@/lib/couple-website-pro'",
+    why: 'The Pro-tier helper import — the invite themes are Event Hub Pro (owner 2026-09-10). A loader that renders nothing; every other line stays under the scan.',
+  },
+  {
+    file: 'invite/_lib/load-invite-look.ts',
+    snippet: "from '@/lib/wedding-only-parts'",
+    why:
+      'The WEDDING-ONLY-PARTS import, and the word is in the MODULE NAME — this is the ' +
+      'resolver that answers "may this event type show the Save-the-Date film?", which ' +
+      'owner Q7 (2026-09-11) made the fence on the Pro invite themes. It is the OPPOSITE ' +
+      'of the defect this guard exists for: nothing here assumes a wedding, it is the ' +
+      'line that ASKS. Nothing is rendered from this file, and every other line of it — ' +
+      'including anything added tomorrow — stays under the scan.',
+  },
 ];
 
 function tsFiles(dir: string): string[] {

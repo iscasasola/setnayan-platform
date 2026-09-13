@@ -1,0 +1,9 @@
+## 2026-09-04 · fix(vendor-dashboard): the shop's Moodboard library card reaches every supplying trade, not stylist/decorators alone
+
+MB11 widened the `/vendor-dashboard/moodboard-library` page and its server action to every trade that supplies a mood-board slot, via the shared `moodboardLibraryAccessForProfile`/`resolveMoodboardLibraryAccess` predicate in `lib/moodboard-library-access.ts`. It did not widen the only LINK to that page: `shopOwnerIsStylist()` in `app/vendor-dashboard/shop/page.tsx` still read `services.includes('reception_decor')`, so the shop-tools card stayed stylist/decorator-only while the page and the save behind it had already opened for florists, cake makers, gown designers, and every other supplying trade. A florist could only reach the page by typing its URL — the gate opened and the signage did not, which reads identically to the feature never having shipped (the same disease MB11 itself was written to cure, one layer out).
+
+**Fix — `shopHasMoodboardLibraryAccess()` now calls `resolveMoodboardLibraryAccess`**, the same predicate the page and action already use, replacing the standalone `reception_decor` check. The pure shelf-building logic (`shopToolShelves`, the tool arrays) moved out of `page.tsx` into a new sibling `shop-tool-shelves.ts` so it unit-tests without dragging in the page's server-component import chain. The card's stale sub-copy ("recolourable sets couples match to their palette" — the old stylist-only framing) is replaced with copy describing the supplier gallery it actually is.
+
+Test: `app/vendor-dashboard/shop/the-moodboard-card-reaches-every-trade.test.ts` — anchored on the rendered shelf (`shopToolShelves`'s output), not a source-string search. Asserts a shop whose only service is `bridal_gown_custom` gets the card, and a shop with no supplying trade does not. Verified red against the old `reception_decor`-only gate, then restored.
+
+SPEC IMPACT: None

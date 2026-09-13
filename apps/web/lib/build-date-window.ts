@@ -347,11 +347,24 @@ export function convergenceBanner(
   }
 
   if (w.dayKeys.length === 1) {
+    // Owner ruling 2026-09-06: *"if a date is picked based from the combination
+    // of vendors, then we should say that picking these vendors will lock your
+    // date on XXX."* The previous headline — "Only <day> works for everyone" —
+    // stated the CONSTRAINT and stopped there, leaving the couple to work out
+    // for themselves that going ahead with this build decides their wedding
+    // date. The consequence is the load-bearing half, so it leads.
+    //
+    // ⚠ Rule 3 of this module still holds: the soft tier promises NOTHING about
+    // reservations. "Locks your date" is true of the EVENT's date — which the
+    // lock genuinely sets, the same fact the lock modal already states with
+    // "This lock sets your date" — and is NOT a claim that the day is held with
+    // the vendor. The second sentence keeps that distinction explicit; do not
+    // drop it to shorten the copy.
     return {
       tone: 'converged',
-      headline: `Only ${formatDayKeyLabel(w.dayKeys[0]!)} works for everyone`,
+      headline: `Locking these vendors sets your date: ${formatDayKeyLabel(w.dayKeys[0]!)}`,
       detail:
-        'Every vendor in your build is free that day. Nothing is held yet — a date is only reserved once a vendor accepts your payment.',
+        'It is the only day everyone in your build is free. Nothing is held yet — your date is reserved only once a vendor accepts your payment.',
     };
   }
 
@@ -407,6 +420,33 @@ export function freeDaysLine(args: {
   const rest = freeDays.length - Math.min(maxNames, freeDays.length);
   return `Free: ${shown}${rest > 0 ? ` +${rest} more` : ''}`;
 }
+
+/**
+ * The HARD tier's sink (Explore Replan PR-G2 · owner 2026-09-11). Takes the
+ * suppliers whose own calendar shows the committed day taken OUT of the rail
+ * before the soft tier partitions what is left, so the rail reads — per the
+ * spec's §6 order — *fits · "Doesn't fit your build" · "Not available"*.
+ *
+ * Stable, like its soft sibling: it moves only the unavailable, in the order the
+ * couple's lens and their own arrangement put them, and never reshuffles the
+ * rest. Cards are MOVED, never dropped (owner-locked decision #3: "never
+ * removed").
+ */
+export function sinkUnavailable<T>(
+  rows: readonly T[],
+  isUnavailable: (row: T) => boolean,
+): { available: T[]; unavailable: T[] } {
+  const available: T[] = [];
+  const unavailable: T[] = [];
+  for (const row of rows) (isUnavailable(row) ? unavailable : available).push(row);
+  return { available, unavailable };
+}
+
+/** The hard tier's divider and card note — red, where the soft tier is amber. */
+export const NOT_AVAILABLE_DIVIDER = 'Not available on your date';
+export const NOT_AVAILABLE_ACTION = 'Not available on your date';
+/** The reason line under it. Says what the calendar shows, and the way out. */
+export const NOT_AVAILABLE_REASON = 'Their calendar shows your date taken. You can still ask them.';
 
 /**
  * Stable partition of a rail into cards that fit and cards that do not. Stable

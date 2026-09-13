@@ -27,6 +27,17 @@
  *   · reads the AGREED package total, never Σ replacement values       (R4)
  *   · counts transport + crew meals, which `/budget` cannot see today  (R5)
  *   · reconciles paid vs owed explicitly instead of clamping silently  (R11)
+ *   · counts `event_costs` — money with no supplier at all             (BA7)
+ *
+ * ─── Money that has nobody on the other side of it (BA7) ──────────────────
+ * `event_vendor_line_items.vendor_id` is NOT NULL, so until BA7 every peso had
+ * to hang off an `event_vendors` row and a couple could not record their first
+ * ₱ without first inventing a supplier. `event_costs` is the other half:
+ * rings, the marriage licence fee, tips, ang pao, the honeymoon. It is a
+ * SEPARATE table rather than a nullable `vendor_id` precisely so the counting
+ * law stays structural — a cost WITH a supplier is still an `event_vendors` +
+ * `event_vendor_line_items` pair, a cost WITHOUT one is an `event_costs` row,
+ * and one peso can never be in both. See that migration's docblock.
  *
  * ─── The honesty rules (§18.5) this file enforces ─────────────────────────
  *  2/3. Estimates NEVER enter `committed` or `stillOwed`. They live in
@@ -71,6 +82,19 @@ import {
   type VendorPriceSource,
 } from './budget';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { resolveAgreedTotal, splitVendorLines } from './agreed-total-and-its-changes';
+// The one definition of "due soon" / "overdue". It lives with the guard that
+// ALERTS on it (`TRIGGER_THRESHOLDS` is that file's documented home for the
+// restraint dials) and is read here by the calculator that COUNTS it, so the
+// page and the email cannot drift apart. The edge only points this way:
+// setnayan-ai-triggers is pure and clock-free, while this file reaches a
+// database — importing this one there would drag Supabase into the digest.
+import {
+  TRIGGER_THRESHOLDS,
+  daysUntilDue,
+  paymentDueState,
+  type PaymentDueState,
+} from './setnayan-ai-triggers';
 import { PLAN_GROUPS } from './wedding-plan-groups';
 import type { EventVendorRow, VendorCategory } from './vendors';
 
@@ -89,8 +113,24 @@ export type MoneySource =
   | 'vendor_service_listing'
   /** `event_vendor_line_items.amount_php` (signed; negative = credit). */
   | 'vendor_line_item'
+  /**
+   * `event_vendor_line_items.amount_php` on a row carrying
+   * `is_change_delta = TRUE` — a settled change-order delta (signed; negative =
+   * credit). It is its OWN source, not a flavour of `vendor_line_item`, because
+   * the two behave in opposite directions: a line item stands IN PLACE OF the
+   * supplier's agreed price, and a change rides ON TOP of it. Owner 2026-09-09:
+   * "Both, shown separately."
+   */
+  | 'vendor_change_delta'
   /** `event_vendors.total_cost_php` — the legacy headline. */
   | 'vendor_headline'
+  /**
+   * `event_costs` — a cost with NOBODY on the other side of it (BA7). Rings,
+   * the marriage licence fee, tips, ang pao, the honeymoon. Not an estimate:
+   * the couple is recording money they have committed or already handed over,
+   * which is why it is a `committed` line like any other.
+   */
+  | 'event_cost'
   /** `event_vendors.transport_php`. */
   | 'vendor_transport'
   /** `event_vendors.food_allowance_php`. */
@@ -122,6 +162,47 @@ export type MoneyLine = {
   /** True when the couple cannot edit it here (Setnayan orders, vendor catalogue). */
   readOnly: boolean;
   dueDate: string | null;
+  /**
+   * Whole days from `now` to `dueDate` — negative once the date has passed.
+   * `null` when the line carries no due date at all.
+   */
+  daysUntilDue: number | null;
+  /**
+   * Where this line stands against its own due date. `'none'` covers the two
+   * cases with no milestone to miss: an undated line, and an ESTIMATE (nobody
+   * has agreed to pay it, so it cannot be late). `'settled'` is a dated
+   * commitment with nothing still owed — the date passing does not make a paid
+   * milestone overdue.
+   */
+  dueState: MoneyDueState;
+};
+
+/** @see MoneyLine.dueState */
+export type MoneyDueState = PaymentDueState | 'settled' | 'none';
+
+/**
+ * Still-owed money split by how its due date stands to today. DISJOINT — one
+ * line lands in exactly one band, so `overduePhp + dueSoonPhp + upcomingPhp +
+ * laterPhp` is the whole dated, unpaid ledger and nothing is counted twice.
+ *
+ * ⚠ `overduePhp` is the number this whole type exists for. Before it, a
+ * payment the couple had already missed was absent from every roll-up on the
+ * page and from every alert — it did not render as a warning, it rendered as
+ * nothing, exactly like an event with no payments due at all.
+ */
+export type MoneyDue = {
+  /** Still owed on milestones whose due date has PASSED. */
+  overduePhp: number;
+  overdueCount: number;
+  /** Still owed within `TRIGGER_THRESHOLDS.paymentDueWindowDays` (due today counts). */
+  dueSoonPhp: number;
+  dueSoonCount: number;
+  /** Still owed after that window but inside `paymentHorizonDays`. */
+  upcomingPhp: number;
+  upcomingCount: number;
+  /** Still owed beyond the horizon. */
+  laterPhp: number;
+  laterCount: number;
 };
 
 export type MoneyBucket = {
@@ -139,11 +220,19 @@ export type MoneyBucket = {
    */
   hasBenchmark: boolean;
   benchmarkPhp: number | null;
+  /** This bucket's share of the dated ledger — same bands as `EventMoney.due`. */
+  due: MoneyDue;
 };
 
 export type MoneyWarningCode =
   /** A vendor has been handed more money than was ever agreed. §18.5 rule 6. */
   | 'overpaid_vendor'
+  /**
+   * A supplier-less cost records more paid than it cost. Its own code rather
+   * than `overpaid_vendor` because every field of that warning — and its
+   * wording — names a vendor, and there is none here to name.
+   */
+  | 'overpaid_cost'
   /** `deposit_paid_php` disagrees with the itemized payment log. R6. */
   | 'unreconciled_deposit'
   /** Money paid to a vendor still at `considering` / `shortlisted`. */
@@ -164,6 +253,8 @@ export type MoneyWarningCode =
   | 'benchmark_unseeded'
   /** A Setnayan order sits in a status that is neither agreed nor cancelled. */
   | 'order_not_yet_agreed'
+  /** A payment milestone's due date has passed and money is still owed on it. */
+  | 'payment_overdue'
   /** A vendor-payer booking fee stamped with this event_id was kept out. */
   | 'vendor_payer_order_excluded'
   /** Should never fire. If it does, the totals stopped adding up. */
@@ -214,6 +305,8 @@ export type EventMoney = {
    */
   isOverBudget: boolean;
   overBudgetByPhp: number;
+  /** The dated ledger, banded. `due.overduePhp` is money already missed. */
+  due: MoneyDue;
   byBucket: MoneyBucket[];
   lines: MoneyLine[];
   sources: MoneySourceNote[];
@@ -243,6 +336,15 @@ export type LineItemMoneyRow = {
   label: string;
   amount_php: number | string | null;
   due_date: string | null;
+  /**
+   * `event_vendor_line_items.is_change_delta` (migration 20271218458148).
+   * TRUE = a settled change-order delta, billed ON TOP of the agreed price.
+   * FALSE/absent = an itemisation line, billed IN PLACE OF it. Optional so a
+   * fixture or a narrower select still typechecks; `splitVendorLines` reads
+   * `=== true`, so absent means BREAKDOWN — today's meaning for every row that
+   * already exists.
+   */
+  is_change_delta?: boolean | null;
 };
 
 export type PaymentMoneyRow = {
@@ -251,6 +353,23 @@ export type PaymentMoneyRow = {
   line_item_id: string | null;
   amount_php: number | string | null;
   paid_at: string;
+};
+
+/**
+ * `event_costs` — money the couple spends with NOBODY on the other side of it
+ * (BA7). Two figures, because those are exactly the two the owner-locked
+ * ledger columns need: what it cost (Agreed) and what has been handed over
+ * (Paid); Owed is the difference. There is no payment log because there is no
+ * counterparty to reconcile one with.
+ */
+export type EventCostMoneyRow = {
+  cost_id: string;
+  /** A `PLAN_GROUPS` id, or anything else — an unknown value buckets to `other`. */
+  plan_group_id: string | null;
+  label: string;
+  amount_php: number | string | null;
+  paid_php: number | string | null;
+  due_date: string | null;
 };
 
 export type OrderMoneyRow = {
@@ -296,6 +415,13 @@ export type MoneyInputs = {
   lineItems: LineItemMoneyRow[];
   payments: PaymentMoneyRow[];
   orders: OrderMoneyRow[];
+  /**
+   * BA7 · costs with no supplier. REQUIRED, not optional-defaulting-to-`[]`,
+   * on purpose: a money source you can forget to pass is a money source that
+   * silently reads ₱0, and this whole file exists because a budget page told a
+   * couple ₱0 about money that was really there.
+   */
+  costs: EventCostMoneyRow[];
   /** From `buildVendorPricingLookup` — the vendor-authored catalogue half. */
   pricing: VendorPricingLookup;
   /**
@@ -307,6 +433,13 @@ export type MoneyInputs = {
   benchmarks: BenchmarkMoneyRow[];
   /** Plan-group ids in scope for this event, so unseeded leaves can be named. */
   scopePlanGroupIds?: string[];
+  /**
+   * The instant "overdue" is measured against. Injected, never read from the
+   * clock inside the core, so every due-date boundary (-1 · 0 · +1 · +7 · +8 ·
+   * +30 · +31) is testable and the parity harness stays deterministic.
+   * Omitted → `new Date()`, which is what `resolveEventMoney` passes anyway.
+   */
+  now?: Date;
 };
 
 // ── Small helpers ────────────────────────────────────────────────────────────
@@ -366,6 +499,28 @@ export function bucketForVendor(
   return BUCKET_BY_CATEGORY.get(v.category as VendorCategory) ?? OTHER_BUCKET;
 }
 
+/** Every id a `MoneyBucket` may legitimately carry, so an unknown one is visible. */
+const KNOWN_BUCKETS = new Set<string>([
+  ...PLAN_GROUPS.map((g) => g.id as string),
+  OTHER_BUCKET,
+  SETNAYAN_BUCKET,
+]);
+
+/**
+ * Which bucket a supplier-less cost lands in (BA7).
+ *
+ * `event_costs.plan_group_id` is TEXT — the taxonomy's home is
+ * `wedding-plan-groups.ts` and a database enum would be a second copy of it
+ * that can disagree. So an unrecognised id is possible, and it falls to
+ * `'other'` rather than being dropped: the same rule `bucketForVendor` follows
+ * one function below, and for the same reason — an unmappable category must
+ * never make a peso disappear.
+ */
+export function bucketForCost(planGroupId: string | null | undefined): string {
+  const id = typeof planGroupId === 'string' ? planGroupId.trim() : '';
+  return id.length > 0 && KNOWN_BUCKETS.has(id) ? id : OTHER_BUCKET;
+}
+
 const toCentavos = (v: number | string | null | undefined): number => {
   if (v === null || v === undefined) return 0;
   const n = typeof v === 'number' ? v : Number(v);
@@ -384,12 +539,46 @@ type WorkingLine = MoneyLine & {
   creditC: number;
 };
 
+type DueAcc = {
+  overdueC: number;
+  overdueCount: number;
+  dueSoonC: number;
+  dueSoonCount: number;
+  upcomingC: number;
+  upcomingCount: number;
+  laterC: number;
+  laterCount: number;
+};
+
+const emptyDueAcc = (): DueAcc => ({
+  overdueC: 0,
+  overdueCount: 0,
+  dueSoonC: 0,
+  dueSoonCount: 0,
+  upcomingC: 0,
+  upcomingCount: 0,
+  laterC: 0,
+  laterCount: 0,
+});
+
+const dueFromAcc = (a: DueAcc): MoneyDue => ({
+  overduePhp: toPhp(a.overdueC),
+  overdueCount: a.overdueCount,
+  dueSoonPhp: toPhp(a.dueSoonC),
+  dueSoonCount: a.dueSoonCount,
+  upcomingPhp: toPhp(a.upcomingC),
+  upcomingCount: a.upcomingCount,
+  laterPhp: toPhp(a.laterC),
+  laterCount: a.laterCount,
+});
+
 type BucketAcc = {
   committedC: number;
   paidC: number;
   owedC: number;
   overpaidC: number;
   estimatedC: number;
+  due: DueAcc;
 };
 
 /**
@@ -411,18 +600,33 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
   const bucket = (id: string): BucketAcc => {
     let b = buckets.get(id);
     if (!b) {
-      b = { committedC: 0, paidC: 0, owedC: 0, overpaidC: 0, estimatedC: 0 };
+      b = {
+        committedC: 0,
+        paidC: 0,
+        owedC: 0,
+        overpaidC: 0,
+        estimatedC: 0,
+        due: emptyDueAcc(),
+      };
       buckets.set(id, b);
     }
     return b;
   };
 
-  const pushLine = (l: Omit<WorkingLine, 'amountPhp' | 'paidPhp' | 'stillOwedPhp'>) => {
+  const pushLine = (
+    l: Omit<WorkingLine, 'amountPhp' | 'paidPhp' | 'stillOwedPhp' | 'daysUntilDue' | 'dueState'>,
+  ) => {
     const line: WorkingLine = {
       ...l,
       amountPhp: toPhp(l.amountC),
       paidPhp: toPhp(l.paidC),
       stillOwedPhp: toPhp(l.owedC),
+      // Placeholders. The real values are stamped in section 3b, AFTER the
+      // per-vendor settlement below has decided what is still owed on each
+      // line — a milestone whose date passed but whose money was handed over
+      // is settled, not overdue.
+      daysUntilDue: null,
+      dueState: 'none',
     };
     lines.push(line);
     return line;
@@ -592,6 +796,69 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     });
   }
 
+  // ── 2b · Money with NO supplier (BA7) ────────────────────────────────────
+  // Rings, the marriage licence fee, tips, ang pao, the honeymoon. Before
+  // `event_costs` these could not be recorded at all — every peso had to hang
+  // off an `event_vendors` row — so a couple was recommended a rings budget by
+  // this very page and given nowhere to write down buying the rings.
+  //
+  // Settled NET, exactly as a vendor is below, which is what keeps THE
+  // INVARIANT exact for every sign of every input:
+  //     max(0, c−p) + c ≡ max(0, p−c) + p
+  // The couple's own money, so `readOnly: false` — they can edit and delete
+  // it here, unlike a Setnayan order or a vendor's catalogue price.
+  for (const c of inputs.costs) {
+    const amountC = toCentavos(c.amount_php);
+    const costPaidC = toCentavos(c.paid_php);
+    if (amountC === 0 && costPaidC === 0) continue;
+
+    const bucketId = bucketForCost(c.plan_group_id);
+    const b = bucket(bucketId);
+    const costOwedC = Math.max(0, amountC - costPaidC);
+    const costOverpaidC = Math.max(0, costPaidC - amountC);
+    const label = c.label?.trim() ? c.label.trim() : 'Cost';
+
+    pushLine({
+      costKey: `cost:${c.cost_id}`,
+      label,
+      bucket: bucketId,
+      amountC,
+      kind: 'committed',
+      paidC: costPaidC,
+      owedC: costOwedC,
+      creditC: 0,
+      source: 'event_cost',
+      sourceRef: c.cost_id,
+      // The two nulls ARE the fact this source exists to carry. A caller that
+      // prints a supplier name per line prints nothing here, which is right:
+      // nobody supplied it.
+      vendorId: null,
+      vendorName: null,
+      readOnly: false,
+      dueDate: c.due_date,
+    });
+
+    committedC += amountC;
+    paidC += costPaidC;
+    owedC += costOwedC;
+    overpaidC += costOverpaidC;
+    b.committedC += amountC;
+    b.paidC += costPaidC;
+    b.owedC += costOwedC;
+    b.overpaidC += costOverpaidC;
+
+    if (costOverpaidC > 0) {
+      warnings.push({
+        code: 'overpaid_cost',
+        message:
+          `You have recorded paying more for "${label}" than it cost — ` +
+          `check the amount or raise the total.`,
+        amountPhp: toPhp(costOverpaidC),
+        bucket: bucketId,
+      });
+    }
+  }
+
   // ── 3 · Vendor spend ─────────────────────────────────────────────────────
   for (const v of liveVendors) {
     const bucketId = bucketForVendor(v);
@@ -639,23 +906,47 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     //    R12 · the branch test is `!== 0`, not `> 0`. With `> 0` a credit-only
     //         manual line is silently discarded on a package vendor, and
     //         credits exceeding charges revert a vendor to their stale headline.
-    const manualC = myLineItems.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
+    // ── A CHANGE RIDES ON THE AGREED TOTAL, IT NEVER REPLACES IT ────────────
+    // Owner 2026-09-09: "Both, shown separately." A settled change-order delta
+    // and the couple's own itemisation share one table and mean opposite
+    // things — an itemisation stands IN PLACE OF the supplier's price, a change
+    // rides ON TOP of it. `is_change_delta` is what tells them apart, and
+    // `resolveAgreedTotal` is the ONE cascade (shared with `lib/budget.ts`'s
+    // two readers, which used to hand-copy it and had drifted).
+    //
+    // ⚠ `manualC` is now Σ of the BREAKDOWN lines ONLY. Feeding it every line
+    // is precisely the defect: a −₱15,000 change on a ₱100,000 supplier landed
+    // in the `manualC !== 0` branch below and reported −₱15,000.
+    const { breakdown: breakdownLines, changes: changeLines } = splitVendorLines(myLineItems);
+    const manualC = breakdownLines.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
+    const changesC = changeLines.reduce((acc, li) => acc + toCentavos(li.amount_php), 0);
     const headlineC = toCentavos(v.total_cost_php);
     const controlledC = controlled.reduce((acc, it) => acc + toCentavos(it.amount_php), 0);
     const isPackageAnchor =
       v.package_role === 'anchor' ||
       (priceSource === 'package' && Boolean(v.event_vendor_package_id));
+    const listingEstimate = priceSource === 'service' && controlledC !== 0 && !isCommitted;
 
-    let priceC = 0;
+    const agreed = resolveAgreedTotal({
+      headline: headlineC,
+      catalogue: controlledC,
+      breakdown: manualC,
+      changes: changesC,
+      isPackageAnchor,
+      packageLocked: inputs.packageLockedCentavos.get(v.event_vendor_package_id ?? '') ?? 0,
+      listingEstimate,
+    });
+
+    const priceC = agreed.pricePart;
+    const useLineItems = agreed.billBreakdown;
     let priceKind: MoneySource = 'vendor_headline';
     let priceLabel = v.vendor_name;
     let priceRef = v.vendor_id;
     let priceReadOnly = false;
-    let useLineItems = false;
 
+    // The LABELS still branch — only the arithmetic was shared out. Each arm
+    // below reproduces exactly the wording it always used.
     if (isPackageAnchor) {
-      const lockedC = inputs.packageLockedCentavos.get(v.event_vendor_package_id ?? '') ?? 0;
-      priceC = headlineC !== 0 ? headlineC : lockedC;
       priceKind = 'vendor_package';
       priceLabel = `${v.vendor_name} — package`;
       priceReadOnly = true;
@@ -668,37 +959,21 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
           bucket: bucketId,
         });
       }
-      // Manual line items on a package vendor are genuine extras / change-order
-      // credits and ride ON TOP of the agreed total. R12: `!== 0`.
-      useLineItems = manualC !== 0;
-    } else if (priceSource === 'service' && controlledC !== 0 && !isCommitted) {
+    } else if (listingEstimate) {
       // §18.1: a marketplace service's published `starting_price_php` is an
       // ESTIMATE until the vendor is contracted.
-      priceC = controlledC;
       priceKind = 'vendor_service_listing';
       priceLabel = `${v.vendor_name} — from their listed price`;
       priceRef = controlled[0]!.source_id;
       priceReadOnly = true;
-    } else if (controlledC !== 0 && manualC !== 0) {
-      priceC = controlledC;
-      priceKind = priceSource === 'service' ? 'vendor_service_listing' : 'vendor_package';
-      priceLabel = `${v.vendor_name} — from their catalogue`;
-      priceRef = controlled[0]!.source_id;
-      priceReadOnly = true;
-      useLineItems = true;
     } else if (controlledC !== 0) {
-      priceC = controlledC;
       priceKind = priceSource === 'service' ? 'vendor_service_listing' : 'vendor_package';
       priceLabel = `${v.vendor_name} — from their catalogue`;
       priceRef = controlled[0]!.source_id;
       priceReadOnly = true;
-    } else if (manualC !== 0) {
-      // R12 — `!== 0`, so a net credit is honoured instead of reverting to the
-      // stale headline.
-      useLineItems = true;
-    } else {
-      priceC = headlineC;
     }
+    // Otherwise the price is the breakdown itself (priceC === 0, no price row)
+    // or the legacy headline — both keep the defaults above.
 
     const kind: MoneyKind = isCommitted ? 'committed' : 'estimated';
     const vendorLines: WorkingLine[] = [];
@@ -724,7 +999,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       );
     }
     if (useLineItems) {
-      for (const li of myLineItems) {
+      for (const li of breakdownLines) {
         const c = toCentavos(li.amount_php);
         if (c === 0) continue;
         vendorLines.push(
@@ -746,6 +1021,41 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
           }),
         );
       }
+    }
+
+    // ── THE CHANGE, AS ITS OWN LINE — in EVERY branch, never gated ──────────
+    // This loop is deliberately OUTSIDE `useLineItems`. That flag answers "does
+    // the couple's itemisation stand in for the price?", which has nothing to do
+    // with whether a change the two of them agreed should be shown. Gating it
+    // would drop a settled delta on a catalogue-priced or listing-priced
+    // supplier — silently, and only for some suppliers, which is the worst
+    // shape a money bug can have.
+    //
+    // 🔑 These rows ARE the second half of the owner's ruling. `agreed.agreed`
+    // is `pricePart + breakdownPart + changesPart`, so the total on screen and
+    // the lines under it are the same arithmetic — there is no second number to
+    // keep in step.
+    for (const li of changeLines) {
+      const c = toCentavos(li.amount_php);
+      if (c === 0) continue;
+      vendorLines.push(
+        pushLine({
+          costKey: `line:${li.line_item_id}`,
+          label: li.label,
+          bucket: bucketId,
+          amountC: c,
+          kind,
+          paidC: 0,
+          owedC: 0,
+          creditC: 0,
+          source: 'vendor_change_delta',
+          sourceRef: li.line_item_id,
+          vendorId: v.vendor_id,
+          vendorName: v.vendor_name,
+          readOnly: false,
+          dueDate: li.due_date,
+        }),
+      );
     }
 
     // R5 — transport + crew meals. Merkado and the checklist count these;
@@ -953,6 +1263,83 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     }
   }
 
+  // ── 3b · The dated ledger — what is late, and what is about to be ────────
+  //
+  // Runs AFTER every vendor's settlement above, because "overdue" is a claim
+  // about money STILL OWED, not about a date. A milestone that came and went
+  // and was paid is `settled`; only a date that passed with money outstanding
+  // is `overdue`.
+  //
+  // The bands come from `paymentDueState` in lib/setnayan-ai-triggers.ts —
+  // the same function GRD-01 filters on. That is the whole point: the number
+  // this page prints and the number that email names are computed by one
+  // definition, so they cannot drift.
+  const now = inputs.now ?? new Date();
+  const dueTotal = emptyDueAcc();
+  let overdueLines = 0;
+  for (const l of lines) {
+    // An estimate has no milestone to miss — nobody has agreed to pay it, so
+    // it can never be late (§18.5 rule 3, applied to dates instead of pesos).
+    if (l.kind === 'estimated' || !l.dueDate) continue;
+    const d = daysUntilDue(l.dueDate, now);
+    l.daysUntilDue = Number.isFinite(d) ? d : null;
+    if (l.owedC <= 0) {
+      l.dueState = 'settled';
+      continue;
+    }
+    if (!Number.isFinite(d)) continue; // unparseable date → 'none', never late
+    const state = paymentDueState(d);
+    l.dueState = state;
+    const b = bucket(l.bucket).due;
+    switch (state) {
+      case 'overdue':
+        dueTotal.overdueC += l.owedC;
+        dueTotal.overdueCount += 1;
+        b.overdueC += l.owedC;
+        b.overdueCount += 1;
+        overdueLines += 1;
+        break;
+      case 'due_soon':
+        dueTotal.dueSoonC += l.owedC;
+        dueTotal.dueSoonCount += 1;
+        b.dueSoonC += l.owedC;
+        b.dueSoonCount += 1;
+        break;
+      case 'upcoming':
+        dueTotal.upcomingC += l.owedC;
+        dueTotal.upcomingCount += 1;
+        b.upcomingC += l.owedC;
+        b.upcomingCount += 1;
+        break;
+      case 'later':
+        dueTotal.laterC += l.owedC;
+        dueTotal.laterCount += 1;
+        b.laterC += l.owedC;
+        b.laterCount += 1;
+        break;
+    }
+  }
+  if (overdueLines > 0) {
+    // NAMED, not merely counted — a bare figure is one a caller can forget to
+    // read, which is the same silence this file exists to end.
+    //
+    // ⚠ BE HONEST ABOUT WHAT THIS REACHES TODAY. Measured 2026-09-02 against
+    // origin/main: `EventMoney.warnings` has NO renderer on any surface —
+    // `grep -rn '\.warnings' app lib` finds one hit and it belongs to the
+    // vendor canvas, not to this type. So this sentence is not yet in front of
+    // a couple; the thing that actually reaches a human today is GRD-01, which
+    // now fires on overdue. The warning is emitted so the surface that wires
+    // `due` up gets the wording with it, rather than re-inventing it.
+    warnings.push({
+      code: 'payment_overdue',
+      message:
+        `${overdueLines} payment${overdueLines === 1 ? '' : 's'} ` +
+        `${overdueLines === 1 ? 'is' : 'are'} past ${overdueLines === 1 ? 'its' : 'their'} ` +
+        `due date and still showing as unpaid.`,
+      amountPhp: toPhp(dueTotal.overdueC),
+    });
+  }
+
   // ── 4 · Buckets ──────────────────────────────────────────────────────────
   const benchmarkByGroup = new Map<string, number | null>();
   for (const bm of inputs.benchmarks) benchmarkByGroup.set(bm.plan_group_id, bm.benchmark_php);
@@ -971,6 +1358,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
         // §18.5 rule 5 — a leaf with a NULL benchmark is UNKNOWN, not ₱0.
         hasBenchmark: bm !== null && bm !== undefined,
         benchmarkPhp: bm ?? null,
+        due: dueFromAcc(x.due),
       };
     })
     .sort((a, b2) => {
@@ -1041,6 +1429,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     // §18.5 rule 4 — the ONE meaning, said in exactly one place.
     isOverBudget: targetPhp !== null && overBudgetBy > 0,
     overBudgetByPhp: Math.max(0, Math.round(overBudgetBy * 100) / 100),
+    due: dueFromAcc(dueTotal),
     byBucket,
     lines: lines.map(stripWorking),
     sources,
@@ -1076,6 +1465,11 @@ const SOURCE_META: Record<
     table: 'event_vendor_line_items',
     isEstimate: false,
   },
+  vendor_change_delta: {
+    label: 'Changes agreed after you locked',
+    table: 'event_vendor_line_items (is_change_delta)',
+    isEstimate: false,
+  },
   vendor_headline: {
     label: 'Vendor totals you recorded',
     table: 'event_vendors.total_cost_php',
@@ -1094,6 +1488,11 @@ const SOURCE_META: Record<
   vendor_unbooked_payment: {
     label: 'Paid to vendors not yet booked',
     table: 'event_vendor_payments',
+    isEstimate: false,
+  },
+  event_cost: {
+    label: 'Costs with no supplier',
+    table: 'event_costs',
     isEstimate: false,
   },
 };
@@ -1158,7 +1557,7 @@ export async function resolveEventMoney(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventMoney> {
-  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes] =
+  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes, costsRes] =
     await Promise.all([
       // SEC-2b: events_host, not events — estimated_budget_centavos is
       // SELECT-denied to `authenticated` on the base table by 20271008731642.
@@ -1174,7 +1573,7 @@ export async function resolveEventMoney(
         .order('created_at', { ascending: true }),
       supabase
         .from('event_vendor_line_items')
-        .select('line_item_id,vendor_id,label,amount_php,due_date')
+        .select('line_item_id,vendor_id,label,amount_php,due_date,is_change_delta')
         .eq('event_id', eventId)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
@@ -1195,6 +1594,12 @@ export async function resolveEventMoney(
         .from('budget_leaf_benchmarks')
         .select('plan_group_id, benchmark_php')
         .eq('is_active', true),
+      // BA7 — the couple's own costs, the half with no supplier to hang on.
+      supabase
+        .from('event_costs')
+        .select('cost_id,plan_group_id,label,amount_php,paid_php,due_date')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true }),
     ]);
 
   // Migration-drift fallback: the vendor SELECT names columns added late
@@ -1220,6 +1625,13 @@ export async function resolveEventMoney(
     benchmarksRes.error && isMissingRelation(benchmarksRes.error)
       ? []
       : ((benchmarksRes.data ?? []) as unknown as BenchmarkMoneyRow[]);
+  // Same graceful-degrade as `orders` above: on an environment where BA7's
+  // migration has not landed PostgREST answers 42P01, and a budget page that
+  // renders without this source is strictly better than one that 500s.
+  const costs =
+    costsRes.error && isMissingRelation(costsRes.error)
+      ? []
+      : ((costsRes.data ?? []) as unknown as EventCostMoneyRow[]);
 
   // The vendor-authored catalogue half — reuse the shipped resolver rather
   // than re-deriving package / service pricing (Rule 0: extend, never re-draw).
@@ -1264,8 +1676,11 @@ export async function resolveEventMoney(
     lineItems,
     payments,
     orders,
+    costs,
     pricing,
     packageLockedCentavos,
     benchmarks,
+    // The clock enters here and nowhere else — the core stays deterministic.
+    now: new Date(),
   });
 }

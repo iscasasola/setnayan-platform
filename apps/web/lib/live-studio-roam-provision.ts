@@ -44,6 +44,26 @@ import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-pu
 const UNDEFINED_TABLE = '42P01';
 const UNDEFINED_COLUMN = '42703';
 
+/**
+ * How long a pool-channel checkout may sit idle before `reclaimStaleCheckouts`
+ * (below) is willing to take it back.
+ *
+ * OWN CONSTANT, ON PURPOSE (LS6, 2026-09-02). This used to import
+ * `PANOOD_WINDOW_HOURS` from lib/panood-watermark.ts on the reasoning that it
+ * "already owns how long one broadcast day is" — but LS6 retired the broadcast-DAY
+ * concept entirely (lib/live-studio-window.ts no longer computes an expiry at
+ * all), so there is no more shared "one day" fact to borrow. Reusing that
+ * constant's NAME after its MEANING was retired would have been a second,
+ * disagreeing source of truth wearing the first one's name.
+ *
+ * The NUMBER is unchanged (24h) — it is still the right grace period for the
+ * reason it always was: long enough to cover the gap between a ceremony and a
+ * reception on the same event (hours, well inside this window) without leaving a
+ * channel some other wedding needs sitting idle indefinitely under a host who
+ * simply stopped without releasing it.
+ */
+export const POOL_CHANNEL_RECLAIM_GRACE_HOURS = 24;
+
 // ── Row shapes (the fields these helpers read) ──────────────────────────────
 
 export type RoamZoneRow = {
@@ -206,6 +226,7 @@ export async function checkoutPoolChannel(
     // the loser takes the next free channel instead of being turned away.
     // Bounded, not a spin: after 4 attempts the pool is genuinely contended and
     // "none available" is the honest answer.
+    let sweepAttempted = false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const { data: free, error: freeErr } = await admin
         .from('live_studio_roam_channel_pool')
@@ -215,7 +236,22 @@ export async function checkoutPoolChannel(
         .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
-      if (freeErr || !free) return null; // pool genuinely empty
+      if (freeErr || !free) {
+        // LAST RESORT, NEVER EAGER (2026-09-02 — a finished wedding returns its
+        // channel). This branch is reached ONLY when the availability read
+        // above came back empty — with a second channel connected this never
+        // fires. That ordering is the safety argument: a mistaken reclaim costs
+        // a host a channel they had stopped using; not reclaiming costs a
+        // wedding happening today its whole broadcast, on a date that cannot
+        // move. SWEEP AT MOST ONCE per checkout call, so a genuinely contended
+        // pool does not turn the existing bounded retry into a slow spin.
+        if (!freeErr && !sweepAttempted) {
+          sweepAttempted = true;
+          const reclaimed = await reclaimStaleCheckouts(admin);
+          if (reclaimed > 0) continue; // a channel just came back — look again
+        }
+        return null; // pool genuinely empty
+      }
 
       const { data: claimed, error: claimErr } = await admin
         .from('live_studio_roam_channel_pool')
@@ -294,6 +330,76 @@ export async function releasePoolChannelIfIdle(
   }
 }
 
+/**
+ * Reclaim pool channels whose checkout has outlived a broadcast day AND whose
+ * event has actually finished — so a wedding that ended does not sit on the
+ * pool's only channel forever (2026-09-02 · `NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY`
+ * closed the BYO fallback the same day, so one un-released checkout is now the
+ * entire product down for every other event).
+ *
+ * Called from EXACTLY ONE place: `checkoutPoolChannel`, on the branch where the
+ * availability read finds nothing. LAST RESORT, NEVER EAGER — with a second
+ * channel connected this never runs at all. That ordering is the safety
+ * argument, not an optimisation: a mistaken reclaim costs a host a channel they
+ * had already stopped using; not reclaiming costs a wedding happening today its
+ * whole broadcast, on a date that cannot move.
+ *
+ * TWO CONDITIONS, BOTH REQUIRED, per stale checkout:
+ *   1. `checked_out_at` older than `POOL_CHANNEL_RECLAIM_GRACE_HOURS` (this file,
+ *      above) — its own named constant, not a re-typed literal hour count. This is
+ *      the clause protecting a host who ends and restarts (ceremony, then
+ *      reception) — that gap is hours, well inside the grace period.
+ *   2. `releasePoolChannelIfIdle` agrees. It is the ONE release path — this
+ *      function never writes the pool row itself — and it independently refuses
+ *      while any of that event's streams is outside complete/errored, and
+ *      refuses on an unreadable stream table, so a transient fault cannot look
+ *      like "the wedding is finished". Two mechanisms deciding "is this channel
+ *      free" would eventually disagree, and the way they disagree is a live
+ *      wedding losing its channel mid-vow.
+ *
+ * RECLAIM IS NOT A WIPE. It returns rows to 'available' and deletes nothing —
+ * § 6's promised indefinite archive retention is untouched. Manual release from
+ * /admin/live-studio-channels stays the deliberate default (see the note
+ * beginning "THE POOL CHANNEL IS DELIBERATELY *NOT* RELEASED HERE" in
+ * app/dashboard/[eventId]/studio/panood/setup/actions.ts); this is only the
+ * backstop for the checkout that nobody released.
+ *
+ * Every reclaim is logged — a channel changing hands with nobody asking is
+ * exactly what cannot be reconstructed later from an empty log.
+ *
+ * Returns the count actually released (the caller's once-only-sweep signal).
+ */
+export async function reclaimStaleCheckouts(admin: SupabaseClient): Promise<number> {
+  try {
+    const staleBefore = new Date(Date.now() - POOL_CHANNEL_RECLAIM_GRACE_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: stale, error } = await admin
+      .from('live_studio_roam_channel_pool')
+      .select('checked_out_event_id')
+      .eq('status', 'checked_out')
+      .lt('checked_out_at', staleBefore);
+    if (error?.code === UNDEFINED_TABLE) return 0;
+    if (error || !stale || stale.length === 0) return 0;
+
+    let released = 0;
+    for (const row of stale as { checked_out_event_id: string | null }[]) {
+      const eventId = row.checked_out_event_id;
+      if (!eventId) continue;
+      // eslint-disable-next-line no-await-in-loop -- bounded by the pool size, and each release must observe the last one's effect
+      const ok = await releasePoolChannelIfIdle(admin, eventId);
+      if (ok) {
+        released += 1;
+        // eslint-disable-next-line no-console -- deliberate: a reclaim is a channel changing hands with nobody asking
+        console.log(
+          `[live-studio-roam] reclaimed stale pool channel for event ${eventId} (checked out > ${POOL_CHANNEL_RECLAIM_GRACE_HOURS}h, streams idle)`,
+        );
+      }
+    }
+    return released;
+  } catch {
+    return 0;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    ⭐ WAVE 9 — YOUTUBE BROADCAST PROVISIONING on a SETNAYAN-OWNED pool channel
    (owner-confirmed 2026-07-26 · Live_Studio_Unified_Spec_2026-07-25.md § 4h)
@@ -318,9 +424,17 @@ export async function releasePoolChannelIfIdle(
 
    ⚠⚠ THE HONEST LIMIT, and it is not a detail. Provisioning creates the
    broadcast CONTAINER and its RTMP ingestion endpoint. It does NOT put video into
-   it. Browsers cannot push RTMP and the native capture app was scoped but never
-   built (§ 4c), so something must still ENCODE the program output — today that is
-   the couple's own OBS window-capturing `/panood/program/[eventId]`. Wave 9
+   it. Browsers cannot push RTMP and no capture app has been built, so something
+   must still ENCODE the program output — today that is the couple's own OBS window-capturing `/panood/program/[eventId]`.
+   ⚠ THE CITATION THIS COMMENT USED TO CARRY WAS WRONG TWICE OVER. It said the app
+   was "scoped but never built (§ 4c)". § 4c of the unified spec is "WAVE 1 + 2
+   SHIPPED" and scopes no capture app; the real scope is B4 in
+   `Live_Studio_Cast_and_Roam_2026-07-23.md`. And B4 is a PHONE app — one RTMP
+   stream per kit-phone camera, for ROAM — while the gap described here needs a
+   DESKTOP encoder pushing ONE composited stream for CAST. Building either leaves
+   the other unbuilt, so a plan that treats them as one item under-scopes Roam.
+
+   Wave 9
    removes the requirement that the couple own or authorise a YOUTUBE ACCOUNT. It
    does not remove the encoder. A provisioned broadcast with nothing pushing to it
    shows as `ready`, never `live`, and the readiness copy

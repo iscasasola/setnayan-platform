@@ -9,11 +9,9 @@ import {
   formatChatTimestamp,
 } from '@/lib/chat';
 import {
-  fetchInquiryMaskMeta,
-  inquiryPlaceholderLabel,
-  isInquiryRevealed,
-  INQUIRY_MASK_UNKNOWN,
-} from '@/lib/inquiry-mask.server';
+  fetchInquiryCustomerFacts,
+  INQUIRY_CUSTOMER_UNKNOWN,
+} from '@/lib/inquiry-customer.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
 import {
   inquirySourceLabel,
@@ -58,13 +56,15 @@ export default async function VendorMessagesPage() {
     profile.vendor_profile_id,
   );
 
-  // Anonymization-until-accept (Glass PR-6b): PRE-accept threads have had the
-  // couple's identity stripped from the DTO by fetchVendorThreads. Batch-read
-  // ONLY event_type + city-level region (never name/venue) so each unrevealed
-  // row can show the neutral placeholder instead of a bare "Event".
-  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+  // WHO IS ASKING, for every row. This used to fetch only the UNREVEALED
+  // threads, to render a placeholder for them — but the revealed branch below
+  // read `t.event?.display_name`, which a vendor's RLS nulls out on EVERY
+  // thread, accepted or not. So both branches said "Event". One admin-scoped
+  // batch over ALL rows is what actually puts a name on the inbox; the caller's
+  // ownership proof is `fetchVendorThreads(.., vendorProfileId)` above.
+  const inquiryCustomers = await fetchInquiryCustomerFacts(
     createAdminClient(),
-    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+    threads.map((t) => t.event_id),
   );
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
@@ -92,9 +92,8 @@ export default async function VendorMessagesPage() {
           <ThreadListCard
             href={`/vendor-dashboard/messages/${t.thread_id}`}
             title={
-              isInquiryRevealed(t)
-                ? (t.event?.display_name ?? 'Event')
-                : inquiryPlaceholderLabel(inquiryMaskMeta.get(t.event_id) ?? INQUIRY_MASK_UNKNOWN)
+              (inquiryCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN)
+                .displayName ?? 'Event'
             }
             badge={
               t.inquiry_status === 'pending' ? (

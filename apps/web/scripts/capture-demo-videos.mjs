@@ -75,7 +75,28 @@ function ffmpegOk() {
 async function capture(browser, slug) {
   const work = mkdtempSync(join(tmpdir(), `reel-${slug}-`));
   const context = await browser.newContext({
-    viewport: { width: 230, height: 486 },
+    /*
+      ⚠ `recordVideo.size` ONLY EVER SCALES THE PAGE *DOWN*, NEVER UP.
+      Playwright's own contract: "Actual picture of each page will be scaled
+      down if necessary to fit the specified size." This was a 230×486 viewport
+      asking for a 460×972 video, so every frame was composited 1:1 into the
+      top-LEFT corner of a bigger canvas and the remaining three quarters were
+      padded flat grey. Measured 2026-09-02 on the shipped files: content ends
+      at x=229 of 460 on every clip, and the deployed papic.mp4 was
+      byte-identical to the repo's — so /papic's own "this is all of it"
+      section had been showing three-quarters of nothing.
+
+      The viewport is now the video size, so there is nothing to pad. The reel
+      stage stays authored at the in-app 230×486 content box and is zoomed to
+      fill it (see `zoom` in demo-capture/[slug]/reel.tsx) — `zoom` re-lays-out
+      at the larger size, so type is rasterised at true 2× rather than a
+      transform's upscaled bitmap. deviceScaleFactor 2 then renders 920×1944
+      device pixels which Playwright downsamples into the 460×972 video.
+
+      🔑 IF YOU CHANGE ONE OF THESE THREE NUMBERS, CHANGE ALL THREE: the
+      viewport, this size, and the reel's zoom are one measurement.
+    */
+    viewport: { width: 460, height: 972 },
     deviceScaleFactor: 2,
     recordVideo: { dir: work, size: { width: 460, height: 972 } },
   });
@@ -89,6 +110,9 @@ async function capture(browser, slug) {
       path: join(OUT_DIR, `${slug}.jpg`),
       type: 'jpeg',
       quality: 82,
+      // CSS pixels, not device pixels — the poster must match the video's
+      // 460×972, and deviceScaleFactor 2 would otherwise write a 920×1944 JPEG.
+      scale: 'css',
     });
     await page.waitForTimeout(12700); // ~one 12s loop + the 0.5s seek headroom
   } finally {

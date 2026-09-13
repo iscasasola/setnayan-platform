@@ -19,6 +19,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 import { CANONICAL_KEY_HOLDERS } from '../../lib/taxonomy-merge-holders';
 
 let replay: ReplayResult;
@@ -103,8 +104,15 @@ test('the merge moves every shop-side holder, collisions included', async () => 
      VALUES ($1,$3), ($2,$3), ($2,$4)`,
     [a, b, SRC, DST],
   );
-  await db.query(`INSERT INTO vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text)
-     VALUES ($1,$2,40000,'Free extra hour'),($3,$2,40000,'Free extra hour')`, [
+  await db.query(`WITH s AS (
+     INSERT INTO vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
+     VALUES ($1,$2,40000,'Free extra hour', '${FIXTURE_COVER}'), ($3,$2,40000,'Free extra hour', '${FIXTURE_COVER}')
+     RETURNING vendor_service_id, vendor_profile_id
+   ), i AS (
+     INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
+     SELECT vendor_service_id, vendor_profile_id, '${FIXTURE_INCLUSION}' FROM s
+   )
+   SELECT 1 FROM s LIMIT 0`, [
     a,
     SRC,
     b,

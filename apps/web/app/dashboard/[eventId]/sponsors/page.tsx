@@ -27,6 +27,7 @@ import {
   type SponsorTier,
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
+import { EditSponsorModal } from './_components/edit-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PairTargetPicker } from './_components/pair-target-picker';
@@ -36,6 +37,7 @@ import {
   markResponse,
   removeSponsor,
   sendInvitation,
+  updateSponsor,
 } from './actions';
 
 export const metadata = {
@@ -569,17 +571,31 @@ function SponsorCard({
             {honorific}
           </p>
         </div>
-        <form action={removeSponsor}>
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="sponsor_id" value={sponsor.id} />
-          <SubmitButton
-            pendingLabel="Removing…"
-            aria-label={`Remove ${sponsor.full_name}`}
-            className="rounded-md p-1 text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
-          >
-            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </SubmitButton>
-        </form>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {/* Edit sits BEFORE remove, and not only for reading order: removing was
+              the only way to fix a name until now, and it silently threw away the
+              invitation and the answer. The gentler control goes first. */}
+          <EditSponsorModal
+            eventId={eventId}
+            sponsorId={sponsor.id}
+            fullName={sponsor.full_name}
+            relationshipNote={sponsor.relationship_note}
+            email={sponsor.email}
+            phone={sponsor.phone}
+            formAction={updateSponsor}
+          />
+          <form action={removeSponsor}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="sponsor_id" value={sponsor.id} />
+            <SubmitButton
+              pendingLabel="Removing…"
+              aria-label={`Remove ${sponsor.full_name}`}
+              className="rounded-md p-1 text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
+            >
+              <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </SubmitButton>
+          </form>
+        </div>
       </div>
 
       {/* Contact summary */}

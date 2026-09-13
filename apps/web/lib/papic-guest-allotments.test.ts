@@ -16,9 +16,11 @@ import {
   ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
   ROLE_MULTIPLIER,
+  allotmentRoleOf,
   splitTheRest,
   suggestedAllotment,
   summariseAllotments,
+  orderAllotmentPickerRows,
 } from './papic-guest-allotments';
 
 /** The worked example the couple actually reads, end to end. */
@@ -82,6 +84,11 @@ test("the couple's own number cannot promise more than the celebration holds", (
   // 1,600 over 112 guests derives 14. Asking for 500 each is not refused with
   // an error — it is capped at what is actually there, which is the honest
   // number and the one the database will enforce.
+  // ⚠ UNTIL 2026-09-11 THAT LAST CLAUSE WAS FALSE: the database returned the
+  // typed number raw, so guests could spend 500 while this sheet said 14.
+  // Migration 20271221350945 made it true — `LEAST(typed, share)` — and
+  // tests/db/papic-the-typed-number-is-at-most.db.test.ts proves the two agree
+  // by running `splitTheRest` against the real resolver.
   const greedy = splitTheRest({ ...WORKED, everyoneElse: 500 });
   assert.equal(greedy.perHead, 14);
   // A number BELOW the derived share is obeyed exactly, and the difference
@@ -117,6 +124,52 @@ test('sponsors default to a BIGGER share, in the ceremony order that earns it', 
   assert.ok(suggestedAllotment('principal', 5) >= 15);
   // Nothing to scale means nothing suggested — never NaN in a number box.
   assert.equal(suggestedAllotment('principal', 0), 0);
+});
+
+test('🚨 sponsors are counted as extra HEADS, so their bigger shares still add up to the pot', () => {
+  // Two ninongs (3 shares each) and a cord sponsor (2) among the 112 un-named:
+  // 112 + 2 + 2 + 1 = 117 shares of 1,600 → 13 each, 79 spare. Multiplying ON
+  // TOP of the plain 14 would promise 14×109 + 42×2 + 28 = 1,638 of 1,600.
+  const split = splitTheRest({ ...WORKED, sponsors: ['principal', 'principal', 'cord'] });
+  assert.equal(split.extraHeads, 5);
+  assert.equal(split.perHead, 13);
+  assert.equal(split.spare, 79);
+  const promised =
+    split.perHead * (split.unnamedCount - 3) +
+    suggestedAllotment('principal', split.perHead) * 2 +
+    suggestedAllotment('cord', split.perHead) +
+    split.namedTotal +
+    split.spare;
+  assert.equal(promised, WORKED.pot, 'named + plain + sponsors + spare is the pot, exactly');
+  assert.equal(
+    summariseAllotments({ ...WORKED, sponsors: ['principal', 'principal', 'cord'] }),
+    '120 guests · 8 named · 3 sponsors get 39 or 26 · everyone else gets 13 credits each · 79 spare',
+  );
+});
+
+test('a list with no sponsors divides exactly as before — and a plain guest adds no weight', () => {
+  assert.deepEqual(splitTheRest({ ...WORKED, sponsors: ['guest', 'guest'] }), splitTheRest(WORKED));
+  assert.equal(splitTheRest(WORKED).extraHeads, 0);
+  assert.equal(summariseAllotments({ ...WORKED, sponsors: [] }), summariseAllotments(WORKED));
+  assert.equal(
+    summariseAllotments({ ...WORKED, sponsors: ['veil'] }),
+    '120 guests · 8 named · 1 sponsor gets 28 · everyone else gets 14 credits each · 18 spare',
+  );
+});
+
+test('spare is never negative — the floor of one share can out-promise a thin pot', () => {
+  const thin = splitTheRest({ pot: 50, guestCount: 200, named: [], everyoneElse: null, sponsors: ['principal'] });
+  assert.equal(thin.perHead, 1);
+  assert.equal(thin.spare, 0, 'never "−152 spare"');
+});
+
+test('who is a sponsor is read off the guest list — role and extra roles, biggest wins', () => {
+  assert.equal(allotmentRoleOf('principal_sponsor', []), 'principal');
+  assert.equal(allotmentRoleOf('candle_sponsor', null), 'candle');
+  assert.equal(allotmentRoleOf('guest', ['coin_sponsor']), 'coin');
+  assert.equal(allotmentRoleOf('cord_sponsor', ['principal_sponsor']), 'principal');
+  assert.equal(allotmentRoleOf('bridesmaid', ['ring_bearer']), 'guest');
+  assert.equal(allotmentRoleOf(null, undefined), 'guest');
 });
 
 test('🚨 the copy says CREDITS, and never a bare "per guest"', () => {
@@ -165,4 +218,105 @@ test('the contract matches the ceiling migration exactly', () => {
   // guest_count is a literal 0 on every non-flat-pass event — i.e. on every
   // celebration this row is drawn on — so dividing by it is nonsense.
   assert.equal(ALLOTMENT_RPC.headcount, 'papic_event_guest_headcount');
+});
+
+/* ── The picker: finding one guest among two hundred ────────────────────────
+ *
+ * Owner, 2026-08-31: *"there might be over 200 guests, and we should not list
+ * them all. or let the user search a guest from the list and show what they
+ * have?"*
+ */
+
+test('an empty query returns EVERYBODY — search is a filter, never a gate', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+  ];
+  assert.equal(orderAllotmentPickerRows(guests, '').length, 2);
+  assert.equal(orderAllotmentPickerRows(guests, '   ').length, 2, 'whitespace is not a query');
+});
+
+test('NAMED GUESTS COME FIRST — the couple’s own choices are never buried', () => {
+  // Alphabetically Ana/Cara/Zeny come before/around Ben; by NAMED they must not.
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+    { guestId: 'c', name: 'Cara', saved: null },
+    { guestId: 'z', name: 'Zeny', saved: 12 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['b', 'z', 'a', 'c'],
+  );
+});
+
+test('ZERO IS A NAMED GUEST — "may not spend" is a choice, not an absence', () => {
+  // The documented way to exclude somebody. A truthiness test would sort her
+  // in with the un-named and hide the couple's most surprising decision at the
+  // bottom of a 200-row list.
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'lola', name: 'Lola Remy', saved: 0 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['lola', 'a'],
+    'a guest set to 0 must sort with the named',
+  );
+});
+
+test('within each group the incoming (alphabetical) order is kept', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: 5 },
+    { guestId: 'b', name: 'Ben', saved: 5 },
+    { guestId: 'c', name: 'Cara', saved: null },
+    { guestId: 'd', name: 'Dina', saved: null },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, '').map((g) => g.guestId),
+    ['a', 'b', 'c', 'd'],
+    'the partition must be stable, not a re-sort',
+  );
+});
+
+test('matching is case-insensitive substring — what somebody typing "lola" expects', () => {
+  const guests = [
+    { guestId: 'lola', name: 'Lola Remy', saved: null },
+    { guestId: 'tito', name: 'Tito Gener', saved: null },
+  ];
+  for (const q of ['lola', 'LOLA', 'Lola', 'remy', 'la re']) {
+    assert.deepEqual(
+      orderAllotmentPickerRows(guests, q).map((g) => g.guestId),
+      ['lola'],
+      `"${q}" must find Lola Remy`,
+    );
+  }
+});
+
+test('a query that matches nobody returns nothing — never the whole list', () => {
+  const guests = [{ guestId: 'a', name: 'Ana', saved: null }];
+  assert.deepEqual(orderAllotmentPickerRows(guests, 'zzz'), []);
+});
+
+test('named-first still holds WHILE searching', () => {
+  const guests = [
+    { guestId: 'm1', name: 'Maria Cruz', saved: null },
+    { guestId: 'm2', name: 'Maria Santos', saved: 60 },
+    { guestId: 'x', name: 'Pedro', saved: 99 },
+  ];
+  assert.deepEqual(
+    orderAllotmentPickerRows(guests, 'maria').map((g) => g.guestId),
+    ['m2', 'm1'],
+    'the named Maria first, and Pedro excluded despite being named',
+  );
+});
+
+test('the source list is never mutated', () => {
+  const guests = [
+    { guestId: 'a', name: 'Ana', saved: null },
+    { guestId: 'b', name: 'Ben', saved: 40 },
+  ];
+  const before = guests.map((g) => g.guestId);
+  orderAllotmentPickerRows(guests, '');
+  assert.deepEqual(guests.map((g) => g.guestId), before, 'ordering must not reorder the input');
 });

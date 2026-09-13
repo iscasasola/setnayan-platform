@@ -13,8 +13,17 @@ export type VendorOfferOption = {
 /**
  * Vendor inverse cross-sell control (owner-locked 2026-06-12) — "Offer another
  * service": the vendor picks one of their own services NOT already on the
- * thread's interest list and records it as source='vendor_offered'. The couple
- * then sees it in the shared "Inquiring about" chip row on their thread view.
+ * thread's interest list and records it as source='vendor_offered'.
+ *
+ * ── WHAT THE COUPLE RECEIVES (owner 2026-09-09) ────────────────────────────
+ * THE CARD THIS VENDOR BUILT — cover photograph, showcase clip, price, what is
+ * included — posted into the conversation by `offerServiceCore` and drawn by
+ * `chat-offered-service-card.tsx` from the same `ServiceCardFace` the vendor
+ * sees in their own services list.
+ *
+ * It used to be a word in the shared "Inquiring about" chip row and nothing
+ * else. That row still renders (it is the running list of what the inquiry
+ * covers); it is no longer the only thing that happens.
  */
 export function VendorOfferService({
   threadId,
@@ -90,12 +99,12 @@ export function VendorOfferService({
         ) : (
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         )}
-        {pending ? 'Adding…' : 'Add'}
+        {pending ? 'Sending…' : 'Send card'}
       </button>
       {state.kind === 'done' ? (
         <span className="inline-flex items-center gap-1 text-xs text-success-700">
           <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Offered
+          Card sent
         </span>
       ) : state.kind === 'error' ? (
         <span className="inline-flex items-center gap-1 text-xs text-danger-700">

@@ -52,15 +52,18 @@ export type JoinDemoResult =
   | { ok: true; sessionId: string; demoKind: DemoKind; role: DemoRole }
   | { ok: false; reason: 'expired_or_invalid' };
 
-/** Resolves a scanned demo QR token and marks that side joined. */
-export async function joinDemoSession(token: string): Promise<JoinDemoResult> {
-  const clean = token?.trim();
-  const resolved = clean ? await resolveDemoToken(clean) : null;
-  after(() => purgeExpiredDemoSessions());
-  if (!resolved) return { ok: false, reason: 'expired_or_invalid' };
-  await markDemoSessionJoined(resolved.sessionId, resolved.role);
-  return { ok: true, sessionId: resolved.sessionId, demoKind: resolved.demoKind, role: resolved.role };
-}
+/*
+  ─── `joinDemoSession` DELETED (2026-09-03) ──────────────────────────────
+
+  The demo token pages resolve a scan during their OWN render rather than paying
+  a client round-trip for it: `app/papic/demo/[token]/page.tsx` — and its panood
+  and 3d_plan twins — call `resolveDemoToken` + `markDemoSessionJoined` from
+  `lib/demo-sessions` directly. This wrapper did exactly that and nothing more,
+  with zero callers.
+
+  `startDemoSession` and `recordDemoShot` stay: those ARE client-invoked, from
+  the homepage overlay and the join flow respectively.
+*/
 
 /**
  * Record one shot against the session's 3-per-session cap (PR-2). Token-gated

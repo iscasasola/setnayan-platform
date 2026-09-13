@@ -21,6 +21,11 @@ import { createClient } from '@/lib/supabase/server';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { REMOVE_BLOCKED_LOCKED } from '@/lib/explore-info-copy';
 import { categoriesForTile, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import {
+  archiveStamp,
+  threadsToArchive,
+  threadsToRestore,
+} from '@/lib/category-archive';
 
 export type CategoryDecisionResult = { ok: true } | { ok: false; error: string };
 
@@ -123,19 +128,88 @@ export async function excludeTileFromPlan(input: {
     if ((locked ?? []).length > 0) return { ok: false, error: REMOVE_BLOCKED_LOCKED };
   }
 
+  // ONE stamp, written twice: to the decision row, and to every thread this
+  // removal archives. `restoreTileToPlan` matches on it to bring back exactly
+  // these conversations and no others.
+  const stamp = archiveStamp();
+
+  // 🔑 THE DECISION ROW IS WRITTEN FIRST, DELIBERATELY. If threads were
+  // archived before it and the upsert then failed, those conversations would
+  // carry a stamp no decision row holds — invisible to the couple and
+  // unreachable by any restore. Excluding first means the worst case is a
+  // category removed with its threads still active, which the couple can see
+  // and undo. Never reorder these two.
   const { error } = await supabase.from('event_category_decisions').upsert(
     {
       event_id: input.eventId,
       tile: input.tile,
       decision: 'excluded',
-      decided_at: new Date().toISOString(),
+      decided_at: stamp,
     },
     { onConflict: 'event_id,tile' },
   );
   if (error) return { ok: false, error: error.message };
 
+  await archiveCategoryThreads(supabase, input.eventId, categories, stamp);
+
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  revalidatePath(`/dashboard/${input.eventId}/messages`);
   return { ok: true };
+}
+
+/**
+ * Archive (never delete) the couple's conversations with the vendors in a
+ * category being removed — owner 2026-09-06: *"yes archive the conversations
+ * too."*
+ *
+ * Reuses the mechanism `withdrawInquiry` established 2026-07-24: stamp
+ * `chat_threads.archived_at`. The conversation is the dispute/evidence record
+ * and the source of the couple-confirmed booking amount, and the vendor is its
+ * other party — there is no DELETE policy on `chat_threads` at all.
+ *
+ * FAIL-SOFT BY DESIGN: the category removal is the action the couple asked
+ * for; a failed archive must not undo it. A thread left active is visible and
+ * fixable. RLS scopes every statement to the couple's own event.
+ *
+ * The caller has already proven the category holds no LOCKED vendor
+ * (`REMOVE_BLOCKED_LOCKED`, fail-closed), so a booked supplier's thread can
+ * never reach this function.
+ */
+async function archiveCategoryThreads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  categories: ReadonlyArray<string>,
+  stamp: string,
+): Promise<void> {
+  if (categories.length === 0) return;
+
+  const { data: vendorRows, error: vErr } = await supabase
+    .from('event_vendors')
+    .select('marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .in('category', categories as string[]);
+  if (vErr || !vendorRows?.length) return;
+
+  const profileIds = vendorRows
+    .map((v) => v.marketplace_vendor_id)
+    .filter((id): id is string => !!id);
+  if (profileIds.length === 0) return;
+
+  const { data: threads, error: tErr } = await supabase
+    .from('chat_threads')
+    .select('thread_id, vendor_profile_id, archived_at')
+    .eq('event_id', eventId)
+    .in('vendor_profile_id', profileIds);
+  if (tErr || !threads?.length) return;
+
+  const targets = threadsToArchive({ vendors: vendorRows, threads });
+  if (targets.length === 0) return;
+
+  await supabase
+    .from('chat_threads')
+    .update({ archived_at: stamp })
+    .eq('event_id', eventId)
+    .in('thread_id', targets);
 }
 
 /**
@@ -154,6 +228,16 @@ export async function restoreTileToPlan(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
 
+  // Read the stamp BEFORE deleting the row — it is the only link back to the
+  // conversations this exclusion archived, and deleting the row destroys it.
+  const { data: decision } = await supabase
+    .from('event_category_decisions')
+    .select('decided_at')
+    .eq('event_id', input.eventId)
+    .eq('tile', input.tile)
+    .maybeSingle();
+  const stamp = (decision?.decided_at as string | undefined) ?? null;
+
   const { error } = await supabase
     .from('event_category_decisions')
     .delete()
@@ -161,6 +245,39 @@ export async function restoreTileToPlan(input: {
     .eq('tile', input.tile);
   if (error) return { ok: false, error: error.message };
 
+  // Un-archive ONLY the threads carrying this exclusion's stamp. A thread the
+  // couple withdrew themselves has a different timestamp and stays archived —
+  // restoring a category must never overturn a decision they made on purpose.
+  if (stamp) {
+    const categories = categoriesForTile(input.tile);
+    if (categories.length > 0) {
+      const { data: vendorRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', input.eventId)
+        .in('category', categories as string[]);
+      const profileIds = (vendorRows ?? [])
+        .map((v) => v.marketplace_vendor_id)
+        .filter((id): id is string => !!id);
+      if (profileIds.length > 0) {
+        const { data: threads } = await supabase
+          .from('chat_threads')
+          .select('thread_id, vendor_profile_id, archived_at')
+          .eq('event_id', input.eventId)
+          .in('vendor_profile_id', profileIds);
+        const targets = threadsToRestore({ threads: threads ?? [], stamp });
+        if (targets.length > 0) {
+          await supabase
+            .from('chat_threads')
+            .update({ archived_at: null })
+            .eq('event_id', input.eventId)
+            .in('thread_id', targets);
+        }
+      }
+    }
+  }
+
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  revalidatePath(`/dashboard/${input.eventId}/messages`);
   return { ok: true };
 }

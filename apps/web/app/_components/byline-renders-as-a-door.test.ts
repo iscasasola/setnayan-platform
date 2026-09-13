@@ -102,7 +102,7 @@ async function renderFrontDoorFeed(): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FrontDoorFeed } = await import('@/app/_components/frontdoor/front-door-feed');
   return renderToStaticMarkup(
-    React.createElement(FrontDoorFeed, { data: FRONT_DOOR_DATA, chip: 'All' } as never),
+    React.createElement(FrontDoorFeed, { data: FRONT_DOOR_DATA } as never),
   );
 }
 
@@ -114,20 +114,28 @@ async function renderTile(): Promise<string> {
   );
 }
 
-test('the front door emits a link to the storyteller for BOTH renderings of their story', async () => {
+test('the front door emits a link to the storyteller for their story', async () => {
   const html = await renderFrontDoorFeed();
   const doors = html.match(new RegExp(`<a [^>]*href="/u/${OWNER_SLUG}"`, 'g')) ?? [];
-  // The same story is drawn twice on this page — the 16:9 card and the 9:16
-  // row — and a fix landing on one of the two is the regression this page has
-  // already had. Two doors, not one.
+  /*
+    ⚠ 2026-09-03 — THIS USED TO EXPECT 2. The front door drew the same story
+    twice on the same page — a 16:9 card and a duplicate 9:16 "row" — and a
+    byline fix landing on one rendering and not its twin was a real
+    regression this test existed to catch. The 2026-09-03 redesign dropped
+    the second rendering entirely: `StoryCard` is now the only place a story
+    renders on this page (New uploads and Trending both reuse it), so there
+    is exactly one door to check, not two kept in sync by hand. See
+    `front-door-invariants.test.ts` test 18 and `byline-is-a-door.test.ts`
+    for the same call made on their own slices.
+  */
   assert.equal(
     doors.length,
-    2,
-    `expected the channel line in both the card and the row, got ${doors.length}`,
+    1,
+    `expected exactly one channel-line door to the storyteller, got ${doors.length}`,
   );
-  // And the story itself is still reachable, twice, for the same reason.
+  // And the story itself is still reachable.
   const stories = html.match(new RegExp(`<a [^>]*href="${STORY.href}"`, 'g')) ?? [];
-  assert.equal(stories.length, 2, `expected both cards to still open the story, got ${stories.length}`);
+  assert.equal(stories.length, 1, `expected the card to still open the story, got ${stories.length}`);
 });
 
 test('the front door nests no anchors', async () => {

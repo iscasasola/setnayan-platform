@@ -1,0 +1,890 @@
+=== S0 probe run mode=encode minutes=60 started Sat Sep  5 15:35:22 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: 21d1eee84 claude/encoder-s0-spike
+        Info Looking up installed tauri packages to check mismatched versions...
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+       Built application at: /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[runner] 2026-09-05T15:35:24+0800 BUILD_EXIT=0 elapsed=1s
+[runner] 2026-09-05T15:35:24+0800 load-at-start: 3.20 6.29 16.77 · SETNAYAN_PROBE_TOP=1 SETNAYAN_PROBE_ORIGIN=
+[runner] 2026-09-05T15:35:24+0800 app pid=16718 bin=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop.run-16505 (copy of /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop)
+[sample] 2026-09-05T15:35:24 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  58992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  20112 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  22032 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24192 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0  49952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[probe] t=1788593726267 page-load finished url=tauri://localhost on_target_origin=false tauri=2.11.1
+[probe] not evaluating on tauri://localhost (set SETNAYAN_PROBE_ORIGIN=any to force — weaker result)
+[probe] t=1788593729872 page-load finished url=https://www.setnayan.com/login on_target_origin=true tauri=2.11.1
+[probe] t=1788593729872 loopback listener 127.0.0.1:60873
+[probe] t=1788593729874 eval dispatched mode=encode origin=https://www.setnayan.com
+[probe] t=1788593729874 window pinned always-on-top 560x360 (SETNAYAN_PROBE_TOP=1)
+[probe] t=1788593729893 via=postMessage headers=0 {"stage":"start","ms":16,"visibility":"visible","ipcUrl":"ipc://localhost/probe_report","directFetch":[{"label":"POST no custom headers (no preflight)","error":"TypeError: Load failed"},{"label":"POST with Tauri headers (preflight)","error":"TypeError: Load failed"},{"label":"POST mode=no-cors","error":"TypeError: Load failed"},{"label":"GET","error":"TypeError: Load failed"}],"xhr":{"error":"xhr onerror","status":0},"cspViolationsBeforeFirstInvoke":[{"blockedURI":"ipc://localhost/probe_report","directive":"connect-src","disposition":"report"},{"blockedURI":"ipc://localhost/probe_report","directive":"connect-src","disposition":"report"},{"blockedURI":"ipc://localhost/probe_report","directive":"connect-src","disposition":"report"},{"blockedURI":"ipc://localhost/probe_report","directive":"connect-src","disposition":"report"},{"blockedURI":"ipc://localhost/probe_report","directive":"connect-src","disposition":"report"}],"mode":"encode","href":"https://www.setnayan.com/login","origin":"https://www.setnayan.com","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15 SetnayanApp/desktop","platform":"MacIntel","hardwareConcurrency":8,"devicePixelRatio":2}
+[probe] t=1788593729893 via=postMessage headers=0 {"stage":"first-invoke-transport","ms":18,"visibility":"visible","tauriFallbackWarnings":["IPC custom protocol failed, Tauri will now use the postMessage interface instead | TypeError: Load failed"],"cspViolationsSoFar":6}
+[probe] t=1788593729894 via=postMessage headers=0 {"stage":"settling","ms":18,"visibility":"visible","seconds":20,"href":"https://www.setnayan.com/login"}
+[sample] 2026-09-05T15:35:34 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   1.4  60464 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16745   0.2 131616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  18096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9168 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11504 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  25936 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample] 2026-09-05T15:35:44 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   1.5 131232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   1.0  63952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  18096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11504 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  26016 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[probe] t=1788593749899 via=postMessage headers=0 {"stage":"settled","ms":20020,"visibility":"visible","href":"https://www.setnayan.com/login"}
+[probe] t=1788593749905 via=postMessage headers=0 {"stage":"matrix-globals","ms":20029,"visibility":"visible","VideoEncoder":"function","AudioEncoder":"function","VideoFrame":"function","AudioData":"function","EncodedVideoChunk":"function","EncodedAudioChunk":"function","MediaStreamTrackProcessor_window":"undefined","MediaStreamTrackGenerator_window":"undefined","OffscreenCanvas":"function","AudioWorklet":"function","AudioWorkletNode":"function","audioWorklet_on_AudioContext":true,"Worker":"function","SharedArrayBuffer":"undefined","crossOriginIsolated":false}
+[probe] t=1788593750015 via=postMessage headers=0 {"stage":"matrix-video","ms":20139,"visibility":"visible","720p_require_hardware":{"supported":null,"error":"TypeError: Type error"},"720p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"quality","width":1280}},"720p_no_preference":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"no-preference","height":720,"latencyMode":"quality","width":1280}},"1080p_require_hardware":{"supported":null,"error":"TypeError: Type error"},"1080p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":1080,"latencyMode":"quality","width":1920}},"720p_encode_config":{"supported":true,"config":{"alpha":"discard","avc":{"format":"annexb"},"bitrate":2500000,"bitrateMode":"constant","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"realtime","width":1280}}}
+[probe] t=1788593750017 via=postMessage headers=0 {"stage":"matrix-audio","ms":20141,"visibility":"visible","aac_lc_48k_stereo":{"supported":true,"config":{"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}},"aac_lc_48k_stereo_128k":{"supported":true,"config":{"bitrate":128000,"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}},"opus_48k_stereo":{"supported":true,"config":{"bitrateMode":"variable","codec":"opus","numberOfChannels":2,"sampleRate":48000}}}
+[probe] t=1788593750112 via=postMessage headers=0 {"stage":"matrix-worker","ms":20237,"visibility":"visible","VideoEncoder":"function","AudioEncoder":"function","VideoFrame":"function","MediaStreamTrackProcessor_worker":"function","OffscreenCanvas_worker":"function","offscreen_2d_context":"object","video_720p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"quality","width":1280}},"audio_aac":{"supported":true,"config":{"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}}}
+[probe] t=1788593750116 via=postMessage headers=0 {"stage":"encode-config","ms":20241,"visibility":"visible","supported":true,"config":{"alpha":"discard","avc":{"format":"annexb"},"bitrate":2500000,"bitrateMode":"constant","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"realtime","width":1280},"minutes":60}
+[sample] 2026-09-05T15:35:54 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  15.0  63712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   7.1 152096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   2.9  64176 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  18096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593760124 via=postMessage headers=0 {"stage":"encode-10s","ms":30248,"visibility":"visible","elapsedS":10,"minute":0.17,"window":{"seconds":10,"fps":30.09,"chunksPerS":29.99,"kbps":2327.5,"late":2,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":301,"chunks":300,"bytes":2910013,"keyframes":5,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2327.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:04 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  14.4  64112 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.7 171104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.8  64592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593770122 via=postMessage headers=0 {"stage":"encode-10s","ms":40246,"visibility":"visible","elapsedS":20,"minute":0.33,"window":{"seconds":10,"fps":30.01,"chunksPerS":30.01,"kbps":2308.5,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":601,"chunks":600,"bytes":5794501,"keyframes":10,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2317.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:14 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  14.5  64448 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.7 190064 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.8  64880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593780128 via=postMessage headers=0 {"stage":"encode-10s","ms":50252,"visibility":"visible","elapsedS":30,"minute":0.5,"window":{"seconds":10,"fps":30,"chunksPerS":30,"kbps":2302,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":901,"chunks":900,"bytes":8672255,"keyframes":15,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2312.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:24 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  13.1  64496 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.2 209024 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   1.6  65040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593790124 via=postMessage headers=0 {"stage":"encode-10s","ms":60248,"visibility":"visible","elapsedS":40,"minute":0.67,"window":{"seconds":9.99,"fps":30.03,"chunksPerS":30.03,"kbps":2309.4,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":1201,"chunks":1200,"bytes":11556136,"keyframes":20,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2311.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:34 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  12.9  64512 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.3 228032 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.2  66560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593800120 via=postMessage headers=0 {"stage":"encode-10s","ms":70244,"visibility":"visible","elapsedS":50,"minute":0.83,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2301.5,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":1501,"chunks":1500,"bytes":14431000,"keyframes":25,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2308.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:44 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  11.4  64496 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.0 247024 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   1.3  66864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593810126 via=postMessage headers=0 {"stage":"encode-10s","ms":80249,"visibility":"visible","elapsedS":60,"minute":1,"window":{"seconds":10,"fps":30,"chunksPerS":30,"kbps":2306.2,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":1801,"chunks":1800,"bytes":17313702,"keyframes":30,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2308.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:36:54 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  12.5  64496 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.8 266016 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.3  66864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593820125 via=postMessage headers=0 {"stage":"encode-10s","ms":90249,"visibility":"visible","elapsedS":70,"minute":1.17,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2308.6,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":2101,"chunks":2100,"bytes":20197992,"keyframes":35,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2308.2,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:04 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  17.1  64512 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.6 287456 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  66992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593830120 via=postMessage headers=0 {"stage":"encode-10s","ms":100244,"visibility":"visible","elapsedS":80,"minute":1.33,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2313.4,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":2401,"chunks":2400,"bytes":23087487,"keyframes":40,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2308.7,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:14 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  16.2  64544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.6 306416 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.7  67712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593840124 via=postMessage headers=0 {"stage":"encode-10s","ms":110247,"visibility":"visible","elapsedS":90,"minute":1.5,"window":{"seconds":10,"fps":30.01,"chunksPerS":30.01,"kbps":2357.7,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":2701,"chunks":2700,"bytes":26033735,"keyframes":45,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2314.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:24 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  15.9  64080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.0 325408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.2  67696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593850123 via=postMessage headers=0 {"stage":"encode-10s","ms":120247,"visibility":"visible","elapsedS":100,"minute":1.67,"window":{"seconds":10,"fps":30.01,"chunksPerS":30.01,"kbps":2354.1,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":3001,"chunks":3000,"bytes":28975746,"keyframes":50,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2317.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:35 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  11.8  63584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.1 341728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   1.5  67712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593860124 via=postMessage headers=0 {"stage":"encode-10s","ms":130247,"visibility":"visible","elapsedS":110,"minute":1.83,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2359.4,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":3301,"chunks":3300,"bytes":31923199,"keyframes":55,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2321.7,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:45 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  11.5  63600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.1 360768 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.4  67728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593870123 via=postMessage headers=0 {"stage":"encode-10s","ms":140247,"visibility":"visible","elapsedS":120,"minute":2,"window":{"seconds":10,"fps":30.01,"chunksPerS":30.01,"kbps":2357.6,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":3601,"chunks":3600,"bytes":34869629,"keyframes":60,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2324.5,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:37:55 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  15.1  63584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.7 379696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  67760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593880127 via=postMessage headers=0 {"stage":"encode-10s","ms":150250,"visibility":"visible","elapsedS":130,"minute":2.17,"window":{"seconds":10,"fps":30.01,"chunksPerS":30.01,"kbps":2354.9,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":3901,"chunks":3900,"bytes":37812356,"keyframes":65,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2326.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:05 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  16.9  63584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.8 398832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.8  68368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593890121 via=postMessage headers=0 {"stage":"encode-10s","ms":160244,"visibility":"visible","elapsedS":140,"minute":2.33,"window":{"seconds":9.99,"fps":30.03,"chunksPerS":30.03,"kbps":2353.2,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":4201,"chunks":4200,"bytes":40751247,"keyframes":70,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2328.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:15 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  17.2  63584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.4 416416 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.2  68480 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593900127 via=postMessage headers=0 {"stage":"encode-10s","ms":170251,"visibility":"visible","elapsedS":150,"minute":2.5,"window":{"seconds":10,"fps":30,"chunksPerS":30,"kbps":2348.9,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":4501,"chunks":4500,"bytes":43687614,"keyframes":75,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2329.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:25 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741  16.8  63600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.5 435376 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   1.8  68560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593910126 via=postMessage headers=0 {"stage":"encode-10s","ms":180249,"visibility":"visible","elapsedS":160,"minute":2.67,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2353.6,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":4801,"chunks":4800,"bytes":46627216,"keyframes":80,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2331.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:35 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   9.9  63472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.8 451136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.5  68592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593920125 via=postMessage headers=0 {"stage":"encode-10s","ms":190249,"visibility":"visible","elapsedS":170,"minute":2.83,"window":{"seconds":9.99,"fps":30.02,"chunksPerS":30.02,"kbps":2357.6,"late":0,"skipped":0,"drops":0,"maxQueue":0},"totals":{"frames":5101,"chunks":5100,"bytes":49572742,"keyframes":85,"skipped":0,"backpressureDrops":0,"late":2,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2332.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:45 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   6.7  63200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.1 473904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  70784 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  18160 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10176 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593930133 via=postMessage headers=0 {"stage":"encode-10s","ms":200254,"visibility":"hidden","elapsedS":180,"minute":3,"window":{"seconds":10,"fps":18.3,"chunksPerS":18.3,"kbps":2168.7,"late":26,"skipped":117,"drops":0,"maxQueue":0},"totals":{"frames":5284,"chunks":5283,"bytes":52283943,"keyframes":89,"skipped":117,"backpressureDrops":0,"late":28,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2323.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:38:55 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.7  63248 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.4 484256 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  70816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  18160 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  10176 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593940186 via=postMessage headers=0 {"stage":"encode-10s","ms":210307,"visibility":"hidden","elapsedS":190,"minute":3.17,"window":{"seconds":10.05,"fps":15.82,"chunksPerS":15.82,"kbps":2121.9,"late":18,"skipped":142,"drops":0,"maxQueue":0},"totals":{"frames":5443,"chunks":5442,"bytes":54949602,"keyframes":91,"skipped":259,"backpressureDrops":0,"late":46,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2312.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:05 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.1  59936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.0 157136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  68544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  18384 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593950209 via=postMessage headers=0 {"stage":"encode-10s","ms":220331,"visibility":"hidden","elapsedS":200,"minute":3.33,"window":{"seconds":10.02,"fps":16.86,"chunksPerS":16.86,"kbps":2183.8,"late":14,"skipped":132,"drops":0,"maxQueue":0},"totals":{"frames":5612,"chunks":5611,"bytes":57685395,"keyframes":94,"skipped":391,"backpressureDrops":0,"late":60,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2306.4,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:15 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.1  59632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   1.9 145920 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  67664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17376 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593960212 via=postMessage headers=0 {"stage":"encode-10s","ms":230335,"visibility":"hidden","elapsedS":210,"minute":3.5,"window":{"seconds":10,"fps":15.4,"chunksPerS":15.4,"kbps":2147.3,"late":12,"skipped":146,"drops":0,"maxQueue":0},"totals":{"frames":5766,"chunks":5765,"bytes":60370094,"keyframes":97,"skipped":537,"backpressureDrops":0,"late":72,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2298.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:25 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.7  59760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.5 156080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.3  67680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17392 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593970127 via=postMessage headers=0 {"stage":"encode-10s","ms":240249,"visibility":"hidden","elapsedS":220,"minute":3.67,"window":{"seconds":9.91,"fps":16.04,"chunksPerS":16.04,"kbps":2145.2,"late":20,"skipped":139,"drops":0,"maxQueue":0},"totals":{"frames":5925,"chunks":5924,"bytes":63027521,"keyframes":99,"skipped":676,"backpressureDrops":0,"late":92,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2291.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:35 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.7  59760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.6 166304 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  67824 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17440 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593980184 via=postMessage headers=0 {"stage":"encode-10s","ms":250306,"visibility":"hidden","elapsedS":230,"minute":3.83,"window":{"seconds":10.05,"fps":16.22,"chunksPerS":16.22,"kbps":2135.2,"late":15,"skipped":138,"drops":0,"maxQueue":0},"totals":{"frames":6088,"chunks":6087,"bytes":65710440,"keyframes":102,"skipped":814,"backpressureDrops":0,"late":107,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2285,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:46 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.9  59792 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.9 176864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  67856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17456 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788593990154 via=postMessage headers=0 {"stage":"encode-10s","ms":260274,"visibility":"hidden","elapsedS":240,"minute":4,"window":{"seconds":9.96,"fps":16.46,"chunksPerS":16.46,"kbps":2126,"late":26,"skipped":135,"drops":0,"maxQueue":0},"totals":{"frames":6252,"chunks":6251,"bytes":68358320,"keyframes":105,"skipped":949,"backpressureDrops":0,"late":133,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2278.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:39:56 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.3  59776 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.7 187792 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  67936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594000178 via=postMessage headers=0 {"stage":"encode-10s","ms":270301,"visibility":"hidden","elapsedS":250,"minute":4.17,"window":{"seconds":10.03,"fps":17.16,"chunksPerS":17.16,"kbps":2166.1,"late":30,"skipped":129,"drops":0,"maxQueue":0},"totals":{"frames":6424,"chunks":6423,"bytes":71072670,"keyframes":108,"skipped":1078,"backpressureDrops":0,"late":163,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2273.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:06 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.3  59792 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.1 193424 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  68000 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17504 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594010218 via=postMessage headers=0 {"stage":"encode-10s","ms":280340,"visibility":"hidden","elapsedS":260,"minute":4.33,"window":{"seconds":10.04,"fps":15.94,"chunksPerS":15.94,"kbps":2151.6,"late":13,"skipped":141,"drops":0,"maxQueue":0},"totals":{"frames":6584,"chunks":6583,"bytes":73771908,"keyframes":110,"skipped":1219,"backpressureDrops":0,"late":176,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2269.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:16 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.8  59936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   1.9 203696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  68160 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594020211 via=postMessage headers=0 {"stage":"encode-10s","ms":290333,"visibility":"hidden","elapsedS":270,"minute":4.5,"window":{"seconds":9.99,"fps":16.12,"chunksPerS":16.12,"kbps":2156.5,"late":25,"skipped":139,"drops":0,"maxQueue":0},"totals":{"frames":6745,"chunks":6744,"bytes":76463970,"keyframes":113,"skipped":1358,"backpressureDrops":0,"late":201,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2264.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:26 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.5  59952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.1 214320 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  68208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594030185 via=postMessage headers=0 {"stage":"encode-10s","ms":300307,"visibility":"hidden","elapsedS":280,"minute":4.67,"window":{"seconds":9.97,"fps":17.35,"chunksPerS":17.35,"kbps":2105,"late":30,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":6918,"chunks":6917,"bytes":79087564,"keyframes":116,"skipped":1484,"backpressureDrops":0,"late":231,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2259.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:36 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.7  59968 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.4 225680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.2  68656 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  17584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9408 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594040130 via=postMessage headers=0 {"stage":"encode-10s","ms":310253,"visibility":"hidden","elapsedS":290,"minute":4.83,"window":{"seconds":9.94,"fps":17.4,"chunksPerS":17.4,"kbps":2128.3,"late":26,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":7091,"chunks":7090,"bytes":81733079,"keyframes":119,"skipped":1610,"backpressureDrops":0,"late":257,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2254.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:46 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.4  59952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.1 236224 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  68752 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9888 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594050233 via=postMessage headers=0 {"stage":"encode-10s","ms":320352,"visibility":"hidden","elapsedS":300,"minute":5,"window":{"seconds":10.09,"fps":17.15,"chunksPerS":17.15,"kbps":2151.9,"late":28,"skipped":129,"drops":0,"maxQueue":0},"totals":{"frames":7264,"chunks":7263,"bytes":84446416,"keyframes":122,"skipped":1739,"backpressureDrops":0,"late":285,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2251.2,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:40:56 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   7.8  60016 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.8 247360 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  17632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16718   0.1 101360 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop.run-16505
+[sample]   85583   0.0  68720 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[probe] t=1788594060125 via=postMessage headers=0 {"stage":"encode-10s","ms":330248,"visibility":"hidden","elapsedS":310,"minute":5.17,"window":{"seconds":9.9,"fps":17.68,"chunksPerS":17.68,"kbps":2179.2,"late":32,"skipped":123,"drops":0,"maxQueue":0},"totals":{"frames":7439,"chunks":7438,"bytes":87142858,"keyframes":124,"skipped":1862,"backpressureDrops":0,"late":317,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2248.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:06 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  13.5 258544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   9.2  60000 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85373   0.1  17664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  68800 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594070185 via=postMessage headers=0 {"stage":"encode-10s","ms":340307,"visibility":"hidden","elapsedS":320,"minute":5.33,"window":{"seconds":10.06,"fps":16.71,"chunksPerS":16.71,"kbps":2121,"late":20,"skipped":133,"drops":0,"maxQueue":0},"totals":{"frames":7607,"chunks":7606,"bytes":89809002,"keyframes":127,"skipped":1995,"backpressureDrops":0,"late":337,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2244.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:16 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  16.3 269296 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   5.3  60096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  68896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594080124 via=postMessage headers=0 {"stage":"encode-10s","ms":350244,"visibility":"hidden","elapsedS":330,"minute":5.5,"window":{"seconds":9.93,"fps":17.62,"chunksPerS":17.62,"kbps":2165.7,"late":26,"skipped":124,"drops":0,"maxQueue":0},"totals":{"frames":7782,"chunks":7781,"bytes":92498277,"keyframes":130,"skipped":2119,"backpressureDrops":0,"late":363,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2242.4,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:26 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.6  60176 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.3 280496 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  69056 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594090226 via=postMessage headers=0 {"stage":"encode-10s","ms":360343,"visibility":"hidden","elapsedS":340,"minute":5.67,"window":{"seconds":10.09,"fps":17.44,"chunksPerS":17.44,"kbps":2135.7,"late":26,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":7958,"chunks":7957,"bytes":95192984,"keyframes":133,"skipped":2245,"backpressureDrops":0,"late":389,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2239.2,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:36 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   6.9  60160 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   6.1 291856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  69168 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594100216 via=postMessage headers=0 {"stage":"encode-10s","ms":370336,"visibility":"hidden","elapsedS":350,"minute":5.83,"window":{"seconds":9.99,"fps":17.82,"chunksPerS":17.82,"kbps":2160.8,"late":33,"skipped":122,"drops":0,"maxQueue":0},"totals":{"frames":8136,"chunks":8135,"bytes":97891526,"keyframes":136,"skipped":2367,"backpressureDrops":0,"late":422,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2236.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:46 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.2  60176 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.6 311744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.5  69472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594110153 via=postMessage headers=0 {"stage":"encode-10s","ms":380274,"visibility":"hidden","elapsedS":360,"minute":6,"window":{"seconds":9.93,"fps":17.52,"chunksPerS":17.52,"kbps":2158,"late":26,"skipped":124,"drops":0,"maxQueue":0},"totals":{"frames":8310,"chunks":8309,"bytes":100571189,"keyframes":139,"skipped":2491,"backpressureDrops":0,"late":448,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2234.7,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:41:57 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   7.2 323296 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   5.6  60000 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  69472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17776 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594120159 via=postMessage headers=0 {"stage":"encode-10s","ms":390275,"visibility":"hidden","elapsedS":370,"minute":6.17,"window":{"seconds":10,"fps":17.61,"chunksPerS":17.61,"kbps":2099.8,"late":26,"skipped":124,"drops":0,"maxQueue":0},"totals":{"frames":8486,"chunks":8485,"bytes":103195153,"keyframes":142,"skipped":2615,"backpressureDrops":0,"late":474,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2231.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:07 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.4  59984 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.1 333920 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.7  69552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17808 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594130145 via=postMessage headers=0 {"stage":"encode-10s","ms":400267,"visibility":"hidden","elapsedS":380,"minute":6.33,"window":{"seconds":9.99,"fps":16.02,"chunksPerS":16.02,"kbps":2132.4,"late":27,"skipped":140,"drops":0,"maxQueue":0},"totals":{"frames":8646,"chunks":8645,"bytes":105857739,"keyframes":145,"skipped":2755,"backpressureDrops":0,"late":501,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2228.4,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:17 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  14.7 344864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   7.3  60032 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  69616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594140162 via=postMessage headers=0 {"stage":"encode-10s","ms":410275,"visibility":"hidden","elapsedS":390,"minute":6.5,"window":{"seconds":10.01,"fps":17.49,"chunksPerS":17.49,"kbps":2113.9,"late":28,"skipped":125,"drops":0,"maxQueue":0},"totals":{"frames":8821,"chunks":8820,"bytes":108501426,"keyframes":147,"skipped":2880,"backpressureDrops":0,"late":529,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2225.5,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:27 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   7.7  59952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.0 355936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  69696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11600 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594150161 via=postMessage headers=0 {"stage":"encode-10s","ms":420276,"visibility":"hidden","elapsedS":400,"minute":6.67,"window":{"seconds":10,"fps":17.41,"chunksPerS":17.41,"kbps":2121.5,"late":34,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":8995,"chunks":8994,"bytes":111152481,"keyframes":150,"skipped":3006,"backpressureDrops":0,"late":563,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2222.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:37 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.3  59696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.2 360256 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  69696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11440 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594160185 via=postMessage headers=0 {"stage":"encode-10s","ms":430307,"visibility":"hidden","elapsedS":410,"minute":6.83,"window":{"seconds":10.03,"fps":16.65,"chunksPerS":16.65,"kbps":2138.3,"late":29,"skipped":134,"drops":0,"maxQueue":0},"totals":{"frames":9162,"chunks":9161,"bytes":113832858,"keyframes":153,"skipped":3140,"backpressureDrops":0,"late":592,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2220.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:47 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.8  53936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.3 101904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  34464 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  15984 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7360 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   9136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594170146 via=postMessage headers=0 {"stage":"encode-10s","ms":440260,"visibility":"hidden","elapsedS":420,"minute":7,"window":{"seconds":9.95,"fps":16.09,"chunksPerS":16.09,"kbps":2142.5,"late":31,"skipped":139,"drops":0,"maxQueue":0},"totals":{"frames":9322,"chunks":9321,"bytes":116496465,"keyframes":156,"skipped":3279,"backpressureDrops":0,"late":623,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2218.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:42:57 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  13.3  88784 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   9.6  53392 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  24016 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  15536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7344 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   9136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594180135 via=postMessage headers=0 {"stage":"encode-10s","ms":450254,"visibility":"hidden","elapsedS":430,"minute":7.17,"window":{"seconds":9.99,"fps":15.91,"chunksPerS":15.91,"kbps":2113.2,"late":28,"skipped":141,"drops":0,"maxQueue":0},"totals":{"frames":9481,"chunks":9480,"bytes":119135584,"keyframes":158,"skipped":3420,"backpressureDrops":0,"late":651,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2216.4,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:07 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.2  53472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.4  99904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  25952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  15568 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   9136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594190282 via=postMessage headers=0 {"stage":"encode-10s","ms":460312,"visibility":"hidden","elapsedS":440,"minute":7.33,"window":{"seconds":10.05,"fps":17.51,"chunksPerS":17.51,"kbps":2096.8,"late":30,"skipped":125,"drops":0,"maxQueue":0},"totals":{"frames":9657,"chunks":9656,"bytes":121769382,"keyframes":161,"skipped":3545,"backpressureDrops":0,"late":681,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2213.7,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:17 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   6.3  53632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.6 129584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  15584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  27696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67565   0.0   7632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   9136 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594200169 via=postMessage headers=0 {"stage":"encode-10s","ms":470282,"visibility":"hidden","elapsedS":450,"minute":7.5,"window":{"seconds":9.96,"fps":18.67,"chunksPerS":18.67,"kbps":2142.9,"late":35,"skipped":113,"drops":0,"maxQueue":0},"totals":{"frames":9843,"chunks":9842,"bytes":124437249,"keyframes":165,"skipped":3658,"backpressureDrops":0,"late":716,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2212.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:27 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   1.4  98656 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   1.4  52960 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  25440 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14944 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   6944 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8640 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594210228 via=postMessage headers=0 {"stage":"encode-10s","ms":480348,"visibility":"hidden","elapsedS":460,"minute":7.67,"window":{"seconds":10.06,"fps":16.71,"chunksPerS":16.71,"kbps":2148.1,"late":34,"skipped":134,"drops":0,"maxQueue":0},"totals":{"frames":10011,"chunks":10010,"bytes":127137404,"keyframes":167,"skipped":3792,"backpressureDrops":0,"late":750,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2210.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:37 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.3  52560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   2.2  83216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  22832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594220225 via=postMessage headers=0 {"stage":"encode-10s","ms":490343,"visibility":"hidden","elapsedS":470,"minute":7.83,"window":{"seconds":9.99,"fps":16.21,"chunksPerS":16.21,"kbps":2146.7,"late":32,"skipped":138,"drops":0,"maxQueue":0},"totals":{"frames":10173,"chunks":10172,"bytes":129819190,"keyframes":170,"skipped":3930,"backpressureDrops":0,"late":782,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2209.2,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:48 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  13.7  75248 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   8.0  53024 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  22464 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  14832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   5856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594230162 via=postMessage headers=0 {"stage":"encode-10s","ms":500283,"visibility":"hidden","elapsedS":480,"minute":8,"window":{"seconds":9.93,"fps":17.22,"chunksPerS":17.22,"kbps":2074.1,"late":27,"skipped":127,"drops":0,"maxQueue":0},"totals":{"frames":10344,"chunks":10343,"bytes":132393136,"keyframes":173,"skipped":4057,"backpressureDrops":0,"late":809,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2206.4,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:43:58 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   4.5  53472 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.1  88320 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  25248 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  15776 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   9744 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594240179 via=postMessage headers=0 {"stage":"encode-10s","ms":510301,"visibility":"hidden","elapsedS":490,"minute":8.17,"window":{"seconds":10.01,"fps":16.28,"chunksPerS":16.28,"kbps":2076.7,"late":31,"skipped":138,"drops":0,"maxQueue":0},"totals":{"frames":10507,"chunks":10506,"bytes":134992645,"keyframes":176,"skipped":4195,"backpressureDrops":0,"late":840,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2203.7,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:08 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.2  53808 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   3.7  99872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.1  26208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16640 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  10608 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594250162 via=postMessage headers=0 {"stage":"encode-10s","ms":520283,"visibility":"hidden","elapsedS":500,"minute":8.33,"window":{"seconds":9.97,"fps":16.85,"chunksPerS":16.85,"kbps":2133.9,"late":36,"skipped":131,"drops":0,"maxQueue":0},"totals":{"frames":10675,"chunks":10674,"bytes":137652853,"keyframes":178,"skipped":4326,"backpressureDrops":0,"late":876,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2202.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:18 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   6.9 111792 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   6.9  54032 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  27104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7936 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  10608 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594260223 via=postMessage headers=0 {"stage":"encode-10s","ms":530344,"visibility":"hidden","elapsedS":510,"minute":8.5,"window":{"seconds":10.06,"fps":17.89,"chunksPerS":17.89,"kbps":2155,"late":40,"skipped":123,"drops":0,"maxQueue":0},"totals":{"frames":10855,"chunks":10854,"bytes":140363357,"keyframes":181,"skipped":4449,"backpressureDrops":0,"late":916,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2201.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:28 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.4  53216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   1.9  55328 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  24512 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7168 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  10592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594270149 via=postMessage headers=0 {"stage":"encode-10s","ms":540246,"visibility":"hidden","elapsedS":520,"minute":8.67,"window":{"seconds":9.9,"fps":16.77,"chunksPerS":16.77,"kbps":2162.8,"late":39,"skipped":131,"drops":0,"maxQueue":0},"totals":{"frames":11021,"chunks":11020,"bytes":143039016,"keyframes":184,"skipped":4580,"backpressureDrops":0,"late":955,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2200.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:38 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   5.6  53088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.3  77840 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.2  19952 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594280155 via=postMessage headers=0 {"stage":"encode-10s","ms":550277,"visibility":"hidden","elapsedS":530,"minute":8.83,"window":{"seconds":10.03,"fps":16.85,"chunksPerS":16.85,"kbps":2120.9,"late":34,"skipped":132,"drops":0,"maxQueue":0},"totals":{"frames":11190,"chunks":11189,"bytes":145698102,"keyframes":187,"skipped":4712,"backpressureDrops":0,"late":989,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2199.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:48 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   9.2  53360 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.4  87232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  14880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  22336 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594290230 via=postMessage headers=0 {"stage":"encode-10s","ms":560351,"visibility":"hidden","elapsedS":540,"minute":9,"window":{"seconds":10.07,"fps":17.48,"chunksPerS":17.48,"kbps":2142.8,"late":38,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":11366,"chunks":11365,"bytes":148394316,"keyframes":190,"skipped":4838,"backpressureDrops":0,"late":1027,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2198,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:44:58 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   8.5  53168 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.9  80112 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  14944 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  22432 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594300133 via=postMessage headers=0 {"stage":"encode-10s","ms":570251,"visibility":"hidden","elapsedS":550,"minute":9.17,"window":{"seconds":9.89,"fps":17.69,"chunksPerS":17.69,"kbps":2146,"late":37,"skipped":122,"drops":0,"maxQueue":0},"totals":{"frames":11541,"chunks":11540,"bytes":151047843,"keyframes":193,"skipped":4960,"backpressureDrops":0,"late":1064,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2197,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:08 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   5.5  82912 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   5.1  53280 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  22896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14960 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594310144 via=postMessage headers=0 {"stage":"encode-10s","ms":580254,"visibility":"hidden","elapsedS":560,"minute":9.33,"window":{"seconds":10,"fps":17.5,"chunksPerS":17.5,"kbps":2089.3,"late":37,"skipped":125,"drops":0,"maxQueue":0},"totals":{"frames":11716,"chunks":11715,"bytes":153659482,"keyframes":196,"skipped":5085,"backpressureDrops":0,"late":1101,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2195.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:18 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   6.3  53536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   5.7  92752 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.4  23216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14976 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   6144 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594320128 via=postMessage headers=0 {"stage":"encode-10s","ms":590247,"visibility":"hidden","elapsedS":570,"minute":9.5,"window":{"seconds":9.99,"fps":17.02,"chunksPerS":17.02,"kbps":2070.3,"late":34,"skipped":130,"drops":0,"maxQueue":0},"totals":{"frames":11886,"chunks":11885,"bytes":156243978,"keyframes":199,"skipped":5215,"backpressureDrops":0,"late":1135,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2192.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:29 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   1.2  74768 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   0.9  53008 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  23424 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   5120 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594330131 via=postMessage headers=0 {"stage":"encode-10s","ms":600245,"visibility":"hidden","elapsedS":580,"minute":9.67,"window":{"seconds":9.99,"fps":15.51,"chunksPerS":15.51,"kbps":2028,"late":31,"skipped":145,"drops":0,"maxQueue":0},"totals":{"frames":12041,"chunks":12040,"bytes":158777675,"keyframes":201,"skipped":5360,"backpressureDrops":0,"late":1166,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2190,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:39 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   2.3  52240 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   1.8  65760 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.6  19456 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14784 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   7200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8448 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594340225 via=postMessage headers=0 {"stage":"encode-10s","ms":610343,"visibility":"hidden","elapsedS":590,"minute":9.84,"window":{"seconds":10.1,"fps":12.08,"chunksPerS":12.08,"kbps":1985.3,"late":32,"skipped":181,"drops":0,"maxQueue":0},"totals":{"frames":12163,"chunks":12162,"bytes":161283428,"keyframes":203,"skipped":5541,"backpressureDrops":0,"late":1198,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2186.5,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:49 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   4.9  75552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   4.6  52880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  20992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14800 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8288 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594350128 via=postMessage headers=0 {"stage":"encode-10s","ms":620250,"visibility":"hidden","elapsedS":600,"minute":10,"window":{"seconds":9.9,"fps":15.95,"chunksPerS":15.95,"kbps":2151.3,"late":36,"skipped":139,"drops":0,"maxQueue":0},"totals":{"frames":12321,"chunks":12320,"bytes":163946422,"keyframes":206,"skipped":5680,"backpressureDrops":0,"late":1234,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2185.9,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:45:59 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   8.1  88080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   7.5  53200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.2  21440 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.1  14816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.1   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67561   0.1  21072 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[probe] t=1788594360130 via=postMessage headers=0 {"stage":"encode-10s","ms":630250,"visibility":"hidden","elapsedS":610,"minute":10.17,"window":{"seconds":9.99,"fps":16.82,"chunksPerS":16.82,"kbps":2119.4,"late":39,"skipped":132,"drops":0,"maxQueue":0},"totals":{"frames":12489,"chunks":12488,"bytes":166592964,"keyframes":209,"skipped":5812,"backpressureDrops":0,"late":1273,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2184.8,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:46:09 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   3.5  99856 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   3.5  53360 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0  21552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594370161 via=postMessage headers=0 {"stage":"encode-10s","ms":640278,"visibility":"hidden","elapsedS":620,"minute":10.33,"window":{"seconds":10.02,"fps":16.46,"chunksPerS":16.46,"kbps":2139.4,"late":33,"skipped":135,"drops":0,"maxQueue":0},"totals":{"frames":12654,"chunks":12653,"bytes":169273592,"keyframes":211,"skipped":5947,"backpressureDrops":0,"late":1306,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2184.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:46:19 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745   8.4 112384 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   8.2  53456 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.3  22576 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594380139 via=postMessage headers=0 {"stage":"encode-10s","ms":650259,"visibility":"hidden","elapsedS":630,"minute":10.5,"window":{"seconds":9.98,"fps":18.04,"chunksPerS":18.04,"kbps":2138.9,"late":41,"skipped":120,"drops":0,"maxQueue":0},"totals":{"frames":12834,"chunks":12833,"bytes":171941285,"keyframes":214,"skipped":6067,"backpressureDrops":0,"late":1347,"errors":0,"pendingChunks":1,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2183.3,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:46:29 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16741   8.2  53488 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   16745   4.7 123920 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  22704 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14880 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594390135 via=postMessage headers=0 {"stage":"encode-10s","ms":660252,"visibility":"hidden","elapsedS":640,"minute":10.67,"window":{"seconds":9.99,"fps":17.42,"chunksPerS":17.32,"kbps":2134.6,"late":43,"skipped":126,"drops":0,"maxQueue":0},"totals":{"frames":13008,"chunks":13006,"bytes":174606103,"keyframes":217,"skipped":6193,"backpressureDrops":0,"late":1390,"errors":0,"pendingChunks":2,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2182.6,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:46:39 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   16745  15.7 135152 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   16741   9.3  53536 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.1  22864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14912 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0   8672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[probe] t=1788594400131 via=postMessage headers=0 {"stage":"encode-10s","ms":670251,"visibility":"hidden","elapsedS":650,"minute":10.83,"window":{"seconds":9.99,"fps":17.01,"chunksPerS":17.01,"kbps":2151.8,"late":41,"skipped":130,"drops":0,"maxQueue":0},"totals":{"frames":13178,"chunks":13176,"bytes":177294251,"keyframes":220,"skipped":6323,"backpressureDrops":0,"late":1431,"errors":0,"pendingChunks":2,"maxQueueEver":0,"encodeQueueSize":0,"avgKbps":2182.1,"state":"configured","frameCtor":"canvas"}}
+[sample] 2026-09-05T15:46:49 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14784 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  27872 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  22720 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2656 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:46:59 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67565   0.1  34032 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14800 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67562   0.0  27776 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  22736 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:47:09 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  14800 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  27792 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23840 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:47:19 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34064 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  23088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23808 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:47:29 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  22992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23888 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:47:40 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34080 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  22992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23872 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:47:50 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34096 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  23008 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23872 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:00 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34112 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  23024 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23888 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:10 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34112 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  23024 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23872 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:20 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17728 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  34128 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  23040 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  23872 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:30 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  18368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  17360 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0  33616 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  18992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  24368 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:40 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  11232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8784 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  19392 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:48:50 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  11232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8832 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11696 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  19408 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:00 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0  11232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16992 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11712 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  20128 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:10 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11664 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  19040 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:20 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0  16368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  19024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:30 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9072 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  18960 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:40 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9072 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11552 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  18944 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:49:51 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11568 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  18944 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:01 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67562   0.1  11584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   9104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67561   0.0  18960 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:11 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67565   0.1   9104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0   8816 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67562   0.0  11584 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  18944 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:21 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8560 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9056 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8656 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  20000 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2672 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:31 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67565   1.2   8592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.1  11232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17056 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:41 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67565   0.1   8576 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   8976 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67562   0.0  11120 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:50:52 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:02 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8544 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:12 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   8976 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:22 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8592 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11200 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17040 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:33 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   67565   0.1   8608 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   8976 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67562   0.0  11088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17024 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:43 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   8208 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   9216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8640 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11232 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  17008 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2624 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample] 2026-09-05T15:51:53 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   85583   0.0   7520 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   85373   0.0   8944 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67565   0.0   8528 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   67562   0.0  11088 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   67561   0.0  16944 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   44679   0.0   2608 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[runner] 2026-09-05T15:51:54+0800 no [probe] output for 300 s — stopping app
+[runner] 2026-09-05T15:51:54+0800 app exited; log=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/probe/s0-encode.log

@@ -136,22 +136,27 @@ export const ALLOTMENT_RPC = {
 export type AllotmentRole = 'principal' | 'cord' | 'veil' | 'coin' | 'candle' | 'guest';
 
 /**
- * SPONSORS DEFAULT TO A BIGGER SHARE — a starting number, never a rule.
+ * SPONSORS DEFAULT TO A BIGGER SHARE — how many equal shares a role is worth.
  *
  * A ninong or ninang is photographed all night and asked to photograph all
  * night; a cord, veil, coin or candle sponsor stands up during the ceremony
  * itself. Handing them the same allowance as a plus-one is the kind of default
- * that makes a couple edit every row by hand, so the sheet opens with these and
- * the couple changes any of them.
+ * that makes a couple edit every row by hand.
  *
  * ⚖ A MULTIPLIER, NOT AN AMOUNT. The pot varies by an order of magnitude
  * between a 40-guest civil ceremony and a 400-guest reception, so a hard-coded
  * "give a ninong 60" is either extravagant or insulting depending on the event.
  * This scales whatever the ordinary share turns out to be.
  *
- * ⚠ IT IS ONLY A DEFAULT. Nothing enforces it, nothing re-applies it after the
- * couple has edited a row, and a named guest's saved number always wins. The
- * moment this starts overwriting an edit it has stopped being a suggestion.
+ * 🔑 SINCE 2026-09-11 THE DATABASE APPLIES IT — `papic_share_weight` (migration
+ * 20271220526938) counts an un-named sponsor as this many heads in the division
+ * and hands her this many shares, so a ninong gets her bigger number without
+ * the couple naming her. A named guest's saved number still always wins.
+ *
+ * ⚠ THIS TABLE AND THAT FUNCTION ARE ONE RULE WRITTEN TWICE, so they are held
+ * together by `tests/db/papic-sponsors-get-a-bigger-share.db.test.ts`, which
+ * walks every value of the `guest_role` enum through both. Change one, and
+ * that test fails until the other matches.
  */
 export const ROLE_MULTIPLIER: Record<AllotmentRole, number> = {
   principal: 3,
@@ -162,10 +167,44 @@ export const ROLE_MULTIPLIER: Record<AllotmentRole, number> = {
   guest: 1,
 };
 
+const SPONSOR_GUEST_ROLES: Record<string, AllotmentRole> = {
+  principal_sponsor: 'principal',
+  cord_sponsor: 'cord',
+  veil_sponsor: 'veil',
+  coin_sponsor: 'coin',
+  candle_sponsor: 'candle',
+};
+
 /**
- * The suggested opening number for a guest in a given role, given the ordinary
- * per-head share. Rounded up, so a role that earns more never lands on less
- * through flooring.
+ * Which sponsor a guest is, read off the GUEST LIST — `guests.role` plus
+ * `guests.extra_roles` — which is exactly what the database reads.
+ *
+ * 🪤 NOT `event_sponsors.linked_guest_id`. The sponsors page stamps the role on
+ * the guest it creates when a sponsor accepts, so every accepted sponsor is on
+ * the list with it — but a couple who marks a guest a ninong straight on the
+ * guest list never touches that page. Measured in production 2026-09-11: 8
+ * guests carry a sponsor role and 0 `event_sponsors` rows exist, so the sheet
+ * that read the link recognised none of them.
+ *
+ * The biggest role wins: a principal sponsor also listed as a cord sponsor is a
+ * principal sponsor — same as `papic_share_weight`.
+ */
+export function allotmentRoleOf(
+  role: string | null | undefined,
+  extraRoles: readonly string[] | null | undefined,
+): AllotmentRole {
+  const all = [role, ...(extraRoles ?? [])]
+    .map((r) => (r ? SPONSOR_GUEST_ROLES[r] : undefined))
+    .filter((r): r is AllotmentRole => r !== undefined);
+  if (all.length === 0) return 'guest';
+  return all.reduce((best, r) => (ROLE_MULTIPLIER[r] > ROLE_MULTIPLIER[best] ? r : best));
+}
+
+/**
+ * What a guest in a given role gets, given one ordinary share: that many
+ * shares. Rounded up, so a role that earns more never lands on less through
+ * flooring. The database multiplies an integer share, so for any share it
+ * could produce this is exact.
  */
 export function suggestedAllotment(role: AllotmentRole, perHead: number): number {
   if (!Number.isFinite(perHead) || perHead <= 0) return 0;
@@ -190,6 +229,13 @@ export type SplitInputs = {
    * *"a blank box is not zero."*
    */
   everyoneElse: number | null;
+  /**
+   * The roles of the UN-NAMED guests who are still coming — only sponsors
+   * matter, a plain guest adds nothing. Each sponsor counts as
+   * `ROLE_MULTIPLIER[role]` heads in the division, exactly as
+   * `papic_guest_spend_ceiling` counts her. Omit it and every head counts once.
+   */
+  sponsors?: readonly AllotmentRole[];
 };
 
 export type Split = {
@@ -201,6 +247,11 @@ export type Split = {
   unnamedCount: number;
   /** The named allotments' total. */
   namedTotal: number;
+  /**
+   * How many MORE heads the un-named sponsors add to the division — a ninong
+   * counts as three, so she adds two. 0 on a list with no sponsors.
+   */
+  extraHeads: number;
   /**
    * The named allotments alone exceed the pot.
    *
@@ -222,6 +273,13 @@ export function splitTheRest(i: SplitInputs): Split {
   const namedTotal = i.named.reduce((sum, n) => sum + (Number.isFinite(n) && n > 0 ? n : 0), 0);
   const unnamedCount = Math.max(0, i.guestCount - i.named.length);
   const remaining = i.pot - namedTotal;
+  // Σ (weight − 1) — the SAME sum `papic_guest_spend_ceiling` adds to its
+  // divisor. Nobody is left out of the pot for it: a sponsor's extra shares
+  // come out of the one division, so the shares still add up to what is there.
+  const extraHeads =
+    unnamedCount === 0
+      ? 0
+      : (i.sponsors ?? []).reduce((sum, r) => sum + (ROLE_MULTIPLIER[r] ?? 1) - 1, 0);
 
   // ⚠ OVER-COMMITTED STILL YIELDS 1, BECAUSE THE DATABASE DOES. S2 clamps with
   // GREATEST(total - named, 0) before dividing, then floors at 1 — so an
@@ -234,33 +292,42 @@ export function splitTheRest(i: SplitInputs): Split {
       spare: 0,
       unnamedCount,
       namedTotal,
+      extraHeads,
       overCommitted: true,
     };
   }
 
   // No un-named guests left to divide among: the whole remainder is spare.
   if (unnamedCount === 0) {
-    return { perHead: 0, spare: remaining, unnamedCount, namedTotal, overCommitted: false };
+    return { perHead: 0, spare: remaining, unnamedCount, namedTotal, extraHeads, overCommitted: false };
   }
 
   // 🔑 THIS MIRRORS THE DATABASE EXACTLY — `papic_guest_spend_ceiling` ends
-  // with GREATEST(1, FLOOR(GREATEST(total - named, 0) / heads)). If the two ever
-  // disagree the couple is shown one number and their guests are given another,
-  // and the screen is the one people believe.
+  // with GREATEST(1, FLOOR(GREATEST(total - named, 0) / (heads + extra))). If
+  // the two ever disagree the couple is shown one number and their guests are
+  // given another, and the screen is the one people believe.
   //
   // ⚠ THE FLOOR OF 1 IS DELIBERATE, NOT DEFENSIVE. A 200-guest celebration
   // holding only the free grant divides to 0, and a ceiling of 0 would refuse
   // every guest their FIRST photograph. The pot is the money gate; this is a
   // fairness rule. Nothing here may ever render "0 credits each".
-  const derived = Math.max(1, Math.floor(remaining / unnamedCount));
+  const shares = unnamedCount + extraHeads;
+  const derived = Math.max(1, Math.floor(remaining / shares));
+  // A typed number is AT MOST the share — the database's
+  // `LEAST(v_everyone, COALESCE(v_share, v_everyone))` (20271221350945). It can
+  // lower what each guest gets, never raise it past what the pot divides to.
   const perHead =
     i.everyoneElse === null ? derived : Math.max(0, Math.min(i.everyoneElse, derived));
 
   return {
     perHead,
-    spare: remaining - perHead * unnamedCount,
+    // ⚠ Floored at 0: the floor of one share can hand out more than a thin
+    // pot holds (the pot refuses on its own), and "−150 spare" is not a number
+    // a couple can act on.
+    spare: Math.max(0, remaining - perHead * shares),
     unnamedCount,
     namedTotal,
+    extraHeads,
     overCommitted: false,
   };
 }
@@ -280,12 +347,73 @@ export function summariseAllotments(i: SplitInputs): string {
     return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests are promised ${split.namedTotal - i.pot} credits more than this celebration holds`;
   }
 
+  // Sponsors get their own clause, so the couple can see a ninong's bigger
+  // number without opening her row — and "everyone else" then means what it says.
+  const sponsors = split.unnamedCount === 0 ? [] : (i.sponsors ?? []).filter((r) => ROLE_MULTIPLIER[r] > 1);
+  const sponsorAmounts = [...new Set(sponsors.map((r) => suggestedAllotment(r, split.perHead)))].sort(
+    (a, b) => b - a,
+  );
+  const sponsorClause =
+    sponsors.length === 0
+      ? null
+      : `${plural(sponsors.length, 'sponsor gets', 'sponsors get')} ${sponsorAmounts.join(' or ')}${
+          sponsorAmounts.length === 1 && sponsors.length > 1 ? ' each' : ''
+        }`;
+
   return [
     plural(i.guestCount, 'guest', 'guests'),
     `${i.named.length} named`,
+    sponsorClause,
     split.unnamedCount === 0
       ? 'everyone on your list is named'
       : `everyone else gets ${split.perHead} credits each`,
     `${split.spare} spare`,
-  ].join(' · ');
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
+}
+
+/* ── Finding one guest among two hundred ────────────────────────────────────
+ *
+ * Owner, 2026-08-31: *"there might be over 200 guests, and we should not list
+ * them all. or let the user search a guest from the list and show what they
+ * have?"* The picker rendered every guest in first-name order inside a ~288px
+ * scroll box — fine for a dozen, a haystack for a real Filipino guest list.
+ *
+ * Pure, and here rather than inside the client component, for the same reason
+ * the offer decider sits beside its window rules: it is a DECISION about what
+ * the couple sees, and a decision that cannot be unit-tested is a decision
+ * nobody can defend later.
+ */
+
+export type AllotmentPickerRow = {
+  guestId: string;
+  name: string;
+  /** The saved allotment, or null when this guest has never been named. */
+  saved: number | null;
+};
+
+/**
+ * The rows to show, in order: guests the couple has ALREADY NAMED first, then
+ * everyone else, each group keeping the caller's incoming order (the server
+ * sorts by first name).
+ *
+ * 🔑 `saved === 0` IS A NAMED GUEST. Zero is a real, deliberate choice — "this
+ * guest may not spend", the documented way to exclude somebody — so the test is
+ * `!= null`, never truthiness. Sorting a zero in with the un-named would hide
+ * the couple's most surprising decision at the bottom of a 200-row list.
+ *
+ * An empty query returns everybody. Matching is case-insensitive substring on
+ * the displayed name, which is what somebody typing "lola" expects.
+ */
+export function orderAllotmentPickerRows<T extends AllotmentPickerRow>(
+  guests: readonly T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  const matches = q ? guests.filter((g) => g.name.toLowerCase().includes(q)) : [...guests];
+  // A STABLE partition, not a comparator sort: `Array.prototype.sort` is stable
+  // in every engine we ship to, but expressing it as two filters says the intent
+  // outright and cannot be broken by somebody "simplifying" the comparator.
+  return [...matches.filter((g) => g.saved != null), ...matches.filter((g) => g.saved == null)];
 }

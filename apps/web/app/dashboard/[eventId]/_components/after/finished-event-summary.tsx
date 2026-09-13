@@ -143,7 +143,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           // With none, the plain bench is the honest destination.
           href={summary.suppliers === 0 ? `${base}/vendors` : `${base}/vendors?tab=build`}
           Icon={Compass}
-          title="Marketplace"
+          title="Your Team"
           cta={summary.suppliers === 0 ? 'Open the marketplace' : 'Open your suppliers'}
         >
           <Figure value={summary.suppliers} unit="supplier" />
@@ -195,7 +195,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
             card, through a chip". It is the one thing here that is WORK still
             waiting, so it is the one card that carries the accent. */}
         <Link
-          href={`${base}/website/editorial`}
+          href={`${base}/story`}
           className="sn-tile sn-press group flex flex-col gap-2 border-mulberry/30 bg-mulberry/[0.05] text-left"
         >
           <span className="flex items-center gap-2">

@@ -6,7 +6,7 @@
  * PANOOD_SYSTEM_MOBILE]` so an existing Cast buyer keeps what they bought when the
  * unified controller lands. That alias is a READ rule — it does not care whether the
  * order that trips it is historical or placed thirty seconds ago. So while
- * PANOOD_SYSTEM stayed sellable at ₱2,500, ANY new buyer collected the ₱2,999 unified
+ * PANOOD_SYSTEM stayed sellable at ₱2,500, ANY new buyer collected the ₱3,000 unified
  * Live Studio entitlement through it. ₱500 off, available to everyone, with no code
  * path anywhere that noticed.
  *
@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SKU_OWNERSHIP_ALIASES, eventSkuActive } from './entitlements';
 import { PANOOD_PAID_SKUS } from './panood-watermark';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(resolve(HERE, rel), 'utf8');
@@ -96,7 +97,7 @@ test('checkout REFUSES a retired SKU, and does so before any charge resolver', (
  *
  * It didn't. The row has been is_active=false since 2026-07-26, it has never had a
  * single order, and the couple's Studio was left showing TWO live-streaming tiles —
- * the retired Cast one and the live ₱2,999 one — for the same product. So
+ * the retired Cast one and the live ₱3,000 one — for the same product. So
  * /studio/panood is retired outright and forwards to the Live Studio that exists.
  *
  * The property these tests hold is unchanged and now stronger: no fake door. A page
@@ -214,7 +215,20 @@ test('the alias is UNCHANGED — this PR retires a row, it does not rewrite owne
 });
 
 test('DESIGN PIN: ownership never reads the retail catalog, so retirement cannot revoke', () => {
-  const src = read('./entitlements.ts');
+  /*
+    ⚠ COMMENTS ARE STRIPPED FIRST, AND THAT IS NOT A WEAKENING — it is the same
+    correction `papic-page-says-only-what-is-true.test.ts` already made for
+    itself. This scanned RAW source, so it fired on 2026-09-06 for a DOCBLOCK in
+    `entitlements.ts` that merely names the table while explaining why the Custom
+    QR is free ("the row reads ₱0.00 · active"). Prose about a table is not a
+    read of it.
+
+    🔑 A GUARD THAT CANNOT TELL CODE FROM A COMMENT PUNISHES EXPLANATION — and
+    the explanation is the thing this repo most wants written down. The rule it
+    protects is unchanged and still exact: no `platform_retail_catalog_v2` in
+    executable code in this file.
+  */
+  const src = stripComments(read('./entitlements.ts'));
   assert.ok(
     !src.includes('platform_retail_catalog_v2'),
     'if a gate ever starts filtering on is_active, retiring a SKU would silently '

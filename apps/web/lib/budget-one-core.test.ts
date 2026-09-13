@@ -40,6 +40,13 @@ const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MONEY_SURFACES = [
   'app/dashboard/[eventId]/budget/page.tsx',
   'app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx',
+  // BA2 · the Realtime refetch. Not a render surface — a server action — but it
+  // WRITES the same card `budget/page.tsx` first-painted, so it is a money
+  // surface by every meaning that matters. It returned the raw legacy summary
+  // until 2026-09-02, which meant the /budget card swapped from the committed
+  // total to "every vendor's itemized total, whatever their status" the moment
+  // a payment landed: an unconfirmed supplier's quote, back on the page.
+  'app/dashboard/[eventId]/budget/actions.ts',
 ] as const;
 
 /** Strip comments — a docblock mentioning a helper must not count as calling it. */

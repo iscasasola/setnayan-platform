@@ -43,7 +43,7 @@ const hrefs = (phase?: 'plan' | 'dayof' | 'after') =>
 test('after the event, the rail carries the editorial maker and the galleries', () => {
   const after = hrefs('after');
   assert.ok(
-    after.includes('/dashboard/EVT123/website/editorial'),
+    after.includes('/dashboard/EVT123/story'),
     'the After rail must carry a row for the editorial maker',
   );
   assert.ok(
@@ -89,7 +89,13 @@ test('omitting the phase is byte-identical to the plan phase', () => {
 test('the rail and the phone agree on the After destinations', () => {
   const phone = buildCustomerMenuTree('EVT123', { phase: 'after' });
   const railAfter = hrefs('after');
-  for (const key of ['editorial', 'galleries']) {
+  /* 🔤 'editorial' left this list on 2026-09-02 (EH3): the phone's after-phase
+     tab is now the Event Hub (key 'launch'), and the editorial maker is a door
+     inside it. The RAIL keeps its own /story row — test 1 above is
+     unchanged and still holds that door open, which is the whole 2026-08-21
+     lesson. The Hub itself is compared here too, so the two rosters cannot
+     start disagreeing about where the after-phase leads. */
+  for (const key of ['launch', 'galleries']) {
     const row = phone.find((m) => m.key === key);
     assert.ok(row, `the phone's After roster lost its ${key} tab`);
     assert.ok(

@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { LEAD_TIME_NOTICE } from './live-studio-readiness';
+import { LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE } from './live-studio-readiness';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
@@ -39,33 +39,46 @@ test('the notice states the LEAD TIME, the REASON, and that buying early is free
   assert.match(
     LEAD_TIME_NOTICE,
     /costs you nothing/i,
-    'without this, "buy earlier" reads as "burn your day earlier"',
+    'without this, "buy earlier" reads as "burn something by buying earlier"',
   );
   assert.match(
     LEAD_TIME_NOTICE,
-    /when you first go live, not when you pay/i,
-    'the anchor promise is the whole reason buying early is safe',
+    /covers the whole event/i,
+    'LS6 (2026-09-02) retired the per-event-day clock — the notice must promise the permanent unlock, not the old anchor',
   );
 });
 
-test('⭐ the notice is only TRUE while the anchor is gated on entitlement', () => {
-  // "your broadcast day starts when you first go live, not when you pay" is a claim
-  // about `stampFirstLiveAt`. It became true on 2026-07-27 when the stamp started
-  // refusing an un-entitled press. If that gate is ever removed, this copy is a LIE —
-  // so the copy and the gate are pinned together, here, on purpose.
-  const stamp = repoFile('lib/live-studio-window-server.ts');
-  const fn = stamp.slice(stamp.indexOf('export async function stampFirstLiveAt'));
-  assert.match(
-    fn,
-    /if \(!entitled\.multiCam\) return;/,
-    'the entitlement gate is gone — LEAD_TIME_NOTICE now promises something false',
+test('🚫 the retired per-event-day anchor promise does not come back', () => {
+  // LS6 (2026-09-02) retired the broadcast-day model this notice used to describe
+  // ("your broadcast day starts when you first go live, not when you pay"). That
+  // sentence is false today — ownership is permanent, unconditional on WHEN the
+  // event first goes live (lib/live-studio-window.ts) — so it must never resurface
+  // here even if a future edit reintroduces day-based language elsewhere by mistake.
+  assert.doesNotMatch(
+    LEAD_TIME_NOTICE,
+    /when you first go live, not when you pay/i,
+    'the retired per-event-day anchor promise is back — LS6 removed the clock it described',
   );
 });
 
 test('⭐ the Live Studio buy surface actually passes the notice', () => {
   // A constant nobody renders is not a warning.
   const page = repoFile(BUY_PAGE);
-  assert.match(page, /notice: LEAD_TIME_NOTICE/, 'the buy sheet never receives the notice');
+  // Shape changed 2026-09-02 when YouTube's own lead time joined ours: the prop now
+  // takes an array. Same fact pinned, matched through the new shape rather than
+  // loosened — the constant must still reach the sheet by name.
+  // Shape changed again 2026-09-02 when the LAPTOP requirement joined the two clocks —
+  // the one pre-purchase fact with no recovery at all. Same facts still pinned by name;
+  // matched through the new shape rather than loosened to a substring.
+  // Shape changed a THIRD time 2026-09-03 (LS7) when MUSIC_RIGHTS_NOTICE joined them —
+  // the only one of the four that fails DURING the ceremony rather than before it.
+  // Still matched through the full array shape: loosening this to a substring is what
+  // would let a future edit silently drop one of the other three.
+  assert.match(
+    page,
+    /notice: \[LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE\]/,
+    'the buy sheet never receives all FOUR pre-purchase facts',
+  );
   assert.match(page, /from '@\/lib\/live-studio-readiness'/, 'not imported from the shared module');
 });
 
@@ -86,9 +99,65 @@ test('the notice prop is ADDITIVE — every other caller is unchanged', () => {
   // Optional with no default, so the ~dozen other SKUs that mount ChoosePlanSheet
   // render byte-for-byte as before.
   const sheet = repoFile(SHEET);
-  assert.match(sheet, /notice\?: string;/, 'the prop must be optional');
+  assert.match(sheet, /notice\?: string \| readonly string\[\];/, 'the prop must be optional');
   assert.ok(
     !/notice = /.test(sheet),
     'a default value would opt every other SKU into a Live-Studio-specific warning',
   );
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   YOUTUBE'S LEAD TIME — the second clock, and the tick box that gates the sale.
+   Owner ruling 2026-09-02. These pin the three ways this silently stops working:
+   the sentence loses a clause, the box stops gating, or the box stops being once.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+test('the YouTube notice states the WAIT, the CHECK, and kills the 50-subscriber myth', () => {
+  assert.match(YOUTUBE_READY_NOTICE, /24 hours/i, 'omits the activation wait — the whole point');
+  assert.match(
+    YOUTUBE_READY_NOTICE,
+    /youtube\.com\/features/i,
+    'never says WHERE to check, so "make sure" is an instruction nobody can follow',
+  );
+  // Load-bearing, not trivia: a couple who searches this finds "you need 50
+  // subscribers" everywhere, concludes they are ineligible, and does not buy. The
+  // threshold is mobile-app streaming only; encoder streaming from a computer — the
+  // only path Live Studio uses — has none.
+  assert.match(YOUTUBE_READY_NOTICE, /50 subscribers/i, 'the myth is not pre-empted');
+  assert.match(YOUTUBE_READY_NOTICE, /phone app/i, 'never says the 50 applies only to the phone');
+});
+
+test('⭐ the tick box GATES checkout — a notice nobody must act on is decoration', () => {
+  const sheet = repoFile(SHEET);
+  assert.match(sheet, /const checkoutLocked = !!acknowledgement && !accepted;/,
+    'the gate is gone — the plans are buyable without the acknowledgement');
+  assert.match(sheet, /\{checkoutLocked \? \(/,
+    'checkoutLocked is computed but never used to withhold the checkout trigger');
+});
+
+test('🔒 the box is AFFIRMATIVE — starts unticked, never seeded from a prop', () => {
+  // Same rule as app/signup/consent-is-affirmative.test.ts, which exists because a
+  // door was found posting a hidden value="yes" and opting every couple in silently.
+  const sheet = repoFile(SHEET);
+  assert.match(sheet, /const \[accepted, setAccepted\] = useState\(false\);/,
+    'the tick box must start UNTICKED and must not be seeded from a prop');
+  assert.ok(
+    !/type="hidden"[^>]*youtube_live_ready/.test(sheet),
+    'consent by hidden field — the exact defect consent-is-affirmative.test.ts bans',
+  );
+});
+
+test('⭐ asked ONCE, ever — the stamp lives on the person, not the event or the order', () => {
+  // Owner, verbatim: "If they have accepted at least once, then the next time they
+  // purchase, no more tick box. since that account is already confirmed." An
+  // event-scoped or order-scoped column re-asks the same human at their second
+  // celebration or their second purchase, which is what was ruled out.
+  const action = repoFile('app/dashboard/[eventId]/studio/live-studio-control/actions.ts');
+  assert.match(action, /\.from\('users'\)/, 'the ack must be stamped on the PERSON');
+  assert.match(action, /youtube_live_ready_ack_at/, 'the column is not written');
+  assert.match(action, /\.eq\('user_id', user\.id\)/, 'the write is not scoped to the actor');
+
+  const page = repoFile(BUY_PAGE);
+  assert.match(page, /youtubeLiveReadyAcked\s*\n?\s*\?\s*undefined/,
+    'an already-acknowledged buyer must not be shown the box again');
 });

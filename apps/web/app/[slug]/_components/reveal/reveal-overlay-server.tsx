@@ -5,7 +5,15 @@ import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { RevealOverlay } from './reveal-overlay';
 import { StdTouchGlow } from './std-touch-glow';
 
-type Props = Omit<ComponentProps<typeof RevealOverlay>, 'config' | 'premiumUnlocked'> & {
+/**
+ * `seenEventId` is omitted on purpose: it is DERIVED from `eventId` below, not
+ * passed. Two ids for one event is how the two halves of Q6's hand-off would
+ * silently stop matching.
+ */
+type Props = Omit<
+  ComponentProps<typeof RevealOverlay>,
+  'config' | 'premiumUnlocked' | 'seenEventId'
+> & {
   /** Event whose premium-openings ownership gates the reveal (PR4 P5). */
   eventId?: string;
 };
@@ -61,6 +69,12 @@ export async function RevealOverlayServer({ eventId, ...props }: Props) {
         petalsColor={props.petalsColor ?? config.petalsColor}
         config={config}
         premiumUnlocked={premiumUnlocked}
+        /* ONE REVEAL ON THE WAY IN (owner Q6 = B). The id is already held here
+           for the ownership read; forwarding it is what lets the mark be keyed
+           per event, so two invitations open in one tab cannot silence each
+           other. `oncePerVisit` rides in through `...props` from the two mounts
+           that take a side — the invite door records, the Event Hub defers. */
+        seenEventId={eventId ?? null}
       />
     </>
   );

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
+import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -712,7 +713,12 @@ export async function requestProfileCorrection(
 
   // Own profile + a display snapshot of the current value for the admin queue.
   const { data: profRow, error: profErr } = await supabase
-    .from('vendor_profiles')
+    // `vendor_profiles_self` (migration 20271217955839), never the table: the
+    // projection below names `business_owner_name`, which is off
+    // `authenticated`'s column allowlist, and PostgREST refuses the WHOLE query
+    // over one denied column — so on the table every correction request would
+    // fail with "Vendor profile not found".
+    .from('vendor_profiles_self')
     // ⚠ EVERY KEY IN `LOCKED_IDENTITY_FIELD_KEYS` MUST BE IN THIS SELECT. The
     // snapshot below reads `prof[fieldKey]`, so a key that is missing here
     // silently records `current_value = null` — the admin then reviews "change
@@ -979,6 +985,21 @@ export async function updateVendorWebsiteField(
     }
     default:
       return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // E2 (2026-09-11) — the card-text integrity gate (owner 2026-07-23 chat;
+  // 2026-07-27 card text: "no placing of contact information or anything to
+  // bypass our app") already runs on chat and on service-card text; it never
+  // ran on the shop's own About paragraph. Wired here with the same
+  // wording/refusal UX `findVendorTextViolation` already gives
+  // services/packages. Scoped to `microsite_about` only — this action also
+  // saves sections, featured picks, accent, hero photo and video refs, none
+  // of which are free-text a vendor could hide a phone number in.
+  if (field === 'microsite_about') {
+    const viol = findVendorTextViolation([
+      { field: 'About', value: (patch as { microsite_about?: string | null }).microsite_about },
+    ]);
+    if (viol) return { ok: false, error: viol };
   }
 
   const { error } = await supabase

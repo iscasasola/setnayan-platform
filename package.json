@@ -5,7 +5,7 @@
   "description": "Setnayan — Philippines-first life-events platform. V1 weddings.",
   "packageManager": "pnpm@9.12.0",
   "engines": {
-    "node": ">=22.0.0",
+    "node": "22.x",
     "pnpm": ">=9.0.0"
   },
   "scripts": {
@@ -21,6 +21,7 @@
     "migration:new": "node scripts/new-migration.mjs",
     "migration:check": "node scripts/check-migration-timestamps.mjs",
     "migration:doctor": "node scripts/migration-doctor.mjs",
+    "deploy:drift-doctor": "node scripts/deploy-drift-doctor.mjs",
     "db:push": "node scripts/db-push-guard.mjs",
     "prepare": "node scripts/setup-git-hooks.mjs"
   },

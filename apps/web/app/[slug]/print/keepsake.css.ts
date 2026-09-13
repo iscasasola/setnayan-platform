@@ -42,6 +42,28 @@ export const KEEPSAKE_CSS = `
   color: var(--k-ink);
 }
 
+/* ── SOLEMN-QUIET (the wake never prints as a celebration either) ──────────
+   Owner-judgment interpretation (flagged, not owner-ruled): "print quiet"
+   suppresses FESTIVE CHROME — the champagne-gold / mulberry accent colour
+   that reads as party dressing on every rule, chip and border on this
+   sheet — never CONTENT. Every headline, photo, quote and credit still
+   prints; only the two accent tokens collapse onto ink, so the whole sheet
+   (which threads --k-accent / --k-mulberry through dozens of existing rules)
+   goes quiet in one place instead of needing a solemn arm hand-added to each
+   of them. This mirrors the rest of the app's solemn register
+   (event-words.ts's "solemn" flag, the-wake-never-celebrates.test.ts): the
+   SAME signal, applied to colour instead of copy. */
+.keepsake-root.k-solemn {
+  /* Override the base channel tokens too, not just --k-accent/--k-mulberry —
+     a couple of rules read rgba(var(--color-terracotta), …) directly for a
+     tinted border rather than going through --k-accent, and both must go
+     quiet together. */
+  --color-terracotta: var(--color-ink);
+  --color-mulberry: var(--color-ink);
+  --k-accent: var(--k-ink);
+  --k-mulberry: var(--k-ink);
+}
+
 /* ── screen presentation: sheet centered on a grey ground ─────────────────── */
 .keepsake-root {
   min-height: 100dvh;
@@ -474,6 +496,21 @@ export const KEEPSAKE_CSS = `
   line-height: 1.25;
   margin: 0;
 }
+/*
+  The version stamp. Design 07 Q6 (ruled 2026-09-09): a printed copy must be able to
+  say which edition it is. 9pt is bigger than the brand mark below it on purpose
+  — this is a sentence a reader is meant to READ when they wonder whether the
+  paper is still right, not a mark they are meant to ignore. Sized in points
+  because the whole keepsake is: this sheet is never a screen, so the 12px
+  on-screen legibility floor is not the measure here.
+*/
+.k-colophon-stamp {
+  font-family: var(--k-body);
+  font-size: 9pt;
+  line-height: 1.35;
+  color: rgba(var(--color-ink), 0.75);
+  margin: 2mm 0 0;
+}
 .k-colophon-url {
   font-family: var(--k-mono);
   text-transform: uppercase;
@@ -517,7 +554,22 @@ export const KEEPSAKE_CSS = `
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .keepsake-sheet.k-has-back { page-break-after: always; break-after: page; }
+  .keepsake-sheet.k-has-back,
+  .keepsake-sheet.k-more-after { page-break-after: always; break-after: page; }
+  /*
+    A hand-arranged sheet (step 7) is data, not the curated front/back grid —
+    its composed height is the host's, not something this route trims to fit
+    one A3 side (ArrangedSheet already never draws it larger than the
+    host's own 660-unit sheet). Clipping it the way the curated grid is
+    clipped above would silently cut off the bottom of a tall page, so its
+    own page lifts the fixed height and the overflow clip; it still gets its
+    own side via .k-more-after / .k-has-back same as any other.
+  */
+  .keepsake-sheet.k-arranged-sheet {
+    height: auto;
+    min-height: 420mm;
+    overflow: visible;
+  }
   img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 `;

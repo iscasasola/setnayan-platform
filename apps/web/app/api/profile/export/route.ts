@@ -4,6 +4,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
+import {
+  LEDGER_EXPORT_PROJECTION,
+  LEDGER_SUPPLIER_PROJECTION,
+  RECEIPT_LINK_TTL_SECONDS,
+  shapeLedgerRows,
+  type LedgerExportRow,
+  type LedgerSupplierRow,
+  type ReceiptLink,
+} from '@/lib/export-payment-ledger';
 
 /**
  * RA 10173 data-export endpoint (V1 slice).
@@ -171,6 +182,32 @@ export async function GET() {
       'coordinator records was unavailable on this run.';
   }
 
+  /*
+    THE CALLER'S OWN COUPLE EVENTS, resolved ONCE (2026-09-11). Three sections
+    are kept to the couple grain — the birth data, the payment ledger and the
+    suppliers it was paid to — and all three must mean the same set of events,
+    so the membership read that defines "the couple's events" is made once and
+    awaited by each. ERROR FIRST, before a single row is touched: past this
+    guard `ids` is an array, and a failed read is handed straight through so
+    each section names itself in `not_included` instead of asserting the couple
+    owns nothing. member_type='couple' is what keeps a coordinator on someone
+    else's event from exporting that couple's data.
+  */
+  const coupleEventIds: Promise<{ ids: string[]; error: null } | { ids: null; error: { message: string } }> = (async () => {
+    const owned = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple');
+    if (owned.error) return { ids: null, error: owned.error };
+    return {
+      ids: owned.data
+        .map((r) => (r as { event_id?: string }).event_id)
+        .filter((id): id is string => typeof id === 'string'),
+      error: null,
+    };
+  })();
+
   const [
     profileRes,
     eventsRes,
@@ -187,12 +224,21 @@ export async function GET() {
     samahanMessagesRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
+    papicFreeGrantClaimsRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
     dayRequestsRes,
     accessRequestsRes,
     eventRemovalReasonsRes,
+    eventClustersRes,
+    ownCostsRes,
+    ownRendersRes,
+    ownShareConsentsRes,
+    ownColourGrantsRes,
+    ownColourChangesRes,
+    ledgerRes,
+    ledgerSuppliersRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -222,11 +268,7 @@ export async function GET() {
     // member_type='couple' filter is what keeps this at the couple grain —
     // events_host by itself would also admit an accepted moderator.
     (async () => {
-      const owned = await supabase
-        .from('event_members')
-        .select('event_id')
-        .eq('user_id', user.id)
-        .eq('member_type', 'couple');
+      const owned = await coupleEventIds;
       // ERROR FIRST, before a single row is touched. The rejected shape here
       // was `const ids = (owned.data ?? []) …` with the error checked two
       // lines later: harmless as written, but it is the exact silhouette this
@@ -240,12 +282,10 @@ export async function GET() {
       //
       // The error is handed straight through: listOutcome() names
       // `owned_event_birth_data` in `not_included` and flips export_complete.
-      if (owned.error) {
+      if (owned.ids === null) {
         return { data: [] as unknown[], error: owned.error };
       }
-      const ids = owned.data
-        .map((r) => (r as { event_id?: string }).event_id)
-        .filter((id): id is string => typeof id === 'string');
+      const ids = owned.ids;
       // A genuine empty: the subject holds no member_type='couple' row, so
       // there is no host-scoped birth data to fetch. Not a failure — the only
       // branch on this route entitled to return an empty with error null.
@@ -410,6 +450,17 @@ export async function GET() {
       )
       .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-06) — the subject's ONE free-Papic-pool claim
+    // (migration 20271208142357). A fact held about THIS account and nobody
+    // else: that its one free 50-credit grant has been used, and on which
+    // event. Strictly 1:1 with the subject (PRIMARY KEY on user_id), so there
+    // is no counterparty whose data this could also be. Exported rather than
+    // excluded because a person asking what we hold about them is entitled to
+    // the row that decides whether their next celebration starts with credits.
+    supabase
+      .from('papic_free_grant_claims')
+      .select('user_id, event_id, claimed_at')
+      .eq('user_id', user.id),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -514,6 +565,144 @@ export async function GET() {
       .select('event_name, reason_code, reason, status, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    /*
+      RA 10173 (2026-09-02) — the "years" the subject grouped their own
+      celebrations into (item 7 phase 7a, migration 20271189765490). The name
+      is free text they typed and the grouping is their own organising work,
+      so it is personal data OF them and belongs in their export.
+
+      🔑 SCOPED TO `owner_user_id`, THE OWNER — never to the celebration. A
+      cluster is readable by nobody but the person who made it, and a
+      co-organiser's grouping of a shared wedding is THEIR record, not this
+      person's. Same line already drawn for `event_deletion_requests` above.
+
+      ⚠ The MEMBER rows are deliberately not a second lane. Which celebrations
+      sit in the year is already answerable from `event_memberships` above, and
+      a membership row's `event_id` would export a bare uuid the subject cannot
+      resolve — no added transparency, one more identifier on the page.
+    */
+    supabase
+      .from('event_clusters')
+      .select('public_id, display_name, created_at')
+      .eq('owner_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-03) — costs the subject RECORDED THEMSELVES (BA7,
+    // migration 20271193967957). `event_costs` is the couple's own spending
+    // with no supplier on the other side of it: the rings, the marriage
+    // licence, tips, ang pao.
+    //
+    // AUTHOR-scoped, not event-scoped, for the same reason
+    // `event_vendor_working_notes` is. A wedding budget is jointly authored:
+    // an event-scoped read would drop the OTHER partner's entries into this
+    // subject's access file, which is a third-party disclosure — precisely
+    // what this endpoint must never commit. `created_by_user_id` is the one
+    // column that says who typed a row, so it is the one the export follows.
+    //
+    // Read through the AUTHED client: `event_costs_couple_read` already scopes
+    // the table to the caller's own events, so the eq() narrows an already-safe
+    // set rather than bypassing anything. No service-role read is warranted.
+    supabase
+      .from('event_costs')
+      .select('cost_id, event_id, plan_group_id, label, amount_php, paid_php, due_date, note, created_at')
+      .eq('created_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-03) — the "Make it real" renders the subject REQUESTED
+    // (MB2, migration 20271200273322). A render is an activity record about the
+    // person who asked for it and spent the credit, so it is theirs to see.
+    //
+    // AUTHOR-scoped for the same reason `event_costs` is: a mood board is
+    // jointly authored, and an event-scoped read would hand this subject the
+    // other partner's renders — a third-party disclosure this route must never
+    // commit.
+    //
+    // `prompt` and `design_snapshot` are DELIBERATELY OMITTED. Neither is
+    // personal data about the subject: one is the machine brief assembled from
+    // the shared board, the other is the board itself, and both belong to the
+    // event rather than to whoever pressed the button. `note` IS included —
+    // that is the subject's own words.
+    supabase
+      .from('event_renders')
+      .select('render_id, event_id, part_id, image_key, note, credits_debited, created_at, completed_at')
+      .eq('created_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (MB8) — the share-consent decisions this subject PERSONALLY made.
+    //
+    // The consent belongs to the EVENT, but the ACT of giving it is this
+    // person's: they were offered a bonus render in exchange for allowing
+    // their creations to be featured, and they answered. That answer, and when
+    // they gave or withdrew it, is exactly the kind of thing a data subject is
+    // entitled to see — and it is the only reason the table carries a uuid at
+    // all.
+    //
+    // AUTHOR-scoped, like `event_renders` above and for the same reason: an
+    // event-scoped read would disclose a consent the OTHER partner gave.
+    supabase
+      .from('event_render_share_consent')
+      .select('event_id, consented, consented_at, withdrawn_at, updated_at')
+      .eq('consented_by_user_id', user.id)
+      .order('updated_at', { ascending: true }),
+    // RA 10173 (MB16) — the standing colour access this subject HOLDS.
+    //
+    // A fact about THEM, not about the event: it says what this person, by
+    // name, may change on somebody else's Mood Board, and it persists until
+    // the couple turns it off or removes them. Somebody asking what we hold
+    // about them is entitled to see a live capability attached to their
+    // account.
+    //
+    // SUBJECT-scoped on `user_id`, not on `granted_by_user_id`: the granter is
+    // the couple, and exporting by that column would hand one partner a list
+    // of permissions the other partner gave. The vendor half
+    // (`event_colour_grants`) is deliberately NOT here — see its
+    // DELIBERATE_EXCLUSIONS entry in export-coverage-guardrail.test.ts.
+    supabase
+      .from('event_colour_grants_coordinator')
+      .select('event_id, domain, is_active, granted_at, revoked_at, updated_at')
+      .eq('user_id', user.id)
+      .order('granted_at', { ascending: true }),
+    // RA 10173 (MB16) — the colours this subject CHANGED on somebody's board.
+    //
+    // Their own activity record, and the only one of the three MB16 tables
+    // that is unambiguously about the actor. AUTHOR-scoped for the same reason
+    // `event_renders` above is: an event-scoped read would disclose what the
+    // OTHER holders on that board did.
+    //
+    // `reverted_at` is included because it is part of the same fact — "I made
+    // this change and the couple put it back" is the record, and giving them
+    // half of it would be a more misleading answer than giving them none.
+    supabase
+      .from('event_colour_changes')
+      .select(
+        'change_id, event_id, domain, target_kind, target_key, target_index, old_value, new_value, created_at, reverted_at',
+      )
+      .eq('actor_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-09-11) — THE COUPLE'S OWN PAYMENT LEDGER: every payment
+    // they logged against a supplier, on the events they own. Couple-grain,
+    // exactly like the birth data above, and on the SESSION client: the
+    // ledger's couple read policy (current_couple_event_ids) returns precisely
+    // these rows, so RLS and completeness agree and no bypass is needed. The
+    // explicit .in('event_id', …) is defence in depth. Other people's account
+    // ids (the supplier's staff, the admin who ruled) are not in the projection
+    // — see LEDGER_EXPORT_OMITTED.
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase
+        .from('event_vendor_payments')
+        .select(LEDGER_EXPORT_PROJECTION)
+        .in('event_id', owned.ids)
+        .order('paid_at', { ascending: true });
+    })(),
+    // …and WHOM each payment went to: the booking's supplier name and category,
+    // for the same couple events. A narrow read — the rest of the booking is
+    // not this section's business.
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase.from('event_vendors').select(LEDGER_SUPPLIER_PROJECTION).in('event_id', owned.ids);
+    })(),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -543,6 +732,7 @@ export async function GET() {
   const samahanMessages = listOutcome('samahan_messages', samahanMessagesRes);
   const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
   const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
+  const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
@@ -559,6 +749,36 @@ export async function GET() {
   const eventRemovalReasons = listOutcome(
     'event_removals_asked_for',
     eventRemovalReasonsRes,
+  );
+  const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
+  const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
+  const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
+  const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
+  const ownColourGrants = listOutcome('own_colour_access_held', ownColourGrantsRes);
+  const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
+  const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
+  const ledgerSuppliers = listOutcome<LedgerSupplierRow>('payment_ledger_suppliers', ledgerSuppliersRes);
+
+  // Receipt links for the ledger: presigned from the payment-proof folder of the
+  // row's OWN event (the only folder its writer accepts), with the expiry the
+  // file states beside each link. A link that cannot be made keeps the durable
+  // key in the row and says so — never a silent null.
+  const receiptLinks = new Map<string, ReceiptLink>();
+  const receiptExpiresAt = new Date(Date.now() + RECEIPT_LINK_TTL_SECONDS * 1000).toISOString();
+  await Promise.all(
+    ledger.rows.map(async (row) => {
+      const key = typeof row.proof_r2_key === 'string' ? row.proof_r2_key : null;
+      const eventId = typeof row.event_id === 'string' ? row.event_id : null;
+      if (!key || !eventId || typeof row.payment_id !== 'string') return;
+      try {
+        const url = await displayUrlForPrivateStoredAsset(key, budgetPaymentProofPolicy(eventId), {
+          ttlSeconds: RECEIPT_LINK_TTL_SECONDS,
+        });
+        if (url) receiptLinks.set(row.payment_id, { url, expiresAt: receiptExpiresAt });
+      } catch {
+        // Left out of the map: shapeLedgerRows notes it on the row.
+      }
+    }),
   );
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
@@ -628,6 +848,12 @@ export async function GET() {
     broadcastsSent,
     dayRequests,
     accessRequests,
+    ownCosts,
+    ownRenders,
+    ownColourGrants,
+    ownColourChanges,
+    ledger,
+    ledgerSuppliers,
   ]);
 
   const exported = {
@@ -698,6 +924,7 @@ export async function GET() {
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
     coordinator_access_consents: coordinatorConsents.rows,
     marketing_share_consents: marketingShareConsents.rows,
+    papic_free_grant_claims: papicFreeGrantClaims.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
@@ -711,6 +938,28 @@ export async function GET() {
     // the moderator record).
     event_access_requests_made: accessRequests.rows,
     event_removals_asked_for: eventRemovalReasons.rows,
+    // The costs the subject recorded themselves — author-scoped, so a shared
+    // wedding budget never hands one partner the other's entries.
+    own_costs_recorded: ownCosts.rows,
+    // The mood-board renders the subject asked for, author-scoped. The prompt
+    // and the design snapshot are the shared board's, not this person's.
+    own_renders_requested: ownRenders.rows,
+    // The "let Setnayan feature your creation" answers this subject gave, with
+    // the dates they gave or withdrew them. See the read above.
+    own_share_consents_given: ownShareConsents.rows,
+    // The standing colour access this subject HOLDS on other people's mood
+    // boards — a live capability attached to their account, subject-scoped.
+    own_colour_access_held: ownColourGrants.rows,
+    // The colours this subject changed under that access, and whether the
+    // couple put each one back. Author-scoped.
+    own_colour_changes_made: ownColourChanges.rows,
+    // The years the subject grouped their own celebrations into, owner-scoped.
+    years_you_grouped: eventClusters.rows,
+    // RA 10173 (2026-09-11) — the payments this couple logged on events they
+    // own, each naming the supplier it was paid to. See lib/export-payment-ledger.
+    payment_ledger: shapeLedgerRows(ledger.rows, ledgerSuppliers.rows, receiptLinks),
+    payment_ledger_note:
+      'Every payment you logged against a supplier on an event you own, with the supplier’s confirmation, any “it never reached me” and Setnayan’s ruling. receipt_link is presigned and stops working at receipt_link_expires_at; the durable record of each receipt is proof_r2_key.',
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/
@@ -722,6 +971,7 @@ export async function GET() {
       'face_vector embeddings (biometric raw data — metadata only is exported)',
       'active alaga claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
+      'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
       // Anything that failed or went unread on THIS run, named. Empty on a
       // clean export; `export_complete` above is the machine-readable twin.
       ...incompleteSections,

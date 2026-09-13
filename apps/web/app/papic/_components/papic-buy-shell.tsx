@@ -80,18 +80,19 @@ export function PapicBuyShell({
   /** The confirmation wait, resolved server-side so the promise and the admin
    *  queue's ordering come off one function (lib/papic-buy-urgency.ts). */
   wait: BuyWait;
-  /** Spec § 7b's reversal half — what this camera currently holds and could
-   *  still give back. Null when there is no camera of the caller's own, or
-   *  nothing was ever kept. DISPLAY ONLY, same posture as every other number
-   *  on this panel: the action re-derives it at the moment it writes. */
+  /** Spec § 7b's reversal half — what this camera holds and what its guest
+   *  could still give back. `releasable` is READ from the database, never
+   *  computed here (see lib/papic-guest-buy.ts). Null when the caller has no
+   *  camera of their own. DISPLAY ONLY: the action re-derives it at the moment
+   *  it writes, under the RPC's row lock. */
   standing?: DedicatedShotsStanding | null;
-  /** `?papic_release=N` from a just-completed release. */
+  /** `?papic_release=N` from a just-completed release — N is what the DATABASE
+   *  reported moving, not what this page predicted. */
   released?: string | null;
 }) {
   const releasedAmount = Number(released);
-  const [open, setOpen] = useState<boolean>(
-    Boolean(error) || (Number.isFinite(releasedAmount) && releasedAmount > 0),
-  );
+  const justReleased = Number.isFinite(releasedAmount) && releasedAmount > 0;
+  const [open, setOpen] = useState<boolean>(Boolean(error) || justReleased);
   // Only ever auto-open ONCE. A camera that keeps refusing shots would
   // otherwise re-open this over the viewfinder every time they pressed the
   // shutter, which turns a helpful offer into a thing to fight with.
@@ -119,9 +120,7 @@ export function PapicBuyShell({
   // a just-completed release still has something for the button/banner below,
   // even on a day every rung happens to be off sale.
   const hasReleaseOffer = Boolean(standing && standing.releasable > 0);
-  if (offers.length === 0 && !hasReleaseOffer && !(Number.isFinite(releasedAmount) && releasedAmount > 0)) {
-    return null;
-  }
+  if (offers.length === 0 && !hasReleaseOffer && !justReleased) return null;
 
   const pool = offers.filter((o) => o.kind === 'pool_topup');
   const one = offers.filter((o) => o.kind === 'one_reload');
@@ -174,7 +173,7 @@ export function PapicBuyShell({
               </p>
             ) : null}
 
-            {!error && Number.isFinite(releasedAmount) && releasedAmount > 0 ? (
+            {!error && justReleased ? (
               <p
                 role="status"
                 className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700"
@@ -275,15 +274,24 @@ function OfferForm({
 
 /**
  * Spec § 7b's reversal half: "add them to the celebration", for credits she
- * already chose to keep. One button, no amount to type — see
- * lib/papic-guest-buy.ts's resolveGuestRelease for why there is nothing to
- * choose but whether.
+ * already chose to keep.
+ *
+ * ONE BUTTON, NO AMOUNT TO TYPE — and no amount posted either. The form carries
+ * only where to come back to and, on a seat camera, the claim token; the figure
+ * is derived by `papic_release_seat_grants` under its own row lock. See
+ * app/papic/buy/actions.ts for why that matters more here than it looks.
  *
  * TWO-STEP ON PURPOSE. This moves real money out of a place only she could
- * reach it, and it cannot be undone — 7b's own line, "what can never come
- * back is what the camera already shot", says the irreversibility part must
- * reach her BEFORE she confirms, not in a toast after. A single button would
- * make her only warning the moment it is already too late to read it.
+ * reach it and it cannot be undone — 7b's own line, "what can never come back
+ * is what the camera already shot", says the irreversibility has to reach her
+ * BEFORE she commits, not in a toast afterwards. A single button would make her
+ * only warning the moment it is already too late to read it.
+ *
+ * ⚠ THE COPY SAYS "of what you bought", not "of what is on this camera". Those
+ * differ whenever the couple has also handed this camera credits: that is the
+ * couple's money, she cannot give it away, and `releasable` is already smaller
+ * than `dedicated - spent` in that case. Wording it the other way would promise
+ * a number the button does not move.
  */
 function ReleaseSection({
   standing,
@@ -295,23 +303,22 @@ function ReleaseSection({
   returnTo: string;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const n = (v: number) => v.toLocaleString('en-PH');
 
   return (
     <section className="mt-5 space-y-2 rounded-xl border border-ink/10 bg-ink/[0.02] p-3">
       <p className="sn-eye">Change your mind?</p>
       <p className="text-xs text-ink/60">
-        You&rsquo;ve kept {standing.dedicated.toLocaleString('en-PH')} credits for this camera —{' '}
-        {standing.spent.toLocaleString('en-PH')} already shot,{' '}
-        {standing.releasable.toLocaleString('en-PH')} still unused.
+        This camera holds {n(standing.dedicated)} credits — {n(standing.spent)} already shot.
+        You can give {n(standing.releasable)} of what you bought to the celebration.
       </p>
 
       {confirming ? (
         <div className="space-y-2 rounded-lg border border-terracotta/40 bg-terracotta/5 p-3">
           <p className="text-xs text-ink/80">
-            The {standing.spent.toLocaleString('en-PH')} you&rsquo;ve already shot stay yours —
-            those can never come back. This moves the other{' '}
-            {standing.releasable.toLocaleString('en-PH')} into the shared pool for everyone, and
-            that part cannot be undone either.
+            The {n(standing.spent)} you&rsquo;ve already shot stay yours — those can never come
+            back. This moves {n(standing.releasable)} into the shared pool for everyone, and that
+            part cannot be undone either.
           </p>
           <div className="flex gap-2">
             <form action={releaseGuestDedicatedShots}>
@@ -321,7 +328,7 @@ function ReleaseSection({
                 type="submit"
                 className="rounded-lg bg-mulberry px-3 py-2 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
               >
-                Give {standing.releasable.toLocaleString('en-PH')} to the celebration
+                Give {n(standing.releasable)} to the celebration
               </button>
             </form>
             <button
@@ -339,7 +346,7 @@ function ReleaseSection({
           onClick={() => setConfirming(true)}
           className="w-full rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5"
         >
-          Give the unused {standing.releasable.toLocaleString('en-PH')} to the celebration
+          Give the unused {n(standing.releasable)} to the celebration
         </button>
       )}
     </section>

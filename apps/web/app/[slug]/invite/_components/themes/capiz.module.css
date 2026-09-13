@@ -1,0 +1,134 @@
+/*
+ * CAPIZ — the Elegant invite theme (Event Hub Pro · lib/invite-themes.ts).
+ *
+ * A capiz-shell window lit by the couple's own reveal background; their mark as
+ * the seal on the card's threshold; a gold hairline as the hinge between the
+ * invitation above and the door below. Design: "Five Invite Doors" (Capiz v3).
+ *
+ * Imported ONLY by the invite routes (via app/[slug]/invite/_components/themes), never by
+ * DoorShell — so no theme reaches the shared chunk.
+ *
+ * 🎨 The couple's colour (`--accent`) is LIGHT and ORNAMENT: pane tints, the pool
+ * of light around the seal, the seal's ring and letters (aria-hidden — the title
+ * beside it is the text). The card's edge and its one action stay DoorShell's.
+ * Gold (#C5A059, 3.37:1 on paper) is a hairline and a ring here, never a word.
+ */
+.capiz {
+  --cz-pearl: #f4f1eb;
+  --cz-milk: 250 247 240;
+  --cz-gold: #c5a059;
+  --cz-mullion: rgba(44, 42, 41, 0.12);
+  --cz-frame: rgba(44, 42, 41, 0.2);
+  /* neutral pearl fallbacks where color-mix is unavailable */
+  --cz-pane-a: rgba(120, 110, 100, 0.04);
+  --cz-pane-b: rgba(120, 110, 100, 0.07);
+  --cz-pane-c: rgba(120, 110, 100, 0.03);
+  --cz-light: rgba(120, 110, 100, 0.18);
+  background: var(--cz-pearl);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  .capiz {
+    --cz-pane-a: color-mix(in srgb, var(--accent) 6%, transparent);
+    --cz-pane-b: color-mix(in srgb, var(--accent) 11%, transparent);
+    --cz-pane-c: color-mix(in srgb, var(--accent) 4%, transparent);
+    --cz-light: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+/* The couple's photo, a touch desaturated, as light through shell is. */
+.photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: saturate(0.85);
+}
+
+/* The lattice and the milk. The milk is heaviest at the crown, where the
+   wordmark sits on the ground: 70% milk holds ink at 4.5:1 over a black photo,
+   through the frame lines (measured in the design, Capiz v3). */
+.shell {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 190px, var(--cz-light) 0, transparent 42%),
+    repeating-linear-gradient(90deg, var(--cz-frame) 0 2px, transparent 2px 108px),
+    repeating-linear-gradient(0deg, var(--cz-frame) 0 2px, transparent 2px 108px),
+    repeating-linear-gradient(90deg, var(--cz-mullion) 0 1px, transparent 1px 27px),
+    repeating-linear-gradient(0deg, var(--cz-mullion) 0 1px, transparent 1px 27px),
+    radial-gradient(ellipse at 42% 30%, rgba(255, 255, 255, 0.55) 0, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0) 78%),
+    repeating-conic-gradient(var(--cz-pane-b) 0 25%, transparent 0 50%),
+    repeating-conic-gradient(var(--cz-pane-c) 0 25%, transparent 0 50%),
+    linear-gradient(var(--cz-pane-a), var(--cz-pane-a)),
+    linear-gradient(
+      180deg,
+      rgb(var(--cz-milk) / 0.7) 0,
+      rgb(var(--cz-milk) / 0.66) 84px,
+      rgb(var(--cz-milk) / 0.4) 200px,
+      rgb(var(--cz-milk) / 0.4) 520px,
+      rgb(var(--cz-milk) / 0.58) 100%
+    );
+  background-size: auto, auto, auto, auto, auto, auto, 54px 54px, 108px 108px, auto, auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 27px 27px, 0 0, 0 0;
+}
+
+/* The seal straddles the card's 3px edge; the crest reserves room beneath it. */
+.crest {
+  position: relative;
+  height: 1.75rem;
+}
+.seal {
+  position: absolute;
+  left: 50%;
+  /* card padding (p-6) + half the seal, so it sits ON the edge */
+  top: calc(-1.5rem - 33px);
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px #fff,
+    0 0 0 5px var(--cz-gold),
+    0 10px 22px -12px rgba(44, 42, 41, 0.45);
+  color: var(--accent);
+  font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .seal {
+    top: calc(-2rem - 33px); /* sm:p-8 */
+  }
+}
+
+/* Above the hinge the card reads as a printed invitation — centred. */
+.capiz :global(header) {
+  text-align: center;
+}
+
+/* The one gold ornament: a hairline with a diamond. */
+.hinge {
+  position: relative;
+  width: 44px;
+  height: 1px;
+  margin: 1rem auto 0;
+  background: var(--cz-gold);
+}
+.hinge::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: #fff;
+  border: 1px solid var(--cz-gold);
+}

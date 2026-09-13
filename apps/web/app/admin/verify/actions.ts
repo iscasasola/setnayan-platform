@@ -14,7 +14,12 @@ import {
   type VerificationState,
 } from '@/lib/vendor-verification';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
+import { R2_BUCKETS, r2SignedGet } from '@/lib/r2';
+import { contentDispositionAttachment } from '@/lib/content-disposition';
+import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
+import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
@@ -122,6 +127,20 @@ async function transitionVendorVisibility(opts: {
   const toState: VerificationState = shouldVerify ? 'verified' : fromState;
   const stateChanges = shouldVerify && toState !== fromState;
 
+  // 🔴 THIS IS THE ONE-CLICK THAT HAS GRANTED EVERY BADGE PRODUCTION HAS EVER
+  // ISSUED, AND IT NEVER READ A DOCUMENT. Measured 2026-09-09: prod holds two
+  // shops, both `verified`, both with every identity column NULL, one
+  // `vendor_visibility_change` row whose timestamp matches a shop's
+  // `last_verified_at` to the tenth of a second — and the only verification
+  // application ever created is still a draft with two empty slots. So this
+  // path, not the applications queue, is the real front door, and until now it
+  // recorded nothing about what anybody had looked at.
+  //
+  // ⚖ It still does not REFUSE. That is the owner's ruling to make and he has
+  // not made it; what the desk owes him meanwhile is a record.
+  const evidence = shouldVerify
+    ? await verificationEvidenceSnapshot(opts.vendorProfileId)
+    : null;
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'vendor_visibility_change',
     target_table: 'vendor_profiles',
@@ -136,6 +155,7 @@ async function transitionVendorVisibility(opts: {
     },
     reason: opts.reason ?? null,
     actor_user_id: opts.actor.user_id,
+    ...(evidence ? { metadata: { evidence_at_grant: evidence } } : {}),
   });
   if (auditErr) return { ok: false, error: `audit log failed: ${auditErr.message}` };
 
@@ -308,6 +328,13 @@ type ApplicationDecisionInput = {
   applicationId: string;
   decision: 'approved' | 'rejected' | 'demoted' | 'set_in_review';
   reason: string | null;
+  /**
+   * Approve only: the Mayor's Permit's printed "valid until", as the badge
+   * deadline (end of that day, Manila) — already validated by
+   * `permitDeadlineFrom`. Null = none recorded → the one-year renewal the
+   * approval has always written.
+   */
+  permitDeadlineIso?: string | null;
 };
 
 export async function applyApplicationDecision(
@@ -357,11 +384,14 @@ export async function applyApplicationDecision(
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';
-      const renewalDue = new Date(now);
-      renewalDue.setUTCFullYear(renewalDue.getUTCFullYear() + 1);
+      // 🔑 THE BADGE'S DEADLINE (owner 2026-09-11 · Q5): the Mayor's Permit's
+      // own printed date when the reviewer recorded it, so the reminder lands
+      // 60 days before THAT and the badge comes off the day it runs out. The
+      // one-year renewal stays as the fallback, byte-for-byte what this wrote
+      // before. The shop's listing and bookability never read this column.
       approveSideEffects = {
         last_verified_at: now,
-        next_renewal_due_at: renewalDue.toISOString(),
+        next_renewal_due_at: deadlineAtApproval(new Date(now), input.permitDeadlineIso ?? null),
         public_visibility: 'verified',
       };
       break;
@@ -434,6 +464,19 @@ export async function applyApplicationDecision(
     if (vendorUpdErr) return { ok: false, error: vendorUpdErr.message };
   }
 
+  // ---- Step 2b: papers approved → a vouch's papers deadline is met. ----
+  // The deadline that matters now is the permit's (written above). Clearing the
+  // vouch row's own `expires_at` stops the desk counting down a bridge the shop
+  // has already crossed. Best-effort: most shops were never vouched for, and
+  // the badge reads `next_renewal_due_at`, not this row.
+  if (input.decision === 'approved') {
+    await admin
+      .from('vendor_verification_bypasses')
+      .update({ expires_at: null, updated_at: now })
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .not('expires_at', 'is', null);
+  }
+
   // ---- Step 3: vendor_tier_history audit row. ----
   if (toState !== fromState) {
     const { error: historyErr } = await admin
@@ -463,6 +506,16 @@ export async function applyApplicationDecision(
         : input.decision === 'demoted'
           ? 'vendor_verification_demoted'
           : 'vendor_verification_set_in_review';
+  // 🔑 WHAT THE CHECKS SAID AT PRESS TIME, RECORDED WITH THE GRANT.
+  // This does NOT refuse — offered "refuse with an override" the owner did not
+  // take it (2026-09-09), he answered with the automation. What changes is that
+  // six months from now the row says whether anybody had checked anything.
+  // Measured the day this shipped: both live shops carry the badge and NOTHING
+  // anywhere records what was looked at, because nothing was.
+  const evidence =
+    input.decision === 'approved'
+      ? await verificationEvidenceSnapshot(vendor.vendor_profile_id)
+      : null;
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: auditAction,
     target_table: 'vendor_verification_applications',
@@ -477,6 +530,15 @@ export async function applyApplicationDecision(
     },
     reason: input.reason,
     actor_user_id: input.actor.user_id,
+    ...(evidence
+      ? {
+          metadata: {
+            evidence_at_grant: evidence,
+            badge_deadline: approveSideEffects.next_renewal_due_at ?? null,
+            badge_deadline_source: input.permitDeadlineIso ? 'mayors_permit' : 'one_year_renewal',
+          },
+        }
+      : {}),
   });
   if (auditErr) return { ok: false, error: auditErr.message };
 
@@ -505,11 +567,27 @@ export async function approveApplication(formData: FormData) {
   const applicationId = readFormString(formData, 'application_id');
   if (!applicationId) throw new Error('Missing application_id.');
 
+  // The Mayor's Permit's printed "valid until", read off the paper by the
+  // reviewer. Blank = not recorded (the one-year renewal applies); anything
+  // else must be a real, current date — a permit that has already run out, or
+  // one "valid" for years, is a misread, and approving on it would start the
+  // badge's clock from a wrong day.
+  const permitRaw = readFormString(formData, 'permit_valid_until');
+  let permitDeadlineIso: string | null = null;
+  if (permitRaw) {
+    const parsed = permitDeadlineFrom(permitRaw);
+    if (!parsed.ok) {
+      redirect(`/admin/verify?error=${encodeURIComponent(parsed.error)}`);
+    }
+    permitDeadlineIso = parsed.deadlineIso;
+  }
+
   const result = await applyApplicationDecision({
     actor,
     applicationId,
     decision: 'approved',
     reason: readFormString(formData, 'reason') || null,
+    permitDeadlineIso,
   });
   if (!result.ok) {
     redirect(`/admin/verify?error=${encodeURIComponent(result.error)}`);
@@ -947,4 +1025,128 @@ export async function saveManualDossierAction(formData: FormData) {
 
   revalidatePath('/admin/verify');
   redirect('/admin/verify?deep_search=1');
+}
+
+// ---------------------------------------------------------------------------
+// PART D — the reviewer can open the paper
+//
+// 🔴 UNTIL THIS SHIPPED, NOBODY COULD OPEN A SINGLE DOCUMENT FROM THIS QUEUE.
+// The checklist drawer showed a green tick per slot and nothing else; the only
+// place in the whole product that opened a verification file was
+// /admin/verification-docs, a STORAGE-HYGIENE page listing raw R2 keys with no
+// idea which application they belong to. So an automated mismatch report that
+// escalates to a human escalated to nowhere: the human it woke up could read
+// the finding and not the paper it was about.
+//
+// 🔑 NOTHING NEW IS INVENTED HERE. `r2SignedGet` + `contentDispositionAttachment`
+// are exactly what `viewVerificationDoc` already uses on that page, including
+// the 120-second life and the `attachment` disposition — a browser that renders
+// a JPEG inline turns "check what this is" into "a government ID is now in the
+// tab history".
+//
+// ⚠ AND THE KEY IS RE-DERIVED FROM THE APPLICATION, NOT TRUSTED FROM THE FORM.
+// The hygiene page gates on `is_internal`; THIS queue admits `is_internal ||
+// is_team_member || account_type = 'admin'`, a strictly wider room. Handing the
+// wider room a reader that opens any key in the government-ID bucket would be a
+// silent widening of who can read a stranger's passport. Binding the key to the
+// application under review keeps the reach exactly "the documents on the
+// application in front of you".
+// ---------------------------------------------------------------------------
+
+/**
+ * Every R2 key one `doc_uploads` slot carries, in whatever shape it was written
+ * (a single `{ r2_key }`, or the portfolio's ARRAY of them).
+ *
+ * Local to this file on purpose: `lib/verification-checks-server.ts` imports
+ * `server-only`, which resolves through Next's bundler alias and NOT through
+ * node — importing it here would be fine, but the duplicate is four lines and
+ * keeps this action independent of the checks module's build constraints.
+ */
+function keysInSlotValue(value: unknown): string[] {
+  const out: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v === 'string' && v.trim()) out.push(v.trim());
+  };
+  if (value == null) return out;
+  if (Array.isArray(value)) {
+    for (const item of value) push((item as { r2_key?: unknown })?.r2_key);
+    return out;
+  }
+  if (typeof value === 'object') push((value as { r2_key?: unknown }).r2_key);
+  return out;
+}
+
+export async function openApplicationDocument(formData: FormData) {
+  await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const slotKey = readFormString(formData, 'slot_key');
+  const requestedKey = readFormString(formData, 'r2_key');
+  if (!applicationId || !slotKey || !requestedKey) {
+    redirect('/admin/verify?error=Missing+document+reference');
+  }
+
+  const admin = createAdminClient();
+  const { data: app, error } = await admin
+    .from('vendor_verification_applications')
+    .select('application_id, vendor_profile_id, doc_uploads')
+    .eq('application_id', applicationId)
+    .maybeSingle();
+  // ⚠ Supabase RESOLVES with { error } — a refused read arrives as data:null and
+  // would otherwise read exactly like "no such application".
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+  if (!app) {
+    redirect('/admin/verify?error=Application+not+found');
+  }
+
+  const uploads = (app.doc_uploads ?? {}) as Record<string, unknown>;
+  const allowed = keysInSlotValue(uploads[slotKey]);
+  if (!allowed.includes(requestedKey)) {
+    redirect('/admin/verify?error=That+document+is+not+on+this+application');
+  }
+
+  // 🔑 THE BUCKET COMES OUT OF THE STORED REFERENCE, NEVER FROM A CONSTANT.
+  // `doc_uploads` holds `r2://bucket/key`, and the vendor-side writer accepts
+  // TWO buckets — the private verification one for the four documents, the
+  // PUBLIC media one for portfolio samples. Signing a hardcoded bucket with the
+  // whole `r2://…` string as the key mints a perfectly valid link to an object
+  // that does not exist: the reviewer presses Open, gets nothing, and blames
+  // the browser.
+  const where = resolveDocumentLocation(
+    requestedKey,
+    Object.values(R2_BUCKETS),
+    R2_BUCKETS.vendorVerification,
+  );
+  if (where.kind !== 'r2') {
+    redirect('/admin/verify?error=That+document+is+not+a+file+we+hold');
+  }
+
+  // ⚠ AND THE FILE MUST BE FILED UNDER THIS SHOP.
+  // Both vendor-side writers pin an `r2://…` ref to the vendor's own two
+  // folders — and both let a BARE value through unvalidated (`!ref.startsWith
+  // ('r2://')`), which their own SEC-1 comments call write pollution. So a
+  // stored bare key can name ANOTHER shop's folder. The desk's tenancy check
+  // reports that as a mismatch; this refuses to hand the file over as well,
+  // because an application approved on the strength of somebody else's
+  // paperwork is the harm, not the download.
+  //
+  // 🔑 Refuses only on a PARSED and DIFFERENT owner — never on an unparsed one.
+  // A portfolio key is `vendors/<id>/portfolio/…`, a shape this deliberately
+  // still places; a path shape we do not recognise at all yields no id, and
+  // refusing on "we could not tell" would break every legitimate future layout.
+  const keyOwner = /^vendors\/([^/]+)\//.exec(where.key)?.[1] ?? null;
+  if (keyOwner !== null && keyOwner !== app.vendor_profile_id) {
+    redirect('/admin/verify?error=That+file+is+filed+under+a+different+shop');
+  }
+
+  const url = await r2SignedGet({
+    bucket: where.bucket as (typeof R2_BUCKETS)[keyof typeof R2_BUCKETS],
+    key: where.key,
+    expiresIn: 120,
+    responseContentDisposition: contentDispositionAttachment(
+      where.key.split('/').pop() || `${slotKey}`,
+    ),
+  });
+  redirect(url);
 }

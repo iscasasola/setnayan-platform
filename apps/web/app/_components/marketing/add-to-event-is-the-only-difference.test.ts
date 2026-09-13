@@ -113,10 +113,59 @@ test('every doorway that sells an addable service passes its key', () => {
     Every OTHER doorway still carries its key, which is what the assertion below
     is really protecting: this is one named exception, not a weakened rule.
   */
+  /*
+    ⚠ `pa3d` LEFT THIS LIST ON 2026-09-02 — the SECOND real removal, recorded
+    here for the same reason the first was, because it narrows an owner ruling.
+
+    Owner: *"i don't think we need this"*, of the closing CTA block. That was
+    the page's only button, so — exactly as with Papic on 2026-08-29 — there is
+    no primary CTA left for `studioKey` to swap, and a control that governs
+    nothing must not render.
+
+    WHAT IT COSTS, stated plainly: a signed-in couple loses the *Add to an
+    event* shortcut FROM THIS PAGE. It is a shortcut, not the capability — 3D
+    Plan is reached from the Studio inside the celebration itself. If the owner
+    wants that one button back, it is the only button this page would carry.
+
+    The two pages that left are the two that hand the product over on the page
+    (`<PapicScan/>`, `<Pa3dRoom/>`); every page that can only DESCRIBE its
+    product still carries its key, which is what the assertion below protects.
+  */
   const expected = [
-    'panood', 'pawebsite', 'pa3d', 'palogo', 'setnayan-ai', 'patiktok',
+    'panood', 'pawebsite', 'palogo', 'setnayan-ai', 'patiktok',
     // The song — public page added 2026-08-21 so it could join the Studio rail.
     'pakanta',
+    /*
+      The mood board — public page added 2026-09-03 so it could join the Studio
+      rail (owner: *"i do not see it"*).
+
+      🔑 IT CARRIES A KEY EVEN THOUGH IT IS FREE, and the reason is in
+      `add-to-event-data.ts`'s own docblock: *"NOTHING IS WRITTEN … the button
+      is navigation."* The picker resolves `addOnHref`, so for a signed-in
+      couple it is the shortest route from this page to their own board. Without
+      the key the page's only button is "Start planning · free", which points a
+      person who ALREADY has a wedding at the onboarding flow — the exact
+      dead-end the 2026-08-21 ruling existed to remove.
+    */
+    'mood-board',
+    /*
+      The three free planning tools — public pages added 2026-09-05 so they
+      could join the Studio rail (owner: *"Also add the other services.
+      Marketplace to search for vendors with compare, Guestlist, Seatplan"*).
+      Same reasoning as the Mood Board: each carries a key so a signed-in
+      couple's button on the page is a door to THEIR tool, not the onboarding
+      dead-end. The guest list and the marketplace resolve through
+      `StudioApp.eventHref` (no catalogue add-on to go through); the seat plan
+      keeps `seating`.
+    */
+    'marketplace',
+    'guest-list',
+    'seat-plan',
+    // The last two free workspace tools, 2026-09-06 (owner: "add these").
+    'budget',
+    'schedule',
+    // Samahan's doorway, 2026-09-06 — a Together row, not a Studio one.
+    'samahan',
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

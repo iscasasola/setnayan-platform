@@ -85,7 +85,13 @@ export default async function PersonalizationPage({
         'celebrant_shape, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
         'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
+        // TWO venues, not one (owner 2026-09-03): venue_setting is the
+        // RECEPTION, ceremony_venue_setting is where they marry. Read through
+        // events_host, which migration 20271197508087 rebuilt to project the
+        // new column — without that rebuild this select would name a phantom
+        // column and throw, killing the whole Personalization page.
         'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
+        'ceremony_venue_setting, ' +
         'guest_list_edit_deadline, adaptive_pricing_mode, ' +
         'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed, ' +
         // PR-G — opt-in BaZi birth-data (Chinese weddings). Read back only here,
@@ -150,6 +156,7 @@ export default async function PersonalizationPage({
   const ceremonyType = str('ceremony_type');
   const secondaryCeremony = str('secondary_ceremony_type');
   const venueSetting = str('venue_setting');
+  const ceremonyVenueSetting = str('ceremony_venue_setting');
   const pax = num('estimated_pax');
   // Adaptive Pax Pricing couple settings (Phase 8).
   const editDeadline = str('guest_list_edit_deadline');
@@ -258,6 +265,7 @@ export default async function PersonalizationPage({
           ceremony={ceremonyType}
           secondaryCeremony={secondaryCeremony}
           venue={venueSetting}
+          ceremonyVenue={ceremonyVenueSetting}
           pax={pax}
           dateDisplay={dateDoc}
           dateValue={dateValue}

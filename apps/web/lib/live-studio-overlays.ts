@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { safeMonogramSvg } from './monogram-svg-safe';
+import { bespokeSvgToDataUri } from './bespoke-monogram-shared';
 
 /**
  * apps/web/lib/live-studio-overlays.ts
@@ -23,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *    our own distribution. It is the one overlay a free host gets.
  *
  * 2. "POWERED BY SETNAYAN" IS PERMANENT ON THE FREE TIER. Every free stream
- *    carries it as its lower third; the ₱2,999 unlock REPLACES it with the couple's
+ *    carries it as its lower third; the ₱3,000 unlock REPLACES it with the couple's
  *    own. It is therefore **derived from the entitlement, never stored as a row** —
  *    if it were a row a free host could switch it off, and `resolveOverlays` would
  *    have to trust their setting. Here the free branch simply never consults
@@ -171,7 +173,21 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
  * neither can invent a layer the other doesn't know about.
  */
 export type ResolvedOverlays = {
-  monogram: { text: string; position: MonogramPosition } | null;
+  monogram: {
+    text: string;
+    position: MonogramPosition;
+    /**
+     * The couple's own custom monogram mark (Monogram Studio / Bespoke AI /
+     * uploaded), as an inert `data:image/svg+xml` URI — same read-time gate
+     * (`safeMonogramSvg`) and rendering technique (`bespokeSvgToDataUri`) as
+     * every other surface that draws this mark (EventMonogram chrome badge,
+     * the public hero). `null` means the couple hasn't made one, and the
+     * caller draws the derived-initials text bug that shipped before this
+     * mark existed — a broadcast must never lose its monogram to a lookup
+     * miss, so this is additive, never a replacement precondition.
+     */
+    markDataUri: string | null;
+  } | null;
   lowerThird: {
     title: string;
     subtitle: string | null;
@@ -199,6 +215,15 @@ export function resolveOverlays(input: {
   settings: OverlaySettings;
   /** The couple's monogram text (events.monogram_text ?? deriveMonogram(name)). */
   monogramText: string | null;
+  /**
+   * The couple's real monogram mark — `resolveEventMonogramSvg(event)`
+   * (events.monogram_uploaded_svg ?? events.monogram_custom_svg), the SAME
+   * precedence the public hero resolves. Re-sanitized here via
+   * `safeMonogramSvg` regardless of the caller (SEC-3 fail-closed: every
+   * consumer of a host-writable SVG column re-checks at its own read site).
+   * Omitted / null → the bug draws the derived-initials text it always has.
+   */
+  monogramMarkSvg?: string | null;
 }): ResolvedOverlays {
   const { owned, settings, monogramText } = input;
 
@@ -218,9 +243,14 @@ export function resolveOverlays(input: {
 
   // Ⓜ monogram — paid, and only when there is actually something to draw.
   const text = monogramText?.trim() ?? '';
+  const markSvg = safeMonogramSvg(input.monogramMarkSvg ?? null);
   const monogram =
     owned && settings.monogramEnabled && text
-      ? { text, position: settings.monogramPosition }
+      ? {
+          text,
+          position: settings.monogramPosition,
+          markDataUri: markSvg ? bespokeSvgToDataUri(markSvg) : null,
+        }
       : null;
 
   // Event QR — FREE for everyone (owner-locked). The only overlay that does not

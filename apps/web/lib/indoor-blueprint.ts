@@ -96,17 +96,51 @@ export const DEFAULT_ENTRANCE: { x: number; y: number } = { x: 50, y: 96 };
 export type EntrancePos = { x: number; y: number };
 
 /**
- * Resolve the entrance marker for an event. Reads the optional
- * events.venue_entrance_x / venue_entrance_y columns (migration
- * 20260717000000) and falls back to DEFAULT_ENTRANCE when unset OR when the
- * columns don't exist yet (pre-migration database). This keeps the feature
- * fully functional the moment the gating SKU is owned, even before the
- * migration applies — the wayfinding just uses the conventional default.
+ * Resolve the entrance marker for an event — the ONE answer to "where is the
+ * door", shared with the 3D surfaces.
+ *
+ * ⚠ THIS USED TO BE A SECOND SOURCE OF TRUTH. Wayfinding read
+ * `events.venue_entrance_x/y` (written by the Indoor Blueprint studio) while
+ * the seating lab, the public venue walk, plan3d-scene and venue-decor all read
+ * `event_floor_plan.entrance_x/y` (written by the lab's floor markers). Two
+ * tables, two editors, neither writing the other — so a couple who moved the
+ * door in one place left the other pointing at the old one. They agreed only
+ * because both happened to default to bottom-centre.
+ *
+ * `event_floor_plan` is canonical: it carries `entrance_enabled`, a service
+ * entrance, and door-vs-walk-through geometry, and four surfaces already read
+ * it. Resolution order:
+ *
+ *   1. A floor-plan row with the doorway ENABLED — the couple placed a door and
+ *      the 3D room draws it there, so wayfinding points at exactly that door.
+ *   2. Otherwise the legacy `events.venue_entrance_*` columns, when set. This
+ *      is a TRANSITIONAL fallback so no existing blueprint choice is discarded
+ *      before the backfill runs; it is not a second opinion, it is the old one
+ *      still being honoured.
+ *   3. DEFAULT_ENTRANCE — the conventional bottom-centre, which is also what
+ *      every 3D surface walks in at when no doorway is enabled.
+ *
+ * Any read error (including a pre-migration database missing either column set)
+ * degrades to the conventional default rather than throwing.
  */
 export async function fetchEntrance(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EntrancePos> {
+  const { data: plan, error: planError } = await supabase
+    .from('event_floor_plan')
+    .select('entrance_enabled, entrance_x, entrance_y')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (!planError && plan?.entrance_enabled) {
+    const px = (plan as { entrance_x?: unknown }).entrance_x;
+    const py = (plan as { entrance_y?: unknown }).entrance_y;
+    if (typeof px === 'number' && typeof py === 'number') {
+      return { x: clampPct(px), y: clampPct(py) };
+    }
+  }
+
   const { data, error } = await supabase
     .from('events')
     .select('venue_entrance_x, venue_entrance_y')

@@ -59,8 +59,8 @@ export async function PapicGuestBuyPanel({
   eventId?: string | null;
   /**
    * The caller's OWN camera, if the page already resolved one — spec § 7b's
-   * "change your mind later" half. DISPLAY ONLY: this is never trusted for the
-   * release itself, which re-resolves the same seat from the credential in
+   * "change your mind later" half. DISPLAY ONLY: never trusted for the release
+   * itself, which re-resolves the same seat from the credential in
    * app/papic/buy/actions.ts. Omitted → no release offer, same as today.
    */
   ownSeatId?: string | null;
@@ -97,10 +97,9 @@ export async function PapicGuestBuyPanel({
   // line, because over-promising a wait we might not beat is the worse failure.
   const wait = buyWaitCopy(isSameDayInManila(eventDate));
 
-  // A releasable balance can survive every rung going off sale (a host may
-  // dedicate credits via the studio independent of what a guest can currently
-  // buy), so an empty catalog must not also hide a "give it to the room" a
-  // guest is otherwise entitled to see.
+  // A releasable balance can survive every rung going off sale (a guest may
+  // hold bought credits long after the ladder changes), so an empty catalog
+  // must not also hide a "give it to the celebration" she is entitled to see.
   const hasReleaseOffer = Boolean(standing && standing.releasable > 0);
   const rungs = [
     ...(canReloadOwnCamera ? guestOneRungs(oneTiers) : []),

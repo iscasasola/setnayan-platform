@@ -200,6 +200,55 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     Deliberately NOT marketing-gated, same as the four above.
   */
   'event_deletion_answered',
+  /*
+    MB12 · the per-part design handshake (2026-09-04). All five are
+    transactional and all five must reach somebody who is not in the app:
+
+      · part_finalization_requested / part_reopen_requested → the SUPPLIER, who
+        has 48 hours to answer. A supplier who is not opening the dashboard is
+        exactly who these exist for, so an in-app-only badge reaches precisely
+        the people who do not need it.
+      · part_finalization_agreed / part_finalization_declined /
+        part_reopen_answered → the COUPLE, who asked a question about their own
+        design and cannot get the answer any other way. There is no SMS in V1.
+
+    🔑 THE NOTIFICATION AND THIS LINE ARE TWO HALVES OF ONE MECHANISM. Shipping
+    the emit without the allowlist entry is indistinguishable from shipping
+    neither — that is the lesson the six lock_request_* types cost, and
+    `part-finalization-notifications.test.ts` fails if any of these five drops
+    off this set or lands in MARKETING_GATED_EMAIL_TYPES below.
+
+    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types, and a
+    48-hour fuse on a design detail is not a 2am buzz.
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES: that set suppresses
+    unless users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE — the
+    mistake that silenced all six lock_request_* types for every user.
+  */
+  'part_finalization_requested',
+  'part_finalization_agreed',
+  'part_finalization_declined',
+  'part_reopen_requested',
+  'part_reopen_answered',
+  /*
+    MB16 · a granted vendor or coordinator changed a colour (2026-09-04).
+
+    🔑 THIS ONE IS LOAD-BEARING IN A WAY THE OTHERS ARE NOT. Every other
+    handshake on this list has a screen the person is already waiting in front
+    of. This mechanism deliberately has NO per-change approval — the couple
+    grants standing access once and the holder edits freely — so the ONLY thing
+    that tells the couple their colours moved is this notification. An in-app
+    badge reaches a couple who happens to open the dashboard; a couple who does
+    not simply never learns, and "somebody changed my wedding colours" is not a
+    thing to find out on the day.
+
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES below: that set suppresses
+    unless users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE — the
+    mistake that silenced all six lock_request_* types for every user.
+    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: a colour is not a 2am buzz.
+    `colour-change-notifications.test.ts` fails if it drops off this set, lands
+    in the gated one, or stops being emitted.
+  */
+  'colour_changed_in_lane',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

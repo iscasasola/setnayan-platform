@@ -2,8 +2,19 @@ import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { settleDepositDispute } from '../actions';
+import {
+  DEPOSIT_REFUSAL_HISTORY_COLUMNS,
+  closureLabel,
+  historyByBooking,
+  rulingLine,
+  type DepositRefusalHistoryRow,
+} from '@/lib/deposit-refusal-history';
+
+/** How far back "answered by sending it again" reaches. */
+const RESENT_WINDOW_DAYS = 30;
 
 /**
  * "The downpayment never reached me" — the questions only Setnayan can answer.
@@ -54,6 +65,53 @@ export async function DepositDisputesSection() {
   // NULL, not [] — a refused read must stay distinguishable from a real zero,
   // or "nothing waiting" is what a broken query looks like.
   const rows = (data as OpenDepositDispute[] | null) ?? null;
+  // 🔒 The receipt is a PRIVATE file: a short-lived link scoped to the row's own
+  // event deposit folder, never the stored value as an href.
+  const receiptUrls = new Map<string, string>();
+  await Promise.all(
+    (rows ?? []).map(async (r) => {
+      const url = await depositProofDisplayUrl(r.deposit_proof_url, r.event_id);
+      if (url) receiptUrls.set(r.vendor_id, url);
+    }),
+  );
+
+  /*
+    THE HISTORY (FOLLOW-UPS A, 2026-09-11). A refusal that ENDS is archived by
+    the database — the couple sending it again, the supplier confirming after
+    all, a ruling, a removed booking — so a dispute that left this queue is not
+    a dispute that vanished. Two reads: the earlier refusals of each booking
+    still in dispute, and the recent ones the couple answered by re-sending
+    (which put the question back with the supplier). NULL on a failed read, as
+    above — never a confident "no history".
+  */
+  const openIds = (rows ?? []).map((r) => r.vendor_id);
+  const since = new Date(Date.now() - RESENT_WINDOW_DAYS * 86_400_000).toISOString();
+  const [earlierRes, resentRes] = await Promise.all([
+    openIds.length > 0
+      ? admin
+          .from('event_vendor_deposit_refusals')
+          .select(DEPOSIT_REFUSAL_HISTORY_COLUMNS)
+          .in('event_vendor_id', openIds)
+          .order('closed_at', { ascending: false })
+          .limit(500)
+      : Promise.resolve({ data: [], error: null }),
+    admin
+      .from('event_vendor_deposit_refusals')
+      .select(DEPOSIT_REFUSAL_HISTORY_COLUMNS)
+      .eq('closed_by', 'couple_resent')
+      .gte('closed_at', since)
+      .order('closed_at', { ascending: false })
+      .limit(100),
+  ]);
+  if (earlierRes.error) logQueryError('AdminDisputesPage (deposit refusal history)', earlierRes.error);
+  if (resentRes.error) logQueryError('AdminDisputesPage (deposit re-sends)', resentRes.error);
+  const earlierByBooking = earlierRes.error
+    ? null
+    : historyByBooking((earlierRes.data ?? []) as DepositRefusalHistoryRow[]);
+  const openSet = new Set(openIds);
+  const resent = resentRes.error
+    ? null
+    : ((resentRes.data ?? []) as DepositRefusalHistoryRow[]).filter((h) => !openSet.has(h.event_vendor_id));
 
   return (
     <section className="mt-10" aria-labelledby="deposit-disputes-heading">
@@ -94,12 +152,12 @@ export async function DepositDisputesSection() {
                 Couple recorded {peso(r.deposit_paid_php)}
                 {r.deposit_method_label ? ` via ${r.deposit_method_label}` : ''}
                 {r.deposit_recorded_at ? ` · ${relativeTime(r.deposit_recorded_at)}` : ''}
-                {r.deposit_proof_url ? (
+                {receiptUrls.get(r.vendor_id) ? (
                   <>
                     {' · '}
                     <a
                       className="underline"
-                      href={r.deposit_proof_url}
+                      href={receiptUrls.get(r.vendor_id)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -117,6 +175,27 @@ export async function DepositDisputesSection() {
               ) : (
                 <p className="mt-2 text-xs text-ink/50">The supplier gave no reason.</p>
               )}
+              {earlierByBooking === null ? (
+                <p className="mt-2 text-xs text-[color:var(--sn-warning)]">
+                  Earlier refusals on this booking could not be read.
+                </p>
+              ) : (earlierByBooking.get(r.vendor_id) ?? []).length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+                    Earlier on this booking
+                  </p>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {(earlierByBooking.get(r.vendor_id) ?? []).map((h) => (
+                      <li key={h.refusal_id} className="text-xs text-ink/70">
+                        Refused {relativeTime(h.refused_at)}
+                        {h.reason ? ` — “${h.reason}”` : ''}
+                        {rulingLine(h) ? ` · ${rulingLine(h)}` : ''} · then {closureLabel(h.closed_by)}{' '}
+                        {relativeTime(h.closed_at)}.
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               <form action={settleDepositDispute} className="mt-3 flex flex-col gap-2">
                 <input type="hidden" name="event_vendor_id" value={r.vendor_id} />
@@ -152,6 +231,38 @@ export async function DepositDisputesSection() {
           ))}
         </ul>
       )}
+
+      <div className="mt-6">
+        <h3 className="text-xs font-semibold text-ink">
+          Answered by sending it again · last {RESENT_WINDOW_DAYS} days
+        </h3>
+        <p className="mt-1 max-w-2xl text-xs text-ink/60">
+          A re-send takes a dispute off this list and puts the question back with the supplier.
+          It is kept here so it does not simply disappear.
+        </p>
+        {resent === null ? (
+          <p className="mt-2 rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]">
+            This list could not be read — it is not known whether any dispute was answered by a
+            re-send.
+          </p>
+        ) : resent.length === 0 ? (
+          <p className="mt-2 rounded-lg bg-ink/[0.03] px-4 py-3 text-xs text-ink/60">
+            No downpayment was sent again after a refusal in this window.
+          </p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-2">
+            {resent.map((h) => (
+              <li key={h.refusal_id} className="rounded-lg border border-ink/10 bg-white px-3 py-2 text-xs text-ink/75">
+                <span className="font-medium text-ink">{h.vendor_name?.trim() || 'Unnamed supplier'}</span>
+                {' · '}refused {relativeTime(h.refused_at)}
+                {h.reason ? ` — “${h.reason}”` : ''}
+                {rulingLine(h) ? ` · ${rulingLine(h)}` : ''} · the couple sent it again{' '}
+                {relativeTime(h.closed_at)}.
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

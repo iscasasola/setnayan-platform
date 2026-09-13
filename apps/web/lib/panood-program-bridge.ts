@@ -154,6 +154,18 @@ export function resolveProgramBridge(): ProgramBridge | BridgeFailure {
   }
 }
 
+/**
+ * Same-window side (S1 · the encoder's program canvas): resolve the bridge THIS window
+ * installed. The canvas runs beside the controller on the controller's own page, so unlike
+ * the pop-out it never looks through `window.opener`. Returns `'no-bridge'` while the
+ * controller is mid-remount; callers re-poll rather than latch, for the reasons in
+ * program-surface.tsx.
+ */
+export function resolveLocalProgramBridge(): ProgramBridge | 'no-bridge' {
+  if (typeof window === 'undefined') return 'no-bridge';
+  return (window as BridgeHost)[BRIDGE_KEY] ?? 'no-bridge';
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Split-cam ratio math (PR #5)                                              */
 /* -------------------------------------------------------------------------- */

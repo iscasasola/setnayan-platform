@@ -22,6 +22,7 @@ import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
 import { beyondHorizon, horizonDaysFor, isGatedLifeType } from '@/lib/life-event-gate';
+import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
 import {
   gridHiddenTypes,
   subjectHonoreeDependentId,
@@ -178,6 +179,18 @@ export function EventTypePicker({
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
+    // Wedding cardinality grey-out (owner-locked 2026-07-12 rule, 2026-09-11
+    // ruling: "they shouldn't even allow the creation/step 1 of clicking the
+    // wedding event"). Caught HERE, before the onboardingHref redirect below —
+    // otherwise a signed-in account with a wedding in planning would already be
+    // inside /onboarding/wedding step 1 before anything could stop them. Set
+    // selectedKey instead of navigating so the guided-router block further down
+    // this component (same one used for the samahan/no-onboardingHref path)
+    // renders in place of the form.
+    if (type.key === 'wedding' && inPlanningWedding) {
+      setSelectedKey(type.key);
+      return;
+    }
     // Carry the already-answered celebrant across the route hop into
     // /onboarding/[type], which asks the same question one screen later. It
     // rides in sessionStorage, NOT the URL: it is a person's first name, and a
@@ -354,7 +367,13 @@ export function EventTypePicker({
             </button>
           </div>
         ) : null}
-        <EventTypePhotoPicker types={gridTypes} onSelect={handleSelect} />
+        <EventTypePhotoPicker
+          types={gridTypes}
+          onSelect={handleSelect}
+          unavailableReasons={
+            inPlanningWedding ? { wedding: `Already planning ${inPlanningWedding.displayName}` } : undefined
+          }
+        />
         {hiddenCount > 0 && !showAllTypes ? (
           <button
             className="mt-4 w-full rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-4 py-3 text-sm text-ink/70 transition-colors hover:border-gold/40 hover:text-ink"
@@ -462,11 +481,19 @@ export function EventTypePicker({
           {/* Life-event honoree ("Para kanino?") — the cardinality key (council
               verdict 2026-07-17 § 2). OPTIONAL, first name only, ordinary PI:
               one in-planning celebration per celebrant per type, and typing a
-              different name opens a new slot. Never asks a birthdate. */}
-          {isGatedLifeType(selected.key) && !samahanCommunityId ? (
+              different name opens a new slot. Never asks a birthdate.
+
+              WIDENED 2026-08-31 to the two BUSINESS-subject types (corporate ·
+              gala_night), which are routinely thrown BY a company and had no
+              way to name it. They carry NO cap — `blocksLifeEventCreation`
+              still keys on `isGatedLifeType` — so the footnote below says
+              something different for them rather than promising a rule that
+              does not apply to them. A wedding is in neither list. */}
+          {eventTypeAcceptsHonoreeLink(selected.key) && !samahanCommunityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
-                Para kanino? <span className="font-normal text-ink/45">— optional</span>
+                {isGatedLifeType(selected.key) ? 'Para kanino?' : 'Which business is this for?'}{' '}
+                <span className="font-normal text-ink/45">— optional</span>
               </label>
               {/* Pre-answered by the who step when a NAMED alaga was picked.
                   "You" deliberately leaves this blank: the unlabeled slot has
@@ -481,7 +508,11 @@ export function EventTypePicker({
                 key={subject?.id ?? 'no-subject'}
                 name="honoree_label"
                 maxLength={80}
-                placeholder="First name — e.g. Maria"
+                placeholder={
+                  isGatedLifeType(selected.key)
+                    ? 'First name — e.g. Maria'
+                    : 'Business name — e.g. Aling Nena’s Store'
+                }
                 type="text"
               />
               {/* WHICH alaga this is, when the who step named one. A link to a
@@ -497,8 +528,9 @@ export function EventTypePicker({
                 value={subjectHonoreeDependentId(subject) ?? ''}
               />
               <p className="text-xs text-ink/50">
-                The celebrant’s first name keeps their celebrations tidy — one{' '}
-                {selected.label.toLowerCase()} in planning per person at a time.
+                {isGatedLifeType(selected.key)
+                  ? `The celebrant’s first name keeps their celebrations tidy — one ${selected.label.toLowerCase()} in planning per person at a time.`
+                  : 'Naming the business files this on its own page and timeline. It sets no limit — you can plan as many as you like.'}
               </p>
             </div>
           ) : null}

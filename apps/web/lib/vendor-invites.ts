@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { escapeLikeQuery } from './people-search-query';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,7 +31,9 @@ export type VendorInviteRow = {
   invite_id: string;
   public_id: string;
   vendor_id: string | null;
-  invited_by_user_id: string;
+  /** NULL once the sending account is deleted — the invite stays claimable by
+   *  the supplier holding the link (migration 20271210831005). */
+  invited_by_user_id: string | null;
   /** Nullable as of 2026-05-22 (auto_share_link source). NOT NULL for
    *  couple + admin sources — enforced by vendor_invites_source_vendor_consistency. */
   email: string | null;
@@ -263,7 +266,7 @@ export async function fetchClaimLandingByToken(
   if (resolvedInvite.email) {
     const { data: row } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id,business_name,contact_email')
+      .select('vendor_profile_id,business_name')
       .ilike('contact_email', resolvedInvite.email)
       .limit(1)
       .maybeSingle();
@@ -287,10 +290,10 @@ export async function fetchClaimLandingByToken(
 // Auto-share-link invites (2026-05-22) — idempotent ensure + fetch helpers
 //
 // Called from finalizeVendor (apps/web/app/dashboard/[eventId]/vendors/actions.ts)
-// when a host locks a manual vendor that has no Setnayan account. Returns
-// an existing pending token if one exists for this event_vendors row, or
-// creates a fresh row + token. Workspace page calls fetchActiveAutoShareInvite
-// to render the claim-URL CTA.
+// when a host locks an off-platform supplier that has no Setnayan account.
+// Returns an existing pending token if one exists for this event_vendors row,
+// or creates a fresh row + token. Workspace page calls
+// fetchActiveAutoShareInvite to render the claim-URL CTA.
 // ---------------------------------------------------------------------------
 
 const AUTO_SHARE_INVITE_TTL_DAYS = 90;
@@ -306,12 +309,21 @@ function computeAutoShareExpiresAt(): string {
  * `vendor_invites_auto_share_live_unique` guarantees at most one pending
  * row per event_vendors id, so this is safe to call repeatedly.
  *
- * Schema gating: caller MUST verify the parent event_vendors row has
- * `manual_vendor_id IS NOT NULL` AND `marketplace_vendor_id IS NULL`
- * before calling. The DB doesn't enforce that linkage — `vendor_id` on
- * vendor_invites is just an FK to event_vendors.vendor_id, and a
- * marketplace-linked row already has chat unlocked + a vendor_profile
- * for the vendor to log into, so an invite would be a no-op.
+ * Schema gating: caller MUST verify the parent event_vendors row with
+ * `canInviteSupplier()` (lib/supplier-invite-eligibility.ts) before calling. The DB doesn't enforce that linkage —
+ * `vendor_id` on vendor_invites is just an FK to event_vendors.vendor_id, and
+ * a marketplace-linked row already has chat unlocked + a vendor_profile for
+ * the vendor to log into, so an invite would be a no-op.
+ *
+ * ⚠ THIS PARAGRAPH IS WHERE THE DEFECT CAME FROM, so the correction is written
+ * where the copies were read. Until 2026-09-03 it said the caller must verify
+ * "`manual_vendor_id IS NOT NULL` AND `marketplace_vendor_id IS NULL`", and two
+ * callers dutifully did — refusing 12 of 12 eligible off-platform suppliers in
+ * production with a message saying they were already on Setnayan. Only the
+ * second half was ever justified, by the very next clause of this sentence; the
+ * first half described how manual vendors were created in 2026-06 and was never
+ * a property of the question. See `lib/supplier-invite-eligibility.ts` for the
+ * full measurement and for the one definition every gate now calls.
  *
  * Failure mode: if the insert fails (RLS denial, network), returns null
  * and lets the caller decide whether to surface the error. The lock
@@ -431,16 +443,48 @@ export function buildClaimUrl(token: string): string {
 // Email lookup — does an email already run a Setnayan vendor account?
 // ---------------------------------------------------------------------------
 
+/**
+ * 🔒 `admin` MUST BE THE SERVICE-ROLE CLIENT (20271221366210).
+ *
+ * A shop's `contact_email` is no longer SELECT-able by `anon` or
+ * `authenticated` — not even inside a WHERE, because Postgres checks the column
+ * privilege for a filter exactly as for a projection, and PostgREST then refuses
+ * the WHOLE statement. So this lookup runs on the service role, and because the
+ * service role is outside every RLS rule, the two rules the session used to get
+ * for free are written out here instead:
+ *
+ *   · WHICH shops — only the ones `vendor_profiles_public_read` admits to a
+ *     stranger (public_visibility = verified AND verification_state = verified).
+ *     A hidden or unverified shop's existence is not confirmed to a couple who
+ *     guesses its email.
+ *   · WHAT it answers — the shop's id and name, never the email itself.
+ *
+ * And the email is matched EXACTLY (case-insensitive): `%` and `_` are ILIKE
+ * wildcards, so an unescaped `a%` would turn this into a letter-by-letter
+ * oracle for every verified shop's address.
+ */
 export async function lookupExistingVendorByEmail(
-  supabase: SupabaseClient,
+  admin: SupabaseClient,
   email: string,
 ): Promise<{ vendor_profile_id: string; business_name: string } | null> {
-  const { data } = await supabase
+  const wanted = email.trim();
+  if (!wanted) return null;
+  const { data, error } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id,business_name,contact_email')
-    .ilike('contact_email', email.trim())
+    .select('vendor_profile_id,business_name')
+    .ilike('contact_email', escapeLikeQuery(wanted))
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified')
     .limit(1)
     .maybeSingle();
+  if (error) {
+    // Checked, not swallowed: a refused read here used to look exactly like
+    // "no such shop". Callers treat null as "not on Setnayan", which is the
+    // same answer they gave before this lookup existed, so degrade — loudly.
+    // eslint-disable-next-line no-console
+    console.error('[lookupExistingVendorByEmail] read failed', { code: error.code, message: error.message });
+    return null;
+  }
   if (!data) return null;
   return {
     vendor_profile_id: data.vendor_profile_id as string,

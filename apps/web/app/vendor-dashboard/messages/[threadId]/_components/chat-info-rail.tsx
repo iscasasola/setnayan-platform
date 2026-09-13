@@ -7,12 +7,24 @@ import {
   CalendarClock,
   CalendarDays,
   FileText,
-  Info,
-  Lock,
+  Handshake,
+  ListChecks,
+  Phone,
+  Plus,
+  ReceiptText,
   User,
+  Video,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import type { CustomerEventSummary } from '@/lib/customer-event-summary';
+import {
+  VENDOR_THREAD_TOOLS,
+  type VendorThreadLinkTool,
+  type VendorThreadToolIcon,
+} from '@/lib/vendor-thread-tools';
+import { revealThreadTool } from './reveal-thread-tool';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the
@@ -25,9 +37,12 @@ import { Sheet } from '@/app/_components/sheet';
  * bottom-sheet primitive (app/_components/sheet.tsx · the locked modal-a11y
  * pattern).
  *
- * MASKING: the parent only passes `masked = true` for a still-pending inquiry.
- * When masked, the rail reveals nothing beyond the "New inquiry" placeholder —
- * no snapshot, no quick actions, no profile link (vendor hybrid-anonymity).
+ * NO MASKING (owner ruling 2026-09-08 — "we do not need to hide anything, since
+ * no more tokens"). This rail used to take a `masked` flag that, for a pending
+ * inquiry, replaced the whole body with "accept the conversation to reveal who
+ * they are". That lock was the token wallet's storefront, and the wallet was
+ * retired on 2026-05-11 — so it withheld the customer without selling anything.
+ * A supplier now sees the same rail before and after accepting.
  */
 
 export type ChatInfoRailProps = {
@@ -35,21 +50,42 @@ export type ChatInfoRailProps = {
   displayName: string;
   /** Initials for the avatar (derived by the parent from displayName). */
   initials: string;
-  /** True while the inquiry is pending — reveal nothing extra. */
-  masked: boolean;
   stage: {
     label: string;
     /** Tailwind classes for the pill (border/bg/text). */
     tone: string;
   };
-  /** Event date, pre-formatted for display (or null). */
-  eventDate: string | null;
+  /**
+   * The customer's event, in one sentence plus the decision rows — built by
+   * `buildCustomerEventSummary` so the sentence, the rows and the header above
+   * them all come from a single resolve. Owner 2026-09-08.
+   */
+  summary: CustomerEventSummary;
+  /*
+   * ⚠ `eventDate` AND `paxLabel` USED TO LIVE HERE and are deliberately gone.
+   * Both now arrive inside `summary.facts`, from one builder. `eventDate` was
+   * documented "pre-formatted" while its only caller passed the raw Postgres
+   * value, so the rail rendered "2026-12-18" — a mismatch no type could catch,
+   * both being `string | null`. Two props feeding rows that a third prop also
+   * describes is exactly how one screen came to show a wedding day three ways.
+   */
   /** Service / inquiry category label (or null). */
   service: string | null;
-  /** Live pax estimate, when the page has one. */
-  paxLabel: string | null;
   threadId: string;
   eventId: string;
+  /**
+   * Whether the tools this rail launches are actually ON THE PAGE. They mount
+   * in the accepted branch only, so on a pending inquiry every launcher would
+   * open nothing — a button that does nothing is worse than no button. The
+   * rail shows the customer and the way out instead.
+   */
+  toolsMounted: boolean;
+  /**
+   * How many saved proposal templates the shop has. At zero the proposal
+   * composer refuses to send and says "Pick a template" — with no way from
+   * there to make one. The rail says so and links to the maker.
+   */
+  templateCount: number;
 };
 
 const HEADING_ID = 'chat-info-rail-heading';
@@ -67,9 +103,20 @@ export function ChatInfoRailColumn(props: ChatInfoRailProps) {
 }
 
 /**
- * Mobile trigger — an info button (belongs in the conversation header) that
- * opens the rail as the shared bottom-sheet. Hidden on lg+ where the column is
- * always shown. Owns its own open-state.
+ * Mobile trigger — belongs in the conversation header, opens the rail as the
+ * shared bottom-sheet. Hidden on lg+ where the column is always shown. Owns
+ * its own open-state.
+ *
+ * 🔑 A VISIBLE LABEL, NOT A LONE GLYPH. This used to be an unlabelled 36px
+ * circle with only an <Info> icon — the sole way into the mobile tools (Build
+ * a quote, Log payment, Propose schedule, the calls, …), and a supplier on a
+ * live thread could not find it (owner, 2026-09-11: "i cannot access tools
+ * when on mobile mode?"). The icon-only affordance read as decoration, not a
+ * button. It is now a labelled pill matching the house's small secondary
+ * pill-button pattern (see `SubmitButton` usage in
+ * `app/vendor-dashboard/repertoire/page.tsx`) — text plus an icon, never the
+ * icon alone. `globals.css` already floors every `button` at 44px min-height;
+ * the pill is sized for that instead of fighting it with a fixed height.
  */
 export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
   const [open, setOpen] = useState(false);
@@ -78,13 +125,28 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Customer details"
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+        aria-label="Customer details and tools"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
       >
-        <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        <Wrench aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Tools
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} labelledById={HEADING_ID} title="Customer">
-        <RailBody {...props} headingId={HEADING_ID} inSheet />
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledById={HEADING_ID}
+        title="Customer & tools"
+      >
+        {/* A tool opens BEHIND this sheet, so launching one closes it. Without
+            that the supplier taps "Build a quote" and watches nothing happen,
+            because the thing that opened is under the sheet they are looking
+            at. */}
+        <RailBody
+          {...props}
+          headingId={HEADING_ID}
+          inSheet
+          onLaunch={() => setOpen(false)}
+        />
       </Sheet>
     </div>
   );
@@ -93,16 +155,22 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
 function RailBody({
   displayName,
   initials,
-  masked,
+  summary,
   stage,
-  eventDate,
   service,
-  paxLabel,
   threadId,
   eventId,
+  toolsMounted,
+  templateCount,
   headingId,
   inSheet = false,
-}: ChatInfoRailProps & { headingId: string; inSheet?: boolean }) {
+  onLaunch,
+}: ChatInfoRailProps & {
+  headingId: string;
+  inSheet?: boolean;
+  /** Called before a tool is revealed — the sheet uses it to close itself. */
+  onLaunch?: () => void;
+}) {
   return (
     <div className="flex flex-col">
       {/* Column-only header (the sheet renders its own title bar). */}
@@ -118,11 +186,7 @@ function RailBody({
       {/* Identity */}
       <div className="flex flex-col items-center gap-2 border-b border-ink/10 px-4 py-5 text-center">
         <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-ink/10 bg-white text-sm font-semibold text-ink/70">
-          {masked ? (
-            <User aria-hidden className="h-6 w-6 text-ink/40" strokeWidth={1.75} />
-          ) : (
-            initials
-          )}
+          {initials}
         </span>
         <p className="text-base font-semibold text-ink">{displayName}</p>
         <span
@@ -132,48 +196,117 @@ function RailBody({
         </span>
       </div>
 
-      {masked ? (
-        /* Masked pre-accept — reveal nothing. */
-        <div className="flex items-start gap-2 px-4 py-5 text-sm text-ink/65">
-          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-          <p>
-            New inquiry — accept the conversation to reveal who they are and open
-            their customer profile.
+      <>
+          {/* WHO STARTED WHAT, AND WHEN. */}
+          <p className="border-b border-ink/10 px-4 py-4 text-left text-sm leading-relaxed text-ink/75">
+            {summary.sentence}
           </p>
-        </div>
-      ) : (
-        <>
-          {/* Event snapshot — only what this page already exposes. Location is
-              deliberately omitted (masked by the disclosure ladder; the page
-              never loads a venue for the vendor's plain client). */}
+
+          {/* The decision rows. `Date`/`Guests` used to be rendered here from
+              their own props; they now come from `summary.facts` so the rail
+              cannot show one date while the sentence beside it shows another.
+              `Service` stays a separate row — it is a fact about THIS thread
+              (the interest chip), not about the couple's event. Exact venue is
+              still absent: that sits behind the agreement ladder in
+              `get_vendor_event_brief`, which the 2026-09-08 ruling did not
+              touch. */}
           <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
-            <SnapRow label="Date" value={eventDate ?? 'Not set yet'} />
+            {summary.facts.map((f) => (
+              <SnapRow
+                key={f.label}
+                label={f.label}
+                value={f.value}
+                note={f.note ?? null}
+                noteIsPrivate={f.noteIsPrivate ?? false}
+              />
+            ))}
             {service ? <SnapRow label="Service" value={service} /> : null}
-            {paxLabel ? <SnapRow label="Guests" value={paxLabel} /> : null}
           </dl>
 
-          {/* Quick actions — all reuse EXISTING in-thread flows. Send proposal &
-              Log payment anchor-scroll to the affordances already on the page;
-              Propose schedule links the client brief's schedule tab. */}
-          <div className="px-4 pt-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-              Quick actions
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5 px-3 py-2">
-            <RailAction href={`/vendor-dashboard/messages/${threadId}#send-proposal`} icon={FileText}>
-              Send proposal
-            </RailAction>
-            <RailAction
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              icon={CalendarClock}
-            >
-              Propose schedule
-            </RailAction>
-            <RailAction href={`/vendor-dashboard/messages/${threadId}#pending-payments`} icon={Wallet}>
-              Log payment
-            </RailAction>
-          </div>
+          {/* WHICH SLOTS ARE TAKEN (owner 2026-09-08). Rendered only when the
+              couple has actually locked something — an "Already locked" heading
+              over nothing reads as a finding, and "none" is already said by the
+              `Locked suppliers` row above. Categories only; the supplier's
+              NAMES stay behind the booked-stage `vendor_roster`. */}
+          {summary.lockedCategories.length > 0 ? (
+            <div className="border-b border-ink/10 px-4 py-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                Already locked
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {summary.lockedCategories.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* TOOLS — the right column's job (owner, 2026-09-08: "the right most
+              can be the tools"). Every one of these used to be a panel wedged
+              between the last message and the text box. They are still the same
+              components, mounted once above the stream and closed; these are
+              the launchers that open them.
+
+              🔑 LABELLED BUTTONS, NOT AN ICON ROW. A supplier picking "Log
+              payment" is choosing money, and an unlabelled glyph makes that a
+              guess. The icons ride along with the words; they never replace
+              them. */}
+          {toolsMounted ? (
+            <>
+              <div className="px-4 pt-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Tools
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5 px-3 py-2">
+                {VENDOR_THREAD_TOOLS.map((tool) =>
+                  tool.link ? (
+                    <LinkTool key={tool.key} tool={tool} eventId={eventId} />
+                  ) : (
+                    <RailAction
+                      key={tool.key}
+                      icon={TOOL_ICON[tool.icon]}
+                      primary={tool.primary}
+                      onClick={() => {
+                        // On a phone this rail IS a sheet covering the page it
+                        // is about to scroll. Close it first, then reveal on
+                        // the next tick so the scroll lands on a visible page.
+                        onLaunch?.();
+                        if (inSheet) {
+                          window.setTimeout(() => revealThreadTool(tool.reveal), 0);
+                        } else {
+                          revealThreadTool(tool.reveal);
+                        }
+                      }}
+                    >
+                      {tool.label}
+                    </RailAction>
+                  ),
+                )}
+              </div>
+
+              {/* A shop with no template cannot send a proposal at all — the
+                  composer says "Pick a template to send a proposal" and offers
+                  no way to make one. Said here, where the button is. */}
+              {templateCount === 0 ? (
+                <p className="px-4 pb-1 text-xs leading-relaxed text-ink/55">
+                  No proposal template yet —{' '}
+                  <Link
+                    href="/vendor-dashboard/proposals"
+                    className="font-semibold text-mulberry underline underline-offset-2"
+                  >
+                    create one
+                  </Link>{' '}
+                  and proposals become one click.
+                </p>
+              ) : null}
+            </>
+          ) : null}
 
           {/* Full customer profile */}
           <div className="px-3 pb-4 pt-2">
@@ -186,37 +319,141 @@ function RailBody({
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }
 
-function SnapRow({ label, value }: { label: string; value: string }) {
+/**
+ * One decision row. The optional `note` is the SECOND fact a value sometimes
+ * needs — "150 at inquiry" under a live guest count, or who else wants the
+ * target date.
+ *
+ * 🔒 A PRIVATE NOTE SAYS SO. When `noteIsPrivate` is set the row prints, under
+ * the note, that this is the supplier's own pipeline and the couple never sees
+ * it. A supplier reading their own commercial position beside a customer's
+ * facts must never have to guess which side of the conversation it is on.
+ */
+function SnapRow({
+  label,
+  value,
+  note = null,
+  noteIsPrivate = false,
+}: {
+  label: string;
+  value: string;
+  note?: string | null;
+  noteIsPrivate?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">{label}</dt>
-      <dd className="text-sm font-medium text-ink">{value}</dd>
+      <dd className="text-sm font-medium text-ink">
+        {value}
+        {note ? (
+          <>
+            <span className="mt-0.5 block text-xs font-normal text-ink/55">{note}</span>
+            {noteIsPrivate ? (
+              <span className="mt-0.5 block text-[11px] font-normal text-ink/40">
+                Your pipeline only — the couple never sees this line.
+              </span>
+            ) : null}
+          </>
+        ) : null}
+      </dd>
     </div>
   );
 }
 
+/**
+ * The one tool that still leaves this screen.
+ *
+ * ⚠ THE URL IS SPELLED OUT HERE, IN THE ROUTE'S OWN FILE, ON PURPOSE.
+ * `lint-port-no-lost-controls` reads a route's files for the destinations it
+ * offers and only sees a literal after `href=` — a URL composed in the shared
+ * tool list makes this route read as having LOST that destination, and the
+ * tempting fix (regenerating the baseline) would record a removal that never
+ * happened.
+ *
+ * The `switch` is exhaustive by type, so a new link target with no URL fails
+ * the typecheck rather than falling through to a launcher with nothing to open.
+ */
+function LinkTool({ tool, eventId }: { tool: VendorThreadLinkTool; eventId: string }) {
+  const icon = TOOL_ICON[tool.icon];
+  switch (tool.link) {
+    case 'client-schedule':
+      return (
+        <RailAction
+          href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+          icon={icon}
+          primary={tool.primary}
+        >
+          {tool.label}
+        </RailAction>
+      );
+    default: {
+      const unhandled: never = tool.link;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * One icon per tool, resolved from the shared list's `icon` key rather than
+ * chosen at each call site — so the rail cannot grow a tool the page does not
+ * render, or render one under two different glyphs.
+ */
+const TOOL_ICON: Record<VendorThreadToolIcon, typeof CalendarDays> = {
+  quote: ReceiptText,
+  proposal: FileText,
+  payment: Wallet,
+  schedule: CalendarClock,
+  offer: Plus,
+  voice: Phone,
+  video: Video,
+  deal: Handshake,
+  outcome: ListChecks,
+};
+
 function RailAction({
   href,
+  onClick,
   icon: Icon,
+  primary = false,
   children,
 }: {
-  href: string;
+  /** Leaves the page. Mutually exclusive with `onClick` by construction. */
+  href?: string;
+  onClick?: () => void;
   icon: typeof CalendarDays;
+  primary?: boolean;
   children: React.ReactNode;
 }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2.5 rounded-lg border border-ink/10 bg-white px-3 py-2.5 text-sm font-semibold text-ink hover:border-terracotta/40"
-    >
-      <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+  const className = `flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-semibold ${
+    primary
+      ? 'border-mulberry/40 bg-mulberry/[0.06] text-ink hover:border-mulberry'
+      : 'border-ink/10 bg-white text-ink hover:border-terracotta/40'
+  }`;
+  const inner = (
+    <>
+      <Icon
+        aria-hidden
+        className={`h-4 w-4 shrink-0 ${primary ? 'text-mulberry' : 'text-ink/55'}`}
+        strokeWidth={1.75}
+      />
       {children}
-    </Link>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {inner}
+    </button>
   );
 }

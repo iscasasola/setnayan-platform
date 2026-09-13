@@ -50,13 +50,24 @@ export type OutfitKind = FigureSpec['outfit'];
 // silhouette read "person"; the skirt flare starts at the hips, never the
 // chest. One shared buffer each, same as before.
 
-/** Build a closed lathe from (radius, y) profile points (top → bottom); the
- *  last point is capped to centre so hems/jacket bottoms aren't see-through
- *  from a low camera. */
-function latheProfile(points: ReadonlyArray<readonly [number, number]>, segments = 28): THREE.LatheGeometry {
-  const pts = points.map(([r, y]) => new THREE.Vector2(r, y));
+/** Build a WATERTIGHT lathe from (radius, y) profile points (top → bottom).
+ *
+ *  ⚠ BOTH ends return to the axis. The hem was already capped ("so hems /
+ *  jacket bottoms aren't see-through from a low camera"); the COLLAR was not,
+ *  so the garment was a tube open at the neck — and a camera above the shoulder
+ *  looked straight down inside it.
+ *
+ *  This is the same rule `closedLatheProfile` enforces in `lib/chibi-geometry`,
+ *  which the chibi library calls the solid-figure law: a lathe is only solid if
+ *  its profile touches the axis at BOTH ends. Half of that law shipped here;
+ *  the other half is the reason a gown read as a flat panel rather than a
+ *  dress — you saw its front surface, nothing behind, and nothing above. */
+export function latheProfile(points: ReadonlyArray<readonly [number, number]>, segments = 28): THREE.LatheGeometry {
+  const first = points[0]!;
   const last = points[points.length - 1]!;
-  pts.push(new THREE.Vector2(0.001, last[1])); // cap
+  const pts = [new THREE.Vector2(0.001, first[1])]; // collar cap
+  for (const [r, y] of points) pts.push(new THREE.Vector2(Math.max(r, 0.001), y));
+  pts.push(new THREE.Vector2(0.001, last[1])); // hem cap
   return new THREE.LatheGeometry(pts, segments);
 }
 
@@ -314,6 +325,19 @@ const outfitMats = new Map<string, THREE.MeshStandardMaterial>();
  * a way cotton doesn't — lower roughness sells it at zero extra cost).
  * Key space is bounded (few outfits × a mood-board's few motif colours).
  */
+/** The second half of the solid-figure law (see `latheProfile`).
+ *
+ *  A garment is a surface of revolution, so with back-face culling you see the
+ *  FRONT shell and nothing else: the far side of the skirt is discarded and the
+ *  silhouette ends in hard straight cuts. That is what made a fully-wrapped
+ *  gown read as "just half" — the geometry went all the way round; the renderer
+ *  threw the far side away.
+ *
+ *  `chibi-figure.tsx` states the same pairing: "closed lathes + DoubleSide".
+ *  Strictly additive — it can only reveal surfaces that were culled, never
+ *  remove one — so no existing room loses anything it was drawing. */
+const OUTFIT_SIDE = THREE.DoubleSide;
+
 export function outfitMaterial(outfit: OutfitKind, outfitColor: string | null): THREE.MeshStandardMaterial {
   // Barong stays near-white whatever the motif — recolouring it reads as a
   // polo, not a barong. Chef whites likewise (a lilac chef is a costume).
@@ -331,6 +355,7 @@ export function outfitMaterial(outfit: OutfitKind, outfitColor: string | null): 
             roughness: 0.42, // the slight sheen
             bumpMap: barongEmbroideryBump(),
             bumpScale: 0.01,
+            side: OUTFIT_SIDE,
           })
         : isStaffOutfit(outfit)
           ? // Staff garments carry their colour IN the detail canvas (bib /
@@ -342,12 +367,14 @@ export function outfitMaterial(outfit: OutfitKind, outfitColor: string | null): 
               roughness: 0.8,
               bumpMap: fabricBumpMap(),
               bumpScale: 0.005,
+              side: OUTFIT_SIDE,
             })
           : new THREE.MeshStandardMaterial({
               color,
               roughness: 0.8,
               bumpMap: fabricBumpMap(),
               bumpScale: 0.005,
+              side: OUTFIT_SIDE,
             });
     outfitMats.set(key, m);
   }
@@ -371,7 +398,7 @@ export function trouserMaterial(outfit: OutfitKind, outfitColor: string | null):
       : darken(outfitColor ?? DEFAULT_CLOTH[outfit], 0.55);
   let m = trouserMats.get(base);
   if (!m) {
-    m = new THREE.MeshStandardMaterial({ color: base, roughness: 0.85 });
+    m = new THREE.MeshStandardMaterial({ color: base, roughness: 0.85, side: OUTFIT_SIDE });
     trouserMats.set(base, m);
   }
   return m;

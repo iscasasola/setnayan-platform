@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { findOrCreateSongId } from '@/lib/songs';
+import { findOrCreateSongId, isMusicToolCategory } from '@/lib/songs';
 import { parseVideoLink } from '@/lib/video-embed';
 
 const BASE = '/vendor-dashboard/repertoire';
@@ -41,6 +41,16 @@ async function ensureProfile() {
 export async function addRepertoireSong(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
   const q = String(formData.get('q') ?? '').trim();
+
+  // D2 (2026-09-11): this page's OWN access gate already redirects a
+  // non-music vendor away before they ever see the form (isMusicVendor,
+  // repertoire/page.tsx) — but a server action is a POST target, not a page,
+  // and had no check of its own. Defense in depth, not a new restriction:
+  // mirrors the same "one music rule" (lib/songs.ts) the More-tools card and
+  // the public songs block now share.
+  if (!isMusicToolCategory(profile.services)) {
+    back({ q, error: 'Song bank is for music performers only.' });
+  }
 
   const rawId = String(formData.get('song_id') ?? '').trim();
   let songId: number | null = null;

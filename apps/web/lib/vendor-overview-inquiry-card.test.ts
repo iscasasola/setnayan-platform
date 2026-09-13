@@ -1,20 +1,29 @@
 /**
- * Vendor Overview "What's new" — pre-accept inquiry card DTO (Glass PR-6b ·
- * spec Vendor_Inquiry_Anonymization_Spec_2026-07-15 · extends #3266). Node
- * built-in runner via tsx (`pnpm test:unit`).
+ * Vendor Overview "What's new" — inquiry card DTO. Node built-in runner via tsx
+ * (`pnpm test:unit`).
  *
- * The load-bearing guarantee: the card payload served to the client for a
- * PENDING (pre-accept) inquiry carries NO couple identity — no `display_name`,
- * no `eventName` field at all, only the neutral anonymized descriptor + the
- * non-identifying facts. Anonymization is a DATA-layer property, so this asserts
- * the DTO the builder produces, not the rendered UI.
+ * ── THIS FILE USED TO ASSERT THE OPPOSITE ──────────────────────────────────
+ * It was written for `Vendor_Inquiry_Anonymization_Spec_2026-07-15` (Glass
+ * PR-6b), and its load-bearing guarantee was that a PENDING inquiry's payload
+ * "carries NO couple identity … only the neutral anonymized descriptor". Owner
+ * ruling 2026-09-08: *"we do not need to hide anything, since no more tokens."*
+ * The mask was the token wallet's storefront and the wallet was retired on
+ * 2026-05-11 — see `the-inquiry-card-honours-the-ruling.test.ts` for the full
+ * history, which is deliberately kept rather than deleted.
+ *
+ * 🔑 WHAT DID NOT CHANGE, AND IS WHY THIS FILE STILL EXISTS. Naming the customer
+ * is not licence to ship everything about them. `place` stays a CITY/AREA label
+ * and never a venue name or address — a venue is where somebody will physically
+ * be on a known date, which is a different disclosure from a name, and nothing
+ * in the ruling asked for it. Identity is a DATA-layer property either way, so
+ * this asserts the DTO the builder produces, not the rendered UI.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildInquiryCard } from './vendor-overview-inquiry-card';
 
-test("What's-new inquiry card: no `eventName` field is ever shipped", () => {
+test("What's-new inquiry card: the customer is named", () => {
   const card = buildInquiryCard({
     threadId: 'S89T-abc',
     createdAt: '2026-07-15T00:00:00Z',
@@ -22,34 +31,16 @@ test("What's-new inquiry card: no `eventName` field is ever shipped", () => {
     eventType: 'wedding',
     region: 'ncr',
     category: 'Photography',
-    hostNoun: 'couple',
+    displayName: 'Cale & Ice',
   });
-  // The field that leaked the couple's event title is structurally gone.
+  assert.equal(card.descriptor, 'Cale & Ice');
+  // The DTO still has ONE name slot. `eventName` was the field that used to
+  // leak the event title alongside the descriptor; it stays structurally gone
+  // so there is exactly one thing to read and one thing to get right.
   assert.equal('eventName' in card, false);
-  // What it ships instead is the neutral placeholder.
-  assert.ok(card.descriptor.startsWith('A couple planning'));
 });
 
-test("What's-new inquiry card: payload contains no couple identity", () => {
-  const card = buildInquiryCard({
-    threadId: 'S89T-xyz',
-    createdAt: '2026-07-15T00:00:00Z',
-    eventDate: '2026-11-11',
-    eventType: 'wedding',
-    region: 'c-visayas',
-    category: 'Catering',
-    hostNoun: 'couple',
-  });
-  const serialized = JSON.stringify(card);
-  // No name-like tokens can appear — the descriptor is built from event_type +
-  // city only, so a hostile display_name has no entry point.
-  assert.ok(!/&|@|\bmr\b|\bmrs\b|\bjr\b/i.test(serialized));
-  // The only person-referencing text is the neutral placeholder (city = the
-  // c-visayas region label, never a couple name).
-  assert.match(card.descriptor, /^A couple planning a wedding in /);
-});
-
-test("What's-new inquiry card: masked facts stay non-identifying (city-level place, banded cost)", () => {
+test("What's-new inquiry card: place stays city-level, never a venue", () => {
   const card = buildInquiryCard({
     threadId: 'S89T-band',
     createdAt: '2026-07-15T00:00:00Z',
@@ -57,23 +48,26 @@ test("What's-new inquiry card: masked facts stay non-identifying (city-level pla
     eventType: 'birthday',
     region: 'ncr',
     category: null,
-    // A birthday's HOST noun. Its `organizer_noun` is 'celebrant' — the child
-    // being celebrated, who did not book the photographer.
-    hostNoun: 'host',
+    displayName: 'Ronnie’s 40th',
   });
-  // place is a city/area label, never a venue name/address.
+  // A resolved region label — the builder is given `region`, a slug, and has no
+  // venue parameter at all. That absence is the enforcement; this pins it.
   assert.equal(typeof card.place, 'string');
+  assert.ok(
+    !/street|st\.|barangay|brgy|road|ave|building|floor|#\d/i.test(card.place ?? ''),
+    `place looks like an address, not a city: ${card.place}`,
+  );
   // `tokenCost` was dropped 2026-08-07 with the token retirement. It had been
   // computed on every inquiry card and RENDERED NOWHERE since #4216 removed the
-  // Accept badge — so this assertion was pinning a number no vendor could see.
+  // Accept badge — so the old assertion was pinning a number no vendor could
+  // see. It matters more now: the wallet's last trace is what this whole change
+  // is unwinding.
   assert.ok(!('tokenCost' in card), 'inquiry cards must not carry a token cost');
   assert.equal(card.kind, 'inquiry');
   assert.equal(card.threadId, 'S89T-band');
-  // The noun follows the type: a birthday is not planned by "a couple".
-  assert.match(card.descriptor, /^A host planning a birthday in /);
 });
 
-test("What's-new inquiry card: unknown region/type degrade to a fully generic descriptor", () => {
+test("What's-new inquiry card: unknown region degrades to null, not to a guess", () => {
   const card = buildInquiryCard({
     threadId: 'S89T-nil',
     createdAt: '2026-07-15T00:00:00Z',
@@ -81,10 +75,11 @@ test("What's-new inquiry card: unknown region/type degrade to a fully generic de
     eventType: null,
     region: null,
     category: null,
-    hostNoun: null,
+    displayName: null,
   });
-  // ⚠ Was "A couple planning an event" — the wedding assumption applied at the
-  // exact moment nothing about the event is known. Now the generic noun.
-  assert.equal(card.descriptor, 'A host planning an event');
   assert.equal(card.place, null);
+  // ⚠ The descriptor's old degrade was "A couple planning an event" — a wedding
+  // asserted at the exact moment nothing about the event is known. Seventeen
+  // event types exist. The replacement claims nothing at all.
+  assert.equal(card.descriptor, 'New customer');
 });

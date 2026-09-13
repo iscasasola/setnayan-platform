@@ -208,10 +208,23 @@ export function addOnHref(key: string, eventId: string): string {
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
   // Features that don't own a Studio surface of their own open their real home
   // rather than a "coming soon" stub — so every Studio button lands somewhere
-  // usable. landing-page → the wedding-website hub. `music-creator` is RETIRED
-  // (2026-07-22 · folded into Pakanta) — its card is gone, but the alias stays
-  // as the "301 to Pakanta" so any lingering deep link still resolves.
-  if (key === 'landing-page') return `/dashboard/${eventId}/website`;
+  // usable. `music-creator` is RETIRED (2026-07-22 · folded into Pakanta) — its
+  // card is gone, but the alias stays as the "301 to Pakanta" so any lingering
+  // deep link still resolves.
+  //
+  // ⭐ landing-page → THE EVENT HUB CONTROLLER, not the old `/website` hub
+  // (owner ruling 2026-09-02, verbatim: *"i look at the roles of each. if it is
+  // the same then adjust. Like in papic. when they enter an event, the menu of
+  // papic description page becomes the control center of papic. i think that
+  // should be the same for events hub."*). The roles were measured and they are
+  // the same: this card is labelled "Event Hub" and promises "one link for your
+  // whole event — the run-up page, the day itself, and the story after", which
+  // is the controller's four channels stated as prose. `/website` kept its
+  // route and now redirects here, so every old bookmark still resolves.
+  //
+  // The shape copied is `papic` — ONE page that is the shop window before the
+  // couple owns it and the control centre after — not a second mechanism.
+  if (key === 'landing-page') return `/dashboard/${eventId}/launch`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
   // Live Studio — the internal data key stays `live-studio-roam` (reviews/stats/
   // detail/recommendations key off it, unchanged by the route rename), but the
@@ -262,13 +275,14 @@ export function addOnHref(key: string, eventId: string): string {
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
   // landing-page: the special case that sent this key to /website/editor was
-  // REMOVED 2026-08-14. It existed while the card was called "Whole website"
-  // and stood beside four part-cards. Now it IS the one website doorway and
-  // carries the Event page + Editorial chips — so the card must open the
-  // /website HUB (the map of every part), or the card and its own first chip
-  // land on the identical page and the chip is a distinction a couple can see
-  // is fake. `opensDirect` already routes it there via addOnHref; the branch
-  // below does it with no special case.
+  // REMOVED 2026-08-14, and no special case replaced it. `opensDirect` routes
+  // the key through addOnHref, which since 2026-09-02 lands on the Event Hub
+  // CONTROLLER (`/launch`). The card's two deep-link chips were RETIRED in the
+  // same change: the controller's own "set once" strip already carries both of
+  // their destinations by name — "The page itself" → /website/editor and "The
+  // story" → /story — so a chip beside the card would be a second
+  // control for a door already visible one tap in, which is the distinction a
+  // couple can see is fake that the 2026-08-14 verdict existed to remove.
   // Everything else is data-driven by the `opensDirect` catalog flag — no
   // per-feature hardcoding. opensDirect → open the service's own surface
   // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.
@@ -471,7 +485,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, and no watermark.',
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and colours, a Pro theme for your invite link, and no watermark.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -491,10 +505,23 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     opensDirect: true,
     // THE ONE WEBSITE DOORWAY (2026-08-14 · verdict §2 defect 1, owner
     // sign-off #2). Was "Whole website" sitting beside four part-cards that
-    // were the same product. addOnHref('landing-page') already resolves to the
-    // /website HUB — which links the editor, Our Story, the invitation,
-    // privacy and Editorial — so retiring the part-cards costs no reachability;
-    // the hub is the map, and the two chips are the shortcuts.
+    // were the same product.
+    //
+    // ⭐ AND SINCE 2026-09-02 IT IS THE SAME DOOR AS THE EVENT-MENU SLOT (owner
+    // ruling: "if it is the same then adjust"). addOnHref('landing-page') now
+    // resolves to `/launch` — the Event Hub controller — which the event menu's
+    // "Event Hub" row also opens. The card and the menu slot are two entrances
+    // to one page, which is what `papic` has always done. The old `/website`
+    // ⚠ WRITE THAT PATH FAMILY AS `/website/<child>`, NEVER WITH A STAR.
+    // `seat-rooms-need-seating.test.ts` strips comments from THIS FILE with
+    // `/\/\*[\s\S]*?\*\//g`, so a star-slash inside prose opens a block comment
+    // that swallows the rest of the file — the `custom-qr-guest` entry vanished
+    // and that guard failed with "entry not found — renamed?", pointing at a
+    // key nothing had touched. Cost one CI round trip on 2026-09-02.
+    //
+    // hub is a redirect stub to the same place; every `/website/<child>` (the
+    // editor, Our Story, the invitation, privacy, Editorial and the rest) keeps
+    // its route and is reached from the controller's own "set once" strip.
     label: 'Event Hub',
     Icon: Globe2,
     iteration: '0002',
@@ -544,6 +571,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // from the onboarding love story (lib/pakanta-brief.ts); the page only
     // collects the music top-up. Couple surface: /studio/pakanta.
     key: 'pakanta',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel · simple_event —
+    // migration 20271188752170. Rides `addOnOfferedForEvent`, the same gate the
+    // Studio sidebar's Pakanta row now uses (lib/studio-rail.ts).
+    surface: 'song',
     tags: ['Music', 'Keepsake'],
     label: 'Pakanta',
     Icon: Music,
@@ -605,7 +636,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // Every kind that keeps 'seating' (14 of 17, incl. every wedding) is
     // byte-identical.
     surface: 'seating',
-    tags: ['Invitation', 'Guests', 'Branding'],
+    tags: ['Invitation', 'Guests', 'Branding', 'Free'],
     label: 'Custom QR per guest',
     Icon: QrCode,
     iteration: '0002',
@@ -614,6 +645,20 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A branded QR for every guest — your monogram and colors, print-ready on each invite.',
     cta: 'Brand my QRs',
     studioGroup: 'branding',
+    // FREE FOR EVERYONE (owner 2026-09-06: *"keep custom QR per guest free"*).
+    //
+    // 🔑 THE TIER IS THE SUITE GRID'S HALF OF THAT RULING, AND WITHOUT IT THE
+    // CONTRADICTION JUST MOVES UP A LAYER. `FREE_FOR_ALL_SKUS` in
+    // `entitlements.ts` decides whether the branded QR RENDERS; this field
+    // decides what the card SAYS. With the entitlement free and no `tier` here,
+    // the Suite would keep presenting a purchase for something every event
+    // already owns. Same shape as `mood-board` below.
+    //
+    // ⚠ `serviceKey` STAYS. It is what the ownership badge reads, and the SKU
+    // still exists (₱0.00, active — the row cannot be retired because
+    // `llms-txt.ts` names it in REQUIRED_RETAIL). Removing it would break the
+    // badge, not the price.
+    tier: 'free',
     serviceKey: 'CUSTOM_QR_GUEST',
     poster: {
       motion: 'drift',
@@ -748,6 +793,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'panood',
     // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
     dayOfOnly: true,
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — migration
+    // 20271188752170. Rides `addOnOfferedForEvent`, the same gate the Studio
+    // sidebar's Live Studio row now uses (lib/studio-rail.ts).
+    surface: 'livestream',
     tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
     // "Live Studio Cast" = the directed single-feed variant (owner 2026-07-23: Live
@@ -959,6 +1008,10 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // labels + count are still untouched. Its href is flag-aware — see
     // addOnHref (2D editor vs the 3D lab).
     key: 'seating',
+    // S1 (owner 2026-09-01): hidden on date · hangout · travel — the EXISTING
+    // `seating` surface those rows already exclude. Matches the sidebar's 3D
+    // Plan row, which opens this same entry (lib/studio-apps.ts).
+    surface: 'seating',
     tags: ['Planning', 'Guests', 'Free'],
     opensDirect: true,
     label: 'Seat Plan',
@@ -984,7 +1037,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
 /**
  * Live Studio — the UNIFIED customer-facing SKU (owner 2026-07-25) that merges
  * Cast (directed single feed) + Roam (guests pick their view) into ONE switching
- * product: a directed Main Stage plus switchable guest cameras. Paid ₱2,999 per
+ * product: a directed Main Stage plus switchable guest cameras. Paid ₱3,000 per
  * event (serviceKey LIVE_STUDIO; price is admin-managed via the catalog, never
  * hardcoded here). Built on the Roam substrate — the tile keeps the internal key
  * `live-studio-roam` (like "Live Studio Cast" keeps the internal `panood` name),
@@ -1003,6 +1056,9 @@ const LIVE_STUDIO_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
   // Day-of only — see `dayOfOnly` on AddOnEntry (owner 2026-08-21).
   dayOfOnly: true,
+  // S1 (owner 2026-09-01): same event-type gate as the 'panood' entry it
+  // replaces once NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on.
+  surface: 'livestream',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
   opensDirect: true,
   label: 'Live Studio',

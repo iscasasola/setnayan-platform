@@ -23,7 +23,9 @@ import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
  *
  * `authed` MUST be the caller's OWN (couple) session client — RLS + the DB trigger
  * are the write boundary. `admin` is the service-role client for the verified read
- * (public RLS on vendor_profiles is verified-only) and the fee's money writes.
+ * (public RLS on vendor_profiles is verified-only) and for the one write a browser
+ * session may not make: recording a post-lock Deal as an agreed CHANGE
+ * (`record_agreed_price_change`, service-role only — see the reprice branch).
  */
 export type ChatLockBookingOutcome =
   // Off-platform / no marketplace `event_vendors` link → caller records the
@@ -33,16 +35,21 @@ export type ChatLockBookingOutcome =
   | { status: 'not_verified' }
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
-  | { status: 'booked'; feeCharged: boolean }
+  // `priceLanded` — did `total_cost_php` ACTUALLY receive the negotiated total?
+  // Every outcome that claims to have recorded a price now says whether the row
+  // matched, because the couple is told "price frozen" on the strength of it and
+  // the budget reads that column. A write that matched zero rows used to be
+  // indistinguishable from one that landed.
+  | { status: 'booked'; feeCharged: boolean; priceLanded: boolean }
   // PR-H · the press ASKED. The negotiated total is recorded and the supplier
   // has been asked; nobody is booked. A distinct value, not a flavour of
   // 'booked', so a caller cannot render the booked copy by forgetting a branch.
-  | { status: 'requested' }
+  | { status: 'requested'; priceLanded: boolean }
   // PR-H · an ask was already outstanding on this row. Nothing written.
   | { status: 'already_requested' }
   // Already booked (re-lock / the other entry point won): no rewrite; the fee was
   // (idempotently) re-checked.
-  | { status: 'already_booked'; feeCharged: boolean }
+  | { status: 'already_booked'; feeCharged: boolean; priceLanded: boolean }
   // Another vendor already holds the single hard-single slot in this category —
   // surfaced friendly (the couple switches from the vendor page).
   | { status: 'hard_single_blocked' }
@@ -114,7 +121,7 @@ export async function bookVendorAtChatLock(
   // the row is already confirmed. On an ask later declined they would be
   // permanent. The agree RPC stamps both.
   if (action === 'request') {
-    const { error } = await authed
+    const { data: askRows, error } = await authed
       .from('event_vendors')
       .update({
         total_cost_php: agreedTotalPhp,
@@ -124,7 +131,10 @@ export async function bookVendorAtChatLock(
       })
       .eq('vendor_id', eventVendorId)
       .eq('event_id', eventId)
-      .not('status', 'in', '("deposit_paid","delivered","complete")');
+      .not('status', 'in', '("deposit_paid","delivered","complete")')
+      // `.select()` so a ZERO-ROW match is visible. The money-status filter above
+      // can exclude the row, and PostgREST reports that as success with no error.
+      .select('vendor_id');
     if (error) {
       // 23505 here is the one-pending-request index: another ask is already out
       // in this hard-single category. Same couple-facing outcome as losing the
@@ -135,8 +145,10 @@ export async function bookVendorAtChatLock(
       }
       return { status: 'error', message: error.message };
     }
-    return { status: 'requested' };
+    return { status: 'requested', priceLanded: (askRows ?? []).length > 0 };
   }
+
+  let bookedPriceLanded = false;
 
   if (action === 'book') {
     // Write the NEGOTIATED total + flip to 'contracted' in one update. The
@@ -144,7 +156,7 @@ export async function bookVendorAtChatLock(
     // concurrent finalize that already advanced this row past 'contracted'
     // (deposit_paid/delivered/complete) matches 0 rows here → we fall through to
     // the idempotent fee below (no downgrade, no double charge).
-    const { error } = await authed
+    const { data: bookRows, error } = await authed
       .from('event_vendors')
       .update({
         status: 'contracted',
@@ -155,7 +167,10 @@ export async function bookVendorAtChatLock(
       })
       .eq('vendor_id', eventVendorId)
       .eq('event_id', eventId)
-      .not('status', 'in', '("deposit_paid","delivered","complete")');
+      .not('status', 'in', '("deposit_paid","delivered","complete")')
+      // See the note on the ask above: a zero-row match is not an error.
+      .select('vendor_id');
+    bookedPriceLanded = (bookRows ?? []).length > 0;
     if (error) {
       // The verified DB trigger raises check_violation (23514) when a demotion
       // races our pre-check — map to the friendly not_verified outcome.
@@ -186,14 +201,85 @@ export async function bookVendorAtChatLock(
   // happened to take.
   //
   // `feeCharged` stays in the return shape and is now always false from here.
-  // That is CORRECT, not a stub: nothing is charged at lock any more. The
-  // 'refresh_fee_only' branch — which existed solely to re-attempt the fee on an
-  // already-booked pair — is consequently inert. Retiring it means changing the
-  // shared decision type and its callers, so it is left for its own change
-  // rather than widened into a money move.
+  // That is CORRECT, not a stub: nothing is charged at lock any more.
+  //
+  // ⚠ THE LINE THAT USED TO FOLLOW THIS ONE IS NOW FALSE, AND IS DELETED RATHER
+  // THAN LEFT TO ROT: it said the 'refresh_fee_only' branch "is consequently
+  // inert", which was true only while its sole job was re-attempting a fee that
+  // no longer fires here. As of 2026-09-09 that branch does the already-booked
+  // REPRICE below, so it is the opposite of inert — it is the only path by which
+  // a mid-plan deal reaches the couple's budget.
   const feeCharged = false;
 
-  return action === 'refresh_fee_only'
-    ? { status: 'already_booked', feeCharged }
-    : { status: 'booked', feeCharged };
+  // ── THE ALREADY-BOOKED REPRICE ───────────────────────────────────────────
+  // Until 2026-09-09 this branch wrote NOTHING, on the rule directly above: an
+  // already-booked row's price is frozen because the fee was charged against it.
+  // That rule protects a *generic re-lock* from overwriting an agreed price. It
+  // was never meant to cover THIS: the couple and the supplier have just agreed a
+  // NEW number in the thread, and a mid-plan change on a booked supplier is the
+  // likeliest reason to strike a deal at all.
+  //
+  // The cost of not writing it was a screen that lied. `lockDeal` still stamped
+  // the Deal, still froze `chat_threads.agreed_price_centavos` at the new total,
+  // and still told the couple "🔒 Deal locked — price frozen" — while
+  // `total_cost_php`, the column `/budget` reads, kept the old figure. Two live
+  // numbers, disagreeing, with the reassuring one on screen.
+  //
+  // PRICE ONLY. No status flip, no `selection_match_rank`, no
+  // `linked_vendor_profile_id`, no fee call — this row is already booked and none
+  // of those may move.
+  //
+  // ── AND THE NEW PRICE IS A CHANGE BESIDE THE AGREED TOTAL, NOT OVER IT ────
+  // (owner 2026-09-09, "Both, shown separately"). From #5355 until 2026-09-11
+  // this branch wrote `total_cost_php := <new total>` — an absolute overwrite,
+  // so the ₱100,000 they agreed at the lock vanished and nothing on the budget
+  // said the price had moved. `record_agreed_price_change` now leaves the agreed
+  // total where it is and records the difference as a CHANGE line
+  // (`is_change_delta`), the same row shape an accepted change order writes, so
+  // `lib/agreed-total-and-its-changes.ts` shows the total AND the change and
+  // adds them up. Measured against the price as it stands after every earlier
+  // change, so a second press of the same Deal records nothing.
+  //
+  // 🔒 WHY THE SERVICE ROLE, AND WHY THAT IS SAFE HERE. The database refuses a
+  // browser session that tries to author a change line (the heading says the
+  // SUPPLIER agreed), so the write is made by the one server function allowed
+  // to, which a browser cannot call. Its inputs are proved, never taken from
+  // the form: `lockDeal` checked this is the couple of this thread and computed
+  // `agreedTotalPhp` from the accepted amendment on the server, and the status
+  // read just above found THIS booking row through the couple's own RLS.
+  //
+  // ⚠ THE FEE BASE STILL MOVES WITH THE PRICE — THE OWNER'S 2026-09-09 RULING.
+  // `booking_fee_open_lock_charge` and `booking_fee_rederive_lock_fee` now read
+  // `total_cost_php` + the change lines, and a change line fires the same
+  // re-derive a `total_cost_php` move always fired. So a fee not yet charged is
+  // charged on the renegotiated price (what they booked at), and one already
+  // charged is re-derived exactly as before — pending updated in place, paid
+  // topped up or credited, never rewritten. (The line that used to stand here
+  // said a minted fee "does not move at all"; the re-derive trigger of
+  // 20270930120000 made that false long before this change.)
+  if (action === 'refresh_fee_only') {
+    const { data: changed, error: repriceErr } = await admin.rpc('record_agreed_price_change', {
+      p_event_id: eventId,
+      p_event_vendor_id: eventVendorId,
+      p_new_total_php: agreedTotalPhp,
+    });
+    if (repriceErr) {
+      if (repriceErr.code === '23514' && /vendor_not_verified/.test(repriceErr.message ?? '')) {
+        return { status: 'not_verified' };
+      }
+      return { status: 'error', message: repriceErr.message };
+    }
+    // 'changed' (a change line landed) · 'unchanged' (the agreed total already
+    // IS this number) · 'priced' (no agreed total yet, so this became it) all
+    // mean the couple's budget now reads the agreed total. 'not_found' — or an
+    // unrecognised answer — must never read as a landing.
+    const status = (changed as { status?: string } | null)?.status;
+    return {
+      status: 'already_booked',
+      feeCharged,
+      priceLanded: status === 'changed' || status === 'unchanged' || status === 'priced',
+    };
+  }
+
+  return { status: 'booked', feeCharged, priceLanded: bookedPriceLanded };
 }

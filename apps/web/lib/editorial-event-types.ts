@@ -85,3 +85,36 @@ export function editorialAllowsEventType(
  * this module exists to cure — so one true word for all sixteen kinds.
  */
 export const UNNAMED_EDITORIAL_LABEL = 'A Setnayan celebration';
+
+/**
+ * Apply the KIND exclusion to an `events` query. THE ONE FILTER — every surface
+ * that lists published stories composes this instead of writing its own
+ * `.eq('event_type', 'wedding')`.
+ *
+ * 🔑 IT ADDS NOTHING WHILE THE EXCLUSION SET IS EMPTY, which is the point: with
+ * no ruling in force every celebration is eligible, so the query must not
+ * constrain the type at all. Filtering in SQL rather than after the read is
+ * load-bearing — an excluded row dropped in JS would still have consumed one of
+ * the `limit` slots and silently shortened the shelf.
+ *
+ * 🔴 IT LIVES HERE, NOT IN `showcase-db.ts`, BECAUSE THE PRIVATE COPY IS WHAT
+ * DRIFTED. This helper shipped inside showcase-db on 2026-08-15 and closed the
+ * gate on the SHELF; `realstories-vendor.ts` and `recap-vendor.ts` kept their own
+ * `.eq('event_type', 'wedding')` and were never touched, so for three weeks a
+ * debut, reunion or graduation published to /realstories and was never collected
+ * on the credited vendor's portfolio — the free tier's headline promise, false
+ * for fifteen of the sixteen kinds. Two places deciding one fact.
+ *
+ * Structurally typed over `.not()` so it composes with whichever query builder
+ * stage it is handed, without importing Supabase's internal builder types.
+ */
+export function withEditorialEventTypes<
+  Q extends { not(c: string, o: string, v: string): Q },
+>(query: Q): Q {
+  if (EDITORIAL_EXCLUDED_EVENT_TYPES.length === 0) return query;
+  return query.not(
+    'event_type',
+    'in',
+    `(${EDITORIAL_EXCLUDED_EVENT_TYPES.join(',')})`,
+  );
+}

@@ -103,13 +103,18 @@ test('no auth UUID leaves this module', () => {
 test('a failed read is distinguishable from having nobody', () => {
   assert.match(PEOPLE_CODE, /ok:\s*false/, 'nothing ever reports a failed read');
   assert.match(PEOPLE_CODE, /ok:\s*true/, 'nothing ever reports a successful empty read');
-  assert.match(
-    FEED,
-    /yourPeopleOk/,
-    'The feed ignores whether the people read succeeded, so "we could not ' +
-      'check" renders as "you have nobody" — the one thing a broken read must ' +
-      'not claim about somebody’s friends.',
-  );
+  /*
+    ⚠ 2026-09-03 — DROPPED THE THIRD ASSERTION, NOT THE PROPERTY. This used to
+    also require `yourPeopleOk` in `FEED` — the front door narrowed its shelf
+    by "Your people" behind a chip, and a failed read had to be distinguished
+    from an honest zero right there in the render. The 2026-09-03 redesign
+    retired the chip (and every filter with it) but deliberately did NOT touch
+    `your-people.ts` itself — see that module's own note and
+    `front-door-composition.ts`'s docblock on `fromYourPeople`. Nothing
+    downstream reads `yourPeopleOk` today, so there is no render left for this
+    guard to check; the ok/false-vs-ok/true distinction above is still real
+    and still asserted, on the module that still makes it.
+  */
 });
 
 test('every Supabase read checks error explicitly — a catch cannot see a rejection', () => {
@@ -122,32 +127,16 @@ test('every Supabase read checks error explicitly — a catch cannot see a rejec
   );
 });
 
-/* ── THE CHIP IS A NARROWING, AND IT FAILS CLOSED ───────────────────────── */
-test('an unknown author is not a friend — the composer compares === true', () => {
-  assert.match(
-    COMPOSER,
-    /fromYourPeople === true/,
-    'The composer must admit a story only on an explicit `true`. A truthy ' +
-      'test would admit any non-empty value, and an OPTIONAL field that is ' +
-      'absent (caller has not computed it, or its read failed) must read as ' +
-      '"not yours".',
-  );
-});
-
-test('the chip is offered only to somebody signed in', () => {
-  assert.match(
-    FEED,
-    /c !== 'Your people' \|\| signedIn/,
-    'The chip is no longer gated on a session. A stranger has no people, so ' +
-      'the button is a door onto a room that can never fill.',
-  );
-  assert.match(
-    DOOR,
-    /signedIn=\{account\.signedIn\}/,
-    'The page stopped telling the feed who is looking, so the gate above ' +
-      'always sees the default and the chip disappears for everyone.',
-  );
-});
+/* ── THE CHIP IS RETIRED — 2026-09-03 ─────────────────────────────────────
+   `front-door-composition.ts` no longer has a `selectShelf`/`fromYourPeople
+   === true` narrowing to admit a story by, and `front-door-feed.tsx` no
+   longer renders a chip bar at all (no `'Your people'`, no `signedIn` gate
+   to pass it). Both tests that lived here (the composer's fail-closed
+   comparison, the chip's signed-in gate) tested exactly that mechanism, and
+   it does not exist to test any more — see `front-door-composition.ts`'s own
+   docblock. `your-people.ts`, the READ underneath the retired chip, is
+   unchanged and still tested above and below; only its front-door consumer
+   is gone. */
 
 test('the module never loads a story — that is the whole safety argument', () => {
   for (const table of ['creator_chapters', 'event_showcases', 'person_story_items']) {

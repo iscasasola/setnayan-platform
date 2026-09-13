@@ -13,9 +13,59 @@
  * Layout: a gentle aisle→stage view — ceiling overhead, entrance/tunnel arches
  * over the aisle, the couple's stage + backdrop at the far end, guest tables
  * flanking. Treatments swap the shapes; the shared Reception palette colors it.
+ *
+ * MULTI-SELECT (owner, 2026-09-03: "on reception design, needs to be able to
+ * pick multiple as well"). Real receptions combine treatments — a ceiling is
+ * draped fabric AND fairy lights — so an attribute marked `multi` may hold an
+ * ARRAY of option ids instead of one. The widening is deliberately one-way:
+ * a bare string still means exactly what it always meant, so every stored
+ * `events.reception_design` and all 2,600 seeded `moodboard_theme_templates`
+ * rows stayed valid with no migration and no backfill. `sel()` still returns
+ * ONE id (the primary) for every caller that draws one thing; `selAll()`
+ * returns the whole list for the callers that can show all of them.
  */
 
-export type PartId = 'ceiling' | 'backdrop' | 'stage' | 'tables' | 'tunnel' | 'entrance' | 'people';
+import { receptionVenuePhrase, isVenueSetting, type VenueSetting } from './venue-settings';
+import type { WeddingTile } from './taxonomy';
+
+export type PartId =
+  | 'ceiling'
+  | 'backdrop'
+  | 'stage'
+  | 'tables'
+  | 'tunnel'
+  | 'entrance'
+  | 'walls'
+  | 'photo_wall'
+  | 'welcome_signage'
+  // ── the celebration, added 2026-09-06 (owner) ─────────────────────────────
+  // 🔑 A FILIPINO WEDDING HAS TWO VENUES, AND THIS IS THE SECOND ONE.
+  // Owner: *"after a ceremony venue like church, they transfer to a place to
+  // eat and celebrate the wedding. that is the reception venue. this is what
+  // is supposed to be created with the stylist and everyone else, catering,
+  // food, wall, ceiling, etc… it is a place not where the bride walks but a
+  // time to celebrate and eat thus having booths, hosts, bands, etc."*
+  //
+  // The room could already be dressed — ceiling, walls, backdrop, the couple's
+  // stage, the guest tables — but it had nowhere to put the things that make
+  // it a CELEBRATION rather than a decorated hall. A couple could book a live
+  // band, an emcee, a mobile bar and a perfume booth in the marketplace and
+  // not one of them had a place in the drawing, in the zone rail, or in the
+  // brief that drives the paid photoreal render.
+  //
+  // These three are not invented categories. Each is exactly one marketplace
+  // PARENT out of the ten in `lib/taxonomy.ts`, chosen because it is a parent
+  // whose suppliers occupy floor space at the reception and had no zone:
+  //   feast   → `feast`   (catering · stations · cake · crew_meals)
+  //   program → `program` (live_band · dj · orchestra · host_mc · performers…)
+  //   booths  → `booths`  (photo_booth · mobile_bar · food_cart · perfume_bar…)
+  // Anchoring them to the parents rather than naming them freehand is what
+  // lets a later change light a zone up from what the couple actually BOOKED
+  // without inventing a second mapping between the two vocabularies.
+  | 'feast'
+  | 'program'
+  | 'booths'
+  | 'people';
 
 /** Per-role attire colors for the people layer. `guestPalette` is the guest
  *  dress-code palette (multiple approved colors) — guests render in a mix of them. */
@@ -27,14 +77,96 @@ export type RoleColors = {
   guestPalette?: string[];
 };
 
-export type Option = { id: string; label: string; prompt: string };
-export type Attribute = { id: string; label: string; options: Option[] };
+export type Option = {
+  id: string;
+  label: string;
+  prompt: string;
+  /**
+   * The marketplace trade that SUPPLIES this treatment — data, not decoration.
+   *
+   * 🔑 THESE WERE COMMENTS, AND A COMMENT CANNOT BE READ BY THE ROOM. RV1 wrote
+   * the trade beside each celebration option (`// live_band`, `// mobile_bar`)
+   * and said, in this file's own PartId docblock, that anchoring the zones to
+   * the marketplace parents is *"what lets a later change light a zone up from
+   * what the couple actually BOOKED without inventing a second mapping between
+   * the two vocabularies."* This field is that link, promoted from a comment to
+   * a value. Nothing re-types a trade name here that is not already a
+   * `WeddingTile`, and `assertOptionTilesBelongToTheirZone`
+   * (lib/reception-booked-suggestions.ts) refuses, at module load, any tile the
+   * zone's own `MOODBOARD_PART_TRADES` entry does not already claim — so the
+   * option vocabulary and the part → trade map cannot drift apart silently.
+   *
+   * ⚠ ABSENT IS AN ANSWER. A ceiling treatment, a table linen or a runner has
+   * no single trade that "is" it — a stylist builds all of them — and guessing
+   * one would put a florist's name on a chandelier. Only options a marketplace
+   * shop is booked to PROVIDE carry a tile; every other option leaves it unset
+   * and is therefore never suggested by anybody.
+   *
+   * The import is type-only, so this adds no runtime edge to `./taxonomy` and
+   * this module stays as client-safe as it has always been.
+   */
+  tile?: WeddingTile;
+  /** "Nothing here" (None / Bare / Minimal). On a `multi` attribute it can
+   *  never sit alongside a real treatment — "no entrance tunnel" AND "a
+   *  tunnel of floral arches" is a contradiction the AI prompt would
+   *  faithfully repeat. `sanitizeReceptionDesign` drops it whenever a real
+   *  option is also selected. Meaningless (and unset) on single attributes,
+   *  where exclusivity is automatic. */
+  exclusive?: true;
+};
+export type Attribute = {
+  id: string;
+  label: string;
+  options: Option[];
+  /** Opt-in multi-select (owner, 2026-09-03: "on reception design, needs to be
+   *  able to pick multiple as well"). Set ONLY where combining treatments is
+   *  what a real reception does — a ceiling really is draped fabric AND fairy
+   *  lights. Left unset wherever multiple is nonsense (one table shape, one
+   *  stage setup, one guest list in the room). */
+  multi?: true;
+};
 export type Part = { id: PartId; label: string; blurb: string; attributes: Attribute[] };
 
-/** Nested design: part → attribute → chosen option id. */
-export type ReceptionDesign = Partial<Record<PartId, Record<string, string>>>;
+/** One attribute's stored value. A bare string is the single-selection form —
+ *  what every row written before 2026-09-03 holds, and what all 2,600 seeded
+ *  `moodboard_theme_templates` rows hold — and it still means exactly what it
+ *  always meant, so nothing needed migrating or backfilling. An array is the
+ *  new multi-selection form, valid only on a `multi` attribute. */
+export type AttributeValue = string | string[];
+
+/** Nested design: part → attribute → chosen option id(s). */
+export type ReceptionDesign = Partial<Record<PartId, Record<string, AttributeValue>>>;
+
+/**
+ * How many treatments one `multi` attribute may hold at once.
+ *
+ * THREE, not two: two covers the owner's own examples (draped fabric + fairy
+ * lights; a floral wall + greenery), but the welcome table genuinely carries
+ * three real things at once — an easel welcome sign, a framed seating chart
+ * AND a floral guestbook table — and capping that at two would force a couple
+ * to leave one out of a room that has all three. Three is also still short of
+ * "everything": the smallest multi attribute (`backdrop.florals`,
+ * `stage.florals`) has four options, so no cap-filling selection can ever
+ * collapse into "all of them", and `buildPrompt`'s brief and the SVG's layered
+ * glyphs both stay readable at three.
+ */
+export const MAX_SELECTIONS_PER_ATTRIBUTE = 3;
 
 const O = (id: string, label: string, prompt: string): Option => ({ id, label, prompt });
+/** An option a marketplace trade SUPPLIES — see `Option.tile`. */
+const OT = (id: string, label: string, prompt: string, tile: WeddingTile): Option => ({
+  id,
+  label,
+  prompt,
+  tile,
+});
+/** An option meaning "nothing here" — see `Option.exclusive`. */
+const ONone = (id: string, label: string, prompt: string): Option => ({
+  id,
+  label,
+  prompt,
+  exclusive: true,
+});
 
 export const RECEPTION_PARTS: Part[] = [
   {
@@ -45,6 +177,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'treatment',
         label: 'Treatment',
+        // The owner's own example of a real combination: draped fabric AND
+        // fairy lights. Ceiling treatments are hung fixtures — they share the
+        // overhead band without contradicting each other.
+        multi: true,
         options: [
           O('chandeliers', 'Crystal chandeliers', 'rows of crystal chandeliers overhead'),
           O('draped', 'Draped canopy', 'a draped fabric canopy across the ceiling'),
@@ -53,7 +189,8 @@ export const RECEPTION_PARTS: Part[] = [
           O('hanging_greenery', 'Hanging greenery', 'hanging greenery and vines from the ceiling'),
           O('lanterns', 'Paper lanterns', 'clusters of hanging paper lanterns'),
           O('geometric', 'Geometric', 'modern geometric hanging installations'),
-          O('bare', 'Open / bare', 'a clean open ceiling'),
+          O('banana_leaf', 'Banana leaf & monstera', 'a hanging canopy of banana leaf and monstera fronds'),
+          ONone('bare', 'Open / bare', 'a clean open ceiling'),
         ],
       },
     ],
@@ -66,6 +203,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Style',
+        // The owner's second example: a floral wall AND greenery. Backdrop
+        // styles LAYER — each selected style is drawn in turn, so a later pick
+        // dresses the one under it (which is what a real combined backdrop is).
+        multi: true,
         options: [
           O('draped', 'Draped fabric', 'a draped fabric backdrop'),
           O('floral_wall', 'Floral wall', 'a full floral wall backdrop'),
@@ -76,13 +217,16 @@ export const RECEPTION_PARTS: Part[] = [
           O('balloon', 'Balloon wall', 'an organic balloon wall'),
           O('fringe', 'Fringe panels', 'a fringe and tassel panel backdrop'),
           O('led', 'LED wall', 'a large LED video wall backdrop'),
+          O('capiz', 'Capiz shell', 'a backdrop of iridescent capiz shell panels'),
         ],
       },
       {
         id: 'florals',
         label: 'Backdrop florals',
+        // Corner sprays AND a cascade down one side is a common florist build.
+        multi: true,
         options: [
-          O('none', 'None', ''),
+          ONone('none', 'None', ''),
           O('corner', 'Corner sprays', 'with corner floral sprays'),
           O('full', 'Full frame', 'framed all around in flowers'),
           O('cascading', 'Cascading', 'with cascading florals down one side'),
@@ -109,11 +253,14 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'florals',
         label: 'Stage florals',
+        // An arch behind the couple, pedestals flanking them and a runner on
+        // their table are three separate florist pieces, not three choices.
+        multi: true,
         options: [
           O('arch', 'Arch', 'an arch of flowers behind the couple'),
           O('pedestals', 'Pedestals', 'tall floral pedestals flanking the couple'),
           O('table_runner', 'Table runner', 'a floral runner along the couple’s table'),
-          O('none', 'None', ''),
+          ONone('none', 'None', ''),
         ],
       },
     ],
@@ -124,6 +271,10 @@ export const RECEPTION_PARTS: Part[] = [
     blurb: 'Where guests sit',
     attributes: [
       {
+        // SINGLE on purpose: a guest table is round or long or square. (The
+        // catalogue has no "Mixed" option today — if the owner wants mixed
+        // shapes across the room, that is a new OPTION here, not a second
+        // simultaneous selection: the renderer draws one shape per table spot.)
         id: 'shape',
         label: 'Shape',
         options: [
@@ -151,6 +302,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('runner', 'With runner', 'linens with a table runner'),
           O('full_drape', 'Full drape', 'lush full-drape table linens'),
           O('sequin', 'Sequin', 'shimmering sequin linens'),
+          O('banig', 'Banig weave', 'banig-weave table runners'),
         ],
       },
       {
@@ -163,6 +315,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('candles', 'Candle cluster', 'clusters of pillar candles'),
           O('greenery_runner', 'Greenery runner', 'a greenery garland runner'),
           O('lanterns', 'Lanterns', 'lantern centerpieces'),
+          O('sampaguita', 'Sampaguita garland', 'clusters of sampaguita garlands'),
         ],
       },
       {
@@ -185,6 +338,10 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'style',
         label: 'Tunnel',
+        // One walk-through can be dressed twice — floral arches strung with
+        // fairy lights, lanterns hung along a greenery tunnel. Each selected
+        // style draws its own pass over the same three arch depths.
+        multi: true,
         options: [
           O('floral', 'Floral arches', 'a grand-entrance tunnel of floral arches'),
           O('draped', 'Draped arches', 'a grand-entrance tunnel of draped fabric arches'),
@@ -196,7 +353,8 @@ export const RECEPTION_PARTS: Part[] = [
           O('butterfly', 'Butterfly tunnel', 'a whimsical butterfly entrance tunnel'),
           O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
           O('cold_spark', 'Cold spark walk', 'a walkway of cold-spark fountains firing as the couple enters'),
-          O('none', 'No tunnel', 'no entrance tunnel'),
+          O('bamboo', 'Bamboo & rattan', 'an entrance tunnel of bamboo and rattan arches'),
+          ONone('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
     ],
@@ -209,13 +367,211 @@ export const RECEPTION_PARTS: Part[] = [
       {
         id: 'runner',
         label: 'Aisle runner',
+        // A fabric runner scattered with petals and lined with candles is one
+        // aisle, dressed three ways — each is a separate rental line item.
+        multi: true,
         options: [
           O('fabric', 'Fabric runner', 'a fabric aisle runner'),
           O('petals', 'Petals', 'an aisle scattered with petals'),
           O('mirror', 'Mirror', 'a mirrored aisle'),
           O('candle', 'Candle-lined', 'an aisle lined with candles'),
           O('floral_lined', 'Floral-lined', 'an aisle lined with florals'),
-          O('none', 'Bare', 'a bare aisle'),
+          ONone('none', 'Bare', 'a bare aisle'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'walls',
+    label: 'Walls & surroundings',
+    // Philippine venues — hotels especially — commonly restrict what can be
+    // hung, drilled, or taped to their walls/pillars; a couple should confirm
+    // with their venue before booking a wall treatment (informational only,
+    // not a blocking validation — same spirit as the tunnel catalog's
+    // realism notes above).
+    blurb: 'Side walls & pillars — check with your venue before booking',
+    attributes: [
+      {
+        id: 'treatment',
+        label: 'Treatment',
+        // Draped walls with floral garlands over them is the standard hotel
+        // ballroom build. "Uplighting only" and "Bare" are exclusive: both
+        // say, in words, that there is no wall dressing.
+        multi: true,
+        options: [
+          O('fabric_drape', 'Fabric drape', 'fabric-draped side walls'),
+          O('floral_garland', 'Floral garland', 'floral garlands along the side walls and pillars'),
+          O('greenery_wall', 'Greenery wall', 'greenery-clad side walls'),
+          ONone('uplighting_only', 'Uplighting only', 'uplit bare walls, no wall dressing'),
+          ONone('bare', 'Bare / undressed', 'bare undressed walls'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'photo_wall',
+    label: 'Photo wall',
+    blurb: 'The step-and-repeat / photo-op backdrop — separate from your stage backdrop',
+    attributes: [
+      {
+        id: 'style',
+        label: 'Style',
+        // A greenery wall with a neon sign on it, a balloon garland over a
+        // step-and-repeat — the photo op is usually two things at once.
+        multi: true,
+        options: [
+          O('floral_wall', 'Floral wall', 'a floral photo-wall backdrop'),
+          O('step_repeat', 'Step & repeat', 'a step-and-repeat photo wall with the couple’s monogram'),
+          O('greenery_wall', 'Greenery wall', 'a greenery photo-wall backdrop'),
+          O('balloon_garland', 'Balloon garland', 'a balloon-garland photo wall'),
+          O('neon_backdrop', 'Neon sign', 'a neon-sign photo wall'),
+          ONone('none', 'None', ''),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'welcome_signage',
+    label: 'Welcome & signage',
+    blurb: 'The welcome table near the entrance — sign, seating chart, guestbook',
+    attributes: [
+      {
+        id: 'style',
+        label: 'Style',
+        // The welcome area is a SET of things, not a choice between them — the
+        // sign, the seating chart and the guestbook table stand side by side.
+        // This is the attribute that sets the cap at three rather than two.
+        multi: true,
+        options: [
+          O('easel_sign', 'Easel welcome sign', 'an easel welcome sign at the entrance'),
+          O('framed_seating_chart', 'Framed seating chart', 'a framed seating chart display near the entrance'),
+          O('floral_guestbook', 'Floral guestbook table', 'a floral-framed guestbook table near the entrance'),
+          ONone('minimal', 'Minimal / no signage', 'a minimal welcome table, no signage'),
+        ],
+      },
+    ],
+  },
+  // ── THE CELEBRATION · three zones, three marketplace parents ──────────────
+  // Every option below carries the tile it corresponds to in `lib/taxonomy.ts`,
+  // so the thing a couple DRESSES and the thing they BOOK are the same noun.
+  // The prompt phrases are written for `buildPrompt`, which drives the paid
+  // photoreal render — they describe a place in the room, never a supplier.
+  {
+    id: 'feast',
+    label: 'Food & drink',
+    blurb: 'Where the eating happens',
+    attributes: [
+      {
+        id: 'service',
+        label: 'How dinner is served',
+        // Single: a reception serves dinner one way. (Stations BESIDE a plated
+        // dinner is real, and that is what `stations` below is for.)
+        options: [
+          ONone('none', 'Not decided yet', ''),
+          OT('buffet', 'Buffet line', 'a long draped buffet line along the side of the room', 'catering'),
+          OT('plated', 'Plated service', 'plated table service, no buffet line', 'catering'),
+          OT('family_style', 'Family style', 'family-style platters shared down the middle of each table', 'catering'),
+          OT('grazing', 'Grazing table', 'an abundant grazing table of cheeses, fruit and bread', 'stations'),
+          OT('lechon', 'Lechon centrepiece', 'a whole roast lechon presented on its own carving table', 'stations'),
+        ],
+      },
+      {
+        id: 'stations',
+        label: 'Stations & sweets',
+        // Multi: a dessert table AND a cake table AND a mobile bar is an
+        // ordinary Filipino reception, not an extravagance.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          OT('cake_table', 'Cake table', 'a dressed cake table with the tiered wedding cake', 'cake'),
+          OT('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries', 'dessert'),
+          OT('mobile_bar', 'Mobile bar', 'a styled mobile cocktail bar', 'mobile_bar'),
+          OT('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar', 'mocktail'),
+          OT('coffee', 'Coffee cart', 'an espresso and coffee cart', 'coffee_espresso'),
+          // `food_cart`, not `food_truck`: both parents exist and both are in
+          // `MOODBOARD_PART_TRADES['room:feast']`, but a truck parks outside and a
+          // cart stands in the room, and this option draws carts along the wall.
+          OT('food_cart', 'Food carts', 'Filipino street-food carts along the wall', 'food_cart'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'program',
+    label: 'Program',
+    blurb: 'The band, the host, the dancing',
+    attributes: [
+      {
+        id: 'performers',
+        // NOT "Who plays": the People zone's one attribute is labelled "Who",
+        // and `briefWholeLookZoneLines` excludes People from the whole-look
+        // brief. A guard identified it by `label.startsWith('Who')`, so this
+        // label would have been silently dropped from the brief the couple pays
+        // to render. The proxy is fixed in that guard too — but a label that
+        // does not collide is the better half of the fix.
+        label: 'The band',
+        // Multi: a string quartet at dinner and a band for the party is one of
+        // the commonest programs there is.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          OT('live_band', 'Live band', 'a live band on a low riser with their instruments', 'live_band'),
+          OT('dj', 'DJ booth', 'a DJ booth with decks and speakers', 'dj'),
+          OT('string_quartet', 'String quartet', 'a string quartet seated to one side', 'orchestra'),
+          OT('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone', 'wedding_singer'),
+          OT('choir', 'Choir', 'a small choir standing in rows', 'choir'),
+        ],
+      },
+      {
+        id: 'host',
+        label: 'The host',
+        // Single: one emcee has one spot.
+        options: [
+          ONone('none', 'None', ''),
+          OT('podium', 'Podium', 'a styled podium for the host', 'host_mc'),
+          OT('standing_mic', 'Standing mic', 'a standing microphone for the host', 'host_mc'),
+          OT('host_table', 'Host table', 'a small dressed table for the host and their notes', 'host_mc'),
+        ],
+      },
+      {
+        id: 'floor',
+        label: 'Dance floor',
+        options: [
+          ONone('none', 'None', ''),
+          OT('parquet', 'Parquet', 'a parquet dance floor in front of the stage', 'dance_floor'),
+          OT('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre', 'dance_floor'),
+          // `dance_floor`, not `led_wall`: a wall is not a floor, and the shop a
+          // couple books for this is a dance-floor supplier who happens to
+          // build it out of LEDs.
+          OT('led', 'LED floor', 'a glowing LED dance floor', 'dance_floor'),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'booths',
+    label: 'Guest booths',
+    blurb: 'What guests wander to',
+    attributes: [
+      {
+        id: 'kinds',
+        label: 'Booths',
+        // Multi, capped at MAX_SELECTIONS_PER_ATTRIBUTE like every other multi.
+        // These are the `booths` parent's own tiles; the food-and-drink ones
+        // that also live under that parent are offered under `feast.stations`
+        // instead, where a couple would look for them.
+        multi: true,
+        options: [
+          ONone('none', 'None', ''),
+          OT('photo_booth', 'Photo booth', 'a photo booth with a props table', 'photo_booth'),
+          OT('arcade', 'Arcade games', 'a retro arcade games corner', 'arcade_games'),
+          OT('caricature', 'Caricature artist', 'a caricature artist sketching guests at a small easel', 'caricature_calligraphy_painting'),
+          OT('henna', 'Henna tattoo', 'a henna tattoo booth with low seating', 'henna_tattoo'),
+          OT('massage', 'Massage chairs', 'a pair of massage chairs in a quiet corner', 'massage_chair'),
+          OT('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools', 'mini_nail_bar'),
+          OT('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles', 'perfume_bar'),
+          OT('tarot', 'Tarot reader', 'a tarot reader at a draped round table', 'tarot_astrology_palmistry'),
+          OT('engraving', 'Live engraving', 'a live engraving station personalising guest favours', 'engraving_embroidery'),
         ],
       },
     ],
@@ -241,6 +597,66 @@ export const RECEPTION_PARTS: Part[] = [
   },
 ];
 
+/**
+ * Which family of room the SVG draws. Only a coarser grouping than
+ * `VenueSetting` (venue-settings.ts) matters for the DRAWING — `restaurant`
+ * draws exactly like `banquet_hall` (an interior room), and `destination` is
+ * drawn as `beach`, its nearest neighbour, since the destination weddings
+ * this market books are overwhelmingly coastal — rather than inventing a
+ * seventh scene for one enum value that already looks like another.
+ */
+export type VenueSceneFamily = 'hall' | 'heritage' | 'garden' | 'beach' | 'tent';
+
+const VENUE_SCENE: Record<VenueSetting, VenueSceneFamily> = {
+  banquet_hall: 'hall',
+  restaurant: 'hall',
+  heritage: 'heritage',
+  garden: 'garden',
+  beach: 'beach',
+  destination: 'beach',
+  outdoor_tent: 'tent',
+};
+
+/** The scene family for a stored (possibly absent/unrecognised)
+ *  `events.venue_setting`. An unknown value draws as `hall` — the same room
+ *  `AMBIGUOUS_VENUE_SETTING` ('banquet_hall', venue-settings.ts) already
+ *  means when nothing was chosen, and `hall` gates nothing, so an unset
+ *  venue never loses a zone it hasn't actually been told it lacks. */
+export function venueSceneFamily(venueSetting: string | null | undefined): VenueSceneFamily {
+  return isVenueSetting(venueSetting) ? VENUE_SCENE[venueSetting] : 'hall';
+}
+
+/**
+ * Zones a venue type genuinely LACKS — gated (disabled, labeled "not at
+ * this venue", excluded from the drawing and from every render brief) only
+ * where the absence is PHYSICAL, never where the couple might simply choose
+ * to build it:
+ *   · beach / destination — no ceiling to dress, no walls: open shore.
+ *   · garden — no walls (the boundary is planting). Ceiling stays available:
+ *     string lights and hanging installations between trees are a real
+ *     garden treatment.
+ *   · tent — nothing gated: the canopy IS a ceiling, the sides drape.
+ *   · hall / restaurant / heritage — nothing gated.
+ * (Ported from the agreed prototype, atelier-board.html's `VENUE_ZONE_NA`.)
+ */
+const VENUE_ZONE_NA: Partial<Record<VenueSetting, ReadonlySet<PartId>>> = {
+  beach: new Set<PartId>(['ceiling', 'walls']),
+  destination: new Set<PartId>(['ceiling', 'walls']),
+  garden: new Set<PartId>(['walls']),
+};
+
+/**
+ * Does this reception zone exist at the couple's venue? The one predicate
+ * every gate in this module (the drawing, the zone rail, `buildPrompt`, and
+ * every downstream render brief) must share — see `venueZoneApplies.test.ts`
+ * -style coverage in `reception-scene.test.ts`. An unrecognised or absent
+ * venue never gates anything (same reasoning as `venueSceneFamily`).
+ */
+export function venueZoneApplies(venueSetting: string | null | undefined, part: PartId): boolean {
+  if (!isVenueSetting(venueSetting)) return true;
+  return !VENUE_ZONE_NA[venueSetting]?.has(part);
+}
+
 export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   ceiling: { treatment: 'chandeliers' },
   backdrop: { style: 'draped', florals: 'corner' },
@@ -248,26 +664,168 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
   tables: { shape: 'round', chairs: 'chiavari', linen: 'plain', centerpiece: 'tall', place: 'gold' },
   tunnel: { style: 'floral' },
   entrance: { runner: 'fabric' },
+  walls: { treatment: 'bare' },
+  photo_wall: { style: 'none' },
+  welcome_signage: { style: 'minimal' },
+  // 🔑 THE THREE CELEBRATION ZONES DEFAULT TO NOTHING, AND THAT IS THE POINT.
+  // `sel()`/`selAll()` fall back to DEFAULT_DESIGN for any part a stored
+  // `reception_design` has no key for — which is EVERY event that existed
+  // before these zones did. Defaulting `feast.service` to 'buffet' would put a
+  // buffet line into every couple's room overnight, in the drawing, in the zone
+  // rail and in the brief that drives their paid render, without one of them
+  // choosing it. 'none' keeps the room byte-identical until a couple picks
+  // something, and `reception-scene.test.ts` asserts exactly that.
+  feast: { service: 'none', stations: 'none' },
+  program: { performers: 'none', host: 'none', floor: 'none' },
+  booths: { kinds: 'none' },
   people: { who: 'couple' },
 };
 
-/** Selected option id for a part+attribute, falling back to the default. */
-export function sel(design: ReceptionDesign, part: PartId, attr: string): string {
-  return design[part]?.[attr] ?? DEFAULT_DESIGN[part][attr]!;
+/**
+ * Normalize ONE stored attribute value to a list of option ids, applying no
+ * default: a bare string → `[string]`, an array → its string entries, anything
+ * else (including `undefined` and an empty array) → `[]`. Use this when the
+ * ABSENCE of a choice has to stay visible; use `selAll()` when you want the
+ * default filled in.
+ */
+export function optionIds(value: AttributeValue | undefined): string[] {
+  if (typeof value === 'string') return value.length > 0 ? [value] : [];
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
+  return [];
 }
 
-/** Fast lookup of every VALID option id per part → attribute, built once from
- *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids. */
-const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
-  const out: Record<string, Record<string, Set<string>>> = {};
+/**
+ * The PRIMARY selected option id for a part+attribute, falling back to the
+ * default. Unchanged in meaning and return type since before multi-select — a
+ * bare string resolves to itself, an array resolves to its first entry — so
+ * every caller that renders or reads ONE treatment keeps working untouched.
+ */
+export function sel(design: ReceptionDesign, part: PartId, attr: string): string {
+  return optionIds(design[part]?.[attr])[0] ?? DEFAULT_DESIGN[part][attr]!;
+}
+
+/**
+ * EVERY selected option id for a part+attribute, always at least one (the
+ * default). `selAll(...)[0] === sel(...)` always holds, so moving a call site
+ * from `sel` to `selAll` can only ADD treatments, never change the one that
+ * was already being drawn.
+ */
+export function selAll(design: ReceptionDesign, part: PartId, attr: string): string[] {
+  const ids = optionIds(design[part]?.[attr]);
+  return ids.length > 0 ? ids : [DEFAULT_DESIGN[part][attr]!];
+}
+
+/**
+ * One part+attribute a surface actually draws. The caller supplies the list,
+ * because it is the only thing that knows — see `DrawnAttributes` below.
+ */
+export type DrawnAttribute = readonly [PartId, string];
+
+/**
+ * WHAT A PRIMARY-ONLY SURFACE IS DRAWING, AND WHAT IT IS LEAVING OUT.
+ *
+ * The 3D room draws ONE treatment per attribute on purpose: there is one
+ * physical ceiling band, one backdrop panel, one welcome table. That is a
+ * legitimate limit; a couple silently believing their whole combination is on
+ * screen is not. A room that quietly drops two of three welcome-table pieces
+ * looks EXACTLY like a room that was given one — the same shape as the guest
+ * list that said "No guests yet" to a couple with 180 names.
+ *
+ * 🔑 `drawn` IS REQUIRED, AND IT IS THE WHOLE POINT OF THE SIGNATURE. The
+ * catalogue has ten parts; the 3D room reads SEVEN part+attributes and renders
+ * nothing at all for `stage.florals`, `entrance.runner` or `backdrop.florals`.
+ * A version of this function that walked every part told a couple
+ * *"Stage (showing Arch)"* about a stage the room does not draw — a brand-new
+ * false claim inside the fix for false claims. Caught in review before it
+ * shipped, and closed by construction: a surface can only disclose about what
+ * it passed in, and the room's list is pinned to its own `sel()` calls by
+ * `the-room-draws-what-the-couple-saved.test.ts`.
+ *
+ * Labels, not ids — this is read by a person.
+ */
+export type HiddenTreatment = {
+  part: PartId;
+  partLabel: string;
+  attrLabel: string;
+  /** The one the surface IS drawing. */
+  primaryLabel: string;
+  /** The ones it is not, in the order the couple picked them. */
+  hiddenLabels: string[];
+};
+
+export function hiddenTreatments(
+  design: ReceptionDesign,
+  drawn: ReadonlyArray<DrawnAttribute>,
+): HiddenTreatment[] {
+  const out: HiddenTreatment[] = [];
+  for (const [partId, attrId] of drawn) {
+    const part = RECEPTION_PARTS.find((p) => p.id === partId);
+    const attr = part?.attributes.find((a) => a.id === attrId);
+    if (!part || !attr) continue;
+    const chosen = selAll(design, part.id, attr.id);
+    if (chosen.length < 2) continue;
+    const labelOf = (id: string) => attr.options.find((o) => o.id === id)?.label ?? id;
+    out.push({
+      part: part.id,
+      partLabel: part.label,
+      attrLabel: attr.label,
+      primaryLabel: labelOf(chosen[0]!),
+      hiddenLabels: chosen.slice(1).map(labelOf),
+    });
+  }
+  return out;
+}
+
+/**
+ * One sentence for a primary-only surface's legend, or `null` when there is
+ * nothing to disclose. Returning `null` rather than an empty string is the
+ * point: a room with no multi-selection must render byte-identically to one
+ * built before this existed, and `null` makes that structural.
+ */
+export function primaryOnlyNotice(
+  design: ReceptionDesign,
+  drawn: ReadonlyArray<DrawnAttribute>,
+): string | null {
+  const hidden = hiddenTreatments(design, drawn);
+  if (hidden.length === 0) return null;
+  const parts = hidden.map((h) => `${h.partLabel} (showing ${h.primaryLabel})`);
+  const list =
+    parts.length === 1
+      ? parts[0]!
+      : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]!}`;
+  const n = hidden.reduce((sum, h) => sum + h.hiddenLabels.length, 0);
+  // The second sentence is a CHECKABLE claim, not reassurance: both
+  // `lib/concept-pdf.ts` and `lib/moodboard-printable.ts` build their part
+  // lists from `selAll`, so every pick really is on the sheet the couple hands
+  // a supplier. If either ever moves to `sel`, this sentence becomes a lie —
+  // `the-room-draws-what-the-couple-saved.test.ts` pins both.
+  return `The room draws one treatment per part, so ${n} of your picks ${n === 1 ? 'is' : 'are'} not on screen — ${list}. All of them are saved, and your concept PDF lists every one for your suppliers.`;
+}
+
+/** Fast lookup of the rules per part → attribute, built once from
+ *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids,
+ *  reject arrays on single-select attributes, and hold the per-attribute cap. */
+type AttrRule = { allowed: Set<string>; multi: boolean; exclusive: Set<string> };
+const VALID_OPTIONS: Record<string, Record<string, AttrRule>> = (() => {
+  const out: Record<string, Record<string, AttrRule>> = {};
   for (const part of RECEPTION_PARTS) {
     out[part.id] = {};
     for (const attr of part.attributes) {
-      out[part.id]![attr.id] = new Set(attr.options.map((o) => o.id));
+      out[part.id]![attr.id] = {
+        allowed: new Set(attr.options.map((o) => o.id)),
+        multi: attr.multi === true,
+        exclusive: new Set(attr.options.filter((o) => o.exclusive).map((o) => o.id)),
+      };
     }
   }
   return out;
 })();
+
+/** Is this attribute opt-in multi-select? (Reads the same table the sanitizer
+ *  enforces, so the editor and the trust boundary can never disagree.) */
+export function isMultiAttribute(part: PartId, attr: string): boolean {
+  return VALID_OPTIONS[part]?.[attr]?.multi === true;
+}
 
 /**
  * Coerce an arbitrary JSONB blob (e.g. `events.reception_design`) into a clean
@@ -276,6 +834,21 @@ const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
  * so an empty result is safe (renders DEFAULT_DESIGN). Pure + total: never throws
  * on a malformed value, always returns a usable object. This is the single
  * trust boundary every 3D/SVG consumer of the stored design should pass through.
+ *
+ * Multi-select rules, enforced HERE so no writer can bypass them:
+ *   • a bare string is passed through exactly as before — which is why all
+ *     2,600 seeded `moodboard_theme_templates` rows and every stored
+ *     `events.reception_design` survived the widening with no migration;
+ *   • an array on a NON-`multi` attribute is REJECTED as an array and
+ *     collapsed to its first valid entry (a table is not round AND square);
+ *   • unknown option ids are dropped, inside an array exactly as outside it;
+ *   • duplicates are dropped, and no more than MAX_SELECTIONS_PER_ATTRIBUTE
+ *     survive, so a couple cannot select the whole catalogue;
+ *   • an `exclusive` "nothing here" option is dropped when a real treatment is
+ *     also selected, and kept when it is the only thing selected;
+ *   • a surviving single id is written back as a BARE STRING, so one pick
+ *     always stores in the legacy shape — arrays appear only where a couple
+ *     genuinely chose more than one.
  */
 export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -285,10 +858,28 @@ export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
     const partVal = src[partId];
     if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
     const partSrc = partVal as Record<string, unknown>;
-    const kept: Record<string, string> = {};
-    for (const [attrId, allowed] of Object.entries(attrs)) {
+    const kept: Record<string, AttributeValue> = {};
+    for (const [attrId, rule] of Object.entries(attrs)) {
       const v = partSrc[attrId];
-      if (typeof v === 'string' && allowed.has(v)) kept[attrId] = v;
+      if (typeof v === 'string') {
+        if (rule.allowed.has(v)) kept[attrId] = v;
+        continue;
+      }
+      if (!Array.isArray(v)) continue;
+      const ids = Array.from(
+        new Set(v.filter((x): x is string => typeof x === 'string' && rule.allowed.has(x))),
+      );
+      if (ids.length === 0) continue;
+      if (!rule.multi) {
+        kept[attrId] = ids[0]!;
+        continue;
+      }
+      const real = ids.filter((id) => !rule.exclusive.has(id));
+      const chosen = (real.length > 0 ? real : ids.slice(0, 1)).slice(
+        0,
+        MAX_SELECTIONS_PER_ATTRIBUTE,
+      );
+      kept[attrId] = chosen.length === 1 ? chosen[0]! : chosen;
     }
     if (Object.keys(kept).length > 0) out[partId as PartId] = kept;
   }
@@ -376,8 +967,61 @@ function qpoint(p0: [number, number], c: [number, number], p2: [number, number],
   return [u * u * p0[0] + 2 * u * t * c[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p2[1]];
 }
 
+// ---- depth compositing ----
+/**
+ * One drawable, floor-standing thing. `anchorY` is where it touches the
+ * FLOOR — its ground-contact line, never its top and never its tallest
+ * point — because in this projection larger `y` is nearer the viewer, and
+ * the thing that decides what paints over what is what is standing closer
+ * to the camera, not what reaches highest into the air.
+ *
+ * 🪤 THIS TYPE EXISTS BECAUSE "APPEND IT LAST" HAS NOW BEEN THE BUG TWICE.
+ * RV1 drew the dance floor as the room's final layer and it painted straight
+ * over the guest tables; the fix there was to special-case it as a FLOOR
+ * TREATMENT, drawn before the furniture that stands on it (see `danceFloor`'s
+ * own note above it — it stays a special case, not a `FloorItem`, because a
+ * rug has no single ground-contact point, it IS the ground). RV2 then gave
+ * the room a live band on a riser at the back-right and drew it last again —
+ * the exact same mistake, on a zone `danceFloor`'s fix never touched, because
+ * that fix was local to one zone instead of being a rule the compositor
+ * enforces for everyone standing on the floor. A shared anchor + one sort
+ * closes the whole category at once: nothing that stands on the floor gets
+ * to skip the comparison by being appended after everything else.
+ *
+ * Exported (with `compositeFloorItems` below) so `reception-scene.test.ts`
+ * can prove the rule is bidirectional — behind AND in front, depending on
+ * the numbers, never "the band always loses" hard-coded to look that way —
+ * even for a pairing the room's own fixed table spots never actually
+ * produce, since every real guest table happens to sit nearer than the band
+ * today.
+ */
+export type FloorItem = { anchorY: number; svg: string };
+
+/**
+ * Composite floor-standing items back to front — ascending ground-contact
+ * `y`, so whichever one actually touches the floor nearer the viewer always
+ * paints last (on top), regardless of the order the caller happened to build
+ * them in. The sort is STABLE: two items that tie on `anchorY` (or that never
+ * share a pixel) keep the relative order they were given, which is what lets
+ * a room with no real overlap come out byte-identical to before this
+ * function existed — nothing moves unless the numbers say it must.
+ */
+export function compositeFloorItems(items: ReadonlyArray<FloorItem>): string {
+  return items
+    .map((item, order) => ({ item, order }))
+    .sort((a, b) => a.item.anchorY - b.item.anchorY || a.order - b.order)
+    .map(({ item }) => item.svg)
+    .join('');
+}
+
 // ---- ceiling ----
-function ceiling(t: string, P: (i: number) => string): string {
+/** Every selected ceiling treatment, drawn one over the other — hung fixtures
+ *  share the overhead band (draped canopy + fairy lights is the owner's own
+ *  example), so layering is what a combined ceiling actually looks like. */
+function ceiling(treatments: string[], P: (i: number) => string): string {
+  return treatments.map((t) => ceilingLayer(t, P)).join('');
+}
+function ceilingLayer(t: string, P: (i: number) => string): string {
   const fab = P(0);
   if (t === 'bare') return '';
   if (t === 'draped') {
@@ -427,6 +1071,22 @@ function ceiling(t: string, P: (i: number) => string): string {
     }
     return s;
   }
+  if (t === 'banana_leaf') {
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      const cx = 100 + i * 150,
+        cy = 10 + (i % 2) * 18;
+      s += `<line x1="${cx}" y1="0" x2="${cx}" y2="${cy}" stroke="${LEAF}" stroke-width="1.2"/>`;
+      // Large drooping banana-leaf/monstera fronds — bigger than the
+      // generic `leaf()` glyph used by hanging_greenery, and split down
+      // the middle to read as a distinct broad-leaf silhouette.
+      for (const [dx, rot] of [[-30, -55], [0, 0], [30, 55]] as [number, number][]) {
+        s += `<ellipse cx="${(cx + dx).toFixed(1)}" cy="${(cy + 26).toFixed(1)}" rx="30" ry="12" fill="${shade(LEAF, dx === 0 ? 8 : -6)}" transform="rotate(${rot} ${(cx + dx).toFixed(1)} ${(cy + 26).toFixed(1)})"/>`;
+        s += `<line x1="${(cx + dx - 26).toFixed(1)}" y1="${(cy + 26).toFixed(1)}" x2="${(cx + dx + 26).toFixed(1)}" y2="${(cy + 26).toFixed(1)}" stroke="${shade(LEAF, -30)}" stroke-width="1" opacity="0.6" transform="rotate(${rot} ${(cx + dx).toFixed(1)} ${(cy + 26).toFixed(1)})"/>`;
+      }
+    }
+    return s;
+  }
   if (t === 'lanterns') {
     let s = '';
     for (let i = 0; i < 6; i++) {
@@ -468,11 +1128,21 @@ function ceiling(t: string, P: (i: number) => string): string {
 }
 
 // ---- backdrop ----
-function backdrop(style: string, florals: string, P: (i: number) => string): string {
-  const x = 330,
-    y = 150,
-    w = 300,
-    h = 210;
+/** Backdrop geometry — shared by the style layers and the florals overlays. */
+const BD = { x: 330, y: 150, w: 300, h: 210 };
+
+/** Every selected backdrop style, then every selected florals overlay on top.
+ *  Styles LAYER in selection order (a later pick dresses the one under it),
+ *  which is what "a floral wall AND greenery" is in a real room. */
+function backdrop(styles: string[], florals: string[], P: (i: number) => string): string {
+  return (
+    styles.map((style) => backdropStyleLayer(style, P)).join('') +
+    florals.map((f) => backdropFloralsLayer(f, P)).join('')
+  );
+}
+
+function backdropStyleLayer(style: string, P: (i: number) => string): string {
+  const { x, y, w, h } = BD;
   let s = '';
   const panel = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${shade(WALL, 6)}"/>`;
   if (style === 'floral_wall') {
@@ -510,6 +1180,21 @@ function backdrop(style: string, florals: string, P: (i: number) => string): str
       const fx = x + 8 + i * ((w - 16) / 24);
       s += `<path d="M ${fx} ${y + 8} q 3 ${h / 2} 0 ${h - 16}" fill="none" stroke="${i % 2 ? shade(P(0), 18) : P(0)}" stroke-width="${(w - 16) / 24 - 1}" opacity="0.85"/>`;
     }
+  } else if (style === 'capiz') {
+    // Iridescent capiz shell panels — a grid of pale, translucent
+    // quatrefoil-ish shell pieces with a soft pearly overlay, distinct
+    // from the flat floral_wall / led grids above.
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${shade(WALL, 4)}"/>`;
+    const shellFills = ['#F7F3EA', '#EFEAE0', '#F2EEE6'];
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sx = x + 10 + c * ((w - 20) / 7);
+        const sy = y + 10 + r * ((h - 20) / 5);
+        const fill = shellFills[(r + c) % shellFills.length]!;
+        s += `<rect x="${(sx - 14).toFixed(1)}" y="${(sy - 14).toFixed(1)}" width="28" height="28" rx="6" fill="${fill}" stroke="${shade(fill, -18)}" stroke-width="0.8" opacity="0.92"/>`;
+      }
+    }
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="url(#rwall)" opacity="0.12"/>`;
   } else if (style === 'led') {
     s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${shade(P(1), -60)}"/>`;
     for (let r = 0; r < 4; r++)
@@ -525,7 +1210,13 @@ function backdrop(style: string, florals: string, P: (i: number) => string): str
     }
     s += `<path d="M ${x + 8} ${y + 30} Q ${x + w / 2} ${y + 70} ${x + w - 8} ${y + 30}" fill="none" stroke="${shade(fab, -30)}" stroke-width="3" opacity="0.6"/>`;
   }
-  // florals accent overlay
+  return s;
+}
+
+/** One florals accent overlay on the backdrop (drawn over every style layer). */
+function backdropFloralsLayer(florals: string, P: (i: number) => string): string {
+  const { x, y, w, h } = BD;
+  let s = '';
   if (florals === 'corner') {
     for (const [bx, by] of [[x, y], [x + w, y]] as [number, number][])
       for (let i = 0; i < 6; i++) s += flower(bx + (bx === x ? 18 : -18) + (i % 2 ? 14 : -2), by + 16 + i * 16, 10, P(2));
@@ -553,7 +1244,13 @@ function perimeterPoint(x: number, y: number, w: number, h: number, t: number): 
 }
 
 // ---- stage ----
-function stage(setup: string, florals: string, P: (i: number) => string): string {
+/** `florals` is every selected stage-floral piece: an arch behind the couple,
+ *  pedestals flanking them and a runner on their table are three separate
+ *  florist builds that routinely appear together, so each draws its own pass. */
+function stage(setup: string, florals: string[], P: (i: number) => string): string {
+  const hasArch = florals.includes('arch');
+  const hasPedestals = florals.includes('pedestals');
+  const hasRunner = florals.includes('table_runner');
   const cx = 480;
   const platform = `<ellipse cx="${cx}" cy="392" rx="150" ry="26" fill="${shade(FLOOR, -14)}"/><rect x="${cx - 150}" y="372" width="300" height="22" fill="${shade(FLOOR, -8)}"/><ellipse cx="${cx}" cy="372" rx="150" ry="22" fill="${shade(FLOOR, 4)}"/>`;
   const chair = (px: number, py: number, ornate = false) =>
@@ -563,13 +1260,14 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
 
   // stage florals (drawn behind setup where relevant)
   let pre = '';
-  if (florals === 'arch') {
+  if (hasArch) {
     pre += `<path d="M ${cx - 90} 372 Q ${cx - 90} 250 ${cx} 250 Q ${cx + 90} 250 ${cx + 90} 372" fill="none" stroke="${P(0)}" stroke-width="14"/>`;
     for (let i = 0; i <= 10; i++) {
       const a = Math.PI * (i / 10);
       pre += flower(cx - Math.cos(a) * 90, 372 - Math.sin(a) * 122, 9, P(2));
     }
-  } else if (florals === 'pedestals') {
+  }
+  if (hasPedestals) {
     for (const px of [cx - 120, cx + 120]) {
       pre += `<rect x="${px - 6}" y="300" width="12" height="76" fill="${shade(FLOOR, -20)}"/>`;
       pre += flower(px, 292, 18, P(2)) + leaf(px - 16, 296, 12, -30) + leaf(px + 16, 300, 12, 30);
@@ -587,7 +1285,7 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
     body += chair(cx - 30, 350, true) + chair(cx + 30, 350, true);
     body += `<ellipse cx="${cx}" cy="362" rx="34" ry="12" fill="${LINEN}"/>`;
   } else if (setup === 'riser_arch') {
-    if (florals !== 'arch')
+    if (!hasArch)
       body += `<path d="M ${cx - 80} 372 Q ${cx - 80} 262 ${cx} 262 Q ${cx + 80} 262 ${cx + 80} 372" fill="none" stroke="${P(0)}" stroke-width="12"/>`;
     body += `<rect x="${cx - 70}" y="346" width="140" height="30" rx="6" fill="${LINEN}"/><rect x="${cx - 70}" y="362" width="140" height="14" fill="${P(0)}"/>`;
     body += chair(cx - 26, 348) + chair(cx + 26, 348);
@@ -595,22 +1293,34 @@ function stage(setup: string, florals: string, P: (i: number) => string): string
     // sweetheart (default)
     body += chair(cx - 26, 348) + chair(cx + 26, 348);
     body += `<ellipse cx="${cx}" cy="356" rx="40" ry="16" fill="${LINEN}"/><path d="M ${cx - 40} 356 a 40 16 0 0 0 80 0 l 0 6 a 40 16 0 0 1 -80 0 Z" fill="${P(0)}"/>`;
-    if (florals !== 'arch' && florals !== 'pedestals') body += flower(cx, 342, 11, P(2));
+    if (!hasArch && !hasPedestals) body += flower(cx, 342, 11, P(2));
   }
   let post = '';
-  if (florals === 'table_runner') post += flower(cx - 26, 350, 7, P(2)) + flower(cx, 348, 8, P(2)) + flower(cx + 26, 350, 7, P(2));
+  if (hasRunner) post += flower(cx - 26, 350, 7, P(2)) + flower(cx, 348, 8, P(2)) + flower(cx + 26, 350, 7, P(2));
   return pre + platform + body + post;
 }
 
 // ---- tables ----
-function tables(
+/**
+ * The four guest-table spots, as ONE floor item. Not split per spot: the
+ * front pair and the back pair are drawn front-first today, which is not
+ * depth order, but the two pairs never occupy the same pixels either — so
+ * there is no defect to fix there, and splitting them would let the general
+ * sort quietly re-order front vs. back on every render, which is exactly the
+ * "nothing else moves" a room with no real overlap is required to keep.
+ * `anchorY` uses the FURTHEST spot's own ground-contact line (its shadow
+ * ellipse, `cy + r * 0.36`, already drawn below) — the back-right table,
+ * which is the one this zone's own defect measured against the band.
+ */
+function tableFloorItem(
   shapeT: string,
   chairsT: string,
   linenT: string,
   centerT: string,
   placeT: string,
   P: (i: number) => string,
-): string {
+  decor?: DecorLayers,
+): FloorItem {
   const cloth = linenT === 'sequin' ? shade(P(1), 30) : LINEN;
   const accent = P(1);
   const charger = chargerColor(placeT);
@@ -636,6 +1346,16 @@ function tables(
         candle(ccx, ccy - r * 1.2, r * 0.5) + candle(ccx - r * 0.5, ccy - r * 0.7, r * 0.4) + candle(ccx + r * 0.5, ccy - r * 0.7, r * 0.4);
     if (centerT === 'candles') return candle(ccx, ccy, r * 0.7) + candle(ccx - r * 0.5, ccy + 2, r * 0.5) + candle(ccx + r * 0.5, ccy + 2, r * 0.5);
     if (centerT === 'lanterns') return lantern(ccx, ccy + 2, r * 0.9, GOLD);
+    if (centerT === 'sampaguita') {
+      // A short garland of small white sampaguita blossoms strung along
+      // the table's axis — always white/cream (a real sampaguita's own
+      // color), not palette-tinted, so it reads as the flower it is.
+      let g = '';
+      for (let k = -2; k <= 2; k++) {
+        g += flower(ccx + k * (r * 0.32), ccy - (Math.abs(k) % 2 === 0 ? 2 : 6), r * 0.22, '#FFFFFF', '#F7E9A0');
+      }
+      return g;
+    }
     if (centerT === 'greenery_runner')
       return [0, 1, 2, 3].map((k) => leaf(ccx - r + (k * r * 2) / 3, ccy, r * 0.5, k % 2 ? 25 : -25)).join('');
     if (centerT === 'low') return flower(ccx, ccy, r * 0.46, P(2)) + leaf(ccx - r * 0.5, ccy, r * 0.4, -20) + leaf(ccx + r * 0.5, ccy, r * 0.4, 20);
@@ -666,7 +1386,18 @@ function tables(
       s += `<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${(r * 0.42).toFixed(1)}" fill="${cloth}" stroke="${shade(cloth, -16)}" stroke-width="1"/>`;
     }
     // linen accent
-    if (linenT === 'runner') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.34).toFixed(1)}" ry="${(r * 0.42).toFixed(1)}" fill="${accent}" opacity="0.6"/>`;
+    if (linenT === 'banig') {
+      // Woven banig runner — a crosshatch weave pattern down the table's
+      // long axis, distinct from the plain color washes below.
+      const bw = r * 0.4;
+      s += `<ellipse cx="${cx}" cy="${cy}" rx="${(bw).toFixed(1)}" ry="${(r * 0.4).toFixed(1)}" fill="#E8D4A8"/>`;
+      for (let k = -3; k <= 3; k++) {
+        s += `<line x1="${(cx - bw).toFixed(1)}" y1="${(cy + k * (r * 0.09)).toFixed(1)}" x2="${(cx + bw).toFixed(1)}" y2="${(cy + k * (r * 0.09)).toFixed(1)}" stroke="#B98B4A" stroke-width="0.8" opacity="0.55"/>`;
+      }
+      for (let k = -2; k <= 2; k++) {
+        s += `<line x1="${(cx + k * (bw / 3)).toFixed(1)}" y1="${(cy - r * 0.36).toFixed(1)}" x2="${(cx + k * (bw / 3)).toFixed(1)}" y2="${(cy + r * 0.36).toFixed(1)}" stroke="#B98B4A" stroke-width="0.8" opacity="0.4"/>`;
+      }
+    } else if (linenT === 'runner') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.34).toFixed(1)}" ry="${(r * 0.42).toFixed(1)}" fill="${accent}" opacity="0.6"/>`;
     else if (linenT === 'full_drape') s += `<path d="M ${(cx - r).toFixed(1)} ${cy} a ${r} ${(r * 0.42).toFixed(1)} 0 0 0 ${(r * 2).toFixed(1)} 0 l 0 ${(r * 0.3).toFixed(1)} a ${r} ${(r * 0.42).toFixed(1)} 0 0 1 ${(-r * 2).toFixed(1)} 0 Z" fill="${shade(cloth, -10)}"/>`;
     else if (linenT === 'sequin') s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.86).toFixed(1)}" ry="${(r * 0.34).toFixed(1)}" fill="${shade(accent, 50)}" opacity="0.5"/>`;
     else s += `<ellipse cx="${cx}" cy="${cy}" rx="${(r * 0.6).toFixed(1)}" ry="${(r * 0.24).toFixed(1)}" fill="${accent}" opacity="0.35"/>`;
@@ -686,11 +1417,28 @@ function tables(
     [240, 432, 44],
     [720, 432, 44],
   ];
-  return spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join('');
+  return {
+    // The decor image REPLACES the flat furniture, exactly as backdrop,
+    // ceiling and stage do — the couple's chosen anchor still describes where
+    // the field of tables actually sits, image or not.
+    anchorY: Math.min(...spots.map(([, cy, r]) => cy + r * 0.36)),
+    svg: decorImage('tables', decor) ?? spots.map(([cx, cy, r]) => drawTable(cx, cy, r)).join(''),
+  };
 }
 
 // ---- entrance ----
-function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): string {
+/** `tunnels` and `runners` are every selected treatment for each: one aisle
+ *  can carry a fabric runner scattered with petals AND lined with candles, and
+ *  one walk-through can be floral arches strung with fairy lights. Each
+ *  selection draws its own pass over the same aisle / the same three arch
+ *  depths — the exclusive "Bare"/"No tunnel" ids contribute nothing, and the
+ *  sanitizer has already refused to store them beside a real treatment. */
+function entrance(
+  tunnels: string[],
+  runners: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
   const cx = 480;
   const depths = [
     { top: 470, half: 178, y0: 636 },
@@ -698,22 +1446,53 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     { top: 404, half: 86, y0: 548 },
   ];
   let s = '';
-  // aisle runner first (under the arches)
-  if (runnerT === 'petals') for (let i = 0; i < 26; i++) s += `<circle cx="${(cx - 70 + ((i * 53) % 140)).toFixed(1)}" cy="${(420 + ((i * 37) % 210)).toFixed(1)}" r="4" fill="${P(2)}" opacity="0.8"/>`;
-  else if (runnerT === 'mirror') s += `<polygon points="420,378 540,378 660,636 300,636" fill="${shade(GLASS, 18)}" opacity="0.7"/>`;
-  else if (runnerT === 'candle')
-    for (let i = 0; i < 5; i++) {
-      const yy = 430 + i * 42;
-      const sp = 40 + i * 16;
-      s += candle(cx - sp, yy, 12) + candle(cx + sp, yy, 12);
-    }
-  else if (runnerT === 'floral_lined')
-    for (let i = 0; i < 5; i++) {
-      const yy = 430 + i * 42;
-      const sp = 46 + i * 16;
-      s += flower(cx - sp, yy, 8, P(2)) + flower(cx + sp, yy, 8, P(2));
-    }
+  // aisle runners first (under the arches)
+  for (const runnerT of runners) {
+    if (runnerT === 'petals') for (let i = 0; i < 26; i++) s += `<circle cx="${(cx - 70 + ((i * 53) % 140)).toFixed(1)}" cy="${(420 + ((i * 37) % 210)).toFixed(1)}" r="4" fill="${P(2)}" opacity="0.8"/>`;
+    else if (runnerT === 'mirror') s += `<polygon points="420,378 540,378 660,636 300,636" fill="${shade(GLASS, 18)}" opacity="0.7"/>`;
+    else if (runnerT === 'candle')
+      for (let i = 0; i < 5; i++) {
+        const yy = 430 + i * 42;
+        const sp = 40 + i * 16;
+        s += candle(cx - sp, yy, 12) + candle(cx + sp, yy, 12);
+      }
+    else if (runnerT === 'floral_lined')
+      for (let i = 0; i < 5; i++) {
+        const yy = 430 + i * 42;
+        const sp = 46 + i * 16;
+        s += flower(cx - sp, yy, 8, P(2)) + flower(cx + sp, yy, 8, P(2));
+      }
+  }
 
+  // 🔑 THE IMAGE STANDS IN FOR THE ARCHES, AND ONLY WHEN THERE ARE ARCHES.
+  //
+  // 🪤 THE GATE IN ITS FOURTH SHAPE, AND `cold_spark` IS WHY IT MATTERS HERE.
+  // `cold_spark` is a walkway of spark FOUNTAINS with no arches at all, and the
+  // tunnel catalog's realism rule (2026-07-08) says its sparks are NEVER
+  // palette-tinted. A generated arch tunnel handed to a couple who chose it
+  // would invent a structure they did not book AND tint what must not be
+  // tinted. `none` is the same defect in the plainer case. So the gate is the
+  // ARCH styles, and any non-arch style the couple also chose — the sparks —
+  // is drawn OVER the image, exactly as `walls` keeps its uplighting.
+  const arches = tunnels.filter((t) => t !== 'none' && t !== '' && t !== 'cold_spark');
+  const image = arches.length > 0 ? decorImage('tunnel', decor) : null;
+  if (image !== null) {
+    s += image;
+    for (const t of tunnels) if (t === 'cold_spark') s += tunnelLayer(t, cx, depths, P);
+    return s;
+  }
+  for (const tunnelT of tunnels) s += tunnelLayer(tunnelT, cx, depths, P);
+  return s;
+}
+
+/** One entrance-tunnel treatment, drawn across the three receding arch depths. */
+function tunnelLayer(
+  tunnelT: string,
+  cx: number,
+  depths: ReadonlyArray<{ top: number; half: number; y0: number }>,
+  P: (i: number) => string,
+): string {
+  let s = '';
   if (tunnelT === 'none') return s;
   if (tunnelT === 'cold_spark') {
     // Cold-spark fountain walk — no arches: dark machine boxes flank the aisle
@@ -751,7 +1530,26 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     const top = `M ${p0[0]} ${p0[1]} Q ${ctl[0]} ${ctl[1]} ${p2[0]} ${p2[1]}`;
     const stroke = (col: string, sw: number) =>
       `<path d="${legL}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/><path d="${legR}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/><path d="${top}" fill="none" stroke="${col}" stroke-width="${sw}"/>`;
-    if (tunnelT === 'draped') {
+    if (tunnelT === 'bamboo') {
+      // Segmented bamboo poles (banded rects, not a smooth stroke) forming
+      // the arch legs + a rattan-woven top rail, so it reads as jointed
+      // bamboo rather than a generic wooden arch.
+      const BAMBOO = '#B9A15A';
+      const bw = 9 - idx * 2;
+      const segments = (x0: number, y0: number, y1: number) => {
+        const n = 5;
+        let out = '';
+        for (let i = 0; i < n; i++) {
+          const sy0 = y0 + ((y1 - y0) * i) / n;
+          const sy1 = y0 + ((y1 - y0) * (i + 1)) / n - 2;
+          out += `<rect x="${(x0 - bw / 2).toFixed(1)}" y="${Math.min(sy0, sy1).toFixed(1)}" width="${bw}" height="${Math.abs(sy1 - sy0).toFixed(1)}" rx="2" fill="${BAMBOO}" stroke="${shade(BAMBOO, -30)}" stroke-width="0.6"/>`;
+        }
+        return out;
+      };
+      s += segments(left, springY, d.y0);
+      s += segments(right, springY, d.y0);
+      s += `<path d="${top}" fill="none" stroke="${shade('#8A9A6B', 6)}" stroke-width="${bw}" stroke-dasharray="3 3" opacity="0.85"/>`;
+    } else if (tunnelT === 'draped') {
       const sw = 13 - idx * 3;
       s += stroke(P(0), sw);
       s += `<path d="M ${p0[0]} ${p0[1]} Q ${cx} ${d.top + 4} ${p2[0]} ${p2[1]}" fill="none" stroke="${shade(P(0), 20)}" stroke-width="${sw - 3}" opacity="0.85"/>`;
@@ -826,6 +1624,614 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
   return s;
 }
 
+// ---- walls / surroundings (new Filipino-relevant zone, 2026-09-03) ----
+// Fallback-grade rendering (reuses the drape/floral/greenery glyphs already
+// defined above) — a simplified side-margin treatment, not full stylist-grade
+// intricacy like the 7 original parts, since the couple already sees the
+// backdrop/ceiling carry most of the room's character.
+/** The three treatments that actually DRESS a wall. `bare` and
+ *  `uplighting_only` both say, in words, that there is none — `uplighting_only`
+ *  is a light thrown on a bare wall, not a covering. */
+const WALL_DRESSINGS = new Set(['fabric_drape', 'floral_garland', 'greenery_wall']);
+
+function wallsDecor(
+  treatments: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
+  const flat = treatments.map((t) => wallsDecorLayer(t, P)).join('');
+
+  // 🔑 THE IMAGE REPLACES A DRESSING, AND ONLY WHEN THERE IS ONE. `walls` is the
+  // third shape of the gate `feast` shipped wrong: a couple who chose
+  // `uplighting_only` — which is spelled, in the taxonomy, as one of the two
+  // options meaning NO wall dressing — must not be handed a generated fabric
+  // drape. Gating on "did the flat layer draw anything" would do exactly that,
+  // because uplighting draws four ellipses per band.
+  if (!treatments.some((t) => WALL_DRESSINGS.has(t))) return flat;
+  const image = decorImage('walls', decor);
+  if (image === null) return flat;
+
+  // The uplighting survives, drawn OVER the image: it is a light on the wall,
+  // and a couple who ticked both a drape and uplighting chose both.
+  const lights = treatments
+    .filter((t) => !WALL_DRESSINGS.has(t))
+    .map((t) => wallsDecorLayer(t, P))
+    .join('');
+  return image + lights;
+}
+function wallsDecorLayer(t: string, P: (i: number) => string): string {
+  if (t === 'bare') return '';
+  const bandW = 56;
+  const bands = [0, 960 - bandW];
+  const h = 372;
+  if (t === 'uplighting_only') {
+    let s = '';
+    for (const x of bands) {
+      for (let i = 0; i < 4; i++) {
+        s += `<ellipse cx="${(x + bandW / 2).toFixed(1)}" cy="${60 + i * 80}" rx="30" ry="60" fill="${P(0)}" opacity="0.16"/>`;
+      }
+    }
+    return s;
+  }
+  if (t === 'floral_garland') {
+    let s = '';
+    for (const x of bands) for (let i = 0; i < 6; i++) s += flower(x + bandW / 2, 20 + i * 60, 12, P(2));
+    return s;
+  }
+  if (t === 'greenery_wall') {
+    let s = '';
+    for (const x of bands) {
+      s += `<rect x="${x}" y="0" width="${bandW}" height="${h}" fill="${shade(LEAF, 40)}" opacity="0.3"/>`;
+      for (let i = 0; i < 24; i++) s += leaf(x + 10 + ((i * 17) % (bandW - 20)), 14 + ((i * 29) % (h - 28)), 9, (i * 53) % 180);
+    }
+    return s;
+  }
+  // fabric_drape (default)
+  let s = '';
+  for (const x of bands) {
+    s += `<path d="M ${x} 4 Q ${x + bandW / 2} ${h * 0.5} ${x} ${h - 4} L ${x + bandW - 2} ${h - 4} Q ${x + bandW / 2} ${h * 0.5} ${x + bandW - 2} 4 Z" fill="${P(0)}" opacity="0.5"/>`;
+  }
+  return s;
+}
+
+// ---- photo wall — the step-and-repeat, separate from the stage backdrop ----
+// Reuses the same glyph vocabulary as `backdrop()`, scaled into a small
+// corner panel (a lounge/entrance-corner photo op is smaller than the couple's
+// own stage backdrop) — a reasonable fallback, not bespoke geometry.
+/* ════════════════════════════════════════════════════════════════════════════
+ * THE CELEBRATION LAYERS · feast · program · booths (2026-09-06).
+ *
+ * Three zones drawn into space the room was not using: the back-left floor
+ * (the feast), the back-right floor (the program), and the left wall above it
+ * (the booth row). Measured against a rendered grid before a line was written,
+ * so nothing overlaps the backdrop (x 330–635), the couple's stage
+ * (x 325–640), the guest-table clusters (x 75–230 and x 660–890, y 390–560),
+ * the aisle polygon, the photo wall (x 786–916, y 92–200) or the welcome table
+ * (x 26–118, y 588–634).
+ *
+ * 🪤 EVERY ONE OF THESE RETURNS '' FOR 'none' AND FOR AN EMPTY SELECTION. The
+ * default design selects 'none' on all three, so a couple who has never opened
+ * these zones gets a room whose bytes are unchanged — asserted, not assumed.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** Back-left floor: the buffet line, the grazing table, the stations — as
+ *  ONE floor item, so a table between the feast and the viewer paints over
+ *  it and a couple's own program on the far side of the room does not. */
+function feastFloorItem(
+  service: string,
+  stations: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): FloorItem | null {
+  const x = 24,
+    y = 300,
+    w = 288;
+  let out = '';
+  let lineBottom = 0;
+  if (service !== 'none' && service !== '') {
+    const top = y + 34;
+    if (service === 'plated') {
+      // No line to draw — plated service IS the guest tables, already drawn.
+      out += '';
+    } else if (service === 'lechon') {
+      out += `<rect x="${x + 70}" y="${top}" width="140" height="34" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+      out += `<ellipse cx="${x + 140}" cy="${top - 4}" rx="46" ry="14" fill="${shade('#B06A3B', 6)}"/>`;
+      out += `<ellipse cx="${x + 140}" cy="${top - 7}" rx="30" ry="8" fill="${shade('#B06A3B', 26)}" opacity="0.7"/>`;
+      lineBottom = top + 34;
+    } else {
+      // buffet / family_style / grazing all read as a long dressed table.
+      out += `<rect x="${x}" y="${top}" width="${w}" height="30" rx="3" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+      out += `<rect x="${x}" y="${top + 22}" width="${w}" height="14" fill="${P(1)}" opacity="0.5"/>`;
+      const n = service === 'grazing' ? 9 : 6;
+      for (let i = 0; i < n; i++) {
+        const cx = x + 22 + i * ((w - 44) / (n - 1));
+        if (service === 'grazing') {
+          out += `<circle cx="${cx.toFixed(1)}" cy="${top + 8}" r="7" fill="${[P(3), P(0), P(2)][i % 3]}" opacity="0.9"/>`;
+        } else {
+          out += `<rect x="${(cx - 11).toFixed(1)}" y="${top - 9}" width="22" height="14" rx="2" fill="${SILVER}" stroke="${shade(SILVER, -22)}" stroke-width="1"/>`;
+          out += `<rect x="${(cx - 7).toFixed(1)}" y="${top - 13}" width="14" height="5" rx="2" fill="${shade(SILVER, 16)}"/>`;
+        }
+      }
+      lineBottom = top + 30;
+    }
+  }
+  // Stations stand BEHIND the line (drawn first, higher up), so the food area
+  // reads as one depth rather than as a second shelf floating on the wall.
+  const real = stations.filter((k) => k !== 'none' && k !== '');
+  const behind = real
+    .map((kind, i) => station(kind, x + 14 + i * 94, y - 48, P))
+    .join('');
+  // Every station glyph fits within 63px of its own top (the deepest is the
+  // food cart's wheels) — its own ground contact.
+  const stationsBottom = real.length > 0 ? y - 48 + 63 : 0;
+  const flat = behind + out;
+  if (flat === '') return null;
+
+  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A FEAST —
+  // AND THE GATE HAS TO BE THE SERVICE LINE, NOT THE WHOLE GROUP.
+  //
+  // 🪤 Gating on `flat === ''` looks like the same claim and is not, because
+  // `feast` is the only decor zone whose flat drawing holds MORE THAN ONE
+  // independently chosen object. Measured on the shipped code: a couple with
+  // `service: 'plated'` who ticked a cake table got the generated BUFFET LINE
+  // drawn into their room — a service they explicitly did not choose — and lost
+  // the cake table they did. The whole group was non-empty, so the gate opened;
+  // the image then stood in for all of it. `service: 'none'` plus any station
+  // failed the same way.
+  //
+  // So the gate is `out` — the service line itself — and the STATIONS are drawn
+  // AFTER the image rather than swallowed by it, standing in front of the
+  // generated buffet. `stage` and `tables` need none of this: each of their flat
+  // drawings is ONE restyled object, so replacing the whole thing costs the
+  // couple a linen choice, not a supplier they booked.
+  //
+  // With no decor layer this is `behind + out`, character for character as
+  // before — an uncovered (zone, style) cell must render byte-identically to the
+  // flat drawing (MB14b's invariant). And `anchorY` stays COMPUTED from the flat
+  // geometry, so the depth sort keeps placing this item at its own ground
+  // contact.
+  const image = out === '' ? null : decorImage('feast', decor);
+  return {
+    anchorY: Math.max(lineBottom, stationsBottom),
+    svg: image === null ? flat : image + behind,
+  };
+}
+
+/** One food-and-drink station, drawn at its own top-left corner. */
+function station(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const table = `<rect x="${x}" y="${y + 40}" width="72" height="22" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -18)}" stroke-width="1"/>`;
+  if (kind === 'cake_table') {
+    let s = table;
+    for (let t = 0; t < 3; t++) {
+      const tw = 40 - t * 12;
+      s += `<rect x="${x + 36 - tw / 2}" y="${y + 40 - (t + 1) * 12}" width="${tw}" height="12" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>`;
+    }
+    s += flower(x + 36, y + 4, 6, P(2), P(0));
+    return s;
+  }
+  if (kind === 'dessert') {
+    let s = table;
+    for (let i = 0; i < 5; i++)
+      s += `<circle cx="${x + 10 + i * 13}" cy="${y + 34}" r="5" fill="${[P(0), P(2), P(3)][i % 3]}" opacity="0.9"/>`;
+    return s;
+  }
+  if (kind === 'mobile_bar' || kind === 'mocktail') {
+    let s = `<rect x="${x + 4}" y="${y + 18}" width="64" height="44" rx="3" fill="${shade(P(1), 30)}" stroke="${shade(P(1), -20)}" stroke-width="1"/>`;
+    s += `<rect x="${x}" y="${y + 14}" width="72" height="7" rx="2" fill="${GOLD}"/>`;
+    for (let i = 0; i < 4; i++)
+      s += `<rect x="${x + 10 + i * 14}" y="${y + 2}" width="7" height="12" rx="2" fill="${kind === 'mocktail' ? shade(P(3), 10) : GLASS}" opacity="0.95"/>`;
+    return s;
+  }
+  if (kind === 'coffee') {
+    let s = table + `<rect x="${x + 16}" y="${y + 20}" width="40" height="20" rx="3" fill="${SILVER}" stroke="${shade(SILVER, -25)}" stroke-width="1"/>`;
+    s += `<rect x="${x + 30}" y="${y + 14}" width="12" height="7" rx="2" fill="${shade(SILVER, -12)}"/>`;
+    for (let i = 0; i < 3; i++)
+      s += `<circle cx="${x + 14 + i * 10}" cy="${y + 46}" r="3.5" fill="${LINEN}" stroke="${shade(LINEN, -25)}" stroke-width="1"/>`;
+    return s;
+  }
+  // food_cart — a wheeled cart with a striped awning
+  let s = `<rect x="${x + 6}" y="${y + 24}" width="60" height="30" rx="3" fill="${shade(WALL, -6)}" stroke="${shade(WALL, -26)}" stroke-width="1"/>`;
+  s += `<path d="M ${x + 2} ${y + 24} L ${x + 70} ${y + 24} L ${x + 62} ${y + 12} L ${x + 10} ${y + 12} Z" fill="${P(0)}" opacity="0.85"/>`;
+  s += `<circle cx="${x + 18}" cy="${y + 58}" r="5" fill="${shade(WALL, -34)}"/><circle cx="${x + 54}" cy="${y + 58}" r="5" fill="${shade(WALL, -34)}"/>`;
+  return s;
+}
+
+/** Back-right floor: the band's riser, the host's spot, the dance floor. */
+/**
+ * The dance floor — drawn on the AISLE polygon, and drawn EARLY.
+ *
+ * 🪤 THE FIRST DRAFT PUT IT ON THE BACK-RIGHT FLOOR AND DREW IT LAST, WHICH
+ * PAINTED IT STRAIGHT OVER THE RIGHT-HAND GUEST TABLES. Caught by rendering
+ * the room and looking at it, not by any type or test — the polygon was
+ * perfectly valid and the tables were simply underneath it.
+ *
+ * Two rules came out of that, and both are structural:
+ *  • The room's only uncommitted floor is the OPEN CENTRE — the aisle polygon
+ *    `380,372 580,372 760,640 200,640`. Both guest-table clusters
+ *    (x 75–230 and x 660–890) sit on the rest of it. So the dance floor IS the
+ *    open centre; anywhere else is on top of somebody's table.
+ *  • A floor treatment must be drawn immediately after the background, before
+ *    the tables, the people and the entrance florals — so they stand ON it.
+ */
+function danceFloor(floor: string, P: (i: number) => string): string {
+  if (floor === 'none' || floor === '') return '';
+  // Slightly inset from the aisle so the runner still reads at its edges.
+  const pts = '392,378 568,378 726,616 234,616';
+  if (floor === 'led') {
+    let out = `<polygon points="${pts}" fill="${shade(P(1), -30)}" opacity="0.8"/>`;
+    for (let r = 0; r < 4; r++) {
+      const y = 386 + r * 58;
+      const half = 88 + r * 60;
+      for (let c = 0; c < 5; c++) {
+        const x = 480 - half + (c * 2 * half) / 5;
+        out += `<rect x="${x.toFixed(1)}" y="${y}" width="${((2 * half) / 5 - 4).toFixed(1)}" height="48" fill="${shade(P(2), 40)}" opacity="${(0.14 + r * 0.05).toFixed(2)}"/>`;
+      }
+    }
+    return out;
+  }
+  let out = `<polygon points="${pts}" fill="${shade(GOLD, 40)}" opacity="0.45"/>`;
+  for (let i = 1; i < 6; i++) {
+    const t = i / 6;
+    out += `<line x1="${(392 + t * 176).toFixed(1)}" y1="378" x2="${(234 + t * 492).toFixed(1)}" y2="616" stroke="${shade(GOLD, -10)}" stroke-width="1" opacity="0.3"/>`;
+  }
+  if (floor === 'monogram')
+    out += `<ellipse cx="480" cy="500" rx="52" ry="26" fill="none" stroke="${shade(GOLD, -20)}" stroke-width="3" opacity="0.7"/>`;
+  return out;
+}
+
+/**
+ * The band's riser + figures and the host's spot — as ONE floor item.
+ *
+ * 🪤 THIS IS THE ZONE RV2 SHIPPED AND DREW LAST, AND THE SECOND TIME THIS
+ * FILE PAINTED A CELEBRATION LAYER OVER THE GUEST TABLES IT WAS SUPPOSED TO
+ * STAND BEHIND. The riser sits at x 664–~940 (real.length up to 3), which
+ * reaches into the same x-range as the back-right guest table (cx 720) — a
+ * range the zone-layout note above `feastDecor` said nothing overlapped,
+ * because it was measured against the table SPOTS, not against a table's own
+ * tall centrepiece reaching up past the table's y. `anchorY` is the riser's
+ * own shadow ellipse — its literal ground contact — so `compositeFloorItems`
+ * can put it behind whichever table actually sits closer to the viewer,
+ * instead of behind (or in front of) all of them by convention.
+ */
+function programFloorItem(
+  performers: string[],
+  host: string,
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): FloorItem | null {
+  let band = '';
+  let hostSvg = '';
+  let anchorY = 0;
+  // Performers, on a low riser against the back-right wall.
+  const real = performers.filter((k) => k !== 'none' && k !== '');
+  if (real.length > 0) {
+    // 🪤 THE RISER IS SIZED TO THE BAND, NOT TO THE WALL. A fixed 288-wide bar
+    // under one performer draws an empty shelf running off to the corner —
+    // which is what the first render showed. It ends where the last group does.
+    const x = 664,
+      y = 316,
+      w = real.length * 92 + 16;
+    band += `<rect x="${x}" y="${y + 46}" width="${w}" height="14" rx="2" fill="${shade(WALL, -22)}"/>`;
+    band += `<ellipse cx="${x + w / 2}" cy="${y + 62}" rx="${w / 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.3"/>`;
+    real.forEach((kind, i) => {
+      band += performer(kind, x + 46 + i * 92, y, P);
+    });
+    anchorY = Math.max(anchorY, y + 62); // the riser's own shadow ellipse
+  }
+  if (host !== 'none' && host !== '') {
+    hostSvg = hostSpot(host, 596, 330, P);
+    anchorY = Math.max(anchorY, 330 + 55); // the host spot's own ground line
+  }
+  const flat = band + hostSvg;
+  if (flat === '') return null;
+
+  // 🔑 THE IMAGE STANDS IN FOR THE BAND, AND ONLY WHEN THERE IS ONE.
+  //
+  // 🪤 THE LESSON `feast` PAID FOR, APPLIED BEFORE IT COULD REPEAT. `program`
+  // is the second zone whose flat drawing holds TWO independently chosen
+  // objects: the line-up on its riser, and — from a separate attribute — the
+  // host's spot. Gating on `flat === ''` reads like the same claim and is not:
+  // a couple who booked an emcee and no band would have had a generated BAND
+  // drawn into their room, and lost the podium they chose. That is exactly what
+  // shipped on `feast` (a plated-service couple got a buffet line, minus their
+  // cake table) before it was corrected.
+  //
+  // So the gate is the BAND, and the HOST SPOT is drawn AFTER the image,
+  // standing in front of the riser rather than being replaced by it. With no
+  // decor layer this is `band + hostSvg`, character for character as before —
+  // MB14b's byte-identity invariant. `anchorY` stays computed from the flat
+  // geometry, so the depth sort keeps this item at its own ground contact.
+  const image = band === '' ? null : decorImage('program', decor);
+  return { anchorY, svg: image === null ? flat : image + hostSvg };
+}
+
+/** One performer group, drawn at its own anchor on the riser. */
+function performer(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const figure = (cx: number) =>
+    `<circle cx="${cx}" cy="${y + 16}" r="6" fill="${SKIN}"/>` +
+    `<rect x="${cx - 7}" y="${y + 23}" width="14" height="23" rx="5" fill="${shade(P(1), -30)}"/>`;
+  if (kind === 'dj') {
+    let s = `<rect x="${x - 26}" y="${y + 26}" width="52" height="20" rx="2" fill="${shade(WALL, -14)}" stroke="${shade(WALL, -32)}" stroke-width="1"/>`;
+    s += `<circle cx="${x - 12}" cy="${y + 36}" r="5" fill="${SILVER}"/><circle cx="${x + 12}" cy="${y + 36}" r="5" fill="${SILVER}"/>`;
+    s += figure(x);
+    return s;
+  }
+  if (kind === 'live_band') {
+    let s = figure(x - 16) + figure(x + 16);
+    s += `<rect x="${x + 30}" y="${y + 28}" width="16" height="18" rx="2" fill="${shade(P(0), -20)}"/>`; // amp
+    // The cymbal belongs to the kit. Drawn at x-30 in the first pass it landed
+    // beside the HOST's podium, a hundred pixels from any drummer.
+    s += `<ellipse cx="${x - 34}" cy="${y + 36}" rx="8" ry="8" fill="none" stroke="${GOLD}" stroke-width="2"/>`;
+    s += `<rect x="${x - 40}" y="${y + 36}" width="12" height="10" rx="2" fill="${shade(WALL, -18)}"/>`; // drum
+    return s;
+  }
+  if (kind === 'string_quartet') {
+    let s = '';
+    for (let i = 0; i < 3; i++) s += figure(x - 18 + i * 18);
+    s += `<path d="M ${x + 26} ${y + 44} q 6 -14 0 -20" fill="none" stroke="${shade('#8A5A2B', 0)}" stroke-width="3"/>`;
+    return s;
+  }
+  if (kind === 'choir') {
+    let s = '';
+    for (let i = 0; i < 4; i++) s += figure(x - 24 + i * 16);
+    return s;
+  }
+  // singer — one figure at a standing mic
+  return (
+    figure(x) +
+    `<line x1="${x + 14}" y1="${y + 46}" x2="${x + 14}" y2="${y + 18}" stroke="${shade(WALL, -40)}" stroke-width="2"/>` +
+    `<circle cx="${x + 14}" cy="${y + 16}" r="3" fill="${shade(WALL, -46)}"/>`
+  );
+}
+
+/** The host's spot, at the near edge of the stage. */
+function hostSpot(kind: string, x: number, y: number, P: (i: number) => string): string {
+  if (kind === 'podium')
+    return (
+      `<path d="M ${x} ${y + 54} L ${x + 34} ${y + 54} L ${x + 30} ${y + 16} L ${x + 4} ${y + 16} Z" fill="${shade(P(1), 20)}" stroke="${shade(P(1), -24)}" stroke-width="1"/>` +
+      `<rect x="${x - 2}" y="${y + 12}" width="38" height="6" rx="2" fill="${GOLD}"/>`
+    );
+  if (kind === 'host_table')
+    return (
+      `<rect x="${x - 4}" y="${y + 34}" width="44" height="20" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -20)}" stroke-width="1"/>` +
+      `<rect x="${x + 6}" y="${y + 28}" width="20" height="7" rx="2" fill="${shade(P(2), 10)}"/>`
+    );
+  // standing_mic
+  return (
+    `<line x1="${x + 16}" y1="${y + 54}" x2="${x + 16}" y2="${y + 18}" stroke="${shade(WALL, -40)}" stroke-width="2"/>` +
+    `<circle cx="${x + 16}" cy="${y + 15}" r="4" fill="${shade(WALL, -46)}"/>` +
+    `<ellipse cx="${x + 16}" cy="${y + 55}" rx="10" ry="3" fill="${shade(WALL, -34)}"/>`
+  );
+}
+
+/** The booth row, against the upper-left wall. */
+function boothsFloorItem(
+  kinds: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): FloorItem | null {
+  const real = kinds.filter((k) => k !== 'none' && k !== '');
+  // The null check stays FIRST and on the couple's own choice: a couple who
+  // ticked no booths has no booth row, and a decor image must never supply a
+  // choice they did not make. `feast` shipped that defect by gating on the
+  // rendered group instead; this gate is the choice itself, so it cannot.
+  if (real.length === 0) return null;
+  const y = 132;
+  const svg = real.map((kind, i) => booth(kind, 28 + i * 96, y, P)).join('');
+
+  // 🪤 THE IMAGE IS A ROW OF EXACTLY THREE BAYS, SO IT CAN ONLY STAND IN FOR A
+  // COUPLE WHO TICKED THREE. This shipped ungated and was wrong in BOTH
+  // directions, measured on the merged code: a couple who ticked ONE photo
+  // booth got a room with THREE stalls in it — two suppliers they never booked
+  // — and a couple who ticked FOUR got three, their fourth bay dropped, the
+  // flat row reaching x 404 while the image stops at 320.
+  //
+  // 🔑 IT IS THE EMPTY-SHELF CLASS RV1 ALREADY PAID FOR, on the band riser: a
+  // fixed-width bar under a lone DJ. `tables` is safe from it because its flat
+  // drawing is ALWAYS four tables at fixed spots, so the drawing and the room
+  // can never disagree about the count. `booths` is the first zone where the
+  // count is the couple's own choice, and an image cannot follow it.
+  //
+  // Clipping the drawing to N of its three bays was measured and rejected: the
+  // bays do not sit on even thirds — across the five files their boundaries
+  // range 5–19% at the left edge and 81–95% at the right — so a fixed clip
+  // slices a canopy in half on some families. Per-file boundary constants would
+  // be five more measured numbers that rot when a file is re-cut.
+  //
+  // So the gate is the count, and every other count renders the flat row, byte
+  // for byte — which is what every uncovered (zone, style) cell already does.
+  // If coverage for N ≠ 3 is wanted, the honest way is one bay per booth,
+  // tiled: a real piece of work, not a wider tolerance here.
+  const image = real.length === BOOTHS_IN_THE_DRAWING ? decorImage('booths', decor) : null;
+  // `booth()`'s own shadow ellipse sits at y + h + 1 (h = 108) — its ground,
+  // and it stays computed from the flat geometry so the depth sort keeps
+  // placing this item where the row actually stands, image or not.
+  return { anchorY: y + 108 + 1, svg: image ?? svg };
+}
+
+/** How many bays every `booths` drawing contains — LOOKED AT, on all five
+ *  files, not inferred from a pixel heuristic (a run-detector miscounts
+ *  `bridgerton`, whose canopies almost touch, as one). The image may only
+ *  stand in for a couple whose own count matches it. */
+const BOOTHS_IN_THE_DRAWING = 3;
+
+/** One guest booth: a common bay, then the thing that makes it that booth. */
+function booth(kind: string, x: number, y: number, P: (i: number) => string): string {
+  const w = 84,
+    h = 108;
+  // 🪤 THE FIRST DRAFT DREW A PLAIN OUTLINED RECT AND THE THREE BOOTHS READ AS
+  // FRAMED PICTURES HUNG ON THE WALL. A booth is read from three things — a
+  // canopy over it, a counter across its front, and a shadow under it — so the
+  // bay draws all three and never an outline around the whole thing.
+  const bay =
+    `<rect x="${x + 4}" y="${y + 14}" width="${w - 8}" height="${h - 30}" rx="3" fill="${shade(WALL, 6)}"/>` +
+    // canopy
+    `<path d="M ${x - 4} ${y + 16} L ${x + w + 4} ${y + 16} L ${x + w - 6} ${y} L ${x + 6} ${y} Z" fill="${shade(P(1), 12)}"/>` +
+    `<path d="M ${x - 4} ${y + 16} L ${x + w + 4} ${y + 16} L ${x + w + 4} ${y + 21} L ${x - 4} ${y + 21} Z" fill="${shade(P(1), -14)}"/>` +
+    // counter across the front, and the shadow that grounds it
+    `<rect x="${x}" y="${y + h - 16}" width="${w}" height="13" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -20)}" stroke-width="1"/>` +
+    `<ellipse cx="${x + w / 2}" cy="${y + h + 1}" rx="${w / 2 - 2}" ry="4" fill="${shade(WALL, -26)}" opacity="0.35"/>`;
+  const mid = x + w / 2;
+  if (kind === 'photo_booth')
+    return (
+      bay +
+      `<rect x="${mid - 22}" y="${y + 16}" width="44" height="52" rx="4" fill="${shade(P(1), -40)}"/>` +
+      `<circle cx="${mid}" cy="${y + 42}" r="12" fill="${GLASS}" stroke="${shade(WALL, -30)}" stroke-width="2"/>` +
+      `<rect x="${mid - 16}" y="${y + 74}" width="32" height="8" rx="2" fill="${P(0)}"/>`
+    );
+  if (kind === 'arcade')
+    return (
+      bay +
+      `<rect x="${mid - 20}" y="${y + 14}" width="40" height="62" rx="4" fill="${shade(P(2), -30)}"/>` +
+      `<rect x="${mid - 13}" y="${y + 22}" width="26" height="20" rx="2" fill="${GLASS}"/>` +
+      `<circle cx="${mid - 7}" cy="${y + 54}" r="4" fill="${P(0)}"/><circle cx="${mid + 7}" cy="${y + 54}" r="4" fill="${P(3)}"/>`
+    );
+  if (kind === 'caricature')
+    return (
+      bay +
+      `<path d="M ${mid} ${y + 14} L ${mid - 18} ${y + 78} L ${mid + 18} ${y + 78} Z" fill="none" stroke="${shade('#8A5A2B', 0)}" stroke-width="3"/>` +
+      `<rect x="${mid - 15}" y="${y + 24}" width="30" height="24" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -25)}" stroke-width="1"/>`
+    );
+  if (kind === 'henna')
+    return (
+      bay +
+      `<rect x="${mid - 22}" y="${y + 54}" width="44" height="16" rx="2" fill="${shade(P(1), 20)}"/>` +
+      `<path d="M ${mid} ${y + 24} q 12 12 0 24 q -12 -12 0 -24" fill="${shade('#7A4A22', 0)}" opacity="0.85"/>`
+    );
+  if (kind === 'massage')
+    return (
+      bay +
+      `<path d="M ${mid - 20} ${y + 74} L ${mid - 20} ${y + 44} q 0 -10 12 -10 L ${mid + 6} ${y + 34}" fill="none" stroke="${shade(P(1), -30)}" stroke-width="9" stroke-linecap="round"/>` +
+      `<path d="M ${mid + 2} ${y + 74} L ${mid + 20} ${y + 74}" stroke="${shade(P(1), -30)}" stroke-width="7" stroke-linecap="round"/>`
+    );
+  if (kind === 'nail_bar')
+    return (
+      bay +
+      `<rect x="${mid - 24}" y="${y + 50}" width="48" height="14" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+      [0, 1, 2, 3].map((i) => `<rect x="${mid - 20 + i * 11}" y="${y + 36}" width="7" height="13" rx="3" fill="${[P(0), P(2), P(3), P(1)][i]}"/>`).join('')
+    );
+  if (kind === 'perfume')
+    return (
+      bay +
+      `<rect x="${mid - 24}" y="${y + 56}" width="48" height="12" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+      [0, 1, 2, 3, 4].map((i) => `<rect x="${mid - 21 + i * 9}" y="${y + 40}" width="6" height="15" rx="2" fill="${GLASS}" stroke="${shade(GOLD, -10)}" stroke-width="1"/>`).join('')
+    );
+  if (kind === 'tarot')
+    return (
+      bay +
+      `<ellipse cx="${mid}" cy="${y + 62}" rx="26" ry="10" fill="${shade(P(1), -20)}"/>` +
+      [0, 1, 2].map((i) => `<rect x="${mid - 18 + i * 13}" y="${y + 44}" width="10" height="15" rx="2" fill="${LINEN}" stroke="${shade(GOLD, -14)}" stroke-width="1" transform="rotate(${-8 + i * 8} ${mid - 13 + i * 13} ${y + 51})"/>`).join('')
+    );
+  // engraving
+  return (
+    bay +
+    `<rect x="${mid - 24}" y="${y + 54}" width="48" height="14" rx="2" fill="${LINEN}" stroke="${shade(LINEN, -22)}" stroke-width="1"/>` +
+    `<rect x="${mid - 10}" y="${y + 30}" width="20" height="22" rx="3" fill="${SILVER}" stroke="${shade(SILVER, -26)}" stroke-width="1"/>` +
+    `<line x1="${mid}" y1="${y + 52}" x2="${mid}" y2="${y + 60}" stroke="${GOLD}" stroke-width="2"/>`
+  );
+}
+
+function photoWallDecor(
+  styles: string[],
+  P: (i: number) => string,
+  decor?: DecorLayers,
+): string {
+  const flat = styles.map((style) => photoWallDecorLayer(style, P)).join('');
+  // 🔑 THE IMAGE REPLACES WHAT THE COUPLE CHOSE, IT NEVER INVENTS A WALL.
+  // Every style but `none` draws a panel; `none` draws nothing, and a couple who
+  // chose nothing must not be handed a generated flower wall. `photo_wall` has
+  // ONE attribute, so unlike `feast` and `program` there is no second
+  // independently chosen object to lose — the gate is simply "did the flat layer
+  // draw anything", and with no decor layer this returns `flat` unchanged,
+  // character for character (MB14b's byte-identity invariant).
+  if (flat === '') return '';
+  return decorImage('photo_wall', decor) ?? flat;
+}
+function photoWallDecorLayer(style: string, P: (i: number) => string): string {
+  if (style === 'none') return '';
+  const x = 786,
+    y = 92,
+    w = 130,
+    h = 108;
+  const panel = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(WALL, 4)}" stroke="${shade(WALL, -20)}" stroke-width="1"/>`;
+  if (style === 'floral_wall') {
+    let s = panel;
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) s += flower(x + 16 + c * 32, y + 16 + r * 32, 10, P(2), P(0));
+    return s;
+  }
+  if (style === 'greenery_wall') {
+    let s = panel + `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(LEAF, 50)}" opacity="0.35"/>`;
+    for (let i = 0; i < 20; i++) s += leaf(x + 10 + ((i * 23) % (w - 20)), y + 10 + ((i * 17) % (h - 20)), 8, (i * 41) % 180);
+    return s;
+  }
+  if (style === 'balloon_garland') {
+    let s = panel;
+    for (let i = 0; i < 12; i++) {
+      const bx = x + 10 + ((i * 31) % (w - 20));
+      const by = y + 10 + ((i * 19) % (h - 20));
+      s += `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${6 + (i % 3) * 2}" fill="${[P(0), P(1), P(2)][i % 3]}" opacity="0.9"/>`;
+    }
+    return s;
+  }
+  if (style === 'neon_backdrop') {
+    let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${shade(P(0), -70)}"/>`;
+    s += `<path d="M ${x + 16} ${y + h - 22} q 16 -38 32 0 q 16 38 32 0" fill="none" stroke="${shade(P(2), 60)}" stroke-width="4" stroke-linecap="round" opacity="0.95"/>`;
+    return s;
+  }
+  // step_repeat (default) — a dotted grid standing in for a logo/monogram tile
+  let s = panel;
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 6; c++)
+      s += `<circle cx="${(x + 12 + c * 20).toFixed(1)}" cy="${(y + 12 + r * 20).toFixed(1)}" r="5" fill="${shade(P(1), 10)}" opacity="0.5"/>`;
+  return s;
+}
+
+// ---- welcome & signage — the welcome table near the entrance ----
+/** The table is drawn ONCE; every selected item then stands on it, nudged
+ *  sideways so a sign, a seating chart and a guestbook read as three things
+ *  side by side rather than one glyph stacked on another. This is the zone
+ *  that argues the cap up to three — a real welcome area carries all three. */
+function welcomeSignageDecor(styles: string[], P: (i: number) => string): string {
+  const x = 26,
+    y = 588,
+    w = 92,
+    h = 46;
+  const table = `<rect x="${x}" y="${y + h - 12}" width="${w}" height="12" rx="2" fill="${LINEN}"/>`;
+  const n = styles.length;
+  return (
+    table +
+    styles
+      .map((style, i) => welcomeSignageItem(style, x + w / 2 + (i - (n - 1) / 2) * 30, y, h, P))
+      .join('')
+  );
+}
+function welcomeSignageItem(
+  style: string,
+  mid: number,
+  y: number,
+  h: number,
+  P: (i: number) => string,
+): string {
+  if (style === 'minimal') return '';
+  if (style === 'easel_sign') {
+    return (
+      `<rect x="${mid - 3}" y="${y}" width="6" height="${h - 12}" fill="${shade('#A9824E', -10)}"/>` +
+      `<rect x="${mid - 20}" y="${y}" width="40" height="26" rx="2" fill="${shade(WALL, 10)}" stroke="${P(0)}" stroke-width="1.4"/>`
+    );
+  }
+  if (style === 'framed_seating_chart') {
+    let s = `<rect x="${mid - 22}" y="${y - 2}" width="44" height="30" rx="2" fill="#FFFFFF" stroke="${GOLD}" stroke-width="2"/>`;
+    for (let i = 0; i < 4; i++)
+      s += `<line x1="${mid - 16}" y1="${y + 4 + i * 6}" x2="${mid + 16}" y2="${y + 4 + i * 6}" stroke="${shade(WALL, -30)}" stroke-width="1"/>`;
+    return s;
+  }
+  // floral_guestbook (default)
+  return (
+    flower(mid, y + 4, 10, P(2)) +
+    `<rect x="${mid - 12}" y="${y + h - 24}" width="24" height="16" rx="1" fill="#FFFFFF" stroke="${shade(WALL, -25)}" stroke-width="1"/>`
+  );
+}
+
 // ---- people ----
 // Figures carry a contrast outline so they never blend into a same-toned
 // backdrop (white gown on a pale wall, dark suit on a dark backdrop) — issue
@@ -888,10 +2294,264 @@ function people(who: string, rc: RC, guestPalette: string[]): string {
 }
 
 /** Compose the full venue SVG for a given design + palette + role attire colors. */
+const SKY = '#DCEEF2';
+const SAND = '#E9D9B8';
+const SEA = '#9FC3C4';
+
+/** The scenery behind everything else — an interior room (hall/heritage/tent
+ *  share one wall+floor treatment; the canopy/drape that makes a tent a tent
+ *  is drawn by `wallsDecor`/`ceiling` on top of it, same as always) or open
+ *  air (beach: sky + shoreline; garden: hedge + lawn). Only the BACKGROUND
+ *  changes by scene — every dressable part still draws over it exactly as
+ *  before, gated only where `venueZoneApplies` says so. */
+function sceneBackground(scene: VenueSceneFamily, W: number, H: number, aisleTint: string): string {
+  if (scene === 'beach') {
+    return `
+      <rect width="${W}" height="372" fill="${SKY}"/>
+      <rect y="330" width="${W}" height="42" fill="${SEA}"/>
+      <line x1="0" y1="330" x2="${W}" y2="330" stroke="${shade(SEA, -20)}" stroke-width="1" opacity="0.6"/>
+      <rect y="372" width="${W}" height="${H - 372}" fill="${SAND}"/>
+      <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.45"/>`;
+  }
+  if (scene === 'garden') {
+    const hedge = shade(LEAF, 30);
+    let bumps = '';
+    for (let x = 20; x <= W - 20; x += 60) bumps += `<circle cx="${x}" cy="30" r="34" fill="${hedge}"/>`;
+    return `
+      <rect width="${W}" height="372" fill="${shade(hedge, 55)}"/>
+      <g aria-hidden="true">${bumps}</g>
+      <rect y="372" width="${W}" height="${H - 372}" fill="${shade(LEAF, 62)}"/>
+      <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.5"/>`;
+  }
+  // hall / heritage / tent — one shared interior treatment
+  return `
+    <defs>
+      <linearGradient id="rwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(WALL, 10)}"/><stop offset="1" stop-color="${WALL}"/></linearGradient>
+      <linearGradient id="rfloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(FLOOR, 10)}"/><stop offset="1" stop-color="${shade(FLOOR, -8)}"/></linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#rwall)"/>
+    <rect y="372" width="${W}" height="${H - 372}" fill="url(#rfloor)"/>
+    <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.55"/>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * MB14b · COMPOSITE-WITH-FALLBACK — the AI decor layers finally reach the room.
+ *
+ * The 2026-09-03 pilot generated ten decor drawings (backdrop × 5 styles,
+ * ceiling × 5) and `lib/reception-decor-layers.ts` has been able to CHOOSE one
+ * since that day. Nothing ever DREW one: `renderVenueSvg` had no way to accept
+ * a chosen layer, so the whole pipeline terminated in a value nobody consumed.
+ * This is the consumer.
+ *
+ * ── 🔑 THE SAFETY PROPERTY IS BYTE-IDENTITY, NOT "LOOKS THE SAME" ───────────
+ * Four surfaces render this string today — the couple's Reception Designer,
+ * the vendor read-only board, the concept PDF, and the paid render's control
+ * image — and only ten (zone, style) pairs out of the whole product have an
+ * asset. EVERY other combination must come out of this function EXACTLY as it
+ * did before this change: same bytes, not merely the same picture. A "nearly
+ * identical" flat render is a silently different control image for a paid
+ * photoreal render, and a diff no reviewer would catch.
+ *
+ * That is why the fallback is written as `decorImage(zone) ?? <the call that
+ * was already there>`: with no layer for a zone, the original expression is
+ * evaluated unchanged and the surrounding array join is untouched. Byte
+ * identity is a property of the SHAPE of this code, not of a test that hopes
+ * to notice. `reception-scene.test.ts` pins it anyway, and the sabotage that
+ * proves the pin is a near-miss substitution in `resolveDecorLayer`.
+ *
+ * ── WHAT A LAYER IS, AND WHAT IT IS NOT ─────────────────────────────────────
+ * An href, already retinted by whoever resolved it —
+ * `renderDecorLayerDataUrl` on the server (sharp), the Recolor Studio's canvas
+ * on the client. No pixel work happens here; this module stays pure and
+ * DOM-free, exactly as its own header promises.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+/** Where a composited decor image sits, per zone. A zone absent from this map
+ *  can never composite, whatever a caller passes — the geometry IS the
+ *  permission. Keys are pinned equal to `PILOT_DECOR_ZONES` by
+ *  `reception-scene.test.ts` (asserted there, not imported here, so this file
+ *  keeps its one-way dependency on nothing). */
+type DecorRect = { x: number; y: number; w: number; h: number; rx: number };
+
+/**
+ * 🔑 A ZONE MAY OCCUPY MORE THAN ONE BOX, AND `walls` IS THE FIRST THAT DOES.
+ * Every decor zone before it is one contiguous rect. `walls` is TWO — a 56-wide
+ * band down the left edge and another down the right, with the whole room
+ * between them — so a single rect spanning both would paint over the backdrop,
+ * the stage and the couple. An array here draws the SAME drawing into each box,
+ * which is exactly what the flat `wallsDecorLayer` does with its two bands.
+ *
+ * 🔑 THE FIRST BOX KEEPS THE BARE `decor-<zone>` CLIP ID, and that one line is
+ * what makes this change invisible to the eight zones that came before it: their
+ * markup is byte-identical to what it was when a slot could only be one rect.
+ * A one-element array is therefore EQUIVALENT to a bare rect, deliberately — the
+ * numbering only starts at `-2`. What must never change is the FIRST id; suffix
+ * it and every existing zone's bytes move at once. `reception-scene.test.ts`
+ * pins those bytes against hashes measured before this feature existed.
+ */
+const DECOR_SLOTS: Partial<Record<PartId, DecorRect | readonly DecorRect[]>> = {
+  // The same panel `backdropStyleLayer` draws — BD, with its rx 10 corners.
+  backdrop: { ...BD, rx: 10 },
+  // The overhead band every `ceilingLayer` treatment hangs inside: the draped
+  // swags reach y 96 at their lowest, the fairy-light rows end at y 70.
+  ceiling: { x: 0, y: 0, w: 960, h: 100, rx: 0 },
+  // The couple's spot: the flat `stage()` draws its riser as a 300-wide rect at
+  // y 372 with an ellipse platform at cy 392, so the furniture standing on it
+  // occupies x 330–630 above that line. The box is that footprint plus the
+  // height a sweetheart table or clad riser needs; the 16:9 sources are
+  // centre-weighted, so `slice` crops sky and floor rather than the table.
+  stage: { x: 330, y: 262, w: 300, h: 132, rx: 8 },
+  // RA1 · the guest-table FIELD, not one table. `tables` draws FOUR of them at
+  // (150,520,r60) (810,520,r60) (240,432,r44) (720,432,r44), so unlike every
+  // other decor zone its geometry has to span scattered objects with the aisle
+  // running between them — 88..872 × 386..586 is their combined extent.
+  //
+  // 🔑 THIS ONLY WORKS BECAUSE `tables` IS A SCENE ZONE. Its drawing's own
+  // background is knocked out before it reaches here, so the floor, the aisle
+  // runner and the dance floor all show through BETWEEN the tables. Composited
+  // opaque this rect would blank the entire lower half of the room.
+  tables: { x: 88, y: 386, w: 784, h: 200, rx: 0 },
+  // RA1 · the feast line and its stations. `feastFloorItem` draws at x 24,
+  // y 300, w 288: the service line occupies y 334..364 and the stations stand
+  // BEHIND it from y 252. 24..312 × 250..366 is that combined extent, clear of
+  // the guest-table band (y 386..586) below it.
+  feast: { x: 24, y: 250, w: 288, h: 116, rx: 0 },
+  // RA2 · the booth row. The flat `boothsFloorItem` draws one 84x108 bay per
+  // ticked kind at x = 28 + i*96, y 132, grounded by a shadow ellipse at y 241.
+  // 20..320 x 120..250 covers a row of three, the common case, and its bottom
+  // edge sits on that ground line.
+  //
+  // 🔑 UNLIKE `feast` AND `program`, THE IMAGE HERE REPLACES THE WHOLE ROW ON
+  // PURPOSE. Those two hold objects chosen through SEPARATE attributes, so
+  // swallowing the group dropped a supplier the couple booked. Every booth bay
+  // comes from the SAME multi-select, so the row is one object drawn N times —
+  // the `tables` shape, not the `feast` shape. See the migration header for what
+  // that costs (the specific KINDS they ticked do not survive the image) and why
+  // it is the same trade `tables` already ships.
+  booths: { x: 20, y: 120, w: 300, h: 130, rx: 0 },
+  // RA2 · the band's own corner. The flat `programFloorItem` puts the riser at
+  // x 664 with a width that grows with the line-up (one act 108, two 200), its
+  // deck at y 362 and its shadow ellipse at y 382; the performer glyphs reach
+  // up to y 326 and the drum kit out to x 624.
+  //
+  // 🔑 THIS BOX IS TALLER THAN THE FLAT DRAWING, ON PURPOSE — the same reason
+  // `stage`'s is. The sources are 16:9 and `slice` scales to COVER, so a box cut
+  // down to the flat riser's own 56px band would crop away the musicians and
+  // keep a strip of skirt. 320 x 150 is close enough to the source's ratio that
+  // `slice` trims the drawing's own empty margins and nothing else, and its
+  // bottom edge sits on the riser's ground line at 392.
+  program: { x: 624, y: 242, w: 320, h: 150, rx: 0 },
+  // RA2 · the side walls — the FIRST zone with two boxes. `wallsDecorLayer`
+  // draws a 56-wide band down each edge, full height to the floor line at 372,
+  // with the entire room between them. The same drawing goes in both, as the
+  // flat layer already puts the same treatment in both.
+  //
+  // 🔑 A PANEL, NOT A SCENE. Like `backdrop`, `ceiling` and `photo_wall`, a wall
+  // drawing FILLS its band — its ground IS the wall — so it is absent from
+  // SCENE_DECOR_ZONES and must never be knocked out.
+  walls: [
+    { x: 0, y: 0, w: 56, h: 372, rx: 0 },
+    { x: 904, y: 0, w: 56, h: 372, rx: 0 },
+  ],
+  // RA2 · the photo wall. The ONLY decor geometry with no judgement in it: a
+  // PANEL drawing fills exactly the box the flat drawing already occupies, so
+  // this is `photoWallDecorLayer`'s own rect, `rx` included.
+  //
+  // 🔑 AND IT IS A PANEL, NOT A SCENE — the second of them, after `walls`. The
+  // zones added between `stage` and those two were each an object standing in a
+  // room, with its background knocked out. This one's ground between the blooms
+  // IS the wall — it is deliberately absent from SCENE_DECOR_ZONES, and
+  // knocking it out would punch holes through the couple's photo wall to the
+  // room behind it.
+  photo_wall: { x: 786, y: 92, w: 130, h: 108, rx: 8 },
+  // RA2 · the entrance tunnel. `tunnelLayer` draws THREE arches receding down
+  // the aisle in one-point perspective, at depths (470,178,636) (432,124,588)
+  // (404,86,548) — so the group spans x 302..658 and y 368..636, and the
+  // generated drawings are composed the same way: a large arch nearest, a
+  // medium one behind it, a small one furthest.
+  //
+  // 🔑 A SCENE ZONE, AND THE ONE WHERE THE KNOCKOUT MATTERS MOST. The aisle
+  // runner, the petals and the mirror floor are drawn BENEATH this group and
+  // must show through the arch openings and between the legs. Composited
+  // opaque, this rect would blank the whole lower centre of the room — the
+  // couple's walk included.
+  tunnel: { x: 302, y: 368, w: 356, h: 268, rx: 0 },
+};
+
+/** Zone → the href of its already-retinted decor image. A zone absent from the
+ *  map falls back to the flat SVG, which is what almost every zone does. */
+export type DecorLayers = Partial<Record<PartId, string>>;
+
+const APP_SERVED_DECOR = /^\/moodboard-seed\/[A-Za-z0-9/_.-]+\.(?:svg|png|jpg|jpeg|webp)$/;
+const RETINTED_DATA_URI = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/**
+ * 🪤 AN href IS ATTACKER-SHAPED INPUT UNTIL IT IS CHECKED. It arrives from a
+ * database column (`moodboard_library_assets.storage_path`) and is
+ * interpolated into markup four surfaces serve. Only two shapes are ever
+ * legitimate — an app-served seed path, or a data: URI this app just built —
+ * and anything else FALLS BACK rather than being escaped and drawn, because a
+ * row we cannot recognise is a row we should not composite.
+ *
+ * `..` is rejected SEPARATELY, not left to the character class: `[A-Za-z0-9/_.-]`
+ * admits a dot, so it admits a dot-dot, so `/moodboard-seed/../../../etc/x.svg`
+ * matches the shape above. The same predicate gates the filesystem read in
+ * `reception-decor-layers-server.ts`, so one rule covers markup and disk.
+ */
+export function isCompositableDecorHref(href: string): boolean {
+  if (href.includes('..')) return false;
+  return APP_SERVED_DECOR.test(href) || RETINTED_DATA_URI.test(href);
+}
+
+/** One zone's composited decor image, or null to fall back to the flat SVG. */
+function decorImage(zone: PartId, layers: DecorLayers | undefined): string | null {
+  const href = layers?.[zone];
+  if (!href) return null;
+  const slot = DECOR_SLOTS[zone];
+  if (!slot) return null;
+  if (!isCompositableDecorHref(href)) return null;
+  // One box or several — see DECOR_SLOTS. The FIRST box keeps the bare
+  // `decor-<zone>` clip id, so a single-rect zone emits exactly the string it
+  // emitted before multi-box zones existed, byte for byte.
+  const boxes: readonly DecorRect[] = 'x' in slot ? [slot] : slot;
+  return boxes.map((box, i) => decorBox(zone, href, box, i)).join('');
+}
+
+function decorBox(zone: PartId, href: string, slot: DecorRect, index: number): string {
+  const clip = index === 0 ? `decor-${zone}` : `decor-${zone}-${index + 1}`;
+  return (
+    `<defs><clipPath id="${clip}"><rect x="${slot.x}" y="${slot.y}" width="${slot.w}" height="${slot.h}" rx="${slot.rx}"/></clipPath></defs>` +
+    // 🪤 `xmlns:xlink` IS DECLARED ON THE ELEMENT, NOT ON THE ROOT <svg>.
+    // Putting it on the root would change the first bytes of EVERY render this
+    // function has ever produced, including the ones with no decor layer at
+    // all — the exact regression this whole design exists to prevent. A
+    // namespace declaration is legal on any element, so it rides along with
+    // the only element that needs it. `href` is the SVG2 spelling browsers
+    // use; `xlink:href` is what librsvg (our server rasteriser) still reads.
+    `<image xmlns:xlink="http://www.w3.org/1999/xlink" clip-path="url(#${clip})"` +
+    ` x="${slot.x}" y="${slot.y}" width="${slot.w}" height="${slot.h}"` +
+    ` preserveAspectRatio="xMidYMid slice" href="${href}" xlink:href="${href}"/>`
+  );
+}
+
+/**
+ * Compose the full venue SVG for a given design + palette + role attire
+ * colors — the couple's own room, re-drawn live in their own colours.
+ *
+ * @param venueSetting `events.venue_setting`, when the caller has one.
+ *   Reshapes the scenery (`sceneBackground`) and GATES ceiling/walls per
+ *   `venueZoneApplies` — a beach or garden reception is drawn honestly,
+ *   never with a ceiling or walls it does not have. OMITTING IT draws the
+ *   original hall-shaped room with nothing gated, so every pre-venue-aware
+ *   caller (a stale server render, a test) is unchanged.
+ */
 export function renderVenueSvg(
   design: ReceptionDesign,
   palette: string[],
   roleColors?: RoleColors,
+  venueSetting?: string | null,
+  decor?: DecorLayers,
 ): string {
   const P = paletteFn(palette);
   const rc: RC = {
@@ -905,48 +2565,150 @@ export function renderVenueSvg(
   );
   const W = 960,
     H = 640;
-  const aisleTint = sel(design, 'entrance', 'runner') === 'fabric' ? P(1) : shade(P(1), 70);
-  const bg = `
-    <defs>
-      <linearGradient id="rwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(WALL, 10)}"/><stop offset="1" stop-color="${WALL}"/></linearGradient>
-      <linearGradient id="rfloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(FLOOR, 10)}"/><stop offset="1" stop-color="${shade(FLOOR, -8)}"/></linearGradient>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#rwall)"/>
-    <rect y="372" width="${W}" height="${H - 372}" fill="url(#rfloor)"/>
-    <polygon points="380,372 580,372 760,640 200,640" fill="${aisleTint}" opacity="0.55"/>`;
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
-    bg,
-    backdrop(sel(design, 'backdrop', 'style'), sel(design, 'backdrop', 'florals'), P),
-    stage(sel(design, 'stage', 'setup'), sel(design, 'stage', 'florals'), P),
-    ceiling(sel(design, 'ceiling', 'treatment'), P),
-    tables(
+  const scene = venueSceneFamily(venueSetting);
+  const aisleTint = selAll(design, 'entrance', 'runner').includes('fabric') ? P(1) : shade(P(1), 70);
+  const bg = sceneBackground(scene, W, H, aisleTint);
+
+  // ── ONE DEPTH RULE for everything that stands on the floor ───────────────
+  // The guest tables are always here; the celebration zones (2026-09-06) join
+  // only when the venue allows them and the couple actually chose something —
+  // each helper returns `null` for "nothing to draw", same as the empty
+  // strings this list replaced. `compositeFloorItems` then sorts all of them
+  // by ground-contact `y` — ascending, so whichever one actually touches the
+  // floor nearer the viewer paints last — instead of by which line happened
+  // to be appended to this array last.
+  const floorItems: FloorItem[] = [
+    tableFloorItem(
       sel(design, 'tables', 'shape'),
       sel(design, 'tables', 'chairs'),
       sel(design, 'tables', 'linen'),
       sel(design, 'tables', 'centerpiece'),
       sel(design, 'tables', 'place'),
       P,
+      decor,
     ),
+  ];
+  if (venueZoneApplies(venueSetting, 'feast')) {
+    const item = feastFloorItem(
+      sel(design, 'feast', 'service'),
+      selAll(design, 'feast', 'stations'),
+      P,
+      decor,
+    );
+    if (item) floorItems.push(item);
+  }
+  if (venueZoneApplies(venueSetting, 'program')) {
+    const item = programFloorItem(
+      selAll(design, 'program', 'performers'),
+      sel(design, 'program', 'host'),
+      P,
+      decor,
+    );
+    if (item) floorItems.push(item);
+  }
+  if (venueZoneApplies(venueSetting, 'booths')) {
+    const item = boothsFloorItem(selAll(design, 'booths', 'kinds'), P, decor);
+    if (item) floorItems.push(item);
+  }
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`,
+    bg,
+    // The dance floor is a FLOOR TREATMENT, so it goes down before anything
+    // that stands on it — see `danceFloor`'s note on the draft that painted it
+    // over the guest tables.
+    venueZoneApplies(venueSetting, 'program')
+      ? danceFloor(sel(design, 'program', 'floor'), P)
+      : '',
+    decorImage('backdrop', decor) ??
+      backdrop(selAll(design, 'backdrop', 'style'), selAll(design, 'backdrop', 'florals'), P),
+    // The stage image REPLACES the flat furniture, exactly as backdrop and
+    // ceiling do — and, like them, an uncovered (zone, style) falls straight
+    // back to the flat drawing. `people` is composited after this, so the
+    // couple still stands in front of whichever version is drawn.
+    decorImage('stage', decor) ??
+      stage(sel(design, 'stage', 'setup'), selAll(design, 'stage', 'florals'), P),
+    // The venue gate stays OUTERMOST on purpose: a beach reception has no
+    // ceiling, so it gets no ceiling decor image either, however well the
+    // couple's style family is covered.
+    venueZoneApplies(venueSetting, 'ceiling')
+      ? (decorImage('ceiling', decor) ?? ceiling(selAll(design, 'ceiling', 'treatment'), P))
+      : '',
+    // `walls` is behind everything standing IN the room, same as ceiling and
+    // backdrop — it dresses the room's own shell, never furniture, so it
+    // keeps a fixed slot ahead of the floor group rather than competing with
+    // it on ground-contact `y`.
+    venueZoneApplies(venueSetting, 'walls')
+      ? wallsDecor(selAll(design, 'walls', 'treatment'), P, decor)
+      : '',
+    // Everything that stands ON the floor — guest tables, the band's riser
+    // and figures, the host's spot, the booth row, the feast — composited by
+    // the ONE depth rule above, not by which line comes last in this array.
+    compositeFloorItems(floorItems),
     people(sel(design, 'people', 'who'), rc, guestPalette),
-    entrance(sel(design, 'tunnel', 'style'), sel(design, 'entrance', 'runner'), P),
-    `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
+    entrance(selAll(design, 'tunnel', 'style'), selAll(design, 'entrance', 'runner'), P, decor),
+    scene === 'beach' || scene === 'garden'
+      ? ''
+      : `<line x1="0" y1="372" x2="${W}" y2="372" stroke="${shade(WALL, -18)}" stroke-width="1" opacity="0.5"/>`,
+    photoWallDecor(selAll(design, 'photo_wall', 'style'), P, decor),
+    welcomeSignageDecor(selAll(design, 'welcome_signage', 'style'), P),
     `</svg>`,
   ].join('');
 }
 
 /** Assemble a stylist-brief prompt from the design — drives the AI render. */
+/**
+ * What the caller knows about the couple's RECEPTION venue.
+ *
+ * ── WHY THIS IS NOT JUST A STRING ───────────────────────────────────────────
+ * `buildPrompt` drives a PAID photoreal render, and `events.venue_setting` is a
+ * column where "the couple chose a ballroom" and "the couple never answered"
+ * are the SAME BYTES. Not because of a column default — that was dropped in
+ * 20260521080000 — but because both writers stamp `banquet_hall` when nothing
+ * was picked (`create-event/actions.ts`'s `?? 'banquet_hall'`, and
+ * `onboarding/wedding/actions.ts`'s `DEFAULT_VENUE`, whose comment says "the
+ * couple refines it later"). Meanwhile `events_wedding_fields_consistency`
+ * forbids NULL on a wedding row, so there is nowhere for "unknown" to live.
+ *
+ * So a caller that has only read the column cannot honestly claim a ballroom.
+ * `receptionVenuePhrase` refuses that one value unless `chosen` is passed, and
+ * `chosen` is a claim about EVIDENCE — a submission in this same request, or a
+ * surface that showed the couple the venue and had it confirmed — never just
+ * "I read the row."
+ */
+export type ReceptionVenue = {
+  /** `events.venue_setting` as stored. */
+  setting: string | null | undefined;
+  /** True only with positive evidence the couple actually picked it. */
+  chosen?: boolean;
+};
+
+/**
+ * @param venue The reception venue, when the caller has one. OMITTING IT keeps
+ *   the exact brief this function produced before venues existed here, so every
+ *   existing call site is unchanged — and so is the output for any venue that
+ *   cannot be honestly asserted.
+ */
 export function buildPrompt(
   design: ReceptionDesign,
   palette: string[],
   roleColors?: RoleColors,
+  venue?: ReceptionVenue,
 ): string {
   const phrases: string[] = [];
   for (const part of RECEPTION_PARTS) {
+    // A zone the venue does not have (a beach's ceiling, a garden's walls)
+    // is excluded here too — never described to the renderer just because a
+    // stale choice from before the venue changed is still sitting in storage.
+    if (!venueZoneApplies(venue?.setting, part.id)) continue;
     for (const attr of part.attributes) {
-      const id = sel(design, part.id, attr.id);
-      const opt = attr.options.find((o) => o.id === id);
-      if (opt?.prompt) phrases.push(opt.prompt);
+      // EVERY selection, not just the primary — a brief that describes one of
+      // the couple's two ceiling treatments would render a room they didn't
+      // design, and would read as a success while doing it.
+      for (const id of selAll(design, part.id, attr.id)) {
+        const opt = attr.options.find((o) => o.id === id);
+        if (opt?.prompt) phrases.push(opt.prompt);
+      }
     }
   }
   // People clause — injected with the actual role attire colors so one render
@@ -973,10 +2735,22 @@ export function buildPrompt(
     }
     phrases.push(people);
   }
-  const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 4);
+  // 5, not 4: the reception palette became a five-color set on 2026-09-03
+  // (PALETTE_LIMITS.reception), so a 4-cap silently dropped every theme's
+  // Accent 2 from the prompt — the render would come back missing a color the
+  // couple can see in their own swatch strip.
+  const colors = palette.filter((c) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 5);
   const colorClause = colors.length ? ` Venue color palette: ${colors.join(', ')}.` : '';
+  // THE RECEPTION VENUE — this function referenced it zero times until
+  // 2026-09-03, so a garden wedding and a ballroom wedding produced a
+  // byte-identical brief and the couple paid for whichever room the model felt
+  // like. `receptionVenuePhrase` returns null rather than guess (see
+  // ReceptionVenue above), and a null simply restores the generic opening this
+  // line has always had — the render is less specific, never wrong.
+  const venuePhrase = receptionVenuePhrase(venue?.setting, { chosen: venue?.chosen });
+  const venueClause = venuePhrase ? ` ${venuePhrase}` : '';
   return (
-    `Photorealistic editorial photograph of an elegant Filipino wedding reception. ` +
+    `Photorealistic editorial photograph of an elegant Filipino wedding reception${venueClause}. ` +
     `Recreate the exact layout and structure of the reference image as a real photo, featuring ` +
     phrases.join(', ') +
     `.${colorClause} Soft warm lighting, refined, high detail.`

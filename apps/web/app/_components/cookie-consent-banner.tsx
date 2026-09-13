@@ -9,6 +9,7 @@ import {
   OPEN_CONSENT_EVENT,
 } from '@/lib/cookie-consent';
 import { isConsentSuppressedRoute } from './capture-safe-routes';
+import { isNativeApp } from '@/lib/capacitor';
 
 // Site-wide cookie-consent banner under RA 10173. Mounted once in the root
 // layout so it appears on every route, including the homepage. Reads/writes
@@ -17,6 +18,16 @@ import { isConsentSuppressedRoute } from './capture-safe-routes';
 //
 // "Every route" now carries exactly two documented exceptions, both operator
 // surfaces behind a signed-in control-room membership — see below.
+//
+// 🔒 NEVER IN THE STORE SHELL. App Review 2026-06-30 (Guideline 5.1.2(i)) read
+// this banner inside the iOS WebView as "collects cookies used to track" and
+// asked for App Tracking Transparency — or for the prompt to go. We do not
+// track (PostHog is first-party product analytics, consent-gated, no ad or
+// broker sharing), and Apple's own remedy for that case is to REMOVE the
+// prompt. So inside the Capacitor shell the banner never renders and no
+// choice is ever written: `analyticsAllowed()` is false while undecided, so
+// PostHog never initialises there either (posthog-provider.tsx gates on it).
+// Essential cookies (session, theme) are unaffected — they were never gated.
 //
 // SELF-GATED, same idiom as SiteChrome's `isMarketingRoute`: `usePathname()` +
 // one pure predicate, so the root layout keeps mounting this unconditionally and
@@ -30,9 +41,14 @@ export function CookieConsentBanner() {
   const [decided, setDecided] = useState(true);
   const [manage, setManage] = useState(false);
   const [analytics, setAnalytics] = useState(true);
+  const [storeShell, setStoreShell] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Post-mount, like inline-checkout-drawer.tsx — `window.Capacitor` does
+    // not exist during SSR. Only the Capacitor shell injects it; the desktop
+    // Tauri wrapper does not, and keeps the banner (it is not store-reviewed).
+    setStoreShell(isNativeApp());
     const c = readConsent();
     setDecided(c !== null);
     setAnalytics(c?.analytics ?? true);
@@ -45,6 +61,9 @@ export function CookieConsentBanner() {
   }, []);
 
   if (!mounted || decided) return null;
+  // Store shell: no prompt, no choice written, no analytics (see header).
+  // Checked AFTER `decided` so a "Cookie settings" re-open is also a no-op there.
+  if (storeShell) return null;
   // A banner drawn here would be composited into the couple's live broadcast
   // (program output) or land on top of the on-air controls (controller).
   if (isConsentSuppressedRoute(pathname)) return null;

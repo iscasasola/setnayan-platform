@@ -158,6 +158,7 @@ const DUE_OPTIONS: ReadonlyArray<[InstallmentDue, string]> = [
 export function ProposalMaker({
   threadId,
   requestedPax,
+  livePax = null,
   requestedHours = 8,
   coupleName,
   packages = [],
@@ -166,8 +167,26 @@ export function ProposalMaker({
   viewerPromo = null,
 }: {
   threadId: string;
-  /** Seeded from thread.pax_at_inquiry so the opening quote is sized to what they asked for. */
+  /**
+   * `chat_threads.pax_at_inquiry` — what the couple ASKED with, and what any
+   * earlier quote was written against.
+   *
+   * ⚠ NO LONGER THE SEED. It is the historical figure the header names beside
+   * the live one, and the fallback when no live count exists.
+   */
   requestedPax: number;
+  /**
+   * What the couple is planning for NOW — and, since 2026-09-09, WHAT THE
+   * BUILDER OPENS AT (owner decision; binding prototype
+   * `chat_interface_v4_2026-09-09.html` shows the field pre-filled at the live
+   * count).
+   *
+   * 🔑 THIS MOVES MONEY, WHICH IS WHY BOTH NUMBERS STAY ON SCREEN. A quote
+   * opened at 170 when the couple asked with 150 is a different price, so the
+   * header names the seed AND the inquiry count in every state. Dropping
+   * either one is how a supplier quotes against a number nobody agreed to.
+   */
+  livePax?: number | null;
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
@@ -186,7 +205,14 @@ export function ProposalMaker({
   viewerPromo?: { terms: string; creatorName?: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [pax, setPax] = useState(requestedPax);
+  /*
+    THE OPENING GUEST COUNT — the live one, falling back to the inquiry count.
+
+    ⚠ THIS IS THE NUMBER THE FIRST QUOTE IS PRICED AGAINST, so it is read once,
+    here, and named in the header rather than left to be inferred.
+  */
+  const seedPax = livePax ?? requestedPax;
+  const [pax, setPax] = useState(seedPax);
   const [hours, setHours] = useState(requestedHours);
   const [items, setItems] = useState<Line[]>(() => [newLine(false)]);
   const [crew, setCrew] = useState<Crew>({
@@ -216,7 +242,14 @@ export function ProposalMaker({
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [seeding, startSeed] = useTransition();
 
-  const atRequest = pax === requestedPax && hours === requestedHours;
+  /*
+    Still sitting on what the builder opened with — i.e. the supplier has not
+    typed over the seed. Named for the seed, not for "the request", because
+    those are no longer the same number.
+  */
+  const atSeed = pax === seedPax && hours === requestedHours;
+  /** The live count and the inquiry count actually differ and both are known. */
+  const countsDiffer = livePax != null && livePax !== requestedPax;
 
   // Everything numeric flows through the shared resolver. Rebuilds only when a
   // pricing input changes.
@@ -413,8 +446,13 @@ export function ProposalMaker({
     });
   }
 
-  const resetToRequest = () => {
-    setPax(requestedPax);
+  /*
+    Undo my edits — back to what the builder OPENED at, not back to the inquiry
+    count. Reset that jumped to a different number than the one the supplier
+    started from would be a second, silent re-pricing.
+  */
+  const resetToSeed = () => {
+    setPax(seedPax);
     setHours(requestedHours);
   };
 
@@ -456,16 +494,18 @@ export function ProposalMaker({
             {coupleName?.trim() || 'New quote'}
           </h3>
           <p className="mt-1.5 text-xs text-ink/55">
-            {atRequest ? (
+            {atSeed ? (
               <>
-                Sized to their request · <strong className="text-ink/75">{requestedPax} pax</strong> · {requestedHours}h
+                Sized to their plan now · <strong className="text-ink/75">{seedPax} pax</strong> · {requestedHours}h
+                {countsDiffer ? <> · was {requestedPax} at inquiry</> : null}
               </>
             ) : (
               <>
-                Quoting <strong className="text-ink/75">{pax} pax · {hours}h</strong> — request was {requestedPax} pax{' '}
+                Quoting <strong className="text-ink/75">{pax} pax · {hours}h</strong> — their plan says {seedPax} now
+                {countsDiffer ? <> · was {requestedPax} at inquiry</> : null}{' '}
                 <button
                   type="button"
-                  onClick={resetToRequest}
+                  onClick={resetToSeed}
                   className="text-terracotta-700 underline hover:text-terracotta"
                 >
                   reset
@@ -480,7 +520,7 @@ export function ProposalMaker({
             <input
               type="number"
               min={1}
-              step={10}
+              step={1}
               value={pax}
               onChange={(e) => setPax(Number(e.target.value) || 0)}
               className={`${numField} w-16 text-center`}
@@ -912,9 +952,16 @@ export function ProposalMaker({
                     patchInstallment(r.key, r.kind === 'percent' ? { kind: 'fixed', amountPhp: Math.round((resolved?.raw_centavos ?? 0) / 100) } : { kind: 'percent', percent: r.percent ?? 0 })
                   }
                   aria-label="Toggle peso / percent"
+                  title={r.kind === 'percent' ? 'Switch to a fixed peso amount' : 'Switch to a percent of the total'}
                   className="rounded-md border border-ink/15 px-1.5 py-0.5 text-[11px] text-ink/60 hover:border-terracotta"
                 >
-                  {r.kind === 'percent' ? '%' : '₱'}
+                  {/* Shows the unit a tap SWITCHES TO, not the one already
+                      shown next to the input — that was the double "%": a
+                      percent row read "20 %" from the input's own suffix,
+                      then a second "%" right after it on this button, which
+                      read as the same fact printed twice rather than as a
+                      control (owner screenshot 2026-09-11). */}
+                  {r.kind === 'percent' ? '₱' : '%'}
                 </button>
                 {!isDown ? (
                   <button

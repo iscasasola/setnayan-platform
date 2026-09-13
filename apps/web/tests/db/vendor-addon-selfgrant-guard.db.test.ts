@@ -451,3 +451,100 @@ test('ordinary vendor REGISTRATION still succeeds (the INSERT branch defaults)',
       "('coming_soon') was publicly readable through vendor_profiles_public_read",
   );
 });
+
+// ══ tier_source — added with the column in 20271209332066 ═══════════════════
+//
+// 🔑 THIS ONE ESCALATES NOTHING, AND THAT IS WHY IT WAS MISSED. Every other
+// column this guard protects buys the vendor something: a tier, a seat, an
+// add-on window, a verification mark. `tier_source` buys nothing — it only
+// records WHO PAID. Flipping it to 'self_serve' turns a GIFT into a purchase
+// in the record, which hides the vendor from `fetchCompedVendors` and from
+// /admin/gifts: the exact distinction the column was created to make.
+//
+// The exposure-surface freeze DID fire when this column landed, but it measures
+// GRANTS, and the answer on this table is always "yes, granted — the trigger is
+// the gate" (tier_state, papic_challenge_expires_at, pending_tier and
+// subscription_credit_php are all `authenticated=SIU` in the baseline). So the
+// guard that fired pointed at the accepted half, and the missing half — this
+// trigger clause — had nothing watching it at all.
+
+test('a vendor CANNOT relabel their own comped tier as self-serve', async () => {
+  const { uid, vendorProfileId } = await newVendor('tier-source@guard.test');
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET tier_source = 'self_serve'
+          WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /not writable by the vendor|insufficient_privilege/i,
+    'a shop must not be able to mark its own gift as paid for',
+  );
+  await reset();
+  const r = await db.query<{ s: string }>(
+    `SELECT tier_source AS s FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.s, 'admin_comp', 'the label survived the attempt unchanged');
+});
+
+test('a user CANNOT INSERT a fresh vendor profile already labelled self-serve', async () => {
+  await reset();
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    ['born-self-serve@guard.test'],
+  );
+  const uid = u.rows[0]!.id;
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `INSERT INTO public.vendor_profiles (user_id, business_name, tier_source)
+         VALUES ($1, 'Born Paid Studio', 'self_serve')`,
+        [uid],
+      ),
+    /not writable by the vendor|insufficient_privilege/i,
+    'a shop cannot be born claiming it paid its own way',
+  );
+  await reset();
+});
+
+test('the SERVICE-ROLE checkout path CAN set tier_source — the column stays usable', async () => {
+  // When self-serve billing ships it writes as service_role, which the guard
+  // deliberately does not police. If this ever fails, the fix above has been
+  // over-tightened into a wall and real purchases cannot be recorded.
+  const { vendorProfileId } = await newVendor('svc-tier-source@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles SET tier_source = 'self_serve'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ s: string }>(
+    `SELECT tier_source AS s FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.s, 'self_serve');
+});
+
+test('an ordinary vendor edit that RE-STATES tier_source is still allowed', async () => {
+  // IS DISTINCT FROM semantics again: a full-row PATCH that echoes the current
+  // value must not break every vendor profile save.
+  const { uid, vendorProfileId } = await newVendor('restate-source@guard.test');
+  await asVendor(uid);
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET business_name = 'Echoed Source', tier_source = 'admin_comp'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ n: string }>(
+    `SELECT business_name AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.n, 'Echoed Source');
+});

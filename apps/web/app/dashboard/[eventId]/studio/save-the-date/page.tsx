@@ -17,6 +17,7 @@ import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import { manilaToday, summarizeStdViews } from '@/lib/std-views';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveMonogram } from '@/lib/monogram';
 import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
@@ -156,7 +157,9 @@ export default async function SaveTheDatePage({ params }: Props) {
   const effects = resolveRevealEffects(event?.std_reveal_effects);
   const stdBackground = resolveStdBackground(event?.std_background, veilColor);
   const stdBackgroundUploadUrl =
-    stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
+    stdBackground.kind === 'upload'
+      ? await displayUrlForStoredAsset(siteMediaServeRef(stdBackground.value))
+      : null;
   const stdMedia = resolveStdMedia(event?.std_media, eventId);
   // SEC-6 — the screening verdict is a SEPARATE, host-unwritable column bound to
   // the media it judged. The couple sees its status; they cannot set it. A
@@ -216,14 +219,14 @@ export default async function SaveTheDatePage({ params }: Props) {
   // the client builder (so presigned URLs never expire mid-session).
   const bgMusicUrl =
     event?.site_bg_music_enabled && event.site_bg_music_r2_key
-      ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
+      ? await displayUrlForStoredAsset(siteMediaServeRef(event.site_bg_music_r2_key))
       : null;
-  const heroPhotoUrl = await displayUrlForStoredAsset(event?.landing_page_hero_image_url);
-  const ourPhotoRefs = Array.isArray(event?.our_photos)
-    ? (event.our_photos as unknown[]).filter(
-        (r): r is string => typeof r === 'string' && r.trim().length > 0,
-      )
-    : [];
+  // 🔒 Couple-writable website refs are held to the public bucket before they
+  // are signed (lib/site-media-ref.ts) — never a signed link into a private one.
+  const heroPhotoUrl = await displayUrlForStoredAsset(
+    siteMediaServeRef(event?.landing_page_hero_image_url),
+  );
+  const ourPhotoRefs = siteMediaServeRefs(event?.our_photos);
   const ourPhotoUrls = (
     await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));

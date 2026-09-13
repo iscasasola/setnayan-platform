@@ -55,10 +55,17 @@ import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import {
   PUBLISH_REFUSAL_MESSAGE,
-  exclusiveIsSet,
+  coverIsSet,
+  inclusionsAreSet,
   priceIsSet,
+  unmetForALiveCard,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
+import { SERVICE_UPDATE_MATCHED_NOTHING } from '@/lib/a-write-that-matched-nothing';
+import { serviceCardTitleOrAuto } from '@/lib/service-card-auto-title';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import { humanizeKind } from '@/lib/service-card-kind';
+import { isVendorNameRevealed } from '@/lib/vendors';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { validatePackageDraft, type DraftItem } from '@/lib/package-authoring';
 import {
@@ -241,11 +248,24 @@ function parseBracketRows(formData: FormData): BracketDraft[] {
   return out;
 }
 
-/** Parse exclusive_perk_text. Returns null when blank (allowed for drafts). */
-function parseExclusivePerk(formData: FormData): string | null {
-  const raw = formData.get('exclusive_perk_text');
-  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-  return raw.trim().slice(0, 500);
+/**
+ * Parse the supplier's whole say over the Setnayan gift: yes or no.
+ *
+ * Owner 2026-09-09, on whether a supplier may give more than the 40% ceiling:
+ * *"no. just max to 40%. nothing more."* — so there is no amount to parse. The
+ * gift is Papic credits, sized from the booking fee and capped at the
+ * 50,000-credit rung, and the photo count is computed at quote time from a
+ * price that does not exist here.
+ *
+ * ⚠ `'on'` OR THE STRING `'off'` — never absence. Every surface sends this key
+ * explicitly (a hidden input in the maker and the wizard, a radio pair in the
+ * manager) because the save RPC reads a MISSING key as "leave the stored value
+ * alone". That rule is what stops the retirement of `exclusive_perk_text` from
+ * erasing the two live cards still promising through it, and it means an absent
+ * key here must never be silently read as "no".
+ */
+function parseSetnayanGift(formData: FormData): boolean {
+  return formData.get('includes_setnayan_gift') === 'on';
 }
 
 /**
@@ -584,7 +604,7 @@ export async function createVendorService(formData: FormData) {
   let discountRows: DiscountDraft[];
   let inclusionRows: InclusionDraft[];
   let bracketRows: BracketDraft[];
-  let exclusive_perk_text: string | null;
+  let includes_setnayan_gift: boolean;
   let showcase: ReturnType<typeof parseShowcaseMedia>;
   // The live leaves, read ONCE and used for both the gate and the family cap —
   // so "may I file under this?" and "which family does it count against?" can
@@ -620,7 +640,7 @@ export async function createVendorService(formData: FormData) {
     inclusionRows = parseInclusionRows(formData);
     bracketRows =
       pricing.pricing_basis === 'fixed' ? parseBracketRows(formData) : [];
-    exclusive_perk_text = parseExclusivePerk(formData);
+    includes_setnayan_gift = parseSetnayanGift(formData);
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
@@ -655,7 +675,9 @@ export async function createVendorService(formData: FormData) {
   {
     const viol = findVendorTextViolation([
       { field: 'Title', value: title },
-      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      // The Setnayan Exclusive free text is NOT checked here any more: since
+      // 2026-09-09 no surface submits it, so scanning it would judge a stored
+      // value the supplier cannot reach — a refusal with nothing to fix.
       ...inclusionRows.map((n, i) => ({
         field: `Inclusion ${i + 1}`,
         value: n.label,
@@ -796,9 +818,10 @@ export async function createVendorService(formData: FormData) {
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,
-      exclusive_perk_text,
-      // New services are created as drafts (is_active: false) so the publish gate
-      // (exclusive_perk_text required) is enforced only on the toggle action.
+      includes_setnayan_gift,
+      // New services are created as drafts (is_active: false) so the publish
+      // gate (a starting price) is enforced only on the toggle action. The
+      // Setnayan gift stopped being a publish requirement on 2026-09-09.
       is_active: false,
     })
     .select('vendor_service_id')
@@ -915,7 +938,7 @@ export async function updateVendorService(formData: FormData) {
   let discountRows: DiscountDraft[];
   let inclusionRows: InclusionDraft[];
   let bracketRows: BracketDraft[];
-  let exclusive_perk_text: string | null;
+  let includes_setnayan_gift: boolean;
   let showcase: ReturnType<typeof parseShowcaseMedia>;
   try {
     // Pricing basis (fixed | per_pax | per_hour) + synced starting_price anchor.
@@ -945,7 +968,7 @@ export async function updateVendorService(formData: FormData) {
     inclusionRows = parseInclusionRows(formData);
     bracketRows =
       pricing.pricing_basis === 'fixed' ? parseBracketRows(formData) : [];
-    exclusive_perk_text = parseExclusivePerk(formData);
+    includes_setnayan_gift = parseSetnayanGift(formData);
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
@@ -968,7 +991,8 @@ export async function updateVendorService(formData: FormData) {
   // action never reads would bounce on text it cannot save.
   {
     const viol = findVendorTextViolation([
-      { field: 'Setnayan Exclusive', value: exclusive_perk_text },
+      // See the create path: the retired free text is no longer submitted, so
+      // checking it could only bounce a save on text this form cannot change.
       ...inclusionRows.map((n, i) => ({
         field: `Inclusion ${i + 1}`,
         value: n.label,
@@ -1036,7 +1060,17 @@ export async function updateVendorService(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // 🔑 `.select()` IS NOT DECORATION — it is how we learn whether anything was
+  // written. A Supabase `.update()` that matches ZERO rows returns
+  // `error: null`, so without asking for the changed rows back, "saved one
+  // card" and "saved nothing at all" are the same value here, and the redirect
+  // at the end of this function would say `?saved=1` for both. Both ways to
+  // match nothing are live: a stale or wrong `vendor_service_id` in the form,
+  // and an RLS USING clause that excludes the row (`vendor_services_manage`
+  // resolves through `current_vendor_profile_ids()`, so losing a team
+  // membership is enough). Either hands a supplier a green save and an
+  // unchanged card.
+  const { data: updatedRows, error } = await supabase
     .from('vendor_services')
     .update({
       starting_price_php: pricing.starting_price_php,
@@ -1062,15 +1096,23 @@ export async function updateVendorService(formData: FormData) {
       last_minute_end_months,
       last_minute_surcharge_pct,
       daily_capacity,
-      exclusive_perk_text,
+      includes_setnayan_gift,
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .select('vendor_service_id');
 
   if (error) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+  // Matched nothing. Not an error to PostgREST, and a lie to the supplier if we
+  // fall through to `?saved=1`. Say what is true: the card was not written.
+  if (!updatedRows || updatedRows.length === 0) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(SERVICE_UPDATE_MATCHED_NOTHING)}`,
     );
   }
 
@@ -1378,6 +1420,74 @@ export async function setServicePaymentSchedule(formData: FormData) {
 }
 
 /**
+ * The name a card is saved under when its supplier left the box blank.
+ *
+ * 🔴 WHY THE SERVER DOES THIS AT ALL. Measured in production 2026-09-10: BOTH
+ * live service cards carry `title IS NULL` while `is_active = true`, so a couple
+ * reads the bare kind where the shop's name for that service should be. The
+ * auto-namer already existed and is a CLIENT-SIDE effect in `canvas-maker.tsx`
+ * gated on `initial === null` — it fires for a brand-new card and for nothing
+ * else, so no edit, no copy and no seeded row has ever been named. Naming at the
+ * WRITE covers every route that reaches this action instead of the ones somebody
+ * remembered.
+ *
+ * ⛔ NOT A PUBLISH REQUIREMENT. Owner-locked 2026-07-27: *"saving builds blank
+ * will make us autocreate a name"*. Refusing a publish for a missing title would
+ * demand the one thing we promise to write. `PUBLISH_REQUIREMENTS` is untouched.
+ *
+ * 🔒 THE SHOP NAME PASSES THE SAME ANONYMITY TEST THE MARKETPLACE USES. A stored
+ * title is rendered raw, with no anonymity filter downstream, so an unrevealed
+ * shop's real `business_name` baked into it would be published AND frozen there.
+ * When the name is hidden the card is named after its kind alone.
+ *
+ * ⚠ FAILS SOFT, ALWAYS. Every read here is wrapped: a taxonomy or profile read
+ * that hiccups degrades the WORDING (humanised kind, no shop name) and never the
+ * save. A naming helper must not be able to refuse a supplier's card — and the
+ * database trigger names anything that still arrives blank.
+ */
+async function titleForCard(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  profile: Awaited<ReturnType<typeof ensureProfile>>['profile'],
+  category: string,
+  typed: string | null,
+): Promise<string | null> {
+  // The supplier's own words always win, and cost nothing to honour.
+  if (typed !== null && typed.trim().length > 0) return typed.trim().slice(0, 80);
+
+  const kindLabel = await cardKindLabeller()
+    .then((label) => label(category))
+    .catch(() => humanizeKind(category));
+
+  let shopName: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('name_revealed_at,verification_state')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const row = (data ?? null) as
+      | { name_revealed_at: string | null; verification_state: string | null }
+      | null;
+    // No row read → treat the name as HIDDEN. The safe direction: a card named
+    // after its kind is plain, a card that publishes a hidden name is a leak.
+    if (
+      row &&
+      isVendorNameRevealed({
+        name_revealed_at: row.name_revealed_at ?? null,
+        is_verified: row.verification_state === 'verified',
+        services: profile.services ?? [],
+      })
+    ) {
+      shopName = profile.business_name?.trim() || null;
+    }
+  } catch {
+    shopName = null;
+  }
+
+  return serviceCardTitleOrAuto(typed, { kindLabel, shopName });
+}
+
+/**
  * commitVendorService — the guided "create a service" flow's SINGLE save.
  *
  * Validates EVERYTHING in TypeScript (reusing the same parse* helpers the legacy
@@ -1389,8 +1499,9 @@ export async function setServicePaymentSchedule(formData: FormData) {
  *
  * vendor_service_id present → UPDATE (edit); absent → INSERT (create, with the
  * create-only tier-cap pre-check). `publish=true` flips is_active on, gated on
- * `unmetPublishRequirements` (a starting price + a non-empty Setnayan
- * Exclusive) — and re-enforced under it by the RPC and by the
+ * `unmetPublishRequirements` (a cover photo, a starting price and what's
+ * included — the gift left it 2026-09-09, the cover and inclusions joined it
+ * 2026-09-11) — and re-enforced under it by the RPC and by the
  * `enforce_service_publish_gate` trigger, which is the actual fence.
  * Time-slots are NOT handled here —
  * they keep addServiceTimeSlot/deleteServiceTimeSlot (Enterprise + booking lock).
@@ -1478,10 +1589,12 @@ export async function commitVendorService(formData: FormData) {
     }
 
     const titleRaw = formData.get('title');
-    const title =
+    const typedTitle =
       typeof titleRaw === 'string' && titleRaw.trim().length > 0
         ? titleRaw.trim().slice(0, 80)
         : null;
+    // A blank box is NAMED here, not refused. See `titleForCard`.
+    const title = await titleForCard(supabase, profile, category, typedTitle);
     const branchPick = await resolveBranchId(
       supabase,
       profile.vendor_profile_id,
@@ -1542,7 +1655,13 @@ export async function commitVendorService(formData: FormData) {
         formData.get('daily_capacity'),
         caps.slotsPerDay,
       ),
-      exclusive_perk_text: parseExclusivePerk(formData),
+      // ⛔ `exclusive_perk_text` IS DELIBERATELY ABSENT FROM THIS PAYLOAD.
+      // `save_vendor_service` reads a missing key as "leave the stored value
+      // alone" (migration 20271216515644) and a PRESENT key as set-or-clear.
+      // Sending it here — even as null — would erase the promise on the two
+      // live cards that still carry one, which is the exact thing the owner
+      // ruled against: the field is retired as a CONTROL, not as DATA.
+      includes_setnayan_gift: parseSetnayanGift(formData),
       primary_photo_r2_key: parsePrimaryPhoto(formData),
     };
   } catch (e) {
@@ -1565,11 +1684,34 @@ export async function commitVendorService(formData: FormData) {
   //
   // A DRAFT IS NEVER JUDGED. `publish === false` skips all of it, which is what
   // keeps "Save as draft" a real escape from an unfinished card.
+  //
+  // ⚖ H2 (2026-09-11): a card GOING live also needs a cover photo and what's
+  // included — the owner's "the cover-photo · title · inclusions requirements
+  // stay". A card ALREADY live is held only to its price (`unmetForALiveCard`);
+  // it is flagged for the rest, never refused. `save_vendor_service` and the
+  // trigger draw the same line, in the same order, with the same sentences.
   if (publish) {
-    const unmet = unmetPublishRequirements({
+    let alreadyLive = false;
+    if (!isCreate) {
+      const { data: liveRow, error: liveReadError } = await supabase
+        .from('vendor_services')
+        .select('is_active')
+        .eq('vendor_service_id', serviceId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      // ⚠ A refused read is NOT "a draft": judging it as one would refuse a
+      // live card for rules it is exempt from. Say we could not read it.
+      if (liveReadError) {
+        return back('We could not read this card just now, so it was not saved. Try again in a moment.');
+      }
+      alreadyLive = (liveRow as { is_active?: boolean | null } | null)?.is_active === true;
+    }
+    const facts = {
       hasPrice: priceIsSet(fields.starting_price_php as number | null),
-      hasExclusive: exclusiveIsSet(fields.exclusive_perk_text as string | null),
-    });
+      hasCover: coverIsSet(fields.primary_photo_r2_key as string | null),
+      hasInclusions: inclusionsAreSet(inclusionRows.map((n) => n.label)),
+    };
+    const unmet = alreadyLive ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
     const firstUnmet = unmet[0];
     if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
   }
@@ -1609,10 +1751,6 @@ export async function commitVendorService(formData: FormData) {
   {
     const viol = findVendorTextViolation([
       { field: 'Title', value: fields.title as string | null },
-      {
-        field: 'Setnayan Exclusive',
-        value: fields.exclusive_perk_text as string | null,
-      },
       ...inclusionRows.map((n, i) => ({
         field: `Inclusion ${i + 1}`,
         value: n.label,
@@ -1662,12 +1800,10 @@ export async function commitVendorService(formData: FormData) {
     if (first) return back(first.message);
   }
 
-  // Publish gate (owner 2026-06-20 "the card needs a photo"): a live service
-  // card must carry a real cover photo. Drafts can save without one. The perk
-  // gate is re-checked inside the RPC; the photo gate lives here in TS.
-  if (publish && !fields.primary_photo_r2_key) {
-    return back('Add a cover photo before publishing — drafts can save without one.');
-  }
+  // (The cover-photo check that stood here — owner 2026-06-20, "the card needs
+  // a photo" — moved INTO the shared publish gate above on 2026-09-11 (H2), so
+  // the list's on/off switch and the database now ask it too. One rule, one
+  // sentence: PUBLISH_REFUSAL_MESSAGE.cover.)
 
   // QR-in-media guard (owner-locked 2026-07-03): the cover photo leads the
   // public service card — it may not embed the vendor's invite/lock QR.
@@ -2069,13 +2205,21 @@ export async function toggleVendorServiceActive(formData: FormData) {
   // refused for the wrong reason. It is refused deliberately now, and said so:
   // publishing on a row we could not read would be publishing on no evidence.
   if (is_active) {
-    const { data: svcRow, error: readError } = await supabase
-      .from('vendor_services')
-      .select('exclusive_perk_text, starting_price_php')
-      .eq('vendor_service_id', idRaw)
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .maybeSingle();
-    if (readError || !svcRow) {
+    const [{ data: svcRow, error: readError }, { data: incRows, error: incError }] =
+      await Promise.all([
+        supabase
+          .from('vendor_services')
+          .select('starting_price_php, primary_photo_r2_key, is_active')
+          .eq('vendor_service_id', idRaw)
+          .eq('vendor_profile_id', profile.vendor_profile_id)
+          .maybeSingle(),
+        supabase
+          .from('vendor_service_inclusions')
+          .select('label')
+          .eq('vendor_service_id', idRaw)
+          .eq('vendor_profile_id', profile.vendor_profile_id),
+      ]);
+    if (readError || !svcRow || incError) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(
           'We could not read this card just now, so it was not published. Try again in a moment.',
@@ -2083,13 +2227,20 @@ export async function toggleVendorServiceActive(formData: FormData) {
       );
     }
     const row = svcRow as {
-      exclusive_perk_text?: string | null;
       starting_price_php?: number | null;
+      primary_photo_r2_key?: string | null;
+      is_active?: boolean | null;
     };
-    const unmet = unmetPublishRequirements({
+    // H2 — turning a DRAFT on is going live: cover · price · what's included.
+    // A card already on is held to its price only (flagged for the rest).
+    const facts = {
       hasPrice: priceIsSet(row.starting_price_php),
-      hasExclusive: exclusiveIsSet(row.exclusive_perk_text),
-    });
+      hasCover: coverIsSet(row.primary_photo_r2_key),
+      hasInclusions: inclusionsAreSet(
+        ((incRows ?? []) as { label?: string | null }[]).map((r) => r.label),
+      ),
+    };
+    const unmet = row.is_active === true ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
     const firstUnmet = unmet[0];
     if (firstUnmet) {
       return redirect(

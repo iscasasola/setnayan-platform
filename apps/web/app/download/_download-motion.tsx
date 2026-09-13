@@ -17,9 +17,9 @@
  * useGSAP cleanup, SSR-safe under Next 15 / React 19.
  */
 
-import { Download } from 'lucide-react';
+import { Download, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Logo } from '@/app/_components/logo';
@@ -68,24 +68,103 @@ export function LineRevealH1({
  * reduced-motion and never intercepts the click.
  */
 export function MagneticDownloadButton({
+  href = '/api/download/mac',
   label,
   sizeLabel,
+  variant = 'primary',
 }: {
+  href?: string;
   label: string;
   sizeLabel: string;
+  variant?: 'primary' | 'secondary';
 }) {
   const ref = useMagnetic();
+  const className =
+    variant === 'primary'
+      ? 'button-primary inline-flex items-center gap-2'
+      : 'button-secondary inline-flex items-center gap-2';
   return (
     // eslint-disable-next-line @next/next/no-html-link-for-pages
-    <a
-      ref={ref as React.RefObject<HTMLAnchorElement>}
-      href="/api/download/mac"
-      className="button-primary inline-flex items-center gap-2"
-    >
+    <a ref={ref as React.RefObject<HTMLAnchorElement>} href={href} className={className}>
       <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       {label}
-      <span className="text-cream/55">· {sizeLabel}</span>
+      <span className={variant === 'primary' ? 'text-cream/55' : 'text-ink/50'}>· {sizeLabel}</span>
     </a>
+  );
+}
+
+/**
+ * PlatformCompatBanner — S10 best-effort "this machine may not run it" nudge.
+ *
+ * WHY BEST-EFFORT, NOT A HARD GATE. macOS/Safari freeze the OS-version digits
+ * most browsers report in the UA string (privacy fingerprinting mitigation), so
+ * sniffing "macOS 14+" from `navigator.userAgent` is not reliable — and Safari on
+ * Apple Silicon reports `navigator.platform === 'MacIntel'` for compatibility,
+ * so platform alone cannot tell an M-series Mac from an actual Intel one either.
+ * The one signal that still distinguishes them is the WebGL renderer string
+ * (`Apple M1/M2/M3/M4` vs an Intel/AMD GPU name), a common client-side Apple
+ * Silicon detection trick — so this errs toward showing the OBS-first nudge on
+ * anything inconclusive rather than staying silent on a genuinely incompatible
+ * machine. It never hides or disables the native download — a false positive
+ * here costs an extra sentence, not a blocked download.
+ */
+export function PlatformCompatBanner() {
+  const [flag, setFlag] = useState<'unknown' | 'ok' | 'nudge'>('unknown');
+
+  useEffect(() => {
+    try {
+      const ua = navigator.userAgent;
+      const isWindows = /Windows/.test(ua);
+      const isMac = /Macintosh|Mac OS X/.test(ua) && !isWindows;
+      if (!isMac) {
+        // Windows and everything else: the readiness sentence above already
+        // states the Windows floor (10/11 + hardware encoding) in words; there
+        // is no reliable client-side signal for "hardware video encoding
+        // present" worth acting on, so no per-visitor nudge on this branch.
+        setFlag('ok');
+        return;
+      }
+
+      let renderer = '';
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = (canvas.getContext('webgl') ||
+          canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+        const info = gl?.getExtension('WEBGL_debug_renderer_info');
+        renderer = info ? String(gl?.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+      } catch {
+        renderer = '';
+      }
+
+      const looksAppleSilicon = /Apple M\d/i.test(renderer);
+      setFlag(looksAppleSilicon ? 'ok' : 'nudge');
+    } catch {
+      setFlag('ok');
+    }
+  }, []);
+
+  if (flag !== 'nudge') return null;
+
+  return (
+    <div
+      data-reveal-item
+      role="status"
+      className="flex items-start gap-2.5 rounded-xl border border-terracotta/30 bg-terracotta/[0.06] px-4 py-3 text-sm text-ink/75"
+    >
+      <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
+      <span>
+        This looks like it might be an older or Intel Mac, which the Setnayan app doesn&rsquo;t support yet.{' '}
+        <a
+          href="https://obsproject.com/"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="font-medium text-terracotta-700 underline-offset-4 hover:underline"
+        >
+          Use OBS instead
+        </a>{' '}
+        — it&rsquo;s free and works on any Mac.
+      </span>
+    </div>
   );
 }
 

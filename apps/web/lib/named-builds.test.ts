@@ -118,6 +118,65 @@ test('planSaveAs with a matching overwrite target → overwrite', () => {
   assert.deepEqual(plan, { mode: 'overwrite', buildId: 'b-keep', title: 'New Name' });
 });
 
+// ── planSaveAs · a name that already exists overwrites its own build ─────────
+// Owner ruling 2026-09-06: "it should not be allowed. it should overwrite the
+// plan." Before the fix `existing` was passed in but never compared by NAME, so
+// two saves of "Plan B" produced two rows both titled "Plan B".
+
+test('planSaveAs with a DUPLICATE name and no target → overwrite that build', () => {
+  const rows = [
+    { build_id: 'b1', label: null, title: 'Garden Classic', created_at: '2026-01-01' },
+    { build_id: 'b2', label: null, title: 'Big Feast', created_at: '2026-01-02' },
+  ];
+  const plan = planSaveAs({ rawName: 'Big Feast', overwriteBuildId: null, existing: rows });
+  assert.equal(plan.mode, 'overwrite');
+  assert.equal(plan.mode === 'overwrite' && plan.buildId, 'b2');
+});
+
+test('planSaveAs duplicate match ignores case and surrounding whitespace', () => {
+  const rows = [{ build_id: 'b1', label: null, title: 'Garden Classic', created_at: '2026-01-01' }];
+  const plan = planSaveAs({ rawName: '  garden   classic ', overwriteBuildId: null, existing: rows });
+  assert.equal(plan.mode, 'overwrite');
+  assert.equal(plan.mode === 'overwrite' && plan.buildId, 'b1');
+});
+
+test('planSaveAs never matches a legacy A/B/C slot by name', () => {
+  // A labelled row is a fixed slot, not a named build. Typing "Plan A" must
+  // create, never silently overwrite the historical A column.
+  const rows = [{ build_id: 'legacy', label: 'A', title: 'Plan A', created_at: '2026-01-01' }];
+  const plan = planSaveAs({ rawName: 'Plan A', overwriteBuildId: null, existing: rows });
+  assert.equal(plan.mode, 'create');
+});
+
+test('planSaveAs blank name never matches an untitled build (two untitled builds are distinct)', () => {
+  const rows = [{ build_id: 'b1', label: null, title: null, created_at: '2026-01-01' }];
+  const plan = planSaveAs({ rawName: '   ', overwriteBuildId: null, existing: rows });
+  assert.equal(plan.mode, 'create');
+  assert.equal(plan.title, null);
+});
+
+test('planSaveAs resolves pre-existing duplicates deterministically (sorted first)', () => {
+  // Rows that already share a title from before the fix. Whichever order the
+  // DB hands them back, the same name must always resolve to the same build.
+  const rows = [
+    { build_id: 'newer', label: null, title: 'Plan B', created_at: '2026-02-02' },
+    { build_id: 'older', label: null, title: 'Plan B', created_at: '2026-01-01' },
+  ];
+  const a = planSaveAs({ rawName: 'Plan B', overwriteBuildId: null, existing: rows });
+  const b = planSaveAs({ rawName: 'Plan B', overwriteBuildId: null, existing: [...rows].reverse() });
+  assert.equal(a.mode === 'overwrite' && a.buildId, 'older');
+  assert.equal(b.mode === 'overwrite' && b.buildId, 'older');
+});
+
+test('planSaveAs an explicit overwrite target still wins over a name match', () => {
+  const rows = [
+    { build_id: 'b1', label: null, title: 'Garden Classic', created_at: '2026-01-01' },
+    { build_id: 'b2', label: null, title: 'Big Feast', created_at: '2026-01-02' },
+  ];
+  const plan = planSaveAs({ rawName: 'Big Feast', overwriteBuildId: 'b1', existing: rows });
+  assert.equal(plan.mode === 'overwrite' && plan.buildId, 'b1');
+});
+
 test('planSaveAs with no target → create-new', () => {
   const plan = planSaveAs({ rawName: 'Fresh Build', overwriteBuildId: null, existing: EXISTING });
   assert.deepEqual(plan, { mode: 'create', title: 'Fresh Build' });

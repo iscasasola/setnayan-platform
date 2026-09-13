@@ -312,12 +312,11 @@ test('the event date reaches the notice resolver', () => {
 });
 
 test('the notice is suppressed by the player the OTHER tier renders', () => {
-  // Both trees mount the player on the same three conditions. If this
-  // expression drifts from theirs, one tier shows the promise and the player.
-  assert.match(
-    BODY,
-    /playerOnPage:\s*dayOfPhase === 'live' && plan\.liveMediaVisible && Boolean\(watchLive\)/,
-  );
+  // Both trees mount the player whenever the couple's links resolve — the
+  // player follows the broadcast, not the calendar (owner-ruled 2026-09-02),
+  // so no dayOfPhase gate belongs in this expression any more. If it drifts
+  // from theirs, one tier shows the promise and the player.
+  assert.match(BODY, /playerOnPage:\s*plan\.liveMediaVisible && Boolean\(watchLive\)/);
 });
 
 // ── The facts: each read the way the DESTINATION reads it ──────────────────
@@ -372,18 +371,28 @@ test('the doorway facts come from the destinations own readers', () => {
 });
 
 test('the broadcast fact is reduced by the SAME reducer the player is built from', () => {
+  // The player follows the broadcast, not the calendar (owner-ruled
+  // 2026-09-02): `watchLive` and `broadcastPlanned` are now resolved from the
+  // SAME `resolveWatchLinks(watchUrls)` call, on every render — not a second,
+  // narrower reduction taken only outside the live window.
+  assert.match(LOADERS, /watchLive = resolveWatchLinks\(watchUrls\)/);
   assert.match(
     LOADERS,
-    /broadcastPlanned =\s*resolveWatchLinks\(await readEventWatchUrls\(admin, event\.event_id\)\) !== null/,
+    /const broadcastPlanned = watchLive !== null;/,
     'a stored URL the player would refuse must not become a promise',
   );
 });
 
-test('the broadcast fact is not read after the day', () => {
-  assert.match(
+test('the broadcast fact is resolved regardless of dayOfPhase', () => {
+  // ⭐ THE PLAYER FOLLOWS THE BROADCAST, NOT THE CALENDAR (owner-ruled
+  // 2026-09-02). `panood_watch_url` self-clears when the host ends the
+  // broadcast (endPanoodBroadcast), so it needs no calendar gate to stay
+  // trustworthy — this used to read `else if (dayOfPhase !== 'post')`, hiding
+  // a genuinely live stream whenever the date said it wasn't the day.
+  assert.doesNotMatch(
     LOADERS,
     /\} else if \(dayOfPhase !== 'post'\) \{/,
-    'the recap carries the replay; reading this after the day buys nothing',
+    'the watch-link read is still gated on the calendar',
   );
 });
 

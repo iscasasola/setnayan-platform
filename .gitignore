@@ -40,6 +40,14 @@
 # top-level directory later.
 !/build-sessions/
 
+# Added 2026-09-04 with docs/03-REFERENCE/contracts.md (MB15). THE THIRD TIME
+# this exact swallowing happened, and the two notes above are why it was caught
+# in minutes rather than in CI: the file was written, a unit test read it and
+# went GREEN, and `git diff --stat origin/main` simply did not list it. A
+# document nothing tracks is worse than no document — every session after would
+# read a stale copy from one machine's disk.
+!/docs/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml
@@ -133,3 +141,9 @@ supabase/.temp/
 *.tsbuildinfo
 .vercel
 apps/web/supabase/.temp/
+
+# S0 encoder-spike evidence logs are the finding's evidence, not build noise (build-sessions/encoder/S0-FINDING.md § 10).
+!/build-sessions/encoder/S0-logs/*.log
+
+# S17 thermal/memory sustained-load evidence logs — same reasoning (build-sessions/encoder/S17-FINDING.md).
+!/build-sessions/encoder/S17-logs/*.log

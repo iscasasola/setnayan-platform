@@ -112,7 +112,16 @@ function guardsItsGuestRead(src: string): boolean {
   if (!asks) return false;
   if (src.includes('<NotSharedWithYou')) return true;
 
-  const reads = [...src.matchAll(/\.from\('guests'\)/g)].map((m) => m.index ?? 0);
+  /*
+    ⚠ THE HELPERS COUNT AS READS TOO. A page that reaches the guest list through
+    `lib/guests.ts` rather than an inline `.from('guests')` used to have NO reads
+    by this measure, so `reads.length === 0` returned false and the page was
+    billed as ungated even when it gated correctly — the guard could not see the
+    thing it was judging. Widened, so it judges more call sites, never fewer.
+  */
+  const reads = [
+    ...src.matchAll(/\.from\('guests'\)|fetchGuestsByEvent(?:Measured)?\(|countGuestsByEvent\(/g),
+  ].map((m) => m.index ?? 0);
   if (reads.length === 0) return false;
   return reads.every((at) => readIsConditioned(src, at));
 }

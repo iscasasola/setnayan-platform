@@ -32,8 +32,10 @@
  * Update the line HERE — not in the components.
  */
 
+import { TILE_HINTS } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
+import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-actions';
 
 /** aria-label + tooltip for the page-level ⓘ toggle. */
 export const EXPLORE_INFO_BUTTON_LABEL = 'About this page';
@@ -151,6 +153,14 @@ export const FOLDER_SUMMARY_ALL_COVERED = '✓ All covered';
  * rather than invent copy. Tile-level overrides arrive with the Taxonomy Studio.
  */
 export function categoryHintForTile(tile: string): string | null {
+  // A tile-level entry WINS (2026-09-06). 20 of the 45 tiles reachable from the
+  // pick enum matched no plan group and were therefore silent — `escort`,
+  // `reveal_element` and `personal_accident_insurance` among them, which are
+  // exactly the ones a couple cannot guess from the label. This is the override
+  // this function's own note promised: "Tile-level overrides arrive with the
+  // Taxonomy Studio."
+  const override = TILE_HINTS[tile];
+  if (override) return override;
   const groups = planGroupsForTile(tile);
   if (groups.length === 0) return null;
   for (const g of PLAN_GROUPS) {
@@ -193,6 +203,44 @@ export function addToPlanChipLabel(label: string): string {
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
 
+/**
+ * What removal actually does, said out loud (owner 2026-09-06: *"archive …
+ * just means, that category will no longer be on their choices to build"* +
+ * *"yes archive the conversations too"*).
+ *
+ * 🔑 Every clause here is TRUE of the shipped code, and an earlier draft of
+ * this sentence was not: it said the inquiries would be *deleted*, when
+ * `excludeTileFromPlan` deleted nothing at all. Nothing in this string may
+ * claim a destruction the code does not perform — a conversation is never
+ * hard-deleted (there is no DELETE policy on `chat_threads`), and adding the
+ * category back un-archives exactly the threads this removal archived.
+ */
+export const REMOVE_FROM_PLAN_NOTE =
+  'The category leaves your choices, and your conversations with those ' +
+  'suppliers move to Archived — nothing is deleted. Add it back and they return.';
+
+/**
+ * The confirm shown before a category is removed (owner 2026-09-06, after the
+ * note-on-the-button shipped: *"yes add the confirm step"*).
+ *
+ * 🔑 WHY A CONFIRM AND NOT JUST THE NOTE. The note rides the button's
+ * aria-label and title. `title` is a HOVER tooltip — and this is a phone-first
+ * app, where there is no hover. A touch user therefore got NO visible warning
+ * before their conversations were archived. The consequence has to reach the
+ * screen, not just the accessibility tree.
+ *
+ * NOT `destructive`. The terracotta tint means "this deletes something", and we
+ * spent a whole change establishing that this deletes nothing — using it here
+ * would contradict the sentence it sits above. Reversibility is the message.
+ */
+export function removeFromPlanConfirmTitle(label: string): string {
+  return `Remove ${label} from your event?`;
+}
+
+export const REMOVE_FROM_PLAN_CONFIRM_BODY = REMOVE_FROM_PLAN_NOTE;
+export const REMOVE_FROM_PLAN_CONFIRM_OK = 'Remove it';
+export const REMOVE_FROM_PLAN_CONFIRM_CANCEL = 'Keep it';
+
 export function removeFromPlanButtonLabel(label: string): string {
   return `Remove ${label} from your event`;
 }
@@ -231,9 +279,50 @@ export const CARD_REMOVE_FROM_BUILD = 'Remove';
  */
 export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
 
+/**
+ * "Hide lock, say why" (owner 2026-09-11). The headline says what HAPPENED, the
+ * line says what is still possible. Both are read from `chat_threads.
+ * inquiry_status`, never inferred: the decline form sends no reason, so a
+ * declined card never claims "not free on your date" — only that they said no.
+ */
+/** The Picks column's list of build picks that cannot be locked right now. */
+export const CANT_LOCK_YET_HEADING = "In your build — can't lock right now";
+/** One short reason per row there; the card carries the longer version. */
+export const BLOCKED_LOCK_ROW: Record<BlockedLockReason, string> = {
+  not_available: 'Not available on your date',
+  inquiry_declined: 'They declined your inquiry',
+  slot_taken: 'Another booking took their slot',
+};
+
+export const LOCK_WITHHELD_COPY: Record<LockWithheldReason, { headline: string; line: string }> = {
+  inquiry_declined: {
+    headline: 'They declined your inquiry',
+    line: "So there's nothing to lock. You can still message them.",
+  },
+  slot_taken: {
+    headline: 'Another booking took their slot',
+    line: 'The date you asked about is gone. You can still message them.',
+  },
+};
+
 /** Second action, stateful on thread existence. */
 export const CARD_INQUIRE = 'Inquire';
-export const CARD_CHECK_INQUIRY = 'Check inquiry';
+/**
+ * ⚖ "Open conversation", not "Check inquiry" (2026-09-09).
+ *
+ * The old label described the object; the new one describes the act, and it is
+ * the same verb the card's own aria-label has used all along
+ * (`cardCheckInquiryLabel` → "Open your conversation with {name}"), so the
+ * screen reader and the screen finally agree.
+ *
+ * 🔑 THE RELABEL IS NOT THE IMPROVEMENT AND MUST NEVER SHIP ALONE. Every
+ * "Check inquiry" on the bench looked identical whether the supplier replied an
+ * hour ago, sent a quote, or went quiet for three weeks — and so does every
+ * "Open conversation". What fixed that is the standing sentence ABOVE it
+ * (`lib/supplier-standing.ts`); this word only stops the button arguing with
+ * the sentence.
+ */
+export const CARD_CHECK_INQUIRY = 'Open conversation';
 export function cardInquireLabel(name: string): string {
   return `Inquire with ${name}`;
 }
@@ -291,4 +380,123 @@ export function lockedNamesLabel(names: readonly string[], categoryLabel: string
 /** Rail end — a locked, still-open category invites the next pick (#3789). */
 export function cardAddAnother(label: string): string {
   return `Add another ${label}`;
+}
+
+/* ── Inline "More in {category}" row (owner 2026-09-06) ────────────────────────
+   Owner: *"when they also click the find reception button, it must show a lower
+   row that will show other vendors for that category and a search button also"*
+   … **"we do not want to leave the page."**
+
+   Rule 3 above applies here too: this copy is read by `shortlist-categories.tsx`
+   and asserted in `lib/inline-more-row.test.ts` + `lib/explore-info-copy.test.ts`,
+   so a wording change is a deliberate edit in one place, never a string retyped
+   inside JSX. The decisions the copy DESCRIBES live in `lib/inline-more-row.ts`. */
+
+/** Row 2's heading. Uppercased by CSS, not here — screen readers get the words. */
+export function inlineMoreHeading(label: string): string {
+  return `More in ${label}`;
+}
+
+/** The row's own search field. It filters ROW 2, never the bench's category list. */
+export function inlineMoreSearchPlaceholder(label: string): string {
+  return `Search ${label.toLowerCase()}…`;
+}
+
+/** The full sheet is opt-in now, not deleted — it still owns filters + facets. */
+export const INLINE_MORE_SEE_ALL = 'See all';
+
+/** aria-label for the above, which renders as two words and an arrow. */
+export function inlineMoreSeeAllLabel(label: string): string {
+  return `See all ${label} with filters`;
+}
+
+/** The primary action on a row-2 card. Saves to *considering* — never locks. */
+export function inlineMoreSaveLabel(label: string): string {
+  return `Save to ${label}`;
+}
+
+/** The secondary action. Shortlists first, because a thread needs a pick. */
+export const INLINE_MORE_INQUIRE = 'Inquire';
+
+/** Confirmation on the card that was just saved, naming where it went. */
+export function inlineMoreSavedNote(label: string): string {
+  return `Saved to ${label} — it's in the row above.`;
+}
+
+/** The undo beside it. See `canUndoInlineSave` for when it may be offered. */
+export const INLINE_MORE_UNDO = 'Undo';
+
+export const INLINE_MORE_LOADING = 'Finding vendors…';
+
+/** Empty state. A query that matched nothing is a different fact from a
+ *  category with nobody in it, and saying so stops the row reading as broken. */
+export function inlineMoreEmpty(query: string): string {
+  const q = query.trim();
+  return q
+    ? `Nothing else matches “${q}”.`
+    : 'Nothing else in this category yet — try “See all” for the full filters.';
+}
+
+/** Said once under the row, not printed on each sunk card (the badge does that). */
+export function inlineMoreSunkNote(count: number): string {
+  return count === 1
+    ? '1 of these shares no free day with your build — same rule as the row above.'
+    : `${count} of these share no free day with your build — same rule as the row above.`;
+}
+
+/* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
+   "we could not look" must never wear the same words on a surface whose whole
+   job is to show the couple more vendors. */
+export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
+export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+/**
+ * The refusal when the save was handed an event this account does not host.
+ * Separate from the catch-all because it is the one cause a couple can act on —
+ * and because collapsing it into "we couldn't save that vendor" is how a wrong
+ * event looks identical to a database failure.
+ */
+export const INLINE_MORE_NOT_YOUR_EVENT =
+  "That is not one of your events, so nothing was added. Open the event you are planning and try again.";
+export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
+export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';
+
+
+/* ── A CARD'S DATES (owner 2026-09-06) ──────────────────────────────────────
+   *"i also need to know what if the vendor has multiple dates available"* and
+   *"if there are more than 4 dates available, we can control what shows and
+   make a small popup to show their dates"*.
+
+   🔑 `dateOutcomeLine` may only say "sets your date" for a SINGLE viable day.
+   That mirrors `actions.ts`, which gates the wedding date on
+   `viable.length === 1` — a vendor free on several days narrows the candidates
+   and settles nothing. Never widen this wording. */
+
+import type { CardDates, DateOutcome } from '@/lib/card-dates';
+import { formatDayKeyLabel } from '@/lib/build-date-window';
+
+/** The mono "Free: …" line, from the parts rather than a pre-baked string. */
+export function cardDatesInlineLine(d: CardDates): string {
+  if (d.wide) return `Free ${d.all.length} of ${d.windowSize} days`;
+  return `Free: ${d.shown.map(formatDayKeyLabel).join(' · ')}`;
+}
+
+/** The overflow trigger's accessible name — never a bare "+3 more". */
+export function cardDatesMoreLabel(hidden: number, vendorName: string): string {
+  return `Show all ${vendorName} free dates — ${hidden} more not listed`;
+}
+
+export function cardDatesPopupTitle(vendorName: string): string {
+  return `${vendorName} is free on`;
+}
+
+/**
+ * One sentence about what locking this vendor would do to the couple's DATE.
+ * `narrows` deliberately says the date is NOT set yet: the whole defect this
+ * closes is a card implying a settled wedding day when two remain.
+ */
+export function dateOutcomeLine(o: DateOutcome): string | null {
+  if (!o) return null;
+  if (o.kind === 'sets') return `Locking this sets your date to ${formatDayKeyLabel(o.day)}`;
+  return `Leaves ${o.count} possible dates — your date is not set yet`;
 }

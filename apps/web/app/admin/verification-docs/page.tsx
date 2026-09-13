@@ -4,7 +4,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
-import { formatDocSize } from '@/lib/verification-docs';
+import {
+  formatDocSize,
+  verificationDocShelves,
+  type VerificationDoc,
+} from '@/lib/verification-docs';
 import { deleteVerificationDoc, viewVerificationDoc } from './actions';
 
 /**
@@ -31,10 +35,37 @@ export const dynamic = 'force-dynamic';
 
 const ERRORS: Record<string, string> = {
   nokey: 'Nothing happened — that request carried no file.',
-  refs: 'Nothing was deleted. The check for what is still in use could not run, so no file could be proven safe to remove.',
+  refs: 'Nothing was deleted. The check for what is still in use could not run, or could not be read all the way to the end, so no file could be proven safe to remove.',
   inuse:
-    'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise.',
+    'Nothing was deleted. That file is still referenced by a vendor record, or its name is a shape this page does not recognise, or no vendor record could be found pointing at anything at all — which is not proof the file is unused.',
   delete: 'The file could not be deleted. Nothing changed.',
+};
+
+/**
+ * Titles, icons and blurbs only. ⚖ Deliberately carries NO `deletable` — that
+ * answer travels with the rows it applies to, from `verificationDocShelves`.
+ */
+const SHELVES: Record<
+  VerificationDoc['state'],
+  { title: string; icon: React.ReactNode; blurb: string }
+> = {
+  left_over: {
+    title: 'Left over',
+    icon: <FileWarning aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} />,
+    blurb:
+      'Nothing points at these any more — replaced by a newer upload, or an application that was never finished.',
+  },
+  in_use: {
+    title: 'In use',
+    icon: <ShieldCheck aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />,
+    blurb: 'A vendor record still points at these. They cannot be deleted here.',
+  },
+  unrecognised: {
+    title: 'Not sure',
+    icon: <HelpCircle aria-hidden className="h-4 w-4 text-ink/50" strokeWidth={1.75} />,
+    blurb:
+      'These do not look like the usual upload, so this page will not guess whose they are. Look before doing anything with them.',
+  },
 };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -49,9 +80,15 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
   const deleted = first(params.deleted) === '1';
 
   const report = await buildVerificationDocsReport();
-  const inUse = report.docs.filter((d) => d.state === 'in_use');
-  const leftOver = report.docs.filter((d) => d.state === 'left_over');
-  const unknown = report.docs.filter((d) => d.state === 'unrecognised');
+  // 🛡 WHICH SHELF MAY OFFER A DELETE IS NOT DECIDED HERE. Both halves of that
+  // binding — the rows and the permission — come from one object built in
+  // `verificationDocShelves`, which a test CALLS. This file used to type
+  // `deletable={...}` three times by hand, and two of those literals were
+  // sabotaged GREEN at 90/90: the left-over shelf hardcoded to `true` (Delete
+  // beside every file while every gate said no) and the IN-USE shelf hardcoded
+  // to `true` (Delete beside a live government ID). A React server component is
+  // not renderable by `node:test`, so those were unguardable where they sat.
+  const shelves = verificationDocShelves(report);
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
@@ -84,39 +121,32 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
       ) : null}
 
       {/* The reason deletion is refused, stated where the buttons would be. An
-          empty reference set from a FAILED read is indistinguishable from "no
-          file is in use" — and acting on it would erase a live ID. */}
+          empty reference set is indistinguishable from "no file is in use" —
+          whether it came from a FAILED read or from a reader that could not
+          read the shape it was given, and acting on either would erase a live
+          ID. Both now land here, and the sentence has to be true of both. */}
       {!report.referencesComplete ? (
         <p className="rounded-lg border border-danger-900/20 bg-danger-100 px-4 py-3 text-sm text-danger-900">
-          Deleting is switched off on this page right now: the check for which files are still
-          in use did not finish, so nothing can be proven safe to remove.{' '}
+          Deleting is switched off on this page right now: nothing here can be proven safe to
+          remove, so nothing is offered for removal.{' '}
           {report.referenceError ? <span className="opacity-70">({report.referenceError})</span> : null}
         </p>
       ) : null}
 
-      <Group
-        title="Left over"
-        icon={<FileWarning aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} />}
-        blurb="Nothing points at these any more — replaced by a newer upload, or an application that was never finished."
-        docs={leftOver}
-        deletable={report.referencesComplete}
-      />
-      <Group
-        title="In use"
-        icon={<ShieldCheck aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />}
-        blurb="A vendor record still points at these. They cannot be deleted here."
-        docs={inUse}
-        deletable={false}
-      />
-      {unknown.length > 0 ? (
-        <Group
-          title="Not sure"
-          icon={<HelpCircle aria-hidden className="h-4 w-4 text-ink/50" strokeWidth={1.75} />}
-          blurb="These do not look like the usual upload, so this page will not guess whose they are. Look before doing anything with them."
-          docs={unknown}
-          deletable={false}
-        />
-      ) : null}
+      {shelves.map((shelf) =>
+        // "Not sure" is hidden when empty; the other two always show, so an
+        // empty shelf reads as "nothing here" rather than as a missing section.
+        shelf.state === 'unrecognised' && shelf.docs.length === 0 ? null : (
+          <Group
+            key={shelf.state}
+            title={SHELVES[shelf.state].title}
+            icon={SHELVES[shelf.state].icon}
+            blurb={SHELVES[shelf.state].blurb}
+            docs={shelf.docs}
+            deletable={shelf.deletable}
+          />
+        ),
+      )}
 
       {report.truncated ? (
         <p className="text-xs text-ink/55">
@@ -137,7 +167,7 @@ function Group({
   title: string;
   icon: React.ReactNode;
   blurb: string;
-  docs: Awaited<ReturnType<typeof buildVerificationDocsReport>>['docs'];
+  docs: VerificationDoc[];
   deletable: boolean;
 }) {
   return (

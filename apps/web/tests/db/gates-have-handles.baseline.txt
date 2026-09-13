@@ -124,7 +124,6 @@ budget_allocation_decisions.auto_reduced_for_pin | NOT INVESTIGATED (never menti
 editorial_vendor_media.hidden_by_couple | NOT INVESTIGATED (read-only).
 events.papic_vendor_challenges_enabled | NOT INVESTIGATED (never mentioned in app code).
 guest_claims.requested_role | NOT INVESTIGATED (never mentioned in app code).
-guests.scan_tracking_opt_out | NOT INVESTIGATED (never mentioned). Reads like a guest privacy opt-out — worth checking before the others.
 onboarding_refinements.is_dynamic_ceremony | NOT INVESTIGATED (read-only).
 orders.vendor_absorbed_fee | NOT INVESTIGATED (never mentioned in app code).
 photo_messages.baked_into_render | NOT INVESTIGATED (never mentioned in app code).
@@ -152,3 +151,14 @@ vendor_profiles.show_team_bookings_in_backend_count | 🔴 FINDING 2026-08-17. A
 # ── ADDED 2026-08-30 · deliberately temporary, and it expires by itself ──────
 # The one line in this file that is a SEQUENCING cost rather than a judgement.
 events.papic_guest_spend_ceiling_on | ⏳ TEMPORARY — the control exists, in the next PR. The spec's own rule for this feature is *gate the write, not the button* (`20271170068924:25-32`): a control that saves a number nothing enforces is the `papic_uploads_open` defect this tree already paid for, so the gate had to merge FIRST and alone. The switch is read by `papic_guest_spend_ceiling()` and enforced inside `papic_record_guest_capture` (migration 20271184624871, 22 db tests, 14 sabotages RED); what it lacks for one PR is the sheet that flips it, which is built and held. ⚠ DO NOT let this line settle: the test above deletes it for you — the moment that control lands, `gates-have-handles` fails until this line is removed.
+
+# ── ADDED 2026-09-02 · phase 7a is schema, and this line expires with phase 7b ─
+
+# ── ADDED 2026-09-05 · GENERATED column, the writer is the source column ────
+# The detector looks for something that WRITES the column. A `GENERATED ALWAYS
+# AS (...) STORED` column can never have one — Postgres computes it from its
+# source expression on every insert/update and rejects any attempt to assign
+# it directly — so "no writer" is the guaranteed, permanent, correct state,
+# not an absence to be filled in later.
+moodboard_library_assets.is_event_linked | GENERATED ALWAYS AS (source_event_id IS NOT NULL) STORED (migration 20271204967268, MB22). The handle is `source_event_id`, not this column: it has a real writer in the event-linked import path (apps/web/app/vendor-dashboard/moodboard-library/actions.ts, MB11's upload flow), and Postgres recomputes `is_event_linked` from it automatically. Nothing should ever write this column directly — the database would refuse it.
+

@@ -15,6 +15,7 @@ import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 import { buildDayOfFrame } from '@/lib/vendor-dayof-frame';
+import { vendorDayOfFreeUntilIso, isVendorDayOfStillFree } from '@/lib/vendor-dayof-free-until';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { FloorClock } from './_components/floor-clock';
 import { LiveReviews } from '../../_components/live-reviews';
@@ -150,6 +151,14 @@ export default async function VendorOnTheDayLivePage({
   // Booked-today gate: the launched console only opens for a booking dated today.
   const today = phToday();
   if (!booking || booking.bookedDate !== today) {
+    redirect('/vendor-dashboard/on-the-day');
+  }
+
+  // Q7 (owner 2026-09-11) — the day-of tools' dated end. Unset by default (the
+  // public-launch date is not decided yet), so this never fires today. Once
+  // set and past, the launcher page (not this one) renders the ended state
+  // with the upgrade copy, so it lives in exactly one place.
+  if (!isVendorDayOfStillFree(vendorDayOfFreeUntilIso(), Date.now())) {
     redirect('/vendor-dashboard/on-the-day');
   }
 

@@ -30,7 +30,7 @@ test('⭐ LIVE_STUDIO is listed on /pricing — otherwise the launch has no paid
   assert.match(
     repoFile('app/(shell)/pricing/page.tsx'),
     /\{ code: 'LIVE_STUDIO' \}/,
-    'the unified ₱2,999 SKU is in no /pricing group, so it can never render',
+    'the unified ₱3,000 SKU is in no /pricing group, so it can never render',
   );
 });
 

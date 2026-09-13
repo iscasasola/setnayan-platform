@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { POOL_CHANNEL_SHARED_STRIKE_NOTICE } from '@/lib/live-studio-pool-only';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   fetchPoolChannelGrants,
@@ -126,6 +127,21 @@ export default async function LiveStudioChannelsPage({
           never connect a Google account — which is why our consent screen can stay{' '}
           <strong className="font-semibold text-ink/80">Internal</strong> and needs no Google app
           verification. One channel is checked out per event, then returned.
+        </p>
+        {/* 🚨 THE COST OF "then returned", stated where the placement decision is made.
+            live-studio-roam-provision.ts has said since Wave 9 that one channel per
+            event "isolates concurrency + copyright-strike blast radius" — in a
+            DOCBLOCK, where no admin has ever read it. Reuse is what creates the shared
+            jeopardy: a strike earned by one wedding's processional lands on a channel
+            still holding other couples' archives, and YouTube's penalty at three is
+            termination of the channel with every video on it. The admin choosing which
+            event goes on which channel is the person who creates that exposure, so the
+            sentence belongs here and not only on the buy sheet.
+            ⚠ Whether a channel should instead be retired after one wedding rather than
+            checked back in is an OWNER ruling, deliberately not made in code. */}
+        <p className="mt-3 max-w-2xl rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2.5 text-sm text-ink/80">
+          <AlertCircle aria-hidden className="mr-1.5 inline h-4 w-4 -translate-y-px text-amber-600" strokeWidth={2} />
+          {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
         </p>
       </div>
 

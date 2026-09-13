@@ -9,24 +9,33 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { InviteLink } from './_components/invite-link';
+import { InviteThemePicker } from './_components/invite-theme-picker';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { suggestedInviteTheme } from '@/lib/invite-themes';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { RegenerateQrButton } from './_components/regenerate-qr-button';
 
 export const metadata = { title: 'Invite guests' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ theme?: string }>;
+};
 
 /**
  * Invite — the "share one link" stage of the guest journey (2026-06-16). The
- * couple shares ONE join link/QR with everyone; a guest opens it, signs in, picks
- * their role, and is auto-matched to the guest list (or routed to the couple as a
+ * couple shares ONE join link/QR with everyone; a guest opens it, types their
+ * name (no role — the couple's field, 2026-06-25 lock), and is auto-matched to the guest list (or routed to the couple as a
  * request to confirm — the next stage). Previously this stage only existed as a
  * "Share" dropdown on the list header with nowhere to land; this is its home.
  *
  * Join link shape matches the list page's fetchJoinUrl: `${APP_URL}/join/${eventId}
  * ?token=${event_join_tokens.token}`. Couple-only (RLS + the membership guard).
  */
-export default async function GuestInvitePage({ params }: Props) {
+export default async function GuestInvitePage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = await searchParams;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -40,6 +49,37 @@ export default async function GuestInvitePage({ params }: Props) {
     .eq('member_type', 'couple')
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
+
+  // How the invite looks (lib/invite-themes.ts). Read through the ADMIN client,
+  // after the couple check above: a session select that named a column without
+  // its per-column grant would refuse the WHOLE events query and blank this page.
+  const lookAdmin = createAdminClient();
+  const [{ data: lookRow, error: lookError }, ownsPro] = await Promise.all([
+    lookAdmin.from('events').select('invite_theme, mood_feel_key, event_type').eq('event_id', eventId).maybeSingle(),
+    eventCoupleWebsiteProActive(lookAdmin, eventId).catch(() => false),
+  ]);
+  if (lookError) {
+    // Graceful: the picker falls back to House and the page still works — but the
+    // failure is logged, so "no theme saved" and "could not read it" never look alike.
+    logQueryError('GuestInvitePage (events.invite_theme)', lookError, { event_id: eventId }, 'graceful_degrade');
+  }
+  /*
+    🔒 WEDDINGS ONLY (owner Q7 = A, 2026-09-11). The Pro themes are offered only
+    where the event type may carry the Save-the-Date film — the reveal's own
+    fence, `resolveWeddingOnlyParts(profile).save_the_date_film`, asked here so a
+    birthday is never shown four radios that `setInviteTheme` would refuse. An
+    unreadable profile is NOT a wedding: the `.catch` falls to the free door
+    rather than opening a paid one.
+  */
+  const mayShowStdFilm = await resolveProfile((lookRow?.event_type as string | null) ?? '')
+    .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
+    .catch(() => false);
+  const selectedTheme = suggestedInviteTheme({
+    saved: lookRow?.invite_theme ?? null,
+    moodFeelKey: lookRow?.mood_feel_key ?? null,
+    ownsPro,
+    mayShowStdFilm,
+  });
 
   const [tokenRes, pendingRes, eventRes] = await Promise.all([
     supabase
@@ -131,9 +171,9 @@ export default async function GuestInvitePage({ params }: Props) {
           <Send className="h-6 w-6 text-terracotta" /> Invite your guests
         </h1>
         <p className="text-sm text-ink/60">
-          One link for everyone. A guest opens it, signs in, and picks their role — we match
-          them to your list automatically, or send you a request to confirm. Nobody sees your
-          guest list.
+          One link for everyone. A guest opens it and gives their name — we find them on your
+          list, or add them and ask you to confirm. They reply, and the email they give becomes
+          how they sign in. Nobody sees your guest list.
         </p>
       </header>
 
@@ -210,6 +250,17 @@ export default async function GuestInvitePage({ params }: Props) {
           />
         </Link>
       ) : null}
+
+      <InviteThemePicker
+        eventId={eventId}
+        selected={selectedTheme}
+        ownsPro={ownsPro}
+        mayShowStdFilm={mayShowStdFilm}
+        /* Both outcomes reach the screen. `?theme=error` used to render
+           nothing at all, so a refused save looked like a page that had simply
+           been reloaded. */
+        notice={search.theme === 'saved' ? 'saved' : search.theme === 'error' ? 'error' : null}
+      />
 
       {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.
           This one pairs your photo + livestream vendors' capture DEVICES to the

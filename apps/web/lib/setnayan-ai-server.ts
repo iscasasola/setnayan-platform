@@ -5,8 +5,15 @@ import type { AiPriceContext } from './setnayan-ai-type-pricing';
 import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypePricePhp,
+  resolveSetnayanAiTierPricesResolution,
+  type AiTierPricesResolution,
 } from './setnayan-ai-event-pricing';
 import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
+import {
+  decideSetnayanAiOffer,
+  type SetnayanAiOffer,
+} from './setnayan-ai-comeback-offer';
+import { resolveComebackScopeForEvent } from './setnayan-ai-comeback-scope.server';
 
 /**
  * setnayan-ai-server.ts — server-only resolution for Setnayan AI pricing.
@@ -91,4 +98,94 @@ export async function resolveSetnayanAiDisplayPricePhp(
     return row!.onboarding_price_php as number;
   }
   return usable(row?.retail_price_php) ? (row!.retail_price_php as number) : 0;
+}
+
+/**
+ * Both of an event's tier prices, resolved through the SAME per-event-pricing
+ * switch the charge path uses.
+ *
+ * 🔑 THE FLAG CHOOSES THE ROW, NOT THE RULE. With the switch ON an event is
+ * priced from its own tier's row; with it OFF everything falls back to the flat
+ * `SETNAYAN_AI` row. Either way the comeback price is the MIDPOINT of whichever
+ * row applies, so the discount cannot disagree with the price it discounts —
+ * the same reason `resolveSetnayanAiDisplayPricePhp` above exists.
+ *
+ * Tier A's SKU *is* `SETNAYAN_AI`, so passing a wedding type resolves the flat
+ * row either way; the branch only matters for B/C/D types.
+ */
+export async function resolveSetnayanAiTierPricesForEvent(
+  client: SupabaseClient,
+  eventType: string | null | undefined,
+): Promise<AiTierPricesResolution> {
+  if (await resolveSetnayanAiPerEventPricingEnabled()) {
+    return resolveSetnayanAiTierPricesResolution(client, eventType);
+  }
+  // Flag off — checkout charges the flat row, so the offer must be derived from
+  // the flat row. Tier E still has no product, and `resolveSetnayanAiTierPrices
+  // Resolution('wedding')` is exactly the flat-row read.
+  if (setnayanAiTierSkuForEventType(eventType) === null) {
+    return { status: 'resolved', prices: { band: 'E', retailPhp: 0, onboardingPhp: null } };
+  }
+  return resolveSetnayanAiTierPricesResolution(client, 'wedding');
+}
+
+/**
+ * What the Home card should offer this event — a discriminated union, because
+ * "no discount any more" and "nothing to sell here" are DIFFERENT ANSWERS and
+ * the previous `| null` collapsed them into one.
+ *
+ * ⚠ THE LAPSED WINDOW USED TO SILENTLY STOP SELLING (owner, 2026-08-31: *"sai
+ * expired. should show a cta button to purchase still"*). A couple who did not
+ * buy inside their 24 hours had the card disappear from Home altogether,
+ * leaving the only route to Setnayan AI a Studio page they would have to go
+ * looking for. **The discount expiring is not the product expiring.**
+ */
+export type { SetnayanAiOffer };
+
+/**
+ * The Setnayan AI offer to SHOW for this event, or `null` when there is nothing
+ * to sell at all — the event already owns AI, or no usable price resolved.
+ *
+ * DISPLAY ONLY — DO NOT CHARGE FROM THIS, same rule as
+ * {@link resolveSetnayanAiDisplayPricePhp} above. The charge path re-derives
+ * eligibility and the centavos itself, straight from the stored event row, in
+ * lib/order-charge-authority.ts — this function exists only so the Home card
+ * can show a number, and it calls the SAME regular-price resolver + the SAME
+ * discount math (`comebackPricePhp`) so the two can never quote different
+ * figures.
+ *
+ * 🔒 THE `full` ARM NEEDS NO NEW MONEY RULE. The charge path's comeback branch
+ * already falls through to the ordinary tier price the instant
+ * `isComebackOfferEligible` goes false, so a card showing list price after the
+ * window lapses charges exactly that. Nothing in the money path changes here.
+ *
+ * ⚖ Fails closed in both directions: a refused scope read shows NOTHING rather
+ * than defaulting to a full-price pitch (the same read makes the charge path
+ * REFUSE), and an event that owns AI is excluded before either arm is built.
+ */
+export async function resolveSetnayanAiOfferForEvent(
+  client: SupabaseClient,
+  eventId: string,
+  eventType: string | null | undefined,
+  now: Date = new Date(),
+): Promise<SetnayanAiOffer | null> {
+  // The window is the USER's, so eligibility is decided across every event
+  // their hosts own — not from the one event this page happens to be showing.
+  const scope = await resolveComebackScopeForEvent(client, eventId);
+  if (scope.status === 'read_error') return null; // a screen shows nothing; the
+  // charge path REFUSES on the same read — see lib/order-charge-authority.ts.
+
+  const priced = await resolveSetnayanAiTierPricesForEvent(client, eventType);
+  if (priced.status === 'read_error') return null;
+
+  // Every arm-vs-arm rule lives in the PURE decider so it can be unit-tested —
+  // this module imports `server-only`, so nothing in it can be. All this
+  // function contributes is the three reads above.
+  return decideSetnayanAiOffer({
+    events: scope.events,
+    eventId,
+    retailPhp: priced.prices.retailPhp,
+    onboardingPhp: priced.prices.onboardingPhp,
+    now,
+  });
 }

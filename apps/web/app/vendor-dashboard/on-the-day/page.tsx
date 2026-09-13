@@ -34,8 +34,14 @@ import {
 } from '@/lib/vendor-dayof-modules';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import {
+  vendorDayOfFreeUntilIso,
+  isVendorDayOfStillFree,
+  vendorDayOfFreeUntilLabel,
+  vendorDayOfFreeUntilEndedLabel,
+} from '@/lib/vendor-dayof-free-until';
 import { deriveVendorPapicTier,
-  fetchVendorBookingFeePaidPhp } from '@/lib/vendor-papic-grants';
+  fetchVendorPapicCreditsGranted } from '@/lib/vendor-papic-grants';
 import { tierReadout } from '@/lib/vendor-papic-tier';
 import {
   fetchVendorTeam,
@@ -184,6 +190,31 @@ export default async function VendorOnTheDayPage({
   if (!user) redirect('/login?next=/vendor-dashboard/on-the-day');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard/verify');
+
+  // Q7 (owner 2026-09-11) — the day-of tools' dated end. Unset (the default,
+  // since the public-launch date is not decided yet) → this never fires and
+  // every line below behaves exactly as it did before this config existed.
+  const dayOfFreeUntilIso = vendorDayOfFreeUntilIso();
+  const dayOfStillFree = isVendorDayOfStillFree(dayOfFreeUntilIso, Date.now());
+  if (!dayOfStillFree) {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 py-10 sm:px-6 lg:px-8">
+        <ShopEmpty>
+          <Lock aria-hidden className="mx-auto mb-2 h-6 w-6" style={{ color: 'var(--m-slate-3)' }} />
+          <p className="font-medium text-ink">{vendorDayOfFreeUntilEndedLabel(dayOfFreeUntilIso)}</p>
+          <p className="mt-1">
+            Your booking and shop listing are unaffected. Upgrade to keep using the day-of tools.
+          </p>
+          <Link
+            href="/vendor-dashboard/subscription"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
+          >
+            See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        </ShopEmpty>
+      </section>
+    );
+  }
 
   const kind = resolveDayOfConsoleKind(profile.services);
   const today = phToday();
@@ -396,6 +427,14 @@ export default async function VendorOnTheDayPage({
             Exit preview
           </Link>
         </div>
+      ) : null}
+
+      {/* Q7 — shown only once the owner sets an end date; says nothing while
+          unset, matching the "no invented deadline" rule. */}
+      {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
+        <p className="text-sm" style={{ color: 'var(--m-slate-4)' }}>
+          {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}
+        </p>
       ) : null}
 
       {showFullConsole ? (
@@ -632,7 +671,7 @@ export default async function VendorOnTheDayPage({
                   — display or print it at the event so guests can scan and review you.
                 </p>
                 <Link
-                  href="/vendor-dashboard/verify"
+                  href="/vendor-dashboard/shop#get-verified"
                   className="mt-3 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
                   style={{ color: 'var(--m-orange-2)' }}
                 >
@@ -778,15 +817,17 @@ async function ConfigureEventView({
     // else Lite. While the control is OFF, it stays counsel-gated/locked.
     let readout: string | undefined;
     try {
-      // ⚠ READ THE FEE TOO. The readout a supplier sees must agree with the
-      // allowance the capture route enforces; on the bare tier it would show
-      // "50 pts" to somebody with 800.
+      // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
+      // the allowance the capture route enforces; on the bare tier it would
+      // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
+      // booking fee + ₱500 packs (100 credits since 2026-09-06), summed from
+      // their ledger).
       const admin = createAdminClient();
-      const [tier, feePaidPhp] = await Promise.all([
+      const [tier, creditsGranted] = await Promise.all([
         deriveVendorPapicTier(admin, vendorProfileId, booking.eventId),
-        fetchVendorBookingFeePaidPhp(admin, vendorProfileId, booking.eventId),
+        fetchVendorPapicCreditsGranted(admin, vendorProfileId, booking.eventId),
       ]);
-      readout = tierReadout(tier, feePaidPhp);
+      readout = tierReadout(tier, creditsGranted);
     } catch {
       /* readout is decorative — omit on any failure */
     }

@@ -3,7 +3,7 @@
 /**
  * SetnayanAiHeroStory — the Setnayan AI story AS THE HERO (owner 2026-07-03).
  *
- * Selecting the Suri · Setnayan AI dock tile swaps the hero scene like every
+ * Selecting the Sai · Setnayan AI dock tile swaps the hero scene like every
  * other tile — and this block renders INSIDE the hero (below the tile's
  * headline + sub): the three shipped jobs, the restraint promise, and ONE
  * button — "See how much it helps to have Setnayan AI" — which opens the

@@ -104,8 +104,23 @@ function num(v: number | string | null): number | null {
 const REQUIRED_RETAIL = [
   'SETNAYAN_AI',
   'LIVE_STUDIO',
+  // ♻️ BACK 2026-09-03 (LS8) at ₱3,000/day, after one day off sale. It is here
+  // because `llms-txt.test.ts` requires every ACTIVE retail price to be quoted in
+  // this file, and LS6 had left the SKU active-less and prose-less together. The
+  // pairing runs BOTH WAYS and the comment above only spells one: retiring a SKU
+  // means deleting the entry AND the prose line together; putting one back on sale
+  // means restoring BOTH, or the active-price guard fails on the missing prose.
+  'LIVE_STUDIO_HOSTED_CHANNEL',
   'PAKANTA',
-  'SEATING_3D',
+  // SEATING_3D removed 2026-09-05 — owner set the 3D Plan FREE for couples
+  // (PR #5185, FREE_FOR_ALL_SKUS; row deactivated by migration 20271205977137).
+  // Measured first: the ₱1,500 gated nothing at any layer and had zero orders.
+  // Its prose line stays and now reads "free", the LIVE_WALL / KWENTO rule: the
+  // FEATURE is on for every event, so deleting the line would hide something
+  // every couple can actually use. What vendors pay for is the BRANDED booth
+  // inside it — a vendor product, described under the vendor section, not here.
+  // 🪤 ENTRY AND PROSE PRICE GO TOGETHER — leaving this entry throws
+  // RetiredSkuError and drops the whole file to its stub.
   'PAPIC_ADDON_THANK_YOU',
   // LIVE_WALL removed 2026-08-11 — owner set it FREE ("live photo wall FREE"),
   // so it no longer has a price to advertise and its row is deactivated. Its
@@ -315,7 +330,6 @@ export const LINKED_ROUTES = [
   '/pricing',
   '/vendors',
   '/setnayan-ai',
-  '/why-setnayan',
   '/our-story',
   '/features',
   '/papic',
@@ -327,7 +341,6 @@ export const LINKED_ROUTES = [
   '/pakanta',
   '/monogram',
   '/alaala',
-  '/how-it-works',
   '/about',
   // ⚠ BOTH, and neither is spare. `/weddings` 308-redirects to `/realstories`
   // (next.config.ts, 2026-06-14 rename) so the old path still resolves and stays
@@ -441,11 +454,10 @@ What is LIVE today: every event type listed above; an event automatically becomi
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
 - [List Your Business](${url('/vendors')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission.
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
-- [Why Setnayan](${url('/why-setnayan')}) — Setnayan versus a spreadsheet, a coordinator, and international platforms.
+- [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- [Features](${url('/features')}) — Planning tools and in-app services.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Studio](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Patiktok](${url('/patiktok')}) · [Pakanta](${url('/pakanta')}) · [Alaala](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
-- [How It Works](${url('/how-it-works')}) · [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
+- [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
 ## About Setnayan
@@ -470,9 +482,10 @@ What is LIVE today: every event type listed above; an event automatically becomi
 Pricing in PHP. All sales final on digital deliverables.
 
 - **Setnayan AI** — from ${peso(ladder[3]!.php)} to ${aiA} one-time depending on event type (see ladder above). Vendor matchmaking plus the guided planning workspace.
-- **Live Studio** — ${R('LIVE_STUDIO')} per event-day. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
+- **Live Studio** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is free; rehearsal with up to 12 cameras is free, broadcasting one is the paid step.
+- **Live Studio — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Studio. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Pakanta** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
-- **3D Plan** — ${R('SEATING_3D')}. Walk the reception in 3D before it is real — every table and detail in place.
+- **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
@@ -518,7 +531,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free on every event, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
-- **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} per event-day; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
+- **What is Live Studio?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. 20 Filipino role tiers. Multi-faith vendor compatibility tagging.

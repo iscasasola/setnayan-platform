@@ -197,6 +197,24 @@ async function seedFundedSeat(dedicatedPoints: number): Promise<Fixture> {
   );
   const eventId = ev.rows[0]!.event_id;
 
+  // The shared pool needs a couple member before it seeds a free grant at all
+  // (migration 20271204225094 moved the seeding trigger from `events` to
+  // `event_members` so it can be ACCOUNT-scoped) — without one, this event
+  // has zero grants, papic_event_pool_status().applies is FALSE, and the
+  // "fence absent -> allow" branch would let the exhausted-meter test below
+  // pass at ANY cost. A dedicated couple user per fixture keeps every seeded
+  // event "somebody's first event" (the full allowance), matching this
+  // file's original assumption that the pool genuinely fences captures.
+  const coupleUser = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email) VALUES ($1) RETURNING id`,
+    [`atomicity-couple-${seatCounter}@example.test`],
+  );
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type)
+     VALUES ($1, $2, 'couple')`,
+    [eventId, coupleUser.rows[0]!.id],
+  );
+
   // The claim token is UNIQUE across every event, so it has to vary per seed or
   // the second fixture in a test collides on it rather than on anything real.
   const seat = await db.query<{ seat_id: string }>(

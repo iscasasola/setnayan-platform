@@ -243,7 +243,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Setnayan adapts your plan to your ceremony — Catholic, civil, INC, Christian, Muslim, cultural, or mixed — with the right deadlines for each.',
-        href: '/how-it-works',
+        href: '/features',
         label: 'See how planning adapts',
       },
     ],

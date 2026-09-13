@@ -56,11 +56,20 @@ export const V2_SKU_CODES = [
   // 20271001110000) — kept here so historical order rows still resolve a price.
   'LIVE_STUDIO_ROAM',
   // Live Studio — the UNIFIED customer-facing SKU that merges Cast (PANOOD_SYSTEM)
-  // + Roam (LIVE_STUDIO_ROAM) into one switching-based product (₱2,999 · per event ·
-  // owner 2026-07-25). Seeded by migration 20271001110000. Listed here so
-  // formatV2Sku('LIVE_STUDIO') resolves the live catalog price for the unified buy
-  // page. Dark until launch behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
+  // + Roam (LIVE_STUDIO_ROAM) into one switching-based product. Seeded by migration
+  // 20271001110000; repriced to a one-time, once-per-event unlock by LS6 (migration
+  // 20271194920190, 2026-09-02 — never quote a figure here, read the catalog).
+  // Listed here so formatV2Sku('LIVE_STUDIO') resolves the live catalog price for
+  // the unified buy page. Dark until launch behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
   'LIVE_STUDIO',
+  // The optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02),
+  // STACKS on LIVE_STUDIO. Seeded by migration
+  // 20271192528988_live_studio_hosted_channel_addon; DEACTIVATED by LS6 (migration
+  // 20271194920190, 2026-09-02) when its price pairing with LIVE_STUDIO broke and no
+  // replacement figure was given — still listed here (formatV2Sku does not filter
+  // on is_active) so an already-owning event's price never goes missing. Grants no
+  // entitlement of its own — see lib/live-studio-control.ts's docblock.
+  'LIVE_STUDIO_HOSTED_CHANNEL',
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',
@@ -87,6 +96,12 @@ export const V2_SKU_CODES = [
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',
+  // Mood Board "Make it real" render-credit pack — 50 credits / ₱1,000
+  // (MB2, migration 20271199871696). Listed here so
+  // formatV2Sku('MOODBOARD_RENDER_PACK') resolves the live catalog price for
+  // MB7's Buy button, the same way every other one-SKU add-on's price label
+  // is resolved.
+  'MOODBOARD_RENDER_PACK',
 ] as const;
 
 export type V2SkuCode = (typeof V2_SKU_CODES)[number];

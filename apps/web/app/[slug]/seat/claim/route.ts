@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
+import { recordScan } from '@/lib/scan-trail';
 
 /**
  * /[slug]/seat/claim?slug=&t=  — the personal-QR cookie-set hop for the Seat
@@ -68,18 +69,15 @@ export async function GET(request: NextRequest) {
       qr_token: guest.qr_token,
     });
 
-    // Record the scan. Best-effort; failures don't block the redirect.
-    const userAgent = request.headers.get('user-agent') ?? null;
-    const xff = request.headers.get('x-forwarded-for') ?? '';
-    const ipFull = xff.split(',')[0]?.trim() ?? '';
-    const ipAnon = ipFull ? ipFull.split('.').slice(0, 3).join('.') + '.0' : null;
-    await admin.from('scan_events').insert({
-      event_id: guest.event_id,
-      guest_id: guest.guest_id,
-      source: 'browser',
-      user_agent: userAgent,
-      ip_anon: ipAnon,
-      context: { entry: 'personal_qr_scan' },
+    // Record the scan. Best-effort; failures don't block the redirect — and a
+    // guest who set `scan_tracking_opt_out` gets no row at all
+    // (lib/scan-trail.ts, the one door that writes this table).
+    await recordScan(admin, {
+      eventId: guest.event_id,
+      guestId: guest.guest_id,
+      entry: 'personal_qr_scan',
+      userAgent: request.headers.get('user-agent'),
+      forwardedFor: request.headers.get('x-forwarded-for'),
     });
 
     // CLEAN URL — no token. The pass page renders the personal pass from the

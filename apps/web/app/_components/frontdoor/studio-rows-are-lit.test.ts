@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { railToolsSignedIn } from '@/lib/studio-rail';
+import { addOnHref } from '@/lib/add-ons-catalog';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 
 /**
@@ -65,13 +66,27 @@ function eventRows(): RailMatchRow[] {
   });
 }
 
-/** The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event. */
+/**
+ * The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event —
+ * INCLUDING the de-dupe: a Studio row whose href an event row already claims is
+ * not matched twice. Since 2026-09-02 one row is in that position (the website
+ * product and the event menu both open the Event Hub controller), so a helper
+ * that skipped the de-dupe would be testing a rail the shell never builds.
+ */
 function wholeRail(): RailMatchRow[] {
+  const events = eventRows();
+  const claimedByEvent = new Set(events.map((r) => r.href));
   return [
     ...railMatchRows({ signedIn: true, hasShop: false, isAdmin: false }),
-    ...studioRows(),
-    ...eventRows(),
+    ...studioRows().filter((r) => !claimedByEvent.has(r.href)),
+    ...events,
   ];
+}
+
+/** The Studio rows that actually take part in matching (the de-dupe applied). */
+function matchedStudioRows(): RailMatchRow[] {
+  const claimedByEvent = new Set(eventRows().map((r) => r.href));
+  return studioRows().filter((r) => !claimedByEvent.has(r.href));
 }
 
 test('the two halves really do overlap — the premise, measured, not assumed', () => {
@@ -98,7 +113,7 @@ test('the two halves really do overlap — the premise, measured, not assumed', 
 
 test('every Studio row lights ITSELF on its own page, and nothing else does', () => {
   const rail = wholeRail();
-  for (const row of studioRows()) {
+  for (const row of matchedStudioRows()) {
     assert.equal(
       activeRailKey(rail, row.href),
       row.key,
@@ -121,15 +136,101 @@ test('the three measured overlaps resolve the way a person would read them', () 
   // Seat plan still owns the family it claims.
   assert.equal(activeRailKey(rail, `${BASE}/seating`), 'seat');
   /*
-    THE PAIR THAT FORCED "EXACT BEATS PREFIX". Event Hub's own destination is
-    `/website`; Launch claims that whole family by prefix from a LONGER href.
-    On length alone Launch lit both, leaving Event Hub dark on the page it
-    opens. Each row now lights on its own page and Launch still owns the rest
-    of the family.
+    THE PAIR THAT FORCED "EXACT BEATS PREFIX" — RE-MEASURED 2026-09-02 (EH3).
+
+    It used to be `pawebsite` (href `/website`) against the event menu's
+    "Launch" row, which claimed that whole family by prefix from the LONGER href
+    `/website/editor`. On length alone Launch lit both, leaving the Studio row
+    dark on the page it opens, and "exact beats prefix" is what settled it.
+
+    🔤 THE EVENT-MENU ROW HAS LEFT THE FAMILY. It is now "Event Hub" → `/launch`
+    with `matchPrefix` narrowed to match, because the three names one place wore
+    (Launch · Services · Editorial) collapsed into one word pointed at the
+    controller. So `/website/*` is no longer contested at all: the Studio row
+    owns the website family outright, which is the answer a person reads — on
+    the editor you are inside the website, and the row that opens the website is
+    the one that should be lit.
+
+    ⚠ THE SPECIFICITY RULE IS NOT WHAT CHANGED, and this is why the two lines
+    below were REPOINTED rather than deleted. `exact` is still the first key —
+    `/website` still resolves by it — and deleting the pair would leave that
+    rule with nothing measuring it.
+
+    ⭐ RE-MEASURED AGAIN 2026-09-02 (EH6), AND THE PAIR IS NOW A SINGLE ROW.
+    The owner's one-door ruling pointed the Studio row at the controller the
+    menu row already opened — same word, same page — so the two would have TIED
+    on `/launch`, and a tie is broken by list position. Rather than let
+    composition order decide, the Studio group's duplicate is dropped inside an
+    event and the menu row inherits the `/website` family through `matchPrefix`.
+
+    🔑 SO THE WEBSITE FAMILY IS STILL LIT — by 'launch' now, not 'pawebsite'.
+    That is the whole visible change: one row, one word, every page still
+    claimed. The three lines below were REPOINTED rather than deleted for the
+    same reason as last time — `exact` is still the first key and deleting them
+    would leave that rule with nothing measuring it.
   */
-  assert.equal(activeRailKey(rail, `${BASE}/website`), 'pawebsite');
+  assert.equal(activeRailKey(rail, `${BASE}/website`), 'launch');
   assert.equal(activeRailKey(rail, `${BASE}/website/editor`), 'launch');
   assert.equal(activeRailKey(rail, `${BASE}/website/anything-else`), 'launch');
+  // And the same row lights on the controller, which is its href.
+  assert.equal(activeRailKey(rail, `${BASE}/launch`), 'launch');
+
+  /*
+    ⛔ AND NO SECOND ROW CLAIMS THE CONTROLLER. This is the assertion that
+    fails if somebody restores the Studio duplicate: the tie would return, and
+    with it a rail that answers "you are here" by accident of list order.
+  */
+  const claimants = rail.filter((r) => activeRailKey([r], `${BASE}/launch`) !== null);
+  assert.deepEqual(
+    claimants.map((r) => r.key),
+    ['launch'],
+    'more than one rail row opens the Event Hub — one door means one row',
+  );
+});
+
+test('ONE DOOR: the Studio row and the event-menu row open the same page', () => {
+  /*
+    Owner ruling 2026-09-02, verbatim: *"i look at the roles of each. if it is
+    the same then adjust. Like in papic. when they enter an event, the menu of
+    papic description page becomes the control center of papic. i think that
+    should be the same for events hub."*
+
+    Both rows wear the word "Event Hub". Before this they went to two pages —
+    `/website` and `/launch` — which is one word offered twice, flagged for the
+    owner in EH3 rather than guessed at. This asserts the ruling: same word,
+    same destination.
+
+    🔑 ASKED OF THE REAL BUILDERS. The Studio row's href comes from
+    `addOnHref('landing-page')` through `railToolsSignedIn`, and the menu row's
+    from `buildCustomerNavGroups` — so repointing either one alone fails here.
+  */
+  const menuHub = eventRows().find((r) => r.key === 'launch');
+  assert.ok(menuHub, 'the event menu lost its Event Hub row entirely');
+  assert.equal(
+    addOnHref('landing-page', EVENT_ID),
+    menuHub!.href,
+    'the product card and the menu slot are two doors again — the ruling was one',
+  );
+  assert.equal(menuHub!.href, `${BASE}/launch`, 'and the one door is the controller');
+
+  /*
+    ⛔ BOTH ROWS STILL RENDER — the fix is de-duplicated MATCHING, not a deleted
+    row. `studio-menu-adapts-to-event.test.ts` pins the Studio set against the
+    Suite grid with owner-ruled counts, so removing the product from the rail to
+    tidy the tie breaks a ruling to fix a matching bug. That was tried and
+    reverted; this asserts it stays reverted.
+  */
+  assert.ok(
+    studioRows().some((r) => r.key === 'pawebsite'),
+    'the website row was dropped from the rail — that breaks the sidebar/Suite parity ruling',
+  );
+
+  // …and exactly one of the two takes part in matching, so nothing ties.
+  assert.equal(
+    matchedStudioRows().find((r) => r.key === 'pawebsite'),
+    undefined,
+    'both rows are matchable again — the tie is back, and list order decides what lights',
+  );
 });
 
 test('exactly one row is lit anywhere on the rail — never two, never none by accident', () => {

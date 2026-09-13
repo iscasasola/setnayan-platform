@@ -89,8 +89,12 @@ async function newVendor(label: string, tier: VendorTier): Promise<string> {
 
 async function newEvent(label: string, eventDate: string | null): Promise<string> {
   const r = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ($1, 'birthday', $2::date) RETURNING event_id`,
+    // A couple WITH a date is a couple with a DAY (event_date_precision 'day'). The
+    // column defaults to 'year', which the per-date ceiling no longer counts
+    // (20271224170958 — a month- or year-only plan never takes a real day).
+    `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)
+     VALUES ($1, 'birthday', $2::date, CASE WHEN $2::date IS NULL THEN 'year' ELSE 'day' END)
+     RETURNING event_id`,
     [uniq(label), eventDate],
   );
   return r.rows[0]!.event_id;

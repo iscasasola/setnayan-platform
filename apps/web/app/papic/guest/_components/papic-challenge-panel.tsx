@@ -86,6 +86,11 @@ function ChallengePanelInner({
   const shotNoun =
     lastCaptureKind === 'clip' ? 'video' : lastCaptureKind === 'photo' ? 'photo' : 'shot';
   const [missions, setMissions] = useState<GuestMissionRow[] | null>(null);
+  // ⏸ The coordinator has quieted the challenges so the room can watch the
+  // moment (owner 2026-09-01). NOT a reason to empty this list: the board stays
+  // exactly as it is and this drives a notice over it. An empty board would be
+  // byte-identical to a celebration with no challenges at all.
+  const [paused, setPaused] = useState(false);
   const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +113,12 @@ function ChallengePanelInner({
     try {
       const res = await fetch('/api/papic/guest-missions', { cache: 'no-store' });
       if (!res.ok) return;
-      const json = (await res.json()) as { missions?: GuestMissionRow[] };
+      const json = (await res.json()) as { missions?: GuestMissionRow[]; paused?: boolean };
       setMissions(Array.isArray(json.missions) ? json.missions : []);
+      // The route always sends this; `=== true` keeps an older cached response
+      // (or a field the route omitted) from reading as "paused" and quieting a
+      // board nobody paused.
+      setPaused(json.paused === true);
     } catch {
       // best-effort — a fetch hiccup just leaves the panel hidden this render.
     }
@@ -227,6 +236,21 @@ function ChallengePanelInner({
       className="mx-auto w-full max-w-sm rounded-xl border border-cream/15 bg-cream/5"
       aria-label="Papic Challenges"
     >
+      {/* ⏸ THE PAUSE HAS TO REACH THE PIXEL, OR IT IS NOTHING. A guest who
+          opens this during the vows must be told why nothing is being asked —
+          otherwise the quiet reads as a broken app, and they go looking for a
+          challenge to answer, which is the one thing the pause exists to stop.
+          🔴 The camera is deliberately NOT mentioned as unavailable, because it
+          is not: photographing the moment is exactly what we want them doing. */}
+      {paused ? (
+        <p
+          role="status"
+          className="border-b border-cream/15 px-3.5 py-2 text-[13px] leading-snug text-cream/80"
+        >
+          Challenges are paused &mdash; everyone&rsquo;s watching right now.
+          Keep taking photos; these come back in a moment.
+        </p>
+      ) : null}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

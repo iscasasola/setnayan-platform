@@ -1,0 +1,91 @@
+-- revoke_stray_grants_moodboard_library_assets
+--
+-- `public.moodboard_library_assets` grants FOUR unused privileges to BOTH
+-- `anon` and `authenticated`: DELETE, REFERENCES, TRIGGER, TRUNCATE.
+-- Confirmed directly against production 2026-09-04:
+--
+--   select grantee, privilege_type from information_schema.role_table_grants
+--   where table_schema='public' and table_name='moodboard_library_assets';
+--   -- anon:          DELETE, REFERENCES, TRIGGER, TRUNCATE
+--   -- authenticated: DELETE, REFERENCES, TRIGGER, TRUNCATE
+--   -- (has_table_privilege on SELECT/INSERT/UPDATE is FALSE for both — but
+--   --  has_any_column_privilege is TRUE for all three, on both roles. Those
+--   --  grants are COLUMN-SCOPED, real, and intentional. See below.)
+--
+-- Surfaced by MB16 (Vendor Colour Access) while regenerating
+-- supabase/security/exposure-surface.baseline.txt for its own new tables —
+-- the committed baseline was STALE for this row (recorded `SIUD` for both
+-- roles; the true table-level state is narrower). An earlier merged
+-- migration already narrowed the grant and nobody noticed, because
+-- exposure-freeze.db.test.ts only fails on a WIDENING — a baseline wider
+-- than reality passes forever and never forces a re-check.
+--
+-- 🔑 WHY ALL FOUR, NOT JUST DELETE. Neither `anon` nor `authenticated` holds
+-- TABLE-LEVEL SELECT, INSERT or UPDATE — every column grant they DO hold is
+-- deliberately scoped to specific columns via the policies below. DELETE,
+-- REFERENCES and TRIGGER carry NO such scoping — they are plain table-level
+-- grants inherited from the schema default, not something anyone wrote a
+-- policy for:
+--   • REFERENCES and TRIGGER are DDL-time privileges (creating a foreign key
+--     against this table, or creating a new trigger on it) — never something
+--     an application role does at runtime.
+--   • TRUNCATE is the one that matters most to close: **RLS does not gate
+--     TRUNCATE at all** — it is an all-or-nothing table-level operation with
+--     no per-row policy to stand in front of it. A privilege check is the
+--     ONLY thing between this grant and every row in the table.
+--
+-- 🔑 THE COLUMN-SCOPED SELECT/INSERT/UPDATE GRANTS ARE OUT OF SCOPE HERE AND
+-- MUST NOT BE TOUCHED — they back real, working policies:
+--   moodboard_library_assets_public_read   (SELECT, anon+authenticated)
+--     USING (approved_at IS NOT NULL AND retired_at IS NULL)     — the public
+--     decor gallery. Genuinely public by design.
+--   moodboard_library_assets_vendor_select_own / _insert / _update_own
+--     (authenticated) — all keyed on uploaded_by = auth.uid() AND
+--     account_type = 'vendor'. This is how a vendor's own upload/edit flow
+--     works.
+-- anon's INSERT/UPDATE column grants exist too but are RLS-dead in the exact
+-- same shape as DELETE below (uploaded_by = auth.uid() can never match a
+-- null anon uid) — narrower, column-level surgery than this migration
+-- attempts; flagged for a follow-up rather than folded in here without the
+-- same care given to the four privileges below.
+--
+-- 🔑 DELETE SPECIFICALLY — NOT EXPLOITABLE TODAY, via two independent facts,
+-- both checked before writing this migration rather than assumed:
+--
+--   1. RLS: the only DELETE policy is moodboard_library_assets_vendor_delete_own
+--      — `uploaded_by = auth.uid() AND EXISTS (... account_type = 'vendor')`.
+--      `anon`'s auth.uid() is always NULL, so no row can ever match.
+--
+--   2. THE POLICY ITSELF IS DEAD CODE. Both real delete call sites —
+--      deleteAsset (app/admin/moodboard-library/actions.ts) and
+--      deleteStylistAsset (app/vendor-dashboard/moodboard-library/actions.ts)
+--      — go through `createAdminClient()` (service-role, bypasses RLS
+--      entirely) with the ownership check done BY HAND in application code
+--      (`if (row.uploaded_by !== userId) throw`). Neither `anon` nor
+--      `authenticated` ever performs a raw `.delete()` against this table as
+--      themselves. The policy is left in place here rather than dropped —
+--      removing a policy is a different, larger decision than closing an
+--      unused grant.
+--
+-- Same shape as the `event_renders` hole MB8 found and fixed this same week:
+-- a capability that exists only because RLS happens to block it (or, for
+-- TRUNCATE, because nothing has tried it yet), rather than because the grant
+-- itself was removed. This project's own standing rule (MB8's migration
+-- header) is to take the capability away, not rely on a policy to police it
+-- forever.
+--
+-- No re-grant needed for either role on any of the four: confirmed above
+-- that the application never relies on these four raw table privileges, on
+-- either the vendor, admin, or public-gallery read path.
+--
+-- ADDITIVE + IDEMPOTENT. REVOKE on a privilege that is already absent is a
+-- no-op, not an error, so this is safe to re-run.
+--
+-- ⚠ DO NOT APPLY THIS DIRECTLY TO PRODUCTION. The pipeline pushes the
+-- committed file; a direct apply orphans the prod ledger and jams db push
+-- for every subsequent merge.
+
+REVOKE DELETE, REFERENCES, TRIGGER, TRUNCATE
+  ON TABLE public.moodboard_library_assets FROM anon;
+REVOKE DELETE, REFERENCES, TRIGGER, TRUNCATE
+  ON TABLE public.moodboard_library_assets FROM authenticated;

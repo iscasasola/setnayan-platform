@@ -4,16 +4,15 @@ import { useState, useTransition } from 'react';
 import {
   Radio,
   Server,
-  KeyRound,
-  Eye,
-  EyeOff,
   AlertCircle,
   CheckCircle2,
   ExternalLink,
   Square,
 } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
+import { EncoderKeyPanel } from '@/app/_components/encoder-key-panel';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { forgetStreamKey } from '@/lib/desktop-stream-key';
 import { goLivePanood, endPanoodBroadcast } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -45,6 +44,7 @@ export function GoLiveCard({
   oauthReady,
   connected,
   ownsPanood,
+  ownsHostedChannel,
   active,
   streamKey,
 }: {
@@ -52,10 +52,15 @@ export function GoLiveCard({
   oauthReady: boolean;
   connected: boolean;
   ownsPanood: boolean;
+  // S8: does this event own the hosted-channel add-on? Decides which of the
+  // three EncoderKeyPanel branches renders once we're inside the desktop
+  // shell — see that component's docblock. Irrelevant in a plain browser.
+  ownsHostedChannel: boolean;
   active: ActiveBroadcast;
   // Server-resolved secret — only present when there's an active broadcast and
   // the host is viewing the page. Never reaches a non-host (table is service-
-  // role-only + this card is rendered inside the host-gated page).
+  // role-only + this card is rendered inside the host-gated page). Read ONLY
+  // by EncoderKeyPanel's browser path — see its docblock.
   streamKey: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +70,6 @@ export function GoLiveCard({
   // because the broadcast DID go out; this is not a failure to retry.
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [showKey, setShowKey] = useState(false);
   const save = useSaveLoader();
 
   // Broadcast-readiness donut ("Energy, not skin" reskin 2026-07-09). A dense,
@@ -109,6 +113,11 @@ export function GoLiveCard({
         hint: 'Please wait',
       });
       if ('error' in result) setError(result.error);
+      // S8 Part C: forget whatever key Rust is holding for this broadcast —
+      // a no-op outside the desktop shell. Stands in for S5's real
+      // `encoder_stop` (not landed on this branch) calling this same command;
+      // see stream_key.rs's docblock.
+      void forgetStreamKey();
     });
   }
 
@@ -194,10 +203,10 @@ export function GoLiveCard({
         />
       ) : (
         <ObsConnectionCard
+          eventId={eventId}
           active={active}
           streamKey={streamKey}
-          showKey={showKey}
-          onToggleKey={() => setShowKey((s) => !s)}
+          ownsHostedChannel={ownsHostedChannel}
           pending={pending}
           onEnd={handleEnd}
         />
@@ -265,23 +274,20 @@ function GoLivePrompt({
 }
 
 function ObsConnectionCard({
+  eventId,
   active,
   streamKey,
-  showKey,
-  onToggleKey,
+  ownsHostedChannel,
   pending,
   onEnd,
 }: {
+  eventId: string;
   active: NonNullable<ActiveBroadcast>;
   streamKey: string | null;
-  showKey: boolean;
-  onToggleKey: () => void;
+  ownsHostedChannel: boolean;
   pending: boolean;
   onEnd: () => void;
 }) {
-  const maskedKey = streamKey
-    ? `${'•'.repeat(Math.max(0, streamKey.length - 4))}${streamKey.slice(-4)}`
-    : '— unavailable —';
   return (
     <div className="space-y-4 rounded-xl border border-success-200/80 bg-success-50/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -301,6 +307,22 @@ function ObsConnectionCard({
         live to the same broadcast — no copy-paste needed.
       </p>
 
+      {/* ⭐ THE COUPLE'S OWN COPY. YouTube auto-archives every broadcast and the
+          recordings card resolves a permanent watch link to it — but a watch link is
+          not a file, and on a SETNAYAN-supplied channel the couple is not the channel
+          owner, so YouTube Studio will not hand them one (lib/live-studio-recordings.ts
+          says so in its own docblock; spec § 4k is the open question). OBS writes a
+          full-quality local file from the encoder that is ALREADY RUNNING, for free.
+          That makes this sentence the difference between a couple who ends the day
+          holding their wedding and one who does not — so it is stated HERE, where the
+          encoder is set up, not only in help text read afterwards. */}
+      <p className="max-w-prose rounded-lg border border-terracotta/25 bg-terracotta/5 p-3 text-xs text-ink/75">
+        <strong className="font-semibold text-ink/85">Press &ldquo;Start Recording&rdquo; too.</strong>{' '}
+        OBS saves a full-quality copy to your own computer while it streams — one extra click,
+        right next to Start Streaming. You keep that file even if the broadcast drops, and if
+        Setnayan supplied the channel it is the only copy you can download.
+      </p>
+
       {/* RTMP server URL */}
       <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
         <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -315,46 +337,15 @@ function ObsConnectionCard({
         </div>
       </div>
 
-      {/* Stream key — secret, masked until revealed */}
-      <div className="rounded-lg border border-ink/10 bg-cream/70 p-3">
-        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          <KeyRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Stream key (OBS &rarr; Stream &rarr; Stream Key · keep this secret)
-        </p>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-          <code className="break-all font-mono text-sm text-ink/85">
-            {showKey ? streamKey ?? '— unavailable —' : maskedKey}
-          </code>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleKey}
-              disabled={!streamKey}
-              aria-label={showKey ? 'Hide stream key' : 'Reveal stream key'}
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {showKey ? (
-                <>
-                  <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Hide
-                </>
-              ) : (
-                <>
-                  <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Reveal
-                </>
-              )}
-            </button>
-            {streamKey ? (
-              <CopyButton value={streamKey} label="Copy" copiedLabel="Copied" />
-            ) : null}
-          </div>
-        </div>
-        <p className="mt-1.5 text-[11px] text-ink/50">
-          Treat your stream key like a password — anyone with it can stream to
-          your broadcast. Don&rsquo;t share it or screenshot it publicly.
-        </p>
-      </div>
+      {/* Stream key — S8: three renderings (browser reveal/copy · desktop
+          own-channel paste · desktop hosted-channel connect), chosen by
+          EncoderKeyPanel itself from window.__TAURI__ + ownsHostedChannel.
+          See that component's docblock. */}
+      <EncoderKeyPanel
+        eventId={eventId}
+        streamKey={streamKey}
+        ownsHostedChannel={ownsHostedChannel}
+      />
 
       {/* Watch URL */}
       {active.watchUrl ? (

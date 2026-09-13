@@ -42,6 +42,21 @@ export type CompGrantRow = {
   grant_id: string;
   public_id: string;
   user_id: string | null;
+  /**
+   * The vendor this grant TARGETS — set only for an admin-issued vendor SKU
+   * comp (source='external_promo', via issueVendorSkuComp), mutually
+   * exclusive with user_id. NOT the same thing as a 'vendor_self_comp' row's
+   * vendor_profile_id, which names the vendor GRANTING a comp to a user —
+   * see the column comment on comp_grants.vendor_profile_id (migration
+   * 20271209332066) for the full disambiguation. Always check `source`
+   * before trusting which meaning applies.
+   */
+  vendor_profile_id: string | null;
+  /**
+   * NULL = applies to every event this user hosts (the original, only shape
+   * before migration 20271205612762). Set = scoped to that one event only.
+   */
+  event_id: string | null;
   source: CompGrantSource;
   scope: CompGrantScope;
   scoped_skus: string[] | null;
@@ -52,7 +67,44 @@ export type CompGrantRow = {
   approved_by: string | null;
   revoked_at: string | null;
   created_at: string;
+  /**
+   * The scoped event's display name, resolved by the fetchers' embed. NOT a
+   * column — it is `NULL` for an account-wide grant and for a vendor grant.
+   */
+  event_name: string | null;
+  /**
+   * The targeted vendor's business name, resolved by the fetchers' embed when
+   * `vendor_profile_id` + source='external_promo' name a vendor SKU comp. NOT
+   * a column; NULL for every user-targeted grant.
+   */
+  vendor_business_name: string | null;
+  /**
+   * Set only once migration 20271208142357 (PR #5221) is live: the event this
+   * grant WAS scoped to, kept after that event was deleted. Optional here so
+   * this module compiles either side of that merge; the fetchers start
+   * selecting it once the column exists. Read by `describeReach` so a grant
+   * whose event is gone never reads as an account-wide one.
+   */
+  scoped_event_id_snapshot?: string | null;
 };
+
+/** PostgREST returns an embed as a nested object; flatten it to `event_name` /
+ *  `vendor_business_name`. */
+type CompGrantSelectRow = Omit<CompGrantRow, 'event_name' | 'vendor_business_name'> & {
+  events: { display_name: string | null } | null;
+  vendor_profiles: { business_name: string | null } | null;
+};
+
+const COMP_GRANT_SELECT =
+  'grant_id, public_id, user_id, vendor_profile_id, event_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at, events(display_name), vendor_profiles(business_name)';
+
+function toCompGrantRows(data: unknown): CompGrantRow[] {
+  return ((data ?? []) as CompGrantSelectRow[]).map(({ events, vendor_profiles, ...row }) => ({
+    ...row,
+    event_name: events?.display_name ?? null,
+    vendor_business_name: vendor_profiles?.business_name ?? null,
+  }));
+}
 
 /**
  * Fetch every comp_grants row scoped to a single target user. Returns
@@ -70,14 +122,62 @@ export async function fetchCompGrantsForUser(
 ): Promise<CompGrantRow[]> {
   const { data, error } = await admin
     .from('comp_grants')
-    .select(
-      'grant_id, public_id, user_id, source, scope, scoped_skus, expiry, retail_value_centavos, rationale, granted_by, approved_by, revoked_at, created_at',
-    )
+    .select(COMP_GRANT_SELECT)
     .eq('user_id', userId)
     .order('revoked_at', { ascending: true, nullsFirst: true })
     .order('created_at', { ascending: false });
   if (error) throw new Error(`fetchCompGrantsForUser failed: ${error.message}`);
-  return (data ?? []) as CompGrantRow[];
+  return toCompGrantRows(data);
+}
+
+/**
+ * Fetch every ACTIVE comp_grants row, across every user — the read side of
+ * `/admin/gifts`. Unlike `fetchCompGrantsForUser`, this is not scoped to one
+ * target; it is the "what's currently comped, for whom" oversight view.
+ *
+ * Revoked rows are excluded — this page is about what's live, not history.
+ * (A revoked grant is still visible on the target user's own expand-panel at
+ * `/admin/accounts?tab=users`, which is where `fetchCompGrantsForUser`'s
+ * revoked-rows-included behavior is actually used.)
+ */
+export async function fetchAllActiveCompGrants(
+  admin: SupabaseClient,
+  limit = 200,
+): Promise<CompGrantRow[]> {
+  const { data, error } = await admin
+    .from('comp_grants')
+    .select(COMP_GRANT_SELECT)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`fetchAllActiveCompGrants failed: ${error.message}`);
+  return toCompGrantRows(data);
+}
+
+export type HostedEventRow = {
+  event_id: string;
+  display_name: string;
+  event_type: string;
+  event_date: string | null;
+};
+
+/**
+ * Every event `userId` hosts as a 'couple' member — the picker for scoping a
+ * comp grant to one specific event instead of their whole account.
+ */
+export async function fetchEventsHostedBy(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<HostedEventRow[]> {
+  const { data, error } = await admin
+    .from('event_members')
+    .select('events(event_id, display_name, event_type, event_date)')
+    .eq('user_id', userId)
+    .eq('member_type', 'couple');
+  if (error) throw new Error(`fetchEventsHostedBy failed: ${error.message}`);
+  return ((data ?? []) as unknown as { events: HostedEventRow | null }[])
+    .map((row) => row.events)
+    .filter((e): e is HostedEventRow => !!e);
 }
 
 /**
@@ -114,6 +214,44 @@ export function describeScope(
     return `${count} specific services`;
   }
   return scope;
+}
+
+/**
+ * How FAR a grant reaches — the other half of `describeScope`, and the half
+ * that was missing everywhere but `/admin/gifts` until 2026-09-06.
+ *
+ * 🔑 SCOPE IS NOT REACH. `describeScope` answers "which services are free";
+ * this answers "on which events". A grant scoped to one wedding and a grant
+ * covering the account forever both printed *"Every Setnayan service"* — the
+ * same words, in the same order — on `/admin/accounts?tab=users` and on
+ * `/admin/users/<id>`. An admin auditing what was given away could not tell a
+ * ₱4,999 one-off from an open tab, so **never render one without the other**.
+ *
+ * Always returns a sentence: there is no "say nothing" branch, because an
+ * absent reach line is exactly what made the two shapes indistinguishable.
+ */
+export function describeReach(
+  grant: Pick<
+    CompGrantRow,
+    'event_id' | 'user_id' | 'event_name' | 'scoped_event_id_snapshot'
+  > & {
+    /** Optional so existing call sites built before this field need no update. */
+    vendor_profile_id?: CompGrantRow['vendor_profile_id'];
+  },
+): string {
+  if (grant.event_id) {
+    return grant.event_name ? `${grant.event_name} only` : 'One event only';
+  }
+  // The event was deleted after the grant was issued. `event_id` is NULL now,
+  // but this was NEVER an account-wide grant — saying so would report a
+  // privilege the customer does not have (see migration 20271208142357).
+  if (grant.scoped_event_id_snapshot) return 'One event only — since deleted';
+  if (grant.user_id) return 'Every event they host';
+  // No user_id at all → an admin-issued vendor SKU comp (issueVendorSkuComp),
+  // not an event-scoping question — "not tied to an event" would be true but
+  // misleading (it reads as "account-wide" for a user grant with no event).
+  if (grant.vendor_profile_id) return 'This vendor’s shop, not an event';
+  return 'Not tied to an event';
 }
 
 /**

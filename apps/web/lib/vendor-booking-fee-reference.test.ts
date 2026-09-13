@@ -41,7 +41,27 @@ function codeOf(path: string): string {
     .map((l) => l.replace(/(^|\s)\/\/.*$/, '$1'))
     .join('\n');
 }
-const ACTION = 'app/vendor-dashboard/booking-fees/actions.ts';
+/**
+ * ⚖ THE RULE MOVED LANES; THIS GUARD FOLLOWED IT (2026-09-03).
+ *
+ * These source checks used to read `app/vendor-dashboard/booking-fees/actions.ts`
+ * and assert that `logBookingFeePayment` enforced the reference before its
+ * INSERT. That action was deleted as superseded — and it had had ZERO CALLERS
+ * since the owner moved sending the money to the one payment page on
+ * 2026-08-21, so for that whole window this guard was green about a rule
+ * nothing could reach. Passing tests over a dead call path is worse than no
+ * tests: it reports the rule as enforced.
+ *
+ * The rule itself is untouched and still the owner's, dated 2026-08-06 in both
+ * places. It lives on `/pay/[reference]` now, where the vendor actually pays:
+ * `payable.requiresReference && !bankReference` refuses, and the booking-fees
+ * page comment says so outright — "`requiresReference` makes the field
+ * mandatory there and nowhere else."
+ *
+ * 🔑 SO THIS IS A REPOINT, NOT A RELAXATION. If you are here because the
+ * capability moved again, move these with it; do not delete them to go green.
+ */
+const ACTION = 'app/pay/[reference]/actions.ts';
 const PAGE = 'app/vendor-dashboard/booking-fees/[orderId]/page.tsx';
 
 test('empty, blank and non-string are all refused', () => {
@@ -79,47 +99,56 @@ test('over-long input is capped, not refused', () => {
 
 // ── the rule is REACHABLE, and enforced where it counts ─────────────────────
 
-test('the server action enforces it, before the write and after the ownership guard', () => {
+test('the pay lane enforces it, and refuses BEFORE the write', () => {
   const src = codeOf(ACTION);
-  const call = src.indexOf('requireBookingFeeReference(');
-  const insert = src.indexOf(".from('payments').insert(");
-  const guard = src.indexOf('isVendorBookingFeeServiceKey');
-  assert.ok(call > 0, 'the action never calls the rule — the page attribute would be the only check');
-  assert.ok(call < insert, 'the refusal comes AFTER the insert, so a blank reference is already stored');
+  const check = src.search(/payable\.requiresReference\s*&&\s*!\s*bankReference/);
+  const insert = src.indexOf(".from('payments')");
   assert.ok(
-    guard > 0 && guard < call,
-    'the reference check runs BEFORE the ownership guard, so probing a stranger’s ' +
-      'order id would reveal whether it exists',
+    check > 0,
+    'the pay action no longer refuses a booking fee with no reference — the field ' +
+      'being marked required in the form would be the only check, and a form ' +
+      'attribute is not a rule',
   );
+  assert.ok(insert > 0, 'the pay action no longer inserts a payment — repoint this guard');
   assert.ok(
-    /redirect\(`\$\{vendorBookingFeePayPath\(orderId\)\}\?error=\$\{ref\.code\}`\)/.test(src),
-    'the refusal throws instead of redirecting — production redacts the message ' +
-      'and the vendor gets a blank console error on the screen where they pay us',
+    check < insert,
+    'the refusal comes AFTER the insert, so a blank reference is already stored',
   );
 });
 
-test('the action stores the VALIDATED reference, not the raw field', () => {
-  // Reverting this to `nullIfBlank(formData.get(...))` does not break the rule —
-  // the refusal above still blocks a blank — so nothing user-visible fails and
-  // the mutation went unnoticed on the first pass. What it silently loses is the
-  // TRIM: "  GC-8842  " would be stored with its spaces, and the admin's
-  // reference matcher compares strings.
+test('the pay lane stores the NORMALISED reference, not the raw field', () => {
+  // Same defect, same silence as on the old lane: swapping the normalised value
+  // back for a raw `formData.get(...)` breaks nothing a human would notice — the
+  // refusal above still blocks a blank — while quietly losing the cleanup.
+  // `normaliseReference` strips punctuation and upper-cases, so "gc-8842 " is
+  // stored as "GC8842"; the admin's matcher compares strings against a bank
+  // message, and a stray space or dash is a payment that never reconciles.
   const src = codeOf(ACTION);
   assert.ok(
-    /reference_number:\s*ref\.reference/.test(src),
-    'The insert re-reads the raw form field instead of the validated value, so ' +
-      'the reference is stored untrimmed and may not match what the bank shows.',
+    /const\s+bankReference\s*=\s*normaliseReference\(/.test(src),
+    'the reference is no longer normalised before it is stored',
   );
   assert.ok(
-    !/reference_number:\s*nullIfBlank\(/.test(src),
-    'The old nullIfBlank read is back on reference_number.',
+    !/reference_number:\s*formData\.get\(/.test(src),
+    'the insert re-reads the raw form field instead of the normalised value',
   );
 });
 
-test('every refusal the action can emit has copy to show', () => {
+test('every refusal the pay lane can emit is shown to the vendor', () => {
   const src = codeOf(ACTION);
-  const codes = [...src.matchAll(/\?error=\$\{ref\.code\}/g)].length;
-  assert.ok(codes > 0, 'no refusal is surfaced to the vendor at all');
+  // `back(reference, 'error', '…')` is how this lane surfaces a refusal — a
+  // literal sentence, not a code the page has to own copy for. A refusal that
+  // only throws would give the vendor a redacted console error on the screen
+  // where they pay us, which is the failure the old lane's version of this test
+  // existed to prevent.
+  const refusals = [...src.matchAll(/back\(\s*reference\s*,\s*'error'\s*,/g)].length;
+  assert.ok(refusals > 0, 'no refusal is surfaced to the vendor at all');
+  assert.ok(
+    !/throw new Error\([^)]*reference/i.test(src),
+    'a reference refusal throws instead of showing a sentence',
+  );
+
+  // The pure rule keeps its own copy contract regardless of which lane calls it.
   for (const code of Object.keys(BOOKING_FEE_ERRORS)) {
     assert.ok(bookingFeeErrorCopy(code), `no copy for "${code}" — the vendor would see an empty box`);
   }

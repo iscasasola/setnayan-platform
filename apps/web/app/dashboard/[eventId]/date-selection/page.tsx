@@ -40,6 +40,7 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
+import { fetchChangeLinesByVendor, withAgreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates } from '@/lib/candidate-dates';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
@@ -403,7 +404,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   if (!path && hasCandidates && !hasDate) {
     const admin = createAdminClient();
 
-    const [vendors, vpRes] = await Promise.all([
+    const [vendors, vpRes, changeLines] = await Promise.all([
       fetchEventVendors(supabase, eventId),
       // ⚠ THIS QUERY ALWAYS ERRORED UNTIL 2026-07-26, and did so silently.
       // It named TWO columns that do not exist on `public.vendor_profiles`:
@@ -434,7 +435,18 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         .eq('public_visibility', 'verified')
         .or('is_demo.is.null,is_demo.eq.false')
         .not('services', 'is', null),
+      // Changes agreed after a lock — one read for the page, so the budget range
+      // below prices a booked supplier at its agreed total NOW (owner
+      // 2026-09-11, "Show the total now").
+      fetchChangeLinesByVendor(supabase, eventId),
     ]);
+    if (changeLines.error) {
+      // Non-fatal: the range falls back to the price the lock wrote.
+      Sentry.captureException(
+        new Error(`date-selection change lines read failed: ${changeLines.error}`),
+        { tags: { feature: 'date-selection', query: 'event_vendor_line_items' }, extra: { eventId } },
+      );
+    }
 
     // ⚠ A READ ERROR AND AN EMPTY RESULT MUST NOT LOOK THE SAME. The bare
     // `?? []` here is precisely why the 42703 above went unnoticed: the page
@@ -525,7 +537,10 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
     // Budget range from shortlist (date-independent shared context).
     const { lo: shortlistLo, hi: shortlistHi } = shortlistBudgetRange(
-      vendors.map((v) => ({ category: v.category, total_cost_php: v.total_cost_php })),
+      withAgreedTotalNow(vendors, changeLines.byVendor).map((v) => ({
+        category: v.category,
+        total_cost_php: v.total_cost_php,
+      })),
     );
     const eventBudgetCentavos =
       typeof (event as { estimated_budget_centavos?: unknown }).estimated_budget_centavos ===

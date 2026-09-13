@@ -196,6 +196,11 @@ const GUARDED_EVENT_INSERT_PATHS = [
   'app/onboarding/wedding/actions.ts', // wedding-guard (bypass closed 2026-07-17)
   'app/onboarding/simple/actions.ts', // life-event-guard (lifestyle no-op)
   'app/onboarding/_shared/commit-event.ts', // life-event-guard
+  // The story's "Start it now" — the go-signal tap that follows one celebration
+  // with the next (08 step 1.7). A fourth events-insert path, so it runs the
+  // same gate; it also proves couple-only membership through
+  // authorizePlanNextYear before the service-role client is touched at all.
+  'app/dashboard/[eventId]/story/whats-next-actions.ts', // life-event-guard
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -224,8 +229,16 @@ test('insert-path scan: every events-insert server path is guarded and allowlist
       offenders.push(rel);
       continue;
     }
+    // getInPlanningWedding is the SAME wedding-cardinality guard as
+    // hasInPlanningWeddingForUser — the latter is a one-line wrapper around
+    // the former (wedding-guard.ts) that discards the event id. The commit
+    // path (app/onboarding/wedding/actions.ts) calls it directly so it can
+    // read the existing wedding's id for a 2026-09-11 dead-end fix; either
+    // spelling proves the same gate is wired.
     const guarded =
-      src.includes('getBlockingLifeEvent') || src.includes('hasInPlanningWeddingForUser');
+      src.includes('getBlockingLifeEvent') ||
+      src.includes('hasInPlanningWeddingForUser') ||
+      src.includes('getInPlanningWedding');
     assert.ok(guarded, `${rel} inserts into events but wires no creation guard`);
   }
   assert.deepEqual(

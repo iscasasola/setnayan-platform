@@ -31,6 +31,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { UNNAMED_EDITORIAL_LABEL } from '@/lib/editorial-event-types';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { fetchUserEvents } from '@/lib/events';
 
@@ -273,7 +275,8 @@ export async function fetchLibraryEditorials(
     let heroImageUrl: string | null = null;
     try {
       heroImageUrl = await displayUrlForStoredAsset(
-        heroKey ?? meta?.landing_page_hero_image_url ?? null,
+        // The website hero is couple-writable: held to the public bucket first.
+        heroKey ?? siteMediaServeRef(meta?.landing_page_hero_image_url),
       );
     } catch {
       heroImageUrl = null;
@@ -281,7 +284,7 @@ export async function fetchLibraryEditorials(
 
     const card: LibraryEditorial = {
       eventId,
-      displayName: eventMeta.get(eventId)?.displayName ?? 'A Setnayan wedding',
+      displayName: eventMeta.get(eventId)?.displayName ?? UNNAMED_EDITORIAL_LABEL,
       eventDate: eventMeta.get(eventId)?.eventDate ?? null,
       monogramColor: meta?.monogram_color ?? null,
       slug: meta?.slug ?? null,

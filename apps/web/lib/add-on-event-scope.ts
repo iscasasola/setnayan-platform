@@ -70,7 +70,7 @@ export function addOnOfferedForEvent(
   }
   // ⚠ ONE LIVESTREAM TILE, NOT TWO — and it has to live HERE.
   // The retired "Live Studio Cast" tile chips "Free" and lands on the same
-  // ₱2,999 page as the unified Live Studio tile, because /studio/panood is now a
+  // ₱3,000 page as the unified Live Studio tile, because /studio/panood is now a
   // redirect. PR #4354 filtered it in the Studio hub's own surfaceOk — WHICH
   // NEVER RUNS: `studio/page.tsx` redirects to /suite on its 11th line, and its
   // own comment says Suite being off "never [happens] in prod". So the fix was

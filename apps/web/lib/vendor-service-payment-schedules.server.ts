@@ -18,7 +18,16 @@ import {
   type PlanProgress,
   type PolicySnapshot,
 } from '@/lib/vendor-service-payment-schedules';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
+import {
+  DEPOSIT_DISPUTE_COLUMNS,
+  LEDGER_DISPUTE_COLUMNS,
+  readPaymentDispute,
+  type DepositDisputeRow,
+  type LedgerDisputeRow,
+  type PaymentDispute,
+} from '@/lib/payment-refusal';
 
 /**
  * A booked vendor service's payment schedule, seq-ordered, for couple display.
@@ -146,15 +155,17 @@ export async function fetchPlanProgressForCouple(opts: {
   // confirmation flag matter for the stepper.
   const { data: payRows } = await authedClient
     .from('event_vendor_payments')
-    .select('schedule_instance_seq, vendor_confirmed_at')
+    .select('schedule_instance_seq, vendor_confirmed_at, payment_refused_at')
     .eq('event_id', eventId)
     .eq('vendor_id', eventVendorId);
   const payments: PaymentSeqState[] = ((payRows ?? []) as Array<{
     schedule_instance_seq: number | null;
     vendor_confirmed_at: string | null;
+    payment_refused_at: string | null;
   }>).map((p) => ({
     schedule_instance_seq: p.schedule_instance_seq,
     vendor_confirmed: p.vendor_confirmed_at != null,
+    refused: p.payment_refused_at != null,
   }));
 
   return { steps: computeStepper(instances, payments), clearedAt, isDefaultSeeded };
@@ -213,18 +224,20 @@ export async function fetchPlanProgressForVendor(opts: {
   // 3. All logged payments on those bookings (seq + confirm flag).
   const { data: payRows } = await adminClient
     .from('event_vendor_payments')
-    .select('vendor_id, schedule_instance_seq, vendor_confirmed_at')
+    .select('vendor_id, schedule_instance_seq, vendor_confirmed_at, payment_refused_at')
     .in('vendor_id', eventVendorIds);
   const paymentsByVendor = new Map<string, PaymentSeqState[]>();
   for (const p of (payRows ?? []) as Array<{
     vendor_id: string;
     schedule_instance_seq: number | null;
     vendor_confirmed_at: string | null;
+    payment_refused_at: string | null;
   }>) {
     const list = paymentsByVendor.get(p.vendor_id) ?? [];
     list.push({
       schedule_instance_seq: p.schedule_instance_seq,
       vendor_confirmed: p.vendor_confirmed_at != null,
+      refused: p.payment_refused_at != null,
     });
     paymentsByVendor.set(p.vendor_id, list);
   }
@@ -273,6 +286,10 @@ export type PendingVendorPayment = {
   installmentLabel: string | null;
   /** Presigned GET URL for the couple's attached receipt, if any. */
   proofUrl: string | null;
+  /** The row the couple's DEPOSIT wrote — its refusal is the booking's (H4). */
+  isDepositRecord: boolean;
+  /** The supplier's "it never reached me" and Setnayan's ruling, if any (H4). */
+  dispute: PaymentDispute | null;
 };
 
 /**
@@ -298,27 +315,29 @@ export async function fetchPendingVendorPayments(opts: {
 }): Promise<PendingVendorPayment[]> {
   const { adminClient, eventId, vendorProfileId } = opts;
 
-  // 1. The vendor's bookings on this event (ownership-scoped).
+  // 1. The vendor's bookings on this event (ownership-scoped) — with the
+  //    deposit's refusal, which lives on the booking (lib/payment-refusal).
   const { data: bookings } = await adminClient
     .from('event_vendors')
-    .select('vendor_id')
+    .select(`vendor_id, ${DEPOSIT_DISPUTE_COLUMNS}`)
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
-  const eventVendorIds = (bookings ?? [])
-    .map((b) => (b as { vendor_id: string }).vendor_id)
-    .filter(Boolean);
+  const bookingById = new Map(
+    ((bookings ?? []) as Array<DepositDisputeRow & { vendor_id: string }>).map((b) => [b.vendor_id, b]),
+  );
+  const eventVendorIds = Array.from(bookingById.keys()).filter(Boolean);
   if (eventVendorIds.length === 0) return [];
 
   // 2. Unconfirmed payments on those bookings.
   const { data: rows } = await adminClient
     .from('event_vendor_payments')
     .select(
-      'payment_id, vendor_id, amount_php, paid_at, method, reference, notes, proof_r2_key, schedule_instance_seq, vendor_confirmed_at',
+      `payment_id, vendor_id, amount_php, paid_at, method, reference, notes, proof_r2_key, schedule_instance_seq, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
     )
     .in('vendor_id', eventVendorIds)
     .is('vendor_confirmed_at', null)
     .order('paid_at', { ascending: false });
-  const payments = (rows ?? []) as Array<{
+  const payments = (rows ?? []) as Array<LedgerDisputeRow & {
     payment_id: string;
     vendor_id: string;
     amount_php: number;
@@ -362,7 +381,10 @@ export async function fetchPendingVendorPayments(opts: {
       let proofUrl: string | null = null;
       if (p.proof_r2_key) {
         try {
-          proofUrl = await displayUrlForStoredAsset(p.proof_r2_key);
+          // 🔒 The host's receipt lives in the PRIVATE thread-files bucket under
+          // this event's own `payment-proof/events/<id>/` folder — the ONLY folder
+          // its writer (budget/actions.ts) accepts. Signed only from there.
+          proofUrl = await displayUrlForPrivateStoredAsset(p.proof_r2_key, budgetPaymentProofPolicy(eventId));
         } catch {
           proofUrl = null;
         }
@@ -377,6 +399,8 @@ export async function fetchPendingVendorPayments(opts: {
         notes: p.notes,
         installmentLabel: label,
         proofUrl,
+        isDepositRecord: p.is_deposit_record === true,
+        dispute: readPaymentDispute(p, bookingById.get(p.vendor_id)),
       };
     }),
   );

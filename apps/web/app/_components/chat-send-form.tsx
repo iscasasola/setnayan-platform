@@ -29,25 +29,36 @@ import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
+import { compressImageForWeb } from '@/lib/image-compress';
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  chatAttachmentLimit,
+  isCompressibleImage,
+} from '@/lib/chat-attachment-limits';
+import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 
 type Props = {
   threadId: string;
   sendAction: (formData: FormData) => Promise<void>;
 };
 
-// Client-side hint for the file picker. The SERVER allowlist in
-// lib/chat-send.ts (CHAT_ATTACHMENT_MIME) is authoritative — this just narrows
-// what the OS dialog offers. Kept in sync with it by hand (a client component
-// can't import the server-only chat-send module).
-const ATTACHMENT_ACCEPT =
-  'image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.txt';
-const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+// The picker's list and the size ceilings are DERIVED from the one shared
+// module the server enforces (lib/chat-attachment-limits.ts). They used to be
+// hand-typed here, under a comment saying they were kept in sync by hand —
+// which is how a picker comes to offer a type the server refuses, with a file
+// that simply will not send as the only symptom.
 
 export function ChatSendForm({ threadId, sendAction }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  // Guards Enter-to-send against a double submit: a fast double-tap of Enter
+  // (or a second keydown that lands while the form action is still awaiting
+  // compression or sendAction) must not fire requestSubmit() twice. Set once
+  // the message is known non-empty, cleared on the contact-block return and in
+  // `finally` after sendAction, whether it succeeded or failed.
+  const sendPendingRef = useRef(false);
   // Off-platform-contact block message (chatroom blocked-rules). Shown inline
   // when the composer catches contact info BEFORE sending — instant feedback so
   // the sender edits without a server round-trip. The server re-checks
@@ -75,11 +86,40 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
         const hasFile = fileVal instanceof File && fileVal.size > 0;
         if (!bodyVal && !hasFile) return;
 
+        // From here until the send settles, a second Enter is a double send —
+        // the photo compression below is awaited too, not only sendAction.
+        sendPendingRef.current = true;
+
+        /* COMPRESS BEFORE IT LEAVES THE PHONE (owner 2026-09-09: "all files
+           uploaded on chat should be compressed and minimum").
+
+           A phone photo is 3–5 MB and becomes a few hundred KB. It happens in
+           THIS browser, so it costs us no compute and it is dramatically faster
+           to send on a venue's weak signal.
+
+           ⚠ Only photographs. A PDF or Word contract is evidence and must
+           arrive byte-for-byte; an animated GIF drawn to a canvas would come
+           out a still. `isCompressibleImage` decides, not this call site.
+
+           ⚠ AND IT FAILS OPEN, BY CONTRACT: `compressImageForWeb` returns the
+           ORIGINAL file when it cannot help or cannot run. A browser without
+           canvas support must still be able to send the picture — losing the
+           bytes is a cost, losing the message is a defect. */
+        if (hasFile && isCompressibleImage((fileVal as File).type)) {
+          try {
+            const smaller = await compressImageForWeb(fileVal as File);
+            formData.set('attachment', smaller);
+          } catch {
+            // Keep the original. See the fail-open note above.
+          }
+        }
+
         // Chatroom blocked-rules — block off-platform contact info before it
         // ever leaves the browser (the server re-checks too). Keeps the text so
         // the sender can edit and resend.
         if (chatContactFilterEnabled() && bodyVal && evaluateMessage(bodyVal).blocked) {
           setBlockError(CONTACT_BLOCK_MESSAGE);
+          sendPendingRef.current = false;
           return;
         }
         setBlockError(null);
@@ -99,6 +139,8 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             payload: { threadId, hadAttachment: hasFile },
           });
           return;
+        } finally {
+          sendPendingRef.current = false;
         }
         // Optimistic clear on success; the Realtime INSERT will paint the
         // outgoing bubble in the stream within a few hundred ms.
@@ -155,7 +197,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             ref={fileInputRef}
             type="file"
             name="attachment"
-            accept={ATTACHMENT_ACCEPT}
+            accept={CHAT_ATTACHMENT_ACCEPT}
             className="sr-only"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
@@ -163,9 +205,14 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
                 clearFile();
                 return;
               }
-              if (file.size > ATTACHMENT_MAX_BYTES) {
+              // A photograph is judged against a far higher ceiling than a
+              // document, because it is about to be compressed in this browser
+              // before it uploads. Rejecting a 4 MB phone photo here would
+              // refuse the most ordinary thing anyone sends.
+              const limit = chatAttachmentLimit(file.type);
+              if (file.size > limit.maxBytes) {
                 // Reject early client-side; the server enforces this too.
-                setFileError('That file is too large — attachments are capped at 25 MB.');
+                setFileError(limit.tooLargeMessage);
                 if (fileInputRef.current) fileInputRef.current.value = '';
                 setFileName(null);
                 return;
@@ -188,6 +235,30 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             window.dispatchEvent(
               new CustomEvent('chat-stream:input', { detail: { threadId } }),
             );
+          }}
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter starts a new line — the standard chat
+            // convention. shouldSendOnEnter also holds back for IME
+            // composition (Filipino/Japanese/Chinese keyboards confirm a word
+            // with Enter), any modifier, and a coarse-pointer (touch) device,
+            // where Return must stay a newline since there is no Shift+Enter
+            // on an on-screen keyboard.
+            const shouldSend = shouldSendOnEnter(
+              {
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                keyCode: e.keyCode,
+                altKey: e.altKey,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+              },
+              { coarsePointer: isCoarsePointer() },
+            );
+            if (!shouldSend) return;
+            e.preventDefault();
+            if (sendPendingRef.current) return;
+            e.currentTarget.form?.requestSubmit();
           }}
         />
         <SubmitButton

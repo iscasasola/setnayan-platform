@@ -452,6 +452,35 @@ test('checkOrderActive: queries status IN (paid, fulfilled)', async () => {
   assert.deepEqual(statusIn?.args, ['status', ['paid', 'fulfilled']]);
 });
 
+test('checkOrderActive: a paid order never expires — no date/time filter is applied', async () => {
+  // PIN — L5 (2026-09-01). editorial/data.ts gates "Watch the Film" (the couple's
+  // Live Studio replay embed) on eventSkuActive(admin, eventId, 'PANOOD_SYSTEM'),
+  // documented there as fail-closed on an ACTIVE order. checkOrderActive's query
+  // is `status IN (paid, fulfilled)` and nothing else — it never reads or
+  // compares against a date column, so a one-time PAID order confers the
+  // entitlement FOREVER: there is no lapse for a wedding film to silently fall
+  // off the couple's own website years later. If a future change adds a
+  // created_at/expires_at cutoff to this query, that would be the regression —
+  // this guard fails the moment such a filter appears.
+  const { supabase, calls } = makeSupabase({ data: [{ status: 'paid' }], error: null });
+  await checkOrderActive(supabase, 'evt_1', 'PANOOD_SYSTEM');
+
+  const DATE_FILTER_METHODS = new Set(['gte', 'lte', 'gt', 'lt']);
+  assert.ok(
+    !calls.some((c) => DATE_FILTER_METHODS.has(c.method)),
+    'checkOrderActive must never filter by a date/time bound — a paid order stays active indefinitely.',
+  );
+
+  const selectCall = calls.find((c) => c.method === 'select');
+  const selectedColumns = String(selectCall?.args[0] ?? '');
+  for (const dateColumn of ['created_at', 'expires_at', 'valid_until', 'purchased_at']) {
+    assert.ok(
+      !selectedColumns.includes(dateColumn),
+      `checkOrderActive selected "${dateColumn}" — reading a date column is the first step toward an expiry check that would make a paid order lapse.`,
+    );
+  }
+});
+
 test('checkOrderActive: 42P01 → false (graceful)', async () => {
   const { supabase } = makeSupabase({ data: null, error: { code: '42P01', message: 'undefined_table' } });
   assert.equal(await checkOrderActive(supabase, 'evt_1', 'INDOOR_BLUEPRINT'), false);

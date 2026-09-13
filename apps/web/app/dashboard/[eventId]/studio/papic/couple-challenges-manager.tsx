@@ -6,8 +6,9 @@
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicMissionCost } from '@/lib/papic-cameras';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
@@ -37,10 +38,19 @@ import {
   type PickerFilters,
 } from '@/lib/papic-challenge-picker';
 import {
+  fetchArmedChallenge,
+  CHALLENGE_DURATION_CHOICES,
+  CHALLENGE_DURATION_DEFAULT,
+  CHALLENGE_DURATION_LABELS,
+  type ArmedChallengeReading,
+} from '@/lib/papic-challenge-clock';
+import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
   deleteCoupleChallengeAction,
+  armChallengeAction,
+  stopChallengeAction,
 } from './actions';
 
 type MissionRow = {
@@ -254,6 +264,43 @@ export async function CoupleChallengesManager({
   const pool = await fetchEventPoolStatus(createAdminClient(), eventId);
   const poolRemaining = pool.applies ? pool.remainingPoints : null;
 
+  // ── ⏱ WHICH CHALLENGE IS BEING ASKED RIGHT NOW ────────────────────────────
+  // Owner ruling 2026-09-01: the window is RELATIVE — it opens when a challenge
+  // is ARMED, one at a time per celebration, and the last one closes when the
+  // capture window ends. Until this, a challenge had no concept of time at all:
+  // a prompt armed during the first dance was as live at 3am as it was then.
+  //
+  // 🔑 READ THROUGH THE RESOLVER, NOT FROM THE ROWS ABOVE. `armed_at` and
+  // `closed_at` are on the mission rows this component already selects, and
+  // deciding openness from them here would be a second answer to a question
+  // that has exactly one — the guest's phone and this screen could then name
+  // different live challenges. `papic_challenge_is_open` decides; this reads.
+  const armedReading = await fetchArmedChallenge(supabase, eventId);
+
+  // ⏰ THE CELEBRATION'S OWN CLOCK, NOT THE SERVER'S. This is a SERVER
+  // component, so `toLocaleTimeString` with no timeZone formats in the
+  // machine's zone — UTC on Vercel. A challenge running until 10:30 PM in
+  // Manila would have been printed to the couple as "until 2:30 PM", on the one
+  // screen somebody is reading DURING their reception. Asia/Manila is the
+  // fallback the SQL side already uses (papic_challenge_ends_at, and
+  // papic_guest_spend_ceiling before it), so the two agree.
+  //
+  // The error is BOUND, not discarded: a refused read leaves `eventRow` null,
+  // which is indistinguishable from a celebration that simply stores no zone.
+  // Both land on Asia/Manila — right for essentially every Setnayan event and
+  // wrong for a travel one — so the refusal has to be visible somewhere, and
+  // Sentry is where. Nothing on screen changes: a time is still shown, and the
+  // fallback is the same zone the SQL side uses, so the two never disagree.
+  const { data: eventRow, error: eventTzErr } = await supabase
+    .from('events')
+    .select('timezone')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (eventTzErr) {
+    logQueryError('coupleChallengesManager.eventTimezone', eventTzErr, { event_id: eventId }, 'graceful_degrade');
+  }
+  const eventTz = (eventRow?.timezone as string | null) || 'Asia/Manila';
+
   // ── The picker ────────────────────────────────────────────────────────────
   // Was: a list of the twenty story questions, and nothing else. The library is
   // now 631 challenges, so a list is no longer a way to choose — hence the
@@ -349,6 +396,21 @@ export async function CoupleChallengesManager({
         >
           {chosen > 0 ? 'Change your challenges' : 'Pick your challenges'} &rarr;
         </Link>
+        {/* 🎼 THE WAY IN TO THE SEQUENCE. A screen nobody can reach is nothing,
+            and this is the only door onto it from the setup page. Deliberately
+            the quieter of the two: picking the challenges is the couple's job
+            and comes first; ordering them against the ceremony is the
+            coordinator's, and often somebody else entirely. */}
+        <p className="mt-3 text-xs text-ink/55">
+          Running the day?{' '}
+          <Link
+            href={`/dashboard/${eventId}/studio/papic/run-of-show`}
+            className="text-link underline-offset-2 hover:underline"
+          >
+            Set a challenge for each moment
+          </Link>{' '}
+          &mdash; bridal march to money dance, in order.
+        </p>
       </section>
     );
   }
@@ -660,10 +722,53 @@ export async function CoupleChallengesManager({
               What your guests see{onBoard.length > 0 ? ` · ${onBoard.length}` : ''}
             </h4>
             <p className="mt-0.5 text-xs text-ink/55">In this order, on their phone.</p>
+            {/* ⏱ The clock, stated once. Three different sentences for three
+                different states — an un-armed celebration and a read we could
+                not make are NOT the same thing, and collapsing them is how a
+                couple mid-reception gets told nothing is running when
+                something is. */}
+            {!armedReading.measured ? (
+              <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
+                We couldn&rsquo;t check which challenge is being asked just now.
+                Refresh in a moment &mdash; nothing has stopped, and your guests
+                can still take photos either way.
+              </p>
+            ) : armedReading.armed ? (
+              <p className="mt-2 flex items-start gap-1.5 text-sm text-ink/70">
+                <Radio aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
+                <span>
+                  Being asked now:{' '}
+                  <span className="font-medium text-ink">
+                    {displayChallengePrompt(armedReading.armed.prompt)}
+                  </span>
+                  {/* ⏱ The INSTANT the database decided, formatted — never
+                      `armedAt + 30 minutes` worked out here. Three things can
+                      end a challenge and the earliest wins; a sum computed on
+                      this screen would be confidently wrong whenever the next
+                      arming or the capture window bit first. */}
+                  {armedReading.armed.expiresAt ? (
+                    <span className="text-ink/55">
+                      {' '}&middot; until {formatUntil(armedReading.armed.expiresAt, eventTz)}
+                    </span>
+                  ) : null}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-ink/45">
+                No challenge is being asked yet. Start one when the moment comes
+                &mdash; it runs for the time you pick, or until you start the next.
+              </p>
+            )}
             {onBoard.length > 0 ? (
               <ul className="mt-2 space-y-2">
                 {onBoard.map((m) => (
-                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                  <ChallengeRow
+                    key={m.mission_id}
+                    m={m}
+                    eventId={eventId}
+                    armed={armedReading}
+                    timeZone={eventTz}
+                  />
                 ))}
               </ul>
             ) : boardReadable ? (
@@ -709,7 +814,13 @@ export async function CoupleChallengesManager({
               </p>
               <ul className="mt-2 space-y-2">
                 {offBoard.map((m) => (
-                  <ChallengeRow key={m.mission_id} m={m} eventId={eventId} />
+                  <ChallengeRow
+                    key={m.mission_id}
+                    m={m}
+                    eventId={eventId}
+                    armed={armedReading}
+                    timeZone={eventTz}
+                  />
                 ))}
               </ul>
             </div>
@@ -720,10 +831,51 @@ export async function CoupleChallengesManager({
   );
 }
 
+/**
+ * The wall-clock time a challenge stops being asked, IN THE CELEBRATION'S OWN
+ * TIMEZONE. Formatting only — the instant comes from `papic_challenge_ends_at`
+ * and nothing here decides, adds to or compares it.
+ *
+ * ⚠ `timeZone` IS NOT OPTIONAL POLISH. This renders on the server, so without
+ * it the couple reads the time in the server's zone (UTC in production) — a
+ * confident, wrong number on the screen somebody is using during the party.
+ * An unparseable instant renders as nothing rather than "Invalid Date".
+ */
+function formatUntil(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone });
+  } catch {
+    // An unknown zone string throws RangeError. Falling back to the platform's
+    // zone beats blanking the line — and beats crashing the couple's page.
+    return d.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'Asia/Manila',
+    });
+  }
+}
+
 /** One row of the couple's list. Extracted so the on-board and not-showing
  *  groups render identically — two copies of this markup is how the two groups
  *  would quietly drift apart. */
-function ChallengeRow({ m, eventId }: { m: MissionRow; eventId: string }) {
+function ChallengeRow({
+  m,
+  eventId,
+  armed,
+  timeZone,
+}: {
+  m: MissionRow;
+  eventId: string;
+  armed: ArmedChallengeReading;
+  timeZone: string;
+}) {
+  // ⚠ `armed.measured === false` is NOT "this one is not live". When the read
+  // was refused we know nothing about any row, so neither the badge nor its
+  // absence may be shown as a claim — the button stays, because a coordinator
+  // mid-reception must still be able to start the next challenge.
+  const isLiveNow = armed.measured && armed.armed?.missionId === m.mission_id;
   // The Record is exhaustive over PapicMissionSource, so this only fires on a
   // value the database allows and TypeScript has not heard of. It must NOT fall
   // back to another source's badge — defaulting to `vendor` is exactly how
@@ -768,9 +920,78 @@ function ChallengeRow({ m, eventId }: { m: MissionRow; eventId: string }) {
             {!m.is_active ? (
               <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
             ) : null}
+            {isLiveNow ? (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[11px] font-medium text-mulberry">
+                <Radio aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                Being asked now
+                {armed.measured && armed.armed?.expiresAt
+                  ? ` · until ${formatUntil(armed.armed.expiresAt, timeZone)}`
+                  : ''}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {/* ⏱ Start this one. The window opens HERE (owner 2026-09-01) and
+              closing the previous one is the same act, done in one transaction
+              by papic_arm_challenge — never two taps.
+
+              Not gated on board_slot: when no board has been materialized every
+              slot is NULL and the guest reader fail-softs to showing all active
+              challenges, so gating here would hide the control on exactly the
+              celebrations whose challenges ARE reaching guests. Gated on
+              is_active, which is what "a guest can see this" means. */}
+          {m.is_active && !isLiveNow ? (
+            <form action={armChallengeAction} className="flex items-center gap-1">
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              {/* ⏱ How long it runs. Owner 2026-09-01: 30 minutes by default,
+                  or an hour, or two. A plain select rather than a second
+                  screen — the choice is made in the same tap as starting it,
+                  because a coordinator making it is standing in a reception. */}
+              <label className="sr-only" htmlFor={`len-${m.mission_id}`}>
+                How long this challenge runs
+              </label>
+              <select
+                id={`len-${m.mission_id}`}
+                name="duration_minutes"
+                defaultValue={CHALLENGE_DURATION_DEFAULT}
+                className="rounded-md border border-ink/15 bg-cream px-1.5 py-1.5 text-[11px] text-ink/70"
+              >
+                {CHALLENGE_DURATION_CHOICES.map((minutes) => (
+                  <option key={minutes} value={minutes}>
+                    {CHALLENGE_DURATION_LABELS[minutes]}
+                  </option>
+                ))}
+              </select>
+              <SubmitButton
+                title="Ask this one now"
+                aria-label="Ask this challenge now"
+                className="inline-flex items-center gap-1 rounded-md border border-mulberry/30 bg-cream px-2 py-1.5 text-[11px] font-medium text-mulberry transition-colors hover:bg-mulberry/10"
+              >
+                <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Ask now
+              </SubmitButton>
+            </form>
+          ) : null}
+          {/* ⏹ Stop — ends the prompt, keeps the challenge. Deliberately NOT
+              the eye below it: hiding takes the challenge off every guest's
+              board, which is a different and much bigger act. Only rendered on
+              the one that is actually running. */}
+          {isLiveNow ? (
+            <form action={stopChallengeAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              <SubmitButton
+                title="Stop asking this one"
+                aria-label="Stop asking this challenge"
+                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+              >
+                <Square aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Stop
+              </SubmitButton>
+            </form>
+          ) : null}
           {/* Hide / show — curation for every source. */}
           <form action={setCoupleChallengeActiveAction}>
             <input type="hidden" name="event_id" value={eventId} />

@@ -1,0 +1,72 @@
+=== S0 probe run mode=matrix minutes=1 started Sat Sep  5 13:32:46 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: 22b2838de claude/encoder-s0-spike
+=== S0 probe run mode=matrix minutes=1 started Sat Sep  5 13:33:14 PST 2026 ===
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+arm64
+Apple M1 Pro
+WebKit framework: 21624.5.1.11.3
+Safari: 26.6.2
+rustc: rustc 1.95.0 (59807616e 2026-04-14) · tauri-cli: tauri-cli 2.11.1
+git: 22b2838de claude/encoder-s0-spike
+        Info Looking up installed tauri packages to check mismatched versions...
+   Compiling objc2-exception-helper v0.1.1
+   Compiling tauri v2.11.1
+   Compiling tauri-macros v2.6.1
+   Compiling objc2 v0.6.4
+   Compiling tauri-plugin-opener v2.5.4
+   Compiling tauri-plugin-oauth v2.0.0
+   Compiling block2 v0.6.2
+   Compiling objc2-core-foundation v0.3.2
+   Compiling setnayan-desktop v0.0.1 (/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri)
+   Compiling dispatch2 v0.3.1
+   Compiling objc2-foundation v0.3.2
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.35.2
+   Compiling window-vibrancy v0.6.0
+   Compiling muda v0.19.1
+   Compiling tauri-runtime v2.11.1
+   Compiling wry v0.55.1
+   Compiling tauri-runtime-wry v2.11.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 00s
+       Built application at: /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[runner] 2026-09-05T13:35:17+0800 BUILD_EXIT=0 elapsed=123s
+[runner] 2026-09-05T13:35:17+0800 app pid=38683 bin=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample] 2026-09-05T13:35:17 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[sample]   96695   0.0   2048 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   96684   0.0  10368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   96680   0.0  29728 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[sample]   88542   0.0   9632 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   38683   0.0     32 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]    3416   0.0   3680 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[probe] t=1788586526168 page-load finished url=tauri://localhost on_target_origin=false tauri=2.11.1
+[probe] not evaluating on tauri://localhost (set SETNAYAN_PROBE_ORIGIN=any to force — weaker result)
+[probe] t=1788586527701 page-load finished url=https://www.setnayan.com/login on_target_origin=true tauri=2.11.1
+[probe] t=1788586527703 eval dispatched mode=matrix origin=https://www.setnayan.com
+[probe] t=1788586527740 {"stage":"start","ms":0,"visibility":"visible","mode":"matrix","href":"https://www.setnayan.com/login","origin":"https://www.setnayan.com","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15 SetnayanApp/desktop","platform":"MacIntel","hardwareConcurrency":8,"devicePixelRatio":2}
+[probe] t=1788586527763 {"stage":"matrix-globals","ms":49,"visibility":"visible","VideoEncoder":"function","AudioEncoder":"function","VideoFrame":"function","AudioData":"function","EncodedVideoChunk":"function","EncodedAudioChunk":"function","MediaStreamTrackProcessor_window":"undefined","MediaStreamTrackGenerator_window":"undefined","OffscreenCanvas":"function","AudioWorklet":"function","AudioWorkletNode":"function","audioWorklet_on_AudioContext":true,"Worker":"function","SharedArrayBuffer":"undefined","crossOriginIsolated":false}
+[probe] t=1788586527982 {"stage":"matrix-video","ms":268,"visibility":"visible","720p_require_hardware":{"supported":null,"error":"TypeError: Type error"},"720p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"quality","width":1280}},"720p_no_preference":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"no-preference","height":720,"latencyMode":"quality","width":1280}},"1080p_require_hardware":{"supported":null,"error":"TypeError: Type error"},"1080p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":1080,"latencyMode":"quality","width":1920}},"720p_encode_config":{"supported":true,"config":{"alpha":"discard","avc":{"format":"annexb"},"bitrate":2500000,"bitrateMode":"constant","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"realtime","width":1280}}}
+[probe] t=1788586527987 {"stage":"matrix-audio","ms":270,"visibility":"visible","aac_lc_48k_stereo":{"supported":true,"config":{"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}},"aac_lc_48k_stereo_128k":{"supported":true,"config":{"bitrate":128000,"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}},"opus_48k_stereo":{"supported":true,"config":{"bitrateMode":"variable","codec":"opus","numberOfChannels":2,"sampleRate":48000}}}
+[sample] 2026-09-05T13:35:28 therm: Note: No thermal warning level has been recorded|Note: No performance warning level has been recorded|Note: No CPU power status has been recorded|
+[sample] procs (pid %cpu rss_kb comm):
+[probe] t=1788586528163 {"stage":"matrix-worker","ms":449,"visibility":"visible","VideoEncoder":"function","AudioEncoder":"function","VideoFrame":"function","MediaStreamTrackProcessor_worker":"function","OffscreenCanvas_worker":"function","offscreen_2d_context":"object","video_720p_prefer_hardware":{"supported":true,"config":{"alpha":"discard","bitrate":2500000,"bitrateMode":"variable","codec":"avc1.42E01F","framerate":30,"hardwareAcceleration":"prefer-hardware","height":720,"latencyMode":"quality","width":1280}},"audio_aac":{"supported":true,"config":{"bitrateMode":"variable","codec":"mp4a.40.2","numberOfChannels":2,"sampleRate":48000}}}
+[probe] t=1788586528163 {"stage":"done","ms":450,"visibility":"visible","mode":"matrix"}
+[sample]   38766  27.2  83216 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   38750  16.2  40192 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   38683   2.9  91184 /Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/target/debug/setnayan-desktop
+[sample]   96695   0.0   2704 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+[sample]   96684   0.0   9008 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+[sample]   96680   0.0  30048 /Applications/Setnayan.app/Contents/MacOS/setnayan-desktop
+[runner] 2026-09-05T13:35:28+0800 page reported done/fatal — stopping app
+[runner] 2026-09-05T13:35:28+0800 app exited; log=/Users/icecasasola/Documents/Claude/Projects/wt-s0/src-tauri/probe/s0-matrix.log

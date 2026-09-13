@@ -403,7 +403,7 @@ export function EditorShell({
           ))}
 
           {/* The umbrella unlock (PR-4) — shown only while the couple does NOT
-              own Pro, so an owner's rail isn't nagged. One CTA for all seven. */}
+              own Pro, so an owner's rail isn't nagged. One CTA for all eight. */}
           {showProCta ? (
             <div className="mt-2 rounded-2xl bg-ink px-4 py-3.5 text-cream">
               <p className="text-xs font-semibold text-cream">Event Hub PRO</p>

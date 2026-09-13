@@ -75,6 +75,7 @@
  * library had no way to say "wedding only", so the board had no way to ask.
  */
 
+import { KWENTO_MOMENTS, type KwentoMomentKey } from './kwento-moments';
 import type {
   ChallengeCategory,
   CaptureKindKey as CaptureKind,
@@ -100,6 +101,19 @@ export type PoolRow = {
   priorityRank: number | null;
   /** null = any event type. A list = only those. */
   eventTypes: string[] | null;
+  /**
+   * WHICH CEREMONY MOMENTS THIS PROMPT SUITS. `null` = none — the row is
+   * reachable through the picker and the board like any other, it simply is not
+   * one of the run-of-show's suggestions. Set from `MOMENT_CHALLENGES` at the
+   * bottom of this file, never row by row: the sequence is a decision about the
+   * WHOLE ceremony and scattering it across four hundred rows is how it would
+   * become unreadable and unreviewable.
+   *
+   * 🔑 THIS IS "SUITS", NOT "CHOSEN". Which prompt a coordinator actually put at
+   * a moment is a per-celebration fact and lives on `papic_missions.moment_key`.
+   * The two are different questions and neither is derivable from the other.
+   */
+  momentKeys: string[] | null;
 };
 
 /**
@@ -191,6 +205,9 @@ function block(
     // "this one is fine at any event" writes `events: null`, and `??` would
     // read that null as "unset" and silently re-apply the block's wedding scope.
     eventTypes: readEvents('events' in d ? d.events : defaults.events),
+    // Always null here. The ceremony mapping is applied ONCE, to the assembled
+    // pool, by `attachMoments` — see MOMENT_CHALLENGES.
+    momentKeys: null,
   }));
 }
 
@@ -1052,8 +1069,13 @@ const BIG: PoolRow[] = block('big_moments', 'big_moments', { kind: 'clip' }, [
 // THE POOL
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Every challenge Setnayan supplies. The migration is generated from this. */
-export const CHALLENGE_POOL: PoolRow[] = [
+/**
+ * Every challenge Setnayan supplies, BEFORE the ceremony sequence is attached.
+ * Not exported: `CHALLENGE_POOL` below is the one a reader wants, and two
+ * exported arrays that differ by one field is an invitation to import the wrong
+ * one.
+ */
+const RAW_POOL: PoolRow[] = [
   ...SHIPPED,
   ...SELFIE,
   ...ANYWHERE,
@@ -1069,6 +1091,98 @@ export const CHALLENGE_POOL: PoolRow[] = [
   ...DANCE,
   ...BIG,
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE CEREMONY SEQUENCE — WHICH PROMPT SUITS WHICH MOMENT
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Build order § 5: "`lib/kwento-moments.ts` already carries the sequence in
+// order … The challenge library exists. **Nothing joins them.** Joining them
+// means a coordinator sets up in two minutes instead of writing prompts from
+// scratch."
+//
+// ── WHY THE MAPPING IS HERE AND NOWHERE ELSE ───────────────────────────────
+// 🔒 THE POOL IS THE ONLY PLACE A CHALLENGE'S DATA IS AUTHORED, and a
+// moment mapping is per-challenge data. `papic-challenge-sql.ts` turns this
+// into the migration's INSERT, exactly as it does for `event_types`. Writing
+// these rows by hand in SQL, or standing up a second table of prompts, would
+// create two mechanisms that disagree about one fact — each passing its own
+// suite. That failure has been paid for here more than once.
+//
+// ── KEYED BY SLUG, ON PURPOSE ──────────────────────────────────────────────
+// A `library_id` is a POSITION inside an ID block, so inserting one row in the
+// middle of a block renumbers everything after it. A slug is the row's name and
+// survives that. Every slug named below must exist — `attachMoments` throws at
+// MODULE LOAD if one does not, so a typo is a hard failure on the first import
+// rather than a moment that quietly offers nothing.
+//
+// ── THE ORDER INSIDE EACH LIST IS THE ORDER THE COORDINATOR SEES ───────────
+// First in the list = the obvious one for that moment. `lib/papic-ceremony-
+// sequence.ts` reads that order from here; the `moment_keys` column exists so
+// the join is answerable in SQL, and the two cannot drift because the database
+// is seeded from this same array.
+//
+// ⚠ SEVERAL PROMPTS PER MOMENT, AND A PROMPT MAY SUIT SEVERAL MOMENTS. Both
+// directions are real: `the-applause` fits the aisle, the kiss and the
+// entrance, and a coordinator wants a choice at each one rather than a single
+// take-it-or-leave-it.
+//
+// 🔑 A WEDDING-SCOPED ROW STILL ONLY REACHES A WEDDING. The `event_types` scope
+// is applied on TOP of this, and it is why the degrade path is not a
+// hypothetical: at a birthday, `bridal_march` maps only to wedding rows, every
+// one of them is filtered out, and the moment falls back to the general pool.
+// That is the ruled behaviour — a moment must degrade, never empty.
+export const MOMENT_CHALLENGES: Record<KwentoMomentKey, readonly string[]> = {
+  bridal_march: ['the-aisle-walk', 'aisle-moment', 'the-reaction-shot', 'the-applause'],
+  exchange_of_vows: ['the-vows', 'the-rings', 'the-reaction-shot'],
+  veil_and_cord: ['the-unity-moment', 'the-blessing', 'sponsors-row'],
+  first_kiss: ['the-first-kiss', 'kiss-cam', 'the-moment-everybody-cheers', 'the-applause'],
+  leaving_the_church: ['confetti-moment', 'sparklers-bubbles-confetti', 'both-families', 'the-car'],
+  cocktail_hour: ['someone-new', 'new-friend', 'two-strangers-talking', 'cheers-with-a-stranger', 'the-bar'],
+  newlywed_entrance: ['the-grand-entrance', 'tunnel-run', 'the-arrival', 'the-applause'],
+  first_dance: ['the-first-dance', 'the-slow-one', 'dance-with-them', 'full-floor'],
+  cake_cutting: ['the-cake-cut', 'the-cake', 'cake-watch', 'the-cake-after', 'the-cake-table'],
+  money_dance: ['the-money-dance', 'conga-line', 'group-boogie', 'five-on-the-floor'],
+};
+
+/**
+ * Attach `momentKeys` to every row, from `MOMENT_CHALLENGES`.
+ *
+ * ⚠ THROWS ON A SLUG THAT DOES NOT EXIST, at module load. A mapping entry that
+ * silently matched nothing would leave that moment falling back to the general
+ * pool forever, which is a WORKING screen showing the WRONG prompts — the
+ * hardest kind of defect to notice, because nothing is broken.
+ *
+ * The keys on a row are written in `KWENTO_MOMENTS` order, never in the order
+ * the map happens to be iterated: the array becomes a SQL literal, and an order
+ * that shifts would rewrite the generated migration for no reason.
+ */
+function attachMoments(rows: PoolRow[]): PoolRow[] {
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  const forSlug = new Map<string, KwentoMomentKey[]>();
+
+  for (const moment of KWENTO_MOMENTS) {
+    for (const slug of MOMENT_CHALLENGES[moment.key]) {
+      if (!bySlug.has(slug)) {
+        throw new Error(
+          `papic-challenge-pool: MOMENT_CHALLENGES.${moment.key} names "${slug}", ` +
+            'which is not a challenge in the pool',
+        );
+      }
+      const list = forSlug.get(slug) ?? [];
+      list.push(moment.key);
+      forSlug.set(slug, list);
+    }
+  }
+
+  return rows.map((r) => {
+    const keys = forSlug.get(r.slug);
+    return keys && keys.length > 0 ? { ...r, momentKeys: keys } : r;
+  });
+}
+
+/** Every challenge Setnayan supplies. The migration is generated from this. */
+export const CHALLENGE_POOL: PoolRow[] = attachMoments(RAW_POOL);
 
 /**
  * The floor the owner asked for: "we want to have over 500 challenges photos or

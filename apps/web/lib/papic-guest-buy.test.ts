@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   PAPIC_GUEST_ACCESS_TOKEN_MIN_LENGTH,
   PAPIC_GUEST_PAYER_NAME_MAX,
-  dedicatedShotsStanding,
   guestOneRungs,
   guestOrderDescription,
   guestPoolRungs,
@@ -12,9 +11,10 @@ import {
   mintPapicGuestAccessToken,
   normalisePayerName,
   papicGuestOrderRow,
-  resolveGuestRelease,
   resolveGuestReloadTarget,
   resolveGuestRung,
+  papicGuestStanding,
+  resolveGuestRelease,
 } from './papic-guest-buy';
 import type { PapicPassTier } from './papic-pass-tiers';
 import type { PapicOneTier } from './papic-one';
@@ -131,46 +131,6 @@ test('holding no camera at all cannot resolve to one', () => {
   assert.deepEqual(resolveGuestReloadTarget('seat-b', ''), { ok: false, reason: 'no_camera' });
   assert.deepEqual(resolveGuestReloadTarget('seat-b', null), { ok: false, reason: 'no_camera' });
   assert.deepEqual(resolveGuestReloadTarget(null, null), { ok: false, reason: 'no_camera' });
-});
-
-/* ── "keep them, or give them to the room" (spec § 7b) ──────────────────── */
-
-test('standing splits what is spent from what could still move', () => {
-  assert.deepEqual(dedicatedShotsStanding(150, 40), { dedicated: 150, spent: 40, releasable: 110 });
-});
-
-test('everything spent leaves nothing releasable', () => {
-  assert.deepEqual(dedicatedShotsStanding(150, 150), { dedicated: 150, spent: 150, releasable: 0 });
-});
-
-test('⭐ spent can never exceed dedicated in the standing, even from bad inputs', () => {
-  // A camera cannot have shot more than it was ever given — but if a caller
-  // somehow reads a spent figure ahead of a stale dedicated one, releasable
-  // must floor at 0, never go negative and imply the pool owes HER credits.
-  assert.deepEqual(dedicatedShotsStanding(50, 90), { dedicated: 50, spent: 90, releasable: 0 });
-});
-
-test('non-finite or non-positive inputs read as zero, not NaN or negative', () => {
-  assert.deepEqual(dedicatedShotsStanding(NaN, NaN), { dedicated: 0, spent: 0, releasable: 0 });
-  assert.deepEqual(dedicatedShotsStanding(-5, -5), { dedicated: 0, spent: 0, releasable: 0 });
-});
-
-test('a release targets exactly what has been spent — never a chosen amount', () => {
-  const r = resolveGuestRelease(dedicatedShotsStanding(150, 40));
-  assert.deepEqual(r, { ok: true, target: 40 });
-});
-
-test('⭐ nothing releasable refuses rather than issuing a no-op target', () => {
-  // The UI must not offer, and the action must not fire, a call that could
-  // only leave the target exactly where it already is.
-  assert.deepEqual(resolveGuestRelease(dedicatedShotsStanding(150, 150)), {
-    ok: false,
-    reason: 'nothing_to_release',
-  });
-  assert.deepEqual(resolveGuestRelease(dedicatedShotsStanding(0, 0)), {
-    ok: false,
-    reason: 'nothing_to_release',
-  });
 });
 
 /* ── one open order per (buyer, rung) ───────────────────────────────────── */
@@ -326,4 +286,59 @@ test('the order description says GUEST out loud, so a blank buyer reads as inten
   // land, or a top-up and a single-camera reload read identically on a bank line.
   assert.match(pool, /shared pot/i);
   assert.match(one, /one camera/i);
+});
+
+// ── § 7b · "give the unused ones to the celebration" ───────────────────────
+//
+// The pure half is deliberately thin, and the tests are about what it does NOT
+// do. PR #5028 put the arithmetic here — `releasable = dedicated - spent` — and
+// the RPC computed something else; the button offered 96 and moved 41 the wrong
+// way. `releasable` is now READ from `papic_seat_releasable_grants` and merely
+// normalised here, so these pin the normalising and the offer decision only.
+
+test('papicGuestStanding keeps the releasable figure it was given', () => {
+  // The DB says 96 of her 137 can move; the host's hand-out is why this is not
+  // simply 137 - 41. Nothing here may "correct" it.
+  const s = papicGuestStanding(337, 41, 96);
+  assert.equal(s.dedicated, 337);
+  assert.equal(s.spent, 41);
+  assert.equal(s.releasable, 96, 'not recomputed as dedicated - spent (which would be 296)');
+});
+
+test('papicGuestStanding never offers more than the camera actually holds', () => {
+  // A releasable larger than the balance can only be a stale or corrupt read;
+  // offering it would promise credits that are not there.
+  assert.equal(papicGuestStanding(50, 0, 900).releasable, 50);
+});
+
+test('papicGuestStanding floors junk to zero rather than rendering NaN', () => {
+  for (const bad of [NaN, -5, Infinity]) {
+    const s = papicGuestStanding(bad, bad, bad);
+    assert.equal(s.dedicated, 0);
+    assert.equal(s.spent, 0);
+    assert.equal(s.releasable, 0);
+  }
+});
+
+test('papicGuestStanding takes whole credits only', () => {
+  const s = papicGuestStanding(137.9, 41.9, 96.9);
+  assert.deepEqual([s.dedicated, s.spent, s.releasable], [137, 41, 96]);
+});
+
+test('resolveGuestRelease offers the button only when something can move', () => {
+  assert.deepEqual(resolveGuestRelease(papicGuestStanding(137, 41, 96)), { ok: true });
+});
+
+test('resolveGuestRelease refuses when nothing can move', () => {
+  // Shot everything she bought.
+  assert.deepEqual(resolveGuestRelease(papicGuestStanding(137, 137, 0)), {
+    ok: false,
+    reason: 'nothing_to_release',
+  });
+  // Holds 200 of the couple's hand-out and nothing of her own — a real case,
+  // and the one where "dedicated - spent" would have wrongly offered 180.
+  assert.deepEqual(resolveGuestRelease(papicGuestStanding(200, 20, 0)), {
+    ok: false,
+    reason: 'nothing_to_release',
+  });
 });

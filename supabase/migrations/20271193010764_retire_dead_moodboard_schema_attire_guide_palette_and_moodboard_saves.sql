@@ -1,0 +1,56 @@
+-- RETIRE TWO ORPHANED MOOD-BOARD SCHEMA ARTIFACTS FROM A SUPERSEDED JUNE 2026 UI.
+--
+-- The Mood Board redesign (2026-09-02) deleted the last two live callers of
+-- these artifacts:
+--   • apps/web/app/dashboard/[eventId]/studio/mood-board/_components/wedding-attire-guide.tsx
+--     — the old per-role attire color picker. Its only write path,
+--     saveAttireGuidePaletteColor (actions.ts), wrote events.attire_guide_palette
+--     (added in 20260610010000_iteration_0010_attire_guide_palette.sql). The
+--     component was never rendered by page.tsx — confirmed dead before removal.
+--   • apps/web/app/dashboard/[eventId]/studio/mood-board/_components/moodboard-chapters.tsx
+--     — the old "4 chapters" (Church/Reception/Attire/Flowers) UI. Its only
+--     write path, saveMoodboardSelection (actions.ts), wrote to
+--     public.event_moodboard_saves (created in
+--     20260526000000_iteration_0010_event_moodboard_saves.sql, later touched by
+--     20260924000000_iteration_0010_moodboard_florals.sql). Also never rendered
+--     by page.tsx.
+--
+-- ⚠ event_moodboard_saves WAS NOT FULLY DEAD: apps/web/app/dashboard/[eventId]/
+-- seating/export/route.ts read `palette_snapshot` from it to color the
+-- "moodboard mode" seating-chart PDF. Since its only writer was the dead
+-- moodboard-chapters.tsx, that table was NEVER populated for a real couple —
+-- the PDF's moodboard mode silently got an empty palette. That route is
+-- redirected, in the same change, to read events.role_palette instead (the
+-- live source every other mood-board surface already reads).
+--
+-- 🔢 SAFE BY THE SAME ARITHMETIC THIS REPO REQUIRES: both write paths were
+-- confirmed to have zero live callers (grep across apps/web) before deletion,
+-- and column/table drops here run AFTER the code that wrote them is removed in
+-- this same PR. No dependency check turned up any FK, view, trigger, or
+-- function referencing either artifact besides the reader redirected above.
+--
+-- Per house style (20271157440480_retire_calendar_subscription_feed.sql):
+-- DROP TABLE is deliberately not CASCADE — if something else depends on
+-- event_moodboard_saves that this sweep missed, that dependency should surface
+-- as an error, not be silently taken down with it. Its own RLS policies drop
+-- implicitly with the table (no other object references them).
+--
+-- ⚠ attire_guide_palette IS a real dependency, and dropping it WITHOUT first
+-- dropping the view fails outright: `public.events_host` (20271008731642, last
+-- rebuilt 20271189680846) is a VIEW with an EXPLICIT column list computed at
+-- apply time from `information_schema.columns` + `has_column_privilege(...)` —
+-- and attire_guide_palette (grandfathered, pre-lockdown) is one of its
+-- projected columns. `ALTER TABLE … DROP COLUMN` on a column a view selects
+-- raises "cannot drop column … because other objects depend on it" — measured
+-- directly against the PGlite replay while writing this migration, not assumed.
+--
+-- The view is dropped here and REBUILT in the very next migration
+-- (20271193183599), which also adds the two new events columns that migration
+-- introduces — per scripts/lint-events-column-grants.mjs, a column add needs
+-- its own GRANT + a same-or-later events_host rebuild, so folding both jobs
+-- into that one rebuild satisfies both obligations instead of rebuilding twice.
+DROP VIEW IF EXISTS public.events_host;
+
+ALTER TABLE public.events DROP COLUMN IF EXISTS attire_guide_palette;
+
+DROP TABLE IF EXISTS public.event_moodboard_saves;

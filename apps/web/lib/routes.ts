@@ -446,7 +446,10 @@ export const routes = {
       detail: (token: string) => `/host/accept/${token}`,
     },
   },
-  howItWorks: () => `/how-it-works`,
+  /* 2026-09-01 — /how-it-works folded into /features as a section. The key is
+     kept so existing callers keep resolving, and now points at the merged page
+     rather than at a 308. Deep-link the section with `#how-it-works`. */
+  howItWorks: () => `/features`,
   join: {
     detail: (eventId: string) => `/join/${eventId}`,
     success: (eventId: string) => `/join/${eventId}/success`,
@@ -495,7 +498,7 @@ export const routes = {
   tl: {
     about: () => `/tl/about`,
     features: () => `/tl/features`,
-    howItWorks: () => `/tl/how-it-works`,
+    howItWorks: () => `/tl/features`,
   },
   v: {
     detail: (slug: string) => `/v/${slug}`,

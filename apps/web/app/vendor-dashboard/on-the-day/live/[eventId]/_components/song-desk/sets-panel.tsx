@@ -29,7 +29,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { ChevronRight, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, Pencil, Plus, X } from 'lucide-react';
 
 import {
   PLAYLIST_SLOT_LABELS,
@@ -40,6 +40,7 @@ import type { Song } from '@/lib/songs';
 import { MAX_SETS, repertoireAvailableForSet, type VendorSet } from '@/lib/vendor-sets';
 import {
   addSongToVendorEventSet,
+  updateVendorEventSet,
   createVendorEventSet,
   deleteVendorEventSet,
   removeSongFromVendorEventSet,
@@ -194,29 +195,49 @@ function SetCard({
   pending: boolean;
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const available = repertoireAvailableForSet({ repertoire, setSongs: set.songs });
 
   return (
     <section className="space-y-1.5 rounded-xl border border-ink/10 p-3">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-        <h5 className="text-sm font-medium text-ink">
-          <span className="font-mono text-xs text-ink/45">{set.position}</span> {set.name}
-        </h5>
-        <span className="flex items-center gap-2">
-          <span className="font-mono text-[0.625rem] uppercase tracking-[0.08em] text-ink/45">
-            {set.slotLabel}
+      {editing ? (
+        <SetHeaderEditor
+          eventId={eventId}
+          set={set}
+          pending={pending}
+          run={run}
+          onDone={() => setEditing(false)}
+        />
+      ) : (
+        <header className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+          <h5 className="text-sm font-medium text-ink">
+            <span className="font-mono text-xs text-ink/45">{set.position}</span> {set.name}
+          </h5>
+          <span className="flex items-center gap-2">
+            <span className="font-mono text-[0.625rem] uppercase tracking-[0.08em] text-ink/45">
+              {set.slotLabel}
+            </span>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setEditing(true)}
+              aria-label={`Rename set ${set.name}`}
+              className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
+            >
+              <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(() => deleteVendorEventSet(eventId, set.setId))}
+              aria-label={`Delete set ${set.name}`}
+              className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
+            >
+              <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
           </span>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(() => deleteVendorEventSet(eventId, set.setId))}
-            aria-label={`Delete set ${set.name}`}
-            className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
-          >
-            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        </span>
-      </header>
+        </header>
+      )}
 
       {set.songs.length > 0 ? (
         <ul>
@@ -281,5 +302,111 @@ function SetCard({
         </p>
       )}
     </section>
+  );
+}
+
+
+/**
+ * Rename a set, or re-anchor it to a different moment.
+ *
+ * 🚨 THE ONLY OTHER ROUTE TO A CORRECTED NAME DESTROYED THE SETLIST.
+ * `vendor_event_set_songs.set_id` is `ON DELETE CASCADE` (migration
+ * 20271022422205), and `deleteVendorEventSet`'s own docblock says so plainly:
+ * "its songs cascade — the set is the unit, not the songs." That is right for a
+ * real delete and catastrophic as a way to fix a typo — delete "Slow bunr",
+ * re-add "Slow burn", and every song placed in it is gone. On the night.
+ *
+ * The action to do this properly (`updateVendorEventSet`) shipped with the rest
+ * of the Song Desk and was never mounted, so the band had the destructive route
+ * and no other. The panel's long docblock lists what it deliberately omits — no
+ * auto-fill, no recommender — and renaming is not on that list; it was missed,
+ * not declined. The owner's own framing was *"the band can set 1/2/3/4/5/6 sets,
+ * and NAME the x number of songs per set."*
+ *
+ * Re-anchoring is offered in the same breath because it is the same row and the
+ * same mistake — picking `dinner` when you meant `first_dance` costs the couple
+ * their "still missing" line, which is the whole payoff of the shared vocabulary.
+ */
+function SetHeaderEditor({
+  eventId,
+  set,
+  pending,
+  run,
+  onDone,
+}: {
+  eventId: string;
+  set: VendorSet;
+  pending: boolean;
+  run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
+  onDone: () => void;
+}) {
+  const [name, setName] = useState(set.name);
+  const [slot, setSlot] = useState<PlaylistSlotType>(set.slot);
+
+  const trimmed = name.trim();
+  const dirty = trimmed !== set.name || slot !== set.slot;
+
+  function save() {
+    if (trimmed.length === 0 || !dirty) {
+      onDone();
+      return;
+    }
+    run(async () => {
+      const res = await updateVendorEventSet(eventId, set.setId, {
+        name: trimmed,
+        slotType: slot,
+      });
+      if (res.ok) onDone();
+      return res;
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="font-mono text-xs text-ink/45">{set.position}</span>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') onDone();
+        }}
+        maxLength={60}
+        aria-label="Set name"
+        autoFocus
+        className="min-w-0 flex-1 rounded-lg border border-ink/20 bg-white px-2 py-1 text-sm text-ink"
+      />
+      <select
+        value={slot}
+        onChange={(e) => setSlot(e.target.value as PlaylistSlotType)}
+        aria-label="Moment this set covers"
+        className="rounded-lg border border-ink/20 bg-white px-1.5 py-1 text-xs text-ink"
+      >
+        {PLAYLIST_SLOT_TYPES.filter((sl) => sl !== 'banned_songs').map((sl) => (
+          <option key={sl} value={sl}>
+            {PLAYLIST_SLOT_LABELS[sl]}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={pending || trimmed.length === 0}
+        onClick={save}
+        aria-label="Save set name"
+        className="rounded-full p-1 text-ink/50 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+      >
+        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onDone}
+        aria-label="Cancel rename"
+        className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
+      >
+        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+    </div>
   );
 }

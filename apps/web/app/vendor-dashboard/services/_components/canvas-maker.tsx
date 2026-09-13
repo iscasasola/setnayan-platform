@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  useActionState,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Check,
@@ -67,6 +60,7 @@ import {
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
+import { inclusionsAreSet } from '@/lib/service-publish-gate';
 import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
@@ -433,7 +427,8 @@ export function CanvasMaker({
    * *"looks better"*.)
    *
    * A blank card asks the ONLY things the publish gate requires — a cover
-   * photo, a starting price and one Setnayan Exclusive — one at a time, in the
+   * photo, a starting price and what's included (H2, 2026-09-11) — plus the
+   * optional Setnayan gift, one at a time, in the
    * sheets the maker already owns, with the card visible above painting itself.
    * Everything else on this screen is optional and always was; it simply looked
    * required because it was all on at once.
@@ -459,7 +454,7 @@ export function CanvasMaker({
     const steps: SheetKey[] = [];
     if (firstCardEver) steps.push('intro');
     if (!category) steps.push('kind');
-    steps.push('media', 'price', 'excl');
+    steps.push('media', 'price', 'custom', 'excl');
     return steps;
     // Frozen at mount ON PURPOSE — answering must not renumber the question the
     // vendor is looking at, so `category` and `firstCardEver` are read once.
@@ -585,7 +580,6 @@ export function CanvasMaker({
     }
     for (const [name, value] of keep.fields) {
       if (name === 'title') setTitle(value);
-      else if (name === 'exclusive_perk_text') setPerk(value);
       else if (name === 'coverage_id') setCoverageId(value);
       else if (name === 'category') continue; // carried above, in state
       else if (form) {
@@ -647,7 +641,19 @@ export function CanvasMaker({
   );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
-  const [perk, setPerk] = useState(initial?.exclusivePerkText ?? '');
+  /**
+   * The supplier's WHOLE say over the Setnayan gift (owner 2026-09-09: "it is
+   * either a yes or a no"). There is no amount, no picker and no top-up: the
+   * gift is Papic credits sized at 40% of the booking fee, capped at the
+   * 50,000-credit rung, and derived from a price that does not exist yet.
+   *
+   * ⚠ MIRRORED INTO A HIDDEN INPUT, NOT LEFT TO A CHECKBOX. An unchecked
+   * checkbox submits nothing, which would make "no" indistinguishable from
+   * "this surface never asked" — and the save RPC deliberately treats a missing
+   * key as UNCHANGED so it cannot erase the retired free text. A supplier
+   * turning the gift OFF must send a real `off`.
+   */
+  const [giftOn, setGiftOn] = useState(initial?.includesSetnayanGift ?? false);
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   /**
    * How long the picked clip is, in seconds — `null` while unknown.
@@ -807,7 +813,6 @@ export function CanvasMaker({
     hasClip: snap.hasClip,
     hasPrice: snap.hasPrice,
     title,
-    exclusiveText: perk,
     // The other half of the real gate — see CardHealthSnapshot.
     inclusionLabels: snap.inclusionLabels,
     discountConditions: snap.discountConditions,
@@ -867,18 +872,31 @@ export function CanvasMaker({
   /**
    * ⚖ CONTINUE WAITS FOR THE ANSWER; SKIP NEVER DOES (drawn 2026-08-28: *"the
    * Continue button stays off until the required thing on that sheet exists"*).
-   * The two questions ARE the publish gate, so letting Continue past an empty
-   * one only moves the same refusal further from the field that fixes it. The
+   * A question that IS the publish gate must hold Continue, or letting it past
+   * only moves the same refusal further from the field that fixes it. The
    * escape is the skip line below, which leaves the pass entirely — never a
    * disabled button with no way past it.
+   *
+   * 🔴 THE SETNAYAN GIFT NO LONGER HOLDS IT (owner 2026-09-09: "exclusive
+   * setnayan gift then should be optional"). THIS WAS THE THIRD PLACE THE OLD
+   * RULE WAS WRITTEN — after `PUBLISH_REQUIREMENTS` and the
+   * `enforce_service_publish_gate` trigger — and it is the one a NEW shop meets
+   * first. Relaxing the other two without this one would have shipped the
+   * ruling invisible: the gate would allow an empty gift while the guided pass
+   * still refused to walk past the field, so nobody making their first card
+   * could ever reach the state the ruling created.
+   *
+   * ⚖ The QUESTION deliberately stays in the pass. It is still worth offering,
+   * and offering is now what it is: `passAnswered` is unconditionally true
+   * here, so Continue is live whether or not a gift is typed.
    */
   const passAnswered =
     passStep === 'media'
       ? snap.hasCover
       : passStep === 'price'
         ? snap.hasPrice
-        : passStep === 'excl'
-          ? perk.trim().length > 0
+        : passStep === 'custom'
+          ? inclusionsAreSet(snap.inclusionLabels)
           : true;
   const passFooter = inPass ? (
     <div className="space-y-2 pt-1">
@@ -1155,19 +1173,21 @@ export function CanvasMaker({
               </span>
             ) : (
               <span style={{ color: 'var(--m-slate-3)' }}>
-                Add a price — couples look for it first. Or leave it as price-on-request.
+                Add a price — couples look for it first. Required to publish.
               </span>
             )}
           </CardRegion>
 
-          <CardRegion onClick={() => setSheet('excl')} label="Edit your Setnayan Exclusive">
+          <CardRegion onClick={() => setSheet('excl')} label="Choose whether you include the Setnayan gift">
             <span
-              key={perk.trim().length > 0 ? 'perk-set' : 'perk-empty'}
-              className={`flex items-center gap-1.5${perk.trim() ? ' sn-paint-in' : ''}`}
-              style={{ color: 'var(--m-orange-2)' }}
+              key={giftOn ? 'gift-on' : 'gift-off'}
+              className={`flex items-center gap-1.5${giftOn ? ' sn-paint-in' : ''}`}
+              style={{ color: giftOn ? 'var(--m-orange-2)' : 'var(--m-slate-3)' }}
             >
               <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              {perk.trim() ? perk.trim() : 'Add your Setnayan Exclusive'}
+              {giftOn
+                ? 'Includes a Setnayan gift — free Papic photos, sized to the booking'
+                : 'Add a Setnayan gift — optional'}
             </span>
           </CardRegion>
 
@@ -1253,7 +1273,7 @@ export function CanvasMaker({
           <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
           <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
           <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
-          <Recap k="Setnayan Exclusive" v={perk.trim() ? 'Set' : '— not set'} />
+          <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
           <Recap
             k="What couples get"
             v={
@@ -1726,50 +1746,74 @@ export function CanvasMaker({
 
         <CanvasSheet
           id="canvas-excl"
-          title={inPass ? 'Why book you here?' : 'Setnayan Exclusive'}
+          title={inPass ? 'Give a Setnayan gift?' : 'Setnayan gift'}
           open={sheet === 'excl'}
           onClose={inPass ? leavePass : () => setSheet(null)}
           confirmLabel={inPass ? null : 'Update card'}
           guided={inPass}
           footer={passStep === 'excl' ? passFooter : null}
         >
-          <Field label="Your Setnayan Exclusive" htmlFor="exclusive_perk_text">
-            <input
-              id="exclusive_perk_text"
-              name="exclusive_perk_text"
-              value={perk}
-              onChange={(e) => setPerk(e.target.value)}
-              maxLength={500}
-              placeholder="e.g. Free engagement mini-shoot for Setnayan couples"
-              className="input-field"
-            />
-          </Field>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            One thing couples only get by booking you through Setnayan. Required to{' '}
-            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>publish</span> — you can
-            save a draft without it.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {['Free add-on', 'Priority date hold', 'Setnayan-only rate', 'Complimentary upgrade'].map((c) => (
+          {/*
+            THE WHOLE CONTROL. It used to be a 500-character free-text box, and
+            the two cards live in production when it was retired say "Free
+            1-hour extension for Setnayan couples" and "FREE" — which is the
+            argument against free text, not for it: Setnayan could not price,
+            honour or even parse what a supplier typed there.
+
+            ⚠ NO NUMBER IS OFFERED OR PROMISED HERE. The count is 40% of the
+            booking fee spent along the live Papic rung ladder, and the booking
+            fee does not exist until a price is agreed. The supplier learns the
+            exact figure on the quote; so does the couple.
+          */}
+          <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
+          <div className="flex gap-2" role="group" aria-label="Include a Setnayan gift">
+            {[
+              { on: true, label: 'Yes, include it' },
+              { on: false, label: 'No, not on this card' },
+            ].map((opt) => (
               <button
-                key={c}
+                key={opt.label}
                 type="button"
-                onClick={() => setPerk(c)}
-                className="min-h-[34px] rounded-full border px-3 py-1 text-xs"
-                style={{ borderColor: line, background: paper, color: 'var(--m-slate)' }}
+                onClick={() => setGiftOn(opt.on)}
+                aria-pressed={giftOn === opt.on}
+                className="min-h-[44px] flex-1 rounded-xl border px-3 py-2 text-sm font-medium"
+                style={{
+                  borderColor: giftOn === opt.on ? 'var(--m-orange-2)' : line,
+                  background: giftOn === opt.on ? 'var(--m-orange-1)' : paper,
+                  color: giftOn === opt.on ? 'var(--m-ink)' : 'var(--m-slate-2)',
+                }}
               >
-                {c}
+                {opt.label}
               </button>
             ))}
           </div>
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            Say yes and every couple who books this card gets{' '}
+            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+              free Papic photos
+            </span>{' '}
+            for their celebration — a real Setnayan product, given in your name. The number of
+            photos is worked out from your booking fee and appears on the quote, so there is
+            nothing here for you to set.
+          </p>
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            It is added to your lock bill beside the booking fee, capped at 40% of that fee — never
+            more. Leaving it off is fine: your card publishes either way.
+          </p>
         </CanvasSheet>
 
         <CanvasSheet
           id="canvas-custom"
-          title="What couples get"
+          title={inPass ? 'What’s included?' : 'What couples get'}
           open={sheet === 'custom'}
-          onClose={() => setSheet(null)}
+          onClose={inPass ? leavePass : () => setSheet(null)}
+          confirmLabel={inPass ? null : undefined}
+          guided={inPass}
+          footer={passStep === 'custom' ? passFooter : null}
         >
+          {/* H2 · the pass asks for at least one line here — "what's
+              included" joined the publish gate 2026-09-11 (owner: "the
+              cover-photo · title · inclusions requirements stay"). */}
           <InclusionsEditor initial={initial?.inclusions ?? []} />
           {/* The #3846 merged customization editor, mounted whole. Flag-dark on
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
@@ -2331,7 +2375,33 @@ function CanvasSheet({
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
-  return (
+  /**
+   * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest
+   * TRANSFORMED ancestor, not the viewport, and this sheet had one.
+   *
+   * Measured in production 2026-09-07 at 1187×1208: the page wrapper
+   * `.sn-page-enter` carries `transform: matrix(1, 0, 0, 1, 0, 0)` — an
+   * IDENTITY transform, left behind by the entrance animation and doing
+   * nothing visible. It is still a transform, so it became the containing
+   * block: this `fixed inset-0` backdrop measured **77px from the top and
+   * 184px tall** instead of filling the viewport. `lg:my-auto` then centred a
+   * 435px sheet inside 184px — `margin-top: -125.5px`, sheet top **-48px** —
+   * so it rendered squashed into the top-right corner, over the header,
+   * unreadable. Nothing was mis-styled; the container was the wrong size.
+   *
+   * This is the SAME fix `category-search-overlay.tsx` and
+   * `team-summary-chip.tsx` already carry, for the same reason, each with its
+   * own note. This sheet was the one that missed it.
+   *
+   * Removing the identity transform from `.sn-page-enter` would also work and
+   * is deliberately NOT done here: it is a shared page wrapper, and anything
+   * else relying on it as a containing block would move with it.
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <div hidden={!open} className="fixed inset-0 z-40">
       <button
         type="button"
@@ -2391,6 +2461,7 @@ function CanvasSheet({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

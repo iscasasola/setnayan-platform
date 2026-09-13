@@ -462,155 +462,30 @@ export async function reorderScheduleBlocks(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`);
 }
 
-/**
- * Idempotent seed for Card 15 first-open. Fires when the host opens the
- * card and event_schedule_blocks is EMPTY for the event. Inserts the
- * canonical 4 top-level blocks (Ceremony · Cocktail Hour · Reception ·
- * After Party) + ceremony-type-aware sub-blocks under Ceremony +
- * universal Filipino reception parts under Reception.
- *
- * Two-pass insert (parents first, then children) because the children
- * need their parent's block_id which only exists after pass 1 commits.
- *
- * Uses the admin client to write because the seed runs on first card
- * load (not in response to a user form submit); this matches the
- * existing pattern of server-side fixtures used elsewhere in the wizard.
- * RLS still applies — the host's event_id is required and validated
- * via membership check before the admin write.
- *
- * Returns the count of rows inserted · 0 if the seed was skipped because
- * blocks already exist for this event.
- */
-export async function seedDefaultScheduleBlocks(
-  eventId: string,
-  ceremonyType: SeedCeremonyType | null,
-  eventDate: string | null,
-): Promise<number> {
-  if (!eventId) throw new Error('event_id required');
-
-  // Use the regular authenticated client first to verify the user has
-  // access to this event (via the RLS-gated SELECT on event_schedule_blocks).
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: existing, error: existingErr } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id')
-    .eq('event_id', eventId)
-    .limit(1);
-  if (existingErr) throw new Error(existingErr.message);
-  if (existing && existing.length > 0) return 0; // already seeded · skip
-
-  // Iteration 0053 P4 Unit 1 — defensive: this seed is wedding-shaped (a
-  // catholic-default ceremony + the Filipino reception spine). It is currently
-  // DEAD CODE (zero call sites), but guard on event_type so a future wiring can
-  // never inject a wedding timeline into a non-wedding event. No live change.
-  //
-  // We also pull BOTH ceremony columns here (not just event_type) so that when
-  // this seed is eventually wired to a live caller, the overlay-aware
-  // buildScheduleSeed can surface the 敬茶 Tea-ceremony beat for the common
-  // Tsinoy case (church/civil PRIMARY + secondary_ceremony_type='chinese'),
-  // which the primary ceremony_type column alone can't express.
-  const { data: ev } = await supabase
-    .from('events')
-    .select('event_type, ceremony_type, secondary_ceremony_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const eventRow = ev as {
-    event_type?: string | null;
-    ceremony_type?: string | null;
-    secondary_ceremony_type?: string | null;
-  } | null;
-  if ((eventRow?.event_type ?? 'wedding') !== 'wedding') {
-    return 0;
-  }
-
-  // Admin client for the actual writes · bypasses RLS for the seed pass
-  // (the membership check above already confirmed the host owns this event).
-  const admin = createAdminClient();
-
-  // Pass the event's two ceremony columns as the overlay signal so a
-  // church-primary + Chinese-secondary couple gets the tea-ceremony beat
-  // injected. Fall back to the explicit `ceremonyType` arg for the primary
-  // when the DB row is unavailable (keeps the existing contract intact).
-  const seed = buildScheduleSeed(
-    ceremonyType ?? (eventRow?.ceremony_type as SeedCeremonyType | null) ?? null,
-    eventDate,
-    {
-      ceremony_type: eventRow?.ceremony_type ?? null,
-      secondary_ceremony_type: eventRow?.secondary_ceremony_type ?? null,
-    },
-  );
-
-  // Pass 1 · insert the 4 top-level blocks and capture their block_ids
-  // keyed by `key` so pass 2 can wire children correctly.
-  const topLevelRows = seed.topLevel.map((row) => ({
-    event_id: eventId,
-    label: row.label,
-    block_type: row.block_type,
-    start_at: row.start_at,
-    end_at: row.end_at,
-    is_public: row.is_public,
-    sort_order: row.sort_order,
-    parent_block_id: null,
-  }));
-
-  const { data: insertedTop, error: topErr } = await admin
-    .from('event_schedule_blocks')
-    .insert(topLevelRows)
-    .select('block_id,label');
-  if (topErr) throw new Error(topErr.message);
-  if (!insertedTop) throw new Error('Top-level seed insert returned no rows');
-
-  // Map back from label → block_id so we can wire children.
-  const ceremonyParentId = insertedTop.find((r) => r.label === 'Ceremony')?.block_id;
-  const receptionParentId = insertedTop.find((r) => r.label === 'Reception')?.block_id;
-  if (!ceremonyParentId || !receptionParentId) {
-    throw new Error('Failed to resolve seed parent IDs');
-  }
-
-  // Pass 2 · insert child sub-blocks under Ceremony + Reception.
-  const childRows = seed.buildChildren({
-    ceremony: ceremonyParentId,
-    reception: receptionParentId,
-  });
-  const childInserts = childRows.map((row) => ({
-    event_id: eventId,
-    label: row.label,
-    block_type: row.block_type,
-    start_at: row.start_at,
-    end_at: row.end_at,
-    is_public: row.is_public,
-    sort_order: row.sort_order,
-    parent_block_id:
-      row.parent_key === 'ceremony' ? ceremonyParentId : receptionParentId,
-  }));
-
-  if (childInserts.length > 0) {
-    const { error: childErr } = await admin
-      .from('event_schedule_blocks')
-      .insert(childInserts);
-    if (childErr) throw new Error(childErr.message);
-  }
-
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
-  return topLevelRows.length + childInserts.length;
-}
-
 /*
-  ─── `seedNonWeddingRunOfShow` MOVED OUT OF THIS FILE (2026-08-21) ────────
+  ─── BOTH FIRST-OPEN SCHEDULE SEEDS ARE GONE FROM THIS FILE ──────────────
 
-  It lives in `lib/schedule-seed.server.ts` now. It was never a form action:
-  the schedule PAGE was its only caller, and it called it during render — where
-  the two `revalidatePath` calls at the end of it are fatal. Every first-ever
-  visit to a non-wedding event's Schedule returned a 500, and because the INSERT
-  commits before the revalidate, refreshing made it go away.
+  `seedNonWeddingRunOfShow` MOVED OUT (2026-08-21) — it lives in
+  `lib/schedule-seed.server.ts` now. It was never a form action: the schedule
+  PAGE was its only caller, and it called it during render, where the two
+  `revalidatePath` calls at the end of it are fatal. Every first-ever visit to a
+  non-wedding event's Schedule returned a 500, and because the INSERT commits
+  before the revalidate, refreshing made it go away.
 
-  Do not move it back. A `'use server'` module is for things a person submits.
+  `seedDefaultScheduleBlocks` DELETED (2026-09-03) — the WEDDING twin of that
+  same mistake, and the reason this note now covers both. Same shape (an
+  idempotent seed-into-empty, written for "Card 15 first-open"), same fatal tail
+  (two `revalidatePath` calls), and zero callers: the wedding branch of
+  `schedule/page.tsx` never seeds — the comment there says weddings "keep their
+  own (separate) spine and are untouched."
+
+  🔑 What actually fills an empty wedding schedule is `loadScheduleTemplate`
+  below, wired from `_components/ros-p2.tsx` — additive-into-empty, and SUBMITTED
+  by the host. That is the difference that matters: a `'use server'` module is
+  for things a person submits. Had anyone ever wired this one as designed, it
+  would have shipped the identical 500 a second time.
+
+  Do not move either back.
 */
 
 /**

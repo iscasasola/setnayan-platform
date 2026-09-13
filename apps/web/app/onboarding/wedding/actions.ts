@@ -22,6 +22,7 @@ import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -32,7 +33,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
-import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -348,7 +349,20 @@ export type OnboardingCommitResult =
        */
       paymentPath?: string | null;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /**
+       * `error === 'wedding_exists'` only: the couple's existing IN-PLANNING
+       * wedding's event id, read off the same row the guard already fetched
+       * (getInPlanningWedding) — no extra query. Lets the caller send them
+       * straight to that wedding instead of leaving the CTA wired to a commit
+       * that will only ever answer `wedding_exists` again (owner-locked
+       * one-wedding rule, 2026-07-12). Absent when the id isn't cheaply known —
+       * the caller falls back to the dashboard launcher.
+       */
+      existingEventId?: string;
+    };
 
 export async function commitOnboardingWedding(
   payload: OnboardingCommitPayload,
@@ -396,8 +410,11 @@ export async function commitOnboardingWedding(
   // this commit path could walk past it (council 2026-07-17 recon: an existing
   // bypass). A freshly-minted anonymous user has no prior events by
   // construction, so the read is skipped for them.
-  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
-    return { ok: false, error: 'wedding_exists' };
+  if (!user.is_anonymous) {
+    const existingWedding = await getInPlanningWedding(supabase, user.id);
+    if (existingWedding) {
+      return { ok: false, error: 'wedding_exists', existingEventId: existingWedding.eventId };
+    }
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --
@@ -589,7 +606,7 @@ export async function commitOnboardingWedding(
   // the event does — an event with no grant takes papic_event_pool_status()'s
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
   // a miss here is self-healed on the first Papic-studio render.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id);
+  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
   // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
   // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
   // shared pool because the two are different products — the pool grant does
@@ -951,7 +968,12 @@ export async function searchOnboardingReceptionVenues(input: {
     rating: r.avg_rating_overall,
     reviewCount: r.review_count,
     photoUrl: r.primary_photo_url ?? r.logo_url,
-    verified: r.verification_state === 'verified',
+    // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
+    // deadline, not verification_state alone.
+    verified: hasVerifiedBadge({
+      verification_state: r.verification_state,
+      next_renewal_due_at: r.next_renewal_due_at,
+    }),
     tier,
   });
   try {

@@ -193,7 +193,24 @@ test('the deep link sends an owner to their tool before it closes anything', () 
 */
 test('the services page closes its Add buttons and its future tense', () => {
   const launch = code('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /getMenuLifecyclePhase\(/, 'the one resolver, not the website one');
+  /*
+    The page asks the one resolver THROUGH `resolveHubPhase` since the Event Hub
+    restructure (2026-09-02), so this pins BOTH ENDS of the indirection rather
+    than dropping the assertion: the page must reach the named resolver, must not
+    reach for the website one, and the named resolver must itself ask
+    `getMenuLifecyclePhase`. An indirection nobody follows is where a swapped
+    resolver would live.
+  */
+  assert.match(launch, /resolveHubStanding\(|resolveHubPhase\(/, 'the one resolver, by name');
+  assert.doesNotMatch(launch, /getLifecyclePhase\(/, 'never the website one for this decision');
+  const control = code('lib/event-hub-control.ts');
+  const phaseAt = control.indexOf('export function resolveHubPhase');
+  assert.ok(phaseAt > 0, 'resolveHubPhase must exist to be followed');
+  assert.match(
+    control.slice(phaseAt, phaseAt + 500),
+    /getMenuLifecyclePhase\(/,
+    'resolveHubPhase must ask the has-it-happened resolver, not the website one',
+  );
   assert.ok(
     (launch.match(/eventHasHappened/g) || []).length >= 5,
     'the masthead, three blurbs and the Add branch',

@@ -22,7 +22,8 @@
  *
  * ─── WHAT CHANGED, AND WHAT DELIBERATELY DID NOT ─────────────────────────
  * The answers now render HERE, in the front door's own body, in the front
- * door's own card family — the same shelf the chips above filter. Nothing
+ * door's own card family — the same cards New uploads and Trending render.
+ * Nothing
  * about the marketplace's search changed: /explore keeps its own box, its
  * word-bridge, its filters and all 192 categories, and every results page
  * carries one row handing the typed words straight to it.
@@ -48,17 +49,13 @@ import Link from 'next/link';
 import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { shopInitials } from '@/lib/shop-initials';
 
+/** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
+ * used for `item.label` (the searcher's own event/space) below — that call
+ * shared the identical bug, so it is fixed by the same change. */
 function initialsOf(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .filter(Boolean)
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'SN'
-  );
+  return shopInitials(name, 2, 'SN');
 }
 
 /**

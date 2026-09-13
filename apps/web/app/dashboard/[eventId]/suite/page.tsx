@@ -19,6 +19,8 @@ import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS } from '@/lib/store-shell';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -329,7 +331,16 @@ export default async function SuitePage({ params }: Props) {
   // card that isn't rendered.
   const communityId =
     (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
-  const surfaceOk = (a: AddOnEntry) => addOnOfferedForEvent(a, profile, communityId);
+  // 🔒 The Suite is the Studio hub's flag-gated twin and needs the SAME store-
+  // shell filter, or the paid tiles Studio hides simply reappear here with
+  // their peso prices (App Review 3.1.1). Applied inside `surfaceOk` so every
+  // downstream list — the grid, the recommendations, the eligible set — is
+  // covered by one predicate rather than three call sites. See
+  // lib/store-shell.ts; studio/page.tsx does the same thing.
+  const storeShell = await isStoreShellRequest();
+  const surfaceOk = (a: AddOnEntry) =>
+    !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
+    addOnOfferedForEvent(a, profile, communityId);
 
   // …and the SAME gate for the free-tools strip. It is a separate array, so it
   // needs a separate call — which is exactly why it was missed: two correct
@@ -525,21 +536,26 @@ export default async function SuitePage({ params }: Props) {
     }))
     .filter((s) => s.items.length > 0);
 
-  // The two always-visible deep-link chips on the consolidated "Your Website"
-  // card (verdict §2 defect 1 · owner sign-off #2 2026-08-14). These are the
-  // two part-cards that RETIRED into it — Event and Editorial — so neither
-  // destination moved further than one tap.
-  //
-  // ⚠ They are DIFFERENT destinations on purpose. The verdict was written while
-  // each part had its own /site-editor/<phase> page; those pages are now retired
-  // redirects into the ONE unified editor (2026-07-25), so pointing both chips
-  // at addOnHref() would render two chips that go to the same URL — a
-  // distinction a couple can see is fake. Editorial keeps its own editor at
-  // /website/editorial, which the /website hub already links to.
-  const websiteChips: readonly { label: string; href: string }[] = [
-    { label: 'Event page', href: `/dashboard/${eventId}/website/editor` },
-    { label: 'Editorial', href: `/dashboard/${eventId}/website/editorial` },
-  ];
+  /*
+    ⭐ THE TWO WEBSITE CHIPS ARE GONE (owner ruling 2026-09-02 — "if it is the
+    same then adjust"). They were "Event page" → /website/editor and
+    "Editorial" → /story, added 2026-08-14 when this card opened
+    the `/website` hub: the hub was the map and the chips were the shortcuts.
+
+    The card now opens the Event Hub CONTROLLER (`/launch`), and the
+    controller's own "set once" strip already carries BOTH of those
+    destinations, by name and one tap in — "The page itself" → /website/editor
+    and "The story" → /story. A chip beside the card would be a
+    second control for a door the card's own landing already shows, which is
+    the distinction a couple can see is fake that the 2026-08-14 verdict
+    existed to remove. The alternative the ruling allowed — repointing the
+    chips at a channel the landing does NOT select — had nothing left to point
+    at: the controller carries all four public channels and both editors.
+
+    ⛔ Neither destination lost reachability, which is the only thing the chips
+    were ever for. `one-event-hub-door.test.ts` fails if the controller stops
+    carrying them.
+  */
 
   // A catalog service → a Suite grid tile (box). Owner 2026-07-23: the Suite
   // reads as an app-store grid of many features, not full-width rows.
@@ -553,7 +569,6 @@ export default async function SuitePage({ params }: Props) {
       gradient={a.poster.baseBackground}
       pill={pillFor(a)}
       tags={a.tags}
-      links={a.key === 'landing-page' ? websiteChips : undefined}
     />
   );
 

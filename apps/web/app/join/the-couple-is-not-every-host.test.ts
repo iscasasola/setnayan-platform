@@ -96,18 +96,24 @@ test('the join door hardcodes no wedding noun, in EITHER arm', () => {
   );
 });
 
-test('the join door RESOLVES its words, once, for all nine sentences', () => {
+test('the join door RESOLVES its words, once, for all eight sentences', () => {
   const src = strip(read(JOIN_DOOR));
   assert.ok(
     count(src, 'eventWordsForEvent(eventId)') >= 1,
     'join-flow.tsx must resolve the event words. It is already an async server ' +
       'component holding the event id, so this needs no prop and no call-site change.',
   );
-  // The nine sites: 4 refusal sentences + 5 rendered strings across both arms.
+  // The eight sites: 4 refusal sentences + 4 rendered strings (2 per arm).
+  // ⚖ WAS NINE until 2026-09-10, and the drop is two DELETIONS, not a revert:
+  // "{TheOrganizer} can refine it later." sat under the role picker in BOTH arms
+  // and left with it (the owner-locked 2026-06-25 addendum, built that day), and
+  // the accountless arm gained "Tell us your name so {theOrganizer} can find
+  // you". The claim itself — no hardcoded noun — is held by the test above;
+  // mutation-checked that reverting any one sentence still turns this red.
   const uses = count(src, 'w.theOrganizer') + count(src, 'w.TheOrganizer');
   assert.ok(
-    uses >= 9,
-    `expected at least 9 resolved-noun sites in the join door, found ${uses} — ` +
+    uses >= 8,
+    `expected at least 8 resolved-noun sites in the join door, found ${uses} — ` +
       'a sentence has been reverted to a hardcoded word',
   );
 });

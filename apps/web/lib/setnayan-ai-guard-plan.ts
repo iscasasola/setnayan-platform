@@ -49,7 +49,11 @@ export type GuardNotification = {
 function guardTitle(iv: Intervention): string {
   switch (iv.templateId) {
     case 'GRD-01':
-      return `Payment due soon — ${iv.slots.vendor}`;
+      // A missed payment titled "due soon" is the monogram-sliced-off-a-status
+      // -string defect: the tray line would contradict the body it opens.
+      return iv.variant === 'overdue'
+        ? `Payment overdue — ${iv.slots.vendor}`
+        : `Payment due soon — ${iv.slots.vendor}`;
     case 'GRD-02':
       return `Document deadline — ${iv.slots.document}`;
     case 'GRD-03':
@@ -147,6 +151,10 @@ export function planPaymentDueReminder(
   now: Date,
 ): PaymentDueReminderPlan | null {
   if (iv.templateId !== 'GRD-01') return null;
+  // An already-missed payment has no "day before" left to schedule — the
+  // immediate email IS the whole intervention. The runway check below would
+  // reject it anyway; saying it here beats making a reader re-derive it.
+  if (iv.variant === 'overdue') return null;
   const dueDate = String(iv.slots.due_date ?? '');
   if (!/^\d{4}-\d{2}-\d{2}/.test(dueDate)) return null;
   const dayBefore = new Date(`${dueDate.slice(0, 10)}T09:00:00+08:00`);

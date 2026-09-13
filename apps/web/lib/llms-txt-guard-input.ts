@@ -99,7 +99,32 @@ export const RETAIL: RetailRow[] = [
   // declares, and pinning a live figure in a fixture is how the last drift
   // started. The real price lives in the catalog.
   { service_code: 'PAPIC_GUEST_100K', title: 'Papic — add 100,000 credits', retail_price_php: 24000, is_active: true },
-  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 3000, is_active: true },
+  // ₱2,500, ONE-TIME (once per event) since 2026-09-02 (LS6, migration
+  // 20271194920190) — supersedes the ₱1,500/day row from earlier the same day
+  // (migration 20271192082215). This row is the SECOND hand-typed copy of the
+  // catalog — `llms-fixture-matches-the-catalog.db.test.ts` pins it to the
+  // replayed catalog precisely so a reprice cannot land in one place only. It
+  // moved in the same PR as the real one, which is the rule the neighbouring
+  // fixtures already state.
+  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2500, is_active: true },
+  // ♻️ BACK ON SALE 2026-09-03 (LS8, migration 20271200509567) at ₱3,000 / DAY.
+  // It was deactivated the day before by LS6 for one reason — its ₱1,500 was set to
+  // SUM with LIVE_STUDIO into a ₱3,000 hosted total, and that pairing broke when
+  // LIVE_STUDIO became a ₱2,500 one-time unlock — and the owner has now given the
+  // replacement figure. Zero orders existed at deactivation, so nothing was
+  // stranded either way.
+  // 🔑 PER-DAY BESIDE A ONE-TIME BASE IS THE RULING, NOT A TYPO: the base unlocks
+  // software that costs nothing to run twice, while a Setnayan-supplied CHANNEL is
+  // scarce — three channels exist, two claimable, one event-day consumes one.
+  // Do not "reconcile" this row's billing_period with LIVE_STUDIO's.
+  // 🪤 AND THE PROSE HAD TO COME BACK WITH IT — this row alone is not enough, and
+  // the first attempt at this change assumed it was. `llms-txt.test.ts`'s "every
+  // ACTIVE retail price is quoted somewhere in the file" failed immediately: while
+  // the SKU was OFF sale it was correctly absent from REQUIRED_RETAIL and from the
+  // prose, and flipping is_active without restoring both leaves llms.txt
+  // under-describing a live product. The retirement pairing documented in
+  // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
+  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 3000, is_active: true },
   { service_code: 'PAKANTA', title: 'Pakanta', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
@@ -124,14 +149,22 @@ export const RETAIL: RetailRow[] = [
   // when a SKU's is_active changes in prod, it must change here in the same PR.
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
   { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
-  { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: true },
+  // SEATING_3D is FREE for couples since 2026-09-05 (owner) — deactivated in
+  // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
+  // #5185). Kept listed, inactive, same convention as KWENTO below.
+  { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: false },
   { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 2499, is_active: true },
   // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
   // was RETIRED the same day ("we do not need pabati. retire it because it is
   // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named
   // in the prose. A fixture row for it would assert a catalog entry the
   // document must never read.
-  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 1000, is_active: true },
+  // ⬇ ₱1,000 → ₱500, 2026-09-05 (owner). The SKU lost the LED Live Background
+  // on 2026-08-11 ("that half of the ₱1,000 could never be delivered") and kept
+  // its number for three weeks; what it buys now is the six CSS animation
+  // signatures on a mark whose maker is already free. This fixture mirrors
+  // production and MUST be changed in the same PR as the catalogue row.
+  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: true },
   // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
   // deactivated in prod by migration 20271156242842, and this fixture is a
   // second hand-typed copy of that catalog which CI reads instead of the

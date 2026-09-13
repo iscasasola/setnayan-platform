@@ -46,7 +46,13 @@ export function clusterForRetail(serviceCode: string): PriceCluster {
   if (c === 'COUPLE_WEBSITE_PRO' || c === 'CUSTOM_QR_GUEST' || c === 'SEATING_3D') {
     return 'The celebration page';
   }
-  if (c === 'PAKANTA' || c === 'ANIMATED_MONOGRAM' || c === 'PATIKTOK_COMPILER' || c === 'LIVE_STUDIO') {
+  if (
+    c === 'PAKANTA' ||
+    c === 'ANIMATED_MONOGRAM' ||
+    c === 'PATIKTOK_COMPILER' ||
+    c === 'LIVE_STUDIO' ||
+    c === 'LIVE_STUDIO_HOSTED_CHANNEL'
+  ) {
     return 'Film and music';
   }
   return 'Planning tools';

@@ -117,6 +117,30 @@ function stripComments(src: string): string {
     .replace(/(^|[^:])\/\/[^\n]*/g, (m, lead) => lead + ' '.repeat(m.length - lead.length));
 }
 
+/**
+ * Reads that select `member_type` in order to REPORT it, and authorize nothing
+ * — named one by one, file AND the exact select, never a whole file, so a new
+ * gate-shaped read beside one of these is still caught.
+ *
+ * 🪤 WHY THIS LIST EXISTS (2026-09-11). The data export's `event_memberships`
+ * read ships `member_type` to the data subject as THEIR OWN membership role. It
+ * gates nothing. It used to pass this sweep by ACCIDENT: the next statement in
+ * the window was a different read that did compare member_type ('couple').
+ * Moving that read up (to resolve the couple's events once, for the payment
+ * ledger) exposed the accident. The honest answer is to say what the read is,
+ * here, where a reviewer sees it — not to re-arrange code until the window
+ * happens to contain the word again.
+ */
+const REPORTS_MEMBER_TYPE_AS_DATA: ReadonlyArray<{ file: string; select: string; why: string }> = [
+  {
+    file: join('app', 'api', 'profile', 'export', 'route.ts'),
+    select: 'event_id, member_type, joined_via, joined_at',
+    why:
+      'RA 10173 data export: the subject’s OWN memberships, member_type included as data. ' +
+      'Filtered by .eq(user_id, user.id); authorizes nothing.',
+  },
+];
+
 type Sweep = {
   files: number;
   chains: number;
@@ -144,6 +168,14 @@ function sweepEventMemberReads(): Sweep {
       const selected = /\.select\(\s*['"`][^'"`]*member_type/.exec(win);
       if (selected) {
         selectingMemberType++;
+        const selectText = /\.select\(\s*['"`]([^'"`]*)/.exec(win)?.[1] ?? '';
+        const reportsAsData = REPORTS_MEMBER_TYPE_AS_DATA.some(
+          (r) => relative(WEB, file) === r.file && selectText.startsWith(r.select),
+        );
+        if (reportsAsData) {
+          i += 10;
+          continue;
+        }
         const constrainedInQuery = /\.(in|eq|neq|not)\(\s*['"`]member_type/.test(win);
         const consumed =
           /member_type/.test(win.slice(selected.index + selected[0].length)) ||
@@ -157,6 +189,17 @@ function sweepEventMemberReads(): Sweep {
   }
   return { files: files.length, chains, selectingMemberType, offenders };
 }
+
+test('every "reports member_type as data" entry still names a real read — a stale exemption is a hole', () => {
+  for (const r of REPORTS_MEMBER_TYPE_AS_DATA) {
+    const src = stripComments(read(r.file));
+    assert.ok(
+      src.includes(`.select('${r.select}`),
+      `${r.file} no longer has the read "${r.select}" — delete the exemption rather than leave it pointing nowhere`,
+    );
+    assert.ok(r.why.length > 40, 'an exemption needs a real reason');
+  }
+});
 
 test('NO event_members read asks for member_type and then never compares it', () => {
   const sweep = sweepEventMemberReads();

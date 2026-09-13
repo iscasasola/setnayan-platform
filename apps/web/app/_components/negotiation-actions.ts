@@ -31,10 +31,11 @@ import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import {
   signedAmount,
-  newTotalPhp,
   AMENDMENT_ITEM_KINDS,
   type AmendmentItemKind,
 } from '@/lib/proposal-amendments';
+import { dealLockReadiness, dealLockRefusal } from '@/lib/deal-lock-readiness';
+import { revalidationTarget } from '@/lib/return-path';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -220,7 +221,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
   }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -446,7 +447,7 @@ export async function createChangeRequestFromChat(formData: FormData): Promise<v
   await insertChangeRequest(supabase, ctx!, eventVendorId!, fields!, body);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -488,7 +489,7 @@ export async function respondChangeRequestFromChat(formData: FormData): Promise<
   await notifyChangeCounterparty(ctx!, (co as { title?: string } | null)?.title ?? 'Request', decision === 'accept' ? 'accepted' : 'declined');
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -533,7 +534,7 @@ export async function counterChangeRequestFromChat(formData: FormData): Promise<
   await insertChangeRequest(supabase, ctx!, eventVendorId!, fields!, body);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -703,7 +704,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
   );
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -742,7 +743,7 @@ export async function respondAmendmentFromChat(formData: FormData): Promise<void
   }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -793,7 +794,7 @@ export async function counterAmendmentFromChat(formData: FormData): Promise<void
   );
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -821,7 +822,7 @@ export async function markAmendmentItemDelivered(formData: FormData): Promise<vo
     .is('delivered_at', null);
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);
@@ -864,11 +865,29 @@ export async function lockDeal(formData: FormData): Promise<void> {
   // Load the accepted amendment + its base proposal total + items → new total.
   const { data: amRow } = await supabase
     .from('proposal_amendments')
-    .select('amendment_id, status, base_proposal_id')
+    .select('amendment_id, status, base_proposal_id, event_id, vendor_profile_id, thread_id')
     .eq('amendment_id', amendmentId)
     .maybeSingle();
-  const am = amRow as { status?: string; base_proposal_id?: string | null } | null;
+  const am = amRow as {
+    status?: string;
+    base_proposal_id?: string | null;
+    event_id?: string | null;
+    vendor_profile_id?: string | null;
+    thread_id?: string | null;
+  } | null;
   if (!am || am.status !== 'accepted') redirect(dest);
+  // 🔒 THE DEAL MUST BE THIS CONVERSATION'S. The form names both ids; RLS lets a
+  // couple read every amendment on their event, so without this a Deal struck
+  // with one supplier could be frozen onto another supplier's thread — and
+  // booked at that price. The price is now written on the service role below,
+  // so this binding is what keeps it honest.
+  if (
+    am.event_id !== ctx.thread.event_id ||
+    am.vendor_profile_id !== ctx.thread.vendor_profile_id ||
+    (am.thread_id != null && am.thread_id !== threadId)
+  ) {
+    redirect(dest);
+  }
 
   const [{ data: items }, baseTotal] = await Promise.all([
     supabase
@@ -888,15 +907,32 @@ export async function lockDeal(formData: FormData): Promise<void> {
   const itemAmounts = ((items ?? []) as Array<{ amount_php: number | string | null }>).map((i) => ({
     amount_php: i.amount_php == null ? null : Number(i.amount_php),
   }));
-  const newTotal = newTotalPhp(baseTotal, itemAmounts); // pesos, or null if no base
-  const agreedCentavos = newTotal == null ? null : Math.round(newTotal * 100);
+  // ── NO PRICE, NO LOCK ────────────────────────────────────────────────────
+  // A Deal struck before the supplier sent a formal quote has no base total, so
+  // it has no price to freeze and nothing to book. This path used to skip the
+  // booking and STILL stamp the Deal, freeze the thread at a NULL price and tell
+  // the supplier "Deal locked" — both people were told it was locked while
+  // nobody was booked and no price was saved. Refuse before ANY write, with a
+  // sentence the couple can act on. The card hides the button in the same
+  // case; this is the backstop for a stale page or a replayed form.
+  const readiness = dealLockReadiness(baseTotal, itemAmounts);
+  if (!readiness.lockable) {
+    if (back) {
+      redirect(
+        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(dealLockRefusal(readiness.reason))}`,
+      );
+    }
+    redirect(dest);
+  }
+  const newTotal = readiness.totalPhp; // pesos — a real, non-negative total
+  const agreedCentavos = readiness.centavos;
 
   // ── Option A: the chat lock IS the booking ───────────────────────────────
   // Advance the real event_vendors row at the negotiated total THROUGH the
   // shared lock core (verified-gate + collectBookingFeeAtLock). Only when we
-  // have BOTH a marketplace event_vendors row AND a concrete negotiated number
-  // (agreedCentavos) — so the fee can only ever fire on the exact price we also
-  // freeze onto the thread below (parity by construction). resolveEventVendorId
+  // have a marketplace event_vendors row — the negotiated number is guaranteed
+  // by the NO PRICE, NO LOCK refusal above, so the fee can only ever fire on the
+  // exact price we also freeze onto the thread below (parity by construction). resolveEventVendorId
   // matches event_vendors.marketplace_vendor_id = thread.vendor_profile_id, so
   // that resolved row's marketplace link IS ctx.thread.vendor_profile_id.
   const failBack = (msg: string): never => {
@@ -910,7 +946,12 @@ export async function lockDeal(formData: FormData): Promise<void> {
     ctx.thread.event_id,
     ctx.thread.vendor_profile_id,
   );
-  if (eventVendorId && agreedCentavos != null && newTotal != null) {
+  // ── DID THIS PRESS BOOK ANYBODY, OR ONLY ASK? ────────────────────────────
+  // Under PR-H (live) the usual answer is ASK. The supplier must not then be
+  // told "Couple accepted: Deal locked" on top of "A couple wants to book you"
+  // — two contradictory messages from one press, one of which is false.
+  let askedNotBooked = false;
+  if (eventVendorId) {
     const outcome = await bookVendorAtChatLock(supabase, createAdminClient(), {
       eventId: ctx.thread.event_id,
       eventVendorId,
@@ -930,6 +971,25 @@ export async function lockDeal(formData: FormData): Promise<void> {
     if (outcome.status === 'error') {
       failBack('We could not lock this deal just now — please try again.');
     }
+
+    // ── THE PRICE MUST HAVE LANDED BEFORE WE CALL IT FROZEN ──────────────────
+    // Every outcome that writes `event_vendors.total_cost_php` now reports
+    // whether the row actually matched. If it did not, we must NOT stamp the
+    // Deal and freeze the thread — the card would say "🔒 Deal locked — price
+    // frozen" while `/budget`, which reads that column, still showed the old
+    // figure. Telling the couple the truth and letting them retry is the whole
+    // point of the change; a silent divergence between the money they will pay
+    // and the money they are shown is the failure this repo keeps producing.
+    //
+    // 'no_marketplace_link' carries no `priceLanded` because there is no booking
+    // row to write — an off-platform supplier has no budget line either, so the
+    // thread freeze IS the whole record and falling through is correct.
+    if ('priceLanded' in outcome && !outcome.priceLanded) {
+      failBack(
+        'We could not apply the agreed price to this booking — nothing has changed. Please try again, or open the supplier from your vendors page.',
+      );
+    }
+
     // 'no_marketplace_link' | 'booked' | 'already_booked' → fall through to
     // freeze the price + stamp the Deal.
     //
@@ -940,7 +1000,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     // would make the couple re-negotiate the same figure after the supplier says
     // yes — and `vendor_agree_to_lock` books off `event_vendors.total_cost_php`,
     // which this path has already written.
+    if (outcome.status === 'already_requested') askedNotBooked = true;
     if (outcome.status === 'requested') {
+      askedNotBooked = true;
       // Tell the supplier they have been ASKED. They are in this thread, so they
       // will likely see the message — but the answer card lives on their
       // Overview, and "likely" is not a delivery mechanism for a 7-day fuse.
@@ -991,19 +1053,37 @@ export async function lockDeal(formData: FormData): Promise<void> {
     .is('locked_at', null);
 
   // Freeze the price onto the thread — the payment session reads this.
-  await supabase
+  //
+  // 🔒 ON THE SERVICE ROLE, scoped by the thread this request has just PROVED
+  // is the couple's (loadThreadRole → role 'couple', above) and only after the
+  // accepted-amendment, price and booking checks. Since 20271222263716 a browser
+  // session can no longer write these three columns at all — before it, a couple
+  // could PATCH /rest/v1/chat_threads and "lock" their own thread at any price.
+  // The event_id filter pins the write to the same row the proof was about.
+  const { error: freezeError } = await createAdminClient()
     .from('chat_threads')
     .update({
       agreed_price_centavos: agreedCentavos,
       locked_at: now,
       locked_by_user_id: ctx.userId,
     })
-    .eq('thread_id', threadId);
+    .eq('thread_id', threadId)
+    .eq('event_id', ctx.thread.event_id);
+  if (freezeError) {
+    console.error(`[lockDeal] price freeze failed for thread_id=${threadId}:`, freezeError.message);
+    failBack('We could not record the agreed price just now — please try again.');
+  }
 
-  await notifyChangeCounterparty(ctx, 'Deal locked', 'accepted');
+  // ⚠ ONLY WHERE A DEAL WAS ACTUALLY LOCKED. On the handshake path the supplier
+  // has already had the accurate `lock_request_received` notice above; sending
+  // "Couple accepted: Deal locked" beside it announced a booking that does not
+  // exist and that they still have 48 hours to decline.
+  if (!askedNotBooked) {
+    await notifyChangeCounterparty(ctx, 'Deal locked', 'accepted');
+  }
 
   if (back) {
-    revalidatePath(back);
+    revalidatePath(revalidationTarget(back));
     redirect(back);
   }
   redirect(dest);

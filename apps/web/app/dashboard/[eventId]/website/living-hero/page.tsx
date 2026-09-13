@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { LivingHeroStudio } from './_components/living-hero-studio';
 
 /**
@@ -37,10 +38,10 @@ export default async function LivingHeroPage({
   if (error || !event) notFound();
 
   const currentClipUrl = await displayUrlForStoredAsset(
-    event.landing_page_hero_video_r2_key,
+    siteMediaServeRef(event.landing_page_hero_video_r2_key),
   );
   const currentStillUrl = await displayUrlForStoredAsset(
-    event.landing_page_hero_image_url,
+    siteMediaServeRef(event.landing_page_hero_image_url),
   );
 
   return (

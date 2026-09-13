@@ -2,6 +2,10 @@ import { type NextRequest } from 'next/server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatEventDate } from '@/lib/events';
+import { resolveStoryCover } from '@/lib/story-cover';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { stableMediaPath } from '@/lib/papic-display-ref';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import {
   renderRealStoryOgJpeg,
@@ -72,7 +76,9 @@ export async function GET(
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
-      .select('event_id, display_name, event_date, monogram_text, monogram_color')
+      .select(
+        'event_id, display_name, event_date, monogram_text, monogram_color, story_cover_kind, story_cover_ref, landing_page_hero_image_url',
+      )
       .eq('slug', slug)
       .maybeSingle();
     const event = ev as {
@@ -81,11 +87,78 @@ export async function GET(
       event_date?: string | null;
       monogram_text?: string | null;
       monogram_color?: string | null;
+      story_cover_kind?: string | null;
+      story_cover_ref?: string | null;
+      landing_page_hero_image_url?: string | null;
     } | null;
     if (!event?.event_id) return Response.redirect(DEFAULT_OG, 302);
 
+    /*
+      ── THE HOST'S CHOSEN COVER (`02` §6 · 08 step 1.5) ────────────────────
+      The third of the cover's three jobs. Resolved BEFORE the card is built
+      and RE-CHECKED as it resolves, so a capture a guest has since vetoed —
+      or a supplier frame since withdrawn — stops being the share card without
+      anybody having to remember to change it. `null` falls through to the
+      hero ladder below, which is what this route did before covers existed.
+
+      ⚠ IT IS STILL GATED ON PUBLICATION. A cover chosen while the story is a
+      draft does not change the invitation-phase card: the cover leads the
+      STORY's card, and there is no story to share yet.
+    */
+    /*
+      ⚠ IN ITS OWN TRY. This route's outer catch 302s to the STATIC BRAND
+      IMAGE — so a throw while resolving the cover would replace the couple's
+      share card with a Setnayan logo, on every share of their wedding, and
+      look like nothing more than a plain fallback. A cover that cannot be
+      resolved must cost the cover only; the hero ladder below is exactly what
+      this route served before covers existed.
+    */
+    let cover: Awaited<ReturnType<typeof resolveStoryCover>> = null;
+    try {
+      cover = await resolveStoryCover(admin, event.event_id, event);
+    } catch {
+      cover = null;
+    }
+    /*
+      🔑 THE COVER GETS THE SAME CRAWLER-DURABILITY TREATMENT AS THE HERO, and
+      it is not optional. A presigned URL baked into a crawler's cache EXPIRES,
+      and the card then breaks quietly weeks later with nothing to blame — this
+      repo has already paid for that on prerendered pages, and
+      `the-invitation-is-not-our-billboard.test.ts` caught this exact regression
+      in review when the cover was resolved to a presign.
+
+      So: the stable, signature-less streaming route first, exactly as the hero
+      does. `stableMediaPath` returns null for a non-`r2://` ref, and the route
+      itself serves only its allowlisted public media bucket — anything else
+      falls back to the presign, which is the behaviour the hero already has for
+      legacy and website images.
+    */
+    const coverStablePath = cover?.key ? stableMediaPath(cover.key) : null;
+    // 🔒 The 'hero' rung IS the couple-writable website hero, and this card is
+    // rendered server-side and served publicly — held to the public bucket
+    // before it is signed (lib/site-media-ref.ts).
+    const coverKey = cover?.kind === 'hero' ? siteMediaServeRef(cover.key) : (cover?.key ?? null);
+    const coverPhotoUrl = coverKey
+      ? (coverStablePath && coverStablePath.startsWith('/papic/media/')
+          ? `${SITE_URL}${coverStablePath}`
+          : await displayUrlForStoredAsset(coverKey))
+      : null;
+
     // A PUBLISHED editorial → the editorial card (hero photo + scrim).
     const data = await loadEditorialData(event.event_id);
+    if (data?.published && cover?.kind === 'monogram') {
+      // THE MONOGRAM IS A COVER, NOT A FALLBACK. Chosen deliberately, it wins
+      // over the editorial card — the same render the invitation card uses,
+      // reached by a choice instead of by the absence of a story.
+      return jpegResponse(
+        await renderCoupleMonogramOgJpeg({
+          coupleNames: event.display_name ?? '',
+          dateLabel: event.event_date ? formatEventDate(event.event_date) : '',
+          monogramText: event.monogram_text ?? null,
+          monogramColor: event.monogram_color ?? null,
+        }),
+      );
+    }
     if (data?.published) {
       const descriptor = data.venueCity
         ? `A wedding in ${data.venueCity}`
@@ -97,9 +170,10 @@ export async function GET(
           dateLabel: data.eventDateFormatted ?? '',
           palette: data.monogramColor ? [data.monogramColor] : [],
           isSample: false,
-          // Prefer the STABLE streaming media URL (survives presign expiry across
-          // a crawler's cache re-fetch); fall back to the presigned hero.
-          heroPhotoUrl: data.heroStableUrl ?? data.heroPhotoUrl,
+          // The host's cover first — it is the picture they chose to be known
+          // by. Then the STABLE streaming media URL (survives presign expiry
+          // across a crawler's cache re-fetch), then the presigned hero.
+          heroPhotoUrl: coverPhotoUrl ?? data.heroStableUrl ?? data.heroPhotoUrl,
         },
         format,
       );

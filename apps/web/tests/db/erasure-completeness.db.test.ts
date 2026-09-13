@@ -147,6 +147,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { createPgliteRestClient, type PgliteRestClient } from './pglite-postgrest';
 import { eraseUserAccount, type ErasureIo } from '../../lib/erasure/purge';
+import { refBelongsToRow, type CleanupScope } from '../../lib/cleanup-delete-scope';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -154,7 +155,8 @@ let rest: PgliteRestClient;
 
 /** Everything the erasure handed to storage for deletion. */
 let deletedStoredAssets: string[] = [];
-let deletedPublicUrls: string[] = [];
+/** Every hand-over WITH the scope the purge built for it (2026-09-10). */
+let handedOver: Array<{ ref: string; scope: CleanupScope }> = [];
 let sessionRevokedFor: string[] = [];
 
 const SUBJECT = '2a000000-0000-4000-8000-000000000001';
@@ -166,20 +168,29 @@ const VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000001';
 const THREAD = '2d000000-0000-4000-8000-000000000001';
 const SUBJECT_GUEST = '2e000000-0000-4000-8000-000000000001';
 const OUTSIDER_VENDOR_PROFILE = '2c000000-0000-4000-8000-000000000002';
+/** The business alaga a shop becomes (dependents.vendor_profile_id, 2026-08-31). */
+const SUBJECT_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000001';
+const OUTSIDER_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000002';
 
 const SUBJECT_EMAIL = 'leaving.person@example.com';
 const CENOMAR_REF = 'PSA-CENOMAR-2026-0099887';
-const SELFIE_REF = 'r2://setnayan-media/faces/subject-selfie.jpg';
-const PAPERWORK_REF = 'r2://setnayan-media/paperwork/cenomar-scan.pdf';
-const PROFILE_PHOTO_REF = 'r2://setnayan-media/profile/subject.jpg';
-const CHAT_ATTACHMENT_URL = 'https://media.setnayan.com/chat/thread-1/contract-draft.pdf';
+const SELFIE_REF = `r2://setnayan-media/events/${EVENT}/guest-selfies/${SUBJECT_GUEST}/subject-selfie.jpg`;
+const PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar_partner_1/cenomar-scan.pdf`;
+const PROFILE_PHOTO_REF = `r2://setnayan-media/profile-photo/${SUBJECT}/subject.jpg`;
+// The private-bucket ref every attachment written since 2026-09-09 carries.
+const CHAT_ATTACHMENT_REF = `r2://setnayan-thread-files/chat/${THREAD}/contract-draft.pdf`;
+// The CO-PARTNER'S two attachments in the same thread — the subject copies one
+// ref exactly and the other PADDED (so its lookup must go by the object, not the
+// spelling: nothing else in the run names that object canonically).
+const PARTNER_CHAT_ATTACHMENT_REF = `r2://setnayan-thread-files/chat/${THREAD}/venue-contract.pdf`;
+const PARTNER_CHAT_ATTACHMENT_REF_B = `r2://setnayan-thread-files/chat/${THREAD}/caterer-quote.pdf`;
 
 // ── the CO-PARTNER'S civil-registry documents · MUST SURVIVE ────────────────
 // The whole point of per-partner scoping. These belong to the person who is
 // STAYING; an event-wide purge destroyed them, and nothing brings a PSA
 // document back.
 const PARTNER_CENOMAR_REF = 'PSA-CENOMAR-2026-0044556';
-const PARTNER_PAPERWORK_REF = 'r2://setnayan-media/paperwork/partner-cenomar-scan.pdf';
+const PARTNER_PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar_partner_2/partner-cenomar-scan.pdf`;
 // A per-partner document nobody attributed, and a JOINT one that by definition
 // has no single subject. Both must survive: an unattributable row is not ours
 // to destroy.
@@ -187,13 +198,13 @@ const UNATTRIBUTED_PSA_REF = 'PSA-BIRTH-2026-0011223';
 const JOINT_LICENCE_REF = 'LGU-ML-2026-0055';
 
 // ── vendor verification: the heaviest identity documents in the product ─────
-const GOV_ID_REF = 'r2://setnayan-vendor-verification/leaving-shop/government-id.jpg';
-const DTI_REF = 'r2://setnayan-vendor-verification/leaving-shop/dti-certificate.pdf';
+const GOV_ID_REF = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/government-id.jpg`;
+const DTI_REF = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/dti-certificate.pdf`;
 // Nested one array deep — the shape a known-key read would silently miss.
-const PORTFOLIO_REF_A = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-1.jpg';
-const PORTFOLIO_REF_B = 'r2://setnayan-vendor-verification/leaving-shop/portfolio-2.jpg';
+const PORTFOLIO_REF_A = `r2://setnayan-vendor-verification/vendors/${VENDOR_PROFILE}/verification/portfolio-1.jpg`;
+const PORTFOLIO_REF_B = `r2://setnayan-media/vendors/${VENDOR_PROFILE}/portfolio/portfolio-2.jpg`;
 // Another vendor's government ID, on the same table. MUST SURVIVE.
-const OUTSIDER_GOV_ID_REF = 'r2://setnayan-vendor-verification/outsider-shop/government-id.jpg';
+const OUTSIDER_GOV_ID_REF = `r2://setnayan-vendor-verification/vendors/${OUTSIDER_VENDOR_PROFILE}/verification/government-id.jpg`;
 
 const SUBJECT_DOC_UPLOADS = {
   government_id: { r2_key: GOV_ID_REF, uploaded_at: '2026-02-01T00:00:00Z' },
@@ -228,11 +239,9 @@ const SEEDED_WIZARD_STATE = {
 };
 
 const io: ErasureIo = {
-  deleteStoredAsset: async (ref) => {
+  deleteStoredAsset: async (ref, scope) => {
     deletedStoredAssets.push(ref);
-  },
-  deletePublicAssetUrl: async (url) => {
-    deletedPublicUrls.push(url);
+    handedOver.push({ ref, scope });
   },
   revokeAllSessions: async (userId) => {
     sessionRevokedFor.push(userId);
@@ -363,9 +372,19 @@ before(async () => {
     INSERT INTO public.vendor_push_tokens (vendor_profile_id, token, platform)
     VALUES ('${VENDOR_PROFILE}', 'push-token-xyz', 'web');
 
+    -- the BUSINESS ALAGA that shop became (2026-08-31). Opening a shop now also
+    -- writes a dependents row of kind 'business', linked by vendor_profile_id.
+    -- It is the erased person's own private record, so it must go with them.
+    INSERT INTO public.dependents (dependent_id, owner_user_id, name, dependent_kind, vendor_profile_id)
+    VALUES ('${SUBJECT_BUSINESS_ALAGA}', '${SUBJECT}', 'Leaving Person Studio', 'business', '${VENDOR_PROFILE}');
+
     -- ── an UNRELATED vendor's shop, so over-deletion has something to hit ───
     INSERT INTO public.vendor_profiles (vendor_profile_id, user_id, business_name, is_published)
     VALUES ('${OUTSIDER_VENDOR_PROFILE}', '${OUTSIDER}', 'Someone Else Studio', TRUE);
+
+    -- …and THEIR business alaga, so over-deletion has something to hit here too.
+    INSERT INTO public.dependents (dependent_id, owner_user_id, name, dependent_kind, vendor_profile_id)
+    VALUES ('${OUTSIDER_BUSINESS_ALAGA}', '${OUTSIDER}', 'Someone Else Studio', 'business', '${OUTSIDER_VENDOR_PROFILE}');
 
     -- ── vendor verification: government ID / DTI / portfolio, private bucket ─
     -- Keyed by vendor_profile_id. Its only *_user_id column is admin_user_id
@@ -384,12 +403,29 @@ before(async () => {
     VALUES ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}');
 
     INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, sender_user_id,
-                                      sender_role, body, attachment_url, attachment_name)
+                                      sender_role, body, attachment_r2_key, attachment_name)
     VALUES
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
-       'Here is our budget and the guest list.', '${CHAT_ATTACHMENT_URL}', 'contract-draft.pdf'),
+       'Here is our budget and the guest list.', '${CHAT_ATTACHMENT_REF}', 'contract-draft.pdf'),
       ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
        'Adding my notes on the menu.', NULL, NULL);
+
+    -- The CO-PARTNER'S two files, sent a day earlier — and the subject's COPIES
+    -- of their refs on messages of their own (one exact; one padded onto the
+    -- same object). The thread-folder pin admits all of them; only "who sent it
+    -- first" tells them apart. Both partner files MUST survive the subject's
+    -- erasure.
+    INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, sender_user_id,
+                                      sender_role, body, attachment_r2_key, attachment_name, created_at)
+    VALUES
+      ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
+       'Our signed venue contract.', '${PARTNER_CHAT_ATTACHMENT_REF}', 'venue-contract.pdf', now() - interval '1 day'),
+      ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${PARTNER}', 'couple',
+       'The caterer quote.', '${PARTNER_CHAT_ATTACHMENT_REF_B}', 'caterer-quote.pdf', now() - interval '1 day'),
+      ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
+       'Re-sharing.', '${PARTNER_CHAT_ATTACHMENT_REF}', 'venue-contract.pdf', now()),
+      ('${THREAD}', '${EVENT}', '${VENDOR_PROFILE}', '${SUBJECT}', 'couple',
+       'Re-sharing the quote.', '${PARTNER_CHAT_ATTACHMENT_REF_B} ', 'caterer-quote.pdf', now());
 
     INSERT INTO public.chat_thread_reads (thread_id, user_id) VALUES ('${THREAD}', '${SUBJECT}');
 
@@ -503,6 +539,21 @@ before(async () => {
   // DELETE — seeding proves the purge clears them anyway. A statement against an
   // empty table passes trivially, which is exactly what META-3 guards against.
   await db.exec(`
+    -- comp_grants, added 2026-09-06. TWO rows, one per role the subject can
+    -- play on this table, because the answers are opposite: the comp they
+    -- ISSUED as an admin keeps its money and loses their stamp; the comp issued
+    -- TO them is theirs and is retained wholesale on the lawful-retention basis.
+    INSERT INTO public.comp_grants
+      (source, user_id, scope, rationale, retail_value_centavos, granted_by, approved_by)
+    VALUES ('external_promo', '${OUTSIDER}', 'all_services',
+            'Goodwill for a third party — the subject signed it off.', 499900,
+            '${SUBJECT}', '${ADMIN}')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO public.comp_grants
+      (source, user_id, scope, rationale, retail_value_centavos, granted_by, approved_by)
+    VALUES ('external_promo', '${SUBJECT}', 'all_services',
+            'A comp the subject themselves received.', 250000, '${ADMIN}', NULL)
+    ON CONFLICT DO NOTHING;
     INSERT INTO public.event_preparation_items (event_id, due_date, label, source_tag, created_by)
     VALUES ('${EVENT}', CURRENT_DATE, 'Confirm the venue walkthrough', 'couple_manual', '${SUBJECT}')
     ON CONFLICT DO NOTHING;
@@ -710,6 +761,66 @@ test('2q · a delegation the subject GRANTED survives — only the one about the
   assert.equal(others.rows[0]?.role, 'planner', 'the surviving delegation lost its own data');
 });
 
+test('a comp the subject ISSUED keeps its money and loses their stamp', async () => {
+  // 🔑 THE FK ALONE COULD NEVER HAVE DONE THIS. comp_grants.granted_by became
+  // ON DELETE SET NULL on 2026-09-06 (migration 20271208517365) — and erasure
+  // ANONYMIZES IN PLACE and issues no DELETE, so that FK never fires here. The
+  // stamp is cleared only because AUTHOR_UUID_NULLS names it. Two mechanisms,
+  // both required; fixing one and calling it done is how this residual survived
+  // the very morning the FK was corrected.
+  const issued = await db.query<{
+    granted_by: string | null;
+    approved_by: string | null;
+    retail_value_centavos: number | null;
+    rationale: string | null;
+    user_id: string | null;
+  }>(
+    `SELECT granted_by, approved_by, retail_value_centavos, rationale, user_id
+       FROM public.comp_grants WHERE user_id = '${OUTSIDER}'`,
+  );
+  assert.equal(
+    issued.rows.length,
+    1,
+    'OVER-DELETION: a third party lost the comp they were given because the admin who issued it erased their account',
+  );
+  assert.equal(issued.rows[0]?.granted_by, null, 'the issuing admin is still named — the stamp was not cleared');
+  assert.equal(
+    issued.rows[0]?.retail_value_centavos,
+    499900,
+    'the money left the record — this row is the platform’s proof of a charge it waived',
+  );
+  assert.equal(
+    issued.rows[0]?.rationale,
+    'Goodwill for a third party — the subject signed it off.',
+    'the reason left the record; a gift with no recorded reason is what this column exists to prevent',
+  );
+  assert.equal(issued.rows[0]?.user_id, OUTSIDER, 'the third party stopped being named as the recipient');
+});
+
+test('the SECOND admin stamp is cleared too — not a half-fix', async () => {
+  // approved_by is the same class as granted_by on the same row. Clearing one
+  // and keeping the other would read as a decision rather than an oversight.
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.comp_grants
+      WHERE approved_by = '${SUBJECT}' OR granted_by = '${SUBJECT}'`,
+  );
+  assert.equal(r.rows[0]?.n, 0, 'the subject is still named as an admin on some comp_grants row');
+});
+
+test('a comp issued TO the subject is RETAINED — lawful retention, not an oversight', async () => {
+  // The mirror of the test above, and the reason comp_grants is PARTIALLY_PURGED
+  // rather than purged: the row about the subject stays, on the same financial
+  // basis as vendor_token_purchases and discount_code_redemptions. If this ever
+  // starts failing, somebody has quietly turned a retention decision into a
+  // deletion without saying so.
+  const mine = await db.query<{ n: number; cents: number | null }>(
+    `SELECT count(*)::int AS n, max(retail_value_centavos) AS cents
+       FROM public.comp_grants WHERE user_id = '${SUBJECT}'`,
+  );
+  assert.equal(mine.rows[0]?.n, 1, 'the subject’s own comp was deleted — that is a retention decision reversed silently');
+  assert.equal(mine.rows[0]?.cents, 250000, 'the retained row lost its amount');
+});
+
 test('META-3 · the seed really landed (a purge of nothing passes trivially)', () => {
   for (const [k, v] of Object.entries(before_)) {
     assert.ok((v ?? 0) > 0, `seed check: ${k} was ${v} BEFORE the purge — nothing to erase`);
@@ -867,7 +978,7 @@ test('2g · vendor_profiles — the columns lost to name-drift are now scrubbed'
 test('2h · chat — the subject’s own messages AND their R2 attachments are gone', async () => {
   assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [SUBJECT]), 0);
   assert.ok(
-    deletedPublicUrls.includes(CHAT_ATTACHMENT_URL),
+    deletedStoredAssets.includes(CHAT_ATTACHMENT_REF),
     'the chat attachment object was not handed to storage — deleting the row alone leaves the file ' +
       'addressable with nothing left to say it was theirs',
   );
@@ -1047,9 +1158,11 @@ test('3l · what fail-closed KEPT is audit-logged, not silently dropped', async 
   const byStage = new Map(rows.rows.map((r) => [String(r.metadata?.stage), r.metadata]));
   assert.deepEqual(
     [...byStage.keys()].sort(),
-    ['oauth-grants-unattributed', 'paperwork-unattributed'],
-    `expected both retention notes, got: ${JSON.stringify([...byStage.keys()])}`,
+    ['chat-attachment-not-senders-own', 'oauth-grants-unattributed', 'paperwork-unattributed'],
+    `expected all three retention notes, got: ${JSON.stringify([...byStage.keys()])}`,
   );
+  // The subject's two copies of the partner's file (exact + padded) — kept, counted.
+  assert.equal(byStage.get('chat-attachment-not-senders-own')?.retained_count, 2);
   assert.equal(byStage.get('paperwork-unattributed')?.retained_count, before_.unattributedPaperwork);
   assert.equal(byStage.get('oauth-grants-unattributed')?.retained_count, before_.unattributedGrants);
   // Counts and reasons only — never the reference numbers being retained.
@@ -1058,10 +1171,59 @@ test('3l · what fail-closed KEPT is audit-logged, not silently dropped', async 
   assert.ok(!asText.includes(JOINT_LICENCE_REF), 'the audit row leaked the marriage-licence reference');
 });
 
-test('3d · the co-partner’s chat message and the thread survive', async () => {
-  assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [PARTNER]), 1);
+test('3d · the co-partner’s chat messages and the thread survive', async () => {
+  assert.equal(await count(`SELECT count(*) FROM public.chat_messages WHERE sender_user_id = $1`, [PARTNER]), 3);
   assert.equal(await count(`SELECT count(*) FROM public.chat_threads WHERE thread_id = $1`, [THREAD]), 1);
-  assert.equal(deletedPublicUrls.length, 1, 'more attachments were deleted than the subject authored');
+  assert.equal(
+    deletedStoredAssets.filter((r) => r.includes('/chat/')).length,
+    1,
+    'more attachments were deleted than the subject authored',
+  );
+});
+
+test('3d″ · THE REVIEW’S CROSS-PARTY DELETE: the partner’s file, copied onto the subject’s own messages, is NOT handed to storage', () => {
+  // The thread-folder pin admits the copy — it sits under chat/<the same thread>/
+  // — so this is the "who sent it first" rule's job alone. Both spellings
+  // (exact, and padded onto the same object) must be refused.
+  const partnerFiles = [PARTNER_CHAT_ATTACHMENT_REF, PARTNER_CHAT_ATTACHMENT_REF_B];
+  const partnerCopies = handedOver.filter(({ ref }) => partnerFiles.includes(ref.trim()));
+  assert.deepEqual(
+    partnerCopies.map(({ ref }) => JSON.stringify(ref)),
+    [],
+    'the subject’s erasure handed the CO-PARTNER’S file to storage — their contract would be deleted',
+  );
+  assert.ok(!deletedStoredAssets.some((r) => partnerFiles.includes(r.trim())));
+  // …while the subject's OWN attachment in the same thread still went (2h).
+  assert.ok(deletedStoredAssets.includes(CHAT_ATTACHMENT_REF));
+});
+
+test('3d′ · every file erasure hands to storage is held to THE ROW IT CAME FROM (2026-09-10)', () => {
+  // The adapter deletes a ref only when planCleanupDelete admits it under the
+  // scope handed over with it. So the property worth pinning is that the purge
+  // builds each scope from the right row: the subject's own objects are admitted,
+  // and another tenant's object — the thing a subject could have written onto
+  // their own row before asking to be erased — is not.
+  assert.ok(handedOver.length >= 8, `only ${handedOver.length} hand-overs — the purge stopped handing files over?`);
+  for (const { ref, scope } of handedOver) {
+    assert.equal(
+      refBelongsToRow(ref, scope),
+      true,
+      `${ref} was handed over under ${scope.label}, which refuses it — the real adapter would keep the subject’s own file`,
+    );
+  }
+  const strangers = [
+    OUTSIDER_GOV_ID_REF,
+    `r2://setnayan-media/vendors/${OUTSIDER_VENDOR_PROFILE}/logo/logo.png`,
+    `r2://setnayan-media/events/${EVENT}/guest-selfies/${OUTSIDER}/selfie.jpg`,
+    'r2://setnayan-vendor-contracts/paperwork/2b000000-0000-4000-8000-000000000099/psa/scan.pdf',
+    'r2://setnayan-thread-files/chat/2d000000-0000-4000-8000-000000000099/a.pdf',
+    'r2://setnayan-media/profile-photo/2a000000-0000-4000-8000-000000000099/p.png',
+  ];
+  for (const { scope } of handedOver) {
+    for (const stranger of strangers) {
+      assert.equal(refBelongsToRow(stranger, scope), false, `${scope.label} would delete ${stranger}`);
+    }
+  }
 });
 
 test('3e · other people’s rows are untouched', async () => {
@@ -1151,4 +1313,66 @@ test('4 · a FAILING purge step still deletes the account, and still audits the 
   );
 
   await db.exec(`ALTER TABLE public.notifications RENAME COLUMN user_id_renamed TO user_id`);
+});
+
+/**
+ * 2026-08-31 · A BUSINESS ALAGA IS THE OWNER'S PRIVATE RECORD, SO ERASURE TAKES
+ * IT — AND ONLY THEIRS.
+ *
+ * `dependents.vendor_profile_id` was added the same day opening a shop started
+ * writing one of these rows. Purge already deletes `dependents` by
+ * `owner_user_id`, so a NEW COLUMN on that table needs no new step — but "needs
+ * no new step" is a claim, and this is the run that checks it against the real
+ * purge and the real schema rather than against a reading of the code.
+ *
+ * The second half is the one nobody writes: over-deletion is a real harm too.
+ * The FK is ON DELETE SET NULL precisely so a shop's fate can never reach into
+ * somebody's alaga list, and the outsider's row proves the blast radius stopped.
+ */
+test('2h · the business alaga a shop became is erased with its owner — and only theirs', async () => {
+  assert.equal(
+    await count(`SELECT count(*) FROM public.dependents WHERE dependent_id = $1`, [
+      SUBJECT_BUSINESS_ALAGA,
+    ]),
+    0,
+    'the erased person’s business alaga survived — a new column slipped past the dependents step',
+  );
+  assert.equal(
+    await count(`SELECT count(*) FROM public.dependents WHERE owner_user_id = $1`, [SUBJECT]),
+    0,
+  );
+  // …and the outsider, whose shop was never touched, keeps theirs intact.
+  assert.equal(
+    await count(
+      `SELECT count(*) FROM public.dependents WHERE dependent_id = $1 AND vendor_profile_id = $2`,
+      [OUTSIDER_BUSINESS_ALAGA, OUTSIDER_VENDOR_PROFILE],
+    ),
+    1,
+    'over-deletion: another account’s business alaga was taken by someone else’s erasure',
+  );
+});
+
+/**
+ * 2026-08-31 · AND THE FK MAY NEVER REACH BACK. `dependents.vendor_profile_id`
+ * is ON DELETE SET NULL, not CASCADE — an alaga belongs to its OWNER, so
+ * deleting a SHOP must never delete somebody's record of caring about it, and an
+ * FK that can block is an FK that can break an erasure run.
+ *
+ * The migration's header says this. A migration comment is not evidence, so the
+ * live catalog is asked instead: `confdeltype` is 'n' for SET NULL, 'c' for
+ * CASCADE, 'a' for NO ACTION.
+ */
+test('2i · the shop link is SET NULL, so a deleted shop can never take an alaga with it', async () => {
+  const rule = await one<string | undefined>(
+    `SELECT confdeltype::text AS rule
+       FROM pg_constraint
+      WHERE conrelid = 'public.dependents'::regclass
+        AND conname  = 'dependents_vendor_profile_id_fkey'`,
+  );
+  assert.ok(rule, 'the shop-link FK is missing entirely');
+  assert.equal(
+    rule,
+    'n',
+    `dependents.vendor_profile_id must be ON DELETE SET NULL (got confdeltype='${rule}')`,
+  );
 });

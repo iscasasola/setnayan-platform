@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 
 import { fetchClaimedCameraForUser, fetchPanoodCameras } from './panood-camera-seats';
 import {
+  cameraJoinCaption,
   generateCameraClaimToken,
   missingCameraIndexes,
   panoodCameraAnonEnabled,
@@ -152,6 +153,33 @@ test('panoodCameraAnonEnabled reads through the shared lenient parser', () => {
   for (const v of ['false', '0', 'no', 'off', '', 'ture']) {
     process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = v;
     assert.equal(panoodCameraAnonEnabled(), false, `"${v}" must NOT enable the flag`);
+  }
+  if (prev === undefined) delete process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  else process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;
+});
+
+// The Add-camera tile's caption must never promise a login-free join that
+// /panood/cam/[token] won't honor — that page shows the real no-login CTA
+// only when panoodCameraAnonEnabled() is ON, and a sign-in wall when it's OFF.
+test('cameraJoinCaption never says "no login" when the flag is OFF', () => {
+  assert.doesNotMatch(cameraJoinCaption(false), /no login/);
+});
+
+test('cameraJoinCaption says "no login" only when the flag is ON', () => {
+  assert.match(cameraJoinCaption(true), /no login/);
+});
+
+test('cameraJoinCaption cannot disagree with panoodCameraAnonEnabled() across every flag spelling', () => {
+  const prev = process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
+  for (const v of ['true', 'TRUE', '1', 'yes', 'on', ' true ', 'false', '0', 'no', 'off', '', 'ture']) {
+    process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = v;
+    const enabled = panoodCameraAnonEnabled();
+    const caption = cameraJoinCaption(enabled);
+    assert.equal(
+      /no login/.test(caption),
+      enabled,
+      `"${v}" → enabled=${enabled} but caption "${caption}" disagrees`,
+    );
   }
   if (prev === undefined) delete process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED;
   else process.env.NEXT_PUBLIC_PANOOD_CAM_ANON_ENABLED = prev;

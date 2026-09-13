@@ -48,6 +48,7 @@ import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
+import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
 import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
@@ -58,10 +59,17 @@ import { EditorialContent } from './editorial/editorial-content';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import {
+  coerceRevealTemplate,
+  revealMarkSvg,
+  revealMonogram,
+  revealSealConfig,
+  revealVeilColor,
+  revealWaxColor,
+} from '../_lib/reveal-props';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
-import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './our-story';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
@@ -72,18 +80,9 @@ import { OurStory } from './our-story';
 
 import { GuestColumnCard } from './guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import {
-  sealColorFromPalette,
-  veilColorFromPalette,
-  stdAccentFromPalette,
-  paletteSwatches,
-} from '@/lib/site-palette';
+import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
-import {
-  fallbackSeedFromPublicId,
-  sanitizeWaxSealConfig,
-  type WaxSealConfig,
-} from '@/lib/wax-seal/types';
+import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { GuestHubCard } from './guest-hub-card';
@@ -114,6 +113,7 @@ import type {
 } from '../_lib/types';
 import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
+import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
@@ -129,7 +129,6 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -164,27 +163,8 @@ function displayNameOf(g: {
   return g.display_name?.trim() || `${g.first_name} ${g.last_name}`.trim();
 }
 
-/** Derive a short couple monogram for the reveal seal, e.g. "A & J". */
-function revealMonogram(name: string): string {
-  const parts = name
-    .split(/\s*&\s*|\s+and\s+/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const a = parts[0] ?? '';
-  const b = parts[1] ?? '';
-  if (a && b) return `${a.charAt(0)} & ${b.charAt(0)}`.toUpperCase();
-  return (name.trim().charAt(0) || '✦').toUpperCase();
-}
 
-/** Wax-seal colour for the reveal — the moodboard deep accent (§4). */
-function revealWaxColor(palette: unknown): string {
-  return sealColorFromPalette(sanitizeRolePalette(palette));
-}
 
-/** Veil tulle colour for the reveal — a sheer moodboard tint (§4). */
-function revealVeilColor(palette: unknown): string {
-  return veilColorFromPalette(sanitizeRolePalette(palette));
-}
 
 /** Save-the-Date film accent (button + accent marks): the couple's manual
  *  override (events.std_film_accent_hex) when set, else their Mood-Board accent
@@ -204,14 +184,6 @@ function stdAccentColor(event: EventRow): string {
   return stdAccentFromPalette(palette);
 }
 
-/**
- * The couple's monogram mark for the wax seal — their own upload outranks the
- * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
- */
-function revealMarkSvg(event: EventRow): string | null {
-  // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
-  return resolveEventMonogramSvg(event);
-}
 
 /**
  * The couple's ONBOARDING lockup for the Save-the-Date film — their chosen
@@ -238,22 +210,7 @@ function stdLockupFor(event: EventRow): StdLockup {
   };
 }
 
-/** The couple's minted wax-seal recipe for the reveal (null → default levers). */
-function revealSealConfig(event: EventRow): WaxSealConfig | null {
-  return sanitizeWaxSealConfig(event.wax_seal_config);
-}
 
-/** The couple's chosen opening (events.std_reveal_template) validated to a known
- *  id, 'none' (No Reveal — the free, no-opening choice), or null → the admin
- *  house default. Validated server-side because the client RevealOverlay can't
- *  import reveal-config (it pulls the admin client). */
-function coerceRevealTemplate(v: unknown): RevealTemplateId | 'none' | null {
-  if (v === 'none') return 'none'; // NO_REVEAL — honoured even with the premium unlock
-  return typeof v === 'string' &&
-    (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
-    ? (v as RevealTemplateId)
-    : null;
-}
 
 type SiteBodyProps = {
   event: EventRow;
@@ -459,6 +416,30 @@ export async function SiteBody({
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
+  /*
+    WHO IS ASKING — resolved ONCE, here, from the same facts this page already
+    established for its lock screen and its ribbon.
+
+    ⚠ IT USED TO BE BUILT AT THE `<EditorialContent>` CALL, AND ONE READER GOT
+    THERE FIRST. The gallery-anchor probe below asks the story loader how many
+    photos an edition has, ~120 lines earlier, and that answer decides whether a
+    **Gallery tab appears in the menu** — so a stranger before publish was told
+    the guests had been shooting by a tab that only exists when they have. The
+    photos were correctly withheld and the SHAPE of them was not, which is the
+    exact finding this build closes. One viewer, resolved before its first
+    reader, is what stops a second reader appearing above the definition again.
+  */
+  const storyViewer = {
+    isHost: viewerIsHost,
+    // ⚖ THROUGH THE ONE SHARED RULE (`_lib/belongs-to-this-event.ts`), because
+    // the print keepsake at /{slug}/print asks the same question and once
+    // answered it with a hardcoded `true`.
+    belongsToEvent: belongsToThisEvent({
+      holdsGuestPass: identity.kind === 'guest',
+      isBookedSupplier: vendorCapability !== null,
+    }),
+  };
+
   // Open-browse PR7 — per-widget content presence for the shared hasContent()
   // predicate. Only consulted when `event.website_open_browse` is TRUE; a
   // widget the couple kept visible but that has no content this event is
@@ -536,7 +517,12 @@ export async function SiteBody({
   let recapHasPhotos = false;
   if (recapBody) {
     try {
-      const recap = await loadEditorialData(event.event_id);
+      // Redacted with the SAME viewer the story itself is rendered for: this
+      // probe counts photo blocks, and a count of a layer is the layer.
+      const recap = redactStoryLayers(
+        await loadEditorialData(event.event_id),
+        storyViewer,
+      );
       recapHasPhotos = recap
         ? editorialShowsPhotos(
             editorialPhotoBlocks({
@@ -580,14 +566,14 @@ export async function SiteBody({
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null };
-  // Is the real player already on this page? Both trees mount it under the same
-  // three conditions (the guest tree's `liveMediaVisible` is always true by
-  // construction — see resolveSiteBodyPlan), so one expression covers both.
+  // Is the real player already on this page? The player follows the broadcast,
+  // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
+  // links resolve, regardless of dayOfPhase — so one expression covers both.
   const broadcastNotice = showBroadcastNotice({
     broadcastPlanned,
     liveMediaVisible: plan.liveMediaVisible,
     dayOfPhase,
-    playerOnPage: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(watchLive),
+    playerOnPage: plan.liveMediaVisible && Boolean(watchLive),
     // `inactive` is BOTH "months before" and "the week after" — see the note on
     // the field. Without the date this notice comes back after the wedding.
     eventDate: event.event_date,
@@ -656,19 +642,7 @@ export async function SiteBody({
             recognises: a host, a guest with a seat or a redeemed invitation, and
             a supplier who worked the day.
           */
-          viewer={{
-            isHost: viewerIsHost,
-            // ⚖ THROUGH THE ONE SHARED RULE (`_lib/belongs-to-this-event.ts`),
-            // because the print keepsake at /{slug}/print asks the same question
-            // and answered it with a hardcoded `true` — so a stranger could
-            // print a story the couple had kept to the people of their day.
-            // Two surfaces, each resolving its own facts, one rule between them:
-            // neither can hold a different opinion about who belongs here.
-            belongsToEvent: belongsToThisEvent({
-              holdsGuestPass: identity.kind === 'guest',
-              isBookedSupplier: vendorCapability !== null,
-            }),
-          }}
+          viewer={storyViewer}
         />
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
@@ -834,6 +808,7 @@ export async function SiteBody({
              text-over-scrim banner). Monogram mount + personalization unchanged. */
           <PahinaMasthead
             displayName={event.display_name}
+            twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
             venueName={event.venue_name}
             badgeSlot={dayOfBadge}
@@ -857,6 +832,7 @@ export async function SiteBody({
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead
                   displayName={event.display_name}
+                  twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
                   venueName={event.venue_name}
                   badgeSlot={dayOfBadge}
@@ -940,10 +916,12 @@ export async function SiteBody({
 
             {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
                 clicking the shared link from Messenger are exactly the cookie-less
-                viewers this exists for. */}
-            {dayOfPhase === 'live' && plan.liveMediaVisible && watchLive ? (
+                viewers this exists for. Follows the broadcast, not the calendar
+                (owner-ruled 2026-09-02): `watchLive` is only ever set when the
+                couple's links resolve, so no dayOfPhase gate is needed here. */}
+            {plan.liveMediaVisible && watchLive ? (
               <section className="mt-10">
-                <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} />
+                <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
               </section>
             ) : null}
 
@@ -960,6 +938,8 @@ export async function SiteBody({
                   initialTiles={liveWall.tiles}
                   initialCount={liveWall.count}
                   initialCaption={liveWall.caption}
+                  initialChallenge={liveWall.challenge}
+                  initialChallengeMeasured={liveWall.challengeMeasured}
                   timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                 />
               </section>
@@ -1252,6 +1232,7 @@ export async function SiteBody({
                (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
             <PahinaMasthead
               displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}
               monogramSlot={
@@ -1269,6 +1250,7 @@ export async function SiteBody({
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
               displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}
               monogramSlot={
@@ -1325,8 +1307,10 @@ export async function SiteBody({
                   in its default position below for non-live phases. */}
               {/* Panood Watch-Live — leads the live page: the loved ones who
                   couldn't fly home open the same link and watch the ceremony.
-                  Spec §7.5: remote guests first. */}
-              {isLive && watchLive ? <WatchLiveBlock watchLive={watchLive} occasion={clientWords.occasion} /> : null}
+                  Spec §7.5: remote guests first. Follows the broadcast, not the
+                  calendar (owner-ruled 2026-09-02) — `watchLive` is only ever set
+                  when the couple's links resolve, so no `isLive` gate here. */}
+              {watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
                   promotion used to wrap the whole widget in an app-green box.
@@ -1396,6 +1380,7 @@ export async function SiteBody({
                   capApplies={papicGuest.capApplies}
                   poolRemaining={papicGuest.poolRemaining}
                   poolLow={papicGuest.poolLow}
+                  sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
                 />
@@ -1701,6 +1686,12 @@ export async function SiteBody({
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
               ) : null}
 
+              {/* The scan-trail switch — UNGATED on purpose. Every recognised
+                  guest leaves a scan trail whether or not they ever gave a
+                  selfie, so this cannot hide behind the selfie test above.
+                  See scan-trail-notice.tsx. */}
+              <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} />
+
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
                   /dashboard/[eventId]/website/widgets — invitation_widgets
@@ -1910,6 +1901,14 @@ export async function SiteBody({
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
         eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
+        /* ONE REVEAL ON THE WAY IN (owner Q6 = B, 2026-09-11). The SECOND half:
+           a guest who has just lifted this couple's veil on the invite door does
+           not meet it again on this visit. A later visit is a new session and
+           plays as usual — and standing aside still starts the Save-the-Date
+           film, because a deferred overlay never sets `__stdRevealActive` and
+           the film's own 700 ms grace start takes over. See
+           lib/reveal-once-per-visit.ts. */
+        oncePerVisit="defer"
       />
       {/* Couple's opt-in background-music player — NOT during the Save-the-Date
           phase: the STD film owns audio there, and this floating speaker control

@@ -9,6 +9,7 @@ import { fetchUserEvents } from '@/lib/events';
 import {
   fetchTrustedReviewStatsForMany,
   formatStarRating,
+  NEW_TO_SETNAYAN_LABEL,
 } from '@/lib/reviews';
 import {
   parseVisibility,
@@ -543,11 +544,13 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           strokeWidth={1.75}
                         />
                         <span className="font-mono">
-                          {rating > 0 ? formatStarRating(rating) : 'new'}
+                          {rating > 0 ? formatStarRating(rating) : NEW_TO_SETNAYAN_LABEL}
                         </span>
-                        <span className="text-ink/45">
-                          ({count} {count === 1 ? 'review' : 'reviews'})
-                        </span>
+                        {rating > 0 ? (
+                          <span className="text-ink/45">
+                            ({count} {count === 1 ? 'review' : 'reviews'})
+                          </span>
+                        ) : null}
                       </span>
                     </td>
                   );
@@ -780,7 +783,8 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                 action row at :2052 (plus a no-duplicate `cinematicHero` check),
                 sticky rail at :2701 (`premiumLayout && bookable`) — and BOTH
                 composers render without ever consulting `contact_email`; only
-                that section's prose paragraph reads it. So a contact_email
+                that section's prose paragraph read it (and since 2026-09-10 not
+                even that — the shop page no longer fetches it at all). So a contact_email
                 gate here would hide a working inquiry path from any verified
                 vendor who simply never typed an address into that box, which is
                 the hiding the owner just ruled out. Every row that reaches this

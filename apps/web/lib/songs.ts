@@ -69,6 +69,39 @@ export function isMusicVendor(services: readonly string[] | null | undefined): b
 }
 
 /**
+ * D2 (2026-09-11) — THE ONE MUSIC RULE for every place that gates the song
+ * bank: the public "Songs they play" block, `addRepertoireSong`'s
+ * server-side refusal, the My Services "More tools" Repertoire card, and
+ * `SPECIALIST_TOOLS.repertoire` (`lib/vendor-service-tools.ts`).
+ *
+ * Before this, two DIFFERENT rules disagreed: `MUSIC_CANONICALS` above (the
+ * finer canonical-service leaves actually stored on `vendor_services.category`
+ * / `vendor_profiles.services` — live_band, choir, orchestra, wedding_singer,
+ * dj) and `SPECIALIST_TOOLS.repertoire.categories` (the broader codes
+ * `band_dj` / `string_quartet`, which no real card's `category` column has
+ * ever stored, since the granular leaf is what's written). The specialist
+ * card matched NOTHING a real band published.
+ *
+ * This is their UNION, not a replacement of either existing rule elsewhere —
+ * `MUSIC_CANONICALS` / `isMusicVendor` keep every OTHER caller unchanged
+ * (`lib/vendor-day-of.ts`, `lib/wizard-recommendations.ts`,
+ * `lib/vendor-specialization-gate.ts`, the repertoire page's own access
+ * gate). Widens, never narrows, what any of the four newly-unified sites
+ * already admitted.
+ */
+export const MUSIC_TOOL_CATEGORIES: ReadonlySet<string> = new Set([
+  ...MUSIC_CANONICALS,
+  'band_dj',
+  'string_quartet',
+]);
+
+export function isMusicToolCategory(
+  services: readonly string[] | null | undefined,
+): boolean {
+  return !!services?.some((s) => MUSIC_TOOL_CATEGORIES.has(s));
+}
+
+/**
  * The dedup key — must match the SQL generated column exactly:
  *   lower(btrim(title)) || '|' || lower(btrim(artist))
  */

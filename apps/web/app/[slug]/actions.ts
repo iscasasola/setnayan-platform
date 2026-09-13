@@ -4,10 +4,11 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { parseClientRef, guestSelfiePolicy } from '@/lib/r2-client-ref';
 import { revalidatePath } from 'next/cache';
+
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { deletePublicAsset } from '@/lib/storage';
-import { r2Delete } from '@/lib/r2';
-import { parseStoredAsset } from '@/lib/uploads';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestDetailsChanged } from './_lib/guest-details-changed';
@@ -19,6 +20,8 @@ import {
   faceVectorForMode,
 } from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
+import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-arrival';
+import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
@@ -98,16 +101,21 @@ export async function submitRsvp(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
+  // Posted by the invite arrival's Reply door (lib/invite-arrival.ts). A KEYWORD,
+  // never a path: every destination below is built from the slug the DATABASE
+  // returns, so no form can steer where this action sends anyone.
+  const toInvite = isInviteReturn(formData.get('return_to'));
   const session = await readGuestSession();
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
-    // Session got out of sync — kick them back to the slug landing.
+    // Session got out of sync — kick them back to the slug landing (or, from
+    // the arrival, back to its first door, where they can find themselves again).
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? `/${ev.slug}` : '/');
+    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
   }
 
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;
@@ -302,6 +310,8 @@ export async function submitRsvp(
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
+    // From the invite arrival, back to the Reply door to try again.
+    if (toInvite && evFail?.slug) redirect(`${inviteReplyPath(evFail.slug)}?rsvp=error`);
     redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
   }
 
@@ -674,10 +684,24 @@ export async function submitRsvp(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. An RSVP selfie sets this guest's
+    `photo_consent` to true, and the story's veto is built from guests who opted
+    OUT — so the answer given here can LIFT a veto, and photographs the story was
+    withholding may now be shown. A change in that direction publishes exactly as
+    urgently as one in the other, and it went through no public surface at all
+    before this.
+  */
+  await everyCopyIsNowStale(eventId);
   // `details` = their information was saved and their answer was left alone
   // (the list is final). `refused` additionally says an attempted CHANGE of
   // answer did not take — the one outcome a guest would otherwise never learn.
   const outcome = answerRefused ? 'refused' : replyLocked ? 'details' : 'ok';
+  // From the invite arrival the reply's next door is Enter (door 03) — one tap
+  // from the Event Hub. The site's own line below is left BYTE-IDENTICAL: its
+  // guard (only-the-answer-freezes.test.ts, "replying lands the guest on the
+  // event hub") pins it, and adding a branch ahead of it re-points no guard.
+  if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
   redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
 }
 
@@ -725,20 +749,28 @@ export async function withdrawFaceConsent(
     .is('revoked_at', null);
 
   // Best-effort R2 delete of each enrolled selfie. asset_url is stored as an
-  // `r2://bucket/key` ref (see /api/guest-selfie → encodeR2Ref) — parse it and
-  // hand the (bucket, key) to r2Delete. A legacy plain-URL row (pre-r2:// era)
-  // routes through deletePublicAsset instead. Both are wrapped: a stale/absent
-  // object (or unconfigured R2) must never abort the rest of the withdrawal.
+  // `r2://bucket/key` ref (see /api/guest-selfie → encodeR2Ref).
+  //
+  // 🔒 ONLY THIS GUEST'S OWN SELFIE (2026-09-10). The object must sit under
+  // `events/<event>/guest-selfies/<guest>/` or it is not deleted — the couple's
+  // face-enrollment policy is FOR ALL, so this column is not written only by
+  // the actions that gate it, and a withdrawal must never become a way to
+  // delete somebody else's file. A refused ref is logged and its (already
+  // tombstoned) row keeps pointing at it. A legacy plain URL is refused too —
+  // its tenancy cannot be proven. Wrapped: a stale/absent object (or
+  // unconfigured R2) must never abort the rest of the withdrawal.
   for (const row of liveEnrollments ?? []) {
     const assetUrl = (row as { asset_url: string | null }).asset_url;
     if (!assetUrl) continue;
-    const parsed = parseStoredAsset(assetUrl);
+    const decision = planFaceSelfieDelete({ event_id: eventId, guest_id: guestId, asset_url: assetUrl });
+    if (!decision?.ok) {
+      console.warn('[withdrawFaceConsent] REFUSED a selfie ref outside this guest’s own folder — kept', {
+        eventId,
+      });
+      continue;
+    }
     try {
-      if (parsed?.kind === 'r2') {
-        await r2Delete({ bucket: parsed.bucket, key: parsed.key });
-      } else if (parsed?.kind === 'legacy_url') {
-        await deletePublicAsset({ publicUrl: parsed.url });
-      }
+      await executeCleanupDelete(decision.target);
     } catch (err) {
       // Idempotent + non-fatal: log and continue. An orphaned object is
       // reaped later by the R2 lifecycle rule; the withdrawal still completes.
@@ -799,6 +831,13 @@ export async function withdrawFaceConsent(
     .eq('event_id', eventId)
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. Withdrawing face consent tombstones
+    every auto-face tag this guest carries, and those tags are what the story's
+    veto is built from — so the story, the recap, the keepsake and the share
+    card all have to be thrown away here, not on their own clocks.
+  */
+  await everyCopyIsNowStale(eventId);
   redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
 }
 
@@ -875,7 +914,69 @@ export async function setGuestFaceBlock(
     .eq('event_id', eventId)
     .maybeSingle();
   revalidatePath(`/dashboard/${eventId}/guests`);
+  /*
+    ⚠ BEFORE THE `redirect`, WHICH THROWS. FaceBlock decides whether this
+    guest's face is blurred wherever it appears and hides their photo messages
+    with it — both of which the story renders — so it is a consent write like
+    any other and comes down on every copy.
+  */
+  await everyCopyIsNowStale(eventId);
   if (ev?.slug) redirect(`/${ev.slug}?faceblock=${enabled ? 'on' : 'off'}`);
+}
+
+/**
+ * THE GUEST'S OWN SCAN-TRAIL SWITCH — "don't keep a record of my scans".
+ *
+ * `guests.scan_tracking_opt_out` was added on 2026-05-13 citing RA 10173, in the
+ * same migration as `scan_events` itself, and until now had NO WRITER AND NO
+ * READER anywhere in the application. It sat in
+ * `tests/db/gates-have-handles.baseline.txt` as `NOT INVESTIGATED` — a gate with
+ * no handle. This is the handle; `lib/scan-trail.ts` is the gate.
+ *
+ * ⚖ NARROWER THAN THE FACE CONTROLS, DELIBERATELY. FaceBlock is about the
+ * guest's likeness on a screen; this is about the behavioural trail — which
+ * door, at what time, from what device — that `scan_events` keeps. Neither
+ * substitutes for the other, and both are reversible.
+ *
+ * 🔒 GUEST-ONLY, unlike faceblock (owner ruling 3 of 2026-08-17 lets EITHER side
+ * move that one). No host-side writer is added here: a host un-setting a data
+ * subject's own RA 10173 objection is not a defensible flip, and no host screen
+ * has ever shown this flag. If the owner wants the couple to see or move it,
+ * that is a decision to take, not a default to inherit.
+ *
+ * Same trust model as `setGuestFaceBlock`: the guest-session cookie must match
+ * BOTH the event and the guest, so a guest can only ever move their own switch.
+ */
+export async function setGuestScanTracking(
+  eventId: string,
+  guestId: string,
+  optOut: boolean,
+): Promise<void> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
+    return;
+  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('guests')
+    .update({ scan_tracking_opt_out: optOut })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+  if (error) {
+    console.warn('[setGuestScanTracking] update failed', { eventId, error: error.message });
+    return;
+  }
+
+  // No `revalidatePath` for the couple: this flag appears on no host screen.
+  // The control itself re-reads the stored value at render, so the sentence and
+  // the button the guest lands back on ARE the confirmation.
+  const { data: ev } = await admin
+    .from('events')
+    .select('slug')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (ev?.slug) redirect(`/${ev.slug}?scan_trail=${optOut ? 'off' : 'on'}`);
 }
 
 /**
@@ -936,12 +1037,15 @@ export async function removeMyTag(
     .eq('source_id', sourceId)
     .is('removed_at', null);
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (ev?.slug) revalidatePath(`/${ev.slug}`);
+  /*
+    A DETACHED TAG IS A CONSENT FACT, AND IT WAS ONLY EVER REACHING ONE PAGE.
+    The story's RA 10173 veto (`consent-veto.ts`) is built from `photo_tags`
+    joined to opted-out guests, so removing a tag changes what the story, the
+    recap AND the print keepsake may show. This used to revalidate `/{slug}`
+    alone, which left the other two on their own five-minute clock and the share
+    card on an hour's.
+  */
+  await everyCopyIsNowStale(eventId);
 }
 
 export type TakedownResult =
@@ -1076,12 +1180,221 @@ export async function askToTakeMyPhotoDown(
   return { ok: true, alreadyAsked: false };
 }
 
-/** Refresh the celebration page after a guest-side change. */
+export type WallPullResult =
+  | { ok: true; state: 'off_the_wall' | 'on_the_wall' }
+  | { ok: false; message: string };
+
+/**
+ * A GUEST TAKES HER OWN PHOTOGRAPH OFF THE LIVE WALL — no request, no queue.
+ *
+ * Owner ruling 2026-09-02, settling item 6: *"On the wall, when her photo is
+ * posted she can un-post it."* She controls the photographs she SHOT and the
+ * ones she is TAGGED in, both, and nobody else's — per photo, not per audience.
+ *
+ * ⚖ THIS IS THE THIRD CONTROL ON THE TILE, AND THE THREE ARE NOT THE SAME WISH.
+ *
+ *   "Not me"          → that is somebody else. Drops the TAG. The photograph
+ *                       stays up, because it was never about her.
+ *   "Take it down"    → the photograph should not exist anywhere. It is not
+ *                       hers to delete — it may hold four other people — so it
+ *                       goes to a PERSON (`askToTakeMyPhotoDown`).
+ *   "Off the wall"    → it IS her, it is being PROJECTED IN THIS ROOM RIGHT
+ *                       NOW, and she wants it to stop. That one is hers alone
+ *                       and it happens immediately. This action.
+ *
+ * 🔑 THE MIDDLE ONE COULD NOT DO THIS JOB, AND THAT IS WHY THIS EXISTS. A
+ * request that a person reads is the right answer to "delete my likeness"; it
+ * is the wrong answer to a photograph on a wall at a party that is happening,
+ * where the only useful latency is none. The mechanism was already sitting
+ * there — `wall_hidden_at`, reversible and wall-only — with every writer but
+ * the person in the picture.
+ *
+ * 🔒 The session cookie is the gate and the identity. This page is PUBLIC, so
+ * the guest id is read from the signed cookie and NEVER from the arguments; the
+ * event must match it too. Which photographs that guest may touch is decided in
+ * lib/guest-wall-unpost.ts, which re-checks every predicate on the returned row
+ * rather than trusting the filters it sent.
+ */
+export async function takeMyPhotoOffTheWall(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  return wallPull('off', eventId, sourceTable, sourceId);
+}
+
+/**
+ * SHE CHANGES HER MIND — and only about her OWN pull.
+ *
+ * Reversible by design: `wall_hidden_at` is documented in-schema as a transient
+ * wall-only switch, and a one-way privacy control is one people are afraid to
+ * press. If the couple or a coordinator took the photograph down, this refuses
+ * and says which — their moderation is not hers to undo.
+ */
+export async function putMyPhotoBackOnTheWall(
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  return wallPull('back', eventId, sourceTable, sourceId);
+}
+
+async function wallPull(
+  direction: 'off' | 'back',
+  eventId: string,
+  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  sourceId: string,
+): Promise<WallPullResult> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return { ok: false, message: 'Open this from your own invitation link and we can help.' };
+  }
+  if (!sourceId) return { ok: false, message: 'Which photo?' };
+
+  const admin = createAdminClient();
+  const target = {
+    eventId,
+    // 🔒 From the cookie. Never an argument — see the docblock above.
+    guestId: session.guest_id,
+    sourceTable,
+    sourceId,
+  };
+  const run = direction === 'off' ? takePhotoOffTheWall : putPhotoBackOnTheWall;
+  const res = await run(admin, target);
+
+  if (!res.ok) {
+    /*
+      Each refusal gets its OWN sentence. A single "something went wrong" would
+      make "that is not your photo" and "we could not reach the database" look
+      identical to the one person who most needs to know which it was — and one
+      of the two is worth pressing again.
+    */
+    const message =
+      res.reason === 'not_yours'
+        ? 'You can take down photos you took or are tagged in — this one is somebody else’s.'
+        : res.reason === 'not_your_pull'
+          ? 'The hosts took this one off the wall, so it’s theirs to put back.'
+          : 'We couldn’t reach the wall just now. Please try again.';
+    return { ok: false, message };
+  }
+
+  await revalidateEventSlug(eventId);
+  // The couple's control strip lists the same tiles; leaving it stale would
+  // show a photograph as "on the wall now" that a guest has just pulled.
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/live`);
+  return { ok: true, state: res.state };
+}
+
+/**
+ * Refresh the celebration page after a guest-side change.
+ *
+ * 🔴 IT REFRESHED ONE PAGE OUT OF FOUR. Every caller of this helper is a consent
+ * write — a takedown request and both directions of the wall pull — and each one
+ * changes what `/{slug}/recap` and `/{slug}/print` may show as surely as it
+ * changes `/{slug}`. Those two are their own cached routes at `revalidate = 300`
+ * and the share card is cached for an hour, so a guest's withdrawal stayed up on
+ * all three after this returned. The list of everywhere now lives in one place.
+ */
 async function revalidateEventSlug(eventId: string): Promise<void> {
-  const { data: ev } = await createAdminClient()
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (ev?.slug) revalidatePath(`/${ev.slug}`);
+  await everyCopyIsNowStale(eventId);
+}
+
+export type UnnameResult = { ok: true; changed: number } | { ok: false; message: string };
+
+/**
+ * A GUEST ASKS TO BE UNNAMED — on their own words, immediately, no queue.
+ *
+ * `01_The_Story.md` §3.7 · owner gate Q2, ruled 2026-09-09: *a photo message
+ * carries a name only if the guest asked*, and **the role rides the same
+ * consent as the name** — there is exactly one maid of honour, so a role badge
+ * over an unnamed column identifies her to everybody who was at the wedding.
+ *
+ * ⚖ WHY THIS ONE DOES NOT GO TO A PERSON, WHEN "TAKE MY PHOTO DOWN" DOES.
+ * A photograph is not the guest's to delete — it was taken by somebody else and
+ * may hold four other people, which is why `askToTakeMyPhotoDown` above files a
+ * request instead of erasing anything. **Their own name on their own sentence
+ * is nobody else's.** Making them wait in a moderation queue to stop being
+ * named would be the product asking permission to keep publishing their
+ * identity.
+ *
+ * 🔑 IT CAN ONLY EVER REMOVE A NAME. There is no branch that sets
+ * `author_named_publicly` to true — the same monotone construction
+ * `redactStoryLayers` and `consent-veto.ts` use, so a bug in here cannot name
+ * somebody who asked not to be.
+ *
+ * 🔒 The signed guest session is the gate AND the identity. This page is public;
+ * the guest id comes from the cookie and never from the arguments, so nobody can
+ * unname anybody else — and nobody can unname a person at another celebration,
+ * because the event must match the session's too.
+ *
+ * ⚠ IT TOUCHES BOTH TABLES THE NAME CAN BE ON. A guest who wrote a Kwento AND a
+ * letter is one person making one decision; unnaming half of it and leaving the
+ * other half bylined would be worse than not offering the control.
+ */
+export async function askToBeUnnamed(eventId: string): Promise<UnnameResult> {
+  const session = await readGuestSession();
+  if (!session || session.event_id !== eventId) {
+    return { ok: false, message: 'Open this from your own invitation link and we can help.' };
+  }
+
+  const admin = createAdminClient();
+
+  /*
+    ⚠ TWO SPELLED-OUT CALLS, NOT A LOOP OVER A TABLE NAME. The obvious shape
+    here is `for (const table of [...]) admin.from(table)`, and it is the wrong
+    one: `lib/security/select-column-scan.test.ts` reads every `.from(…)` in
+    the app to check the columns a query selects against the schema, and a
+    `.from(variable)` is a select it CANNOT CHECK. Measured — the loop pushed
+    the unresolvable count to 6 over a ceiling of 5, and the ceiling is
+    deliberately not raisable ("Fix the resolver or the call site"). Two lines
+    of repetition buys a write path that stays inside the scanner.
+
+    ⚠ AND BOTH TABLES ARE WRITTEN EVEN IF THE FIRST FAILS. A guest who wrote a
+    Kwento AND a letter is one person making one decision; unnaming half of it
+    and leaving the other half bylined is worse than not offering the control.
+
+    A REFUSED QUERY IS NOT A THROWN ERROR — the column is missing on any
+    checkout that never ran S4's migration, and PostgREST answers that with
+    `{ error }` and no exception, so `.error` is the only way it is visible.
+  */
+  const unname = async (
+    write: () => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+  ): Promise<{ rows: number; failed: boolean }> => {
+    try {
+      const { data, error } = await write();
+      return error ? { rows: 0, failed: true } : { rows: data?.length ?? 0, failed: false };
+    } catch {
+      return { rows: 0, failed: true };
+    }
+  };
+
+  const messages = await unname(() =>
+    admin
+      .from('photo_messages')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+  const columns = await unname(() =>
+    admin
+      .from('guest_columns')
+      .update({ author_named_publicly: false })
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .eq('author_named_publicly', true)
+      .select('event_id'),
+  );
+
+  const changed = messages.rows + columns.rows;
+  const failed = messages.failed || columns.failed;
+
+  if (failed && changed === 0) {
+    return { ok: false, message: 'We couldn’t change that just now. Please try again.' };
+  }
+
+  await revalidateEventSlug(eventId);
+  return { ok: true, changed };
 }

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
  * decisions board + around-your-event surface now render in place on the Home
  * (`/dashboard/[eventId]`) via `<EventDashboard>` (see
  * `../_components/event-dashboard.tsx`). This route redirects there,
- * forwarding the internal-only `?suri=preview` override so stale bookmarks +
+ * forwarding the internal-only `?sai=preview` override so stale bookmarks +
  * in-app links land on the live surface with the same AI-state preview.
  *
  * The `_components/*` (journey-rail, free-venue-shortlist-offer) and
@@ -20,10 +20,10 @@ export default async function EventProgressRedirect({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ suri?: string }>;
+  searchParams?: Promise<{ sai?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
-  const suffix = search.suri ? `?suri=${encodeURIComponent(search.suri)}` : '';
+  const suffix = search.sai ? `?sai=${encodeURIComponent(search.sai)}` : '';
   redirect(`/dashboard/${eventId}${suffix}`);
 }

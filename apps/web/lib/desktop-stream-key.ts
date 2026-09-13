@@ -28,11 +28,36 @@ export { isTauri } from '@/lib/desktop-oauth';
  * straight to Rust. Throws if called outside the desktop shell — callers must
  * gate on `isTauri()` before ever rendering the paste field in the first
  * place, so this should never fire in practice.
+ *
+ * DSK-1 — `rtmpsUrl` is the ingest address the key publishes to. OPTIONAL and
+ * NON-SECRET: pass the couple's own when they supplied one, and omit it to have
+ * Rust hold the key against YouTube's documented primary
+ * (`YOUTUBE_RTMPS_PRIMARY`, defined once, in Rust, so the two halves cannot
+ * disagree about the default). Without an address the key could not publish at
+ * all — Rust stored `rtmps_url: ""`, which fails `RtmpEndpoint::parse`, so
+ * `destinations()` returned `None` and `encoder_start` refused with
+ * `no_stream_key`.
+ *
+ * THE ERROR IS THE POINT OF THE RETURN TYPE CHANGE: this used to be
+ * fire-and-forget, and Rust's refusals (`unusable_ingest_address`,
+ * `key_looks_like_ingest_address`) have to reach the couple as words. The
+ * rejection carries Rust's own reason string; the caller turns it into a
+ * sentence.
  */
-export async function setPastedStreamKey(key: string): Promise<void> {
+export async function setPastedStreamKey(
+  key: string,
+  rtmpsUrl?: string | null,
+): Promise<void> {
   const t = tauri();
   if (!t) throw new Error('not_desktop');
-  await t.core.invoke('stream_key_set_pasted', { key });
+  await t.core.invoke('stream_key_set_pasted', {
+    key,
+    // Tauri maps a camelCase arg onto the Rust snake_case parameter. `null`
+    // rather than omitted so the argument is always present in the payload and
+    // deserializes to `None` — an absent field and an explicit null both land as
+    // `Option::None`, and sending it makes that intent readable on the wire.
+    rtmpsUrl: rtmpsUrl && rtmpsUrl.trim() ? rtmpsUrl.trim() : null,
+  });
 }
 
 export type ClaimedEncoderTarget = {

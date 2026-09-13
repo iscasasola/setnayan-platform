@@ -106,7 +106,7 @@ import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
-import { EncoderKeyPanel } from '@/app/_components/encoder-key-panel';
+import { EncoderKeyPanel, DesktopOwnChannelKeyCard } from '@/app/_components/encoder-key-panel';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
@@ -1182,6 +1182,22 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               initialStreamStatus={null}
               initialHealthStatus={null}
             />
+          ) : null}
+
+          {/* ⭐ DSK-1 — WHERE AN OWN-CHANNEL KEY CAN BE GIVEN ON THE BY-HAND ROUTE.
+              The encoder key panel ships only inside `{activeBroadcast ? … }`
+              below, and the by-hand route has no activeBroadcast — so on the
+              DEFAULT tier there was nowhere on screen to hand the desktop
+              encoder a key, while DesktopEncoderHost ran anyway (isLive is true
+              for manual air) and went straight to `no_stream_key`.
+
+              It sits DIRECTLY UNDER the health strip on purpose: the strip is the
+              surface saying "not sending", and this is the thing that fixes it.
+              Renders nothing outside the desktop shell — a browser here has no
+              encoder to give a key to — and nothing for a hosted-channel couple,
+              who reach air through the broadcast route above. */}
+          {manualOnAir ? (
+            <DesktopOwnChannelKeyCard eventId={eventId} ownsHostedChannel={ownsHostedChannel} />
           ) : null}
 
           {/* ── BY-HAND ON AIR ────────────────────────────────────────────────

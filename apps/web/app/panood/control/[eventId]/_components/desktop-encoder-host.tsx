@@ -12,6 +12,8 @@ import type { EncoderHealthInput, EncoderRtmpState } from '@/lib/live-studio-ing
 /** Must match `HEALTH_EVENT` in `src-tauri/src/encoder_ipc.rs`. */
 const HEALTH_EVENT = 'encoder://health';
 import { publishEncoderHealth } from '@/lib/encoder/encoder-health-bus';
+import { readStreamKeyHandoffs, subscribeStreamKeyHeld } from '@/lib/encoder/encoder-key-bus';
+import { shouldAttemptStart } from '@/lib/encoder/encoder-start-attempt';
 
 /**
  * S18 · THE CALL SITE. This is the component whose absence was the finding.
@@ -164,24 +166,58 @@ export function DesktopEncoderHost({
     // before Rust holds the socket would fill the pre-config buffer with frames
     // nobody asked for yet, and — worse — would report a "no_stream_key"
     // refusal AFTER the couple was told they were live.
-    void (async () => {
+    //
+    // ── DSK-1: WHY START IS A FUNCTION AND NOT A ONE-SHOT ───────────────────
+    // On the own-channel route this effect runs BEFORE the couple has anywhere
+    // to paste a key: `isLive` is true the moment the event goes on air, and the
+    // key box only appears then. So the first `session.start` throws
+    // `no_stream_key`, and because this effect is keyed on `[shouldRun, eventId]`
+    // — neither of which changes when a key arrives — nothing ever tried again.
+    // The couple pasted a key, was told "Saved to your desktop encoder", and the
+    // encoder stayed dead until a page reload.
+    //
+    // So: the probe still happens ONCE (it measures the transport, which a key
+    // does not change, and it is a network round trip), and the publish attempt
+    // is re-runnable. `announceStreamKeyHeld` — fired by the paste panel only
+    // after Rust confirms it holds the key — is what re-runs it.
+    let started = false;
+    let starting = false;
+    let probeVerdictAllowed: boolean | null = null;
+
+    // An arrow const, not a `function` declaration: a declaration is hoisted
+    // above the `if (!shell) return` guard, so TypeScript will not carry that
+    // narrowing into it and `shell` reads as possibly-null inside. The IIFE this
+    // replaced was an arrow expression for the same reason.
+    const attemptStart = async (): Promise<void> => {
+      // The three-way guard lives in a pure module so it is actually tested —
+      // see encoder-start-attempt.ts for what each field prevents. `starting` is
+      // the one a boolean-per-attempt cannot express: two concurrent starts
+      // while `started` is still false.
+      if (!shouldAttemptStart({ cancelled, started, starting })) return;
+      starting = true;
       try {
-        const verdict = await guardGoLive((command, args) =>
-          shell.core.invoke(command, args) as Promise<string>,
-        );
-        if (cancelled) return;
+        if (probeVerdictAllowed === null) {
+          const verdict = await guardGoLive((command, args) =>
+            shell.core.invoke(command, args) as Promise<string>,
+          );
+          if (cancelled) return;
 
-        // Provenance for the strip, whatever the verdict: which envelope
-        // carried the probe is an annotation, never a state (rule 24, and
-        // `decideIngestHealth` refuses to let it change one).
-        transportEnvelope = verdict.envelope;
-        guardSentence = verdict.sentence;
+          // Provenance for the strip, whatever the verdict: which envelope
+          // carried the probe is an annotation, never a state (rule 24, and
+          // `decideIngestHealth` refuses to let it change one).
+          transportEnvelope = verdict.envelope;
+          guardSentence = verdict.sentence;
+          probeVerdictAllowed = verdict.allowed;
+        }
 
-        if (!verdict.allowed) {
+        if (!probeVerdictAllowed) {
           // REFUSED — and the ONLY reason that can happen is
           // `transport_unusable`. Never because the envelope was not `raw`:
           // Raw never arrives on WebKit at all, so that rule would refuse every
           // macOS user. See go-live-guard.ts's docblock.
+          //
+          // A key cannot fix a broken transport, so this verdict is kept and a
+          // later paste does not re-probe into the same refusal.
           rtmp = 'idle';
           emitHealth();
           return;
@@ -189,18 +225,40 @@ export function DesktopEncoderHost({
 
         await session.start(eventId);
         if (cancelled) return;
+        started = true;
         canvas.start();
         emitHealth();
       } catch {
         // The refusal is the honest outcome and the strip stays at
         // `waiting_for_encoder`, which is what "we are not sending" looks like.
+        // `started` stays false, so a key pasted after this wakes it and tries
+        // again — which is the whole of DSK-1's second half.
         rtmp = 'idle';
         emitHealth();
+      } finally {
+        starting = false;
       }
-    })();
+    };
+
+    void attemptStart();
+
+    // A key reaching Rust is an EVENT this component has to hear. Without this
+    // the paste above changes a fact nothing re-reads — the same shape as the
+    // controller that resolved camera status correctly and still showed a stale
+    // screen because nothing re-rendered it.
+    // SCOPED TO THIS EVENT. The subscription is notified for every event's
+    // paste, exactly like `encoder-health-bus`, so the reader is what narrows it
+    // — a module-level singleton outlives a route change, and without this a
+    // paste on one wedding's controller would fire a start attempt for the
+    // wedding whose page happened to be open before it.
+    const offKeyHeld = subscribeStreamKeyHeld(() => {
+      if (readStreamKeyHandoffs(eventId) === 0) return;
+      void attemptStart();
+    });
 
     return () => {
       cancelled = true;
+      offKeyHeld();
       unlisten?.();
       offConfig();
       offMedia();

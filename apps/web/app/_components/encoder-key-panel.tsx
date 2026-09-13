@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { KeyRound, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { CopyButton } from './copy-button';
 import { isTauri, setPastedStreamKey, claimHostedStreamKey } from '@/lib/desktop-stream-key';
-import { pasteSubmit } from '@/lib/live-studio-encoder-key-paste';
+import { pasteSubmit, pasteRefusalSentence } from '@/lib/live-studio-encoder-key-paste';
+import { YOUTUBE_RTMPS_PRIMARY_LABEL } from '@/lib/live-studio-encoder-ingest-default';
+import { announceStreamKeyHeld } from '@/lib/encoder/encoder-key-bus';
 
 /**
  * S8 — the ONE stream-key block, shared by the setup page's GoLiveCard and the
@@ -58,8 +60,54 @@ export function EncoderKeyPanel({
   return ownsHostedChannel ? (
     <HostedChannelConnect eventId={eventId} />
   ) : (
-    <OwnChannelPasteField />
+    <OwnChannelPasteField eventId={eventId} />
   );
+}
+
+/**
+ * DSK-1 · THE SECOND PLACE A KEY CAN BE GIVEN — the by-hand (manual-air) route.
+ *
+ * ── THE GAP THIS FILLS ──────────────────────────────────────────────────────
+ * `EncoderKeyPanel` above ships in exactly two places, and BOTH sit inside a
+ * Setnayan-API broadcast: the controller's `{activeBroadcast ? … }` encoder
+ * section, and `go-live-card.tsx`'s `active` block. On the by-hand route
+ * (`resolveLiveAir` returns `source: 'manual'` when `events.panood_manual_on_air_at`
+ * is set) there is NO `activeBroadcast` — so there was no place on screen to give
+ * the desktop encoder a key at all, while `DesktopEncoderHost` ran anyway
+ * (`isLive` is true for manual air) and went straight to its refusal.
+ *
+ * And the by-hand route is not an edge case: `shouldOfferManualAir`'s own
+ * docblock records that until Setnayan's YouTube app review clears, it is the
+ * ONLY route that works.
+ *
+ * ── WHY IT IS NOT JUST `<EncoderKeyPanel>` MOVED OUT ────────────────────────
+ * That component's browser branch reveals a SERVER-MINTED key, and on this route
+ * there is none — it would render "— unavailable —" to a couple who is using
+ * their own YouTube Studio and has nothing missing. So this renders NOTHING
+ * outside the desktop shell, which is the honest answer there: a browser on the
+ * by-hand route has no encoder to give a key to.
+ *
+ * ── WHY IT IS OWN-CHANNEL ONLY ──────────────────────────────────────────────
+ * A hosted-channel couple reaches air through Setnayan's own broadcast, where the
+ * existing panel already renders; and `/api/live-studio/encoder/claim` mints
+ * against a broadcast that by definition does not exist here. Rendering nothing
+ * for them is exactly today's behaviour, unchanged — the hosted transport is
+ * DSK-3's row, not this one.
+ */
+export function DesktopOwnChannelKeyCard({
+  eventId,
+  ownsHostedChannel,
+}: {
+  eventId: string;
+  ownsHostedChannel: boolean;
+}) {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    setDesktop(isTauri());
+  }, []);
+
+  if (!desktop || ownsHostedChannel) return null;
+  return <OwnChannelPasteField eventId={eventId} />;
 }
 
 function BrowserKeyReveal({ streamKey }: { streamKey: string | null }) {
@@ -112,21 +160,60 @@ function BrowserKeyReveal({ streamKey }: { streamKey: string | null }) {
 
 type PasteStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-function OwnChannelPasteField() {
+/**
+ * DSK-1 — the own-channel paste field, and the two things it was missing.
+ *
+ * 1. AN ADDRESS. A key alone could never publish: Rust held it against
+ *    `rtmps_url: ""`, which fails `RtmpEndpoint::parse`, so `destinations()`
+ *    returned `None` and `encoder_start` refused every own-channel broadcast
+ *    with `no_stream_key` — while this panel said "Saved to your desktop
+ *    encoder." The server box below is that address. It is OPTIONAL and
+ *    NON-SECRET: left empty, Rust holds the key against YouTube's documented
+ *    primary, which is what the placeholder shows.
+ *
+ * 2. A WAY TO BE HEARD. `DesktopEncoderHost` starts when the event goes on air,
+ *    which is before this field has been filled in, so its first attempt failed
+ *    and nothing re-read the key. `announceStreamKeyHeld` is what wakes it — see
+ *    lib/encoder/encoder-key-bus.ts. It carries a count, never the key.
+ *
+ * The key still crosses the IPC boundary exactly once and the field is still
+ * cleared synchronously before the await (`pasteSubmit`). The ADDRESS is
+ * deliberately NOT cleared: it is the string YouTube Studio prints on screen,
+ * and a couple who mistyped it has to be able to see what they typed.
+ */
+function OwnChannelPasteField({ eventId }: { eventId: string }) {
   const [fieldValue, setFieldValue] = useState('');
+  const [addressValue, setAddressValue] = useState('');
   const [status, setStatus] = useState<PasteStatus>('idle');
+  const [refusal, setRefusal] = useState('');
+  // `useId` rather than a literal: today `manualOnAir` and `activeBroadcast` are
+  // mutually exclusive by construction (resolveLiveAir returns 'broadcast' first,
+  // so the by-hand card and the broadcast panel cannot co-render), but a fixed id
+  // would silently become a duplicate the day that stops being true, and a label
+  // that points at the wrong input is not a visible failure.
+  const addressFieldId = useId();
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const result = pasteSubmit(fieldValue);
+    const result = pasteSubmit(fieldValue, addressValue);
     if (!result) return;
     // Clear the field's own state SYNCHRONOUSLY, before the await below — the
     // guard this whole module exists for. See pasteSubmit's docblock.
     setFieldValue(result.nextFieldValue);
     setStatus('saving');
-    setPastedStreamKey(result.send)
-      .then(() => setStatus('saved'))
-      .catch(() => setStatus('error'));
+    setRefusal('');
+    setPastedStreamKey(result.send, result.rtmpsUrl)
+      .then(() => {
+        setStatus('saved');
+        // ONLY after Rust confirms it is holding the key. Announcing on submit
+        // would wake the encoder for a key Rust went on to refuse, and its retry
+        // would then fail for a reason nobody was shown.
+        announceStreamKeyHeld(eventId);
+      })
+      .catch((err: unknown) => {
+        setStatus('error');
+        setRefusal(pasteRefusalSentence(err));
+      });
   }
 
   return (
@@ -139,23 +226,49 @@ function OwnChannelPasteField() {
         Paste it here the same way you would into OBS. Setnayan never stores a
         copy — it goes straight to your desktop encoder.
       </p>
-      <form onSubmit={handleSubmit} className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          type="password"
-          autoComplete="off"
-          value={fieldValue}
-          onChange={(e) => setFieldValue(e.target.value)}
-          placeholder="Paste your YouTube stream key"
-          aria-label="Stream key"
-          className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 font-mono text-sm text-ink/85"
-        />
-        <button
-          type="submit"
-          disabled={!fieldValue.trim() || status === 'saving'}
-          className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {status === 'saving' ? 'Saving…' : 'Save to encoder'}
-        </button>
+      <form onSubmit={handleSubmit} className="mt-2 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="password"
+            autoComplete="off"
+            value={fieldValue}
+            onChange={(e) => setFieldValue(e.target.value)}
+            placeholder="Paste your YouTube stream key"
+            aria-label="Stream key"
+            className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 font-mono text-sm text-ink/85"
+          />
+          <button
+            type="submit"
+            disabled={!fieldValue.trim() || status === 'saving'}
+            className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {status === 'saving' ? 'Saving…' : 'Save to encoder'}
+          </button>
+        </div>
+        <div>
+          <label
+            htmlFor={addressFieldId}
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45"
+          >
+            Server URL · optional
+          </label>
+          <input
+            id={addressFieldId}
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            spellCheck={false}
+            value={addressValue}
+            onChange={(e) => setAddressValue(e.target.value)}
+            placeholder={YOUTUBE_RTMPS_PRIMARY_LABEL}
+            className="mt-1 w-full rounded-md border border-ink/15 bg-cream px-3 py-1.5 font-mono text-xs text-ink/85"
+          />
+          <p className="mt-1 text-[11px] text-ink/50">
+            Leave this empty and we use YouTube&rsquo;s standard address —{' '}
+            <code className="font-mono">{YOUTUBE_RTMPS_PRIMARY_LABEL}</code>. Change it
+            only if YouTube Studio shows you a different one.
+          </p>
+        </div>
       </form>
       {status === 'saved' ? (
         <p role="status" className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-success-900">
@@ -164,9 +277,9 @@ function OwnChannelPasteField() {
         </p>
       ) : null}
       {status === 'error' ? (
-        <p role="alert" className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-danger-900">
-          <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Couldn&rsquo;t save it — check the key and try again.
+        <p role="alert" className="mt-1.5 inline-flex items-start gap-1.5 text-[11px] text-danger-900">
+          <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          {refusal || 'Couldn\u2019t save it — check the key and try again.'}
         </p>
       ) : null}
     </div>

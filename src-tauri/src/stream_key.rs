@@ -55,6 +55,22 @@ use zeroize::Zeroizing;
 const SETNAYAN_API_ORIGIN: &str = "https://setnayan.com";
 const EXCHANGE_PATH: &str = "/api/live-studio/encoder/exchange";
 
+/// YouTube's PRIMARY ingest address, the default an own-channel paste is held
+/// against when the couple does not give one.
+///
+/// THIS IS NOT A GUESSED URL. It is the single documented primary ingest every
+/// YouTube channel publishes to — the exact string YouTube Studio prints in its
+/// own "Stream URL" box and every OBS tutorial repeats, identical for every
+/// channel. `crates/encoder`'s own tests and `examples/publish_probe.rs` already
+/// carry it as the primary. What is per-channel is the KEY, which is why the key
+/// is the thing the couple pastes and this is the thing we can default.
+///
+/// ⚠ THE BACKUP IS DELIBERATELY NOT DEFAULTED HERE. `destinations()` documents
+/// why at length: a backup host that was never provisioned is where you send a
+/// wedding to nowhere. A backup is a real value that must ARRIVE (from the couple
+/// or from the exchange response), never a `?backup=1` this module invents.
+const YOUTUBE_RTMPS_PRIMARY: &str = "rtmps://a.rtmps.youtube.com/live2";
+
 /// Strip the secret path segment out of an rtmps(-like) URL before it can ever
 /// reach a log line or an error string, e.g.
 /// `rtmps://a.rtmps.youtube.com/live2/abcd-1234-efgh` →
@@ -184,17 +200,69 @@ struct ExchangeResponse {
 
 /// Pure core of `stream_key_set_pasted`, factored out so it is testable
 /// without a running Tauri `State` harness.
-fn set_pasted_inner(current: &mut Option<HeldStreamKey>, key: String) -> Result<(), String> {
-    if key.trim().is_empty() {
+///
+/// ── DSK-1: WHY THIS TAKES AN ADDRESS AT ALL ─────────────────────────────────
+/// It used to store `rtmps_url: String::new()`, and the comment where that empty
+/// string was written said: "S5's encoder takes the server URL as its own
+/// separate, non-secret argument." **No such argument was ever built.**
+/// `encoder_start(state, keys, app, token)` takes only a token and resolves the
+/// destination from `destinations()`, which calls `RtmpEndpoint::parse` on this
+/// field — and an empty string is neither `rtmp://` nor `rtmps://`, so it failed
+/// `UnsupportedScheme`, `destinations()` returned `None`, and every own-channel
+/// broadcast refused with `no_stream_key`. The DEFAULT tier could not go live at
+/// all, while the panel that took the key said "Saved to your desktop encoder."
+///
+/// So the address is carried WITH the key, from here on, in one of two ways:
+/// the couple's own address when they give one, and YouTube's documented primary
+/// when they do not.
+///
+/// ── WHY IT VALIDATES HERE AND NOT ONLY IN `destinations()` ──────────────────
+/// `destinations()` returns `Option`, and `encoder_start` can only turn a `None`
+/// into `no_stream_key` — a refusal that arrives at GO-LIVE, in front of the
+/// guests, attributed to a key the couple did in fact supply. Parsing the pair
+/// HERE moves that same failure to the moment of pasting, where it is still
+/// fixable and can be named. After this returns `Ok`, `destinations()` cannot be
+/// `None` for a pasted key: the test `pasted_key_yields_destinations` pins it.
+fn set_pasted_inner(
+    current: &mut Option<HeldStreamKey>,
+    key: String,
+    rtmps_url: Option<String>,
+) -> Result<(), String> {
+    let key = key.trim().to_string();
+    if key.is_empty() {
         return Err("empty_key".into());
     }
+
+    // The couple pasted the Server box into the Key box (or pasted a whole
+    // `rtmps://host/live2/KEY` line into it). The web side splits that shape
+    // before it ever gets here — `pasteSubmit` in
+    // lib/live-studio-encoder-key-paste.ts — and this is the backstop for every
+    // other caller, because the alternative is silent: `parse(PRIMARY,
+    // Some("rtmps://…/live2/abc"))` succeeds and publishes with the entire URL
+    // as the stream key, which YouTube rejects at the handshake with nothing on
+    // screen to explain it.
+    if key.contains("://") {
+        return Err("key_looks_like_ingest_address".into());
+    }
+
+    // The couple's own address when they gave one; YouTube's documented primary
+    // when they did not. Trimmed-empty counts as "did not" — an empty field is
+    // the same intent as an absent one, and it is the exact value that used to
+    // be stored unconditionally.
+    let address = match rtmps_url.as_deref().map(str::trim) {
+        Some(url) if !url.is_empty() => url.to_string(),
+        _ => YOUTUBE_RTMPS_PRIMARY.to_string(),
+    };
+
+    // Parsed for its verdict only. The endpoint is rebuilt by `destinations()`
+    // at go-live rather than stored, so this module keeps holding exactly the
+    // two strings it already held and `HeldStreamKey` grows no new field.
+    RtmpEndpoint::parse(&address, Some(key.as_str()))
+        .map_err(|_| "unusable_ingest_address".to_string())?;
+
     *current = Some(HeldStreamKey {
         key: Zeroizing::new(key),
-        // Own-channel: the RTMP server address is whatever the couple's own
-        // YouTube Studio page told them (OBS's "Server" field) — this module
-        // doesn't learn it, and doesn't need to: S5's encoder takes the server
-        // URL as its own separate, non-secret argument.
-        rtmps_url: String::new(),
+        rtmps_url: address,
         source: KeySource::Pasted,
     });
     Ok(())
@@ -206,13 +274,21 @@ fn set_pasted_inner(current: &mut Option<HeldStreamKey>, key: String) -> Result<
 /// caller (the paste field's submit handler) must clear its own local state
 /// immediately after invoking this command; see the mutation-tested guard in
 /// the web app's `lib/live-studio-encoder-key-paste.ts` / `.test.ts`.
+///
+/// `rtmpsUrl` is the couple's own ingest address and is OPTIONAL and NON-SECRET
+/// — omit it (or send an empty string) to hold the key against YouTube's
+/// documented primary. It is a separate argument from `key` so the secret stays
+/// the one value with a clearing guarantee attached to it; the address may sit
+/// in page state as long as the form is open, because it is the same string
+/// YouTube Studio shows on screen.
 #[tauri::command]
 pub fn stream_key_set_pasted(
     state: State<'_, StreamKeyState>,
     key: String,
+    rtmps_url: Option<String>,
 ) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "state_poisoned".to_string())?;
-    set_pasted_inner(&mut guard, key)
+    set_pasted_inner(&mut guard, key, rtmps_url)
 }
 
 /// HOSTED-CHANNEL (add-on): exchange a single-use claim nonce (minted by
@@ -309,7 +385,7 @@ mod tests {
     #[test]
     fn set_pasted_rejects_blank_key_and_holds_nothing() {
         let mut current: Option<HeldStreamKey> = None;
-        let err = set_pasted_inner(&mut current, "   ".to_string());
+        let err = set_pasted_inner(&mut current, "   ".to_string(), None);
         assert_eq!(err, Err("empty_key".to_string()));
         assert!(current.is_none(), "a blank paste must not populate the sink");
     }
@@ -317,7 +393,7 @@ mod tests {
     #[test]
     fn set_pasted_holds_the_key_from_source_pasted() {
         let mut current: Option<HeldStreamKey> = None;
-        set_pasted_inner(&mut current, "own-channel-secret".to_string()).unwrap();
+        set_pasted_inner(&mut current, "own-channel-secret".to_string(), None).unwrap();
         let held = current.as_ref().expect("key should be held after a valid paste");
         assert_eq!(held.key.as_str(), "own-channel-secret");
         assert_eq!(held.source, KeySource::Pasted);
@@ -326,9 +402,115 @@ mod tests {
     #[test]
     fn forgetting_clears_the_held_key() {
         let mut current: Option<HeldStreamKey> = None;
-        set_pasted_inner(&mut current, "some-key".to_string()).unwrap();
+        set_pasted_inner(&mut current, "some-key".to_string(), None).unwrap();
         assert!(current.is_some());
         current = None; // what `stream_key_forget` does to the guarded Option
         assert!(current.is_none());
+    }
+
+    // ── DSK-1 ───────────────────────────────────────────────────────────────
+    // THE TEST THAT DID NOT EXIST. Every test above asserts the key is HELD;
+    // not one asserted it can be PUBLISHED. `destinations()` was the only
+    // reader, it was never called on a pasted key in a test, and it returned
+    // `None` for every one of them in production for as long as the paste field
+    // has shipped. Both of the next two tests fail on the previous
+    // `rtmps_url: String::new()`.
+
+    /// Set a pasted key through the real guarded state and ask the real reader.
+    fn paste_then_destinations(
+        key: &str,
+        rtmps_url: Option<&str>,
+    ) -> Result<Option<Destinations>, String> {
+        let state = StreamKeyState::default();
+        {
+            let mut guard = state.0.lock().unwrap();
+            set_pasted_inner(&mut guard, key.to_string(), rtmps_url.map(str::to_string))?;
+        }
+        Ok(state.destinations())
+    }
+
+    #[test]
+    fn pasted_key_yields_destinations() {
+        let destinations = paste_then_destinations("abcd-1234-efgh-5678", None)
+            .expect("a plain key paste must be accepted");
+        assert!(
+            destinations.is_some(),
+            "a pasted key must resolve to a publish destination — `None` here is \
+             exactly the `no_stream_key` refusal DSK-1 exists to remove"
+        );
+    }
+
+    #[test]
+    fn pasted_key_publishes_to_youtubes_primary_by_default() {
+        let mut current: Option<HeldStreamKey> = None;
+        set_pasted_inner(&mut current, "abcd-1234".to_string(), None).unwrap();
+        let held = current.as_ref().unwrap();
+        assert_eq!(held.rtmps_url, YOUTUBE_RTMPS_PRIMARY);
+
+        // And the endpoint that address builds carries the key as the KEY —
+        // never folded into the path, which is how a whole URL in the key field
+        // fails silently at YouTube's handshake.
+        let endpoint = RtmpEndpoint::parse(&held.rtmps_url, Some(held.key.as_str())).unwrap();
+        assert_eq!(endpoint.stream_key, "abcd-1234");
+        assert_eq!(endpoint.socket_address(), "a.rtmps.youtube.com:443");
+    }
+
+    #[test]
+    fn a_couples_own_address_outranks_the_default() {
+        let mut current: Option<HeldStreamKey> = None;
+        set_pasted_inner(
+            &mut current,
+            "k".to_string(),
+            Some("rtmps://ingest.example.com/live".to_string()),
+        )
+        .unwrap();
+        assert_eq!(current.as_ref().unwrap().rtmps_url, "rtmps://ingest.example.com/live");
+    }
+
+    #[test]
+    fn a_blank_address_field_means_the_default_not_a_refusal() {
+        // An empty box and an absent argument are the same intent. This is the
+        // exact value that used to be stored unconditionally, so it must not be
+        // the one input that still cannot publish.
+        let destinations = paste_then_destinations("k", Some("   "))
+            .expect("an empty address field must fall back, not refuse");
+        assert!(destinations.is_some());
+    }
+
+    #[test]
+    fn an_unusable_address_is_refused_at_paste_time_and_holds_nothing() {
+        let mut current: Option<HeldStreamKey> = None;
+        let err = set_pasted_inner(
+            &mut current,
+            "k".to_string(),
+            Some("https://a.rtmps.youtube.com/live2".to_string()),
+        );
+        assert_eq!(err, Err("unusable_ingest_address".to_string()));
+        assert!(
+            current.is_none(),
+            "a refused address must not leave a key held that cannot publish — \
+             that state is indistinguishable from success at the next go-live"
+        );
+    }
+
+    #[test]
+    fn a_whole_ingest_url_in_the_key_field_is_named_not_published() {
+        let mut current: Option<HeldStreamKey> = None;
+        let err = set_pasted_inner(
+            &mut current,
+            "rtmps://a.rtmps.youtube.com/live2/abcd-1234".to_string(),
+            None,
+        );
+        assert_eq!(err, Err("key_looks_like_ingest_address".to_string()));
+        assert!(current.is_none());
+    }
+
+    #[test]
+    fn a_pasted_key_is_trimmed_before_it_is_held() {
+        // Copying from YouTube Studio brings whitespace with it often enough
+        // that an untrimmed key is a real refusal at the RTMP handshake.
+        let mut current: Option<HeldStreamKey> = None;
+        set_pasted_inner(&mut current, "  abcd-1234\n".to_string(), None).unwrap();
+        assert_eq!(current.as_ref().unwrap().key.as_str(), "abcd-1234");
     }
 }

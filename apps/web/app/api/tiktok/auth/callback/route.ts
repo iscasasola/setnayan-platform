@@ -5,6 +5,7 @@ import {
   fetchTiktokUserInfo,
   getTiktokOAuthConfig,
 } from '@/lib/patiktok-tiktok';
+import { sealToken } from '@/lib/oauth-token-vault';
 
 // Iteration 0017 Phase 3 — TikTok OAuth callback.
 //
@@ -120,8 +121,8 @@ export async function GET(req: NextRequest) {
     tiktok_open_id: token.open_id ?? userInfo?.open_id ?? '',
     tiktok_union_id: userInfo?.union_id ?? null,
     tiktok_handle: userInfo?.display_name ?? null,
-    access_token: token.access_token,
-    refresh_token: token.refresh_token,
+    access_token: sealToken(token.access_token),
+    refresh_token: sealToken(token.refresh_token),
     scope: token.scope,
     expires_at: expiresAt,
   });

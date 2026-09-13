@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { KeyRound, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { CopyButton } from './copy-button';
 import { isTauri, setPastedStreamKey, claimHostedStreamKey } from '@/lib/desktop-stream-key';
@@ -186,6 +186,12 @@ function OwnChannelPasteField({ eventId }: { eventId: string }) {
   const [addressValue, setAddressValue] = useState('');
   const [status, setStatus] = useState<PasteStatus>('idle');
   const [refusal, setRefusal] = useState('');
+  // `useId` rather than a literal: today `manualOnAir` and `activeBroadcast` are
+  // mutually exclusive by construction (resolveLiveAir returns 'broadcast' first,
+  // so the by-hand card and the broadcast panel cannot co-render), but a fixed id
+  // would silently become a duplicate the day that stops being true, and a label
+  // that points at the wrong input is not a visible failure.
+  const addressFieldId = useId();
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -241,13 +247,13 @@ function OwnChannelPasteField({ eventId }: { eventId: string }) {
         </div>
         <div>
           <label
-            htmlFor="encoder-ingest-address"
+            htmlFor={addressFieldId}
             className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45"
           >
             Server URL · optional
           </label>
           <input
-            id="encoder-ingest-address"
+            id={addressFieldId}
             type="text"
             inputMode="url"
             autoComplete="off"

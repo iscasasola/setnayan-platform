@@ -20,6 +20,7 @@ import {
   smallestRungCovering,
 } from './papic-credit-estimate';
 import { computeEventPool, DEFAULT_EVENT_POOL_CONFIG } from './papic-event-pool';
+import { stripComments } from './strip-comments';
 
 /** Stand-in for the live 16-rung PAPIC_GUEST* pool ladder (admin-editable). */
 const LADDER = [300, 1000, 2500, 5000, 10000];
@@ -155,7 +156,13 @@ test('the module states no capture-mix constant of its own', async () => {
   // owner can edit them without a deploy.
   const fs = await import('node:fs/promises');
   const src = await fs.readFile(new URL('./papic-credit-estimate.ts', import.meta.url), 'utf8');
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  // The repo's ONE comment stripper — lint-one-comment-stripper.mjs fails CI on a
+  // home-made one. A two-replace regex takes block comments first, so a LINE
+  // comment that happens to contain a block-open marker starts a comment which
+  // runs to the next real block-close, blanking everything between; the assertion
+  // then runs against a blank and passes. (Writing that sentence inside a block
+  // comment is itself how this file broke once — the close marker ended it early.)
+  const code = stripComments(src);
   // 0 and 1 are STRUCTURAL — validity checks (`n > 0`) and array indexing
   // (`length - 1`). A domain assumption about credits or captures cannot be
   // expressed in them, and banning them would only teach the next author to

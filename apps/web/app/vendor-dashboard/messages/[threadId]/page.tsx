@@ -82,7 +82,7 @@ import {
   isDateTagWorthShowing,
   serviceTagVaries,
 } from '@/lib/conversation-list';
-import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestChipLabel } from '@/lib/thread-interests';
@@ -717,6 +717,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // The launchers are only honest while the panels they open are on the page.
     toolsMounted,
     templateCount: proposalTemplates.length,
+    /*
+      Whether this couple has actually agreed — the one fact "Propose schedule"
+      needs, because the Schedule tab it leaves for is shut before a booking and
+      says so. Read from the STAGE VALUE through the exhaustive map, never from
+      the stage pill's label beside it: the pill is display text.
+    */
+    hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
   };
 
   /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────

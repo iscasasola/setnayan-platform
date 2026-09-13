@@ -30,10 +30,36 @@
  *     board: print, then label, then the door. Frame, shadow, crop and the
  *     "no words on the photo" rule are the design's, unchanged.
  *
- * 2 · THE PRINT IS SHORTER THAN THE DESIGN'S 186px — owner Q4 = B, 2026-09-11:
- *     the print is shortened until door 01's one action sits on the first screen
- *     of a phone. ⚠ THE FIGURES IN THIS BLOCK ARE NOT YET MEASURED; this commit
- *     is the draft-PR checkpoint and the browser run at 375x812 follows it.
+ * 2 · ON A PHONE THE PRINT IS 40px, NOT THE DESIGN'S 186px, AND THE NAME IS
+ *     40px, NOT 64px — owner Q4 = B, 2026-09-11: the print is shortened until
+ *     door 01's one action sits on the first screen of a phone (above y=640 at
+ *     375x812). Every figure below was measured in the browser on the real
+ *     component tree at 375x812, name "Cale & Ice", with the date line present.
+ *
+ *     BEFORE, the design's 186px print and 64px name: "Continue" starts at
+ *     y=736. (The design board itself puts it at y=756, so the port is faithful;
+ *     that 756 is what the owner's ruling was made against.)
+ *     AFTER, 40px print and 40px name: y=635.
+ *
+ *     🔑 THE NAME HAD TO COME DOWN AND THAT IS NOT A PREFERENCE. <DoorShell>
+ *     CENTRES its column, so removing 2px of content lifts the action by 1 —
+ *     the print's whole 186px is worth only 93px of lift, and the bare House
+ *     door already starts the action at y=599, leaving 41px of fold to spend.
+ *     At the design's 64px a NAME OF TWELVE CHARACTERS wraps to two lines in the
+ *     card's 293px of content ("Bea & Miguel" → y=656) WITH NO PRINT AT ALL, so
+ *     no print height whatsoever could satisfy the ruling. 40px is Velvet's
+ *     shipped size, reached the same way and for the same reason.
+ *
+ *     ⚠ AND THE FOLD IS STILL LOST ON A LONG NAME, at any print height: a
+ *     27-character name takes two lines at 40px (y=658 with the 40px print) and
+ *     a 45-character one takes four (y=695). Capiz starts the action at y=622
+ *     and VELVET, MERGED AND LIVE, AT y=648 — so the 640 bar is a property of
+ *     door 01's card, not of this theme. Reported with the numbers rather than
+ *     engineered around.
+ *
+ *     From `sm` up the design's own 186px stands: the shortening exists for a
+ *     phone's fold, and above the phone breakpoint that fold is not the one the
+ *     ruling is about.
  */
 .galeriya {
   /* the gallery wall */
@@ -53,7 +79,7 @@
   --ga-rule-gap: 8px; /* how far left of the card the rule stands */
 
   /* the hung print's height — see port correction 2 above */
-  --ga-print-h: 116px;
+  --ga-print-h: 40px;
 
   background-color: var(--ga-wall);
 }
@@ -61,6 +87,7 @@
   .galeriya {
     --ga-pad: 1.5rem; /* sm:px-6 */
     --ga-card-pad: 2rem; /* sm:p-8 */
+    --ga-print-h: 186px; /* the design's own height, above the phone fold */
   }
 }
 
@@ -148,9 +175,12 @@
 }
 
 /*
- * The name, in the theme's own face. 40px — see port correction 2. The design's
- * `-.04em` and `.94` stay: they are what makes a long name read as one block
- * rather than a stack of words.
+ * The name, in the theme's own face. 40px — see port correction 2, and note that
+ * ONE size ships, not a phone size and a wide one: the figure is what keeps an
+ * ordinary two-word name on a single line, and a name that changed size between
+ * a phone and a tablet would read as two different marks. The design's `-.04em`
+ * and `.94` stay — they are what makes a long name read as one block rather
+ * than a stack of words.
  */
 .galeriya :global(header) h1 {
   font-family: var(--font-galeriya-sans), 'Helvetica Neue', Helvetica, Arial, sans-serif;

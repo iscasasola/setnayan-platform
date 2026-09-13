@@ -14,7 +14,18 @@ the four Pro themes ride `COUPLE_WEBSITE_PRO`, which is already sold.
 
 **Owner Q4 = B — the print is shortened until "Continue" sits on the first
 screen.** Measured in the browser at 375x812 on the real component tree, not on
-the design board. Both figures (before and after) are in the PR body.
+the design board. With the design's 186px print and 64px name, door 01's
+"Continue" starts at **y=736**; as shipped (40px print, 40px name) it starts at
+**y=635**. The design board itself puts it at y=756, so the port is faithful and
+that 756 is what the ruling was made against.
+
+⚠ **The bar is a property of door 01's card, not of this theme, and this PR does
+not fix that.** The bare House door already starts "Continue" at y=599, leaving
+41px of fold to spend — and DoorShell centres its column, so 2px of content
+bought is only 1px of lift. Capiz is at y=622; **Velvet, merged and live, is at
+y=648 and misses the same 640 bar today.** A long couple name misses it at any
+print height (a 27-character name: y=658; a 45-character one: y=695). Reported
+with the numbers rather than engineered around.
 
 **Two port corrections, both from DoorShell being a centred card rather than the
 board's top-ranged column:**

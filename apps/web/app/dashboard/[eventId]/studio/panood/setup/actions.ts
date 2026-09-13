@@ -34,6 +34,7 @@ import {
   transitionYoutubeBroadcast,
   deleteYoutubeStream,
 } from '@/lib/panood-youtube';
+import type { YoutubeStream } from '@/lib/panood-youtube';
 
 /**
  * Server actions for the Panood setup page's watch-URL field — the FIRST real
@@ -264,7 +265,20 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   //     API error (quota, scope not yet granted, transient) is caught and
   //     surfaced as a friendly message rather than crashing the action.
   let broadcastId: string;
-  let stream: { streamId: string; ingestionAddress: string; streamName: string };
+  // DSK-3 — annotated with the PRODUCER'S OWN TYPE, not a hand-listed subset.
+  //
+  // This was `{ streamId; ingestionAddress; streamName }`, re-listing three of
+  // `createYoutubeStream`'s fields and silently discarding the rest. The RTMPS
+  // pair it returns was therefore invisible HERE, at the one moment those
+  // addresses exist — a structural annotation narrower than its initialiser
+  // throws data away without saying so.
+  //
+  // ⚠ The compiler's own suggestion for the resulting error is to rename the
+  // reads to `ingestionAddress`. That would compile, and it would ship plain
+  // RTMP on 1935 — the exact defect this row removes. A green check would then
+  // certify the bug. Widen the annotation instead; `YoutubeStream` cannot drift
+  // from what the function actually returns.
+  let stream: YoutubeStream;
   const scheduledStartAt = new Date().toISOString();
   try {
     const { data: ev } = await supabase
@@ -325,6 +339,13 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
       broadcastId,
       streamId: stream.streamId,
       ingestionUrl: stream.ingestionAddress,
+      // DSK-3 — THE ONLY MOMENT THESE EXIST. `liveStreams.insert` returns the
+      // TLS pair once; by broadcast time we are not calling the Data API again,
+      // so an address dropped here is gone for this wedding. Both are optional:
+      // YouTube does not always send them, and the plain-RTMP primary above is
+      // what keeps working when it does not.
+      rtmpsIngestionUrl: stream.rtmpsIngestionAddress,
+      rtmpsBackupIngestionUrl: stream.rtmpsBackupIngestionAddress,
       streamKey: stream.streamName,
       scheduledStartAt,
     });

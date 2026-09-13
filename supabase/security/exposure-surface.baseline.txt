@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6649
+# facts: 6651
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4883
+#   col       4885
 #   policy    910
 #   view      9
 #   func      257
@@ -2953,6 +2953,8 @@ col	public.panood_broadcasts.event_id	anon=- authenticated=SIU
 col	public.panood_broadcasts.id	anon=- authenticated=SIU
 col	public.panood_broadcasts.ingestion_url	anon=- authenticated=SIU
 col	public.panood_broadcasts.peak_concurrent_viewers	anon=- authenticated=SIU
+col	public.panood_broadcasts.rtmps_backup_ingestion_url	anon=- authenticated=SIU
+col	public.panood_broadcasts.rtmps_ingestion_url	anon=- authenticated=SIU
 col	public.panood_broadcasts.scheduled_start_at	anon=- authenticated=SIU
 col	public.panood_broadcasts.status	anon=- authenticated=SIU
 col	public.panood_broadcasts.stream_id	anon=- authenticated=SIU

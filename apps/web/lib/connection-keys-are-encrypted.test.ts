@@ -246,15 +246,18 @@ test('the vault never logs a token value', () => {
   assert.ok(calls.length > 0, 'no log lines found — the pin is checking nothing');
   for (const call of calls) {
     /*
-      A FIXED STRING IS SAFE; A VALUE IS NOT. The risk is interpolation (`${…}`)
-      or a second argument carrying the payload — not the word "token" appearing
-      in an English sentence. Asserting on the words would have failed on
-      "could not seal a legacy token in place", which leaks nothing.
+      🪤 THE FIRST VERSION OF THIS PIN WAS INERT. It banned a list of words, so
+      `console.warn('[oauth-token-vault] failed', { columns })` — which prints
+      the caller's token map — sailed through: no banned word, no `${`. Naming
+      the shapes you fear cannot work, because the leak is any VALUE at all.
+      So the rule is inverted: a log line here is ONE plain string literal and
+      nothing else. Anything with a second argument, an interpolation or a
+      concatenation fails, whatever it is called.
     */
-    assert.ok(!/\$\{/.test(call), `a log line interpolates a value: ${call}`);
-    assert.ok(
-      !/,\s*(payload|plaintext|stored|opened|value|token)\b/.test(call),
-      `a log line passes a value as an argument: ${call}`,
+    assert.match(
+      call,
+      /^console\.\w+\('[^'`$]*'\);$/,
+      `a log line carries something other than a fixed string: ${call}`,
     );
   }
 });

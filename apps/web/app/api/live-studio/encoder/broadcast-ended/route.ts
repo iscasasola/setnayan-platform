@@ -126,6 +126,14 @@ export async function POST(req: NextRequest) {
       broadcastId,
       streamId: active.stream_id,
       ingestionUrl: active.ingestion_url,
+      // DSK-3 — CARRIED FORWARD, not re-fetched. This rebind deliberately reuses
+      // the SAME YouTube stream (only the broadcast container is new), so its
+      // ingest addresses are unchanged and are not available from anywhere else:
+      // we are not calling `liveStreams.insert` again. Dropping them here would
+      // silently downgrade a wedding from TLS to plain RTMP at the exact moment
+      // it is recovering from a drop.
+      rtmpsIngestionUrl: active.rtmps_ingestion_url,
+      rtmpsBackupIngestionUrl: active.rtmps_backup_ingestion_url,
       streamKey,
       scheduledStartAt,
     });

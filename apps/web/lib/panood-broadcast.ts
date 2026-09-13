@@ -91,6 +91,14 @@ export type PanoodBroadcast = {
   broadcast_id: string;
   stream_id: string;
   ingestion_url: string;
+  /**
+   * DSK-3 — YouTube's TLS ingest pair, carried so the desktop encoder can publish
+   * on 443 and fail over. Both NULL on every row created before DSK-3 shipped and
+   * whenever YouTube omitted them; resolve with `resolveEncoderIngest`, never by
+   * reading these directly, so the fallback direction stays in one place.
+   */
+  rtmps_ingestion_url: string | null;
+  rtmps_backup_ingestion_url: string | null;
   status: 'ready' | 'testing' | 'live' | 'complete' | 'errored';
   scheduled_start_at: string | null;
   went_live_at: string | null;
@@ -109,7 +117,7 @@ export async function getActivePanoodBroadcast(
   const { data } = await admin
     .from('panood_broadcasts')
     .select(
-      'id, broadcast_id, stream_id, ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
+      'id, broadcast_id, stream_id, ingestion_url, rtmps_ingestion_url, rtmps_backup_ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
     )
     .eq('event_id', eventId)
     .neq('status', 'complete')
@@ -160,6 +168,14 @@ export async function createPanoodBroadcast(
     broadcastId: string;
     streamId: string;
     ingestionUrl: string;
+    /**
+     * DSK-3 — YouTube hands these back exactly once, at `liveStreams.insert`; by
+     * broadcast time we are not calling the Data API again, so an address not
+     * stored here is gone for this wedding. Optional because YouTube does not
+     * always return them.
+     */
+    rtmpsIngestionUrl?: string | null;
+    rtmpsBackupIngestionUrl?: string | null;
     streamKey: string;
     scheduledStartAt: string; // ISO 8601
   },
@@ -187,12 +203,14 @@ export async function createPanoodBroadcast(
       broadcast_id: input.broadcastId,
       stream_id: input.streamId,
       ingestion_url: input.ingestionUrl,
+      rtmps_ingestion_url: input.rtmpsIngestionUrl ?? null,
+      rtmps_backup_ingestion_url: input.rtmpsBackupIngestionUrl ?? null,
       stream_key: input.streamKey,
       status: 'ready',
       scheduled_start_at: input.scheduledStartAt,
     })
     .select(
-      'id, broadcast_id, stream_id, ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
+      'id, broadcast_id, stream_id, ingestion_url, rtmps_ingestion_url, rtmps_backup_ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
     )
     .single();
 

@@ -39,6 +39,8 @@
 //! and depend on S6's without changing any call site's expectations.
 
 use crate::encoder::reconnect::Destinations;
+#[cfg(test)]
+use crate::encoder::reconnect::{ingest_for_attempt, Ingest};
 use crate::encoder::rtmp::RtmpEndpoint;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -122,6 +124,19 @@ pub fn redact_url(url: &str) -> String {
 struct HeldStreamKey {
     key: Zeroizing<String>,
     rtmps_url: String,
+    /// DSK-3 — the SECOND ingest address, when the exchange supplied one.
+    ///
+    /// `None` means there is no backup and the reconnect must stay on the
+    /// primary — which `reconnect::ingest_for_attempt` already does correctly
+    /// when `has_backup` is false. It is never synthesised from `rtmps_url`:
+    /// alternating onto a host YouTube never provisioned is worse than having no
+    /// backup, because the supervisor then spends every other attempt on an
+    /// address that cannot accept the stream while reporting a failover.
+    ///
+    /// Own-channel pastes carry `None` today: the couple gives us one address,
+    /// and asking a couple to find YouTube's backup URL in Studio is not a thing
+    /// this product should do.
+    rtmps_backup_url: Option<String>,
     #[allow(dead_code)]
     source: KeySource,
 }
@@ -151,17 +166,31 @@ impl StreamKeyState {
     /// claimed a hosted channel. `encoder_start` turns that into a refusal, so a
     /// broadcast can never begin pointed at nowhere.
     ///
-    /// There is no backup ingest yet: `ExchangeResponse.rtmps_backup_url` is
-    /// parsed off the wire but never stored on `HeldStreamKey` (see its
-    /// `#[allow(dead_code)]`), so `Destinations::new` is the honest constructor
-    /// here. Storing it is a separate, small change to the two setters — NOT
-    /// something to fake with a guessed `?backup=1` URL, which is how you send a
-    /// wedding to a host that was never provisioned.
+    /// DSK-3 — THE BACKUP IS NOW REAL WHEN THERE IS ONE. This docblock used to
+    /// say "there is no backup ingest yet: `ExchangeResponse.rtmps_backup_url` is
+    /// parsed off the wire but never stored". It is stored now, and
+    /// `Destinations::with_backup` is used whenever it parses — which is what
+    /// lets `reconnect::supervise` alternate after three consecutive primary
+    /// failures instead of retrying a dead host forever.
+    ///
+    /// A backup that does NOT parse degrades to primary-only rather than
+    /// refusing the broadcast. That direction is deliberate: the primary is the
+    /// address carrying the wedding, and refusing to go live because the SPARE
+    /// was malformed would trade a real ceremony for a hypothetical one.
     pub fn destinations(&self) -> Option<Destinations> {
         let guard = self.0.lock().ok()?;
         let held = guard.as_ref()?;
         let endpoint = RtmpEndpoint::parse(&held.rtmps_url, Some(held.key.as_str())).ok()?;
-        Some(Destinations::new(endpoint))
+        match held
+            .rtmps_backup_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+            .and_then(|url| RtmpEndpoint::parse(url, Some(held.key.as_str())).ok())
+        {
+            Some(backup) => Some(Destinations::with_backup(endpoint, backup)),
+            None => Some(Destinations::new(endpoint)),
+        }
     }
 
     /// The body of `stream_key_forget`, callable without a command invocation so
@@ -192,8 +221,11 @@ pub struct ClaimedEncoderTarget {
 #[serde(rename_all = "camelCase")]
 struct ExchangeResponse {
     rtmps_url: String,
+    /// DSK-3 — read for real now, and stored on `HeldStreamKey`. Still
+    /// `#[serde(default)]`: the server sends `null` for any broadcast that has no
+    /// TLS backup (a row created before DSK-3, or one YouTube gave none for), and
+    /// that must stay a normal, non-failing case.
     #[serde(default)]
-    #[allow(dead_code)] // not yet persisted anywhere upstream — see the .ts module docblock
     rtmps_backup_url: Option<String>,
     stream_key: String,
 }
@@ -280,6 +312,9 @@ fn set_pasted_inner(
     *current = Some(HeldStreamKey {
         key,
         rtmps_url: address,
+        // Own-channel has no second address to offer: the couple pastes one key
+        // and, at most, one server URL. Not a gap — a backup we do not have.
+        rtmps_backup_url: None,
         source: KeySource::Pasted,
     });
     Ok(())
@@ -346,6 +381,9 @@ pub async fn stream_key_claim_hosted(
     *guard = Some(HeldStreamKey {
         key: Zeroizing::new(parsed.stream_key),
         rtmps_url: rtmps_url.clone(),
+        // DSK-3 — kept from the exchange response. `None` when the server sent
+        // null, which is every broadcast without a provisioned TLS backup.
+        rtmps_backup_url: parsed.rtmps_backup_url,
         source: KeySource::Hosted,
     });
 
@@ -520,6 +558,109 @@ mod tests {
         );
         assert_eq!(err, Err("key_looks_like_ingest_address".to_string()));
         assert!(current.is_none());
+    }
+
+    // ── DSK-3 ───────────────────────────────────────────────────────────────
+    // The failover machinery (`Destinations::with_backup`, `ingest_for_attempt`'s
+    // alternation after three primary failures) was built and tested in S7 and
+    // has never been reachable, because nothing ever stored a second address.
+    // These pin the join.
+
+    /// Hold a hosted-channel key exactly as `stream_key_claim_hosted` does, then
+    /// ask the real reader.
+    fn hosted_destinations(
+        rtmps_url: &str,
+        rtmps_backup_url: Option<&str>,
+    ) -> Option<Destinations> {
+        let state = StreamKeyState::default();
+        {
+            let mut guard = state.0.lock().unwrap();
+            *guard = Some(HeldStreamKey {
+                key: Zeroizing::new("hosted-secret".to_string()),
+                rtmps_url: rtmps_url.to_string(),
+                rtmps_backup_url: rtmps_backup_url.map(str::to_string),
+                source: KeySource::Hosted,
+            });
+        }
+        state.destinations()
+    }
+
+    #[test]
+    fn a_hosted_backup_reaches_the_reconnect() {
+        let d = hosted_destinations(
+            "rtmps://a.rtmps.youtube.com/live2",
+            Some("rtmps://b.rtmps.youtube.com/live2?backup=1"),
+        )
+        .expect("a hosted key with a backup must resolve");
+        assert!(
+            d.has_backup(),
+            "the stored backup never reached Destinations — the reconnect would \
+             retry the dead primary forever while reporting a failover"
+        );
+        assert_eq!(d.endpoint(Ingest::Backup).host, "b.rtmps.youtube.com");
+        assert_eq!(d.endpoint(Ingest::Primary).host, "a.rtmps.youtube.com");
+    }
+
+    #[test]
+    fn the_backup_carries_the_same_key_and_stays_on_tls() {
+        let d = hosted_destinations(
+            "rtmps://a.rtmps.youtube.com/live2",
+            Some("rtmps://b.rtmps.youtube.com/live2?backup=1"),
+        )
+        .unwrap();
+        let backup = d.endpoint(Ingest::Backup);
+        assert_eq!(backup.stream_key, "hosted-secret");
+        assert!(backup.tls, "failing over must not drop to plain RTMP");
+        assert_eq!(backup.socket_address(), "b.rtmps.youtube.com:443");
+    }
+
+    #[test]
+    fn no_backup_means_the_reconnect_stays_on_the_primary() {
+        let d = hosted_destinations("rtmps://a.rtmps.youtube.com/live2", None)
+            .expect("a hosted key without a backup must still broadcast");
+        assert!(!d.has_backup());
+        // And the alternation agrees: with no backup every attempt is primary.
+        for attempt in 1..=8 {
+            assert_eq!(ingest_for_attempt(attempt, d.has_backup()), Ingest::Primary);
+        }
+    }
+
+    #[test]
+    fn a_backup_is_never_synthesised_from_the_primary() {
+        // The failure this forbids: `endpoint(Backup)` falls back to the primary
+        // when none is set, so asserting on the ENDPOINT alone would pass. The
+        // question is whether the supervisor believes it has somewhere else to go.
+        let d = hosted_destinations("rtmps://a.rtmps.youtube.com/live2", None).unwrap();
+        assert!(!d.has_backup(), "a wedding must not fail over to its own dead primary");
+    }
+
+    #[test]
+    fn a_blank_backup_column_is_no_backup_at_all() {
+        for blank in ["", "   "] {
+            let d = hosted_destinations("rtmps://a.rtmps.youtube.com/live2", Some(blank)).unwrap();
+            assert!(!d.has_backup(), "{blank:?} became a backup address");
+        }
+    }
+
+    #[test]
+    fn an_unusable_backup_degrades_instead_of_refusing_the_broadcast() {
+        // Deliberate direction: the primary is the address carrying the ceremony.
+        // Refusing to go live because the SPARE was malformed trades a real
+        // wedding for a hypothetical one.
+        let d = hosted_destinations(
+            "rtmps://a.rtmps.youtube.com/live2",
+            Some("https://not-an-rtmp-host/live2"),
+        )
+        .expect("a malformed backup must not take the broadcast down");
+        assert!(!d.has_backup());
+        assert_eq!(d.endpoint(Ingest::Primary).host, "a.rtmps.youtube.com");
+    }
+
+    #[test]
+    fn an_own_channel_paste_holds_no_backup() {
+        let mut current: Option<HeldStreamKey> = None;
+        set_pasted_inner(&mut current, "abcd-1234".to_string(), None).unwrap();
+        assert!(current.as_ref().unwrap().rtmps_backup_url.is_none());
     }
 
     #[test]

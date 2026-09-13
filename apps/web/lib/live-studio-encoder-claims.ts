@@ -27,18 +27,25 @@
  *      handling in api/oauth/youtube/callback/route.ts), then resolves the
  *      bound `panood_broadcasts` row for the real ingestion URL + key.
  *
- * `rtmpsBackupUrl` is always null today: `createYoutubeStream`
- * (lib/panood-youtube.ts) only persists `cdn.ingestionInfo.ingestionAddress`,
- * never `backupIngestionAddress` — YouTube does return one, but nothing in this
- * codebase stores it yet. Threading that through is a real, separate gap
- * (worth its own follow-up); this module returns the shape the Rust side
- * expects with the field honestly null rather than inventing a value.
+ * DSK-3 — `rtmpsUrl` IS NOW THE TLS ADDRESS, AND `rtmpsBackupUrl` CAN BE REAL.
+ * This block used to say the backup was "always null today… a real, separate
+ * gap (worth its own follow-up)". That follow-up is this: `panood_broadcasts`
+ * now carries `rtmps_ingestion_url` and `rtmps_backup_ingestion_url`, both
+ * writers persist them, and `resolveEncoderIngest` picks between them below.
+ *
+ * What has NOT changed: a row created before DSK-3, or one YouTube gave no TLS
+ * address for, still resolves to the plain-RTMP `ingestion_url` and a null
+ * backup. Null still means NO BACKUP and is still never invented — the encoder
+ * treats it correctly (`ingest_for_attempt` stays on the primary when
+ * `has_backup` is false), and a fabricated backup host is a wedding published to
+ * a server that was never provisioned.
  */
 
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActivePanoodBroadcast } from '@/lib/panood-broadcast';
 import { generateYoutubeStateToken } from '@/lib/panood-youtube';
+import { resolveEncoderIngest } from '@/lib/live-studio-hosted-ingest';
 
 const CLAIM_TTL_MS = 60_000; // matches the migration's `expires_at` default
 
@@ -111,16 +118,32 @@ export async function exchangeEncoderClaim(
 
   const { data: broadcast } = await admin
     .from('panood_broadcasts')
-    .select('ingestion_url, stream_key, status')
+    .select(
+      'ingestion_url, rtmps_ingestion_url, rtmps_backup_ingestion_url, stream_key, status',
+    )
     .eq('id', claim.broadcast_id)
     .maybeSingle();
   if (!broadcast) return null;
-  const b = broadcast as { ingestion_url: string; stream_key: string; status: string };
+  const b = broadcast as {
+    ingestion_url: string;
+    rtmps_ingestion_url: string | null;
+    rtmps_backup_ingestion_url: string | null;
+    stream_key: string;
+    status: string;
+  };
   if (b.status === 'complete') return null;
 
+  // DSK-3 — the TLS pair when this broadcast has one, the plain-RTMP primary
+  // when it does not. The fallback direction lives in `resolveEncoderIngest`
+  // (and is tested there) rather than as a `??` here, because getting it wrong
+  // is silent both ways: too timid and a wedding goes out on 1935 behind a hotel
+  // firewall; too eager on the BACKUP and the encoder alternates to an address
+  // YouTube never provisioned.
+  const ingest = resolveEncoderIngest(b);
+
   return {
-    rtmpsUrl: b.ingestion_url,
-    rtmpsBackupUrl: null, // see module docblock — not persisted anywhere yet
+    rtmpsUrl: ingest.rtmpsUrl,
+    rtmpsBackupUrl: ingest.rtmpsBackupUrl,
     streamKey: b.stream_key,
   };
 }

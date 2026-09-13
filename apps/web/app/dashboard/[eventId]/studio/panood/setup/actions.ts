@@ -325,6 +325,13 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
       broadcastId,
       streamId: stream.streamId,
       ingestionUrl: stream.ingestionAddress,
+      // DSK-3 — THE ONLY MOMENT THESE EXIST. `liveStreams.insert` returns the
+      // TLS pair once; by broadcast time we are not calling the Data API again,
+      // so an address dropped here is gone for this wedding. Both are optional:
+      // YouTube does not always send them, and the plain-RTMP primary above is
+      // what keeps working when it does not.
+      rtmpsIngestionUrl: stream.rtmpsIngestionAddress,
+      rtmpsBackupIngestionUrl: stream.rtmpsBackupIngestionAddress,
       streamKey: stream.streamName,
       scheduledStartAt,
     });

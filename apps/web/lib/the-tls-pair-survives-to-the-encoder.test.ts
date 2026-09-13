@@ -91,13 +91,34 @@ test('the exchange resolves through the tested resolver, not an inline fallback'
 
 test('the exchange SELECTS the columns it resolves', () => {
   // Resolving a column you never selected yields undefined -> always the
-  // fallback -> plain RTMP forever, with every test above still green.
+  // fallback -> plain RTMP forever, with every other test here still green.
+  //
+  // ⚠ THIS GUARD WAS INERT WHEN FIRST WRITTEN, and a mutation run caught it: it
+  // sliced 400 characters after `.from('panood_broadcasts')` and asserted the
+  // column names appeared somewhere in that window. They did — in the `as {...}`
+  // TYPE ANNOTATION a few lines below the select. Deleting the columns from the
+  // select list left the annotation untouched, so the window still matched and
+  // the guard passed through its own sabotage. Assert the SELECT STRING itself.
   const src = code(CLAIMS);
   const at = src.indexOf(".from('panood_broadcasts')");
   assert.ok(at > -1, 'the exchange no longer reads panood_broadcasts — re-aim this guard');
-  const window = src.slice(at, at + 400);
-  assert.match(window, /rtmps_ingestion_url/, 'the exchange select omits the TLS primary');
-  assert.match(window, /rtmps_backup_ingestion_url/, 'the exchange select omits the TLS backup');
+
+  // The quoted column list inside the `.select( … )` that follows.
+  const selectAt = src.indexOf('.select(', at);
+  assert.ok(selectAt > at, 'no .select() after the exchange read — re-aim this guard');
+  const literal = src.slice(selectAt).match(/'([^']*)'/);
+  assert.ok(literal, 'the exchange select is no longer a quoted column list');
+  const columns = literal[1].split(',').map((c) => c.trim());
+
+  assert.ok(
+    columns.includes('rtmps_ingestion_url'),
+    `the exchange select omits the TLS primary — columns were: ${columns.join(' | ')}`,
+  );
+  assert.ok(
+    columns.includes('rtmps_backup_ingestion_url'),
+    `the exchange select omits the TLS backup — columns were: ${columns.join(' | ')}`,
+  );
+  assert.ok(columns.includes('stream_key'), 'the exchange stopped selecting the key itself');
 });
 
 test('the OBS route keeps its plain-RTMP address, untouched', () => {

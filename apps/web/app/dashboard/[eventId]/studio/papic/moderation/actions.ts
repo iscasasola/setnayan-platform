@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { isKwentoModerator } from '@/lib/security/kwento-moderation-authz';
+import { executeCleanupDelete } from '@/lib/cleanup-delete';
+import { EVENT_MEDIA_KEY_SETS, planPapicRowDeletes } from '@/lib/event-media-sweep-core';
 
 // Iteration 0012 Papic — couple-side UGC moderation actions.
 //
@@ -444,3 +446,150 @@ export async function blockKwentoGuest(
   return { ok: true };
 }
 
+
+/**
+ * DELETE FOREVER — the host's genuine erasure of one photograph.
+ *
+ * ─── THE RULING THIS IMPLEMENTS ────────────────────────────────────────────
+ * Owner, 2026-08-10 (DECISION_LOG row 3099, ruling 7): *"Delete a photo" means
+ * DELETE EVERYWHERE — genuine erasure, the one exception to the
+ * compress-never-delete rule.* The same row records what was true until now:
+ * *"today it hides the photo and the file survives to the six-month sweep."*
+ *
+ * 🔑 HIDE IS NOT DELETE, AND BOTH STAY. `setCaptureHidden` / `setSeatPhotoHidden`
+ * remain the reversible option and remain the default — a mis-click there is
+ * recoverable. This is the irreversible one, and it is the only place in the
+ * couple-facing product where a photograph is destroyed rather than withheld, so
+ * it is gated by a confirm dialog that names what it does.
+ *
+ * ─── WHAT "EVERYWHERE" MEANS, CONCRETELY ───────────────────────────────────
+ * A photograph is up to TEN files, not one. The list lives once, in
+ * `lib/event-media-sweep-core.ts`, shared with the celebration-wide sweep,
+ * precisely so no deletion path can carry a short copy of it — removing only
+ * `r2_object_key` would leave the display, tile, thumbnail, poster, web clip,
+ * wall-safe and three face-blocked copies fetchable at their own plain URLs.
+ * Then the row goes, and with it every gallery, story, print, recap and
+ * share-card read that joins to it; `everyCopyIsNowStale` throws away the cached
+ * ones, exactly as the hide path already does.
+ *
+ * ─── EVERY OBJECT MUST BE THIS PHOTOGRAPH'S OWN ────────────────────────────
+ * 🔒 The keys are columns a non-admin can write, and this runs with the admin
+ * client — the class `lib/cleanup-delete-scope.ts` exists to close. So the refs
+ * are PROVEN against the row's own tenant folder (a seat photo's event, a guest
+ * upload's guest) and deleted through `executeCleanupDelete`, which refuses
+ * anything the planner did not mint. A ref that is not this row's own is
+ * REFUSED, counted, and the row is kept — see below for why that is the safe
+ * direction.
+ *
+ * ─── ORDER: OBJECTS FIRST, ROW SECOND ──────────────────────────────────────
+ * The ordering `vendor-identity-retention.ts` already settled, for its reason:
+ * clearing the pointer first leaves the file addressable with nothing left to
+ * say whose it was. Refs are collected, objects deleted, and only then the row.
+ *
+ * ⚠ A ZERO-ROW DELETE IS SUCCESS-SHAPED. PostgREST returns no error when the
+ * filters match nothing, so the delete asks for its rows back with `.select()`
+ * and counts them; a photo id from another wedding matches nothing and is
+ * reported as not found rather than as a successful deletion of nothing.
+ */
+export async function deletePhotoForever(eventId: string, formData: FormData) {
+  await requireCouple(eventId);
+  const table = formData.get('table');
+  const id = formData.get('id');
+
+  if (table !== 'papic_photos' && table !== 'papic_guest_captures') {
+    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+  }
+  if (typeof id !== 'string' || id.length === 0) {
+    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+  }
+  const idColumn = table === 'papic_photos' ? 'photo_id' : 'capture_id';
+
+  const admin = createAdminClient();
+
+  /*
+    Collect BEFORE the delete — the rule `event-media-sweep.ts` states: after the
+    row is gone there is nothing left to say which objects were its. The
+    `event_id` predicate is the tenancy binding, applied on the READ as well as
+    the delete, so another wedding's photograph is never even enumerated.
+    `guest_id` comes with the keys because it is the guest table's tenant.
+  */
+  const columns = [
+    idColumn,
+    ...(table === 'papic_guest_captures' ? ['guest_id'] : []),
+    ...EVENT_MEDIA_KEY_SETS.papic,
+  ];
+  const { data: row, error: readError } = await admin
+    .from(table)
+    .select(columns.join(','))
+    .eq(idColumn, id)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  /*
+    🪤 A REFUSED READ IS NOT AN EMPTY GALLERY. Deleting the row after a failed
+    read would destroy the only record of which files were this photograph's,
+    orphaning every one of them permanently. Fail closed; the host can retry.
+  */
+  if (readError) {
+    redirect(`${MODERATION_PATH(eventId)}?error=delete_failed`);
+  }
+  if (!row) {
+    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+  }
+
+  const rowRecord = row as unknown as Record<string, unknown>;
+  const plan = planPapicRowDeletes({
+    table,
+    eventId,
+    guestId: rowRecord.guest_id,
+    row: rowRecord,
+  });
+
+  let filesFailed = 0;
+  for (const target of plan.deletes) {
+    try {
+      await executeCleanupDelete(target);
+    } catch (err) {
+      filesFailed += 1;
+      console.error('[delete-photo-forever] could not delete', target.key, err);
+    }
+  }
+  /*
+    🔒 IF ANY FILE SURVIVED, THE ROW STAYS — and a REFUSED ref counts as a
+    survivor just as loudly as a failed delete. This is the whole difference
+    between this action and a hide: the host is told the photograph is gone, so
+    it must be gone. Keeping the row keeps the keys, which keeps the deletion
+    retryable and keeps a refusal investigable; dropping it here would strand
+    exactly the copies this action exists to remove, with nothing left able to
+    name them.
+  */
+  if (filesFailed > 0 || plan.refused > 0) {
+    if (plan.refused > 0) {
+      console.error(
+        `[delete-photo-forever] REFUSED ${plan.refused} ref(s) on ${table} ${id} that are not ` +
+          'this photograph’s own — those objects are kept, and so is the row.',
+      );
+    }
+    redirect(`${MODERATION_PATH(eventId)}?error=delete_partial`);
+  }
+
+  const { data: deleted, error: deleteError } = await admin
+    .from(table)
+    .delete()
+    .eq(idColumn, id)
+    .eq('event_id', eventId)
+    .select(idColumn);
+  if (deleteError) {
+    redirect(`${MODERATION_PATH(eventId)}?error=delete_failed`);
+  }
+  // The COUNT, not the absence of an error — see the docblock.
+  if (!deleted || deleted.length === 0) {
+    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+  }
+
+  // Same reach as the hide path: the story, the recap, both prints and the share
+  // card each cache on their own clock, and the photograph is now gone from all
+  // of them.
+  await everyCopyIsNowStale(eventId);
+  revalidatePath(MODERATION_PATH(eventId));
+  redirect(`${MODERATION_PATH(eventId)}?deleted=1`);
+}

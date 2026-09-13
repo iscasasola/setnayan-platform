@@ -189,6 +189,40 @@ test('the refresh paths OPEN the stored refresh token before spending it', () =>
   }
 });
 
+test('the re-seal is AWAITED and its row count is checked', () => {
+  /*
+    🪤 THE FIX THAT NEEDED ITS OWN GUARD. These callbacks first returned the
+    PostgREST builder instead of awaiting it (TS2739). The builder is thenable,
+    so the write did run — but nothing looked at WHAT it wrote, and a zero-row
+    UPDATE is success-shaped: PostgREST returns no error when the filter matches
+    nothing, so a re-seal that touched no row reported a key sealed while it sat
+    in plaintext. The compiler's nudge — cast the type — would have kept exactly
+    that. Both halves are pinned, because either one alone can be reverted.
+  */
+  for (const file of [
+    'drive-copy.ts',
+    'photo-delivery-release.ts',
+    'panood-broadcast.ts',
+    'live-studio-channel-grants.ts',
+  ]) {
+    const src = read(file);
+    const call = /upgradeLegacyTokens\([\s\S]*?\n\s*\);/.exec(src)?.[0];
+    assert.ok(call, `${file} no longer re-seals a legacy token in place`);
+    assert.match(call, /await admin/, `${file} does not await its re-seal write`);
+    assert.match(call, /\.select\(/, `${file} re-seals without asking which rows it touched`);
+    assert.match(call, /rows: data\?\.length \?\? 0/, `${file} does not return a row count`);
+  }
+});
+
+test('a re-seal that matched NO row is not counted as sealed', () => {
+  const src = read('oauth-token-vault.ts');
+  assert.match(
+    src,
+    /if \(rows === 0\) \{/,
+    'a zero-row re-seal still reports the key as sealed',
+  );
+});
+
 test('the revoke path sends Google the OPENED token, not the envelope', () => {
   /*
     Revocation talks to Google. Sending an envelope means Google rejects it and

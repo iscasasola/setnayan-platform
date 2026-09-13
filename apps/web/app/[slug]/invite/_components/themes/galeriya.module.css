@@ -1,0 +1,179 @@
+/*
+ * GALERIYA — the Sophisticated invite theme (Event Hub Pro · lib/invite-themes.ts).
+ *
+ * A gallery. The wall is flat and light; ONE hairline rule stands the full
+ * height of the page and everything ranges off it. The couple's reveal
+ * background is not the wall — it is the WORK: a print held by a hairline and a
+ * soft shadow, hung above their names, which hang beneath it as the wall label.
+ * Their colour is a single 3px tab on the rule beside their name, and nowhere
+ * else. Design: designs/galeriya.html ("Five Invite Doors" · Galeriya), ported.
+ *
+ * Imported ONLY by the invite routes (via app/[slug]/invite/_components/themes),
+ * never by DoorShell — so no theme reaches the shared chunk.
+ *
+ * 🎨 NO WORD IS EVER SET ON THE PHOTO. That is the whole reason this theme is
+ * legible: the print carries no lettering, the label hangs below it on paper,
+ * and the head's contrast is exactly DoorShell's own. The accent is ornament
+ * only — one tab, never a word, never the action.
+ *
+ * ── TWO PORT CORRECTIONS, BOTH MEASURED, NEITHER A REDRAW ──────────────────
+ *
+ * 1 · THE WORK HANGS INSIDE THE CARD, NOT ON THE WALL ABOVE IT. The design
+ *     board is a plain top-ranged 375x812 column: wordmark, print, label, rail,
+ *     card. <DoorShell> is not that — it centres ONE card in `min-h-dvh` and the
+ *     header lives inside it, so "above the label" and "outside the card" are
+ *     no longer the same place. The only slot a skin has above the header is
+ *     `crest`, which renders inside the card. Hanging the print on the wall
+ *     instead would need space the skin cannot reserve (the card's position is
+ *     the column's, not the skin's) and the print would land on the wordmark —
+ *     the one piece of navigation a door carries. So the card is the mount
+ *     board: print, then label, then the door. Frame, shadow, crop and the
+ *     "no words on the photo" rule are the design's, unchanged.
+ *
+ * 2 · THE PRINT IS SHORTER THAN THE DESIGN'S 186px — owner Q4 = B, 2026-09-11:
+ *     the print is shortened until door 01's one action sits on the first screen
+ *     of a phone. ⚠ THE FIGURES IN THIS BLOCK ARE NOT YET MEASURED; this commit
+ *     is the draft-PR checkpoint and the browser run at 375x812 follows it.
+ */
+.galeriya {
+  /* the gallery wall */
+  --ga-wall: #e9eaec;
+  /* the one structural rule, and the print's hairline */
+  --ga-rule: #bdc0c5;
+
+  /*
+   * WHERE THE CARD'S LEFT EDGE IS, expressed the way DoorShell expresses it —
+   * `px-4 sm:px-6` around a `max-w-md` column. The rule on the wall and the
+   * accent tab on the label both range off that one edge, so they can never
+   * drift apart: the tab is drawn from inside the card and the rule from the
+   * full-bleed ground, and they must meet.
+   */
+  --ga-pad: 1rem; /* DoorShell's px-4 */
+  --ga-card-pad: 1.5rem; /* DoorShell's p-6 */
+  --ga-rule-gap: 8px; /* how far left of the card the rule stands */
+
+  /* the hung print's height — see port correction 2 above */
+  --ga-print-h: 116px;
+
+  background-color: var(--ga-wall);
+}
+@media (min-width: 640px) {
+  .galeriya {
+    --ga-pad: 1.5rem; /* sm:px-6 */
+    --ga-card-pad: 2rem; /* sm:p-8 */
+  }
+}
+
+/*
+ * THE RULE — one hairline, the full height of the page, standing 8px to the
+ * left of the card. It is drawn in the ground (full-bleed, behind everything)
+ * and its `left` re-computes DoorShell's own centring: the column is
+ * `max-w-md` (28rem) centred inside `px-4 sm:px-6`, so its left edge is
+ * `max(pad, (100% - 28rem) / 2)`. At 375px that is 16px and the rule stands at
+ * 8; at 1280px the column starts at 416px and the rule stands at 408.
+ */
+.rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(max(var(--ga-pad), (100% - 28rem) / 2) - var(--ga-rule-gap));
+  width: 1px;
+  background: var(--ga-rule);
+}
+
+/*
+ * THE WORK — the couple's photo, hung. The crop favours the upper middle
+ * (50% 38%) so a portrait keeps its faces and a scene keeps its sky, exactly as
+ * the design ranges it. A hairline all round and a soft shadow beneath, so it
+ * sits proud of what it is mounted on. With no photo the skin renders no crest
+ * at all and the door is the wall exactly as it was.
+ */
+.work {
+  position: relative;
+  margin: 0 0 24px;
+}
+.print {
+  display: block;
+  height: var(--ga-print-h);
+  background-position: 50% 38%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow:
+    0 0 0 1px var(--ga-rule),
+    0 18px 30px -22px rgba(20, 21, 25, 0.5);
+}
+
+/*
+ * THE HINGE CARRIES NO ORNAMENT, and that is the design, not an omission.
+ * Galeriya's only rule is the full-height one on the wall; between the label
+ * and the rail the board has nothing but 26px of air. The slot is still filled
+ * because filling it is what moves DoorShell's rail BENEATH the header — where
+ * this design ranges it — instead of above it. 2px here plus DoorShell's own
+ * `mt-6` on the rail is the board's 26px.
+ */
+.hinge {
+  height: 2px;
+}
+
+/*
+ * THE WALL LABEL. This is the skin's ONE reach inside the card
+ * (themes-stay-skins.test.ts) and it stops at the header: the eyebrow keeps
+ * DoorShell's #C24E25 and the rail below keeps its own colours, because the
+ * doorway's own labels belong to the app side.
+ */
+.galeriya :global(header) {
+  position: relative;
+}
+
+/*
+ * THE COUPLE'S COLOUR — one 3px tab, on the rule, beside their name. Nowhere
+ * else in this theme, and never carrying a word.
+ *
+ * It is drawn from the header and paints OUTSIDE the card (nothing in
+ * DoorShell's frame, column or card clips), which is the only way one element
+ * can be both "beside their name" (a height only the header knows) and "on the
+ * rule" (a place only the page knows). The offset walks back out of the card:
+ * its padding, its 1px edge, the rule gap, and one more pixel so the 3px tab
+ * straddles the 1px rule rather than sitting beside it.
+ */
+.galeriya :global(header)::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: calc(-1 * (var(--ga-card-pad) + 1px + var(--ga-rule-gap) + 1px));
+  width: 3px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+/*
+ * The name, in the theme's own face. 40px — see port correction 2. The design's
+ * `-.04em` and `.94` stay: they are what makes a long name read as one block
+ * rather than a stack of words.
+ */
+.galeriya :global(header) h1 {
+  font-family: var(--font-galeriya-sans), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+/* the eyebrow — DM Mono 500, which is already the app's `font-mono` */
+.galeriya :global(header) p:first-of-type {
+  font-weight: 500;
+}
+
+/*
+ * The date line. The design sets it as a datum, not a label: sentence case,
+ * .02em, lining figures. `:not(:first-of-type)` so an eyebrow standing alone is
+ * still the eyebrow.
+ */
+.galeriya :global(header) p:last-of-type:not(:first-of-type) {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}

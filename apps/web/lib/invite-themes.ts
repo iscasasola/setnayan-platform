@@ -92,7 +92,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     tier: 'pro',
     feels: ['modern'],
     opening: 'veil-sheer',
-    ready: false,
+    ready: true,
     blurb: 'Your photo hung as the work, your names as its label.',
   },
   abaca: {

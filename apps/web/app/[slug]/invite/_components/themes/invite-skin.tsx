@@ -1,6 +1,7 @@
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { capizSkin } from './capiz';
+import { galeriyaSkin } from './galeriya';
 import { velvetSkin } from './velvet';
 
 /** What every skin is built from — all of it the couple's own. */
@@ -24,6 +25,8 @@ export function inviteSkin(theme: InviteThemeId, input: InviteSkinInput): DoorSk
       return capizSkin(input);
     case 'velvet':
       return velvetSkin(input);
+    case 'galeriya':
+      return galeriyaSkin(input);
     default:
       return undefined;
   }

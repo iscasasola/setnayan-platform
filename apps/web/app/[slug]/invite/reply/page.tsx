@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { DoorShell } from '@/app/_components/door/door-shell';
+import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -8,7 +8,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { joinDoorMeta } from '@/lib/join-door-meta';
-import { arrivalSteps, CONNECT_THEN_REPLY } from '@/lib/invite-arrival';
+import { arrivalSteps, CONNECT_THEN_REPLY, inviteEnterPath } from '@/lib/invite-arrival';
 import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
@@ -153,6 +153,26 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         }
       : null;
 
+  /* ── THE WAY ONWARD FOR SOMEBODY WHO HAS ALREADY ANSWERED ────────────────
+     🔒 THE 2026-09-10 REDIRECT STAYS. `join-flow.tsx` sends a returning guest
+     straight here rather than back through the arrival, and that ruling is not
+     being reversed — a guest must not be made to type their name again. What
+     was missing is the other half: from this door there was NO way on to the
+     Event Hub or to their own QR except re-submitting the form. Owner hit
+     exactly that and called it being stuck.
+
+     🔑 THE LINK GOES TO DOOR 03, NOT TO THE HUB. Door 03 is where the QR is
+     handed over and where the phase-aware proceed button lives; sending them
+     past it would be the "stuck" complaint answered by skipping the thing they
+     were stuck without. It is the same `readGuestSession()` gate as this page,
+     so it cannot show anyone a code that is not theirs — and it replays no
+     reveal (that is door 01, which this guest is deliberately never sent back
+     to).
+
+     Offered only once there IS an answer to stand on: a 'pending' guest has not
+     replied yet, and their way onward is the card below. */
+  const hasAnswered = ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
+
   const guestName =
     (guest.display_name as string | null)?.trim() ||
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
@@ -171,6 +191,19 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
       width="lg"
       skin={look.skin}
     >
+      {hasAnswered ? (
+        <DoorNotice>
+          Your reply is saved.{' '}
+          <Link
+            className="font-medium text-link underline-offset-2 hover:underline"
+            href={inviteEnterPath(home)}
+          >
+            Go to your QR and open the {words.eventWord}
+          </Link>{' '}
+          {replyLocked ? null : <> &mdash; or change your answer below.</>}
+        </DoorNotice>
+      ) : null}
+
       {user && seatIsLinked ? (
         <p className="text-sm text-ink/70">
           You&rsquo;re signed in{user.email ? <> as <span className="font-medium text-ink">{user.email}</span></> : null} —

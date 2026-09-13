@@ -615,6 +615,54 @@ mod tests {
     }
 
     #[test]
+    fn the_wedding_actually_MOVES_to_the_backup_host() {
+        // `has_backup()` being true is not the property that matters — a stream
+        // can carry a backup address and still never leave the primary. This
+        // walks the real attempt ladder and asserts the HOST the supervisor
+        // would dial actually changes, and keeps alternating so a dead BACKUP
+        // does not strand the wedding either.
+        let d = hosted_destinations(
+            "rtmps://a.rtmps.youtube.com/live2",
+            Some("rtmps://b.rtmps.youtube.com/live2?backup=1"),
+        )
+        .unwrap();
+
+        let host_for = |attempt: u32| {
+            d.endpoint(ingest_for_attempt(attempt, d.has_backup()))
+                .host
+                .clone()
+        };
+
+        // Attempts 1-3: a blip on the primary is still a blip.
+        for attempt in 1..=3 {
+            assert_eq!(host_for(attempt), "a.rtmps.youtube.com", "attempt {attempt}");
+        }
+        // The fourth is the one this row exists for.
+        assert_eq!(
+            host_for(4),
+            "b.rtmps.youtube.com",
+            "the broadcast never moved off a dead primary"
+        );
+        // And it alternates, rather than stranding on the backup.
+        assert_eq!(host_for(5), "a.rtmps.youtube.com");
+        assert_eq!(host_for(6), "b.rtmps.youtube.com");
+    }
+
+    #[test]
+    fn without_a_backup_the_ladder_never_leaves_the_primary_host() {
+        // The same walk, same assertions, opposite expectation — so the test
+        // above cannot be passing merely because `endpoint(Backup)` falls back.
+        let d = hosted_destinations("rtmps://a.rtmps.youtube.com/live2", None).unwrap();
+        for attempt in 1..=8 {
+            assert_eq!(
+                d.endpoint(ingest_for_attempt(attempt, d.has_backup())).host,
+                "a.rtmps.youtube.com",
+                "attempt {attempt}"
+            );
+        }
+    }
+
+    #[test]
     fn no_backup_means_the_reconnect_stays_on_the_primary() {
         let d = hosted_destinations("rtmps://a.rtmps.youtube.com/live2", None)
             .expect("a hosted key without a backup must still broadcast");

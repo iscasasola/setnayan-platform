@@ -30,14 +30,29 @@
 -- address is how a wedding gets published to a host that does not exist. Readers
 -- fall back to `ingestion_url`; see `resolveEncoderIngest`.
 --
--- ── NO GRANT CHANGES, DELIBERATELY ──────────────────────────────────────────
--- `panood_broadcasts` is service-role only: RLS is ENABLED with NO policy and
--- `anon` was revoked wholesale (20271148202591_anon_grant_batch5.sql), because
--- the table already carries the secret `stream_key`. New columns inherit exactly
--- that, which is what we want — these addresses are not secret, but they sit
--- beside one that is, and the row is reached only through the service-role
--- exchange. Verified by supabase/security/exposure-surface.baseline.txt rather
--- than asserted here: a migration comment is not evidence.
+-- ── WHAT ACTUALLY PROTECTS THESE ROWS (measured, not assumed) ───────────────
+-- This comment first said "no grant changes — new columns inherit service-role
+-- only". THAT WAS WRONG, and `exposure-freeze.db.test.ts` said so: both columns
+-- came out `authenticated=SIU`. The correction matters more than the original
+-- claim, so it is written here rather than quietly fixed:
+--
+--   • `authenticated` holds a TABLE-level grant on panood_broadcasts (SIUD in
+--     supabase/security/exposure-surface.baseline.txt). Every column inherits
+--     SELECT/INSERT/UPDATE from it — INCLUDING the secret `stream_key`, which
+--     has read that way since the table was created. A column-level REVOKE
+--     would be a no-op against a table-level grant, so there is nothing to
+--     narrow here that would actually narrow anything.
+--   • What keeps `authenticated` out is ROW-level: RLS is ENABLED with NO
+--     policy, so an authenticated caller matches zero rows. `anon` was revoked
+--     wholesale (20271148202591_anon_grant_batch5.sql).
+--
+-- So these two columns sit at exactly the posture the secret beside them already
+-- has, and the baseline was regenerated in this same commit so the two new lines
+-- appear in review. ⚠ The table's own comment calls it "service-role only" while
+-- `authenticated` holds a table grant it cannot use — true today only because of
+-- the empty-policy RLS. Flagged for the owner, NOT changed here: revoking a
+-- standing table grant is a posture change to an existing table, not part of
+-- this row.
 
 ALTER TABLE public.panood_broadcasts
   ADD COLUMN IF NOT EXISTS rtmps_ingestion_url        text,

@@ -3,7 +3,7 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, EyeOff, Eye, Flag, UserX, CheckCircle2, Camera, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -20,8 +20,10 @@ import {
   blockUploader,
   unblockUploader,
   approveScreenedCapture,
-  setSeatPhotoHidden,} from './actions';
+  setSeatPhotoHidden,
+  deletePhotoForever,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Photo moderation · Papic' };
@@ -284,8 +286,21 @@ export default async function PapicModerationPage({
     (search.blocked && 'That guest can no longer add photos to this wedding.') ||
     (search.unblocked && 'Block lifted — that guest can add photos again.') ||
     (search.approved && 'Photo approved — it will show in your gallery again.') ||
+    (search.deleted && 'Photo deleted. Every copy of it is gone.') ||
     null;
-  const errorMsg = search.error ? 'Something went wrong — please try again.' : null;
+  /*
+    ⚠ A PARTIAL DELETE MUST NOT SAY "TRY AGAIN AND IT WILL BE FINE". The photo
+    is still here BECAUSE a file could not be removed — the row is kept on
+    purpose so the deletion stays retryable. Saying the generic sentence would
+    tell a host their photograph is gone when it is not, which is the whole
+    defect this page was fixed for.
+  */
+  const errorMsg =
+    search.error === 'delete_partial'
+      ? 'We could not remove every copy of that photo, so nothing was deleted — it is still here. Please try again, and tell us if it keeps happening.'
+      : search.error
+        ? 'Something went wrong — please try again.'
+        : null;
 
   return (
     <section className="space-y-6">
@@ -398,6 +413,28 @@ export default async function PapicModerationPage({
                     )}
                   </SubmitButton>
                 </form>
+                {/*
+                  Delete forever — the owner's 2026-08-10 ruling. Deliberately
+                  BELOW Hide and in the destructive tint: hiding is the
+                  reversible thing a host usually wants, and this one cannot be
+                  undone. The dialog says so in words, not by colour alone.
+                */}
+                <ConfirmForm
+                  action={deletePhotoForever.bind(null, eventId)}
+                  title="Delete this photo forever?"
+                  confirmLabel="Delete forever"
+                  message="This removes the photo and every copy of it — your gallery, the story, the prints and the share card. It cannot be undone. To take it out of the gallery but keep it, use Hide instead."
+                >
+                  <input type="hidden" name="table" value="papic_guest_captures" />
+                  <input type="hidden" name="id" value={captureId} />
+                  <SubmitButton
+                    pendingLabel="Deleting…"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-cream px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/[0.06]"
+                  >
+                    <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Delete forever
+                  </SubmitButton>
+                </ConfirmForm>
+
 
                 {/* Report */}
                 <form action={reportCapture.bind(null, eventId)} className="space-y-1.5">
@@ -516,6 +553,23 @@ export default async function PapicModerationPage({
                       )}
                     </SubmitButton>
                   </form>
+                  {/* Delete forever — same ruling, same posture, seat side. */}
+                  <ConfirmForm
+                    action={deletePhotoForever.bind(null, eventId)}
+                    title="Delete this photo forever?"
+                    confirmLabel="Delete forever"
+                    message="This removes the photo and every copy of it — your gallery, the story, the prints and the share card. It cannot be undone. To take it out of the gallery but keep it, use Hide instead."
+                  >
+                    <input type="hidden" name="table" value="papic_photos" />
+                    <input type="hidden" name="id" value={photoId} />
+                    <SubmitButton
+                      pendingLabel="Deleting…"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-cream px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/[0.06]"
+                    >
+                      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Delete forever
+                    </SubmitButton>
+                  </ConfirmForm>
+
                 </li>
               );
             })}

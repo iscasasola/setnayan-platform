@@ -57,6 +57,7 @@ test('the sweep can only ever name the media bucket — AND only this celebratio
         tile_r2_key: `r2://setnayan-media/vendors/${V}/logo/l.png`,
       },
     ],
+    guestCaptures: [],
     captures: [],
     event: { site_bg_music_r2_key: `r2://setnayan-media/events/${E2}/site-music/a.mp3` },
   });
@@ -79,24 +80,89 @@ test('chat attachments are never swept — the owner ruled KEEP', () => {
   );
 });
 
-test('all SEVEN papic keys are collected, not just the original', () => {
+test('all TEN papic keys are collected, not just the original', () => {
   const photo: Record<string, string> = {};
   for (const col of PAPIC_KEY_COLUMNS) {
     photo[col] = `r2://setnayan-media/${col === 'r2_object_key' ? '' : 'derivatives/'}papic/event-${E}/seat-s/${col}.bin`;
   }
-  assert.equal(PAPIC_KEY_COLUMNS.length, 7);
-  const p = planEventMediaDeletes({ eventId: E, photos: [photo], captures: [], event: null });
+  /*
+    🪤 THIS NUMBER SAID SEVEN AND THE SCHEMA SAID TEN. The three face-blocked
+    copies (`safe_display_r2_key`, `safe_tile_r2_key`, `safe_thumb_r2_key`) are
+    written by papic-derivatives.ts after a face-block bake and were missing
+    from the list, so this assertion PASSED while three public-facing copies of
+    every photograph survived the sweep. The count is asserted BOTH ways on
+    purpose: the length pin fails if a column is dropped, and the explicit
+    membership below fails if the three that were missing go missing again —
+    a length alone would be satisfied by any ten columns.
+  */
+  assert.equal(PAPIC_KEY_COLUMNS.length, 10);
+  for (const col of ['safe_display_r2_key', 'safe_tile_r2_key', 'safe_thumb_r2_key'] as const) {
+    assert.ok(
+      (PAPIC_KEY_COLUMNS as readonly string[]).includes(col),
+      `${col} is not swept — the face-blocked copy a PUBLIC surface may show stays fetchable`,
+    );
+  }
+  const p = planEventMediaDeletes({ eventId: E, photos: [photo], guestCaptures: [], captures: [], event: null });
   assert.equal(
     p.deletes.length,
-    7,
+    10,
     'a derivative is not collected — the photograph stays fetchable at a derivative address',
   );
+});
+
+test('a GUEST’s uploads are swept too — their rows cascade and their files did not', () => {
+  /*
+    🔑 THE TABLE WAS NOT READ AT ALL. `papic_guest_captures.event_id` is
+    ON DELETE CASCADE, so removing the celebration took every row and left every
+    file — permanently orphaned, with nothing able to name it. The tenant is the
+    GUEST, not the event: the writer files under `papic/guest/<guest_id>/`, so a
+    planner that pinned these to the event's folder would refuse all of them,
+    which is the failure this asserts against in both directions.
+  */
+  const G = 'a1000000-0000-4000-8000-000000000001';
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [],
+    guestCaptures: [
+      {
+        guest_id: G,
+        r2_object_key: `r2://setnayan-media/papic/guest/${G}/papic-1.jpg`,
+        safe_display_r2_key: `r2://setnayan-media/derivatives/papic/guest/${G}/papic-1.jpg.safe-display.avif`,
+      },
+    ],
+    captures: [],
+    event: null,
+  });
+  assert.deepEqual(planned(p), [
+    `setnayan-media/derivatives/papic/guest/${G}/papic-1.jpg.safe-display.avif`,
+    `setnayan-media/papic/guest/${G}/papic-1.jpg`,
+  ], 'a guest’s uploaded photographs survive the celebration being removed');
+  assert.equal(p.refused, 0);
+});
+
+test('a guest capture belonging to ANOTHER guest is refused, not swept', () => {
+  const G = 'a1000000-0000-4000-8000-000000000001';
+  const OTHER = 'a1000000-0000-4000-8000-000000000002';
+  const p = planEventMediaDeletes({
+    eventId: E,
+    photos: [],
+    guestCaptures: [
+      { guest_id: G, r2_object_key: `r2://setnayan-media/papic/guest/${OTHER}/papic-1.jpg` },
+      // No readable tenant at all — must admit nothing rather than everything.
+      { guest_id: null, r2_object_key: `r2://setnayan-media/papic/guest/${G}/papic-2.jpg` },
+    ],
+    captures: [],
+    event: null,
+  });
+  assert.deepEqual(p.deletes, []);
+  assert.equal(p.refused, 2);
 });
 
 test('a bare key with no r2:// prefix is refused, never guessed into a bucket', () => {
   const p = planEventMediaDeletes({
     eventId: E,
     photos: [{ r2_object_key: `papic/event-${E}/seat-s/a.jpg` }],
+    guestCaptures: [],
     captures: [],
     event: { landing_page_hero_image_url: 'https://cdn.example.com/hero.jpg' },
   });
@@ -113,6 +179,7 @@ test('the celebration’s own files ARE planned — photos, derivatives and site
         display_r2_key: `r2://setnayan-media/derivatives/papic/event-${E}/seat-s/a.jpg.display.avif`,
       },
     ],
+    guestCaptures: [],
     captures: [],
     event: {
       site_bg_music_r2_key: `r2://setnayan-media/events/${E}/site-music/a.mp3`,
@@ -198,6 +265,7 @@ test('a supplier’s own captures are swept too — the rows cascade, the files 
   const p = planEventMediaDeletes({
     eventId: E,
     photos: [],
+    guestCaptures: [],
     captures: [
       { vendor_profile_id: V, r2_object_key: `${base}.mp4`, poster_r2_key: `${base}-poster.jpg` },
       // The same supplier's capture at ANOTHER celebration, forged onto this row.

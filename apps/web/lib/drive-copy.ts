@@ -1,5 +1,10 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  openStoredToken,
+  sealToken,
+  upgradeLegacyTokens,
+} from '@/lib/oauth-token-vault';
 import { getDriveOAuthConfig, refreshDriveAccessToken } from '@/lib/papic-drive';
 import { buildPhotoDeliveryFolderName } from '@/lib/photo-delivery-drive';
 import {
@@ -434,15 +439,43 @@ export async function getEventDriveAccessToken(
     ? new Date(grant.access_token_expires_at as string).getTime()
     : 0;
   if (grant.access_token && expiresAt > Date.now() + TOKEN_REFRESH_THRESHOLD_MS) {
-    return grant.access_token as string;
+    /*
+      The stored access token, opened. A row written before sealing existed
+      still holds plaintext — `openStoredToken` passes that through, and the
+      best-effort upgrade below seals it in place so the next read finds an
+      envelope. A value that IS our envelope but cannot be opened returns
+      null, and we fall through to a refresh rather than sending ciphertext
+      to Google as a bearer token.
+    */
+    const cached = openStoredToken(grant.access_token as string | null);
+    if (cached) {
+      await upgradeLegacyTokens(
+        {
+          access_token: grant.access_token as string | null,
+          refresh_token: grant.refresh_token as string | null,
+        },
+        (patch) =>
+          admin.from('oauth_grants').update(patch).eq('grant_id', grant.grant_id),
+      );
+      return cached;
+    }
   }
 
   const cfg = await getDriveOAuthConfig();
   if (!cfg.ready) return null;
 
+  /*
+    🔒 THE REFRESH TOKEN IS THE LONG-LIVED ONE — it is the credential the
+    filing is really about. Unopenable means the key is missing or has
+    rotated past its fallback; refusing is the only safe move, because a
+    refresh attempt with ciphertext would make Google revoke the grant.
+  */
+  const refreshToken = openStoredToken(grant.refresh_token as string | null);
+  if (!refreshToken) return null;
+
   try {
     const refreshed = await refreshDriveAccessToken({
-      refreshToken: grant.refresh_token as string,
+      refreshToken,
       clientId: cfg.clientId,
       clientSecret: cfg.clientSecret,
     });
@@ -450,7 +483,7 @@ export async function getEventDriveAccessToken(
     await admin
       .from('oauth_grants')
       .update({
-        access_token: refreshed.access_token,
+        access_token: sealToken(refreshed.access_token),
         access_token_expires_at: newExpiresAt,
         last_refreshed_at: new Date().toISOString(),
         // A successful refresh proves the refresh_token is still good — clear any

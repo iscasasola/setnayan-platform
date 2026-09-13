@@ -192,5 +192,41 @@ export async function reencryptStoredSecrets(): Promise<ReencryptCounts> {
     ),
   );
 
+  /*
+    4. THE COUPLES' OWN CONNECTION KEYS — Drive, YouTube (both the couple's own
+       grant and Setnayan's pool channels) and TikTok. Sealed as of CP-3
+       (2026-09-13); before that they were plaintext and this sweep had nothing
+       to re-seal, which is why they were not listed.
+
+    🔑 A SEALED COLUMN THAT IS NOT SWEPT HERE BREAKS ON THE NEXT KEY ROTATION.
+    The rotation contract is: write the new key, run this, then drop
+    ENCRYPTION_KEY_PREVIOUS. A column left out still holds ciphertext under the
+    OLD key, and dropping PREVIOUS makes it permanently unopenable — which for
+    these columns means every couple's Drive, broadcast and TikTok connection
+    dies at once and each of them has to reconnect by hand.
+
+    ⚠ `reseal` leaves a value it cannot decrypt alone and counts it, so a row
+    still holding legacy plaintext passes through untouched rather than being
+    mangled. The read paths upgrade those in place as they are used.
+  */
+  counts = add(counts, await sweepColumn(admin, 'oauth_grants', 'grant_id', 'access_token'));
+  counts = add(counts, await sweepColumn(admin, 'oauth_grants', 'grant_id', 'refresh_token'));
+  counts = add(
+    counts,
+    await sweepColumn(admin, 'live_studio_channel_grants', 'id', 'access_token'),
+  );
+  counts = add(
+    counts,
+    await sweepColumn(admin, 'live_studio_channel_grants', 'id', 'refresh_token'),
+  );
+  counts = add(
+    counts,
+    await sweepColumn(admin, 'patiktok_oauth_grants', 'grant_id', 'access_token'),
+  );
+  counts = add(
+    counts,
+    await sweepColumn(admin, 'patiktok_oauth_grants', 'grant_id', 'refresh_token'),
+  );
+
   return counts;
 }

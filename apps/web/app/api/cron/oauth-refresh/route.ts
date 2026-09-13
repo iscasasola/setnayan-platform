@@ -9,6 +9,7 @@ import {
   refreshDriveAccessToken,
 } from '@/lib/papic-drive';
 import { refreshPoolChannelGrants } from '@/lib/live-studio-channel-grants';
+import { openStoredToken, sealToken } from '@/lib/oauth-token-vault';
 
 // OAuth refresh worker — shared by Panood (youtube) + Papic (drive).
 //
@@ -102,7 +103,18 @@ export async function POST(req: NextRequest) {
   for (const grant of grants ?? []) {
     const grantId = grant.grant_id as string;
     const provider = grant.provider as string;
-    const refreshToken = grant.refresh_token as string;
+    /*
+      🔒 Opened before use. A grant written before sealing existed still holds
+      plaintext and passes straight through; an envelope we cannot open is
+      skipped rather than sent, because a refresh built from ciphertext is how
+      Google is persuaded to revoke a grant that was perfectly healthy.
+    */
+    const refreshToken = openStoredToken(grant.refresh_token as string | null);
+    if (!refreshToken) {
+      summary.skipped += 1;
+      summary.details.push({ grant_id: grantId, provider, status: 'skipped', reason: 'token_unopenable' });
+      continue;
+    }
 
     // Per-provider config + refresh dispatch. Both Google providers use
     // the same OAuth token endpoint (oauth2.googleapis.com/token) so the
@@ -178,7 +190,7 @@ export async function POST(req: NextRequest) {
     await admin
       .from('oauth_grants')
       .update({
-        access_token: refreshed.access_token,
+        access_token: sealToken(refreshed.access_token),
         access_token_expires_at: expiresAt,
         last_refreshed_at: new Date().toISOString(),
       })

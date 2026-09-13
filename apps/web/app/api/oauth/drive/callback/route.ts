@@ -7,6 +7,7 @@ import {
   fetchDriveUserInfo,
   getDriveOAuthConfig,
 } from '@/lib/papic-drive';
+import { sealToken } from '@/lib/oauth-token-vault';
 
 // Iteration 0012 Papic — Google Drive OAuth callback.
 //
@@ -205,8 +206,8 @@ export async function GET(req: NextRequest) {
         event_id: eventId,
         provider: grantProvider,
         scopes: token.scope ? token.scope.split(' ') : [],
-        refresh_token: token.refresh_token,
-        access_token: token.access_token,
+        refresh_token: sealToken(token.refresh_token),
+        access_token: sealToken(token.access_token),
         access_token_expires_at: expiresAt,
         external_account_id: userInfo?.id ?? null,
         external_account_display: userInfo?.email ?? 'Connected Drive',

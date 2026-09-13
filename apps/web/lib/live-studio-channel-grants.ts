@@ -4,6 +4,11 @@ import {
   refreshYoutubeAccessToken,
   revokeYoutubeToken,
 } from '@/lib/panood-youtube';
+import {
+  openStoredToken,
+  sealToken,
+  upgradeLegacyTokens,
+} from '@/lib/oauth-token-vault';
 
 /**
  * apps/web/lib/live-studio-channel-grants.ts
@@ -168,22 +173,57 @@ export async function getPoolChannelAccessToken(
     ? new Date(grant.access_token_expires_at).getTime()
     : 0;
   if (grant.access_token && expiresAt > Date.now() + TOKEN_REFRESH_THRESHOLD_MS) {
-    return grant.access_token;
+    /*
+      Opened, not returned raw. A grant written before sealing existed still
+      holds plaintext; that is passed through and sealed in place below. An
+      envelope we cannot open returns null and falls through to a refresh
+      rather than being sent to Google as a bearer token.
+    */
+    const cached = openStoredToken(grant.access_token);
+    if (cached) {
+      await upgradeLegacyTokens(
+        { access_token: grant.access_token, refresh_token: grant.refresh_token },
+        async (patch) => {
+          /*
+            Awaited HERE, and the rows are counted. Returning the builder made
+            this a Promise-shaped thing that was not a Promise (TS2739) — and
+            the tempting fix, casting the type, would have hidden the row count
+            the helper needs to tell a real re-seal from one that matched
+            nothing.
+          */
+          const { data, error } = await admin
+            .from('live_studio_channel_grants')
+            .update(patch)
+            .eq('id', grant.id)
+            .select('id');
+          return { error, rows: data?.length ?? 0 };
+        },
+      );
+      return cached;
+    }
   }
 
   const cfg = await getYoutubeOAuthConfig();
   if (!cfg.ready) return null;
 
+  /*
+    🔒 The refresh token is the long-lived credential. Unopenable means the key
+    is missing or rotated past its fallback — refusing is the only safe move,
+    because a refresh attempt with ciphertext makes Google revoke the grant.
+  */
+  const poolRefreshToken = openStoredToken(grant.refresh_token);
+  if (!poolRefreshToken) return null;
+
   try {
     const refreshed = await refreshYoutubeAccessToken({
-      refreshToken: grant.refresh_token,
+      refreshToken: poolRefreshToken,
       clientId: cfg.clientId,
       clientSecret: cfg.clientSecret,
     });
     await admin
       .from('live_studio_channel_grants')
       .update({
-        access_token: refreshed.access_token,
+        access_token: sealToken(refreshed.access_token),
         access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
         last_refreshed_at: new Date().toISOString(),
         connection_health: 'ok',
@@ -227,8 +267,8 @@ export async function upsertPoolChannelGrant(
       channel_pool_id: input.channelPoolId,
       youtube_channel_id: input.youtubeChannelId,
       scopes: input.scopes,
-      refresh_token: input.refreshToken,
-      access_token: input.accessToken,
+      refresh_token: sealToken(input.refreshToken),
+      access_token: input.accessToken ? sealToken(input.accessToken) : null,
       access_token_expires_at: new Date(Date.now() + input.expiresInSeconds * 1000).toISOString(),
       external_account_display: input.displayName,
       connection_health: 'ok',
@@ -267,7 +307,14 @@ export async function revokePoolChannelGrant(
       .maybeSingle();
     if (error || !data) return false;
     const row = data as { id: number; refresh_token: string };
-    await revokeYoutubeToken(row.refresh_token);
+    /*
+      Revocation talks to Google, so it needs the real token — a sealed envelope
+      would be rejected and the grant would stay live at Google while our row
+      said revoked. A token we cannot open is skipped rather than sent: the row
+      is still blanked below, which is the part that stops US using it.
+    */
+    const storedRefresh = openStoredToken(row.refresh_token);
+    if (storedRefresh) await revokeYoutubeToken(storedRefresh);
     const { error: upErr } = await admin
       .from('live_studio_channel_grants')
       .update({
@@ -331,15 +378,22 @@ export async function refreshPoolChannelGrants(
       continue;
     }
     try {
+      const sweepRefreshToken = openStoredToken(row.refresh_token);
+      if (!sweepRefreshToken) {
+        // Cannot open it: a key problem, not a Google problem. Skip rather than
+        // spend the grant's one revocation on a request built from ciphertext.
+        summary.skipped += 1;
+        continue;
+      }
       const refreshed = await refreshYoutubeAccessToken({
-        refreshToken: row.refresh_token,
+        refreshToken: sweepRefreshToken,
         clientId: cfg.clientId,
         clientSecret: cfg.clientSecret,
       });
       await admin
         .from('live_studio_channel_grants')
         .update({
-          access_token: refreshed.access_token,
+          access_token: sealToken(refreshed.access_token),
           access_token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
           last_refreshed_at: new Date().toISOString(),
           connection_health: 'ok',

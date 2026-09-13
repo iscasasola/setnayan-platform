@@ -7,6 +7,7 @@ import {
   getYoutubeOAuthConfig,
 } from '@/lib/panood-youtube';
 import { upsertPoolChannelGrant } from '@/lib/live-studio-channel-grants';
+import { sealToken } from '@/lib/oauth-token-vault';
 
 // Iteration 0011 Panood — YouTube OAuth callback.
 //
@@ -278,8 +279,8 @@ export async function GET(req: NextRequest) {
         event_id: eventId,
         provider: 'youtube',
         scopes: token.scope ? token.scope.split(' ') : [],
-        refresh_token: token.refresh_token,
-        access_token: token.access_token,
+        refresh_token: sealToken(token.refresh_token),
+        access_token: sealToken(token.access_token),
         access_token_expires_at: expiresAt,
         external_account_id: channel?.id ?? null,
         external_account_display: channel?.title ?? 'Connected channel',

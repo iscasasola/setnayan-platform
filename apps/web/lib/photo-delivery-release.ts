@@ -508,8 +508,21 @@ async function ensureFreshAccessToken(input: {
           access_token: grant.access_token as string | null,
           refresh_token: grant.refresh_token as string | null,
         },
-        (patch) =>
-          admin.from('oauth_grants').update(patch).eq('grant_id', grant.grant_id),
+        async (patch) => {
+          /*
+            Awaited HERE, and the rows are counted. Returning the builder made
+            this a Promise-shaped thing that was not a Promise (TS2739) — and
+            the tempting fix, casting the type, would have hidden the row count
+            the helper needs to tell a real re-seal from one that matched
+            nothing.
+          */
+          const { data, error } = await admin
+            .from('oauth_grants')
+            .update(patch)
+            .eq('grant_id', grant.grant_id)
+            .select('grant_id');
+          return { error, rows: data?.length ?? 0 };
+        },
       );
       return cached;
     }

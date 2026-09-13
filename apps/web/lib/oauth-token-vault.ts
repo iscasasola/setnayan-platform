@@ -103,9 +103,11 @@ export function needsSealing(stored: string | null | undefined): boolean {
  * @param patchRow applies the sealed values; supplied by the caller so this
  *                 module needs no table knowledge and stays testable.
  */
+export type SealPatchResult = { readonly error: unknown; readonly rows: number };
+
 export async function upgradeLegacyTokens(
   columns: Readonly<Record<string, string | null | undefined>>,
-  patchRow: (patch: Record<string, string>) => Promise<{ error: unknown } | void>,
+  patchRow: (patch: Record<string, string>) => Promise<SealPatchResult>,
 ): Promise<number> {
   const patch: Record<string, string> = {};
   for (const [column, stored] of Object.entries(columns)) {
@@ -115,9 +117,23 @@ export async function upgradeLegacyTokens(
   const count = Object.keys(patch).length;
   if (count === 0) return 0;
   try {
-    const result = await patchRow(patch);
-    if (result && typeof result === 'object' && 'error' in result && result.error) {
+    const { error, rows } = await patchRow(patch);
+    if (error) {
       console.warn('[oauth-token-vault] could not seal a legacy token in place');
+      return 0;
+    }
+    /*
+      ⚠ A ZERO-ROW UPDATE IS SUCCESS-SHAPED. PostgREST returns NO error when the
+      filter matches nothing, so without counting the rows it returned this
+      would report a key sealed that is still sitting in plaintext. The caller's
+      token still works either way — the next read simply tries again — but the
+      number this function returns has to be true.
+
+      🔑 `patchRow` therefore returns a ROW COUNT, not just an error, and the
+      contract is enforced by the type: a caller cannot forget to ask for it.
+    */
+    if (rows === 0) {
+      console.warn('[oauth-token-vault] the re-seal matched no row');
       return 0;
     }
     return count;

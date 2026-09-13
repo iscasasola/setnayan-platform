@@ -183,8 +183,21 @@ export async function getPoolChannelAccessToken(
     if (cached) {
       await upgradeLegacyTokens(
         { access_token: grant.access_token, refresh_token: grant.refresh_token },
-        (patch) =>
-          admin.from('live_studio_channel_grants').update(patch).eq('id', grant.id),
+        async (patch) => {
+          /*
+            Awaited HERE, and the rows are counted. Returning the builder made
+            this a Promise-shaped thing that was not a Promise (TS2739) — and
+            the tempting fix, casting the type, would have hidden the row count
+            the helper needs to tell a real re-seal from one that matched
+            nothing.
+          */
+          const { data, error } = await admin
+            .from('live_studio_channel_grants')
+            .update(patch)
+            .eq('id', grant.id)
+            .select('id');
+          return { error, rows: data?.length ?? 0 };
+        },
       );
       return cached;
     }

@@ -1,6 +1,8 @@
 import { type NextRequest } from 'next/server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ogCardVisibleToStrangers } from '@/lib/social/og-card-audience';
+import type { EventVisibility } from '@/lib/event-visibility';
 import { formatEventDate } from '@/lib/events';
 import { resolveStoryCover } from '@/lib/story-cover';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -77,7 +79,7 @@ export async function GET(
     const { data: ev } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, monogram_text, monogram_color, story_cover_kind, story_cover_ref, landing_page_hero_image_url',
+        'event_id, display_name, event_date, monogram_text, monogram_color, story_cover_kind, story_cover_ref, landing_page_hero_image_url, landing_page_visibility, scheduled_launch_at, std_launched_at',
       )
       .eq('slug', slug)
       .maybeSingle();
@@ -90,8 +92,35 @@ export async function GET(
       story_cover_kind?: string | null;
       story_cover_ref?: string | null;
       landing_page_hero_image_url?: string | null;
+      landing_page_visibility?: EventVisibility | null;
+      scheduled_launch_at?: string | null;
+      std_launched_at?: string | null;
     } | null;
-    if (!event?.event_id) return Response.redirect(DEFAULT_OG, 302);
+    /*
+      ── ST-9 · A SEALED CELEBRATION IS INDISTINGUISHABLE FROM A MISSING ONE ──
+      This route read the event with the ADMIN client and never asked who was
+      allowed to see it. Measured on production 2026-09-13, unauthenticated:
+      a PRIVATE celebration returned 200 and a 29,941-byte card carrying the
+      monogram, the couple's NAMES, the exact DATE and "INVITATION", while a
+      slug that did not exist returned 302.
+
+      That gap was two harms, not one. The card discloses who and when to
+      anyone who guesses a slug — and slugs are guessable from two first
+      names. And 200-versus-302 is an EXISTENCE ORACLE: it says which
+      celebrations are real before the image says whose.
+
+      🔑 ONE BRANCH, ON PURPOSE. "Not yours to see" and "no such celebration"
+      must return the SAME bytes; a 403, or any distinct-but-still-200 answer,
+      closes the disclosure and keeps the oracle. Two branches returning
+      "the same" response are two things that drift apart.
+
+      ⚖ `unlisted` deliberately still renders — owner ruling 2026-09-13. The
+      accepted consequence is that unlisted celebrations stay enumerable. See
+      lib/social/og-card-audience.ts; it holds the whole rule and its tests.
+    */
+    if (!event?.event_id || !ogCardVisibleToStrangers(event)) {
+      return Response.redirect(DEFAULT_OG, 302);
+    }
 
     /*
       ── THE HOST'S CHOSEN COVER (`02` §6 · 08 step 1.5) ────────────────────

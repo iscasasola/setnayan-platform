@@ -1,6 +1,7 @@
 import { type NextRequest } from 'next/server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ogCardVisibleToStrangers } from '@/lib/social/og-card-audience';
 import { isRecapPublished, loadRecapCardData } from '@/lib/auto-recap';
 import { renderRecapOgJpeg, type RecapCardFormat } from '@/lib/social/recap-card';
 
@@ -65,10 +66,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     const admin = createAdminClient();
     const { data: event } = await admin
       .from('events')
-      .select('event_id')
+      .select('event_id, landing_page_visibility, scheduled_launch_at, std_launched_at')
       .ilike('slug', slug)
       .maybeSingle();
-    if (!event) return brandFallback();
+    /*
+      ── ST-9 · THE SAME SEAL, BEFORE IT HAD ANYTHING TO LEAK ────────────────
+      Identical shape to /api/og/realstory-slug: admin read by slug, no
+      visibility question. It returns the brand fallback today only because
+      `isRecapPublished` below happens to decline — which means the leak was
+      LATENT, not absent: the moment a private couple published a recap, their
+      names and date became fetchable by anyone who guessed the slug.
+
+      Sealed here, BEFORE the publish check, so the answer cannot depend on a
+      gate that exists for an unrelated reason. `brandFallback()` is already
+      what a missing event returns, so sealed and missing stay identical.
+    */
+    if (!event || !ogCardVisibleToStrangers(event)) return brandFallback();
 
     if (!(await isRecapPublished(event.event_id))) return brandFallback();
 

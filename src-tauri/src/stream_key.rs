@@ -228,7 +228,17 @@ fn set_pasted_inner(
     key: String,
     rtmps_url: Option<String>,
 ) -> Result<(), String> {
-    let key = key.trim().to_string();
+    // BOTH the incoming string and the trimmed copy are wrapped, so each is
+    // scrubbed on drop. Before DSK-1 this function moved its `key` parameter
+    // straight into `Zeroizing`, which scrubbed that one allocation; trimming
+    // into a plain `String` would have left the untrimmed original sitting in
+    // freed heap with the key still in it. It is not reachable by the threat this
+    // module guards against (a compromised script in the RENDERER — see the
+    // header), but "the key exists in exactly one scrubbed place" is the property
+    // the whole module is built on, and quietly spending it for a `.trim()` is
+    // how such a property goes.
+    let raw = Zeroizing::new(key);
+    let key = Zeroizing::new(raw.trim().to_string());
     if key.is_empty() {
         return Err("empty_key".into());
     }
@@ -257,11 +267,18 @@ fn set_pasted_inner(
     // Parsed for its verdict only. The endpoint is rebuilt by `destinations()`
     // at go-live rather than stored, so this module keeps holding exactly the
     // two strings it already held and `HeldStreamKey` grows no new field.
+    //
+    // The pair is validated together, with the real key, because the pair is what
+    // has to be valid — `parse` takes the key into an `RtmpEndpoint` that is
+    // dropped here without scrubbing, which is the same transient copy
+    // `destinations()` already makes on every go-live and the same one
+    // `RtmpEndpoint`'s docblock accepts when it says it "owns the secret from
+    // here on".
     RtmpEndpoint::parse(&address, Some(key.as_str()))
         .map_err(|_| "unusable_ingest_address".to_string())?;
 
     *current = Some(HeldStreamKey {
-        key: Zeroizing::new(key),
+        key,
         rtmps_url: address,
         source: KeySource::Pasted,
     });

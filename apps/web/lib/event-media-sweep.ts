@@ -3,8 +3,13 @@ import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import type { PlannedDelete } from '@/lib/cleanup-delete-scope';
 import { EVENT_MEDIA_KEY_SETS, planEventMediaDeletes } from '@/lib/event-media-sweep-core';
 
-const { papic: PAPIC_KEYS, vendorCapture: VENDOR_CAPTURE_KEYS, event: EVENT_KEYS, eventJson: EVENT_JSON_KEYS } =
-  EVENT_MEDIA_KEY_SETS;
+const {
+  papic: PAPIC_KEYS,
+  guestCapture: GUEST_CAPTURE_KEYS,
+  vendorCapture: VENDOR_CAPTURE_KEYS,
+  event: EVENT_KEYS,
+  eventJson: EVENT_JSON_KEYS,
+} = EVENT_MEDIA_KEY_SETS;
 
 /**
  * event-media-sweep.ts — when a celebration is removed, its files go too.
@@ -73,6 +78,15 @@ export async function collectEventMediaRefs(
     .eq('event_id', eventId);
   if (photoErr) return null;
 
+  // A guest's own uploads at this celebration. Same cascade, same reason their
+  // keys must be read NOW — and `guest_id` is the tenant the planner pins them
+  // to, because the writer files them under the guest's folder, not the event's.
+  const { data: guestCaptures, error: guestErr } = await admin
+    .from('papic_guest_captures')
+    .select(['guest_id', ...GUEST_CAPTURE_KEYS].join(','))
+    .eq('event_id', eventId);
+  if (guestErr) return null;
+
   // A supplier's own captures at this celebration — the FK cascade takes the
   // rows, so their keys must be read now. `vendor_profile_id` is half the
   // tenant the planner pins them to.
@@ -92,6 +106,7 @@ export async function collectEventMediaRefs(
   const plan = planEventMediaDeletes({
     eventId,
     photos: (photos ?? []) as unknown as Record<string, unknown>[],
+    guestCaptures: (guestCaptures ?? []) as unknown as Record<string, unknown>[],
     captures: (captures ?? []) as unknown as Record<string, unknown>[],
     event: (ev as unknown as Record<string, unknown> | null) ?? null,
   });

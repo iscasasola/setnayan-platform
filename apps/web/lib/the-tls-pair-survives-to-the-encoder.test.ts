@@ -106,9 +106,12 @@ test('the exchange SELECTS the columns it resolves', () => {
   // The quoted column list inside the `.select( … )` that follows.
   const selectAt = src.indexOf('.select(', at);
   assert.ok(selectAt > at, 'no .select() after the exchange read — re-aim this guard');
-  const literal = src.slice(selectAt).match(/'([^']*)'/);
-  assert.ok(literal, 'the exchange select is no longer a quoted column list');
-  const columns = literal[1].split(',').map((c) => c.trim());
+  // `noUncheckedIndexedAccess` is on (tsconfig.base.json), so a capture group is
+  // `string | undefined` even after the match is non-null — take it through a
+  // named binding and assert it, rather than asserting the match and indexing.
+  const columnList = src.slice(selectAt).match(/'([^']*)'/)?.[1];
+  assert.ok(columnList, 'the exchange select is no longer a quoted column list');
+  const columns = columnList.split(',').map((c) => c.trim());
 
   assert.ok(
     columns.includes('rtmps_ingestion_url'),

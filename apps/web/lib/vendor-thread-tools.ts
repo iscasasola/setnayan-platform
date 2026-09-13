@@ -24,6 +24,8 @@
  * every anchor id on the page.
  */
 
+import type { ThreadStage } from './vendor-thread-stage';
+
 /** A disclosure mounted once above the message stream. */
 export type VendorThreadPanel = {
   /** DOM id of the `<details>`. Also the launcher's reveal target. */
@@ -90,6 +92,38 @@ export const VENDOR_THREAD_IN_PAGE_ANCHORS: readonly string[] = [
   'thread-call-video',
 ] as const;
 
+/**
+ * WHICH STAGES HAVE AN AGREEMENT BEHIND THEM.
+ *
+ * "Propose schedule" leaves for the client's Schedule tab, and that tab refuses
+ * before a booking: it draws a lock row reading *"Unlocks when they book you"*.
+ * The refusal was always honest — but it was only legible AFTER a supplier left
+ * the conversation to find it, and the launcher beside it looked exactly as
+ * available as the eight tools that do open. Owner question B2, recommendation
+ * (a), matching the Lock ruling: HIDE NOTHING, SAY WHY. So the reason moves up
+ * to the button and the button stops pretending.
+ *
+ * ⚖ `completed` IS TRUE, AND THAT IS THE WHOLE REASON THIS IS A MAP AND NOT
+ * `stage === 'booked'`. `resolveThreadStage` ranks completed ABOVE booked — "a
+ * finished job stays finished however the thread was later filed" — so a
+ * supplier who has already worked the wedding reads as `completed`, while the
+ * destination still opens for them (it asks a different question: are they on
+ * the roster). Gating on `booked` alone would grey the tool out and tell them
+ * it "opens once they book you" about a couple who already did. Over-greying
+ * is the direction that puts a LIE on screen; under-greying is merely today.
+ *
+ * 🔑 EXHAUSTIVE ON PURPOSE. A new `ThreadStage` fails the typecheck here rather
+ * than quietly picking a side — which is the one thing a boolean derived from
+ * `!== 'booked'` could never force anybody to do.
+ */
+export const THREAD_STAGE_HAS_AGREEMENT: Record<ThreadStage, boolean> = {
+  inquiry: false,
+  quoted: false,
+  cancelled: false,
+  booked: true,
+  completed: true,
+};
+
 export type VendorThreadToolIcon =
   | 'quote'
   | 'proposal'
@@ -107,6 +141,14 @@ type ToolBase = {
   icon: VendorThreadToolIcon;
   /** The one the supplier is most likely here to do. Exactly one. */
   primary?: true;
+  /**
+   * Present when what this opens is shut until the couple agrees. The rail
+   * renders the tool GREYED AND UNPRESSABLE with this sentence beneath it —
+   * never hidden, and never left looking live. The sentence lives here, in the
+   * one list that names the tools, so the rail cannot say something different
+   * from what the destination will.
+   */
+  shutUntilAgreement?: { reason: string };
 };
 
 /**
@@ -164,7 +206,14 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
   },
   { key: 'send-proposal', label: 'Send proposal', icon: 'proposal', reveal: ['send-proposal'] },
   { key: 'log-payment', label: 'Log payment', icon: 'payment', reveal: ['pending-payments'] },
-  { key: 'propose-schedule', label: 'Propose schedule', icon: 'schedule', link: 'client-schedule' },
+  {
+    key: 'propose-schedule',
+    label: 'Propose schedule',
+    icon: 'schedule',
+    link: 'client-schedule',
+    // The destination's own words, so the two cannot drift apart.
+    shutUntilAgreement: { reason: 'Opens once they book you' },
+  },
   { key: 'offer-service', label: 'Offer another service', icon: 'offer', reveal: ['offer-service'] },
   { key: 'voice-call', label: 'Voice call', icon: 'voice', reveal: ['thread-call-voice', 'thread-call'] },
   { key: 'video-call', label: 'Video call', icon: 'video', reveal: ['thread-call-video', 'thread-call'] },

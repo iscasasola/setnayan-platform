@@ -86,6 +86,16 @@ export type ChatInfoRailProps = {
    * there to make one. The rail says so and links to the maker.
    */
   templateCount: number;
+  /**
+   * TRUE once this couple has actually agreed — booked, or already completed.
+   * Resolved by the page from `THREAD_STAGE_HAS_AGREEMENT`, never from the
+   * stage PILL beside it: that pill is display text, and a control read off a
+   * display string is how this repo once drew "C" for "Camera off".
+   *
+   * A tool carrying `shutUntilAgreement` renders greyed and unpressable while
+   * this is false, with its reason underneath.
+   */
+  hasAgreement: boolean;
 };
 
 const HEADING_ID = 'chat-info-rail-heading';
@@ -162,6 +172,7 @@ function RailBody({
   eventId,
   toolsMounted,
   templateCount,
+  hasAgreement,
   headingId,
   inSheet = false,
   onLaunch,
@@ -266,7 +277,12 @@ function RailBody({
               <div className="flex flex-col gap-1.5 px-3 py-2">
                 {VENDOR_THREAD_TOOLS.map((tool) =>
                   tool.link ? (
-                    <LinkTool key={tool.key} tool={tool} eventId={eventId} />
+                    <LinkTool
+                      key={tool.key}
+                      tool={tool}
+                      eventId={eventId}
+                      hasAgreement={hasAgreement}
+                    />
                   ) : (
                     <RailAction
                       key={tool.key}
@@ -378,11 +394,39 @@ function SnapRow({
  * The `switch` is exhaustive by type, so a new link target with no URL fails
  * the typecheck rather than falling through to a launcher with nothing to open.
  */
-function LinkTool({ tool, eventId }: { tool: VendorThreadLinkTool; eventId: string }) {
+function LinkTool({
+  tool,
+  eventId,
+  hasAgreement,
+}: {
+  tool: VendorThreadLinkTool;
+  eventId: string;
+  hasAgreement: boolean;
+}) {
   const icon = TOOL_ICON[tool.icon];
+
+  /*
+    SHUT, AND SAYING SO — owner question B2, recommendation (a), the same shape
+    as the Lock ruling: hide nothing, say why.
+
+    The destination already refused honestly: the client's Schedule tab draws
+    "Unlocks when they book you" before a booking. But a supplier only met that
+    sentence AFTER leaving the conversation to go and find it, and this launcher
+    sat in the list looking exactly as live as the eight that open. The reason
+    now rides on the button.
+
+    ⚠ STILL RENDERED, NEVER HIDDEN. A tool that vanishes teaches a supplier the
+    product is missing a feature; a tool that is visibly shut teaches them what
+    earns it. `aria-disabled` plus the sentence carries that to a screen reader
+    too — the sentence is the button's own description, not decoration beside it.
+  */
+  const shut = tool.shutUntilAgreement && !hasAgreement ? tool.shutUntilAgreement : null;
+
   switch (tool.link) {
     case 'client-schedule':
-      return (
+      return shut ? (
+        <ShutTool icon={icon} label={tool.label} reason={shut.reason} toolKey={tool.key} />
+      ) : (
         <RailAction
           href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
           icon={icon}
@@ -414,6 +458,49 @@ const TOOL_ICON: Record<VendorThreadToolIcon, typeof CalendarDays> = {
   deal: Handshake,
   outcome: ListChecks,
 };
+
+/**
+ * A tool that is visibly present and visibly not open yet, with the reason
+ * underneath it.
+ *
+ * 🔑 A `<button disabled>` WOULD BE WRONG HERE. A disabled button is removed
+ * from the tab order, so a supplier navigating by keyboard never reaches it and
+ * never hears the reason — the control would be, to them, simply missing, which
+ * is the outcome the ruling refuses. `aria-disabled` keeps it focusable and
+ * announced; `aria-describedby` ties the sentence to it so the reason is read
+ * WITH the name rather than stranded after it. There is no `onClick` and no
+ * `href`, so there is nothing to press either way.
+ */
+function ShutTool({
+  icon: Icon,
+  label,
+  reason,
+  toolKey,
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  reason: string;
+  toolKey: string;
+}) {
+  const reasonId = `tool-shut-${toolKey}`;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+      <span
+        role="button"
+        aria-disabled="true"
+        aria-describedby={reasonId}
+        tabIndex={0}
+        className="flex w-full items-center gap-2.5 text-left text-sm font-semibold text-ink/40"
+      >
+        <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+        {label}
+      </span>
+      <span id={reasonId} className="pl-[26px] text-xs font-normal text-ink/55">
+        {reason}
+      </span>
+    </div>
+  );
+}
 
 function RailAction({
   href,

@@ -111,7 +111,30 @@ test('the send box is gated on the same value as the run-of-show advance', () =>
   // event side. Any other predicate here is a button that 42501s on tap.
   assert.match(strip(PAGE), /canSend=\{canAdvanceRunOfShow\}/);
   const derivation = PAGE.slice(PAGE.indexOf('const canAdvanceRunOfShow'));
-  assert.match(derivation.slice(0, 400), /resolveAreaLevel\([\s\S]*?'schedule',\s*\)\s*===\s*'edit'/);
+
+  // 🪤 THIS USED TO PIN THE EXPRESSION'S SHAPE, not its meaning:
+  //   /resolveAreaLevel\([\s\S]*?'schedule',\s*\)\s*===\s*'edit'/
+  // It required the permissions argument to be INLINE and multi-line. On
+  // 2026-09-14 the delegate access window (owner: a coordinator's access ends
+  // seven days after the event) hoisted that argument into a variable so the
+  // window could be applied BEFORE the area question — the gate is unchanged,
+  // the formatting is not. The old regex failed on a refactor that preserved
+  // exactly what it existed to protect.
+  //
+  // Pinned to the MEANING now: both branches must still be present, and the
+  // level asked for must still be schedule:'edit'. How the permissions reach
+  // resolveAreaLevel is the page's business.
+  assert.match(
+    derivation.slice(0, 500),
+    /Boolean\(advMemberRes\.data\)/,
+    'the event_members branch is gone — a host would lose the send box',
+  );
+  assert.match(
+    derivation.slice(0, 500),
+    /resolveAreaLevel\([\s\S]*?'schedule'[\s\S]*?\)\s*===\s*'edit'/,
+    "the delegate branch must still ask for schedule:'edit' — any other " +
+      'predicate is a button that 42501s on tap',
+  );
 });
 
 test('no host booked means no send box at all', () => {

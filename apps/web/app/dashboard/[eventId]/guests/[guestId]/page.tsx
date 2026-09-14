@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -175,13 +176,21 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // — not enforced in the DB. See INC_Wedding_Practices_Reference_2026-06-28.md § 3.6.
   const { data: ceremonyRow, error: ceremonyRowError } = await supabase
     .from('events')
-    .select('ceremony_type')
+    // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
+    // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
+    // primary OR secondary. Reading only the primary would hide the tea-ceremony
+    // field from exactly the couples who need it.
+    .select('ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
   // ⚠ the ceremony context this page reads against. Refused, it degrades silently.
   if (ceremonyRowError) {
     logQueryError('GuestDetailPage.ceremonyRow', ceremonyRowError, { eventId, guestId }, 'graceful_degrade');
   }
+
+  // Chinese/Tsinoy-only surfaces on this page. See the Identity/Relationship
+  // block below for why this is gated rather than "harmless when unused".
+  const showTeaCeremony = isChineseWedding(ceremonyRow);
   const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
 
   // Pull the +1 guest row (if any) so the edit form can show the
@@ -260,7 +269,14 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // the label lookup; embed via supabase's nested select.
   const { data: seatRow, error: seatRowError } = await supabase
     .from('event_seat_assignments')
-    .select('table_id, event_tables(label)')
+    // 🔴 `table_label`, NOT `label`. There is no `label` column on
+    // `event_tables` — PostgREST answered 42703 and REFUSED THE WHOLE QUERY, so
+    // `seatRow` was null on every render and the warning three lines below
+    // ("A SEATED GUEST READS AS UNSEATED") described live behaviour rather than
+    // a hypothetical. The sibling read in inline-actions.ts had it right the
+    // whole time; this one never did. Found in prod logs 2026-09-14 while
+    // chasing an unrelated report.
+    .select('table_id, event_tables(table_label)')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
@@ -275,8 +291,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
       ? // event_tables embed may come back as object OR array depending
         // on PostgREST's FK resolution; handle both shapes defensively.
         Array.isArray(seatRow.event_tables)
-        ? (seatRow.event_tables[0] as { label?: string } | undefined)?.label ?? null
-        : (seatRow.event_tables as { label?: string }).label ?? null
+        ? (seatRow.event_tables[0] as { table_label?: string } | undefined)?.table_label ?? null
+        : (seatRow.event_tables as { table_label?: string }).table_label ?? null
       : null;
 
   // Custom group memberships — many-to-many via guest_group_memberships
@@ -379,9 +395,21 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             (used rarely — only when a guest's preferred display differs
             from their formal first + last). */}
         <Section title="Identity">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
-            <Field id="last_name" label="Last name *" required defaultValue={guest.last_name} />
+          {/* Five parts, three of them OPTIONAL — blank means the guest has
+              none, and clearing a box removes it. Only first + last are
+              required (the columns are NOT NULL). */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
+            <div className="sm:col-span-3">
+              <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field id="middle_name" label="Middle name" defaultValue={guest.middle_name ?? ''} />
+            <div className="sm:col-span-2">
+              <Field id="last_name" label="Last name *" required defaultValue={guest.last_name} />
+            </div>
+            <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} />
           </div>
         </Section>
 
@@ -675,10 +703,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
-            {/* Tea-ceremony serving order (Chinese / Tsinoy weddings). Optional
-                for every guest; only the tea-ceremony helper reads them. Relation
-                is free text; seniority is the within-side serve order (lower
-                serves first). Shown to all events — harmless when unused. */}
+            {/* Relationship is free text and useful at ANY wedding ("Grandparents",
+                "Eldest Uncle"), so it stays for everyone.
+
+                🔑 TEA-CEREMONY ORDER IS NOT. This block used to say "Shown to all
+                events — harmless when unused", and it was not harmless: the owner
+                found it on his CATHOLIC wedding and asked why a Chinese-wedding
+                field was there. A field that cannot apply is not neutral chrome —
+                it is a question the host has to rule out.
+
+                Gated on `isChineseWedding`, which matches Chinese as the primary
+                rite OR as the overlay on another rite (the Tsinoy church-plus-tea
+                case). Fails CLOSED: if the ceremony read is refused it degrades to
+                null and the field hides, because showing it on every event is the
+                reported bug. */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
                 id="relation"
@@ -686,15 +724,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 defaultValue={guest.relation ?? ''}
                 placeholder="e.g. Grandparents · Eldest Uncle"
               />
-              <Field
-                id="seniority_rank"
-                label="Tea-ceremony order"
-                type="number"
-                defaultValue={
-                  guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
-                }
-                placeholder="Lower serves first"
-              />
+              {showTeaCeremony ? (
+                <Field
+                  id="seniority_rank"
+                  label="Tea-ceremony order"
+                  type="number"
+                  defaultValue={
+                    guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
+                  }
+                  placeholder="Lower serves first"
+                />
+              ) : null}
             </div>
             {/* Custom tags input RETIRED — owner directive 2026-05-23 PM.
                 Tags now auto-derived from side / group / role / table /

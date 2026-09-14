@@ -37,6 +37,8 @@ const NAMED_ROLES = new Set([
   'matron_of_honor',
   'best_man',
   'principal_sponsor',
+  'principal_sponsor_ninong',
+  'principal_sponsor_ninang',
   'officiant',
 ]);
 

@@ -129,6 +129,8 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
+import { EntourageSection } from './entourage-section';
+import type { EntourageGroup } from '@/lib/entourage';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -328,6 +330,8 @@ type SiteBodyProps = {
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
   chaptersOnThisDay?: ChapterOnThisDay[];
+  /** The entourage, already grouped and ordered by `lib/entourage.ts`. */
+  entourage?: EntourageGroup[];
   vendorCapability?: VendorCapability | null;
   /** THE SUPPLIER'S DESK — built only on the day, only for a booked supplier,
    *  and only from reads made under that supplier's OWN session. Null on every
@@ -375,6 +379,7 @@ export async function SiteBody({
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
+  entourage = [],
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -793,6 +798,31 @@ export async function SiteBody({
 
     return (
       <>
+        {/* ══ THE PAGE MOVES AS YOU READ IT ══════════════════════════════════
+            `data-pahina-chapters` is the §6 scroll choreography's ONE opt-in
+            marker (design 2026-07-25; mechanism in `pahina-motion.tsx`, rules in
+            globals.css). Each direct child fades up 22px as the reader reaches
+            it.
+
+            🔴 WHY THIS IS HERE NOW: the marker existed on the GUEST tree only.
+            So a guest opening their personal link got the choreography and the
+            page everyone else sees — the anonymous one, which is what a shared
+            link, a QR scan and the couple's own preview all render — got none of
+            it. Same page, two behaviours, decided by whether the reader happened
+            to hold a cookie.
+
+            ⛔ IT WRAPS THE CONTENT, NOT THE CHROME. The fixed `SiteMenuBar`
+            below stays OUTSIDE: it is pinned to the viewport, never scrolls into
+            view, and an IntersectionObserver that never fires for it would leave
+            the whole bottom bar at opacity 0 — the navigation gone, on a page
+            that still looked fine above the fold.
+
+            🔒 NO NEW SAFETY TO GET WRONG, deliberately: this adds a marker and
+            nothing else, so it inherits `pahina-motion.tsx`'s fail-visible
+            contract verbatim — no IntersectionObserver, reduced motion, or the
+            2s self-heal each drop `.pahina-js` and every section is instantly
+            visible and static. */}
+        <article data-pahina-chapters>
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
@@ -977,6 +1007,12 @@ export async function SiteBody({
               </section>
             ) : null}
 
+            {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
+                2026-09-14). Its own anchor so the couple can link straight at
+                it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
+                untouched. Draws nothing when nobody holds a role. */}
+            <EntourageSection groups={entourage} id="site-entourage" />
+
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
                 branches), so this naturally stays off the post-event Editorial.
@@ -1027,6 +1063,7 @@ export async function SiteBody({
             will always run but the host of the event has the power to allow use and
             not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
             camera is part of what the invitation promises. */}
+        </article>
         {menuOn ? (
           <SiteMenuBar
             slots={resolveSiteNav({
@@ -1378,7 +1415,6 @@ export async function SiteBody({
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}
                   capApplies={papicGuest.capApplies}
-                  poolRemaining={papicGuest.poolRemaining}
                   poolLow={papicGuest.poolLow}
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
@@ -1721,6 +1757,13 @@ export async function SiteBody({
                   words={clientWords}
                 />
               ))}
+
+              {/* The same entourage, for the guest tree. TWO MOUNTS, ONE
+                  SECTION: the anonymous and guest trees are separate subtrees
+                  and a single mount above the fork would land outside Details
+                  in one of them. `the-entourage-is-mounted-in-both-trees.test.ts`
+                  fails if either disappears. */}
+              <EntourageSection groups={entourage} id="site-entourage" />
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">

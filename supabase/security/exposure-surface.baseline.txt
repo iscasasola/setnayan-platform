@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6651
+# facts: 6656
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4885
+#   col       4888
 #   policy    910
 #   view      9
-#   func      257
+#   func      259
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2471,7 +2471,10 @@ col	public.guests.invitation_sent_at	anon=SIU authenticated=SIU
 col	public.guests.invited_to_blocks	anon=SIU authenticated=SIU
 col	public.guests.last_name	anon=SIU authenticated=SIU
 col	public.guests.meal_preference	anon=SIU authenticated=SIU
+col	public.guests.middle_name	anon=SIU authenticated=SIU
 col	public.guests.mobile	anon=SIU authenticated=SIU
+col	public.guests.name_prefix	anon=SIU authenticated=SIU
+col	public.guests.name_suffix	anon=SIU authenticated=SIU
 col	public.guests.notes	anon=SIU authenticated=SIU
 col	public.guests.pair_with_guest_id	anon=SIU authenticated=SIU
 col	public.guests.person_id	anon=SIU authenticated=SIU
@@ -6538,6 +6541,7 @@ func	public.moodboard_set_render_featured(p_render_id uuid, p_featured boolean)	
 func	public.moodboard_set_render_reuse_blocked(p_render_id uuid, p_blocked boolean)	secdef=yes exec=authenticated search_path=public
 func	public.moodboard_set_share_consent(p_event_id uuid, p_consented boolean)	secdef=yes exec=authenticated search_path=public
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
+func	public.pair_guests(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
@@ -6616,6 +6620,7 @@ func	public.undo_guest_delivery(p_event_vendor_id uuid, p_qr_token text)	secdef=
 func	public.unlock_vendor_event(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event_free(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, p_thread_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.unpair_guest(p_event_id uuid, p_guest_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated search_path=public
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.user_holds_founder_seat(p_user_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp

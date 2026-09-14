@@ -31,9 +31,11 @@ import {
 } from '@/lib/guests';
 import {
   filterByRoleGroup,
+  roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
 } from '@/lib/role-groups';
+import { resolveRoleSet } from '@/lib/role-sets';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
@@ -60,6 +62,7 @@ import { SortSelect } from './_components/sort-select';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
+import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestDrawerHost } from './_components/guest-drawer';
 import { GuestDetailBody } from './_components/guest-detail-body';
@@ -122,7 +125,11 @@ const ALL_VIEW_FILTERS: { key: string; label: string }[] = [
   // Secondary Sponsors, Bearers, Officiants). Position matches the
   // BULK_ROLE_SECTIONS ordering in guest-list-multiselect.tsx for
   // muscle-memory consistency between sidebar + bulk toolbar.
-  { key: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party },
+  // Split 2026-09-14, same as the roster sections and the bulk picker — a VIEW
+  // lens that still said "Wedding Party" would filter to a group the list no
+  // longer draws.
+  { key: 'groomsmen', label: ROLE_GROUP_LABELS.groomsmen },
+  { key: 'bridesmaids', label: ROLE_GROUP_LABELS.bridesmaids },
   { key: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors },
   { key: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors },
   { key: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl },
@@ -143,10 +150,29 @@ function viewFiltersFor(
   roleSetKey: string | null | undefined,
 ): { key: string; label: string }[] {
   const isMuslim = roleSetKey === 'wedding_muslim';
+
+  // 🔑 A LENS THE EVENT HAS NO ROLES FOR IS NOT A LENS. Owner 2026-09-14:
+  // "this guestlist works for weddings. but does not apply to other events."
+  // This function only ever asked Muslim-or-Catholic, so a BIRTHDAY — whose
+  // role set offers guest/host/vip/family/helper and nothing else — was still
+  // shown "Groomsmen", "Principal Sponsors" and "Bearers & Flower Girl". Every
+  // one of them filters to an empty roster, because no birthday guest can hold
+  // those roles.
+  //
+  // DERIVED, NOT HAND-LISTED: a lens survives only if this event's role set
+  // actually offers at least one role in its group. That answer comes from
+  // `resolveRoleSet(...).offeredRoles`, so a future event type gets the right
+  // lenses the day it is added — and a hand-kept "wedding-only" list, which is
+  // what produced this, cannot drift again.
+  const offered = resolveRoleSet(roleSetKey).offeredRoles;
+  const groupsWithRoles = new Set(offered.map((r) => roleGroupOf(r)));
+
   return ALL_VIEW_FILTERS.filter((f) => {
+    // 'all' is not a role group; it is always meaningful.
+    if (f.key === 'all') return true;
     if (f.key === 'muslim_principals') return isMuslim;
-    if (CATHOLIC_ONLY_VIEW_FILTERS.has(f.key)) return !isMuslim;
-    return true;
+    if (CATHOLIC_ONLY_VIEW_FILTERS.has(f.key) && isMuslim) return false;
+    return groupsWithRoles.has(f.key as ReturnType<typeof roleGroupOf>);
   });
 }
 
@@ -179,6 +205,50 @@ type Props = {
     group_member_removed?: string;
   }>;
 };
+
+
+/**
+ * Turn an `?error=` value into something a host can act on.
+ *
+ * This banner used to render `decodeURIComponent(search.error)` directly, so a
+ * server action that redirected with a CODE put the CODE on screen — a host
+ * assigning "Bride's Parents" in the bulk bar was shown the literal word
+ * `invalid_role` (reported 2026-09-14). Meanwhile some actions redirect with
+ * ready-made prose (the one-Bride-per-event message), which must pass through
+ * untouched.
+ *
+ * So: known codes map to a sentence; anything else falls through as-is when it
+ * reads like prose, and degrades to a neutral line when it reads like an
+ * unmapped code. A raw snake_case token must never reach a couple's screen.
+ */
+function guestListErrorCopy(raw: string): string {
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      // A malformed %-sequence throws; the raw value is still better than a crash.
+      return raw;
+    }
+  })();
+
+  const COPY: Record<string, string> = {
+    invalid_role: "That role isn't available for this celebration — pick one from the list.",
+    invalid_side: 'Pick Bride, Groom, or Both.',
+    no_selection: 'Select at least one guest first.',
+    missing_name: 'Please enter both a first and last name.',
+    missing_side: 'Pick a side first.',
+    missing_group: 'Pick a group first.',
+    not_found: "We couldn't find that guest — it may have been removed.",
+    forbidden: "You don't have access to change that.",
+  };
+  if (COPY[decoded]) return COPY[decoded] as string;
+
+  // Prose (has a space) is a message an action wrote for the host — show it.
+  // A bare token is an unmapped code and is never shown as-is.
+  return decoded.includes(' ')
+    ? decoded
+    : "That didn't go through — please try again.";
+}
 
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -762,7 +832,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           role="alert"
           className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-3 text-sm text-danger-800"
         >
-          {decodeURIComponent(search.error)}
+          {guestListErrorCopy(search.error)}
         </p>
       ) : null}
 
@@ -1382,6 +1452,20 @@ function SummaryFacetBar({
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
 
+  // Group chips for the side the host is standing in (owner 2026-09-14:
+  // "when i press team groom, it will only show groups of the groom"). A
+  // 'both'-sided group belongs to either lens; the ACTIVE group is always kept
+  // so switching side can never hide a chip whose filter is still applied.
+  const groupsForSide =
+    teamActive === 'all'
+      ? groups
+      : groups.filter(
+          (g) =>
+            g.team_side === teamActive ||
+            g.team_side === 'both' ||
+            g.group_id === currentGroupId,
+        );
+
   const responded = stats.total - stats.pending;
   const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
   const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
@@ -1565,14 +1649,25 @@ function SummaryFacetBar({
           ))}
         </FacetRow>
 
+        {/* Owner 2026-09-14: "groups will be filtered depending on what side as
+            well. so when i press team groom, it will only show groups of the
+            groom". Groups already carry `team_side`, and a roster with a
+            "Family" on each side showed BOTH chips under every lens — two
+            identical-looking pills the host had to tell apart by a dot.
+
+            'both'-sided groups always show: they belong to whichever side you
+            are standing in. And the ACTIVE group always shows even when it does
+            not match the lens — otherwise switching side would hide the chip
+            while its filter stayed applied, leaving a roster narrowed by
+            something invisible. */}
         <FacetRow label="Group">
           <GroupsSidebar
             eventId={eventId}
-            groups={groups}
+            groups={groupsForSide}
             currentGroupId={currentGroupId}
             layout="inline"
             hrefByGroupId={Object.fromEntries(
-              groups.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
+              groupsForSide.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
             )}
           />
         </FacetRow>
@@ -1615,47 +1710,12 @@ function FacetRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-// One facet pill (a filter <Link>). Idle = hairline outline; active = the
-// champagne-gold wash (terracotta token). An optional side-dot + count ride
-// inside, per the prototype's lens pills.
-function LensPill({
-  href,
-  active,
-  children,
-  count,
-  dot,
-  title,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-  count?: number;
-  dot?: string;
-  title?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      title={title}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-[background-color,transform,color] ${
-        active
-          ? 'sn-chip-pop border-transparent bg-terracotta font-bold text-cream'
-          : 'border-ink/15 bg-white/55 text-ink/70 hover:bg-white/85'
-      }`}
-    >
-      {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}
-      <span className="whitespace-nowrap">{children}</span>
-      {typeof count === 'number' ? (
-        <span
-          className={`font-mono tabular-nums ${active ? 'text-cream/75' : 'text-ink/40'}`}
-        >
-          {count}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
+// LensPill MOVED to _components/lens-pill.tsx and is now a CLIENT component.
+// It warms its RSC payload on hover/focus so a facet click lands on a cache
+// instead of starting a full server navigation — the roster query is 1.2 ms, so
+// the wait the owner reported is the round trip, not the database. See that
+// file for why hover rather than `prefetch` (every pill is on screen at once,
+// so viewport prefetching would fire ~25 renders and slow the first paint).
 
 // Share invite link — a compact header dropdown (2026-06-13). Was a
 // full-width collapsible row in the desktop chrome stack; folding it into

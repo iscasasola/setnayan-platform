@@ -118,17 +118,21 @@ export function RunOfShowHeader({
   //
   // `advanceScheduleBlock` narrows to host/couple ∪ schedule-delegate ∪ the
   // BOOKED COORDINATOR ∪ admin (lib/run-of-show-advance.ts), and it returns a
-  // refusal rather than throwing. But `canAdvance` is passed as a literal on
+  // refusal rather than throwing. `canAdvance` used to be passed as a LITERAL on
   // the vendor client workspace, so EVERY booked supplier — photographer,
-  // caterer, florist — sees this button. Until now the returned status was
-  // awaited and thrown away: a supplier pressed "Start next", watched the
-  // saving loader run, and the timeline simply did not move. No error, no
-  // explanation, nothing to distinguish a refusal from a failed network.
+  // caterer, florist — saw this button, and the returned status was awaited and
+  // thrown away: a supplier pressed "Start next", watched the saving loader run,
+  // and the timeline simply did not move. No error, no explanation, nothing to
+  // distinguish a refusal from a failed network.
   //
-  // The gate is CORRECT and is not widened here — only its silence is fixed.
-  // A guard that refuses without saying so is indistinguishable from one that
-  // passed, which is how this survived review: every pass was made as the
-  // coordinator, for whom the button works.
+  // That literal is gone (the workspace now computes the coordinator tile) and
+  // the database refuses the rest outright (migration 20271227867922). Neither
+  // retires this branch. `canAdvance` is a PREDICTION made on the server at
+  // render time and this is a live day-of surface: a booking can end, a grant
+  // can be withdrawn, and a tab can be open for hours. A refusal must stay
+  // visible — a guard that refuses without saying so is indistinguishable from
+  // one that passed, which is how this survived review in the first place:
+  // every pass was made as the coordinator, for whom the button works.
   const onAdvance = (blockId: string) => {
     setNotice(null);
     startTransition(async () => {

@@ -188,12 +188,30 @@ export async function claimPapicSeat(formData: FormData) {
  * The event-scoped pass pool's live state, returned on a successful capture so
  * the camera can show a SOFT-STOP warning before the hard stop. `undefined`
  * (omitted) for every event without a flat per-event pass — those have no fence.
+ *
+ * 🔒 A WARNING, NEVER A BALANCE (owner-locked, PRIV-1). This signal used to
+ * carry `remaining` and `total`, and `/papic/seat/[token]` printed `remaining`
+ * into "Running low — about N credits left for this event." That page's own
+ * comment says the claimer ISN'T AN EVENT MEMBER: a seat token is what a guest
+ * is handed at the table, so the couple's pot balance was being read by the
+ * friend holding the camera. The owner's ruling is that a credit balance shown
+ * to a stranger must be hidden — it is the couple's money.
+ *
+ * 🔑 THE FIGURE IS GONE FROM THE WIRE, NOT JUST FROM THE PIXELS. Both numbers
+ * crossed to the browser in the server-action response on EVERY successful
+ * capture, whether or not `soft` was true and whether or not anything drew
+ * them — readable in the network tab regardless. Suppressing them only in the
+ * render would have left the disclosure exactly where it was.
+ *
+ * ⚠ AND THE REMOVAL IS UNCONDITIONAL, WHICH IS THE POINT. A figure withheld
+ * only while the pot is low turns its own ABSENCE into the answer: the reader
+ * infers "healthy" from the silence and the leak survives as an oracle. No
+ * reader of this type ever gets a number, in either state.
+ *
+ * The couple and the coordinator still see the real figure — on
+ * /dashboard/[eventId]/studio/papic, which is theirs. Nothing there changed.
  */
 export type EventPoolSignal = {
-  /** Capture points left in the event pool. */
-  remaining: number;
-  /** The pool's total (base + top-up grants). */
-  total: number;
   /** True once usage crosses the admin-set soft-stop line (default 85%). */
   soft: boolean;
 };
@@ -863,11 +881,11 @@ export async function recordSeatCapture(
         'graceful_degrade',
       );
     } else if (read.status.applies) {
-      eventPool = {
-        remaining: read.status.remainingPoints,
-        total: read.status.totalPoints,
-        soft: read.status.soft,
-      };
+      // 🔒 `soft` ONLY — see EventPoolSignal. `remainingPoints` / `totalPoints`
+      // are read here (the status object carries them) and deliberately not
+      // forwarded: the claimer is not an event member, and the pot's balance is
+      // the couple's money. Adding either field back re-opens PRIV-1.
+      eventPool = { soft: read.status.soft };
     }
   }
 

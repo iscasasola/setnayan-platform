@@ -457,7 +457,7 @@ test('🔑 16 · a generated card writes a fact-first line, a person’s own wor
       sender_role: 'system',
       body: '**Setnayan Exclusive unlocked 🎁** Free engagement shoot: Book within 48 hours and the studio throws in a complimentary engagement session — offer good through the end of the month.',
     }),
-    '🎁 Exclusive: Free engagement shoot',
+    '🎁 Perk: Free engagement shoot',
   );
   // The whole point: the quote line fits the measured ~32-character desktop
   // budget where the raw card body ("📄 Proposal — … Tap to review and

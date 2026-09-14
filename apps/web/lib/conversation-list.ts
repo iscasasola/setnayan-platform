@@ -7,6 +7,7 @@ import {
   type ThreadStage,
 } from '@/lib/vendor-thread-stage';
 import { buildSupplierStanding, type SupplierStanding } from '@/lib/supplier-standing';
+import { shortPerkUnlock } from '@/lib/perk-unlock-message';
 
 /**
  * THE CONVERSATION LIST — the rows for the column beside the thread being read
@@ -251,13 +252,6 @@ const GENERATED_PREVIEW_PATTERNS: ReadonlyArray<{
     match: /^📅 Meeting request: (.+)$/,
     short: (m) => `📅 Meeting: ${m[1]}`,
   },
-  {
-    // `lib/chat-actions.ts` → `**Setnayan Exclusive unlocked 🎁** Free engagement shoot: <perk copy…>`
-    // The perk copy itself is marketing text with no length limit; the fact
-    // that matters on a row is WHICH exclusive unlocked, not its pitch.
-    match: /^\*\*Setnayan Exclusive unlocked 🎁\*\* (.+?): /,
-    short: (m) => `🎁 Exclusive: ${m[1]}`,
-  },
 ];
 
 /**
@@ -270,6 +264,11 @@ const GENERATED_PREVIEW_PATTERNS: ReadonlyArray<{
  * lives here and nowhere else; a second copy is what drifts.
  */
 export function shortenGeneratedBody(body: string): string {
+  // The perk line (lib/chat-actions.ts) — either its old markdown shape or the
+  // new one — shortens to WHICH card's perk, by label, never a raw key and
+  // never the retired "Exclusive" word. Its own module owns both shapes.
+  const perk = shortPerkUnlock(body);
+  if (perk) return perk;
   for (const { match, short } of GENERATED_PREVIEW_PATTERNS) {
     const m = body.match(match);
     if (m) return short(m);

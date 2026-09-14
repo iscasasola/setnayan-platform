@@ -24,6 +24,12 @@ export type GuestRole =
   | 'bridesmaid'
   | 'groomsman'
   | 'principal_sponsor'
+  // Split 2026-09-14 (owner): Filipino principal sponsors stand in PAIRS, and
+  // one role could not say which half of a pair a sponsor was. `principal_sponsor`
+  // is KEPT — 47 live rows hold it and gender is not stored, so there is no
+  // honest rule to migrate them; it now reads as "not yet specified".
+  | 'principal_sponsor_ninong'
+  | 'principal_sponsor_ninang'
   | 'candle_sponsor'
   | 'veil_sponsor'
   | 'cord_sponsor'
@@ -57,6 +63,18 @@ export type GuestRole =
  * Roles that may exist at most once per event. Enforced at the DB layer
  * via partial unique indexes (migration 20260531010000); UI uses this
  * list to filter the role dropdown.
+ *
+ * ⚖ OWNER RULING 2026-09-14 — THE HONOUR ATTENDANTS ARE DELIBERATELY NOT HERE.
+ * Asked whether `best_man` / `maid_of_honor` / `matron_of_honor` should become
+ * one-per-event, the owner: *"no need to make them 1 each. they can do as much
+ * as they want."* A couple may name as many as they like, and a live wedding
+ * already does — Cale & Ice carries two Maids of Honour.
+ *
+ * 🔑 This is a DECISION, not an omission, and that distinction is the whole
+ * reason the comment exists. The absence looks identical either way, and it
+ * reads like an oversight to anyone who has just seen two Best Men on a page —
+ * which is exactly what I proposed twice before asking. `role-sets.test.ts`
+ * fails if any of the three is added.
  */
 export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = [
   'bride',
@@ -138,6 +156,21 @@ export type GuestRow = {
   event_id: string;
   first_name: string;
   last_name: string;
+  /**
+   * The three OPTIONAL name parts (2026-09-14). `null` means the guest has
+   * none — NOT an empty string, so "never had a title" and "title cleared"
+   * are the same state and neither leaks a blank into a seating card.
+   * Filled by `lib/person-name-parse.ts` on every write path.
+   */
+  name_prefix: string | null;
+  middle_name: string | null;
+  name_suffix: string | null;
+  /**
+   * The guest this one walks with — groomsman↔bridesmaid, ninong↔ninang.
+   * MUTUAL: if A points at B, B points at A. Maintained only through the
+   * `pair_guests` / `unpair_guest` SQL functions. NULL = unpaired.
+   */
+  pair_with_guest_id: string | null;
   display_name: string | null;
   side: GuestSide;
   group_category: GuestGroupCategory;
@@ -281,7 +314,9 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   best_man: 'Best Man',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
-  principal_sponsor: 'Principal Sponsor (Ninong/Ninang)',
+  principal_sponsor: 'Principal Sponsor',
+  principal_sponsor_ninong: 'Principal Sponsor (Ninong)',
+  principal_sponsor_ninang: 'Principal Sponsor (Ninang)',
   candle_sponsor: 'Candle Sponsor',
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',
@@ -367,7 +402,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -655,6 +690,64 @@ export function guestDisplayName(
   guest: Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
 ): string {
   return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
+}
+
+/**
+ * THE WHOLE NAME, AS AN INVITATION PRINTS IT — prefix · first · middle · last ·
+ * suffix.
+ *
+ * ⚠ DELIBERATELY NOT `guestDisplayName` ABOVE, AND NOT A REPLACEMENT FOR IT.
+ * The two answer different questions and both are wanted:
+ *   · `guestDisplayName` — the COMPACT name, for a chip, a seat card, a row in
+ *     a list. "Arnaldo Espinas".
+ *   · `guestFullName`    — the FORMAL name, for the entourage on the couple's
+ *     invitation. "Atty. Arnaldo M. Espinas".
+ * Widening the compact one instead would have moved every name in seating, the
+ * emcee script and the guest list at once, which nobody asked for.
+ *
+ * 🔴 WHY THIS EXISTS: `name_prefix` / `middle_name` / `name_suffix` shipped on
+ * 2026-09-10 (a typed name splits into its parts) and NO display helper was
+ * taught about them, so every surface kept printing the short name. Measured on
+ * one real wedding the day this was written: of 72 entourage rows, **66 carried
+ * a prefix** — Atty., Comm., Associate Dean — and the invitation dropped every
+ * one. On a Filipino invitation a ninong's title is not decoration.
+ *
+ * 🔑 The couple's own `display_name` still WINS when they set one: it is the
+ * name they chose for this person, and a composed one must never override it.
+ *
+ * Returns null when there is nothing usable, so a caller can drop the row
+ * rather than print an empty line where a person should be.
+ */
+export function guestFullName(guest: {
+  /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
+     `Partial` widens to `string | undefined`, which a real row cannot satisfy:
+     PostgREST hands back NULL for an unset column, and `GuestRow` types
+     `first_name`/`last_name` as non-null besides. The first caller to pass a
+     row read straight from the database was rejected by the compiler — the
+     annotation was the fault, not the caller. */
+  display_name?: string | null;
+  name_prefix?: string | null;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  name_suffix?: string | null;
+}): string | null {
+  const chosen = guest.display_name?.trim();
+  if (chosen) return chosen;
+  /* Order is the printed order, and every part is optional EXCEPT that at least
+     one must survive. A lone stray space between two absent parts is what the
+     filter is for — `${a} ${b}` with both empty is the bug this avoids. */
+  const whole = [
+    guest.name_prefix,
+    guest.first_name,
+    guest.middle_name,
+    guest.last_name,
+    guest.name_suffix,
+  ]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  return whole || null;
 }
 
 export function guestInitials(guest: GuestRow): string {

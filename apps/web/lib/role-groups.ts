@@ -3,7 +3,15 @@ import type { GuestRole } from './guests';
 export type RoleGroup =
   | 'couple'
   | 'vip_family'
+  // ⚠ `wedding_party` STAYS, even though no ROLE maps to it any more. It is not
+  // only a roster section: it is a PALETTE key that the mood board, the 3D
+  // seating lab, the concept PDF and the tour gallery all index by name, and
+  // `moodboard-finalization` documents four finer keys that FALL BACK to it.
+  // Removing it broke every one of those at compile time. The roster now
+  // sections by the two groups below; the palette space keeps its name.
   | 'wedding_party'
+  | 'groomsmen'
+  | 'bridesmaids'
   | 'principal_sponsors'
   // Muslim wedding — the Nikah contract's principals (wali · witnesses · imam ·
   // wakil). Sits with the high-importance groups; only ever populated for a
@@ -21,6 +29,8 @@ export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
   // sidebar so hosts can filter the VIP cluster at a glance.
   vip_family: 'VIP · Immediate Family',
   wedding_party: 'Wedding Party',
+  groomsmen: 'Groomsmen',
+  bridesmaids: 'Bridesmaids',
   principal_sponsors: 'Principal Sponsors',
   muslim_principals: 'Nikah Principals',
   secondary_sponsors: 'Secondary Sponsors',
@@ -37,12 +47,19 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   groom_parents: 'vip_family',
   bride_immediate_family: 'vip_family',
   groom_immediate_family: 'vip_family',
-  maid_of_honor: 'wedding_party',
-  matron_of_honor: 'wedding_party',
-  best_man: 'wedding_party',
-  bridesmaid: 'wedding_party',
-  groomsman: 'wedding_party',
+  // Owner 2026-09-14: "wedding party needs to show groomsmen and bridesmaid as
+  // different groups", each led by its honour attendant. The honour roles sit
+  // with the side they stand with — Best Man leads the Groomsmen, Maid and
+  // Matron of Honor lead the Bridesmaids — so the ORDER within each group is
+  // what makes them "first row" (see ROLE_IMPORTANCE below).
+  maid_of_honor: 'bridesmaids',
+  matron_of_honor: 'bridesmaids',
+  bridesmaid: 'bridesmaids',
+  best_man: 'groomsmen',
+  groomsman: 'groomsmen',
   principal_sponsor: 'principal_sponsors',
+  principal_sponsor_ninong: 'principal_sponsors',
+  principal_sponsor_ninang: 'principal_sponsors',
   candle_sponsor: 'secondary_sponsors',
   veil_sponsor: 'secondary_sponsors',
   cord_sponsor: 'secondary_sponsors',
@@ -97,11 +114,20 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'imam',
   'witness',
   'wakil',
+  // Groomsmen, led by the Best Man; then Bridesmaids, led by Maid and Matron of
+  // Honor. Section order comes from the FIRST role of each group in this list,
+  // and the row order inside a section comes from the roles' order here — so
+  // these five lines are what put the honour attendant in the first row.
+  'best_man',
+  'groomsman',
   'maid_of_honor',
   'matron_of_honor',
-  'best_man',
   'bridesmaid',
-  'groomsman',
+  // The Ninong/Ninang pair ranks with the role it split from (2026-09-14).
+  // The plain `principal_sponsor` stays alongside them for the 47 live rows
+  // that have not been specified yet.
+  'principal_sponsor_ninong',
+  'principal_sponsor_ninang',
   'principal_sponsor',
   'candle_sponsor',
   'veil_sponsor',
@@ -158,6 +184,8 @@ export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   // from the wedding-party terracotta tone.
   vip_family: 'bg-danger-200/70 text-danger-950 ring-1 ring-danger-300',
   wedding_party: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
+  groomsmen: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
+  bridesmaids: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
   principal_sponsors: 'bg-violet-100 text-violet-800 ring-1 ring-violet-200',
   // Nikah principals — emerald to read as a distinct, honored cluster.
   muslim_principals: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',

@@ -26,13 +26,33 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEDDING = { ownsPro: true, mayShowStdFilm: true } as const;
 
 test('nothing repaints a live invite: unsaved, junk or unshipped all render as House', () => {
-  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42, 'abaca']) {
+  for (const saved of [null, undefined, '', 'Capiz', 'marble', 42]) {
     assert.equal(resolveInviteTheme({ saved, ...WEDDING }), 'house', `${String(saved)} must render as House`);
   }
-  // …and a theme whose skin HAS shipped renders itself, which is what makes the
-  // line above a real check rather than "everything is House".
-  assert.equal(resolveInviteTheme({ saved: 'velvet', ...WEDDING }), 'velvet', 'Velvet shipped its skin (2026-09-11) and must render');
-  assert.equal(resolveInviteTheme({ saved: 'galeriya', ...WEDDING }), 'galeriya', 'Galeriya shipped its skin (2026-09-13) and must render');
+  /*
+   * THE UNSHIPPED CASE IS NOW DERIVED, NOT NAMED. This loop used to carry the
+   * literal 'abaca' as its unshipped theme; Abaca shipped on 2026-09-14 and all
+   * five skins are live, so there is no unready id left to name. Naming one
+   * again would be a check that only works until that theme ships, which is
+   * exactly how this line went red.
+   *
+   * 🔑 AND AN EMPTY UNREADY SET IS NOT A HOLE — it is the other half of the
+   * same rule, asserted right below it: every READY theme must render ITSELF.
+   * Between them, every id in the union is checked, whichever side it is on,
+   * and a sixth theme added tomorrow is covered the day it appears.
+   */
+  const unready = INVITE_THEME_IDS.filter((id) => !INVITE_THEMES[id].ready);
+  for (const saved of unready) {
+    assert.equal(resolveInviteTheme({ saved, ...WEDDING }), 'house', `${saved} has no skin and must render as House`);
+  }
+  const ready = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready);
+  assert.equal(ready.length + unready.length, INVITE_THEME_IDS.length, 'a theme is in neither set');
+  // POSITIVE CONTROL: without this the loops above are satisfied by "everything
+  // is House", which is what an accidentally-unready app would look like.
+  assert.ok(ready.length >= 5, `only ${ready.length} themes have skins — all five shipped by 2026-09-14`);
+  for (const saved of ready) {
+    assert.equal(resolveInviteTheme({ saved, ...WEDDING }), saved, `${saved} shipped its skin and must render itself`);
+  }
 });
 
 test('a Pro theme is shown only while the event holds Event Hub Pro', () => {
@@ -135,9 +155,25 @@ test('the picker pre-selects from the feel, but only a theme the couple can actu
     suggestedInviteTheme({ saved: null, moodFeelKey: 'modern', ownsPro: false, mayShowStdFilm: true }),
     'house',
   );
-  // An unshipped skin is never suggested, even to a Pro couple whose feel points
-  // at it — 'rustic' is Abaca's feel and Abaca has no skin yet.
-  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'rustic', ...WEDDING }), 'house');
+  // 'rustic' is Abaca's feel, and Abaca shipped its skin on 2026-09-14 — the
+  // last of the four. This line read `'house'` for as long as it had none.
+  assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: 'rustic', ...WEDDING }), 'abaca');
+  assert.equal(
+    suggestedInviteTheme({ saved: null, moodFeelKey: 'rustic', ownsPro: false, mayShowStdFilm: true }),
+    'house',
+  );
+  // The "an unshipped skin is never suggested" half, kept executable now that no
+  // theme is unshipped: whatever an unready theme's feel is, it must not be the
+  // answer to that feel.
+  for (const id of INVITE_THEME_IDS.filter((t) => !INVITE_THEMES[t].ready)) {
+    for (const feel of INVITE_THEMES[id].feels) {
+      assert.notEqual(
+        suggestedInviteTheme({ saved: null, moodFeelKey: feel, ...WEDDING }),
+        id,
+        `${id} has no skin and is still being pre-selected for "${feel}"`,
+      );
+    }
+  }
   assert.equal(suggestedInviteTheme({ saved: null, moodFeelKey: null, ...WEDDING }), 'house');
   // A saved choice always wins over the feel.
   assert.equal(suggestedInviteTheme({ saved: 'house', moodFeelKey: 'timeless', ...WEDDING }), 'house');

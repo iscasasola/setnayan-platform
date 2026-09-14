@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -21,34 +22,17 @@ import type { ReleasedSeat } from '@/lib/guest-optimistic';
 // picker (GuestSide = 'bride' | 'groom' | 'both').
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
-// Iteration 0053 P4 Unit 5: the bulk-assignable role set is per event type.
-// For WEDDINGS we keep the exact pre-0053 list (BYTE-IDENTICAL — note it is the
-// historical 20-value set that, by a pre-existing quirk, includes bride/groom
-// but NOT the 4 VIP-family roles; we preserve that exactly rather than widen it
-// to the 24-value offeredRoles). For non-weddings we accept the generic
-// profile's offeredRoles. Resolved per-action via resolveRoleSetForEvent(eventId).
-const WEDDING_BULK_ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P4 Unit 5: the bulk-assignable role set is per event type,
+// and comes from `lib/bulk-role-vocabulary.ts` — THE SAME export the picker
+// renders from.
+//
+// 🪤 THIS COMMENT USED TO DESCRIBE THE BUG AS A FEATURE. It said the wedding
+// list was kept "BYTE-IDENTICAL ... includes bride/groom but NOT the 4
+// VIP-family roles; we preserve that exactly rather than widen it" — so the
+// divergence from the picker was known, written down, and deliberately
+// preserved. What it never said is that the picker OFFERS those four, which
+// made "Bride's Parents" selectable and un-appliable (reported 2026-09-14).
+// A quirk you can describe is still a defect if a host can hit it.
 
 function clean(value: FormDataEntryValue | null): string {
   return value ? String(value).trim() : '';
@@ -131,8 +115,14 @@ export async function bulkApplyRoleAndGroup(
   if (rawRole) {
     const role = rawRole as GuestRole;
     const roleSet = await resolveRoleSetForEvent(eventId);
-    const allowedRoles =
-      roleSet.key === 'wedding' ? WEDDING_BULK_ROLE_VALUES : roleSet.offeredRoles;
+    // Validate against EXACTLY what the picker offered — one derived list, not
+    // a second hand-typed one. The previous literal rejected the four
+    // VIP-family roles the picker shows (bride_parents / groom_parents /
+    // bride_immediate_family / groom_immediate_family), so a host could pick
+    // "Bride's Parents" and be bounced on Apply; it also ALLOWED bride/groom,
+    // which the picker deliberately never offers. Both halves are fixed by
+    // reading the same export.
+    const allowedRoles = bulkAssignableRolesFor(roleSet.key);
     if (!allowedRoles.includes(role)) {
       redirect(backToList(eventId, { error: 'invalid_role' }));
     }

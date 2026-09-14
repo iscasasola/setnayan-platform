@@ -230,6 +230,25 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'part_reopen_requested',
   'part_reopen_answered',
   /*
+    TD-1 · a guest's takedown reached the SUPPLIER's copy (2026-09-14).
+
+    🔑 THIS IS THE HALF THAT MAKES THE NOTICE A MECHANISM. A supplier working a
+    wedding floor is the definition of somebody not looking at the console, and
+    the thing being reported is a photograph DISAPPEARING from their own
+    workspace. In-app only, the supplier's first evidence of a takedown is a
+    missing tile — which is precisely the "renders identically to emptiness"
+    failure this lane keeps paying for. Having the emit without this line is
+    indistinguishable from having neither.
+
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES below: transactional (it
+    is about the supplier's own work, and a statutory right was exercised), and
+    that set suppresses unless users.marketing_opt_in = TRUE — the mistake that
+    silenced all six lock_request_* types for every user.
+    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: the photo is already down; a 2am
+    buzz would add nothing but alarm.
+  */
+  'guest_takedown_honored',
+  /*
     MB16 · a granted vendor or coordinator changed a colour (2026-09-04).
 
     🔑 THIS ONE IS LOAD-BEARING IN A WAY THE OTHERS ARE NOT. Every other

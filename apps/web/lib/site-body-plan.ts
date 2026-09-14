@@ -186,33 +186,38 @@ export type SiteBodyPlan = {
  * door (`inviteRevealPlays`, lib/invite-reveal.ts). Named on 2026-09-10 so the
  * second caller could not restate it and drift.
  *
- * THE CINEMATIC REVEAL ALSO PLAYS OVER THE INVITATION (owner 2026-08-29:
- * *"event hub should also have the cinematic reveal"* — "also", so an
- * addition, never a move).
+ * ⚖ THE RULE IS: THE SAVE-THE-DATE WINDOW, AND NOTHING ELSE. Owner
+ * 2026-09-14, looking at his own invitation: *"reveal should only be at the
+ * save the date. remove it from this part of the event hub."* Asked whether
+ * that meant the Hub alone or both doors, he chose BOTH — so this stayed one
+ * rule rather than splitting into two that could drift.
  *
- * 🔴 WHAT IT WAS: `revealEnabled` was `showSaveTheDate`, so the veil lifted
- * ONLY while the event was still far enough out to be in its save-the-date
- * window. The moment the page became the invitation the reveal stopped
- * forever — which is the moment most guests actually open the link. The
- * couple had paid for an opening almost none of their guests would meet.
+ * ── 🔴 WHAT THIS REVERSED, KEPT ON PURPOSE ──────────────────────────────────
+ * From 2026-08-29 to 2026-09-14 the reveal ALSO played over the invitation,
+ * on the owner's own earlier ruling — *"event hub should also have the
+ * cinematic reveal"*. The reason recorded with it is still true and is the
+ * cost of this reversal, stated rather than deleted: the save-the-date window
+ * ENDS 90 DAYS OUT (`STD_THRESHOLD_DAYS`), and inside those 90 days is when
+ * most guests actually open the link. So a couple who buys the Cinematic
+ * Reveal now has an opening that plays only while their wedding is still
+ * distant. The owner was shown that consequence and chose this anyway; it is
+ * a taste decision about where a veil belongs, not an oversight.
+ * ⛔ Do not "restore" the rsvp arm because this docblock explains it well.
  *
- * ⛔ THE DAY ITSELF AND THE STORY AFTERWARDS ARE DELIBERATELY EXCLUDED, and
- * that is an owner ruling, not an oversight: on the day a guest is opening
- * this to find their table, and a veil between them and a table number at
- * the venue is a toll gate, not a flourish. The editorial phase has its own
- * cover.
+ * ⛔ THE DAY ITSELF AND THE STORY AFTERWARDS WERE ALREADY EXCLUDED, and that
+ * is an older owner ruling: on the day a guest is opening this to find their
+ * table, and a veil between them and a table number at the venue is a toll
+ * gate, not a flourish. The editorial phase has its own cover.
  *
- * 🔒 `mayShowStdFilm` IS LOAD-BEARING HERE IN A WAY IT WAS NOT BEFORE.
- * Previously a wake was excluded twice over — it never ENTERS the
- * save_the_date phase (gated on the solemn register in app/[slug]/page.tsx)
- * AND its profile has no `save_the_date` surface. A wake DOES reach the rsvp
- * phase, so that first protection is gone here and this flag is the whole
- * fence. `wedding-only-parts.ts` calls this part "The Save-the-Date cinematic
- * film AND ITS FIVE REVEAL OPENINGS" — the openings are already inside its
- * scope, so this is the existing rule applied, not a new one invented.
- * ⚖ Measured against prod 2026-08-29: of the 17 event-type profiles, ONLY
- * `wedding` carries the `save_the_date` surface. So this reaches weddings
- * today and a wake can never see a cinematic veil over its invitation.
+ * 🔒 `mayShowStdFilm` — the wedding-only fence — is kept even though the phase
+ * test now does the same work twice over for a solemn event. It was
+ * LOAD-BEARING while the rsvp arm existed (a wake never enters the
+ * save_the_date phase, but it DOES reach rsvp, so the surface flag was the
+ * whole fence there); with that arm gone a wake is excluded twice again.
+ * Removing it would be removing a fence because the OTHER fence currently
+ * holds — exactly the shape that turns one later change into an incident.
+ * `wedding-only-parts.ts` defines this part as "The Save-the-Date cinematic
+ * film AND ITS FIVE REVEAL OPENINGS", so this applies an existing rule.
  */
 export function cinematicRevealPlays(input: {
   phasesEnabled: boolean;
@@ -221,11 +226,7 @@ export function cinematicRevealPlays(input: {
 }): boolean {
   const { phasesEnabled, lifecyclePhase, weddingOnlyParts } = input;
   const mayShowStdFilm = weddingOnlyParts?.save_the_date_film ?? true;
-  const showSaveTheDate =
-    phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
-  const showInvitationReveal =
-    phasesEnabled && lifecyclePhase === 'rsvp' && mayShowStdFilm;
-  return showSaveTheDate || showInvitationReveal;
+  return phasesEnabled && lifecyclePhase === 'save_the_date' && mayShowStdFilm;
 }
 
 export function resolveSiteBodyPlan(input: {

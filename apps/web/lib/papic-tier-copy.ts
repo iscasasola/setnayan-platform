@@ -263,21 +263,61 @@ export function papicFreeGrantPoints(config: PapicTierConfig): number {
 export async function fetchPapicFreeGrantPoints(
   supabase: SupabaseClient,
 ): Promise<number> {
+  const read = await fetchPapicFreeGrantRead(supabase);
+  // A non-positive or unparseable value must never mint a 0-point (or
+  // negative) grant — papic_event_point_grants CHECKs points > 0, so a bad
+  // config row would turn every event-creation arm into a silent failure and
+  // put us straight back to the unmetered state this whole line of work fixed.
+  return read.kind === 'value' && read.points > 0
+    ? read.points
+    : PAPIC_FREE_GRANT_POINTS_FALLBACK;
+}
+
+/**
+ * The SAME read, with the three outcomes kept apart.
+ *
+ * 🚨 WHY THIS IS SEPARATE FROM THE FUNCTION ABOVE, AND WHY IT IS NOT A SECOND
+ * SOURCE OF TRUTH (2026-09-14, MONEY-1). One query, one decision table; the
+ * older helper is now a thin wrapper over this one and its behaviour is
+ * unchanged for every caller it already had.
+ *
+ * What the wrapper cannot express is the difference between **"the admin set
+ * this to 0"** and **"I could not read it"** — it collapses both onto the seed
+ * fallback of 50. That is right for a MINT (0 points is not a grant you can
+ * write) and wrong for a PROMISE: an admin who sets `free_grant_points = 0`
+ * switches the grant off in SQL — `papic_claim_free_pool` returns before the
+ * claim — while the public /papic page went on advertising 50 free credits
+ * nobody would receive. The display half needs the distinction; the mint half
+ * does not.
+ *
+ * `kind: 'unknown'` deliberately still means "the seed value" downstream,
+ * because `papic_claim_free_pool` itself does `COALESCE(v_pts, 50)` — a missing
+ * config row really does mint 50.
+ */
+export type PapicFreeGrantRead =
+  /** The column was read: `points` is exactly what it held, truncated. */
+  | { kind: 'value'; points: number }
+  /** The column was read and is 0 or below — the allowance is switched OFF. */
+  | { kind: 'off' }
+  /** No row, a refusal, or an unparseable value. Nothing is known. */
+  | { kind: 'unknown' };
+
+export async function fetchPapicFreeGrantRead(
+  supabase: SupabaseClient,
+): Promise<PapicFreeGrantRead> {
   try {
     const { data, error } = await supabase
       .from('papic_event_pool_config')
       .select('free_grant_points')
       .eq('config_key', 'default')
       .maybeSingle();
-    if (error || !data) return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+    if (error || !data) return { kind: 'unknown' };
     const n = Number((data as { free_grant_points?: unknown }).free_grant_points);
-    // A non-positive or unparseable value must never mint a 0-point (or
-    // negative) grant — papic_event_point_grants CHECKs points > 0, so a bad
-    // config row would turn every event-creation arm into a silent failure and
-    // put us straight back to the unmetered state this whole line of work fixed.
-    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : PAPIC_FREE_GRANT_POINTS_FALLBACK;
+    if (!Number.isFinite(n)) return { kind: 'unknown' };
+    const points = Math.trunc(n);
+    return points > 0 ? { kind: 'value', points } : { kind: 'off' };
   } catch {
-    return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+    return { kind: 'unknown' };
   }
 }
 

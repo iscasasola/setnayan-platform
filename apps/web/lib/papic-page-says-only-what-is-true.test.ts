@@ -68,6 +68,9 @@ const WEB = join(HERE, '..');
 const PAPIC_PAGE_FILES = [
   'app/(shell)/papic/page.tsx',
   'app/(shell)/papic/_papic-dial.tsx',
+  // The free-credit promise, extracted 2026-09-14 (MONEY-1) so the switched-off
+  // branch could be proven by RENDER rather than by grep.
+  'app/(shell)/papic/_papic-free-credits.tsx',
   'app/(shell)/papic/_papic-sections.tsx',
   'app/(shell)/papic/_papic-scan.tsx',
   'app/(shell)/papic/_papic-film.tsx',

@@ -21,25 +21,30 @@ import type { RunOfShowBlock, RunState } from '@/lib/run-of-show';
  *    concurrent tap is a benign no-op.
  *
  *    🔒 WHO MAY ADVANCE (owner ruling: only the coordinator runs the programme).
- *    The RPC's own gate (migration 20270917100000) admits
- *      host/couple ∪ delegate-with-schedule:edit ∪ ANY BOOKED VENDOR ∪ admin
- *    — that third arm is every supplier contracted on the wedding, caterer and
- *    florist included. Only the SCREEN narrowed it (and on the vendor client
- *    workspace not even that: `canAdvance` is hardcoded there), and a screen is
- *    not an enforcement boundary — a server action is a public HTTP endpoint,
- *    reachable by anyone signed in who knows the event and block ids.
+ *    ✅ THE DATABASE NOW HOLDS THIS ITSELF. Migration 20271227867922 narrowed
+ *    `advance_schedule_block`'s vendor arm from `current_vendor_booked_event_ids()`
+ *    — every supplier contracted on the wedding, caterer and florist included —
+ *    to `current_coordinator_booked_event_ids()`, the SAME SECURITY DEFINER
+ *    helper this file's gate uses (migration 20271013100000,
+ *    `'coordinator' = ANY(vp.services)` over the booked statuses). Reused, not
+ *    re-implemented: a marketplace vendor cannot read their own `event_vendors`
+ *    row under RLS, so a hand-rolled copy of the booked check would silently
+ *    return "not booked" for everyone. The guard is
+ *    `tests/db/only-the-coordinator-advances-the-programme.db.test.ts`, which
+ *    calls the RPC directly — a test driving THIS action would have passed
+ *    before that migration existed.
  *
- *    `lib/run-of-show-advance.ts` re-checks the SAME four arms minus the wide one:
- *    the vendor arm is narrowed to the BOOKED COORDINATOR via the existing
- *    SECURITY DEFINER helper `current_coordinator_booked_event_ids()`
- *    (migration 20271013100000 — `'coordinator' = ANY(vp.services)` over the
- *    booked statuses). Reused, not re-implemented: a marketplace vendor cannot
- *    read their own `event_vendors` row under RLS, so a hand-rolled copy of the
- *    booked check would silently return "not booked" for everyone.
+ *    `lib/run-of-show-advance.ts` is therefore no longer the only enforcement,
+ *    and it is still not redundant: it refuses BEFORE the round trip, returns a
+ *    status the caller can show instead of an opaque 42501, and it is STRICTER
+ *    than the database on arm 1 — `current_event_ids()` is any `event_members`
+ *    row, so the DB still admits a QR-scanning guest and a view-only delegate
+ *    where `decideMayAdvance` requires member_type === 'couple'. That arm is an
+ *    open gap, measured in section 4 of the db test above. Do not delete this
+ *    gate on the strength of the migration.
  *
- *    This is a NARROWING, so it is the enforcement — the DB gate stays wider
- *    until a migration follows. Every refusal returns a status the caller can
- *    show; it never resolves as a silent success.
+ *    Every refusal returns a status the caller can show; it never resolves as a
+ *    silent success.
  */
 
 

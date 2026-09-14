@@ -288,12 +288,22 @@ export async function POST(req: Request) {
     if (!proxyBytes) return; // posterless clip → stays unscreened, excluded
     try {
       const decision = decideNsfw(await classifyImageBytes(proxyBytes));
+      /*
+        🔴 THE CLEAN BRANCH USED TO WRITE `hidden_at: null`, AND THAT WRITE
+        COULD ONLY EVER UNDO A TAKEDOWN. The insert above never sets
+        `hidden_at` (the column defaults NULL), so clearing it here was a
+        no-op in every case EXCEPT the one that matters: a guest's takedown
+        landing on a capture whose background screen has not finished yet
+        would be silently reversed a moment later, with the photograph back in
+        the supplier's strip and in the couple's gallery and nothing anywhere
+        saying so. A clean verdict now only records that the screen RAN; the
+        takedown switch is not its to move (TD-1, 2026-09-14).
+      */
+      const verdict: { nsfw_checked: true; hidden_at?: string } = { nsfw_checked: true };
+      if (decision === 'nsfw_blocked') verdict.hidden_at = new Date().toISOString();
       await admin
         .from('vendor_papic_captures')
-        .update({
-          nsfw_checked: true,
-          hidden_at: decision === 'nsfw_blocked' ? new Date().toISOString() : null,
-        })
+        .update(verdict)
         .eq('capture_id', captureId)
         .eq('nsfw_checked', false);
     } catch {

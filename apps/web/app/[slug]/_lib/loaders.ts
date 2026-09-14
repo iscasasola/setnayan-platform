@@ -23,6 +23,13 @@ import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  buildEntourage,
+  ENTOURAGE_ROLES,
+  type EntourageGroup,
+  type EntourageGuestRow,
+} from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -1169,7 +1176,6 @@ export const loadGuestContext = cache(
               ?.ugc_terms_accepted_at,
           ),
           capApplies: quota.capApplies,
-          poolRemaining: quota.poolRemaining,
           poolLow: quota.poolLow,
           sponsorShare: quota.sponsorShare,
           eventStyle: asPapicStyle(
@@ -1377,5 +1383,74 @@ export const loadGuestContext = cache(
       rsvpFaceMode,
       eventVendorCredits,
     };
+  },
+);
+
+/**
+ * THE ENTOURAGE, FOR THE INVITATION.
+ *
+ * Reads only the rows that hold a published entourage role — the allow-list in
+ * `lib/entourage.ts`, passed to PostgREST as an `in` filter so a plain guest's
+ * name never leaves the database on this path at all. Four columns, no contact
+ * details, no RSVP state, no seat.
+ *
+ * ⚠ A FAILED READ DRAWS NOTHING, AND THAT IS THE HONEST ANSWER HERE — not the
+ * blank-page trap `loadWidgets` throws over. A missing entourage section says
+ * nothing untrue to a guest; an error plate on somebody's wedding invitation
+ * does, and there is no version of "we could not read your entourage" that
+ * helps the person reading it. The failure is logged and the rest of the
+ * invitation renders exactly as it did.
+ *
+ * 🔑 THE ROLES COME FROM THE GUEST LIST AND NOWHERE ELSE. `event_sponsors` —
+ * the table behind /dashboard/<eventId>/sponsors — held ZERO rows in production
+ * when this shipped; see the docblock on `lib/entourage.ts` before adding it as
+ * a second source.
+ */
+export const loadEntourage = cache(
+  async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
+    const { data, error } = await admin
+      .from('guests')
+      /*
+        🔑 THE FIVE NAME PARTS, NOT TWO. `name_prefix` / `middle_name` /
+        `name_suffix` shipped on 2026-09-10 and nothing displayed them — a
+        column the query never names cannot be printed, and the section looked
+        correct while dropping "Atty." from a ninong's name.
+      */
+      .select(
+        'display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles',
+      )
+      .eq('event_id', eventId)
+      /*
+        🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.
+
+        This line was missing when the entourage shipped, and it put two
+        REMOVED people back on a real wedding's public page — a best man and a
+        principal sponsor the couple had deleted hours earlier. The owner spotted
+        it himself ("i can only see 1 indalecio and 1 indalecia"), and the reason
+        it read as a pair of duplicate rows rather than as deleted ones is that
+        `guests` deletes SOFTLY: the row stays, with `deleted_at` set.
+
+        ⚠ Every other guest read in this repo already filters it — including one
+        forty lines up in THIS FILE, and four in lib/guests.ts. This read was the
+        only one that did not, so "the convention" was never the problem; missing
+        it once was. `a-removed-guest-leaves-the-invitation.test.ts` now fails if
+        it goes again.
+      */
+      .is('deleted_at', null)
+      /*
+        🔑 BOTH COLUMNS, OR THE SECOND ROLE IS INVISIBLE. `extra_roles` is how a
+        guest holds a role BESIDE their main one — and a ring bearer whose main
+        role is still the default `guest` lives ONLY there. Filtering on `role`
+        alone dropped exactly the people the couple went out of their way to
+        mark, and the page would have looked correct while doing it.
+      */
+      .or(
+        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
+      );
+    if (error) {
+      logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
+      return [];
+    }
+    return buildEntourage((data ?? []) as EntourageGuestRow[]);
   },
 );

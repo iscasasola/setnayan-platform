@@ -34,7 +34,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { titleCase } from './personalized-menu';
+import { perkUnlockBody } from './perk-unlock-message';
+import { stripComments } from './strip-comments';
 import { shortenGeneratedBody } from './conversation-list';
 
 const WEB = join(import.meta.dirname, '..');
@@ -69,15 +70,23 @@ test('2 · the shortener is shared, not copied — and the card consumes it', ()
   const overview = read('lib/vendor-overview.ts');
   assert.match(overview, /shortenGeneratedBody\(body\)/, 'the What’s-new excerpt renders the raw body again');
   assert.match(overview, /import \{ shortenGeneratedBody \}/, 'it stopped importing the shared rule');
-  // ⛔ and nobody re-implements it: the marker string must appear in exactly one
-  // module, the one that owns the rule.
-  const owners = ['lib/conversation-list.ts', 'lib/vendor-overview.ts', 'lib/chat-actions.ts']
-    .filter((f) => read(f).includes('Setnayan Exclusive unlocked'));
+  // ⛔ and nobody re-implements it. Since the owner's test round 1 (2026-09-11)
+  // ONE module owns the perk line — it writes the new shape and reads the old
+  // one still stored in production — and the writer, the list, the stream and
+  // the What's-new card all go through it.
+  const owners = [
+    'lib/conversation-list.ts',
+    'lib/vendor-overview.ts',
+    'lib/chat-actions.ts',
+    'app/_components/chat-message-stream.tsx',
+    'lib/perk-unlock-message.ts',
+  ].filter((f) => stripComments(read(f)).includes('Setnayan Exclusive unlocked')); // code, not the history in its comments
   assert.deepEqual(
     owners,
-    ['lib/conversation-list.ts', 'lib/chat-actions.ts'],
-    'a third module now knows that message shape — one writes it, one shortens it, nobody else',
+    ['lib/perk-unlock-message.ts'],
+    'a second module now knows that message shape — lib/perk-unlock-message owns it',
   );
+  assert.match(list, /shortPerkUnlock\(body\)/, 'the list stopped shortening the perk line through its owner');
 });
 
 test('2b · the shortener actually removes the asterisks a person was reading', () => {
@@ -91,10 +100,15 @@ test('3 · a card with no title never shows a database word', () => {
   const src = read('lib/chat-actions.ts');
   assert.match(
     src,
-    /s\.title\?\.trim\(\) \|\| titleCase\(s\.category\)/,
-    'the label falls back to the raw category column again — a supplier reads live_band',
+    /body: perkUnlockBody\(label, s\.exclusive_perk_text\)/,
+    'the perk line is composed by hand again — lib/perk-unlock-message owns its words',
   );
-  // the humaniser does what the page needs
-  assert.equal(titleCase('live_band'), 'Live Band');
-  assert.equal(titleCase('host_mc'), 'Host Mc');
+  // …and what it composes from an untitled card is the card's LABEL. (It used to
+  // title-case the key, which turned `host_mc` into "Host Mc".)
+  const live = perkUnlockBody('live_band', 'Free 1-hour extension');
+  const host = perkUnlockBody('host_mc', 'FREE');
+  assert.ok(!/live_band|host_mc/.test(live + host), `a database word reached a person: ${live} / ${host}`);
+  assert.match(live, /Live band/i);
+  assert.match(host, /Host \/ MC/);
+  assert.ok(!/\*\*|Exclusive/.test(live), `markdown or the retired name is back: ${live}`);
 });

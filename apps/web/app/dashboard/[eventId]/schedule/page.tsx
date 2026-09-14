@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -314,12 +315,18 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .is('removed_at', null)
       .maybeSingle(),
   ]);
+  // The access window (owner 2026-09-14): a delegate seven days past the event
+  // is not a coordinator any more. An event_members row is the couple/host and
+  // never expires, which is why it stays the first arm of this `||`.
+  const advDelegatePermissions = await applyDelegateAccessWindow(
+    supabase,
+    eventId,
+    (advDelegateRes.data?.permissions_json ?? null) as ModeratorPermissions | null,
+    Boolean(advMemberRes.data),
+  );
   const canAdvanceRunOfShow =
     Boolean(advMemberRes.data) ||
-    resolveAreaLevel(
-      (advDelegateRes.data?.permissions_json ?? null) as ModeratorPermissions | null,
-      'schedule',
-    ) === 'edit';
+    resolveAreaLevel(advDelegatePermissions, 'schedule') === 'edit';
 
   // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
   // blocks only — the header tracks the headline timeline, not sub-parts.

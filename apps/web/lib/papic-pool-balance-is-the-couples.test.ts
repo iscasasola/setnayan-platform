@@ -262,6 +262,19 @@ test('the guest camera warns without naming the balance', () => {
 
   // The pot branch is still here — exactly one of it. `capApplies`'s branch is
   // a DIFFERENT counter (the reader's OWN allowance) and is untouched by PRIV-1.
+  // ⚠ THE FIGURE CHECK GOES FIRST, DELIBERATELY. Restoring the balance also
+  // rewrites the branch's condition (`poolLow ?` becomes `poolLow &&
+  // poolRemaining != null ?`), so the count assertion below fires too — and its
+  // message says "the warning must stay", which is not what went wrong. Ordered
+  // this way the red names the actual defect instead of a symptom of it.
+  const figures = s.match(/\bpoolRemaining\b/g) ?? [];
+  assert.deepEqual(
+    figures,
+    [],
+    `${S}: ${figures.length} reference(s) to the pot's balance are back — PRIV-1: this ` +
+      "component's reader is a guest on a cookie, never an event member",
+  );
+
   // 🪤 ANCHOR ON THE TERNARY'S `(`, NOT ON THE BARE NAME. `poolLow?: boolean` in
   // the Props type also reads `poolLow ?` to a regex, so the naive pattern
   // counted 2 and the "exactly 1" would have been satisfied by the DECLARATION
@@ -270,14 +283,6 @@ test('the guest camera warns without naming the balance', () => {
     count(s, /:\s*poolLow\s*\?\s*\(/g),
     1,
     `${S}: expected exactly 1 "pot is running low" branch — the warning must stay`,
-  );
-
-  const figures = s.match(/\bpoolRemaining\b/g) ?? [];
-  assert.deepEqual(
-    figures,
-    [],
-    `${S}: ${figures.length} reference(s) to the pot's balance are back — PRIV-1: this ` +
-      "component's reader is a guest on a cookie, never an event member",
   );
 
   // The reader's own number is NOT the couple's money and must survive. Without

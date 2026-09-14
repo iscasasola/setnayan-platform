@@ -100,11 +100,50 @@ test('a row with no usable name is dropped, not printed blank', () => {
   assert.deepEqual(groups[0]?.people.map((p) => p.name), ['Bea Reyes']);
 });
 
-test('the couple’s chosen display name wins over first + last', () => {
+test('the couple’s chosen display name wins over the composed one', () => {
   assert.equal(
     personName({ display_name: 'Tita Rosa', first_name: 'Rosario', last_name: 'Cruz' }),
     'Tita Rosa',
   );
   assert.equal(personName({ first_name: 'Rosario', last_name: 'Cruz' }), 'Rosario Cruz');
   assert.equal(personName({ first_name: null, last_name: null }), null);
+});
+
+/*
+  🔴 THE WHOLE NAME. Measured on one real wedding: of 72 entourage rows, 66
+  carried a prefix — Atty., Comm., Associate Dean — and the invitation printed
+  none of them. These are that wedding's own shapes, not invented ones.
+*/
+test('the entourage prints prefix, middle name and suffix — not just first + last', () => {
+  assert.equal(
+    personName({ name_prefix: 'Atty.', first_name: 'Arnaldo', middle_name: 'M.', last_name: 'Espinas' }),
+    'Atty. Arnaldo M. Espinas',
+  );
+  assert.equal(
+    personName({ name_prefix: 'Associate Dean', first_name: 'Cecilio', last_name: 'Duka' }),
+    'Associate Dean Cecilio Duka',
+  );
+  assert.equal(
+    personName({ name_prefix: 'Atty.', first_name: 'Cherry', middle_name: 'Liez O.', last_name: 'Rafal-Roble' }),
+    'Atty. Cherry Liez O. Rafal-Roble',
+  );
+  assert.equal(
+    personName({ first_name: 'Juan', last_name: 'Cruz', name_suffix: 'Jr.' }),
+    'Juan Cruz Jr.',
+  );
+});
+
+test('an absent part leaves no double space', () => {
+  // `${prefix} ${first} ${middle} ${last}` with three of them empty is the bug
+  // this pins: a name must never carry a run of spaces a reader can see.
+  const name = personName({ name_prefix: null, first_name: 'Bea', middle_name: null, last_name: 'Reyes', name_suffix: null });
+  assert.equal(name, 'Bea Reyes');
+  assert.ok(name && !/\s{2}/.test(name), 'a missing part left a double space');
+});
+
+test('a row that is nothing but whitespace is still dropped', () => {
+  assert.equal(
+    personName({ name_prefix: '  ', first_name: ' ', middle_name: '', last_name: '   ', name_suffix: null }),
+    null,
+  );
 });

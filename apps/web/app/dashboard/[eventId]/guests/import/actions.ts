@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { parseCsv } from '@/lib/csv';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { norm } from '@/lib/guest-dedupe';
 import type {
   GuestGroupCategory,
@@ -84,8 +85,19 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
 
   rows.forEach((row, index) => {
     const lineNo = index + 2; // header is line 1
-    const first_name = normalizeGuestName(row.first_name);
-    const last_name = normalizeGuestName(row.last_name);
+    // A spreadsheet column is where whole names arrive most often — either a
+    // single "name" column, or a first_name cell that actually holds
+    // "Atty. Bob Casasola Jr.". Parse the two cells as one line so the title
+    // never becomes the given name, then fall back to the raw cells when the
+    // parser found nothing to move.
+    const rawFirst = normalizeGuestName(row.first_name);
+    const rawLast = normalizeGuestName(row.last_name);
+    const parts = parsePersonName(`${rawFirst} ${rawLast}`.trim());
+    const first_name = parts.firstName || rawFirst;
+    const last_name = parts.lastName || rawLast;
+    const name_prefix = parts.prefix || null;
+    const middle_name = parts.middleName || null;
+    const name_suffix = parts.suffix || null;
     const side = ((row.side ?? '').trim().toLowerCase() || 'both') as GuestSide;
     const group_category = ((row.group ?? row.group_category ?? '').trim().toLowerCase() ||
       'friends') as GuestGroupCategory;
@@ -139,6 +151,9 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
       event_id: eventId,
       first_name,
       last_name,
+      name_prefix,
+      middle_name,
+      name_suffix,
       side,
       group_category,
       role,

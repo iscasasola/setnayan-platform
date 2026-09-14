@@ -10,6 +10,7 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { findDuplicates, TAG } from '@/lib/guest-dedupe';
+import { parsePersonName } from '@/lib/person-name-parse';
 
 // Slim projection of a guest — only what the matcher needs + what the
 // warning row renders. The server page maps GuestRow down to this so the
@@ -25,7 +26,7 @@ export type NamePoolGuest = {
 };
 
 /**
- * First + last name inputs for the detailed Add-guest form, with the same
+ * Name inputs for the detailed Add-guest form, with the same
  * live duplicate detection the quick-add sheet uses (shared matcher in
  * `lib/guest-dedupe`). The inputs keep name="first_name" / "last_name" so
  * the server action (createGuest) receives them unchanged — this island
@@ -33,6 +34,17 @@ export type NamePoolGuest = {
  * guests legitimately can share a name, so the host can always submit;
  * the warning links to each existing match (new tab, form state intact)
  * so they can check before they do.
+ *
+ * NAME SPLITTING (2026-09-14). Prefix / middle / suffix are OPTIONAL inputs
+ * beside the two required ones. A host who types a whole name into First —
+ * "Atty. Bob Casasola Jr.", which is exactly how prod ended up with 30 guests
+ * whose first name was a bare title — gets it distributed across the boxes
+ * when they leave the field.
+ *
+ * It splits on BLUR, never on keystroke: rewriting the box mid-word fights the
+ * typist, and the split is only useful once the name is whole. Nothing is
+ * hidden — every part lands in a real, editable input the host can correct,
+ * and a box they have already filled by hand is never overwritten.
  */
 export function GuestNameFields({
   eventId,
@@ -43,7 +55,35 @@ export function GuestNameFields({
 }) {
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [middle, setMiddle] = useState('');
+  const [suffix, setSuffix] = useState('');
   const [dismissed, setDismissed] = useState(false);
+
+  /**
+   * Split whatever is in the two required boxes across all five. Called on
+   * blur of First or Last.
+   *
+   * Deliberately conservative: it only WRITES a part the host has not already
+   * typed themselves, and it leaves first/last alone when the parser found
+   * nothing to move — so a plain "Bob" + "Casasola" is untouched, and a host
+   * who hand-entered a prefix keeps it.
+   */
+  const splitNow = () => {
+    const line = `${first} ${last}`.trim();
+    if (!line) return;
+    const p = parsePersonName(line);
+    // Nothing to redistribute — leave the host's typing exactly as it is.
+    if (!p.prefix && !p.middleName && !p.suffix && p.firstName === first.trim()) {
+      return;
+    }
+    if (p.firstName) setFirst(p.firstName);
+    if (p.lastName) setLast(p.lastName);
+    if (p.prefix && !prefix.trim()) setPrefix(p.prefix);
+    if (p.middleName && !middle.trim()) setMiddle(p.middleName);
+    if (p.suffix && !suffix.trim()) setSuffix(p.suffix);
+    setDismissed(false);
+  };
 
   const dups = useMemo(
     () => (dismissed ? [] : findDuplicates(first, last, pool)),
@@ -52,8 +92,23 @@ export function GuestNameFields({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
+            Prefix
+          </label>
+          <input
+            className="input-field"
+            id="name_prefix"
+            name="name_prefix"
+            type="text"
+            autoComplete="off"
+            placeholder="Atty."
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-3">
           <label className="block text-sm font-medium text-ink" htmlFor="first_name">
             First name *
           </label>
@@ -65,15 +120,34 @@ export function GuestNameFields({
             required
             autoComplete="off"
             autoCapitalize="words"
-            placeholder="Maria"
+            placeholder="Maria — or paste the whole name"
             value={first}
             onChange={(e) => {
               setFirst(e.target.value);
               setDismissed(false);
             }}
+            onBlur={splitNow}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="middle_name">
+            Middle name
+          </label>
+          <input
+            className="input-field"
+            id="middle_name"
+            name="middle_name"
+            type="text"
+            autoComplete="off"
+            placeholder="M."
+            value={middle}
+            onChange={(e) => setMiddle(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
           <label className="block text-sm font-medium text-ink" htmlFor="last_name">
             Last name *
           </label>
@@ -91,6 +165,22 @@ export function GuestNameFields({
               setLast(e.target.value);
               setDismissed(false);
             }}
+            onBlur={splitNow}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="name_suffix">
+            Suffix
+          </label>
+          <input
+            className="input-field"
+            id="name_suffix"
+            name="name_suffix"
+            type="text"
+            autoComplete="off"
+            placeholder="Jr."
+            value={suffix}
+            onChange={(e) => setSuffix(e.target.value)}
           />
         </div>
       </div>

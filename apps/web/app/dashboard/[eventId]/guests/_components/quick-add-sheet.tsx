@@ -23,6 +23,7 @@ import {
   addRoleToGuest,
   setGuestPrimaryRole,
 } from '../quick-add-actions';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 
@@ -206,9 +207,17 @@ export function QuickAddSheet({
       }
       setError(null);
       startTransition(async () => {
+        // The host may type a whole name ("Atty. Bob Casasola Jr.") into the
+        // First box — that is how the reported bug was produced. Re-parse the
+        // two boxes as one line so a title never lands in first_name, while a
+        // plain "Bob" + "Casasola" is returned unchanged by the parser.
+        const parts = parsePersonName(`${f} ${l}`.trim());
         const res = await quickAddGuest(eventId, {
-          first_name: f,
-          last_name: l,
+          first_name: parts.firstName || f,
+          last_name: parts.lastName || l,
+          name_prefix: parts.prefix || null,
+          middle_name: parts.middleName || null,
+          name_suffix: parts.suffix || null,
           side,
           role,
           group_id: groupId || null,

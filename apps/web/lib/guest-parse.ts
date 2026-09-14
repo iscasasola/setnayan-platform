@@ -32,13 +32,20 @@
  */
 
 import type { GuestRole, GuestSide } from './guests';
+import { parsePersonName } from './person-name-parse';
 
 /** The structured draft a single Add-mode line parses into. */
 export type ParsedGuestDraft = {
-  /** First name (word[0]); '' when the line carried no name words. */
+  /** Honorific(s) — "Atty.", "Associate Dean". '' when the line carried none. */
+  prefix: string;
+  /** Given name; '' when the line carried no name words. */
   firstName: string;
-  /** Last name (words[1..].join(' ')); '' when only one/zero name words. */
+  /** Name between first and last, usually an initial. '' when absent. */
+  middleName: string;
+  /** Family name, particle included ("dela Peña"); '' for a mononym. */
   lastName: string;
+  /** Generational / post-nominal — "Jr.", "III". '' when absent. */
+  suffix: string;
   /** Which side the guest belongs to; falls back to `defaultSide` then 'both'. */
   side: GuestSide;
   /** Plus-one count, 0–2 (see `+N` rule; `+0` → 1, mirroring the prototype). */
@@ -117,9 +124,19 @@ export function parseGuestInput(
     }
   }
 
+  // The leftover name words are split by the ONE shared parser, so the capture
+  // bar, the detailed form, the import and the detail editor all agree on where
+  // a title ends and a given name begins. This used to be
+  // `words[0] = first, words.slice(1) = last`, which stored the honorific AS the
+  // first name — see person-name-parse.ts for the 30-of-100 prod measurement.
+  const name = parsePersonName(words.join(' '));
+
   return {
-    firstName: words[0] ?? '',
-    lastName: words.slice(1).join(' '),
+    prefix: name.prefix,
+    firstName: name.firstName,
+    middleName: name.middleName,
+    lastName: name.lastName,
+    suffix: name.suffix,
     side,
     plusOnes,
     groups,

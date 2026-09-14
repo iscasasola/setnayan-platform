@@ -138,6 +138,15 @@ export type GuestRow = {
   event_id: string;
   first_name: string;
   last_name: string;
+  /**
+   * The three OPTIONAL name parts (2026-09-14). `null` means the guest has
+   * none — NOT an empty string, so "never had a title" and "title cleared"
+   * are the same state and neither leaks a blank into a seating card.
+   * Filled by `lib/person-name-parse.ts` on every write path.
+   */
+  name_prefix: string | null;
+  middle_name: string | null;
+  name_suffix: string | null;
   display_name: string | null;
   side: GuestSide;
   group_category: GuestGroupCategory;
@@ -367,7 +376,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

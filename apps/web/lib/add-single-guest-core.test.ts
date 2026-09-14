@@ -25,8 +25,11 @@ const FINALIZED_ERROR = 'Your guest list is finalized — the guest count is loc
 
 function draft(over: Partial<ParsedGuestDraft> = {}): ParsedGuestDraft {
   return {
+    prefix: '',
     firstName: 'Ana',
+    middleName: '',
     lastName: 'Cruz',
+    suffix: '',
     side: 'both',
     plusOnes: 0,
     groups: [],

@@ -12,6 +12,9 @@ import { parseGuestInput, type ParsedGuestDraft } from './guest-parse';
 const BASE: ParsedGuestDraft = {
   firstName: '',
   lastName: '',
+  prefix: '',
+  middleName: '',
+  suffix: '',
   side: 'both',
   plusOnes: 0,
   groups: [],
@@ -46,10 +49,37 @@ test('name-only single token → last name is empty (mononym; caller rejects)', 
   assert.equal(d.lastName, '');
 });
 
-test('multi-word last name joins the tail', () => {
+test('a middle name and a particle surname split at the particle', () => {
+  // WAS: lastName === 'Clara de la Cruz' — the pre-2026-09-14 rule that every
+  // word after the first is the surname. `parsePersonName` now owns this split,
+  // so "Clara" is the middle name and the family name starts at the particle.
   const d = parseGuestInput('Maria Clara de la Cruz');
   assert.equal(d.firstName, 'Maria');
-  assert.equal(d.lastName, 'Clara de la Cruz');
+  assert.equal(d.middleName, 'Clara');
+  assert.equal(d.lastName, 'de la Cruz');
+});
+
+test('the capture bar splits a title off the name (the reported bug)', () => {
+  // "Atty. Bob Casasola Jr." used to store first='Atty.', last='Bob Casasola Jr.'
+  const d = parseGuestInput('Atty. Bob Casasola Jr.');
+  assert.equal(d.prefix, 'Atty.');
+  assert.equal(d.firstName, 'Bob');
+  assert.equal(d.lastName, 'Casasola');
+  assert.equal(d.suffix, 'Jr.');
+});
+
+test('the Add grammar still wins over the name parser', () => {
+  // Tokens are stripped BEFORE the name is parsed, so a group called #Jr or a
+  // side keyword can never be mistaken for a suffix or an honorific.
+  const d = parseGuestInput('Atty. Bob Casasola Jr. +1 groom vip #Barkada');
+  assert.equal(d.prefix, 'Atty.');
+  assert.equal(d.firstName, 'Bob');
+  assert.equal(d.lastName, 'Casasola');
+  assert.equal(d.suffix, 'Jr.');
+  assert.equal(d.side, 'groom');
+  assert.equal(d.plusOnes, 1);
+  assert.equal(d.roleHint, 'vip');
+  assert.deepEqual(d.groups, ['Barkada']);
 });
 
 test('collapses irregular whitespace between name words', () => {
@@ -172,8 +202,11 @@ test('last role keyword wins', () => {
 test('the canonical combined line parses every dimension', () => {
   const d = parseGuestInput('Ana Cruz +1 groom vip #Barkada');
   assert.deepEqual(d, {
+    prefix: '',
     firstName: 'Ana',
+    middleName: '',
     lastName: 'Cruz',
+    suffix: '',
     side: 'groom',
     plusOnes: 1,
     groups: ['Barkada'],
@@ -184,8 +217,11 @@ test('the canonical combined line parses every dimension', () => {
 test('keyword tokens can appear before the name and in any order', () => {
   const d = parseGuestInput('groom +2 #Ninang ninang Rosa Santos');
   assert.deepEqual(d, {
+    prefix: '',
     firstName: 'Rosa',
+    middleName: '',
     lastName: 'Santos',
+    suffix: '',
     side: 'groom',
     plusOnes: 2,
     groups: ['Ninang'],
@@ -196,8 +232,11 @@ test('keyword tokens can appear before the name and in any order', () => {
 test('side+plus+group with no name → keywords consumed, name empty', () => {
   const d = parseGuestInput('bride +1 #Family');
   assert.deepEqual(d, {
+    prefix: '',
     firstName: '',
+    middleName: '',
     lastName: '',
+    suffix: '',
     side: 'bride',
     plusOnes: 1,
     groups: ['Family'],

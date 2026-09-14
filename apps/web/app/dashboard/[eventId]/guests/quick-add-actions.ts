@@ -27,6 +27,19 @@ const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 export type QuickAddInput = {
   first_name: string;
   last_name: string;
+  /**
+   * The three OPTIONAL name parts (added 2026-09-14). Absent means absent:
+   * they are stored as NULL, never '' — so "no title" and "title cleared"
+   * stay the same thing, and a guest with no honorific carries no empty
+   * string into seating cards, QR labels or the print pack.
+   *
+   * `lib/person-name-parse.ts` fills these from a typed line; a caller that
+   * knows the parts already (the detailed form, the detail editor) passes
+   * them straight through.
+   */
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
   side: string;
   role: string;
   group_id?: string | null;
@@ -80,6 +93,11 @@ export async function quickAddGuest(
 ): Promise<QuickAddResult> {
   const first_name = normalizeGuestName(input.first_name);
   const last_name = normalizeGuestName(input.last_name);
+  // Same invisible-character + whitespace normalization the required names
+  // get, then '' collapses to null — these three are optional by contract.
+  const name_prefix = normalizeGuestName(input.name_prefix) || null;
+  const middle_name = normalizeGuestName(input.middle_name) || null;
+  const name_suffix = normalizeGuestName(input.name_suffix) || null;
   const side = input.side as GuestSide;
   const role = (input.role || 'guest') as GuestRole;
   const email = (input.email ?? '').trim().toLowerCase() || null;
@@ -114,6 +132,11 @@ export async function quickAddGuest(
       event_id: eventId,
       first_name,
       last_name,
+      // Omitted when null so a caller that knows nothing about name parts
+      // inserts exactly the row it inserted before this field existed.
+      ...(name_prefix ? { name_prefix } : {}),
+      ...(middle_name ? { middle_name } : {}),
+      ...(name_suffix ? { name_suffix } : {}),
       side,
       group_category: 'other',
       role,

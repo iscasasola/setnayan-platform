@@ -88,6 +88,11 @@ export async function runAddSingleGuest(
   const added = await deps.addGuest(eventId, {
     first_name: draft.firstName,
     last_name: draft.lastName,
+    // Optional by contract — the parser leaves these '' when the typed line
+    // carried no title / middle name / suffix, and quickAddGuest stores NULL.
+    name_prefix: draft.prefix || null,
+    middle_name: draft.middleName || null,
+    name_suffix: draft.suffix || null,
     side: draft.side,
     role,
     group_id: groupIds[0] ?? null,

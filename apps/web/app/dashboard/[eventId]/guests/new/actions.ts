@@ -68,6 +68,12 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
 export async function createGuest(eventId: string, formData: FormData) {
   const first_name = normalizeGuestName(clean(formData.get('first_name')));
   const last_name = normalizeGuestName(clean(formData.get('last_name')));
+  // The three OPTIONAL parts (2026-09-14). The client island pre-fills them by
+  // parsing what the host types, but they are plain editable inputs — whatever
+  // the host leaves in the box is what is stored, and blank stores NULL.
+  const name_prefix = normalizeGuestName(clean(formData.get('name_prefix'))) || null;
+  const middle_name = normalizeGuestName(clean(formData.get('middle_name'))) || null;
+  const name_suffix = normalizeGuestName(clean(formData.get('name_suffix'))) || null;
   const side = clean(formData.get('side')) as GuestSide;
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
   const role = (clean(formData.get('role')) || 'guest') as GuestRole;
@@ -143,6 +149,11 @@ export async function createGuest(eventId: string, formData: FormData) {
       event_id: eventId,
       first_name,
       last_name,
+      // Optional: omitted entirely when blank, so the row is byte-identical to
+      // a pre-2026-09-14 insert when the guest carries no title.
+      ...(name_prefix ? { name_prefix } : {}),
+      ...(middle_name ? { middle_name } : {}),
+      ...(name_suffix ? { name_suffix } : {}),
       side,
       group_category,
       role,

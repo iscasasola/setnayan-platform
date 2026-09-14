@@ -1,0 +1,38 @@
+-- notification_type_guest_takedown_honored
+-- ============================================================================
+-- TD-1 · the ONE notification type a guest's takedown needs on the supplier side.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE.
+-- notification_type is a Postgres ENUM (20260513160000_iteration_0028_notifications.sql),
+-- and Postgres forbids USING a newly-added enum value in the same transaction
+-- that adds it. So: no BEGIN/COMMIT, no other statements. Exact shape of
+-- 20271204557031_notification_type_colour_changed_in_lane.sql.
+--
+-- 🔑 A TYPE THE DATABASE HAS NEVER HEARD OF IS REFUSED, NOT THROWN. Adding the
+-- member to the TypeScript union costs one line and typechecks instantly;
+-- without the label here the INSERT is rejected, emitNotification console.errors
+-- it by design so the takedown still completes, and the only symptom is a
+-- supplier whose photograph vanished with no explanation anywhere.
+-- `every-notice-type-exists-in-the-database.test.ts` is the other half of it.
+--
+-- Who hears it:
+--   guest_takedown_honored → the SUPPLIER. A guest asked for a photograph they
+--                            appear in to come down; the owner ruled on
+--                            2026-09-14 ("no. we will honour the guest.",
+--                            DECISION_LOG "decision (DPO): a guest takedown
+--                            reaches the supplier's copy") that this reaches the
+--                            supplier's own copy too — vendor_papic_captures AND
+--                            the portfolio album named in the position he
+--                            overrode. The tile simply disappears otherwise.
+--
+-- ⛔ THE GUEST IS NOT NAMED IN IT. They asked for less of themselves to be
+-- visible, not to be introduced to the person holding the photograph. The copy
+-- lives in lib/hide-a-reported-photo.ts (`supplierTakedownNotice`), where a unit
+-- test can read it.
+--
+-- 🔑 THERE IS NO `guest_takedown_refused`. Nothing in the shipped flow refuses
+-- one, and inventing a type for a decision nobody has made is how a vocabulary
+-- rots.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'guest_takedown_honored';

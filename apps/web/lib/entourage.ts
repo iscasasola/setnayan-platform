@@ -71,7 +71,25 @@ const GROUPS: ReadonlyArray<{ key: string; label: string; roles: readonly GuestR
   {
     key: 'principal_sponsors',
     label: 'Principal Sponsors',
-    roles: ['principal_sponsor'],
+    /*
+      ⚖ THREE ROLES, ONE GROUP. `principal_sponsor` was split into a Ninong and
+      a Ninang half on 2026-09-14 (migration 20271225194308) so that pairing has
+      halves to pair. The legacy value is KEPT and deliberately NOT backfilled —
+      47 live rows hold it and gender is stored nowhere, `side` being which
+      family rather than who — so all three must publish or a couple loses
+      people from their invitation depending on which value they happened to
+      use.
+
+      🔴 THIS ENTRY IS THE FIX FOR A REAL, LIVE DEFECT. Between the split
+      merging and this landing, a guest set to Ninong or Ninang was DROPPED from
+      the invitation: the published-role list is also the query's `role.in.(…)`
+      filter, so those rows were never even read. No error, no gap, the page
+      looked perfect — and the 47 legacy rows kept printing, so it would not
+      have shown on day one. It would have surfaced weeks later as "we changed
+      her to Ninang and she vanished". `entourage-covers-the-cast.test.ts` is
+      what stops the next role doing the same thing.
+    */
+    roles: ['principal_sponsor', 'principal_sponsor_ninong', 'principal_sponsor_ninang'],
   },
   {
     key: 'secondary_sponsors',
@@ -114,6 +132,13 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   bride_parents: 'Parents of the Bride',
   groom_parents: 'Parents of the Groom',
   principal_sponsor: 'Principal Sponsor',
+  /* The couple's own words, not the enum's. `guests.ts` labels these "Principal
+     Sponsor (Ninong)" for the dashboard's role picker, where the prefix is what
+     groups them in a long dropdown; on the invitation the bare word is what a
+     Filipino guest reads, and the heading above already says Principal
+     Sponsors. */
+  principal_sponsor_ninong: 'Ninong',
+  principal_sponsor_ninang: 'Ninang',
   candle_sponsor: 'Candle Sponsor',
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',

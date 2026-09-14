@@ -81,7 +81,9 @@ type MapNode = {
 const ENTOURAGE_BRANCHES: { key: RoleGroup; defaultRole: GuestRole }[] = [
   { key: 'principal_sponsors', defaultRole: 'principal_sponsor' },
   { key: 'secondary_sponsors', defaultRole: 'candle_sponsor' },
-  { key: 'wedding_party', defaultRole: 'bridesmaid' },
+  // Two branches now, each defaulting to the role a host most often adds there.
+  { key: 'groomsmen', defaultRole: 'groomsman' },
+  { key: 'bridesmaids', defaultRole: 'bridesmaid' },
   { key: 'bearers_flower_girl', defaultRole: 'ring_bearer' },
   { key: 'officiants', defaultRole: 'officiant' },
 ];

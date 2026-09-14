@@ -123,7 +123,11 @@ const ALL_VIEW_FILTERS: { key: string; label: string }[] = [
   // Secondary Sponsors, Bearers, Officiants). Position matches the
   // BULK_ROLE_SECTIONS ordering in guest-list-multiselect.tsx for
   // muscle-memory consistency between sidebar + bulk toolbar.
-  { key: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party },
+  // Split 2026-09-14, same as the roster sections and the bulk picker — a VIEW
+  // lens that still said "Wedding Party" would filter to a group the list no
+  // longer draws.
+  { key: 'groomsmen', label: ROLE_GROUP_LABELS.groomsmen },
+  { key: 'bridesmaids', label: ROLE_GROUP_LABELS.bridesmaids },
   { key: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors },
   { key: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors },
   { key: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl },

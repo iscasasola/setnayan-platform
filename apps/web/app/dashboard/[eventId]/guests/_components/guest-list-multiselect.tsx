@@ -105,7 +105,8 @@ const SECTION_CONFIG: {
   // weddings; the section is filtered out when empty, so it never shows on a
   // Catholic/civil wedding. Ranked just under VIP family to mirror ROLE_IMPORTANCE.
   { group: 'muslim_principals', label: ROLE_GROUP_LABELS.muslim_principals, mobileCols: 'grid-cols-2' },
-  { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, mobileCols: 'grid-cols-2' },
+  { group: 'groomsmen', label: ROLE_GROUP_LABELS.groomsmen, mobileCols: 'grid-cols-2' },
+  { group: 'bridesmaids', label: ROLE_GROUP_LABELS.bridesmaids, mobileCols: 'grid-cols-2' },
   { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, mobileCols: 'grid-cols-2' },
   { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, mobileCols: 'grid-cols-2' },
   { group: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl, mobileCols: 'grid-cols-2' },

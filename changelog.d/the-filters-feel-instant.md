@@ -78,3 +78,43 @@ returning the table to `sm` turns it red, and so does restoring the raw contact
 string.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(guests): a seated guest no longer reads as unseated
+
+`GuestDetailPage.seatRow` selected `event_tables(label)`. There is no `label`
+column on `event_tables` — it is `table_label` — so PostgREST answered 42703 and
+REFUSED THE WHOLE QUERY on every render. `seatRow` was null every time, and the
+warning already sitting three lines below it —
+
+    ⚠ A SEATED GUEST READS AS UNSEATED. `seatedAt` falls to null on a refused
+    ⚠ read … and seating is some of the most laborious work in the product.
+
+— was describing live behaviour, not a hypothesis. The sibling read in
+`inline-actions.ts` had `table_label` right the whole time; this one never did.
+
+🔑 Found in the PRODUCTION LOGS while chasing an unrelated report. It could not
+be found any other way: the read degrades gracefully by design, so the page
+returned 200, no test failed, and the only symptom was a seat that was never
+drawn. A phantom column is rejected, never thrown.
+
+## 2026-09-14 · feat(guests): Groomsmen and Bridesmaids are separate sections
+
+Owner: "wedding party needs to show groomsmen and bridesmaid as different
+groups. Groomsmen will have Bestman as first row … Bridesmaid will have Maid of
+Honor and Matron of Honor as first."
+
+The honour attendants join the side they stand with, and ROLE_IMPORTANCE puts
+them first WITHIN their group — that ordering is what makes "first row" true,
+not a special case. Split consistently across all four places that describe the
+same grouping: the roster sections, the VIEW lens, the bulk role picker and the
+mind map. A lens that still said "Wedding Party" would filter to a section the
+list no longer draws.
+
+⚠ `wedding_party` STAYS in RoleGroup even though no role maps to it now. It is
+ALSO a palette key — the mood board, the 3D seating lab, the concept PDF and the
+tour gallery all index it by name, and `moodboard-finalization` documents four
+finer keys that fall back to it. Removing it broke thirteen call sites at
+compile time. The roster sections by the new groups; the palette space keeps its
+name.
+
+SPEC IMPACT: None.

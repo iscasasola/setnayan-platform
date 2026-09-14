@@ -118,3 +118,23 @@ compile time. The roster sections by the new groups; the palette space keeps its
 name.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · feat(guests): the selection bar says WHO is selected
+
+Owner: "when selecting someone, can we place them persistent? so it will be
+easier to see which ones we are selecting?"
+
+The bar said "2 selected" and nothing else. PAIRING is the case that forces the
+fix: the two people you pair are usually far apart in a long roster, so the
+tinted rows that record your picks are off-screen from each other AND from the
+bar. A count cannot be checked against intent; a name can.
+
+Each selected guest now appears as a chip under the controls, and each chip
+removes just that one — a wrong pick costs one click instead of "Clear
+selection" and starting the hunt over.
+
+A selected guest the current filter hides still renders a chip ("Not in this
+view") rather than a blank, because narrowing the lens must never turn part of
+your own selection into nothing.
+
+SPEC IMPACT: None.

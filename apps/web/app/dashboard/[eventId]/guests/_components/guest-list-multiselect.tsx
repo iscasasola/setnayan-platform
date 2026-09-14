@@ -794,6 +794,7 @@ export function GuestListMultiselect({
             showNewGroupForm={showNewGroupForm}
             setShowNewGroupForm={setShowNewGroupForm}
             bulkRoleSections={bulkRoleSections}
+            nameById={partnerNameById}
           />
         </div>
       ) : null}
@@ -1035,6 +1036,7 @@ function SelectionBar({
   groups,
   onClear,
   showNewGroupForm,
+  nameById,
   setShowNewGroupForm,
   bulkRoleSections,
 }: {
@@ -1043,6 +1045,8 @@ function SelectionBar({
   selectedIds: string[];
   groups: GuestGroupWithCount[];
   onClear: () => void;
+  /** guest_id → display name, so the bar can SAY who is selected. */
+  nameById: Record<string, string>;
   showNewGroupForm: boolean;
   setShowNewGroupForm: (v: boolean) => void;
   bulkRoleSections: RoleSection[];
@@ -1100,6 +1104,37 @@ function SelectionBar({
          *  would be guessing which two the host meant. The server action
          *  re-checks the count — this is the affordance, not the guard. */}
         <PairSelectedForm eventId={eventId} selectedIds={selectedIds} count={count} />
+      </div>
+
+      {/* 🔑 WHO is selected, not just HOW MANY.
+          Owner 2026-09-14: "when selecting someone, can we place them
+          persistent? so it will be easier to see which ones we are selecting?"
+          Pairing is the case that forces it — the two people you pair are
+          usually far apart in a long roster, so the tinted rows that say who
+          you picked are off-screen from each other AND from this bar. A count
+          alone cannot be checked against intent; a name can.
+          Each chip removes just that guest, so a wrong pick costs one click
+          instead of Clear selection and starting over. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink/[0.07] pt-2">
+        {selectedIds.map((id) => (
+          <span
+            key={id}
+            className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-xs text-ink/75"
+          >
+            {/* A selected guest the current filter hides still has to be
+                nameable — otherwise narrowing the lens would turn part of your
+                own selection into blanks. */}
+            <span className="max-w-[18ch] truncate">{nameById[id] ?? 'Not in this view'}</span>
+            <button
+              type="button"
+              onClick={() => guestSelection.toggle(id)}
+              aria-label={`Remove ${nameById[id] ?? 'this guest'} from the selection`}
+              className="inline-flex items-center rounded-full p-0.5 text-ink/40 hover:bg-ink/10 hover:text-ink"
+            >
+              <X aria-hidden className="h-3 w-3" strokeWidth={2.2} />
+            </button>
+          </span>
+        ))}
       </div>
 
       {showNewGroupForm ? (

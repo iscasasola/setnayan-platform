@@ -91,12 +91,44 @@ test('the cover photo is RESOLVED and PASSED — the argument the call was short
 });
 
 test('the cover never displaces a real showcase gallery', () => {
-  // toServiceCard only reaches for the cover when showcase photos are empty.
-  // This pins that the page does not pre-empt that decision by merging them.
+  /*
+    `toServiceCard` reaches for the cover ONLY when the showcase carries no
+    photos — "a card with real showcase photos never loses them to the cover".
+    That decision belongs to the card, so the page must hand over the showcase
+    UNTOUCHED.
+
+    ⚠ THIS WAS A NEGATIVE REGEX AND IT WAS WEAK. It forbade the spellings
+    `showcase*.photos.push` and `...showcase*.photos, cover` — and a mutation
+    that merged them through a local named `sc` sailed past, 6 of 6 green. A
+    pattern guard is only as strong as the spellings it thought of, and a future
+    edit is free to pick another name. So assert the POSITIVE property instead:
+    the fifth argument is exactly the map lookup, nothing wrapped around it.
+  */
   const src = code(PAGE);
-  assert.doesNotMatch(
-    src,
-    /showcase\w*\.photos\.push|\.\.\.showcase\w*\.photos,\s*cover/,
-    'the page is merging cover into the showcase strip instead of letting the card decide',
+  const at = src.indexOf('toServiceCard(');
+  assert.ok(at > -1, 'toServiceCard is no longer called here — re-aim this guard');
+
+  // Split the call's TOP-LEVEL arguments on balanced parens. A naive
+  // `indexOf('),')` stops at the first nested `.get(...)`, which is how the
+  // first draft of this assertion compared against an empty string.
+  const open = at + 'toServiceCard('.length;
+  const args: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (let i = open; i < src.length; i += 1) {
+    const ch = src[i];
+    if (ch === '(' || ch === '[' || ch === '{') depth += 1;
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth === 0) { args.push(current); break; }
+      depth -= 1;
+    }
+    if (ch === ',' && depth === 0) { args.push(current); current = ''; continue; }
+    current += ch;
+  }
+  const showcaseArg = (args[4] ?? '').trim();
+  assert.equal(
+    showcaseArg,
+    'showcaseByService.get(row.vendor_service_id)',
+    `the showcase argument is no longer handed over untouched — it is: ${showcaseArg}`,
   );
 });

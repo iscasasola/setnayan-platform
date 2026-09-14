@@ -1176,7 +1176,6 @@ export const loadGuestContext = cache(
               ?.ugc_terms_accepted_at,
           ),
           capApplies: quota.capApplies,
-          poolRemaining: quota.poolRemaining,
           poolLow: quota.poolLow,
           sponsorShare: quota.sponsorShare,
           eventStyle: asPapicStyle(

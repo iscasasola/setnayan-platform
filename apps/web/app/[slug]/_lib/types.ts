@@ -304,8 +304,15 @@ export type GuestPapicCamera = {
   /** Does the per-guest ceiling actually bind here? Mirrors BOTH disjuncts of
    *  `v_unlimited` in papic_record_guest_capture. */
   capApplies: boolean;
-  /** Shots left in the shared pot, or null when this celebration has no pot. */
-  poolRemaining: number | null;
+  /** True once the shared pot crosses its soft-stop line — "running low".
+   *
+   *  🔒 THE POT'S BALANCE IS NOT IN THIS SHAPE, DELIBERATELY (owner-locked,
+   *  PRIV-1). `poolRemaining: number | null` used to sit here and reached the
+   *  browser inside the RSC payload of a PUBLIC page. This camera's reader is a
+   *  guest holding an invite link, never an event member, and the couple's
+   *  remaining credits are the couple's money. `poolLow` is the warning — what
+   *  the guest needs so they can wind down — and carries no figure.
+   */
   poolLow: boolean;
   /** Her number is a sponsor's bigger share — see `GuestQuota.sponsorShare`. */
   sponsorShare: boolean;

@@ -42,3 +42,25 @@ control run after each restore.
 SPEC IMPACT: None — this withdraws a false claim from a screen. The owner's
 2026-09-14 ruling that the console must stop claiming the shot list reaches the
 couple is already recorded in `DECISION_LOG.md`.
+
+### Follow-up — the guard shipped its own comment stripper and a blocking guard caught it
+
+First push failed `typecheck + lint` on **"1 file(s) grew their own comment stripper."** This test
+had written the two-line regex version:
+
+```
+src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+```
+
+That is not a comment stripper. A `/*` inside a **string** — `accept="image/*"`, `video/*` — opens
+a comment that never existed and blanks real code to the next `*/`. When that version last shipped
+here it was hiding **5,104 distinct lines across 1,031 files** before any scan read them, and the
+blanked window MOVES whenever someone edits a nearby docblock.
+
+Now imports `stripComments` from `@/lib/strip-comments`, the one string-aware lexer. Re-verified
+against the real stripper rather than assuming the swap was neutral: 2/2 pass on the honest tree,
+and restoring the claim on ONE of the two sites (honest headings 2 → 1, printed) goes **RED naming
+line 1032**.
+
+🔑 The guard that caught this is the shape worth copying — it does not ban a pattern, it bans a
+**second implementation** of something the repo already has exactly one of.

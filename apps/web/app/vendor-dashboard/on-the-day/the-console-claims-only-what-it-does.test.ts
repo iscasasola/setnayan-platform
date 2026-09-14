@@ -41,16 +41,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONSOLE_PAGE = join(HERE, 'page.tsx');
 const SHOT_LIST = join(HERE, '_components', 'shot-list.tsx');
 
-/** Comments are stripped: a docblock EXPLAINING the ban must not trip it. */
+/**
+ * Comments are stripped so a docblock EXPLAINING the ban does not trip it.
+ *
+ * ⚠ ONE COMMENT STRIPPER — `@/lib/strip-comments`, never a local regex. This
+ * file shipped its own two-line regex version first and a blocking guard caught
+ * it, correctly: `/*` inside a STRING (`accept="image/*"`, `video/*`) opens a
+ * comment that never existed and blanks real code to the next `*​/`. That
+ * version hid 5,104 lines across 1,031 files when it last shipped here.
+ */
 function code(path: string): string {
-  return readFileSync(path, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  return stripComments(readFileSync(path, 'utf8'));
 }
 
 /**

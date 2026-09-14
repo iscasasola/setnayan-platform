@@ -695,9 +695,18 @@ export function PapicSeatCapture({
 
         // Event-pool SOFT-STOP: warn while there's still room, not at the wall.
         // Absent on every non-pass event, so this stays null for them.
+        //
+        // 🔒 THE WARNING, NOT THE BALANCE (PRIV-1). This sentence used to name
+        // the pot's exact remaining credits. The person reading it is the seat
+        // CLAIMER — page.tsx says in as many words that the claimer isn't an
+        // event member — so that number was the couple's money, read by a guest
+        // at the table. Knowing to wind down is the claimer's business; how much
+        // the couple has left is not. The server no longer sends the figure at
+        // all (EventPoolSignal carries `soft` and nothing else), so there is no
+        // number here to print even by accident.
         if (result.eventPool?.soft) {
           setPoolNotice(
-            `Running low — about ${result.eventPool.remaining.toLocaleString()} credits left for this event.`,
+            'Running low — this celebration’s credits are nearly spent. Make the next few count.',
           );
         } else if (result.eventPool) {
           setPoolNotice(null);

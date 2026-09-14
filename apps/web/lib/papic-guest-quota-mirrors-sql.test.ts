@@ -123,8 +123,18 @@ test('fetchGuestQuota asks BOTH sources and publishes capApplies', () => {
   assert.match(src, /eventHasPapicUnlock\(/, 'the Unlock disjunct is gone');
   assert.match(src, /readEventPoolStatus\(/, 'the pool disjunct is gone from the quota read');
   assert.match(src, /capApplies/, 'GuestQuota stopped publishing capApplies');
-  assert.match(src, /poolRemaining/, 'GuestQuota stopped publishing poolRemaining');
   assert.match(src, /poolLow/, 'GuestQuota stopped publishing poolLow');
+  // 🔒 INVERTED ON PURPOSE, NOT RELAXED (owner-locked, PRIV-1). This line used
+  // to REQUIRE `poolRemaining` — the pot's balance — and that requirement was
+  // the leak held in place by a guard. Every caller of fetchGuestQuota renders
+  // to a guest, so publishing the couple's balance here is now the defect. The
+  // real per-surface assertions live in papic-pool-balance-is-the-couples.test.ts;
+  // this one keeps the shape itself honest at the source.
+  assert.doesNotMatch(
+    src,
+    /poolRemaining/,
+    'GuestQuota is publishing the pot balance to a guest again — see PRIV-1',
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -222,9 +232,18 @@ test('GuestPapicCamera is declared once and imported by the loader', () => {
     'the loader re-declared the camera shape inline again — two copies of one ' +
       'shape is the disease this fix exists to treat',
   );
-  for (const field of ['capApplies', 'poolRemaining', 'poolLow']) {
+  for (const field of ['capApplies', 'poolLow']) {
     assert.match(types, new RegExp(`\\b${field}\\b`), `GuestPapicCamera lost ${field}`);
   }
+  // 🔒 `poolRemaining` was the third entry in that list until PRIV-1. Keeping it
+  // required the couple's pot balance to be serialized into the RSC payload of a
+  // PUBLIC page on every render. `types` is already comment-stripped above, so
+  // the docblock explaining the removal cannot itself satisfy this check.
+  assert.doesNotMatch(
+    types,
+    /poolRemaining/,
+    'GuestPapicCamera is carrying the pot balance to a guest again — see PRIV-1',
+  );
 });
 
 test('both mounts hand the camera the real answer', () => {

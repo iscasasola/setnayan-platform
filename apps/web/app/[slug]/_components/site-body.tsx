@@ -1415,7 +1415,6 @@ export async function SiteBody({
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}
                   capApplies={papicGuest.capApplies}
-                  poolRemaining={papicGuest.poolRemaining}
                   poolLow={papicGuest.poolLow}
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}

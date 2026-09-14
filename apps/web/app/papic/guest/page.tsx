@@ -280,7 +280,6 @@ export default async function PapicGuestPage({
       needsFaceEnroll={!liveEnrollment}
       canKwento={canKwento}
       capApplies={quota.capApplies}
-      poolRemaining={quota.poolRemaining}
       poolLow={quota.poolLow}
       sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}

@@ -60,6 +60,7 @@ import { SortSelect } from './_components/sort-select';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
+import { LensPill } from './_components/lens-pill';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestDrawerHost } from './_components/guest-drawer';
 import { GuestDetailBody } from './_components/guest-detail-body';
@@ -1684,47 +1685,12 @@ function FacetRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-// One facet pill (a filter <Link>). Idle = hairline outline; active = the
-// champagne-gold wash (terracotta token). An optional side-dot + count ride
-// inside, per the prototype's lens pills.
-function LensPill({
-  href,
-  active,
-  children,
-  count,
-  dot,
-  title,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-  count?: number;
-  dot?: string;
-  title?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      title={title}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-[background-color,transform,color] ${
-        active
-          ? 'sn-chip-pop border-transparent bg-terracotta font-bold text-cream'
-          : 'border-ink/15 bg-white/55 text-ink/70 hover:bg-white/85'
-      }`}
-    >
-      {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}
-      <span className="whitespace-nowrap">{children}</span>
-      {typeof count === 'number' ? (
-        <span
-          className={`font-mono tabular-nums ${active ? 'text-cream/75' : 'text-ink/40'}`}
-        >
-          {count}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
+// LensPill MOVED to _components/lens-pill.tsx and is now a CLIENT component.
+// It warms its RSC payload on hover/focus so a facet click lands on a cache
+// instead of starting a full server navigation — the roster query is 1.2 ms, so
+// the wait the owner reported is the round trip, not the database. See that
+// file for why hover rather than `prefetch` (every pill is on screen at once,
+// so viewport prefetching would fire ~25 renders and slow the first paint).
 
 // Share invite link — a compact header dropdown (2026-06-13). Was a
 // full-width collapsible row in the desktop chrome stack; folding it into

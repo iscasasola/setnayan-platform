@@ -217,7 +217,7 @@ export function DoorShell({
           doors was DESIGNED as a top-ranged 375×812 column (the invite themes'
           own design boards are exactly that); the centring is the port's, and
           on a phone it costs up to ~95px of the first screen.
-          `py-6` for the same reason — 40px of page padding is air a phone does
+          `py-4` for the same reason — 40px of page padding is air a phone does
           not have to spend. The CARD's own padding is deliberately NOT touched:
           `capiz.module.css` positions its seal with `calc(-1.5rem - 33px)` and
           `galeriya.module.css` ranges its accent tab off `--ga-card-pad: 1.5rem`,

@@ -16,9 +16,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchPapicTierConfig,
   fetchPapicFreeGrantPoints,
+  fetchPapicFreeGrantRead,
   PAPIC_TIER_CONFIG_FALLBACK,
   PAPIC_FREE_GRANT_POINTS_FALLBACK,
   type PapicTierConfig,
+  type PapicFreeGrantRead,
 } from '@/lib/papic-tier-copy';
 import {
   fetchPapicOneTiers,
@@ -101,6 +103,25 @@ export const readPapicFreeGrantPoints = cache(async (): Promise<number> => {
     return await fetchPapicFreeGrantPoints(createAdminClient());
   } catch {
     return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  }
+});
+
+/**
+ * The same column, read for a PROMISE rather than for a mint.
+ *
+ * 🚨 A DISPLAY SURFACE MUST NOT USE `readPapicFreeGrantPoints` ABOVE. That one
+ * answers "how many points would be minted", and it cannot say "none" — it
+ * folds a deliberate `free_grant_points = 0` onto the seed fallback of 50, so a
+ * page built on it advertises 50 free credits at the exact moment SQL has
+ * stopped granting any (`papic_claim_free_pool` RETURNs before the claim when
+ * the column is 0). This reader keeps that case distinct so the copy can fall
+ * silent. See `lib/papic-free-credit-promise.ts` for the sentence it feeds.
+ */
+export const readPapicFreeGrantRead = cache(async (): Promise<PapicFreeGrantRead> => {
+  try {
+    return await fetchPapicFreeGrantRead(createAdminClient());
+  } catch {
+    return { kind: 'unknown' };
   }
 });
 

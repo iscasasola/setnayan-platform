@@ -29,6 +29,7 @@
 
 import { useState } from 'react';
 import { papicCreditsHeld, papicVideosAffordable } from '@/lib/papic-credits-held';
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 
 export type PapicRung = {
   /** Peso price of this rung, from the ACTIVE customer catalog. */
@@ -125,7 +126,7 @@ export function PapicDial({
             <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
           <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
-            {bought === 0 ? 'in every celebration' : 'in your celebration'}
+            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your celebration'}
           </span>
         </div>
 
@@ -183,21 +184,35 @@ export function PapicDial({
         </p>
       )}
 
-      {/* The stacking, said out loud. This is the line the owner corrected. */}
-      <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
-        {bought === 0 ? (
-          <>
-            <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free on
-            every celebration
-          </>
-        ) : (
-          <>
-            {count(bought)} bought &nbsp;+&nbsp;{' '}
-            <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free
-            &nbsp;=&nbsp; {count(total)}
-          </>
-        )}
-      </p>
+      {/*
+        The stacking, said out loud. This is the line the owner corrected.
+
+        ⚠ AND IT NAMES THE CONDITION. The free pool is claimed ONCE PER ACCOUNT
+        — celebration two gets a 1-point floor, not another full pool — so this
+        may not say "every celebration". `PAPIC_FREE_CREDIT_CONDITION` is the
+        one copy of that phrase; see `lib/papic-free-credit-promise.ts`.
+
+        ⛔ AND IT DISAPPEARS WHEN THE ALLOWANCE IS SWITCHED OFF rather than
+        printing "0 free". An admin who sets `free_grant_points = 0` stops the
+        grant in SQL; a dial advertising zero free credits is a promise of
+        nothing, said out loud.
+      */}
+      {freeCredits > 0 ? (
+        <p className="mt-2 font-mono text-xs tabular-nums text-[var(--m-slate-2)]">
+          {bought === 0 ? (
+            <>
+              <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free{' '}
+              {PAPIC_FREE_CREDIT_CONDITION}
+            </>
+          ) : (
+            <>
+              {count(bought)} bought &nbsp;+&nbsp;{' '}
+              <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free{' '}
+              {PAPIC_FREE_CREDIT_CONDITION} &nbsp;=&nbsp; {count(total)}
+            </>
+          )}
+        </p>
+      ) : null}
 
       <div className="relative mx-1.5 mt-4 h-[3px] rounded-sm bg-[var(--m-line)]">
         <span

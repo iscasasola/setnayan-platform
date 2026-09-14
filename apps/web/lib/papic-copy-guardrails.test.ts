@@ -66,6 +66,9 @@ const PAPIC_COPY_FILES = [
   // guard that reads only the page would miss a literal moved one file over.
   'app/(shell)/papic/page.tsx',
   'app/(shell)/papic/_papic-dial.tsx',
+  // The free-credit promise, extracted 2026-09-14 (MONEY-1) so the switched-off
+  // branch could be proven by RENDER rather than by grep.
+  'app/(shell)/papic/_papic-free-credits.tsx',
   // The market-cost comparison (2026-09-08). Its Papic-side numbers are
   // props derived from `lib/papic-cost-comparison.ts`, which itself reads the
   // live catalog through the same `anchor.rungs` this page already resolves —

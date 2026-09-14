@@ -44,6 +44,17 @@ const PAGE = () => read('page.tsx');
 const count = (src: string, needle: string) => src.split(needle).length - 1;
 
 /**
+ * Count JSX mounts of a component by NAME, at a real element boundary.
+ *
+ * 🪤 A PLAIN SUBSTRING COUNT CANNOT TELL `<ManageTiles` FROM `<ManageTilesXX`.
+ * The first cut of this file used one, and a sabotage that renamed a component
+ * — exactly how a mount gets lost in a restructure — left the guard green. The
+ * trailing class is what makes the match a whole tag name.
+ */
+const mountCount = (src: string, component: string) =>
+  (src.match(new RegExp(`<${component}(?![A-Za-z0-9_])`, 'g')) ?? []).length;
+
+/**
  * Every component the shipped page mounted BEFORE G1, with the door the
  * drawing's table assigns it. Transcribed from that table, not from the page —
  * a list copied off the page it checks can only ever agree with it.
@@ -65,10 +76,11 @@ const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
 test('every control the page shipped before G1 is still mounted, exactly once', () => {
   const src = PAGE();
   for (const [mount, where] of SHIPPED_MOUNTS) {
+    const name = mount.slice(1);
     assert.equal(
-      count(src, mount),
+      mountCount(src, name),
       1,
-      `${mount} (${where}) is mounted ${count(src, mount)}× — the drawing says nothing is removed`,
+      `<${name} (${where}) is mounted ${mountCount(src, name)}× — the drawing says nothing is removed`,
     );
   }
 });

@@ -69,6 +69,8 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
+import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import {
   buildVendorVenueEvents,
@@ -1449,6 +1451,22 @@ export async function renderVendorBySlug({
   // onboarding. Signed-out / anonymous → route through signup for a real account.
   const signedInNoEvent =
     user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
+
+  /*
+    ── D1 · THE QUESTION THE SHOP PAGE NEVER ASKED ──────────────────────────
+    Only fetched when there is an inquiry to scope. `resolveAddShopToEvent`
+    fails soft to `{ signedIn: false }`, so a bad read costs the picker and
+    never the page.
+
+    🔑 OFFERED ONLY WHEN THERE IS A REAL CHOICE — `options.length > 1`. A couple
+    with one celebration is not asked a question with one answer, and keeps
+    today's behaviour exactly. This is the whole reason the fallback above stays.
+  */
+  const shopEventPicker = showInquiryComposer ? await resolveAddShopToEvent(slug) : null;
+  const shopEventOptions =
+    shopEventPicker?.signedIn && shopEventPicker.options.length > 1
+      ? shopEventPicker.options
+      : [];
 
   // The event-type question in the anon composer (owner 2026-08-06: "for what
   // type of event? then onboarding"). Fed from the LIVE vocab so the offered
@@ -2926,6 +2944,29 @@ export async function renderVendorBySlug({
               </>
             )}
           </p>
+          {/* ⭐ D1 — WHICH CELEBRATION IS THIS FOR?
+              The page used to answer this silently: `events[0]`, which
+              `fetchUserEvents` sorts to "your primary celebration, otherwise the
+              soonest one". A real rule, and one the couple never chose and was
+              never shown — so somebody planning a wedding AND their parents'
+              anniversary could not tell which one their question attached to.
+
+              The SHIPPED picker (owner-ruled 2026-08-21), reused whole: its
+              drawer, its search, its empty sentences, its create row. Each row
+              is a link back to this page carrying `?event=`, so choosing writes
+              nothing. It renders only when there is more than one celebration to
+              choose between. */}
+          {shopEventOptions.length > 0 ? (
+            <div className="mb-3">
+              <AddToEvent
+                serviceName={displayLabel}
+                options={shopEventOptions}
+                emptyReason={null}
+                createHref="/dashboard/create-event"
+                createLabel="Start a new celebration"
+              />
+            </div>
+          ) : null}
           {showInquiryComposer && composerInitial ? (
             <InquiryComposer
               vendorProfileId={vendor.vendor_profile_id}

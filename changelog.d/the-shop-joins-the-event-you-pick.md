@@ -43,6 +43,21 @@ which celebration it attached to.
 🔑 THE FALLBACK STAYS. A couple with exactly one celebration is never made to
 choose and keeps today's behaviour byte for byte.
 
+### And nobody is marched into a wedding any more
+
+Both `no_event` branches in `inquiry-composer.tsx` hard-coded
+`/onboarding/wedding`, so a person asking a caterer about their mother's 60th
+birthday was sent to plan a WEDDING. The sibling composer on the same page fixed
+exactly this on 2026-08-06 and says so in its own docblock.
+
+They now go to `/dashboard/create-event?next=…` — the event-type picker, which is
+the screen whose whole job is that question, and which owns the three-branch rule
+for what each type's onboarding actually is. No second question UI was added to a
+component that already has a modal flow, and no `/onboarding/${key}` was
+re-derived: that fourth-branch-less shortcut 404s for every type whenever the
+generic-experience flag is off.
+
+
 NOT DONE HERE, deliberately: `fetchUserEvents` is read by ~20 surfaces including
 the dashboard event switcher. Giving its query a deterministic ORDER BY, or
 enforcing one primary per user, would change what those surfaces show and belongs

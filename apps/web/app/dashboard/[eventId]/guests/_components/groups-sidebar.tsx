@@ -312,12 +312,19 @@ function KebabMenu({
       </button>
       {isOpen ? (
         <div className="absolute right-0 top-8 z-10 w-36 rounded-md border border-ink/15 bg-cream py-1 shadow-md">
+          {/* 🪤 onEdit() ONLY — calling onToggle() after it CANCELLED THE RENAME.
+              Both write the same `openKebabId`: onEdit sets it to
+              `edit:<id>`, and onToggle's updater then reads THAT value, finds
+              it is not `<id>`, and sets it back to `<id>` — reopening this menu
+              and destroying the edit state, so EditGroupForm never rendered and
+              "Rename / Side" did nothing at all.
+
+              Closing the menu needs no extra call: `isOpen` is
+              `openKebabId === groupId`, and `edit:<id>` is not `<id>`, so
+              setting the edit state closes this menu by construction. */}
           <button
             type="button"
-            onClick={() => {
-              onEdit();
-              onToggle();
-            }}
+            onClick={onEdit}
             className="block w-full px-3 py-1.5 text-left text-xs text-ink/80 hover:bg-ink/5"
           >
             Rename / Side

@@ -59,3 +59,33 @@ ACTIVE group is always kept — otherwise switching side hides the chip while it
 filter stays applied, leaving the roster narrowed by something invisible.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(groups): "Rename / Side" actually opens the rename form
+
+The menu item did nothing at all. Its handler called `onEdit()` and then
+`onToggle()` — and BOTH write the same `openKebabId` state:
+
+    onEdit();    // openKebabId = `edit:<id>`
+    onToggle();  // updater reads `edit:<id>`, it is not `<id>`, so sets `<id>`
+
+React batches them, so the second call read what the first wrote and put the
+state back. The kebab menu reopened and `EditGroupForm` — which mounts on
+`openKebabId.startsWith('edit:')` — never rendered. No error, no console
+warning: a button that looks correct and does nothing.
+
+Dropping `onToggle()` is safe by construction, not by luck: `isOpen` is
+`openKebabId === groupId`, and `edit:<id>` is not `<id>`, so writing the edit
+state closes the menu on its own.
+
+🔑 The general shape: two handlers that each own the same piece of state,
+called in sequence. "Call both to be safe" is exactly what breaks it.
+
+`rename-opens-the-form.test.ts` is a SOURCE guard — the bug lives in a click
+handler's composition, not in any value a function returns. Sabotage-verified:
+restoring the two-call handler turns it red.
+
+🪤 It also printed `# tests 0 · exit 0` on the first run — a `tsx --test` path
+containing `[eventId]` matches nothing and reads exactly like a pass. Run via
+the repo's `app/**/name.test.ts` glob.
+
+SPEC IMPACT: None.

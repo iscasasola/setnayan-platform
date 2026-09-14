@@ -379,9 +379,21 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             (used rarely — only when a guest's preferred display differs
             from their formal first + last). */}
         <Section title="Identity">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
-            <Field id="last_name" label="Last name *" required defaultValue={guest.last_name} />
+          {/* Five parts, three of them OPTIONAL — blank means the guest has
+              none, and clearing a box removes it. Only first + last are
+              required (the columns are NOT NULL). */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
+            <div className="sm:col-span-3">
+              <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field id="middle_name" label="Middle name" defaultValue={guest.middle_name ?? ''} />
+            <div className="sm:col-span-2">
+              <Field id="last_name" label="Last name *" required defaultValue={guest.last_name} />
+            </div>
+            <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} />
           </div>
         </Section>
 

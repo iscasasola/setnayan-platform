@@ -54,6 +54,7 @@
 // harmless when an action doesn't touch layout data, and load-bearing
 // when it does.
 import { revalidatePath } from 'next/cache';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -180,6 +181,32 @@ function setTaskInFlight(
  *     full date-selection page flow that this wizard inline variant
  *     supersedes for hosts who just want a quick D/M/Y pick)
  */
+
+/**
+ * Split a wizard first/last pair through the one shared parser and return the
+ * columns to spread onto a `guests` insert.
+ *
+ * The wizard collects two boxes, but hosts routinely type a whole name into
+ * the first one — that is how prod ended up with 30 guests whose first name
+ * was a bare title. Re-parsing the pair as one line fixes that while leaving a
+ * plain "Bob" + "Casasola" untouched. Optional parts are OMITTED when absent,
+ * never written as '', so the row matches a pre-2026-09-14 insert exactly.
+ *
+ * Falls back to the raw values when the parser yields nothing — `first_name`
+ * and `last_name` are NOT NULL and the wizard must never fail on a mononym.
+ */
+function namePartsOf(first: string, last: string) {
+  const p = parsePersonName(`${first ?? ''} ${last ?? ''}`.trim());
+  return {
+    first_name: p.firstName || first,
+    last_name: p.lastName || last,
+    ...(p.prefix ? { name_prefix: p.prefix } : {}),
+    ...(p.middleName ? { middle_name: p.middleName } : {}),
+    ...(p.suffix ? { name_suffix: p.suffix } : {}),
+  };
+}
+
+
 export async function completeSetWeddingDateTask(
   formData: FormData,
 ): Promise<void> {
@@ -1537,8 +1564,9 @@ export async function completeDraftGuestListTask(
     )
     .map((v) => ({
       event_id: eventIdRaw,
-      first_name: v.firstName,
-      last_name: v.lastName,
+      // Parsed through the one shared splitter so an entourage member entered
+      // as "Atty. Bob Casasola Jr." keeps the title out of their given name.
+      ...namePartsOf(v.firstName, v.lastName),
       side:
         v.role === 'bride' || v.role === 'maid_of_honor'
           ? ('bride' as const)
@@ -1555,8 +1583,7 @@ export async function completeDraftGuestListTask(
 
   const guestRows = guests.map((g) => ({
     event_id: eventIdRaw,
-    first_name: g.firstName,
-    last_name: g.lastName,
+    ...namePartsOf(g.firstName, g.lastName),
     side: 'both' as const,
     group_category: 'other' as const,
     role: 'guest' as const,

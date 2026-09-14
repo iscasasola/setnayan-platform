@@ -121,6 +121,13 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
 export async function updateGuest(eventId: string, guestId: string, formData: FormData) {
   const first_name = clean(formData.get('first_name'));
   const last_name = clean(formData.get('last_name'));
+  // Optional name parts (2026-09-14). Editing is authoritative here: whatever
+  // the host leaves in the box is stored, and CLEARING a box stores NULL —
+  // this is the screen where a wrong auto-split gets corrected, so it must be
+  // able to remove a title the parser added, not just add one.
+  const name_prefix = clean(formData.get('name_prefix')) || null;
+  const middle_name = clean(formData.get('middle_name')) || null;
+  const name_suffix = clean(formData.get('name_suffix')) || null;
   const display_name = clean(formData.get('display_name')) || null;
   const side = clean(formData.get('side')) as GuestSide;
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
@@ -257,6 +264,9 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     .update({
       first_name,
       last_name,
+      name_prefix,
+      middle_name,
+      name_suffix,
       display_name,
       side,
       group_category,

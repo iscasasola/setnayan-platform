@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -27,6 +28,19 @@ const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 export type QuickAddInput = {
   first_name: string;
   last_name: string;
+  /**
+   * The three OPTIONAL name parts (added 2026-09-14). Absent means absent:
+   * they are stored as NULL, never '' — so "no title" and "title cleared"
+   * stay the same thing, and a guest with no honorific carries no empty
+   * string into seating cards, QR labels or the print pack.
+   *
+   * `lib/person-name-parse.ts` fills these from a typed line; a caller that
+   * knows the parts already (the detailed form, the detail editor) passes
+   * them straight through.
+   */
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
   side: string;
   role: string;
   group_id?: string | null;
@@ -78,8 +92,30 @@ export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
 ): Promise<QuickAddResult> {
-  const first_name = normalizeGuestName(input.first_name);
-  const last_name = normalizeGuestName(input.last_name);
+  // BACKSTOP. Callers that already split a name (capture bar, the detailed
+  // form, the import) pass the parts explicitly and are trusted verbatim.
+  // A caller that passes NONE of the three gets its first/last re-parsed here,
+  // so a path nobody remembered to wire — today "add from your people", and
+  // any future one — still cannot store a title as a given name.
+  //
+  // The `undefined` check is load-bearing: an explicit null means "this guest
+  // HAS no prefix" and must not be overwritten by a parse, while an absent key
+  // means "this caller knows nothing about name parts".
+  const callerSuppliedParts =
+    input.name_prefix !== undefined ||
+    input.middle_name !== undefined ||
+    input.name_suffix !== undefined;
+  const derived = callerSuppliedParts
+    ? null
+    : parsePersonName(`${input.first_name ?? ''} ${input.last_name ?? ''}`.trim());
+
+  const first_name = normalizeGuestName(derived?.firstName || input.first_name);
+  const last_name = normalizeGuestName(derived?.lastName || input.last_name);
+  // Same invisible-character + whitespace normalization the required names
+  // get, then '' collapses to null — these three are optional by contract.
+  const name_prefix = normalizeGuestName(derived ? derived.prefix : input.name_prefix) || null;
+  const middle_name = normalizeGuestName(derived ? derived.middleName : input.middle_name) || null;
+  const name_suffix = normalizeGuestName(derived ? derived.suffix : input.name_suffix) || null;
   const side = input.side as GuestSide;
   const role = (input.role || 'guest') as GuestRole;
   const email = (input.email ?? '').trim().toLowerCase() || null;
@@ -114,6 +150,11 @@ export async function quickAddGuest(
       event_id: eventId,
       first_name,
       last_name,
+      // Omitted when null so a caller that knows nothing about name parts
+      // inserts exactly the row it inserted before this field existed.
+      ...(name_prefix ? { name_prefix } : {}),
+      ...(middle_name ? { middle_name } : {}),
+      ...(name_suffix ? { name_suffix } : {}),
       side,
       group_category: 'other',
       role,

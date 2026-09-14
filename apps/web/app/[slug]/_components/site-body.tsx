@@ -1011,7 +1011,7 @@ export async function SiteBody({
                 2026-09-14). Its own anchor so the couple can link straight at
                 it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
                 untouched. Draws nothing when nobody holds a role. */}
-            <EntourageSection groups={entourage} id="site-entourage" />
+            <EntourageSection groups={entourage} id="site-entourage" previewHref={`/${event.slug}/everyone`} />
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1763,7 +1763,7 @@ export async function SiteBody({
                   and a single mount above the fork would land outside Details
                   in one of them. `the-entourage-is-mounted-in-both-trees.test.ts`
                   fails if either disappears. */}
-              <EntourageSection groups={entourage} id="site-entourage" />
+              <EntourageSection groups={entourage} id="site-entourage" previewHref={`/${event.slug}/everyone`} />
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">

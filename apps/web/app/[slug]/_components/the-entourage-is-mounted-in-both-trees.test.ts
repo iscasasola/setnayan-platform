@@ -61,27 +61,49 @@ test('the section draws nothing when nobody holds a role', () => {
   So the read is pinned here, beside the render, not left to the resolver's own
   test.
 */
-test('the entourage read asks for every column it renders from', () => {
-  const src = stripComments(read('app/[slug]/_lib/loaders.ts'));
-  const start = src.indexOf('loadEntourage');
-  assert.ok(start > 0, 'loadEntourage is gone — this guard is pointing at nothing');
-  const select = src.slice(start, start + 1200);
-  /* 🔑 `guest_id` and `pair_with_guest_id` join the list for the same reason the
-     name parts did: pairing is resolved entirely from those two columns, so a
-     query that stops naming them makes every pair vanish — the couple's work
-     silently undone, the page still perfectly formed. */
+test('🔑 every column the entourage renders from is named in ONE place, and both reads use it', () => {
+  /*
+    A COLUMN THE QUERY NEVER NAMES CANNOT BE PRINTED — and there are now TWO
+    queries. `/[slug]` renders the section and `/[slug]/everyone` renders the
+    full page, and `_lib/loaders.ts` forbids cross-route imports of its cached
+    loaders, so each route runs its own. The column list is the one thing that
+    must be identical between them: named in one and not the other renders a
+    DIFFERENT entourage on two pages of the same invitation, with nothing red.
+
+    So the check moved with the list. It asserts the CONSTANT holds every
+    column, and that neither read has quietly gone back to a literal.
+  */
+  const lib = stripComments(read('lib/entourage.ts'));
+  const m = lib.match(/ENTOURAGE_COLUMNS\s*=\s*\n?\s*'([^']+)'/);
+  assert.ok(m, 'ENTOURAGE_COLUMNS is gone — this guard is pointing at nothing');
+  const columns = m![1]!;
   for (const column of [
     'guest_id',
     'pair_with_guest_id',
+    'display_name',
     'name_prefix',
     'first_name',
     'middle_name',
     'last_name',
     'name_suffix',
+    'role',
+    'extra_roles',
   ]) {
     assert.ok(
-      select.includes(column),
-      `loadEntourage no longer selects ${column} — that part of every name stops printing, silently`,
+      columns.includes(column),
+      `ENTOURAGE_COLUMNS no longer asks for ${column} — that part of the entourage stops printing on BOTH pages, silently`,
+    );
+  }
+
+  for (const file of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/everyone/page.tsx']) {
+    const src = stripComments(read(file));
+    assert.ok(
+      src.includes('.select(ENTOURAGE_COLUMNS)'),
+      `${file} reads the entourage with its own column literal instead of ENTOURAGE_COLUMNS — the two pages can now drift`,
+    );
+    assert.ok(
+      /\.is\(\s*['"]deleted_at['"]\s*,\s*null\s*\)/.test(src),
+      `${file} no longer excludes removed guests`,
     );
   }
 });

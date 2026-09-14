@@ -227,6 +227,24 @@ export function roleLabel(role: GuestRole): string | null {
   return ROLE_LABEL[role] ?? null;
 }
 
+/**
+ * THE COLUMNS EVERY ENTOURAGE READ ASKS FOR — named once, used by both routes.
+ *
+ * 🔑 TWO ROUTES READ THIS AND THEY MAY NOT DRIFT. `/[slug]` renders the section
+ * and `/[slug]/everyone` renders the full page, and `_lib/loaders.ts` forbids
+ * cross-route imports of its cached loaders ("the loaders assume this route's
+ * gating has already run"), so each route runs its OWN query. The column list
+ * is the one thing that must be identical — a column named in one and not the
+ * other renders a DIFFERENT entourage on two pages of the same invitation,
+ * with nothing red.
+ *
+ * ⚠ Every name here is load-bearing and each was added after it went missing:
+ * the five name parts (a ninong printed without his "Atty."), then `guest_id`
+ * and `pair_with_guest_id` (every pair invisible).
+ */
+export const ENTOURAGE_COLUMNS =
+  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles';
+
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
 
@@ -356,4 +374,33 @@ function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): 
     out.push(sideOf(person, sides) === 1 ? [null, person] : [person, null]);
   }
   return out;
+}
+
+/**
+ * THE GUESTS WHO HOLD NO ROLE — the other half of "everyone who will be there".
+ *
+ * ⚖ OWNER 2026-09-15, asked who may read these names: **guests and hosts only.**
+ * The entourage is invitation content and is public; a plain guest's name is
+ * not. On a PUBLIC event page "everybody" means anyone with the link and the
+ * search engines behind them — and 77 people who never agreed to that.
+ *
+ * 🔑 THE GATE IS THE CALLER'S, NOT THIS FUNCTION'S, and that is deliberate.
+ * This is pure shaping; it cannot see a session and must not pretend to. The
+ * page decides whether to ASK for these names at all, so a refusal is a read
+ * that never happens rather than a filter somebody can forget to apply.
+ *
+ * ⛔ The couple themselves are excluded — their names are the masthead, and
+ * printing them in a guest list reads as a mistake.
+ */
+export function plainGuestNames(rows: readonly EntourageGuestRow[]): string[] {
+  const cast = new Set<string>(ENTOURAGE_ROLES);
+  const names: string[] = [];
+  for (const row of rows) {
+    const role = row.role ?? '';
+    if (cast.has(role) || role === 'bride' || role === 'groom') continue;
+    if ((row.extra_roles ?? []).some((r) => cast.has(r))) continue;
+    const name = personName(row);
+    if (name) names.push(name);
+  }
+  return names;
 }

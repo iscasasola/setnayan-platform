@@ -183,13 +183,28 @@ test('vip → roleHint vip', () => {
   assert.equal(parseGuestInput('Ana Cruz vip').roleHint, 'vip');
 });
 
-test('ninong / ninang tag the SPECIFIC half; bare sponsor stays unspecified', () => {
+test('ninong / ninang tag the SPECIFIC half; bare sponsor defaults to Ninong', () => {
   // Split 2026-09-14 (owner): principal sponsors stand in pairs, so the token
   // that names which half must not collapse to the generic role any more.
   assert.equal(parseGuestInput('Ana ninong').roleHint, 'principal_sponsor_ninong');
   assert.equal(parseGuestInput('Ana NINANG').roleHint, 'principal_sponsor_ninang');
-  // `sponsor` cannot know which half — it must NOT guess.
-  assert.equal(parseGuestInput('Ana sponsor').roleHint, 'principal_sponsor');
+
+  // The bare `sponsor` used to land on the plain `principal_sponsor`. The owner
+  // RETIRED that role on 2026-09-15 and, asked what an unspecified sponsor
+  // should become, chose Ninong — first in every ordering in the app, and one
+  // dropdown from Ninang.
+  assert.equal(parseGuestInput('Ana sponsor').roleHint, 'principal_sponsor_ninong');
+
+  // 🔒 THE REAL ASSERTION: whatever the default is, the parser must never mint
+  // the retired role again. This is the line that fails if someone restores the
+  // old fallback for "safety".
+  for (const line of ['Ana sponsor', 'Ana ninong', 'Ana NINANG', 'Ana vip sponsor']) {
+    assert.notEqual(
+      parseGuestInput(line).roleHint,
+      'principal_sponsor',
+      `"${line}" minted the retired principal_sponsor role`,
+    );
+  }
 });
 
 test('no role keyword → roleHint null', () => {
@@ -197,7 +212,7 @@ test('no role keyword → roleHint null', () => {
 });
 
 test('last role keyword wins', () => {
-  assert.equal(parseGuestInput('Ana vip sponsor').roleHint, 'principal_sponsor');
+  assert.equal(parseGuestInput('Ana vip sponsor').roleHint, 'principal_sponsor_ninong');
 });
 
 // ── combined ─────────────────────────────────────────────────────────────────

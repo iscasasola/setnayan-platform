@@ -259,7 +259,21 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'best_man',
   'bridesmaid',
   'groomsman',
+  // 🔴 ALL THREE, AND THE TWO NEW ONES WERE MISSING FOR A DAY.
+  //
+  // The 2026-09-14 Ninong/Ninang split added two roles and did NOT add them
+  // here, so `defaultInvitedToForRole` stopped recognising a principal sponsor
+  // as inner circle: a Ninong added after the split defaulted to 3 blocks
+  // (ceremony · reception · cocktails) where the role they replaced got 5.
+  // Measured 2026-09-15 on the live roster: 37 of 38 principal sponsors sat at
+  // 3 blocks — no after-party, no rehearsal dinner — and nothing on any screen
+  // said so, because the chips simply rendered whatever was stored.
+  //
+  // ⚠ `principal_sponsor` STAYS despite being retired the same day: this is a
+  // READ set, and a legacy row must not lose its standing on the way out.
   'principal_sponsor',
+  'principal_sponsor_ninong',
+  'principal_sponsor_ninang',
   // Muslim Nikah principals are inner-circle (invited to every block).
   'wali',
   'imam',

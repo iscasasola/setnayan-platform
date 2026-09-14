@@ -63,8 +63,20 @@ const WEDDING_OFFERED: GuestRole[] = [
   'matron_of_honor',
   'best_man',
   'bridesmaid',
+  // 🔒 RETIRED 2026-09-15 — the plain `principal_sponsor` IS NOT OFFERED.
+  // Owner: "we can now successfully remove the Principal Sponsor role since we
+  // already alloted the Ninong and Ninang to each Principal Sponsor. This will
+  // be the same rule across all other weddings." A principal sponsor is always
+  // one or the other, so an unspecified third option only ever produced a row
+  // somebody had to come back and fix.
+  //
+  // ⚠ IT IS REMOVED FROM WHAT WE OFFER, NOT FROM WHAT WE UNDERSTAND. Postgres
+  // has no `ALTER TYPE … DROP VALUE`, so the enum value outlives this list, and
+  // `tier1Roles` below (plus role-groups.ts's mapping and order) still names it
+  // deliberately — a row that predates the ruling must keep grouping, sorting
+  // and SEATING correctly. Dropping it from those too would turn an old row
+  // into the "invalid role" error the owner already hit once.
   'groomsman',
-  'principal_sponsor',
   'principal_sponsor_ninong',
   'principal_sponsor_ninang',
   'candle_sponsor',
@@ -81,6 +93,8 @@ const WEDDING_OFFERED: GuestRole[] = [
 ];
 
 // Self-claim excludes the couple (bride/groom) + the 4 VIP-family roles.
+// The retired `principal_sponsor` is absent here for the same reason it is
+// absent above: a guest claiming their own seat must say which half they are.
 const WEDDING_SELF_CLAIMABLE: GuestRole[] = [
   'guest',
   'maid_of_honor',
@@ -88,7 +102,6 @@ const WEDDING_SELF_CLAIMABLE: GuestRole[] = [
   'best_man',
   'bridesmaid',
   'groomsman',
-  'principal_sponsor',
   'principal_sponsor_ninong',
   'principal_sponsor_ninang',
   'candle_sponsor',
@@ -110,6 +123,9 @@ export const WEDDING_ROLE_SET: RoleSet = {
   selfClaimableRoles: WEDDING_SELF_CLAIMABLE,
   singletonRoles: ['bride', 'groom'],
   tier1Roles: new Set<string>([
+    // ⚠ KEEP — retired from the pickers above, but a row that still holds it
+    // must still seat as tier 1. This is the "understand it" half of the
+    // ruling; deleting this line would silently demote an old sponsor.
     'principal_sponsor',
     'principal_sponsor_ninong',
     'principal_sponsor_ninang',

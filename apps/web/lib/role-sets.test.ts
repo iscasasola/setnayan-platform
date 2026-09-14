@@ -109,8 +109,16 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
     'principal_sponsor_ninong',
     'principal_sponsor_ninang',
   ] as const;
+  // …and on 2026-09-15 the owner RETIRED the role they split from: "we can now
+  // successfully remove the Principal Sponsor role since we already alloted the
+  // Ninong and Ninang to each Principal Sponsor. This will be the same rule
+  // across all other weddings." Measured that day: 0 live rows still held it.
+  const SANCTIONED_RETIREMENTS = ['principal_sponsor'] as const;
 
-  assert.equal(WEDDING_ROLE_SET.offeredRoles.length, 24 + SANCTIONED_ADDITIONS.length);
+  assert.equal(
+    WEDDING_ROLE_SET.offeredRoles.length,
+    24 + SANCTIONED_ADDITIONS.length - SANCTIONED_RETIREMENTS.length,
+  );
   assert.equal(WEDDING_ROLE_SET.offeredRoles[0], 'guest');
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('bride'));
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('groom'));
@@ -118,16 +126,38 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
     assert.ok(WEDDING_ROLE_SET.offeredRoles.includes(added), `${added} must be offered`);
     assert.ok(
       WEDDING_ROLE_SET.selfClaimableRoles.includes(added),
-      `${added} must be self-claimable, exactly as principal_sponsor is`,
+      `${added} must be self-claimable`,
     );
     assert.ok(WEDDING_ROLE_SET.tier1Roles.has(added), `${added} seats at tier 1`);
   }
-  // The legacy value survives the split — 47 live rows still hold it.
-  assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('principal_sponsor'));
+
+  // 🔒 THE RETIREMENT, AND THE TWO HALVES THAT MUST NOT MOVE TOGETHER.
+  //
+  // Not offered, not self-claimable: nothing in the product may MINT it again.
+  for (const retired of SANCTIONED_RETIREMENTS) {
+    assert.ok(
+      !WEDDING_ROLE_SET.offeredRoles.includes(retired),
+      `${retired} is retired and must not be offered`,
+    );
+    assert.ok(
+      !WEDDING_ROLE_SET.selfClaimableRoles.includes(retired),
+      `${retired} is retired and must not be self-claimable`,
+    );
+    // …but STILL UNDERSTOOD. Postgres cannot drop an enum value, so a row
+    // written before the ruling can still arrive. If it stops seating at
+    // tier 1 it silently drops below the couple's friends — and because no
+    // live row holds it today, nothing on screen would reveal that. This
+    // assertion is the only thing standing between a tidy-up and that.
+    assert.ok(
+      WEDDING_ROLE_SET.tier1Roles.has(retired),
+      `${retired} is retired, not forgotten — a legacy row still seats at tier 1`,
+    );
+  }
+
   // Self-claim: excludes couple + the 4 VIP-family roles.
   assert.equal(
     WEDDING_ROLE_SET.selfClaimableRoles.length,
-    18 + SANCTIONED_ADDITIONS.length,
+    18 + SANCTIONED_ADDITIONS.length - SANCTIONED_RETIREMENTS.length,
   );
   for (const excluded of [
     'bride',

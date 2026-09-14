@@ -71,6 +71,27 @@ test('bride and groom are offered by NEITHER half', () => {
   assert.ok(!allowed.includes('groom'), 'groom must not be bulk-assignable');
 });
 
+test('the retired plain principal_sponsor is offered by NEITHER half', () => {
+  // Owner 2026-09-15: "we can now successfully remove the Principal Sponsor
+  // role since we already alloted the Ninong and Ninang to each Principal
+  // Sponsor. This will be the same rule across all other weddings."
+  //
+  // The two tests above already pin picker ⊆ role set ⊆ picker, so a
+  // half-revert fails there. This one exists for the OTHER direction: a
+  // wholesale re-add to both lists would satisfy every other assertion in this
+  // file and silently repeal a standing ruling. Here it has to argue with a
+  // quote.
+  const allowed = bulkAssignableRolesFor('wedding');
+  assert.ok(
+    !allowed.includes('principal_sponsor' as GuestRole),
+    'the plain principal_sponsor is retired — a sponsor is a Ninong or a Ninang',
+  );
+  // And its two successors are both still there, because retiring the parent
+  // is only safe while the children are offered.
+  assert.ok(allowed.includes('principal_sponsor_ninong' as GuestRole), 'Ninong must stay offered');
+  assert.ok(allowed.includes('principal_sponsor_ninang' as GuestRole), 'Ninang must stay offered');
+});
+
 test('a non-wedding event falls back to its own offered roles', () => {
   const generic = bulkAssignableRolesFor('generic');
   assert.deepEqual([...generic].sort(), [...resolveRoleSet('generic').offeredRoles].sort());

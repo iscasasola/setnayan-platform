@@ -79,7 +79,19 @@ type MapNode = {
 };
 
 const ENTOURAGE_BRANCHES: { key: RoleGroup; defaultRole: GuestRole }[] = [
-  { key: 'principal_sponsors', defaultRole: 'principal_sponsor' },
+  // The branch still holds BOTH halves — `importanceGroupOf` bins every
+  // principal sponsor into this one group, which is right: the map shows the
+  // shape of the entourage, and Ninong + Ninang are one circle of it.
+  //
+  // What changed is what its "+" CREATES. It used to seed the plain
+  // `principal_sponsor`, which the owner retired on 2026-09-15 — so the one
+  // button whose whole job is adding a sponsor was the last thing in the app
+  // still minting the dead role.
+  //
+  // Ninong is not a coin flip: it is first in ROLE_IMPORTANCE, first in the
+  // bulk picker and first in the roster's sections, so the map agrees with
+  // every other surface. A host adding a Ninang changes one dropdown.
+  { key: 'principal_sponsors', defaultRole: 'principal_sponsor_ninong' },
   { key: 'secondary_sponsors', defaultRole: 'candle_sponsor' },
   // Two branches now, each defaulting to the role a host most often adds there.
   { key: 'groomsmen', defaultRole: 'groomsman' },

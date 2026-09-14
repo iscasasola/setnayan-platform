@@ -74,3 +74,22 @@ picker/validator divergence as a deliberate quirk to preserve. It was a defect
 a host could hit.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(pairing): the functions are locked down, not just baselined
+
+The exposure-freeze guard fired on the two new pairing functions, and reviewing
+the diff (rather than accepting the widening) showed two real defects:
+
+- **anon could call them.** Postgres grants EXECUTE on a new function to PUBLIC
+  by default, so `GRANT … TO authenticated` alone left `exec=anon,authenticated`.
+  RLS would still refuse an anonymous caller's rows — these are SECURITY INVOKER
+  — but an unreachable door beats a locked one. Now REVOKEd from PUBLIC first.
+- **the search_path was UNPINNED.** Every other function in the baseline pins
+  one; unpinned, a function resolves unqualified names against the CALLER's
+  search_path. Both now `SET search_path = public, pg_temp`.
+
+🔑 The guard's instruction is "review the diff before committing: every ADDED
+line is something anon or authenticated can now reach". Read literally, it found
+two problems that a re-baseline would have frozen into place as correct.
+
+Baseline: +2 func lines, now `exec=authenticated search_path=public, pg_temp`.

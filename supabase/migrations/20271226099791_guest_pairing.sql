@@ -59,6 +59,11 @@ CREATE OR REPLACE FUNCTION public.pair_guests(
 )
 RETURNS VOID
 LANGUAGE plpgsql
+-- 🔒 PIN THE SEARCH PATH. Every other function in the exposure baseline pins
+-- one; an UNPINNED function resolves unqualified names against the caller's
+-- search_path, which is a privilege-escalation surface. Caught by reviewing the
+-- baseline diff rather than accepting the widening.
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_found INT;
@@ -107,6 +112,7 @@ CREATE OR REPLACE FUNCTION public.unpair_guest(
 )
 RETURNS VOID
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   UPDATE public.guests
@@ -120,5 +126,13 @@ COMMENT ON COLUMN public.guests.pair_with_guest_id IS
   'MUTUAL and EXCLUSIVE: maintained only via pair_guests() / unpair_guest(), '
   'which write both halves in one statement. NULL = unpaired.';
 
+-- 🔒 REVOKE FROM PUBLIC FIRST. Postgres grants EXECUTE on a new function to
+-- PUBLIC by default, so `GRANT ... TO authenticated` alone leaves ANON able to
+-- call it — which is exactly what the exposure baseline diff showed
+-- (`exec=anon,authenticated`). RLS would still refuse an anonymous caller's
+-- rows (these are SECURITY INVOKER), but an unreachable door is better than a
+-- locked one.
+REVOKE EXECUTE ON FUNCTION public.pair_guests(UUID, UUID, UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.unpair_guest(UUID, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pair_guests(UUID, UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.unpair_guest(UUID, UUID) TO authenticated;

@@ -100,13 +100,22 @@ test('neither phone row renders it — that is WHY it is unreachable at 375px', 
   }
 });
 
-test('the desktop table is still hidden below sm', () => {
-  // This is the other half of the reason. If the table stops being sm-gated,
-  // the trigger reaches phones without anyone touching the drawer.
+test('the desktop table is still hidden below the desktop breakpoint', () => {
+  // This is the other half of the reason: if the table stops being gated, the
+  // trigger reaches phones without anyone touching the drawer.
+  //
+  // 🪤 THIS ASSERTION USED TO PIN `sm:block` — a PROXY for "not on phones", and
+  // the proxy went stale in the safe direction. On 2026-09-14 the table moved
+  // to `lg:block` (it was overlapping its own columns between 640 and 1023px,
+  // and the bulk bar was already lg-only). That hides the table on MORE
+  // screens, so the quick view reaches phones LESS — the intent held while the
+  // literal failed. Pinned to `lg` now, and deliberately not loosened to "any
+  // breakpoint": a future move DOWN to `sm` or `md` would put the trigger back
+  // within reach of a phone and must fail here.
   assert.ok(
-    /className="hidden[^"]*\bsm:block\b/.test(LIST),
-    'the roster table is no longer `hidden … sm:block` — the quick view may ' +
-      'now render on phones',
+    /className="hidden[^"]*\blg:block\b/.test(LIST),
+    'the roster table is no longer `hidden … lg:block` — if it moved DOWN a ' +
+      'breakpoint the quick view may now render on phones',
   );
 });
 

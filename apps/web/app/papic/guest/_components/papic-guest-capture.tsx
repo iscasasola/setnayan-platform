@@ -174,11 +174,15 @@ type Props = {
    * this is true. Resolved server-side by `fetchGuestQuota`.
    */
   capApplies: boolean;
-  /** Shots left in the SHARED pot (null when this celebration has no pot). Used
-   *  only to say something true when the pot is running low — never as a
-   *  personal allowance. */
-  poolRemaining?: number | null;
-  /** True once the pot crosses its own soft-stop line. */
+  /** True once the pot crosses its own soft-stop line.
+   *
+   *  🔒 THE ONLY THING THIS CAMERA IS TOLD ABOUT THE POT (owner-locked, PRIV-1).
+   *  A `poolRemaining` prop used to ride alongside and the header printed it as
+   *  "N left for everyone". This component has two mounts — /papic/guest and the
+   *  inline camera on the public /[slug] page — and the reader of both is a
+   *  GUEST, identified by an invite cookie, not an event member. The pot's
+   *  balance is the couple's money and is no longer sent to either. The warning
+   *  stays: a guest does need to know to wind down. */
   poolLow?: boolean;
   /** Her number is a sponsor's bigger share (two or three of the equal shares),
    *  so the counter says so — otherwise a ninang reading "33 left" beside a
@@ -230,7 +234,6 @@ export function PapicGuestCapture({
   needsFaceEnroll = false,
   canKwento = false,
   capApplies,
-  poolRemaining = null,
   poolLow = false,
   sponsorShare,
   eventStyle,
@@ -1444,17 +1447,29 @@ export function PapicGuestCapture({
             print — so we print nothing, until the POT itself is running low, and
             then we name the celebration's own number rather than invent a
             per-guest one. "Unlimited" is gone with the same reasoning: a pot is
-            finite, and saying otherwise would be a promise we cannot keep. */}
+            finite, and saying otherwise would be a promise we cannot keep.
+
+            🔒 AND IT NO LONGER NAMES THE CELEBRATION'S NUMBER (owner-locked,
+            PRIV-1). The pot branch below used to read "N left for everyone" —
+            the couple's remaining credits, printed for a guest who is not an
+            event member on either of this component's two mounts. The warning
+            survives because the guest genuinely needs it; the figure does not,
+            because it is the couple's money.
+
+            ⚠ THE PERSONAL COUNTER ABOVE IT IS A DIFFERENT THING AND STAYS. That
+            number is the READER'S OWN allowance — her 150, or the ceiling the
+            couple set on her — and hiding a guest's own number from that guest
+            would be a second bug wearing this one's clothes. */}
         {capApplies ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {low ? `Running low — ${remaining} left` : `${remaining} left`}
             {sponsorShare ? <span className="text-cream/60">· a sponsor’s share</span> : null}
           </span>
-        ) : poolLow && poolRemaining != null ? (
+        ) : poolLow ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {`${poolRemaining} left for everyone`}
+            Running low for everyone
           </span>
         ) : null}
       </header>

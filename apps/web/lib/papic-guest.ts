@@ -206,12 +206,30 @@ export type GuestQuota = {
    */
   capApplies: boolean;
   /**
-   * Shots left in the SHARED pot, or null when this celebration has no pot.
-   * Present so a screen can say what is true about the celebration without
-   * inventing a per-guest number.
+   * True once the pot crosses its own soft-stop line — "running low".
+   *
+   * 🔒 THIS IS THE WHOLE OF WHAT A GUEST LEARNS ABOUT THE POT (owner-locked,
+   * PRIV-1). `poolRemaining: number | null` used to sit beside it and the guest
+   * camera printed it as "N left for everyone". Every reader of this quota is a
+   * GUEST — `fetchGuestQuota` has exactly two callers, /papic/guest (identity =
+   * the setnayan_guest_session cookie, no sign-in at all) and the inline camera
+   * on the public /[slug] page — and none of them is an event member. The pot's
+   * balance is the couple's money; the owner's ruling is that it is hidden from
+   * anyone it does not belong to.
+   *
+   * 🔑 IT WENT FROM THE SHAPE, NOT FROM THE JSX. The field was serialized into
+   * the RSC payload of a public page on every render, low pot or healthy one,
+   * drawn or not — so a guest could read the couple's balance from view-source
+   * even on the days the pill never appeared. Deleting only the `{…}` would
+   * have moved the leak, not closed it.
+   *
+   * ⚠ AND IT IS GONE IN BOTH STATES. A number withheld only while the pot is
+   * low makes its own absence mean "healthy" — a disclosure swapped for an
+   * inference. There is no state in which a guest is handed a figure.
+   *
+   * The couple keeps the real number on their own studio page, which reads
+   * `fetchEventPoolStatus` directly and is untouched by this.
    */
-  poolRemaining: number | null;
-  /** True once the pot crosses its own soft-stop line — "running low". */
   poolLow: boolean;
   /**
    * The number on her counter is a SPONSOR'S share — two or three of the equal
@@ -381,7 +399,9 @@ export async function fetchGuestQuota(
   // reports unlimited while nobody has put a number on THIS guest.
   const unlimited = unlimitedBase && guestCeiling === null;
   const capApplies = !unlimited;
-  const poolRemaining = poolApplies ? poolRead.status.remainingPoints : null;
+  // 🔒 `poolLow` ONLY — see GuestQuota.poolLow. `poolRead.status.remainingPoints`
+  // is available right here and is deliberately not published: every caller of
+  // this function renders to a guest, and the pot's balance is the couple's.
   const poolLow = poolApplies && poolRead.status.soft;
 
   // ⚠ CREDITS, NOT ROWS — same reasoning as the RPC's own SUM(points_cost):
@@ -473,7 +493,6 @@ export async function fetchGuestQuota(
     remaining,
     unlimited,
     capApplies,
-    poolRemaining,
     poolLow,
     // The ceiling is the couple's (not the platform's 150, not lifted by a
     // release) and she takes more than one share of it.

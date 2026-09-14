@@ -21,6 +21,7 @@
  */
 
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/delegate-areas';
+import { applyDelegateAccessWindow } from './delegate-access-window.server';
 import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import { decideMayAdvance } from '@/lib/run-of-show-advance-gate';
 
@@ -114,12 +115,19 @@ async function mayAdvance(
     memberRes?.error || delegateRes?.error || coordRes?.error || meRes?.error,
   );
 
+  // The access window (owner 2026-09-14): a delegate seven days past the event
+  // cannot advance the run of show either. Applied to the row BEFORE the area
+  // question, so an expired delegate resolves to the same null a stranger does.
+  const delegatePermissions = await applyDelegateAccessWindow(
+    clients.user,
+    eventId,
+    (delegateRes?.data?.permissions_json ?? null) as ModeratorPermissions | null,
+    (memberRes?.data?.member_type as string | null | undefined) === 'couple',
+  );
+
   return decideMayAdvance({
     memberType: (memberRes?.data?.member_type as string | null | undefined) ?? null,
-    delegateScheduleLevel: resolveAreaLevel(
-      (delegateRes?.data?.permissions_json ?? null) as ModeratorPermissions | null,
-      'schedule',
-    ),
+    delegateScheduleLevel: resolveAreaLevel(delegatePermissions, 'schedule'),
     coordinatorBookedEventIds: (coordRes?.data as unknown[] | null) ?? null,
     eventId,
     isAdmin: isAdminProfile(meRes?.data),

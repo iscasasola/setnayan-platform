@@ -1,0 +1,93 @@
+/**
+ * THE TABLE, THE CARD GRID AND THE BULK BAR ARE ONE DECISION: "is this a
+ * desktop?" They were written as THREE independent classNames and drifted.
+ *
+ * Measured on the owner's phone 2026-09-14:
+ *   · the seven-column table showed from `sm` (640px)
+ *   · the card grid hid from `sm`
+ *   · the bulk-action bar only appeared at `lg` (1024px)
+ *
+ * So 640–1023px got the table AND no bulk actions at all — and the table,
+ * clipped by `overflow-hidden`, printed "~Table 3" on top of a mobile number.
+ * Each class was individually sensible; the SET was wrong, which is why no
+ * test of any one of them could have caught it.
+ *
+ * The component's own directive already said phones AND TABLETS use the
+ * carousel's Customize + Assign sheets, so `lg` is what that sentence always
+ * meant — the table simply never followed it.
+ */
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+
+const SRC = stripComments(
+  readFileSync(
+    join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx'),
+    'utf8',
+  ),
+);
+
+test('THE REGRESSION: the desktop table starts at lg, not sm', () => {
+  assert.match(SRC, /className="hidden overflow-x-auto rounded-tile border lg:block"/,
+    'the roster table must appear only at lg — at sm it overlaps its own columns on a phone');
+  assert.ok(
+    !/rounded-tile border sm:block/.test(SRC),
+    'the table must not reappear at sm',
+  );
+});
+
+test('the card grid hands over at the SAME breakpoint the table takes over', () => {
+  assert.match(SRC, /className="space-y-5 lg:hidden"/, 'cards must cover everything below lg');
+  assert.ok(
+    !/"space-y-5 sm:hidden"/.test(SRC),
+    'a gap between the two would leave some width with NEITHER view, or both',
+  );
+});
+
+test('the bulk bar agrees with them', () => {
+  assert.match(SRC, /sticky top-20 z-30 hidden lg:block/, 'the bulk bar is the third half of this decision');
+});
+
+test('the table SCROLLS rather than clipping its own columns', () => {
+  // overflow-hidden is what turned "too narrow" into overlapping cells instead
+  // of a scrollbar. At any width the table must scroll.
+  assert.ok(
+    !/overflow-hidden rounded-tile/.test(SRC),
+    'overflow-hidden on the roster table stacks cells on each other when it cannot fit',
+  );
+});
+
+test('the contact column is icons, not a raw number', () => {
+  // Owner: "contact number should just show icon to call." The raw string was
+  // also the widest value in the row, in the column squeezing the name.
+  assert.match(SRC, /<Phone aria-hidden/, 'the mobile must render as an icon');
+  assert.match(SRC, /<Mail aria-hidden/, 'the email must render as an icon');
+  assert.ok(
+    !/\{guest\.email \?\? guest\.mobile \?\? '—'\}/.test(SRC),
+    'the raw contact string must not come back',
+  );
+});
+
+test('the contact icons DIAL, and only because the owner scoped Rule 1', () => {
+  // 🪤 THIS ASSERTION HAS BEEN INVERTED TWICE IN ONE DAY, and the history is
+  // the point rather than an embarrassment:
+  //   1. the icons shipped as real tel:/mailto: links;
+  //   2. `no-door-out-of-the-app` Rule 1 caught them — a couple-facing surface
+  //      may not COMPUTE a contact scheme — and this test was written to keep
+  //      them un-clickable;
+  //   3. asked, the owner SCOPED the rule: "only for the couple and if
+  //      coordinator is given access" (2026-09-14).
+  //
+  // So the links are back, and the thing that makes them legitimate is not this
+  // test — it is the one exact line in GUEST_CONTACT_BILL, which counts them.
+  // This test only asserts the feature the owner asked for still exists; Rule 1
+  // itself is what stops a third link or a public-page copy.
+  const cell = SRC.slice(
+    SRC.indexOf('<Phone aria-hidden') - 1400,
+    SRC.indexOf('<Mail aria-hidden') + 400,
+  );
+  assert.match(cell, /href=\{`tel:/, 'the phone icon must dial (owner-scoped Rule 1)');
+  assert.match(cell, /href=\{`mailto:/, 'the mail icon must compose (owner-scoped Rule 1)');
+});

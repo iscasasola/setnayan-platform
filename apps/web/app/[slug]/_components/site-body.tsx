@@ -1067,7 +1067,33 @@ export async function SiteBody({
         {menuOn ? (
           <SiteMenuBar
             slots={resolveSiteNav({
-              viewer: { kind: 'public' },
+              /*
+                🔴 WHO IS ACTUALLY LOOKING — this was the literal `{ kind: 'public' }`.
+
+                The owner opened his own wedding page while signed in and the
+                bar's last tab said **"Join"** — a stranger's invitation to add
+                themselves to the guest list — while the owner ribbon two
+                hundred lines above said "YOUR LIVE SITE". Two mechanisms on one
+                screen, at one moment, disagreeing about who the reader is. He
+                asked: *"story and join seems incorrect. is that correct?"* It
+                was not.
+
+                🔑 AND `resolveSiteNav` HAD THE ANSWER ALL ALONG. It carries a
+                whole `isCouple` arm — "Manage", and the camera unconditionally
+                because it is their wedding — that NO CALL SITE COULD EVER
+                REACH: the only two callers passed these literals. Unreachable
+                code that reads as shipped behaviour, which is this page's
+                recurring disease in one line.
+
+                ⚠ THE VENDOR ARM IS STILL UNREACHABLE AND I HAVE NOT FAKED IT.
+                `{ kind: 'vendor' }` needs `kits`, and nothing on this page
+                resolves them — `VendorCapability` carries the booking, not the
+                specialisations. Passing `kits: []` would hand every booked
+                supplier the label "Tools" on no evidence. A supplier still gets
+                the public bar here; that is a known, stated gap, not a silent
+                one, and it belongs to the supplier lane.
+              */
+              viewer: ownerCapability ? { kind: 'couple' } : { kind: 'public' },
               phase: navPhase,
               hostAllowsCamera: hostCameraOpen,
               anyChapterPublic: menuSections.gallery,

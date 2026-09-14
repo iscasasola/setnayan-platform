@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDown, Trash2, X } from 'lucide-react';
+import { ChevronDown, Mail, Phone, Trash2, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
@@ -365,7 +365,13 @@ function DesktopRow({
           >
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
-              <p className="truncate font-medium text-ink">
+              {/* `title` so a name the column still cannot fit is RECOVERABLE
+                  on hover. Truncation is right for a dense roster; silently
+                  losing half a guest's name is not. */}
+              <p
+                className="truncate font-medium text-ink"
+                title={guestFullName(guest) ?? guestDisplayName(guest)}
+              >
                 {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
               {guest.plus_one_allowed ? (
@@ -429,8 +435,43 @@ function DesktopRow({
           hasPlusOne={guest.plus_one_allowed}
         />
       </td>
-      <td className="px-3 py-2.5 text-xs text-ink/60">
-        {guest.email ?? guest.mobile ?? '—'}
+      {/* Owner 2026-09-14: "contact number should just show icon to call."
+          A raw +63 number spent the widest string in the row on something
+          nobody reads character by character — and the column it spent it in
+          was the one squeezing the NAME. Icons instead: each is an actual
+          `tel:` / `mailto:` link, so the number is one tap away on a phone and
+          one click in the desktop dialer, and the full value rides in `title`
+          for anyone who wants to read or copy it.
+          Both show when a guest has both — they are different ways to reach
+          the same person, and picking one for the host would be a guess. */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1.5">
+          {guest.mobile ? (
+            <a
+              href={`tel:${guest.mobile.replace(/[^\d+]/g, '')}`}
+              title={`Call ${guest.mobile}`}
+              aria-label={`Call ${guestFullName(guest) ?? guestDisplayName(guest)} on ${guest.mobile}`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
+            >
+              <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+            </a>
+          ) : null}
+          {guest.email ? (
+            <a
+              href={`mailto:${guest.email}`}
+              title={`Email ${guest.email}`}
+              aria-label={`Email ${guestFullName(guest) ?? guestDisplayName(guest)} at ${guest.email}`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
+            >
+              <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+            </a>
+          ) : null}
+          {/* An em dash, not an empty cell: "no contact yet" is a fact the host
+              acts on, and a blank reads as a rendering failure. */}
+          {!guest.mobile && !guest.email ? (
+            <span className="text-xs text-ink/40">—</span>
+          ) : null}
+        </span>
       </td>
     </tr>
   );
@@ -732,7 +773,20 @@ export function GuestListMultiselect({
           rows stay opaque (hairline dividers, translucent hover/selected tints)
           so hundreds of rows never each carry a blur layer. */}
       <div
-        className="hidden overflow-hidden rounded-tile border sm:block"
+        /* 🪤 `lg`, NOT `sm` — AND `overflow-x-auto`, NOT `hidden`.
+           Three breakpoints described ONE decision and had drifted apart: the
+           table showed from `sm` (640px), the card grid hid from `sm`, and the
+           bulk-action bar only appeared at `lg` (1024px). So between 640 and
+           1023 a host got the seven-column table AND no bulk actions at all —
+           and the table, clipped by `overflow-hidden`, OVERLAPPED its own
+           columns (the owner's phone showed "~Table 3" printed on top of a
+           mobile number).
+           The directive above this component already says phones AND TABLETS
+           use the carousel's Customize + Assign sheets, so `lg` is what that
+           sentence always meant. `overflow-x-auto` is belt-and-braces: at any
+           width the table now SCROLLS instead of stacking cells on each
+           other. */
+        className="hidden overflow-x-auto rounded-tile border lg:block"
         style={{
           background: 'var(--sn-glass-bg)',
           borderColor: 'var(--sn-glass-line)',
@@ -776,13 +830,23 @@ export function GuestListMultiselect({
                   Role keeps the largest share of the six because it renders
                   CHIPS, not text, and was widest for that reason. The extra
                   comes from Contact, one line of `text-xs`. */}
+              {/* 🔑 NAME CARRIES THE LONGEST VALUE IN THE ROW and gets what is
+                  left, so every percentage below is taken FROM it. The other six
+                  columns claimed 56%, and with the avatar and quick-view button
+                  inside the cell the name text measured 96px on the owner's
+                  screen — "Indalecio Casasola" was already cut to "Indalecio
+                  Casa…" BEFORE full names existed. A formal name is longer
+                  still ("Ms. Claire Estoras Buanhog"), so shipping the whole
+                  name into an unchanged column would have shown LESS of it than
+                  before. Trimmed to 46% total; the chips in those columns are
+                  short and fixed-width, so they lose nothing. */}
               <th className="px-3 py-2.5 font-medium">Name</th>
-              <th className="w-[7%] px-3 py-2.5 font-medium">Side</th>
-              <th className="w-[15%] px-3 py-2.5 font-medium">Role</th>
-              <th className="w-[10%] px-3 py-2.5 font-medium">Groups</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">RSVP</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">Seat</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">Contact</th>
+              <th className="w-[6%] px-3 py-2.5 font-medium">Side</th>
+              <th className="w-[12%] px-3 py-2.5 font-medium">Role</th>
+              <th className="w-[9%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[7%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[7%] px-3 py-2.5 font-medium">Seat</th>
+              <th className="w-[5%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -837,7 +901,10 @@ export function GuestListMultiselect({
           carries the reactive SeatChip + one-tap RSVP cycle, and the carousel's
           density toggle (`?density=list`) swaps the photo grid for a compact
           list. */}
-      <div className="space-y-5 sm:hidden">
+      {/* Card grid — phones AND tablets, matching the bulk bar's `lg` and the
+          2026-06-03 directive. See the table's note above for why this is not
+          `sm:hidden` any more. */}
+      <div className="space-y-5 lg:hidden">
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (

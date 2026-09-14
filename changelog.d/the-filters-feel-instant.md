@@ -38,3 +38,43 @@ every guest and the filter is one pure `filter()` + `filterByRoleGroup()` +
 `sort()`. That is a larger refactor of the page and is not in this PR.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(guests): the roster fits the screen it is on
+
+Three reports from the owner's own browser, all one shape — a layout decision
+described in more than one place.
+
+**1 · The table rendered on a phone, overlapping its own columns.** Three
+classNames described ONE decision ("is this a desktop?") and had drifted: the
+seven-column table showed from `sm` (640px), the card grid hid from `sm`, and
+the bulk-action bar only appeared at `lg` (1024px). So 640–1023px got the table
+AND no bulk actions at all — and `overflow-hidden` made "too narrow" render as
+"~Table 3" printed on top of a mobile number instead of a scrollbar.
+
+The component's own directive already said phones AND TABLETS use the
+carousel's Customize + Assign sheets, so `lg` is what that sentence always
+meant; the table simply never followed it. All three now agree, and the table
+carries `overflow-x-auto` so at ANY width it scrolls rather than stacking cells.
+
+🔑 Each class was individually sensible. The SET was wrong — which is why no
+test of any one of them could have caught it.
+
+**2 · The name column was too narrow for the name.** Six columns claimed 56%,
+leaving the name 96px measured on the owner's screen — "Indalecio Casasola" was
+already cut to "Indalecio Casa…" BEFORE full names existed. Shipping the whole
+name into an unchanged column would have shown LESS of it than before. Trimmed
+the other six to 46% total (their chips are short and fixed-width) and added a
+`title` so a name that still cannot fit is recoverable on hover.
+
+**3 · Contact is icons now.** Owner: "contact number should just show icon to
+call." A raw `+63…` was the widest string in the row, spent in the column
+squeezing the name. Now a `tel:` phone icon and a `mailto:` mail icon — one tap
+on a phone, the full value in `title`. Both show when a guest has both; picking
+one for the host would be a guess. An em dash still marks "no contact yet",
+because a blank cell reads as a rendering failure.
+
+`one-breakpoint-one-decision.test.ts` pins all three. Sabotage-verified:
+returning the table to `sm` turns it red, and so does restoring the raw contact
+string.
+
+SPEC IMPACT: None.

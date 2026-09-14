@@ -99,6 +99,7 @@ import {
 } from '@/lib/vendor-microsite';
 
 import { ManageTiles } from './_components/manage-tiles';
+import { ShopRail, ShopDoorSection } from './_components/shop-rail';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
 import { VerifySection, type VerifySummary } from './_components/verify-section';
 import { readContactStamps } from './inline-docs-actions';
@@ -922,176 +923,218 @@ async function ShopHome({
         </div>
       </section>
 
-      <ManageTiles
-        completionPct={data.completionPct}
-        verifyLabel={
-          data.completionPct >= 100
-            ? 'All fields in'
-            : `${data.checklist.filter((i) => !i.ok).length} field${data.checklist.filter((i) => !i.ok).length === 1 ? '' : 's'} left`
-        }
-        teamLabel={nf.format(data.teamMembers)}
-        teamSub={data.teamSub}
-        branchLabel={nf.format(data.branchLocations)}
-        branchSub={data.branchSub}
-        profilePanel={
-          <>
-            <ProfileChecklistEditor
-              items={data.checklist}
-              data={data.profileFields}
-              isVerified={data.isVerified}
-            />
-            {/* Precise founding DATE (optional) — powers the EXACT business
-                anniversary/monthsary day on your Overview. Plain server-action
-                form; blank clears it and we fall back to the year (EST). */}
-            <form
-              action={updateBusinessStartDate}
-              className="mt-3 rounded-xl border p-4"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-            >
-              <label
-                htmlFor="in_business_since_date"
-                className="block text-sm font-medium"
-                style={{ color: 'var(--m-ink)' }}
-              >
-                Business start date{' '}
-                <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
-                  (optional)
-                </span>
-              </label>
-              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-                The exact day you started — powers your business anniversary. Leave
-                blank to use the year (EST) above.
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  id="in_business_since_date"
-                  name="in_business_since_date"
-                  type="date"
-                  defaultValue={data.businessStartDate ?? ''}
-                  className="input-field max-w-[12rem]"
-                />
-                <button
-                  type="submit"
-                  className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                  style={{ background: 'var(--m-accent-deep)' }}
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-            {/* Which weddings this shop is a fit for. NOT a checklist item: it
-                is optional by design (undeclared = open to all), so it must
-                never drag a finished profile back below 100%. This card is the
-                writer both columns shipped without — Explore has filtered on
-                them since 0043 while no form in the product could set them. */}
-            <VenueMatchCard
-              initialVenueSettings={data.compatibleVenueSettings}
-              initialCeremonyTypes={data.compatibleCeremonyTypes}
-            />
-            {/* What kind of venue this shop is (C2, 2026-08-31) — the writer
-                `vendor_profiles.venue_type` shipped without. Read publicly by
-                the v1 vendor profile API and by Explore since migration
-                20260810000000; every shop was stuck on the seed default. */}
-            <VenueTypeCard initialVenueType={data.venueType} />
-            {/* The public one-liner + the shop's own website. Not checklist
-                items, for the same reason as the card above — and not inline
-                identity fields either: the verified lock would put a rebrand
-                behind an admin correction ticket. Both columns are read by the
-                public page, Explore and three v1 API routes, and neither had a
-                writer a real vendor could reach after /profile was retired. */}
-            <PublicLineCard
-              initialTagline={data.tagline}
-              initialWebsite={data.website}
-            />
-            {/* "Your website suggests you also do…" (C5, 2026-08-28) — only
-                renders when a completed, unresolved signup-suggestion dossier
-                found trades this shop has not already declared. Suggested,
-                never applied: nothing here writes coverage on its own. */}
-            {data.pendingCoverageSuggestion ? (
-              <SuggestedCoverageCard
-                dossierId={data.pendingCoverageSuggestion.dossierId}
-                suggestions={data.pendingCoverageSuggestion.suggestions}
+      {/* The map of the six doors — see _components/shop-rail.tsx. */}
+      <ShopRail />
+
+      {/*
+        ── DOOR 1 · "Your shop" (G1, drawing approved 2026-09-14) ───────────
+        The shop-information tiles and the papers now sit in ONE room, which is
+        what the drawing asks for and what a shop owner already assumes: "fix my
+        shop information and verification, branches, team" is one errand.
+
+        🔑 RE-MOUNTED, NOT REWRITTEN. `ManageTiles` and `VerifySection` are the
+        SAME components with the SAME props they had before — the only change is
+        that the papers moved up to sit beside the tiles instead of below the
+        service cards, which is the "three things moved" the drawing names.
+
+        ⚠ THEIR ANCHORS LIVE INSIDE THEM, NOT HERE. `#manage-shop` is on
+        `ManageTiles`'s own <section> and `#get-verified` on `VerifySection`'s;
+        the hero pills, Today's first steps and the Subscription page all
+        deep-link to those two ids. Wrapping them must not shadow or duplicate
+        either one — the guard beside this file asserts both still resolve, and
+        that each appears exactly once.
+      */}
+      <ShopDoorSection
+        id="d1"
+        title="Your shop"
+        question="Shop information, verification, branches and team"
+      >
+        <ManageTiles
+          completionPct={data.completionPct}
+          verifyLabel={
+            data.completionPct >= 100
+              ? 'All fields in'
+              : `${data.checklist.filter((i) => !i.ok).length} field${data.checklist.filter((i) => !i.ok).length === 1 ? '' : 's'} left`
+          }
+          teamLabel={nf.format(data.teamMembers)}
+          teamSub={data.teamSub}
+          branchLabel={nf.format(data.branchLocations)}
+          branchSub={data.branchSub}
+          profilePanel={
+            <>
+              <ProfileChecklistEditor
+                items={data.checklist}
+                data={data.profileFields}
+                isVerified={data.isVerified}
               />
-            ) : null}
-            {/* Day-of shortlist opt-in + the social celebration opt-out. Both
-                only ACT on a verified shop, so routing them through the
-                verified-locked inline editor would have made them settable
-                only by the vendors they can never apply to. */}
-            <VisibilityCard
-              initialSameDayAvailable={data.sameDayAvailable}
-              initialSocialFeatureOptOut={data.socialFeatureOptOut}
+              {/* Precise founding DATE (optional) — powers the EXACT business
+                  anniversary/monthsary day on your Overview. Plain server-action
+                  form; blank clears it and we fall back to the year (EST). */}
+              <form
+                action={updateBusinessStartDate}
+                className="mt-3 rounded-xl border p-4"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+              >
+                <label
+                  htmlFor="in_business_since_date"
+                  className="block text-sm font-medium"
+                  style={{ color: 'var(--m-ink)' }}
+                >
+                  Business start date{' '}
+                  <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+                    (optional)
+                  </span>
+                </label>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                  The exact day you started — powers your business anniversary. Leave
+                  blank to use the year (EST) above.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    id="in_business_since_date"
+                    name="in_business_since_date"
+                    type="date"
+                    defaultValue={data.businessStartDate ?? ''}
+                    className="input-field max-w-[12rem]"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                    style={{ background: 'var(--m-accent-deep)' }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+              {/* Which weddings this shop is a fit for. NOT a checklist item: it
+                  is optional by design (undeclared = open to all), so it must
+                  never drag a finished profile back below 100%. This card is the
+                  writer both columns shipped without — Explore has filtered on
+                  them since 0043 while no form in the product could set them. */}
+              <VenueMatchCard
+                initialVenueSettings={data.compatibleVenueSettings}
+                initialCeremonyTypes={data.compatibleCeremonyTypes}
+              />
+              {/* What kind of venue this shop is (C2, 2026-08-31) — the writer
+                  `vendor_profiles.venue_type` shipped without. Read publicly by
+                  the v1 vendor profile API and by Explore since migration
+                  20260810000000; every shop was stuck on the seed default. */}
+              <VenueTypeCard initialVenueType={data.venueType} />
+              {/* The public one-liner + the shop's own website. Not checklist
+                  items, for the same reason as the card above — and not inline
+                  identity fields either: the verified lock would put a rebrand
+                  behind an admin correction ticket. Both columns are read by the
+                  public page, Explore and three v1 API routes, and neither had a
+                  writer a real vendor could reach after /profile was retired. */}
+              <PublicLineCard
+                initialTagline={data.tagline}
+                initialWebsite={data.website}
+              />
+              {/* "Your website suggests you also do…" (C5, 2026-08-28) — only
+                  renders when a completed, unresolved signup-suggestion dossier
+                  found trades this shop has not already declared. Suggested,
+                  never applied: nothing here writes coverage on its own. */}
+              {data.pendingCoverageSuggestion ? (
+                <SuggestedCoverageCard
+                  dossierId={data.pendingCoverageSuggestion.dossierId}
+                  suggestions={data.pendingCoverageSuggestion.suggestions}
+                />
+              ) : null}
+              {/* Day-of shortlist opt-in + the social celebration opt-out. Both
+                  only ACT on a verified shop, so routing them through the
+                  verified-locked inline editor would have made them settable
+                  only by the vendors they can never apply to. */}
+              <VisibilityCard
+                initialSameDayAvailable={data.sameDayAvailable}
+                initialSocialFeatureOptOut={data.socialFeatureOptOut}
+                isVerified={data.isVerified}
+                // Mirrors findSameDayVendors' `.neq('tier_state','free')`, which
+                // in Postgres also excludes a NULL tier — so NULL is not paid.
+                isPaidTier={data.tier != null && data.tier !== 'free'}
+                alreadyFeatured={data.socialAlreadyFeatured}
+              />
+              {/* The ASK. `requestProfileCorrection` + the /admin/corrections
+                  queue that resolves it both shipped complete and had ZERO
+                  callers — no screen rendered a form, so prod held zero rows and
+                  the queue could never receive anything. The web address is
+                  offered to every vendor at every tier (it is immutable for
+                  everyone, which is precisely why a signup typo has no other
+                  remedy); the rest appear once the verified lock is what is
+                  actually stopping an inline edit. */}
+              <RequestCorrectionCard
+                currentSlug={data.slug}
+                isVerified={data.isVerified}
+                openRequests={data.openCorrections}
+              />
+            </>
+          }
+          websitePanel={
+            <WebsiteEditor
+              publicPath={publicPath}
+              displayHost={DISPLAY_HOST}
+              websiteLive={data.websiteLive}
+              isPro={data.isProWebsite}
+              canPersonalize={data.canPersonalize}
+              about={data.microsite.about}
+              sections={data.microsite.sections}
+              featuredServiceIds={data.microsite.featuredServiceIds}
+              services={data.profileFields.services}
+              serviceLabels={data.profileFields.serviceLabels}
               isVerified={data.isVerified}
-              // Mirrors findSameDayVendors' `.neq('tier_state','free')`, which
-              // in Postgres also excludes a NULL tier — so NULL is not paid.
-              isPaidTier={data.tier != null && data.tier !== 'free'}
-              alreadyFeatured={data.socialAlreadyFeatured}
+              yearsLabel={data.yearsLabel}
+              slug={data.slug}
+              heroPhotoKey={data.microsite.heroPhotoKey}
+              accent={data.microsite.accent}
+              portfolioPhotos={data.portfolioPhotos}
+              reviews={data.reviewOptions}
+              pinnedReviewId={data.microsite.pinnedReviewId}
+              editorials={data.editorialOptions}
+              featuredEditorialIds={data.microsite.featuredEditorialIds}
+              vendorProfileId={data.profileFields.vendorProfileId}
+              portfolioRefs={data.portfolioRefs}
+              portfolioDisplayMap={data.portfolioDisplayMap}
+              portfolioMax={data.portfolioMax}
+              galleryVideoLinks={data.galleryVideoLinks}
+              igConfigured={data.igConfigured}
+              igConnection={data.igConnection}
+              igMedia={data.igMedia}
+              igFlash={igFlash}
             />
-            {/* The ASK. `requestProfileCorrection` + the /admin/corrections
-                queue that resolves it both shipped complete and had ZERO
-                callers — no screen rendered a form, so prod held zero rows and
-                the queue could never receive anything. The web address is
-                offered to every vendor at every tier (it is immutable for
-                everyone, which is precisely why a signup typo has no other
-                remedy); the rest appear once the verified lock is what is
-                actually stopping an inline edit. */}
-            <RequestCorrectionCard
-              currentSlug={data.slug}
-              isVerified={data.isVerified}
-              openRequests={data.openCorrections}
+          }
+          teamPanel={<TeamPanel members={data.team} />}
+          branchPanel={
+            <BranchPanel
+              city={data.city}
+              branchLocations={data.branchLocations}
+              tier={data.tier}
+              hqLat={data.hqLat}
+              hqLng={data.hqLng}
+              reachKm={data.reachKm}
+              innerRadiusKm={data.innerRadiusKm}
+              outerRadiusKm={data.outerRadiusKm}
+              branches={data.branchViews}
+              branchFeePhp={data.branchFeePhp}
+              branchAutoRadius={data.branchAutoRadius}
+              branchPay={data.branchPay}
             />
-          </>
-        }
-        websitePanel={
-          <WebsiteEditor
-            publicPath={publicPath}
-            displayHost={DISPLAY_HOST}
-            websiteLive={data.websiteLive}
-            isPro={data.isProWebsite}
-            canPersonalize={data.canPersonalize}
-            about={data.microsite.about}
-            sections={data.microsite.sections}
-            featuredServiceIds={data.microsite.featuredServiceIds}
-            services={data.profileFields.services}
-            serviceLabels={data.profileFields.serviceLabels}
-            isVerified={data.isVerified}
-            yearsLabel={data.yearsLabel}
-            slug={data.slug}
-            heroPhotoKey={data.microsite.heroPhotoKey}
-            accent={data.microsite.accent}
-            portfolioPhotos={data.portfolioPhotos}
-            reviews={data.reviewOptions}
-            pinnedReviewId={data.microsite.pinnedReviewId}
-            editorials={data.editorialOptions}
-            featuredEditorialIds={data.microsite.featuredEditorialIds}
-            vendorProfileId={data.profileFields.vendorProfileId}
-            portfolioRefs={data.portfolioRefs}
-            portfolioDisplayMap={data.portfolioDisplayMap}
-            portfolioMax={data.portfolioMax}
-            galleryVideoLinks={data.galleryVideoLinks}
-            igConfigured={data.igConfigured}
-            igConnection={data.igConnection}
-            igMedia={data.igMedia}
-            igFlash={igFlash}
-          />
-        }
-        teamPanel={<TeamPanel members={data.team} />}
-        branchPanel={
-          <BranchPanel
-            city={data.city}
-            branchLocations={data.branchLocations}
-            tier={data.tier}
-            hqLat={data.hqLat}
-            hqLng={data.hqLng}
-            reachKm={data.reachKm}
-            innerRadiusKm={data.innerRadiusKm}
-            outerRadiusKm={data.outerRadiusKm}
-            branches={data.branchViews}
-            branchFeePhp={data.branchFeePhp}
-            branchAutoRadius={data.branchAutoRadius}
-            branchPay={data.branchPay}
-          />
-        }
-      />
+          }
+        />
+
+        {/* ── GET VERIFIED — the verification journey, promoted to its own
+            always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
+            flow): a teaser until the profile is 100% complete → the documents
+            reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
+            you for final confirmation" (the Meet). Hero pill deep-links here. */}
+        <VerifySection
+          businessName={data.businessName}
+          vendorProfileId={data.profileFields.vendorProfileId}
+          isVerified={data.isVerified}
+          profileComplete={data.completionPct >= 100}
+          profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
+          verify={data.verify}
+        />
+      </ShopDoorSection>
+
 
       {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
           My Shop (owner 2026-07-02: "My Services" retired everywhere). The
@@ -1153,20 +1196,6 @@ async function ShopHome({
           </Link>
         </section>
       ) : null}
-
-      {/* ── GET VERIFIED — the verification journey, promoted to its own
-          always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
-          flow): a teaser until the profile is 100% complete → the documents
-          reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
-          you for final confirmation" (the Meet). Hero pill deep-links here. */}
-      <VerifySection
-        businessName={data.businessName}
-        vendorProfileId={data.profileFields.vendorProfileId}
-        isVerified={data.isVerified}
-        profileComplete={data.completionPct >= 100}
-        profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
-        verify={data.verify}
-      />
 
       {/* ── AUTO-REPLY ASSISTANT — Phase-4 config card (flag-DARK: renders
           only behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1; flag-off = today's page
@@ -1648,7 +1677,6 @@ function BranchPanel({
   );
 }
 
-
 /* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
  * One menu item, the whole business integrated: the shop home (profile ·
  * services · verify · website — this file's original body, incl. the
@@ -1817,18 +1845,22 @@ export default async function VendorShopHub({
         <EarningsSurface searchParams={Promise.resolve(sp) as never} />
       </div>
 
-      {/* Everything else folds in below — one open at a time, loaded on expand. */}
-      <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
-        {open ? (
-          <Suspense fallback={<AccordionSkeleton />}>
-            <ShopSectionBody open={open} sp={sp} />
-          </Suspense>
-        ) : null}
-      </FeatureAccordion>
+      {/* Everything else folds in below — one open at a time, loaded on expand.
+          The id is what door 6 on the rail points at: the folds are where those
+          tools live today, and a map must not point at a room that is not
+          there. Naming an existing room is not building a door. */}
+      <div id="shop-folds" className="scroll-mt-24">
+        <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+          {open ? (
+            <Suspense fallback={<AccordionSkeleton />}>
+              <ShopSectionBody open={open} sp={sp} />
+            </Suspense>
+          ) : null}
+        </FeatureAccordion>
+      </div>
     </>
   );
 }
-
 
 /** Moodboard library card gate for the More-tools tab — the shared predicate
  * both the page and the server action use (lib/moodboard-library-access.ts). */

@@ -58,6 +58,26 @@ re-derived: that fourth-branch-less shortcut 404s for every type whenever the
 generic-experience flag is off.
 
 
+### One coverage change, stated rather than left to be noticed
+
+`lint-port-no-lost-controls` caught the removal, as it should, and the
+regenerated baseline carries it as exactly one readable line:
+
+    - "/onboarding/wedding?next=[seg]"
+
+⚠ The REPLACEMENT is not tracked in its place. The old path was an inline
+`window.location.href = ` + a literal, which the static extractor can see; the
+new one is built inside `noEventDestination()`, which it cannot. So that route's
+destination list now watches this navigation not at all, where it used to watch
+the wrong one.
+
+It is not uncovered — `the-shop-asks-which-celebration.test.ts` asserts both
+`no_event` branches navigate and that the destination is the picker page, and
+that guard is mutation-proved. But the MECHANISM watching it changed, and a
+baseline line silently vanishing is the kind of erosion this repo counts, so it
+is written here rather than left for whoever next reads the diff.
+
+
 NOT DONE HERE, deliberately: `fetchUserEvents` is read by ~20 surfaces including
 the dashboard event switcher. Giving its query a deterministic ORDER BY, or
 enforcing one primary per user, would change what those surfaces show and belongs

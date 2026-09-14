@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6e280fc058",
+  "generatedFromRef": "81fa00919",
   "routeCount": 427,
-  "destinations": 913,
+  "destinations": 917,
   "actions": 637,
-  "blocks": 4435,
+  "blocks": 4452,
   "routes": {
     "/": {
       "files": [
@@ -431,6 +431,7 @@
         "(shell)/papic/_papic-cost-comparison.tsx",
         "(shell)/papic/_papic-dial.tsx",
         "(shell)/papic/_papic-film.tsx",
+        "(shell)/papic/_papic-free-credits.tsx",
         "(shell)/papic/_papic-scan.tsx",
         "(shell)/papic/_papic-sections.tsx",
         "(shell)/papic/loading.tsx",
@@ -456,6 +457,9 @@
         "PapicDial",
         "PapicFeatures",
         "PapicFilm",
+        "PapicFreeCreditBadge",
+        "PapicFreeCreditClosing",
+        "PapicFreeCreditFact",
         "PapicHub",
         "PapicScan",
         "Reveal",
@@ -721,6 +725,7 @@
         "[slug]/_components/editorial/sample-ids.ts",
         "[slug]/_components/editorial/voices.ts",
         "[slug]/_components/empty-states.tsx",
+        "[slug]/_components/entourage-section.tsx",
         "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/guest-camera-player.tsx",
@@ -793,6 +798,7 @@
         "[slug]/_components/story/story-spine.tsx",
         "[slug]/_components/story/were-you-there.tsx",
         "[slug]/_components/story/your-own-consent.tsx",
+        "[slug]/_components/supplier-desk-anchor.ts",
         "[slug]/_components/supplier-desk.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
@@ -903,6 +909,7 @@
         "EditorialData",
         "EditorialOrderKey",
         "EditorialSections",
+        "EntourageSection",
         "EventMedia",
         "EventWords",
         "EventWordsContext.Provider",
@@ -1203,8 +1210,12 @@
     },
     "/[slug]/invite": {
       "files": [
+        "[slug]/invite/_components/invite-qr-panel.tsx",
+        "[slug]/invite/_components/themes/abaca.tsx",
         "[slug]/invite/_components/themes/capiz.tsx",
+        "[slug]/invite/_components/themes/galeriya.tsx",
         "[slug]/invite/_components/themes/invite-skin.tsx",
+        "[slug]/invite/_components/themes/velvet.tsx",
         "[slug]/invite/_lib/load-invite-look.ts",
         "[slug]/invite/actions.ts",
         "[slug]/invite/page.tsx"
@@ -1212,6 +1223,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "GuestCodeKeepers",
         "InvalidTokenScreen",
         "JoinFlow",
         "RevealOverlayServer"
@@ -1228,6 +1240,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "InviteQrPanel",
         "Link"
       ]
     },
@@ -1240,6 +1253,7 @@
       ],
       "actions": [],
       "blocks": [
+        "DoorNotice",
         "DoorShell",
         "Link",
         "OAuthButtonRow",
@@ -1689,6 +1703,7 @@
         "admin/app-performance/_components/charts.tsx",
         "admin/app-performance/_components/expenses.tsx",
         "admin/app-performance/_components/funnel-vendor-picker.tsx",
+        "admin/app-performance/_components/fx-css.ts",
         "admin/app-performance/_components/fx.tsx",
         "admin/app-performance/_components/health-now.tsx",
         "admin/app-performance/_components/won-lost-admin-card.tsx",
@@ -4980,6 +4995,7 @@
         "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
         "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
         "dashboard/[eventId]/budget/_components/budget-setter.tsx",
+        "dashboard/[eventId]/budget/_components/budget-summary-ids.ts",
         "dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
@@ -5309,6 +5325,7 @@
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guests-search.tsx",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
+        "dashboard/[eventId]/guests/_components/lens-pill.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
         "dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
@@ -5323,6 +5340,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/page.tsx",
+        "dashboard/[eventId]/guests/pair-actions.ts",
         "dashboard/[eventId]/guests/people-add-actions.ts",
         "dashboard/[eventId]/guests/quick-add-actions.ts"
       ],
@@ -5413,6 +5431,8 @@
         "OptimisticDeleteButton",
         "OptionRow",
         "PageMasthead",
+        "PairSelectedForm",
+        "PartnerLine",
         "Popover",
         "QuickAddInlineForm",
         "QuickAddResult",
@@ -5550,8 +5570,11 @@
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
+        "/dashboard/[seg]/invitation",
+        "/dashboard/[seg]/studio/save-the-date",
         "/dashboard/[seg]/studio/website-pro",
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/website/colors"
       ],
       "actions": [
         "action"
@@ -7138,6 +7161,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ConfirmForm",
         "GridPageSkeleton",
         "KwentoActionResult",
         "KwentoQueue",
@@ -8528,7 +8552,9 @@
         "onboarding/[type]/_components/specialty-fields.tsx",
         "onboarding/[type]/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "DateCalendar",
@@ -8537,6 +8563,7 @@
         "GenericOnboarding",
         "HTMLDivElement",
         "ItemInput",
+        "Link",
         "OpenMultiselect",
         "Roster",
         "ServicesStep",
@@ -8768,6 +8795,7 @@
         "CopyButton",
         "Date",
         "DesktopEncoderHost",
+        "DesktopOwnChannelKeyCard",
         "EncoderKeyPanel",
         "EncoderSession",
         "EventFilmRow",
@@ -9425,6 +9453,7 @@
     },
     "/v/[slug]": {
       "files": [
+        "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
@@ -9442,7 +9471,6 @@
         "/[seg]?reviewsPage=[seg]",
         "/dashboard",
         "/login",
-        "/onboarding/wedding?next=[seg]",
         "/signup",
         "/v/[seg]/booth"
       ],
@@ -9450,6 +9478,8 @@
         "joinVendorWaitlist"
       ],
       "blocks": [
+        "AddShopToEventState",
+        "AddToEvent",
         "AnonInquiryComposer",
         "AutoCarryState",
         "AxisStat",
@@ -10430,6 +10460,7 @@
         "Resolved",
         "SendProposalCard",
         "Sheet",
+        "ShutTool",
         "SnapRow",
         "SubmitButton",
         "ThreadAttribution",
@@ -10521,7 +10552,8 @@
         "/vendor-dashboard/on-the-day/live/[seg]",
         "/vendor-dashboard/on-the-day?event=[seg]",
         "/vendor-dashboard/on-the-day?preview=1",
-        "/vendor-dashboard/shop"
+        "/vendor-dashboard/shop",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [],
       "blocks": [
@@ -11142,6 +11174,7 @@
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
+        "vendor-dashboard/shop/_components/shop-rail.tsx",
         "vendor-dashboard/shop/_components/suggested-coverage-card.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
         "vendor-dashboard/shop/_components/venue-type-card.tsx",
@@ -11262,7 +11295,9 @@
         "ServiceRadiusSaveResult",
         "ServicesDisclosure",
         "ShopData",
+        "ShopDoorSection",
         "ShopHome",
+        "ShopRail",
         "ShopSectionBody",
         "ShopTools",
         "SocialLinksInput",

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -175,13 +176,21 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // — not enforced in the DB. See INC_Wedding_Practices_Reference_2026-06-28.md § 3.6.
   const { data: ceremonyRow, error: ceremonyRowError } = await supabase
     .from('events')
-    .select('ceremony_type')
+    // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
+    // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
+    // primary OR secondary. Reading only the primary would hide the tea-ceremony
+    // field from exactly the couples who need it.
+    .select('ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
   // ⚠ the ceremony context this page reads against. Refused, it degrades silently.
   if (ceremonyRowError) {
     logQueryError('GuestDetailPage.ceremonyRow', ceremonyRowError, { eventId, guestId }, 'graceful_degrade');
   }
+
+  // Chinese/Tsinoy-only surfaces on this page. See the Identity/Relationship
+  // block below for why this is gated rather than "harmless when unused".
+  const showTeaCeremony = isChineseWedding(ceremonyRow);
   const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
 
   // Pull the +1 guest row (if any) so the edit form can show the
@@ -687,10 +696,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
-            {/* Tea-ceremony serving order (Chinese / Tsinoy weddings). Optional
-                for every guest; only the tea-ceremony helper reads them. Relation
-                is free text; seniority is the within-side serve order (lower
-                serves first). Shown to all events — harmless when unused. */}
+            {/* Relationship is free text and useful at ANY wedding ("Grandparents",
+                "Eldest Uncle"), so it stays for everyone.
+
+                🔑 TEA-CEREMONY ORDER IS NOT. This block used to say "Shown to all
+                events — harmless when unused", and it was not harmless: the owner
+                found it on his CATHOLIC wedding and asked why a Chinese-wedding
+                field was there. A field that cannot apply is not neutral chrome —
+                it is a question the host has to rule out.
+
+                Gated on `isChineseWedding`, which matches Chinese as the primary
+                rite OR as the overlay on another rite (the Tsinoy church-plus-tea
+                case). Fails CLOSED: if the ceremony read is refused it degrades to
+                null and the field hides, because showing it on every event is the
+                reported bug. */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
                 id="relation"
@@ -698,15 +717,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 defaultValue={guest.relation ?? ''}
                 placeholder="e.g. Grandparents · Eldest Uncle"
               />
-              <Field
-                id="seniority_rank"
-                label="Tea-ceremony order"
-                type="number"
-                defaultValue={
-                  guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
-                }
-                placeholder="Lower serves first"
-              />
+              {showTeaCeremony ? (
+                <Field
+                  id="seniority_rank"
+                  label="Tea-ceremony order"
+                  type="number"
+                  defaultValue={
+                    guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
+                  }
+                  placeholder="Lower serves first"
+                />
+              ) : null}
             </div>
             {/* Custom tags input RETIRED — owner directive 2026-05-23 PM.
                 Tags now auto-derived from side / group / role / table /

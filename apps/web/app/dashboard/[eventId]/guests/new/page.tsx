@@ -15,6 +15,7 @@ import {
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
@@ -59,6 +60,17 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   // event (owner directive 2026-06-03) — not assignable from the guest list,
   // so hide them from the role picker entirely.
   const roleSet = await resolveRoleSetForEvent(eventId);
+
+  // Chinese/Tsinoy-only surfaces. Matches the guest DETAIL page's gate exactly —
+  // the two screens edit the same columns, so a field offered on one and hidden
+  // on the other is its own bug. Reads BOTH ceremony columns: the common Tsinoy
+  // case is a church wedding with the tea ceremony as the overlay rite.
+  const { data: ceremonyRow } = await supabase
+    .from('events')
+    .select('ceremony_type, secondary_ceremony_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const showTeaCeremony = isChineseWedding(ceremonyRow);
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
@@ -151,22 +163,24 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           />
         </div>
 
-        {/* Tea-ceremony serving order (Chinese / Tsinoy weddings) — optional for
-            every guest; only the tea-ceremony helper reads them. Relation is
-            free text; the order is the within-side serve sequence (lower serves
-            first). Harmless for non-Chinese events. */}
+        {/* Relationship is useful at any wedding and stays for everyone.
+            Tea-ceremony order is Chinese/Tsinoy-only — it used to be shown
+            everywhere as "harmless for non-Chinese events", and the owner found
+            it on his Catholic wedding. Same gate as the detail page. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             id="relation"
             label="Relationship"
             placeholder="e.g. Grandparents · Eldest Uncle"
           />
-          <Field
-            id="seniority_rank"
-            label="Tea-ceremony order"
-            type="number"
-            placeholder="Lower serves first"
-          />
+          {showTeaCeremony ? (
+            <Field
+              id="seniority_rank"
+              label="Tea-ceremony order"
+              type="number"
+              placeholder="Lower serves first"
+            />
+          ) : null}
         </div>
 
         <div className="space-y-1.5">

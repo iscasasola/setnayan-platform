@@ -33,3 +33,29 @@ the rule carrying `overflow` is four lines later in a media query. It now scans
 every block. Sabotage-verified: reverting clip→hidden turns it red.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(guests): the page stops showing what cannot apply
+
+**Tea-ceremony order is Chinese/Tsinoy-only now.** The owner found it on his
+CATHOLIC wedding. The block's own comment said "Shown to all events — harmless
+when unused", and it was not harmless: a field that cannot apply is not neutral
+chrome, it is a question the host has to rule out.
+
+Gated on the existing `isChineseWedding` predicate — which matches Chinese as
+the PRIMARY rite or as the OVERLAY on another (the Tsinoy church-plus-tea case),
+so the gate required widening the event read to `secondary_ceremony_type`.
+Reading only the primary would have hidden the field from exactly the couples
+who need it. Applied on BOTH the detail page and `/guests/new`: the two screens
+edit the same column, so offering it on one and hiding it on the other is its
+own bug. `relation` ("Grandparents", "Eldest Uncle") is useful at any wedding
+and stays for everyone.
+
+**Group chips follow the side lens.** Owner, verbatim: "groups will be filtered
+depending on what side as well. so when i press team groom, it will only show
+groups of the groom". Groups already carry `team_side`; a roster with a "Family"
+and a "Relatives" on each side showed all four chips under every lens, telling
+them apart only by a dot. A 'both'-sided group shows under either lens, and the
+ACTIVE group is always kept — otherwise switching side hides the chip while its
+filter stays applied, leaving the roster narrowed by something invisible.
+
+SPEC IMPACT: None.

@@ -1426,6 +1426,20 @@ function SummaryFacetBar({
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
 
+  // Group chips for the side the host is standing in (owner 2026-09-14:
+  // "when i press team groom, it will only show groups of the groom"). A
+  // 'both'-sided group belongs to either lens; the ACTIVE group is always kept
+  // so switching side can never hide a chip whose filter is still applied.
+  const groupsForSide =
+    teamActive === 'all'
+      ? groups
+      : groups.filter(
+          (g) =>
+            g.team_side === teamActive ||
+            g.team_side === 'both' ||
+            g.group_id === currentGroupId,
+        );
+
   const responded = stats.total - stats.pending;
   const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
   const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
@@ -1609,14 +1623,25 @@ function SummaryFacetBar({
           ))}
         </FacetRow>
 
+        {/* Owner 2026-09-14: "groups will be filtered depending on what side as
+            well. so when i press team groom, it will only show groups of the
+            groom". Groups already carry `team_side`, and a roster with a
+            "Family" on each side showed BOTH chips under every lens — two
+            identical-looking pills the host had to tell apart by a dot.
+
+            'both'-sided groups always show: they belong to whichever side you
+            are standing in. And the ACTIVE group always shows even when it does
+            not match the lens — otherwise switching side would hide the chip
+            while its filter stayed applied, leaving a roster narrowed by
+            something invisible. */}
         <FacetRow label="Group">
           <GroupsSidebar
             eventId={eventId}
-            groups={groups}
+            groups={groupsForSide}
             currentGroupId={currentGroupId}
             layout="inline"
             hrefByGroupId={Object.fromEntries(
-              groups.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
+              groupsForSide.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
             )}
           />
         </FacetRow>

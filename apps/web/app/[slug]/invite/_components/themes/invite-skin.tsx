@@ -1,5 +1,6 @@
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { abacaSkin } from './abaca';
 import { capizSkin } from './capiz';
 import { galeriyaSkin } from './galeriya';
 import { velvetSkin } from './velvet';
@@ -27,6 +28,8 @@ export function inviteSkin(theme: InviteThemeId, input: InviteSkinInput): DoorSk
       return velvetSkin(input);
     case 'galeriya':
       return galeriyaSkin(input);
+    case 'abaca':
+      return abacaSkin(input);
     default:
       return undefined;
   }

@@ -102,7 +102,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     tier: 'pro',
     feels: ['rustic', 'boho'],
     opening: 'four-flap',
-    ready: false,
+    ready: true,
     blurb: 'Your photo printed on kraft, a stamped date, the steps as tags on twine.',
   },
 };

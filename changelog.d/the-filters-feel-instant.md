@@ -201,3 +201,28 @@ a contact-link concern, and it belongs in its own PR.
 
 SPEC IMPACT: Rule 1 is now scoped by owner ruling 2026-09-14 — recorded in
 GUEST_CONTACT_BILL's docblock with his verbatim words.
+
+## 2026-09-14 · fix(guests): the VIEW lenses fit the event, not just the wedding
+
+Owner: "this guestlist works for weddings. but does not apply to other events."
+
+`viewFiltersFor` only ever asked Muslim-or-Catholic. It never asked whether the
+event was a WEDDING at all — so a birthday, whose role set offers
+guest/host/vip/family/helper and nothing else, was still offered "Groomsmen",
+"Principal Sponsors", "Bearers & Flower Girl" and "Officiants & Readers". Every
+one filtered to an empty roster, because no birthday guest can hold those roles.
+Four dead controls on a live page.
+
+🔑 DERIVED, NOT HAND-LISTED. A lens now survives only if the event's own
+`offeredRoles` contains a role in its group. A hand-kept "wedding-only" set is
+exactly what produced this, and a second one would reproduce it — this way a
+future event type gets the right lenses the day it is added, with nobody
+editing a list.
+
+This was PRE-EXISTING, not introduced by the Groomsmen/Bridesmaids split — the
+split just made it four wrong lenses instead of three.
+
+`the-lenses-fit-the-event.test.ts` pins it, including a vacuity check: a
+derivation over an empty role list would pass every other assertion forever.
+
+SPEC IMPACT: None.

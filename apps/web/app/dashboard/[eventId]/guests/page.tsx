@@ -31,9 +31,11 @@ import {
 } from '@/lib/guests';
 import {
   filterByRoleGroup,
+  roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
 } from '@/lib/role-groups';
+import { resolveRoleSet } from '@/lib/role-sets';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
@@ -148,10 +150,29 @@ function viewFiltersFor(
   roleSetKey: string | null | undefined,
 ): { key: string; label: string }[] {
   const isMuslim = roleSetKey === 'wedding_muslim';
+
+  // 🔑 A LENS THE EVENT HAS NO ROLES FOR IS NOT A LENS. Owner 2026-09-14:
+  // "this guestlist works for weddings. but does not apply to other events."
+  // This function only ever asked Muslim-or-Catholic, so a BIRTHDAY — whose
+  // role set offers guest/host/vip/family/helper and nothing else — was still
+  // shown "Groomsmen", "Principal Sponsors" and "Bearers & Flower Girl". Every
+  // one of them filters to an empty roster, because no birthday guest can hold
+  // those roles.
+  //
+  // DERIVED, NOT HAND-LISTED: a lens survives only if this event's role set
+  // actually offers at least one role in its group. That answer comes from
+  // `resolveRoleSet(...).offeredRoles`, so a future event type gets the right
+  // lenses the day it is added — and a hand-kept "wedding-only" list, which is
+  // what produced this, cannot drift again.
+  const offered = resolveRoleSet(roleSetKey).offeredRoles;
+  const groupsWithRoles = new Set(offered.map((r) => roleGroupOf(r)));
+
   return ALL_VIEW_FILTERS.filter((f) => {
+    // 'all' is not a role group; it is always meaningful.
+    if (f.key === 'all') return true;
     if (f.key === 'muslim_principals') return isMuslim;
-    if (CATHOLIC_ONLY_VIEW_FILTERS.has(f.key)) return !isMuslim;
-    return true;
+    if (CATHOLIC_ONLY_VIEW_FILTERS.has(f.key) && isMuslim) return false;
+    return groupsWithRoles.has(f.key as ReturnType<typeof roleGroupOf>);
   });
 }
 

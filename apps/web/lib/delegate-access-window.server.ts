@@ -15,7 +15,11 @@ import { permissionsWithinWindow } from './delegate-access-window';
  * used keeps both the real client and the fake one valid.
  */
 type QueryableClient = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Shape copied verbatim from `AdvanceClients` in run-of-show-advance.ts,
+  // including the bare `any`: this project does not configure
+  // `@typescript-eslint/no-explicit-any`, so a disable comment for it is
+  // itself a lint ERROR ("Definition for rule … was not found"). Matching the
+  // existing declaration is both correct and the thing CI accepts.
   from: (table: string) => any;
 };
 

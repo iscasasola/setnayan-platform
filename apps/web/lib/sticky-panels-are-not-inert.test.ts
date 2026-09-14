@@ -18,15 +18,16 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
-// 🪤 STRIP COMMENTS FIRST. The fix's own explanatory comment names
-// `.sn-inspector-panel` and the word `hidden`, so a matcher run over the raw
-// file latches onto the PROSE instead of the rule — this guard failed on its
-// own documentation before this line existed.
-const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  '',
-);
+// 🪤 STRIP COMMENTS FIRST — with the repo's ONE stripper, never a local regex.
+// The fix's own explanatory comment names `.sn-inspector-panel` and the word
+// `hidden`, so a matcher run over the raw file latches onto the PROSE instead
+// of the rule; this guard failed on its own documentation before this line
+// existed. The hand-rolled `/\/\*[\s\S]*?\*\//g` version that was here first is
+// exactly what `lint one comment stripper` exists to catch: `/*` inside a
+// string opens a comment that never existed and deletes real code.
+const css = stripComments(readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8'));
 
 /**
  * EVERY declaration block for a selector, not the first.

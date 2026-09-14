@@ -16,6 +16,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
@@ -65,11 +66,24 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   // the two screens edit the same columns, so a field offered on one and hidden
   // on the other is its own bug. Reads BOTH ceremony columns: the common Tsinoy
   // case is a church wedding with the tea ceremony as the overlay rite.
-  const { data: ceremonyRow } = await supabase
+  const { data: ceremonyRow, error: ceremonyRowError } = await supabase
     .from('events')
     .select('ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  // ⚠ BIND THE ERROR. This read decides whether a field EXISTS, so a refusal
+  // that degrades to null states an absence ("not a Chinese wedding") that was
+  // never measured. Logged rather than thrown — the form must still render —
+  // but the refusal is now visible instead of being indistinguishable from a
+  // Catholic wedding.
+  if (ceremonyRowError) {
+    logQueryError(
+      'NewGuestPage.ceremonyRow',
+      ceremonyRowError,
+      { eventId },
+      'graceful_degrade',
+    );
+  }
   const showTeaCeremony = isChineseWedding(ceremonyRow);
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),

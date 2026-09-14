@@ -46,6 +46,7 @@
  * `lib/delegate-areas.ts` before choosing the predicate.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { applyDelegateAccessWindow } from './delegate-access-window.server';
 import { resolveAreaLevel, type AreaLevel, type ModeratorPermissions } from './delegate-areas';
 
 /** What a surface is allowed to do with the couple's budget target. */
@@ -130,9 +131,25 @@ export async function resolveBudgetVisibility(
   // error is what separates "definitely not the couple" from "we could not
   // tell", and only the first of those may lead to a refusal.
   const isCoupleMember: boolean | null = memberRes?.error ? null : Boolean(memberRes?.data);
-  const delegatePermissions = delegateRes?.error
+  // The access window (owner 2026-09-14). Applied to the RAW row before any
+  // area question is asked of it, so an expired delegate takes the same path a
+  // stranger takes.
+  const delegatePermissionsRaw = delegateRes?.error
     ? undefined
     : ((delegateRes?.data?.permissions_json ?? null) as ModeratorPermissions | null);
+
+  // ⚠ `undefined` means "we could not tell" here and is NOT the same as null —
+  // the visibility rule below distinguishes them. So the window is applied only
+  // to a row we actually read; an unread row stays unread.
+  const delegatePermissions =
+    delegatePermissionsRaw === undefined
+      ? undefined
+      : await applyDelegateAccessWindow(
+          supabase,
+          eventId,
+          delegatePermissionsRaw,
+          isCoupleMember === true,
+        );
 
   return budgetVisibilityFor({ isCoupleMember, delegatePermissions });
 }

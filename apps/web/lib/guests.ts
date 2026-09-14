@@ -666,6 +666,42 @@ export function guestDisplayName(
   return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
 }
 
+/**
+ * The guest's FULL FORMAL name — "Atty. Ma. Teresita Sacdalan Sison-Baluis Jr."
+ *
+ * ⚠ NOT a replacement for `guestDisplayName`, and the difference is deliberate.
+ * They answer two different questions, and 83 call sites depend on the short
+ * one: seating cards, QR labels, the caterer export, the print routes, the
+ * Patiktok booth. Widening THAT would push a five-part name onto a printed
+ * place card sized for two, so the formal name is opt-in per surface.
+ *
+ *   guestDisplayName  → "Claire Buanhog"              (chips, cards, labels)
+ *   guestFormalName   → "Ms. Claire Estoras Buanhog"  (the roster, the detail
+ *                                                      header, invitations)
+ *
+ * An explicit `display_name` still wins in both: a host who typed a display
+ * name chose it on purpose, and a title must not override that choice.
+ */
+export function guestFormalName(
+  guest: Pick<
+    GuestRow,
+    'display_name' | 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix'
+  >,
+): string {
+  const chosen = guest.display_name?.trim();
+  if (chosen) return chosen;
+  return [
+    guest.name_prefix,
+    guest.first_name,
+    guest.middle_name,
+    guest.last_name,
+    guest.name_suffix,
+  ]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
 export function guestInitials(guest: GuestRow): string {
   const first = guest.first_name.charAt(0).toUpperCase();
   const last = guest.last_name.charAt(0).toUpperCase();

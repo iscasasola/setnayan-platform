@@ -3507,7 +3507,14 @@ html.dark {
     flex: 0 0 0px;
     align-self: stretch;
     margin-left: 0;
-    overflow: hidden;
+    /* `clip`, NOT `hidden`. Both clip the panel while flex-basis animates open,
+       but `hidden` makes this rail a SCROLL CONTAINER — and a `position: sticky`
+       child cannot stick to the viewport from inside one, so
+       `.sn-inspector-panel`'s `position: sticky; top: 1.25rem` was declared and
+       INERT: the panel scrolled away with the roster. `clip` clips without
+       creating a scroll container, so the sticky finally applies.
+       (Reported 2026-09-14: "this show persist even when scrolled down".) */
+    overflow: clip;
     opacity: 0;
     transition:
       flex-basis var(--sn-dur-elem) var(--sn-ease),

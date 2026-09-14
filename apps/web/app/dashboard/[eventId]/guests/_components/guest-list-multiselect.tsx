@@ -59,66 +59,26 @@ import {
 // Role groupings for the bulk-assign dropdown. Keeps the spec-locked
 // 20-value role enum but presents it grouped so hosts can scan quickly.
 // Mirrors the sidebar VIEW_FILTERS ordering for muscle-memory consistency.
-export type RoleSection = { label: string; roles: GuestRole[] };
-// Exported so the mobile Assign bottom sheet (MobileGuestCarousel) shows the
-// SAME grouped role picker as the desktop SelectionBar — single source of
-// truth for the spec-locked 20-value role enum.
-export const BULK_ROLE_SECTIONS: RoleSection[] = [
-  // Bride & groom omitted (owner directive 2026-06-03) — the couple is set at
-  // event creation and is the foundation of the event; they're renamable but
-  // not a role you bulk-assign, so they don't appear in the role picker.
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  // 4 roles for Tier-1 seating auto-fill per iteration 0008.
-  {
-    label: ROLE_GROUP_LABELS.vip_family,
-    roles: [
-      'bride_parents',
-      'groom_parents',
-      'bride_immediate_family',
-      'groom_immediate_family',
-    ],
-  },
-  {
-    label: ROLE_GROUP_LABELS.wedding_party,
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'bridesmaid', 'groomsman'],
-  },
-  { label: ROLE_GROUP_LABELS.principal_sponsors, roles: ['principal_sponsor'] },
-  {
-    label: ROLE_GROUP_LABELS.secondary_sponsors,
-    roles: ['candle_sponsor', 'veil_sponsor', 'cord_sponsor', 'coin_sponsor'],
-  },
-  {
-    label: ROLE_GROUP_LABELS.bearers_flower_girl,
-    roles: ['ring_bearer', 'bible_bearer', 'coin_bearer', 'flower_girl'],
-  },
-  {
-    label: ROLE_GROUP_LABELS.officiants,
-    roles: ['officiant', 'reader_lector', 'soloist_musician'],
-  },
-  { label: 'Generic', roles: ['guest'] },
-];
+// 🔑 THE PICKER'S VOCABULARY MOVED TO lib/bulk-role-vocabulary.ts, and the
+// server action that validates Apply now reads THE SAME export. It used to be
+// a second hand-maintained literal in groups-actions.ts that had drifted into
+// a near-inverse of this one — "Bride's Parents" was offered here and rejected
+// there. Re-exported so existing importers (the mobile Assign sheet) are
+// untouched; do not re-introduce a local copy.
+// Imported for this module's own use AND re-exported for existing importers
+// (the mobile Assign sheet imports both from here). `export … from` alone
+// re-exports without binding the names locally, which is why both lines exist.
+import {
+  BULK_ROLE_SECTIONS,
+  bulkRoleSectionsFor,
+  type RoleSection,
+} from '@/lib/bulk-role-vocabulary';
 
-// Importance-tier sections for the guest list (owner 2026-06-05). DESKTOP is a
-// row/table layout (owner: "guest on desktop mode will be row/table style not
-// grid style") that reuses these sections only for its tier header rows. MOBILE
-// is a tiered photo grid — the couple shares a 2-up row, special-role tiers
-// (VIP family → officiants) run 2-up, plain guests 3-up (`mobileCols`). Sections
-// render in ROLE_IMPORTANCE order and skip empty tiers.
-
-// Iteration 0053 P4 Unit 5: the bulk-assign role picker is per event type.
-// Wedding → the BULK_ROLE_SECTIONS above VERBATIM (byte-identical). A non-wedding
-// event → a simple set built from its profile's offered roles (resolveRoleSet is
-// a pure, client-safe lookup). Shared by the desktop SelectionBar + the mobile
-// Assign sheet so both pickers stay in lockstep.
-export function bulkRoleSectionsFor(roleSetKey: string | null | undefined): RoleSection[] {
-  if ((roleSetKey ?? 'wedding') === 'wedding') return BULK_ROLE_SECTIONS;
-  const offered = resolveRoleSet(roleSetKey).offeredRoles;
-  const nonGuest = offered.filter((r) => r !== 'guest');
-  const sections: RoleSection[] = [];
-  if (nonGuest.length > 0) sections.push({ label: 'Roles', roles: nonGuest });
-  sections.push({ label: 'Generic', roles: ['guest'] });
-  return sections;
-}
+export {
+  BULK_ROLE_SECTIONS,
+  bulkRoleSectionsFor,
+  type RoleSection,
+} from '@/lib/bulk-role-vocabulary';
 
 type SectionGroup = RoleGroup | 'guest';
 

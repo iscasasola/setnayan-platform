@@ -58,3 +58,29 @@ three optional parts gets its first/last re-parsed, so a path nobody
 remembered to wire — "add from your people" today, any future one tomorrow —
 still cannot store a title as a given name. Callers that pass parts
 explicitly are trusted verbatim.
+
+## 2026-09-14 · fix(guests): Bride's/Groom's Parents can actually be bulk-assigned
+
+The bulk "Assign role…" picker and the server action that validates Apply were
+TWO hand-maintained lists that had drifted into near-inverses:
+
+- the picker (`BULK_ROLE_SECTIONS`) offered the four VIP-family roles —
+  bride_parents, groom_parents, bride_immediate_family, groom_immediate_family
+  (owner directive 2026-05-23, PR #424) — and omitted bride/groom;
+- the validator (`WEDDING_BULK_ROLE_VALUES`) rejected all four and ALLOWED
+  bride/groom.
+
+So "Bride's Parents" was selectable and un-appliable. Both now read one export,
+`lib/bulk-role-vocabulary.ts`; the stale literal is deleted.
+
+🔑 Each half was internally consistent and the PAIR was wrong — no test of
+either half alone could catch it. `bulk-role-vocabulary.test.ts` tests the
+PAIR, and was sabotage-verified: removing bride_parents turns 2 tests red,
+re-adding bride turns 1 red.
+
+Also: the error banner rendered `decodeURIComponent(search.error)` directly, so
+the host was shown the literal token `invalid_role`. Known codes now map to a
+sentence; action-authored prose still passes through; an unmapped bare token
+never reaches the screen.
+
+SPEC IMPACT: None.

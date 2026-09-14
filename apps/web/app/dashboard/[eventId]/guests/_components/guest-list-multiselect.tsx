@@ -3,7 +3,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDown, Link2 as LinkIcon, Link2Off, Trash2, X } from 'lucide-react';
+// Union of both sides of a merge: Mail/Phone are the contact-column icons,
+// Link2/Link2Off are the pairing affordances. Neither replaced the other.
+import {
+  ChevronDown,
+  Link2 as LinkIcon,
+  Link2Off,
+  Mail,
+  Phone,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
@@ -95,7 +105,8 @@ const SECTION_CONFIG: {
   // weddings; the section is filtered out when empty, so it never shows on a
   // Catholic/civil wedding. Ranked just under VIP family to mirror ROLE_IMPORTANCE.
   { group: 'muslim_principals', label: ROLE_GROUP_LABELS.muslim_principals, mobileCols: 'grid-cols-2' },
-  { group: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party, mobileCols: 'grid-cols-2' },
+  { group: 'groomsmen', label: ROLE_GROUP_LABELS.groomsmen, mobileCols: 'grid-cols-2' },
+  { group: 'bridesmaids', label: ROLE_GROUP_LABELS.bridesmaids, mobileCols: 'grid-cols-2' },
   { group: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors, mobileCols: 'grid-cols-2' },
   { group: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors, mobileCols: 'grid-cols-2' },
   { group: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl, mobileCols: 'grid-cols-2' },
@@ -370,7 +381,13 @@ function DesktopRow({
           >
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
-              <p className="truncate font-medium text-ink">
+              {/* `title` so a name the column still cannot fit is RECOVERABLE
+                  on hover. Truncation is right for a dense roster; silently
+                  losing half a guest's name is not. */}
+              <p
+                className="truncate font-medium text-ink"
+                title={guestFullName(guest) ?? guestDisplayName(guest)}
+              >
                 {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
               {guest.plus_one_allowed ? (
@@ -447,8 +464,51 @@ function DesktopRow({
           hasPlusOne={guest.plus_one_allowed}
         />
       </td>
-      <td className="px-3 py-2.5 text-xs text-ink/60">
-        {guest.email ?? guest.mobile ?? '—'}
+      {/* Owner 2026-09-14: "contact number should just show icon to call." The
+          raw +63 string was also the widest value in the row, in the column
+          that was squeezing the NAME.
+
+          🔑 THESE LINKS ARE BILLED, NOT SNUCK IN. `no-door-out-of-the-app`
+          Rule 1 forbids a couple-facing surface from computing a
+          `tel:`/`mailto:`, because a couple who phones a SHOP books
+          off-platform. It caught this cell, correctly. Asked, the owner scoped
+          the rule the same day: "only for the couple and if coordinator is
+          given access."
+
+          A GUEST is not a shop — no booking fee, no in-app booking to protect,
+          and the couple typed the number in themselves. And the scope is ACCESS:
+          this file renders only inside /dashboard/[eventId]/guests, which is
+          already gated by `guest_list` access, so a coordinator without that
+          grant never reaches it. The exemption is one exact line in
+          GUEST_CONTACT_BILL and is counted — a THIRD link here fails CI. */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1.5">
+          {guest.mobile ? (
+            <a
+              href={`tel:${guest.mobile.replace(/[^\d+]/g, '')}`}
+              title={`Call ${guest.mobile}`}
+              aria-label={`Call ${guestFullName(guest) ?? guestDisplayName(guest)} on ${guest.mobile}`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
+            >
+              <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+            </a>
+          ) : null}
+          {guest.email ? (
+            <a
+              href={`mailto:${guest.email}`}
+              title={`Email ${guest.email}`}
+              aria-label={`Email ${guestFullName(guest) ?? guestDisplayName(guest)} at ${guest.email}`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
+            >
+              <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
+            </a>
+          ) : null}
+          {/* An em dash, not an empty cell: "no contact yet" is a fact the host
+              acts on, and a blank reads as a rendering failure. */}
+          {!guest.mobile && !guest.email ? (
+            <span className="text-xs text-ink/40">—</span>
+          ) : null}
+        </span>
       </td>
     </tr>
   );
@@ -742,6 +802,7 @@ export function GuestListMultiselect({
             showNewGroupForm={showNewGroupForm}
             setShowNewGroupForm={setShowNewGroupForm}
             bulkRoleSections={bulkRoleSections}
+            nameById={partnerNameById}
           />
         </div>
       ) : null}
@@ -759,7 +820,20 @@ export function GuestListMultiselect({
           rows stay opaque (hairline dividers, translucent hover/selected tints)
           so hundreds of rows never each carry a blur layer. */}
       <div
-        className="hidden overflow-hidden rounded-tile border sm:block"
+        /* 🪤 `lg`, NOT `sm` — AND `overflow-x-auto`, NOT `hidden`.
+           Three breakpoints described ONE decision and had drifted apart: the
+           table showed from `sm` (640px), the card grid hid from `sm`, and the
+           bulk-action bar only appeared at `lg` (1024px). So between 640 and
+           1023 a host got the seven-column table AND no bulk actions at all —
+           and the table, clipped by `overflow-hidden`, OVERLAPPED its own
+           columns (the owner's phone showed "~Table 3" printed on top of a
+           mobile number).
+           The directive above this component already says phones AND TABLETS
+           use the carousel's Customize + Assign sheets, so `lg` is what that
+           sentence always meant. `overflow-x-auto` is belt-and-braces: at any
+           width the table now SCROLLS instead of stacking cells on each
+           other. */
+        className="hidden overflow-x-auto rounded-tile border lg:block"
         style={{
           background: 'var(--sn-glass-bg)',
           borderColor: 'var(--sn-glass-line)',
@@ -803,13 +877,23 @@ export function GuestListMultiselect({
                   Role keeps the largest share of the six because it renders
                   CHIPS, not text, and was widest for that reason. The extra
                   comes from Contact, one line of `text-xs`. */}
+              {/* 🔑 NAME CARRIES THE LONGEST VALUE IN THE ROW and gets what is
+                  left, so every percentage below is taken FROM it. The other six
+                  columns claimed 56%, and with the avatar and quick-view button
+                  inside the cell the name text measured 96px on the owner's
+                  screen — "Indalecio Casasola" was already cut to "Indalecio
+                  Casa…" BEFORE full names existed. A formal name is longer
+                  still ("Ms. Claire Estoras Buanhog"), so shipping the whole
+                  name into an unchanged column would have shown LESS of it than
+                  before. Trimmed to 46% total; the chips in those columns are
+                  short and fixed-width, so they lose nothing. */}
               <th className="px-3 py-2.5 font-medium">Name</th>
-              <th className="w-[7%] px-3 py-2.5 font-medium">Side</th>
-              <th className="w-[15%] px-3 py-2.5 font-medium">Role</th>
-              <th className="w-[10%] px-3 py-2.5 font-medium">Groups</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">RSVP</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">Seat</th>
-              <th className="w-[8%] px-3 py-2.5 font-medium">Contact</th>
+              <th className="w-[6%] px-3 py-2.5 font-medium">Side</th>
+              <th className="w-[12%] px-3 py-2.5 font-medium">Role</th>
+              <th className="w-[9%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[7%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[7%] px-3 py-2.5 font-medium">Seat</th>
+              <th className="w-[5%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -865,7 +949,10 @@ export function GuestListMultiselect({
           carries the reactive SeatChip + one-tap RSVP cycle, and the carousel's
           density toggle (`?density=list`) swaps the photo grid for a compact
           list. */}
-      <div className="space-y-5 sm:hidden">
+      {/* Card grid — phones AND tablets, matching the bulk bar's `lg` and the
+          2026-06-03 directive. See the table's note above for why this is not
+          `sm:hidden` any more. */}
+      <div className="space-y-5 lg:hidden">
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (
@@ -957,6 +1044,7 @@ function SelectionBar({
   groups,
   onClear,
   showNewGroupForm,
+  nameById,
   setShowNewGroupForm,
   bulkRoleSections,
 }: {
@@ -965,6 +1053,8 @@ function SelectionBar({
   selectedIds: string[];
   groups: GuestGroupWithCount[];
   onClear: () => void;
+  /** guest_id → display name, so the bar can SAY who is selected. */
+  nameById: Record<string, string>;
   showNewGroupForm: boolean;
   setShowNewGroupForm: (v: boolean) => void;
   bulkRoleSections: RoleSection[];
@@ -1022,6 +1112,37 @@ function SelectionBar({
          *  would be guessing which two the host meant. The server action
          *  re-checks the count — this is the affordance, not the guard. */}
         <PairSelectedForm eventId={eventId} selectedIds={selectedIds} count={count} />
+      </div>
+
+      {/* 🔑 WHO is selected, not just HOW MANY.
+          Owner 2026-09-14: "when selecting someone, can we place them
+          persistent? so it will be easier to see which ones we are selecting?"
+          Pairing is the case that forces it — the two people you pair are
+          usually far apart in a long roster, so the tinted rows that say who
+          you picked are off-screen from each other AND from this bar. A count
+          alone cannot be checked against intent; a name can.
+          Each chip removes just that guest, so a wrong pick costs one click
+          instead of Clear selection and starting over. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink/[0.07] pt-2">
+        {selectedIds.map((id) => (
+          <span
+            key={id}
+            className="inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-xs text-ink/75"
+          >
+            {/* A selected guest the current filter hides still has to be
+                nameable — otherwise narrowing the lens would turn part of your
+                own selection into blanks. */}
+            <span className="max-w-[18ch] truncate">{nameById[id] ?? 'Not in this view'}</span>
+            <button
+              type="button"
+              onClick={() => guestSelection.toggle(id)}
+              aria-label={`Remove ${nameById[id] ?? 'this guest'} from the selection`}
+              className="inline-flex items-center rounded-full p-0.5 text-ink/40 hover:bg-ink/10 hover:text-ink"
+            >
+              <X aria-hidden className="h-3 w-3" strokeWidth={2.2} />
+            </button>
+          </span>
+        ))}
       </div>
 
       {showNewGroupForm ? (

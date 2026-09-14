@@ -1,4 +1,5 @@
 import 'server-only';
+import { applyDelegateAccessWindow } from './delegate-access-window.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   resolveAreaLevel,
@@ -104,8 +105,15 @@ export async function resolveBroadcastAuthority(
       .limit(1)
       .maybeSingle();
     if (modRow) {
-      const perms = (modRow as { permissions_json: ModeratorPermissions | null })
-        .permissions_json;
+      // The access window (owner 2026-09-14): a delegate seven days past the
+      // event is not a coordinator any more, so they cannot broadcast either.
+      // The couple returned above, so `isCouple` is false by construction here.
+      const perms = await applyDelegateAccessWindow(
+        supabase,
+        eventId,
+        (modRow as { permissions_json: ModeratorPermissions | null }).permissions_json,
+        false,
+      );
       if (resolveAreaLevel(perms, 'schedule') === 'edit') {
         return { canSend: true, role: 'coordinator' };
       }

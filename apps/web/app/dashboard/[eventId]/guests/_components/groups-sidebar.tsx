@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { MoreHorizontal, Plus, Users, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -64,6 +65,7 @@ export function GroupsSidebar({
   layout = 'rail',
 }: Props) {
   const [showNew, setShowNew] = useState(false);
+  const router = useRouter();
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
 
   if (layout === 'inline') {
@@ -83,18 +85,30 @@ export function GroupsSidebar({
       <>
         {groups.map((g) => {
           const isCurrent = currentGroupId === g.group_id;
+          const href =
+            hrefByGroupId[g.group_id] ?? `/dashboard/${eventId}/guests?group=${g.group_id}`;
+          // Warm the payload while the pointer is still travelling, the same
+          // way the Side/RSVP/View pills do — a group click is the same full
+          // server navigation, and the roster query is 1.2 ms, so the wait is
+          // the round trip. Nothing to warm for the group already applied.
+          const warm = () => {
+            if (!isCurrent) router.prefetch(href);
+          };
           return (
             <span
               key={g.group_id}
               className="group/pill relative inline-flex items-center"
             >
               <Link
-                href={
-                  hrefByGroupId[g.group_id] ??
-                  `/dashboard/${eventId}/guests?group=${g.group_id}`
-                }
+                href={href}
                 aria-current={isCurrent ? 'true' : undefined}
                 title={`${g.label} · ${TEAM_SIDE_LABELS[g.team_side]}`}
+                onMouseEnter={warm}
+                onFocus={warm}
+                // Off by default: every group chip is on screen at once, so
+                // viewport prefetching would fire a render per group and slow
+                // the very paint the host is waiting for.
+                prefetch={false}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
                   isCurrent
                     ? 'border-terracotta bg-terracotta/10 font-semibold text-terracotta-700'

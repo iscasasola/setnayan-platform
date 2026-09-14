@@ -177,6 +177,51 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
  * value that is never fetched cannot leak by any route, so the read itself is
  * what needs a reason. Each line below is server-side and says why.
  */
+/**
+ * GUEST_CONTACT_BILL — Rule 1. The ONLY files allowed to compute a contact
+ * scheme, with the exact number of them.
+ *
+ * 🔑 RULE 1 HAD NO BILL UNTIL 2026-09-14, AND THAT WAS DELIBERATE — zero
+ * tolerance so nobody could argue a case into an exemption. It has one now
+ * because the OWNER scoped the rule, not because a case was argued.
+ *
+ * Owner, 2026-09-14, asked directly whether tap-to-call on a GUEST should be
+ * allowed given this rule: **"only for the couple and if coordinator is given
+ * access."**
+ *
+ * The distinction the original rule could not express: it exists to stop a
+ * couple reaching a SHOP outside the app, because the booking fee is charged on
+ * sourced clients. A wedding GUEST is not a shop. There is no fee on a
+ * bridesmaid, no in-app booking to protect, and the couple typed that number in
+ * themselves. The harm model never reached this cell — but the rule was written
+ * with no exemption mechanism on purpose, so the first one had to be the
+ * owner's call.
+ *
+ * ⚠ THE SCOPE IS ACCESS, NOT SUBJECT. A guest contact is billable ONLY on a
+ * surface already gated to the couple or to a coordinator holding
+ * `guest_list` access (`resolveAreaLevel(perms, 'guest_list') !== null` —
+ * lib/delegate-areas.ts). A guest-facing or public surface printing the same
+ * field is still Rule 1 and still fails: the bill is by FILE, and no public
+ * entry point may appear in it.
+ *
+ * Exact in both directions, like the other bills: a new file fails, and a file
+ * that stops computing one fails until its line is deleted.
+ */
+const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx',
+    {
+      count: 2,
+      why:
+        'The roster contact column: one tel: and one mailto: for a GUEST of this ' +
+        'event, not a shop. Owner 2026-09-14 scoped Rule 1 to allow it "only for ' +
+        'the couple and if coordinator is given access" — and this file renders ' +
+        'only inside /dashboard/[eventId]/guests, which is already gated by ' +
+        'guest_list access, so a coordinator without that grant never reaches it.',
+    },
+  ],
+]);
+
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
     'app/dashboard/[eventId]/vendors/packages/actions.ts',
@@ -398,8 +443,33 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
 
 test('Rule 1 — no couple-facing or public surface computes a mailto:/tel:/sms:/chat-app link', () => {
   const hits: string[] = [];
+  const billedSeen = new Map<string, number>();
   for (const [f, src] of STRIPPED) {
-    for (const h of dynamicSchemes(src)) hits.push(`${f}  →  ${h}`);
+    const found = dynamicSchemes(src);
+    const billed = GUEST_CONTACT_BILL.get(f);
+    if (billed) {
+      billedSeen.set(f, found.length);
+      // A billed file may carry EXACTLY what its line says. One more is a new
+      // exit nobody reasoned about, so it fails like any other.
+      if (found.length !== billed.count) {
+        hits.push(
+          `${f}  →  billed for ${billed.count} contact link(s), found ${found.length}. ` +
+            `Reason on file: ${billed.why}`,
+        );
+      }
+      continue;
+    }
+    for (const h of found) hits.push(`${f}  →  ${h}`);
+  }
+  // Exact in the other direction too: a bill line that no longer matches real
+  // code is a permission nobody is using, and it must be deleted on purpose.
+  for (const [f, billed] of GUEST_CONTACT_BILL) {
+    if (!billedSeen.has(f)) {
+      hits.push(
+        `${f}  →  billed for ${billed.count} contact link(s) but the file is not ` +
+          'reachable/scanned any more. Delete the GUEST_CONTACT_BILL line.',
+      );
+    }
   }
   assert.deepEqual(
     hits,

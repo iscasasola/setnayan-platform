@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { EventViewer } from './event-viewer';
 import type { ModeratorPermissions } from './delegate-areas';
+import { permissionsWithinWindow } from './delegate-access-window';
 
 // Re-exported so a screen needs one import, not two, and cannot accidentally
 // answer the permission question with its own copy of the rule.
@@ -36,7 +37,7 @@ export async function fetchEventViewer(
   eventId: string,
   userId: string,
 ): Promise<EventViewer> {
-  const [memberRes, delegateRes] = await Promise.all([
+  const [memberRes, delegateRes, eventRes] = await Promise.all([
     supabase
       .from('event_members')
       .select('member_type')
@@ -51,6 +52,15 @@ export async function fetchEventViewer(
       .not('accepted_at', 'is', null)
       .is('removed_at', null)
       .maybeSingle(),
+    // The access WINDOW (owner 2026-09-14: a delegate's access ends seven days
+    // after the event; the couple's never does). Read alongside the other two
+    // rather than after them — it is the same round trip, and a delegate whose
+    // window has closed must not be resolved as a delegate at all.
+    supabase
+      .from('events')
+      .select('event_date, event_end_date, event_date_precision')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
 
   if (memberRes.error) {
@@ -59,10 +69,35 @@ export async function fetchEventViewer(
   if (delegateRes.error) {
     logQueryError('fetchEventViewer.delegate', delegateRes.error, { event_id: eventId }, 'graceful_degrade');
   }
+  if (eventRes.error) {
+    logQueryError('fetchEventViewer.window', eventRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  const isCouple =
+    (memberRes.data as { member_type?: string } | null)?.member_type === 'couple';
+  const ev = eventRes.data as
+    | { event_date?: string | null; event_end_date?: string | null; event_date_precision?: string | null }
+    | null;
 
   return {
-    isCouple: (memberRes.data as { member_type?: string } | null)?.member_type === 'couple',
-    delegatePermissions:
+    isCouple,
+    // ⚠ A REFUSED DATE READ LEAVES THE WINDOW OPEN, and that is the opposite of
+    // this file's other degrade — deliberately. The rest of this function makes
+    // a refused read a STRANGER because showing less than they have is
+    // recoverable. Here the same instinct inverts: `ev` null would mean "no
+    // date", and `delegateAccessHasExpired` treats no date as NOT expired, so a
+    // transient failure cannot lock a coordinator out of a wedding they are
+    // running that week. Being one read late to revoke is recoverable; being
+    // locked out mid-event is not.
+    delegatePermissions: permissionsWithinWindow(
       (delegateRes.data?.permissions_json as ModeratorPermissions | undefined) ?? null,
+      {
+        isCouple,
+        eventDate: ev?.event_date ?? null,
+        eventEndDate: ev?.event_end_date ?? null,
+        precision: ev?.event_date_precision ?? null,
+        now: new Date(),
+      },
+    ),
   };
 }

@@ -58,9 +58,17 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
       'groom_immediate_family',
     ],
   },
+  // Two sections, not one (owner 2026-09-14). Each led by its honour
+  // attendant, matching how the roster now groups them — a picker that still
+  // showed one "Wedding Party" list would disagree with the sections the host
+  // is looking at while they pick.
   {
-    label: ROLE_GROUP_LABELS.wedding_party,
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'bridesmaid', 'groomsman'],
+    label: ROLE_GROUP_LABELS.groomsmen,
+    roles: ['best_man', 'groomsman'],
+  },
+  {
+    label: ROLE_GROUP_LABELS.bridesmaids,
+    roles: ['maid_of_honor', 'matron_of_honor', 'bridesmaid'],
   },
   {
     label: ROLE_GROUP_LABELS.principal_sponsors,

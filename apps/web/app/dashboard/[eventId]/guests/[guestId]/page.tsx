@@ -269,7 +269,14 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // the label lookup; embed via supabase's nested select.
   const { data: seatRow, error: seatRowError } = await supabase
     .from('event_seat_assignments')
-    .select('table_id, event_tables(label)')
+    // 🔴 `table_label`, NOT `label`. There is no `label` column on
+    // `event_tables` — PostgREST answered 42703 and REFUSED THE WHOLE QUERY, so
+    // `seatRow` was null on every render and the warning three lines below
+    // ("A SEATED GUEST READS AS UNSEATED") described live behaviour rather than
+    // a hypothetical. The sibling read in inline-actions.ts had it right the
+    // whole time; this one never did. Found in prod logs 2026-09-14 while
+    // chasing an unrelated report.
+    .select('table_id, event_tables(table_label)')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
@@ -284,8 +291,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
       ? // event_tables embed may come back as object OR array depending
         // on PostgREST's FK resolution; handle both shapes defensively.
         Array.isArray(seatRow.event_tables)
-        ? (seatRow.event_tables[0] as { label?: string } | undefined)?.label ?? null
-        : (seatRow.event_tables as { label?: string }).label ?? null
+        ? (seatRow.event_tables[0] as { table_label?: string } | undefined)?.table_label ?? null
+        : (seatRow.event_tables as { table_label?: string }).table_label ?? null
       : null;
 
   // Custom group memberships — many-to-many via guest_group_memberships

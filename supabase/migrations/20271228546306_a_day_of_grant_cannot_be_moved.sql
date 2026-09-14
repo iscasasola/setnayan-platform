@@ -54,10 +54,21 @@
 -- path is an upsert on the identity triple, which re-writes those columns to the
 -- values they already hold). `current_vendor_booked_event_ids()` admits an event
 -- only while `event_vendors.status` is contracted/deposit_paid/delivered/
--- complete. So the moment a booking is cancelled, that WITH CHECK would refuse
--- the revoke — and the outstanding grant would stay ACTIVE, on a wedding the
+-- complete. So the moment the booking leaves that set, that WITH CHECK refuses
+-- the revoke — and the outstanding grant stays ACTIVE, on a wedding the
 -- shop no longer serves, with nobody able to withdraw it. That trades a dormant
 -- escalation for a live one.
+--
+-- 🔬 MEASURED, not reasoned. The alternative was written into the PGlite replay
+-- and probed two ways a booking realistically ends -- status downgraded to
+-- shortlisted, and the event_vendors row deleted by the couple. Both times:
+--     revoke      -> "new row violates row-level security policy"
+--     revoked_at  -> still NULL
+--     the grantee -> STILL resolved by current_vendor_dayof_grant_event_ids()
+-- (There is no 'cancelled' in vendor_status -- the labels are considering,
+-- shortlisted, contracted, deposit_paid, delivered, complete -- so those two ARE
+-- how a booking ends.) Re-run it by pasting that policy into a scratch migration
+-- and repeating the fixture in a-day-of-grant-cannot-be-moved.db.test.ts.
 --
 -- WITH CHECK also cannot see OLD, so it can express "an event you are booked
 -- on" but never "the event this grant has always named" — which is the actual

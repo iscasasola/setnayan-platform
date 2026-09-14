@@ -9,6 +9,7 @@ import {
   resolveRoleSet,
 } from './role-sets';
 import { roleTier, ROLE_TIER_LABELS } from './seating';
+import { SINGLETON_GUEST_ROLES } from './guests';
 
 // --- resolveRoleSet routing ------------------------------------------------
 test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, everything else → generic', () => {
@@ -175,4 +176,39 @@ test('roleTier with the generic set tiers host/vip→1, family→3, rest→4', (
   assert.equal(roleTier('guest', 'family', g), 3);
   assert.equal(roleTier('helper', 'friends', g), 4);
   assert.equal(roleTier('guest', 'friends', g), 4);
+});
+
+/*
+  ⚖ OWNER RULING 2026-09-14 — "no need to make them 1 each. they can do as much
+  as they want."
+
+  A couple may name as many Best Men, Maids and Matrons of Honour as they like.
+  Cale & Ice already carries two Maids of Honour, and that is correct.
+
+  🔑 THIS GUARD EXISTS BECAUSE THE ABSENCE LOOKS LIKE AN OVERSIGHT. `SINGLETON_GUEST_ROLES`
+  had no test of its contents at all, so adding a role to it went unnoticed — and
+  the obvious "fix" on seeing two Best Men listed on one invitation is to make it
+  one-per-event. It was proposed twice, to the owner, before he ruled against it.
+  Without this, that ruling is indistinguishable from nobody having got round to
+  it.
+*/
+test('⚖ the honour attendants are NOT one-per-event — owner ruling, not an oversight', () => {
+  for (const role of ['best_man', 'maid_of_honor', 'matron_of_honor'] as const) {
+    assert.ok(
+      !SINGLETON_GUEST_ROLES.includes(role),
+      `${role} was made one-per-event. The owner ruled on 2026-09-14 that a couple may have as many as they want ` +
+        '("no need to make them 1 each"). Reverse it only with a newer ruling, and update this test when you do.',
+    );
+  }
+});
+
+test('the singleton list is exactly the roles that are genuinely one-per-event', () => {
+  /* Asserted as a SET so a new singleton cannot be slipped in unnoticed either:
+     the couple, and the three Nikah principals that the marriage contract
+     itself admits only one of. `witness` is deliberately absent — a nikah needs
+     at least two. */
+  assert.deepEqual(
+    [...SINGLETON_GUEST_ROLES].sort(),
+    ['bride', 'groom', 'imam', 'wakil', 'wali'],
+  );
 });

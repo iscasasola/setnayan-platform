@@ -63,6 +63,18 @@ export type GuestRole =
  * Roles that may exist at most once per event. Enforced at the DB layer
  * via partial unique indexes (migration 20260531010000); UI uses this
  * list to filter the role dropdown.
+ *
+ * ⚖ OWNER RULING 2026-09-14 — THE HONOUR ATTENDANTS ARE DELIBERATELY NOT HERE.
+ * Asked whether `best_man` / `maid_of_honor` / `matron_of_honor` should become
+ * one-per-event, the owner: *"no need to make them 1 each. they can do as much
+ * as they want."* A couple may name as many as they like, and a live wedding
+ * already does — Cale & Ice carries two Maids of Honour.
+ *
+ * 🔑 This is a DECISION, not an omission, and that distinction is the whole
+ * reason the comment exists. The absence looks identical either way, and it
+ * reads like an oversight to anyone who has just seen two Best Men on a page —
+ * which is exactly what I proposed twice before asking. `role-sets.test.ts`
+ * fails if any of the three is added.
  */
 export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = [
   'bride',

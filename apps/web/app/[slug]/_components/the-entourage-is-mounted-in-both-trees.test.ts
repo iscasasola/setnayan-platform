@@ -50,3 +50,26 @@ test('the section draws nothing when nobody holds a role', () => {
     'entourage-section must return null on an empty list — no heading over nothing',
   );
 });
+
+/*
+  🔑 A COLUMN THE QUERY NEVER NAMES CANNOT BE PRINTED.
+
+  `personName` can compose a perfect "Atty. Arnaldo M. Espinas" and its unit
+  test can pass forever while the invitation still reads "Arnaldo Espinas" —
+  because the SELECT asked for two of the five parts. That is the whole shape of
+  this defect: the pure half is right, the read is short, and nothing is red.
+  So the read is pinned here, beside the render, not left to the resolver's own
+  test.
+*/
+test('the entourage read asks for all five parts of a name', () => {
+  const src = stripComments(read('app/[slug]/_lib/loaders.ts'));
+  const start = src.indexOf('loadEntourage');
+  assert.ok(start > 0, 'loadEntourage is gone — this guard is pointing at nothing');
+  const select = src.slice(start, start + 1200);
+  for (const column of ['name_prefix', 'first_name', 'middle_name', 'last_name', 'name_suffix']) {
+    assert.ok(
+      select.includes(column),
+      `loadEntourage no longer selects ${column} — that part of every name stops printing, silently`,
+    );
+  }
+});

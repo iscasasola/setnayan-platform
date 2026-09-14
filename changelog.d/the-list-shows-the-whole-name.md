@@ -89,3 +89,30 @@ containing `[eventId]` matches nothing and reads exactly like a pass. Run via
 the repo's `app/**/name.test.ts` glob.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · chore(guests): two sessions wrote one function — collapsed to guestFullName
+
+Another session shipped `guestFullName` in #5492 while this branch carried
+`guestFormalName`. IDENTICAL: same five parts, same printed order, same
+display_name-first rule, same file. Two mechanisms answering one question.
+
+The merge CONFLICTED — which is the good outcome, because it forced a decision
+instead of letting both land silently and drift the first time somebody added a
+part to only one of them.
+
+`guestFullName` survives. It is the better of the two: it returns `null` when
+nothing usable remains, so a caller can DROP a row rather than print an empty
+line, and its parameter accepts a row read straight from PostgREST where the
+`Pick<GuestRow,…>` annotation rejected one.
+
+The roster renders `guestFullName(g) ?? guestDisplayName(g)` — a list row must
+still show something, while the invitation wants the null so it can drop the row.
+
+🔑 What carried over from this branch is the ASSERTION, not the code:
+`guestDisplayName` must stay compact. It feeds **83 call sites** — seating
+cards, QR labels, the caterer export, the print routes, the booth — and the
+tempting simplification is to widen it and delete the other. That would push
+"Atty. Ma. Teresita Sacdalan Sison-Baluis Jr." onto a place card sized for two
+words. `the-roster-prints-the-whole-name.test.ts` fails if anyone tries.
+
+SPEC IMPACT: None.

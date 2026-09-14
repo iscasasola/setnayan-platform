@@ -1411,7 +1411,15 @@ export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
       .from('guests')
-      .select('display_name, first_name, last_name, role, extra_roles')
+      /*
+        🔑 THE FIVE NAME PARTS, NOT TWO. `name_prefix` / `middle_name` /
+        `name_suffix` shipped on 2026-09-10 and nothing displayed them — a
+        column the query never names cannot be printed, and the section looked
+        correct while dropping "Atty." from a ninong's name.
+      */
+      .select(
+        'display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles',
+      )
       .eq('event_id', eventId)
       /*
         🔑 BOTH COLUMNS, OR THE SECOND ROLE IS INVISIBLE. `extra_roles` is how a

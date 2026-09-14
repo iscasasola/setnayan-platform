@@ -33,7 +33,7 @@ import {
 } from '../groups-actions';
 import {
   guestDisplayName,
-  guestFormalName,
+  guestFullName,
   guestInitials,
   ROLE_LABELS,
   RSVP_LABELS,
@@ -347,7 +347,7 @@ function DesktopRow({
             type="checkbox"
             checked={selected}
             onChange={onToggle}
-            aria-label={`Select ${guestFormalName(guest)}`}
+            aria-label={`Select ${(guestFullName(guest) ?? guestDisplayName(guest))}`}
             className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
         </label>
@@ -366,7 +366,7 @@ function DesktopRow({
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
               <p className="truncate font-medium text-ink">
-                {guestFormalName(guest)}
+                {(guestFullName(guest) ?? guestDisplayName(guest))}
               </p>
               {guest.plus_one_allowed ? (
                 <p className="truncate text-xs text-ink/55">
@@ -1430,7 +1430,7 @@ function GuestCard({
             type="checkbox"
             checked={selected}
             onChange={onToggle}
-            aria-label={`Select ${guestFormalName(guest)}`}
+            aria-label={`Select ${(guestFullName(guest) ?? guestDisplayName(guest))}`}
             className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
         </label>
@@ -1454,7 +1454,7 @@ function GuestCard({
         <div className="space-y-1.5 p-2.5">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">
-              {guestFormalName(guest)}
+              {(guestFullName(guest) ?? guestDisplayName(guest))}
             </p>
             {guest.plus_one_allowed ? (
               <p className="truncate text-xs text-ink/55">
@@ -1664,7 +1664,7 @@ function MobileListRow({
             type="checkbox"
             checked={selected}
             onChange={onToggle}
-            aria-label={`Select ${guestFormalName(guest)}`}
+            aria-label={`Select ${(guestFullName(guest) ?? guestDisplayName(guest))}`}
             className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
         </label>
@@ -1681,7 +1681,7 @@ function MobileListRow({
       )}
       <div className="relative z-10 min-w-0 flex-1">
         <p className="pointer-events-none truncate text-sm font-medium text-ink">
-          {guestFormalName(guest)}
+          {(guestFullName(guest) ?? guestDisplayName(guest))}
         </p>
         {/* Sub-line. Role and groups CANNOT be edited without being shown, so
             allowing that here costs a second line on rows that previously had

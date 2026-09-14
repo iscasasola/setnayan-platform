@@ -70,19 +70,24 @@ test('the contact column is icons, not a raw number', () => {
   );
 });
 
-test('🔴 and those icons do NOT dial — no-door-out-of-the-app Rule 1', () => {
-  // This assertion is the INVERSE of what it first said. The icons shipped as
-  // real `tel:`/`mailto:` links and `lib/no-door-out-of-the-app.test.ts` caught
-  // them: a couple-facing surface may not COMPUTE a contact scheme. Zero
-  // tolerance, no exemption bill, deliberately — because a couple who phones a
-  // SHOP books off-platform (owner, verbatim 2026-09-10).
+test('the contact icons DIAL, and only because the owner scoped Rule 1', () => {
+  // 🪤 THIS ASSERTION HAS BEEN INVERTED TWICE IN ONE DAY, and the history is
+  // the point rather than an embarrassment:
+  //   1. the icons shipped as real tel:/mailto: links;
+  //   2. `no-door-out-of-the-app` Rule 1 caught them — a couple-facing surface
+  //      may not COMPUTE a contact scheme — and this test was written to keep
+  //      them un-clickable;
+  //   3. asked, the owner SCOPED the rule: "only for the couple and if
+  //      coordinator is given access" (2026-09-14).
   //
-  // A guest is not a shop, so the harm model does not reach this cell — but
-  // carving the first exemption into a zero-tolerance rule is a product
-  // decision, not a refactor. Until the owner rules, the icon SHOWS the contact
-  // and does not dial it. If he later scopes Rule 1 to vendors, this test is
-  // the one to change, and the comment above is why.
-  const cell = SRC.slice(SRC.indexOf('<Phone aria-hidden') - 1200, SRC.indexOf('<Mail aria-hidden') + 400);
-  assert.ok(!/href=\{`tel:/.test(cell), 'the contact cell must not compute a tel: link');
-  assert.ok(!/href=\{`mailto:/.test(cell), 'the contact cell must not compute a mailto: link');
+  // So the links are back, and the thing that makes them legitimate is not this
+  // test — it is the one exact line in GUEST_CONTACT_BILL, which counts them.
+  // This test only asserts the feature the owner asked for still exists; Rule 1
+  // itself is what stops a third link or a public-page copy.
+  const cell = SRC.slice(
+    SRC.indexOf('<Phone aria-hidden') - 1400,
+    SRC.indexOf('<Mail aria-hidden') + 400,
+  );
+  assert.match(cell, /href=\{`tel:/, 'the phone icon must dial (owner-scoped Rule 1)');
+  assert.match(cell, /href=\{`mailto:/, 'the mail icon must compose (owner-scoped Rule 1)');
 });

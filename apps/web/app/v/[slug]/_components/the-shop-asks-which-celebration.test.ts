@@ -71,6 +71,28 @@ test('the picker is MOUNTED, and only when there is a real choice', () => {
   );
   // And what it renders must be the resolved options, not a literal.
   assert.match(src, /options=\{shopEventOptions\}/);
+
+  /*
+    ⚠ THE GATE IT SITS BEHIND, NOT JUST ITS PRESENCE. A mutation run caught this
+    version of the guard passing while the mount was gated on `{false ? (`: the
+    component was still in the file, still had its props, and was unreachable.
+    A picker that exists and a picker that is used are identical to a grep, so
+    read the CONDITION of the JSX conditional the mount is inside.
+  */
+  const at = src.indexOf('<AddToEvent');
+  const open = src.lastIndexOf('{', at);
+  assert.ok(open > -1 && open < at, 'the picker is no longer inside a JSX expression');
+  const condition = src.slice(open + 1, src.indexOf('?', open));
+  assert.match(
+    condition,
+    /shopEventOptions\.length > 0/,
+    `the picker's mount gate is not the resolved options — gate was: ${condition.trim()}`,
+  );
+  assert.doesNotMatch(
+    condition,
+    /\bfalse\b|\btrue\b/,
+    `the picker's gate was replaced by a constant — gate was: ${condition.trim()}`,
+  );
 });
 
 test('the resolver reuses the shipped filtering rule, surfaceless', () => {

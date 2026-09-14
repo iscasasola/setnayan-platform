@@ -24,6 +24,12 @@ export type GuestRole =
   | 'bridesmaid'
   | 'groomsman'
   | 'principal_sponsor'
+  // Split 2026-09-14 (owner): Filipino principal sponsors stand in PAIRS, and
+  // one role could not say which half of a pair a sponsor was. `principal_sponsor`
+  // is KEPT — 47 live rows hold it and gender is not stored, so there is no
+  // honest rule to migrate them; it now reads as "not yet specified".
+  | 'principal_sponsor_ninong'
+  | 'principal_sponsor_ninang'
   | 'candle_sponsor'
   | 'veil_sponsor'
   | 'cord_sponsor'
@@ -147,6 +153,12 @@ export type GuestRow = {
   name_prefix: string | null;
   middle_name: string | null;
   name_suffix: string | null;
+  /**
+   * The guest this one walks with — groomsman↔bridesmaid, ninong↔ninang.
+   * MUTUAL: if A points at B, B points at A. Maintained only through the
+   * `pair_guests` / `unpair_guest` SQL functions. NULL = unpaired.
+   */
+  pair_with_guest_id: string | null;
   display_name: string | null;
   side: GuestSide;
   group_category: GuestGroupCategory;
@@ -290,7 +302,9 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   best_man: 'Best Man',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
-  principal_sponsor: 'Principal Sponsor (Ninong/Ninang)',
+  principal_sponsor: 'Principal Sponsor',
+  principal_sponsor_ninong: 'Principal Sponsor (Ninong)',
+  principal_sponsor_ninang: 'Principal Sponsor (Ninang)',
   candle_sponsor: 'Candle Sponsor',
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',
@@ -376,7 +390,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

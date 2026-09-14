@@ -22,12 +22,17 @@ import type { ReleasedSeat } from '@/lib/guest-optimistic';
 // picker (GuestSide = 'bride' | 'groom' | 'both').
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
-// Iteration 0053 P4 Unit 5: the bulk-assignable role set is per event type.
-// For WEDDINGS we keep the exact pre-0053 list (BYTE-IDENTICAL — note it is the
-// historical 20-value set that, by a pre-existing quirk, includes bride/groom
-// but NOT the 4 VIP-family roles; we preserve that exactly rather than widen it
-// to the 24-value offeredRoles). For non-weddings we accept the generic
-// profile's offeredRoles. Resolved per-action via resolveRoleSetForEvent(eventId).
+// Iteration 0053 P4 Unit 5: the bulk-assignable role set is per event type,
+// and comes from `lib/bulk-role-vocabulary.ts` — THE SAME export the picker
+// renders from.
+//
+// 🪤 THIS COMMENT USED TO DESCRIBE THE BUG AS A FEATURE. It said the wedding
+// list was kept "BYTE-IDENTICAL ... includes bride/groom but NOT the 4
+// VIP-family roles; we preserve that exactly rather than widen it" — so the
+// divergence from the picker was known, written down, and deliberately
+// preserved. What it never said is that the picker OFFERS those four, which
+// made "Bride's Parents" selectable and un-appliable (reported 2026-09-14).
+// A quirk you can describe is still a defect if a host can hit it.
 
 function clean(value: FormDataEntryValue | null): string {
   return value ? String(value).trim() : '';

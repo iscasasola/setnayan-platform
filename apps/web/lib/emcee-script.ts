@@ -67,6 +67,8 @@ const ROLE_ORDER: GuestRole[] = [
   'imam',
   'witness',
   'wakil',
+  'principal_sponsor_ninong',
+  'principal_sponsor_ninang',
   'principal_sponsor',
   'maid_of_honor',
   'matron_of_honor',

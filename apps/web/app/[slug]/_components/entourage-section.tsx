@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import { roleLabel, peopleOf } from '@/lib/entourage';
 
@@ -23,11 +24,42 @@ import { roleLabel, peopleOf } from '@/lib/entourage';
  * sets of parents) prints the role beside every name, because there the heading
  * cannot say which is which.
  */
-export function EntourageSection({ groups, id }: { groups: readonly EntourageGroup[]; id?: string }) {
+export function EntourageSection({
+  groups,
+  id,
+  previewHref,
+  previewGroups = 2,
+}: {
+  groups: readonly EntourageGroup[];
+  id?: string;
+  /**
+   * When set, this is the PREVIEW: the first `previewGroups` groups, then a
+   * door to the full list. Omit it and the whole cast renders — which is what
+   * `/[slug]/everyone` passes, so one component draws both and they cannot
+   * drift into two different-looking entourages.
+   */
+  previewHref?: string;
+  previewGroups?: number;
+}) {
   // Nothing assigned, or a read that did not happen — either way there is no
   // heading over an empty list. See `loadEntourage` on why a failed read draws
   // nothing rather than an apology on somebody's wedding invitation.
   if (groups.length === 0) return null;
+
+  /*
+    ⚖ OWNER 2026-09-15: *"Both — a preview that opens the full list."* The
+    invitation shows the first groups and a door; the full page shows
+    everything.
+
+    🔑 THE DOOR COUNTS WHAT IT HIDES, and counts PEOPLE rather than groups — "and
+    52 more" is a promise a reader can check when they arrive, where "see more"
+    is not. If nothing is hidden, there is no door: a link that opens the same
+    list the reader is already looking at is a dead end with good manners.
+  */
+  const shown = previewHref ? groups.slice(0, previewGroups) : groups;
+  const hidden = previewHref
+    ? groups.slice(previewGroups).reduce((n, g) => n + peopleOf(g).length, 0)
+    : 0;
 
   return (
     <section id={id} className="scroll-mt-6 space-y-6">
@@ -42,7 +74,7 @@ export function EntourageSection({ groups, id }: { groups: readonly EntourageGro
       </header>
 
       <div className="space-y-8">
-        {groups.map((group) => {
+        {shown.map((group) => {
           /* Does this group hold more than one role? Computed per group, from
              the people actually in it — never assumed from the group's key, so
              a group whose couple only filled in one of its roles reads as
@@ -83,6 +115,18 @@ export function EntourageSection({ groups, id }: { groups: readonly EntourageGro
           );
         })}
       </div>
+
+      {previewHref && hidden > 0 ? (
+        <p className="mt-2">
+          <Link
+            href={previewHref}
+            className="inline-flex items-center gap-1.5 text-sm text-ink/70 underline underline-offset-4 hover:text-ink"
+          >
+            See everyone — {hidden} more
+            <span aria-hidden>&rarr;</span>
+          </Link>
+        </p>
+      ) : null}
     </section>
   );
 }

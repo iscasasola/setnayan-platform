@@ -26,6 +26,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   buildEntourage,
+  ENTOURAGE_COLUMNS,
   ENTOURAGE_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -1416,9 +1417,7 @@ export const loadEntourage = cache(
         column the query never names cannot be printed, and the section looked
         correct while dropping "Atty." from a ninong's name.
       */
-      .select(
-        'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles',
-      )
+      .select(ENTOURAGE_COLUMNS)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.

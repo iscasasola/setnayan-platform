@@ -51,9 +51,12 @@ async function requireCoordinator(eventId: string) {
  *
  * Thin on purpose — `advanceScheduleBlock` (shipped with the day-of handover,
  * PR #3412's neighbourhood) already wraps the single-winner
- * `advance_schedule_block` RPC, whose auth arm for a booked vendor predates
- * this surface. This adds ONLY the coordinator re-check and the revalidate of
- * the live console, which that action does not currently refresh.
+ * `advance_schedule_block` RPC. That RPC's supplier arm is now the booked
+ * COORDINATOR alone (migration 20271227867922; it admitted every booked vendor
+ * when this surface was written), which is the same question `requireCoordinator`
+ * asks — so the re-check below is now a SENTENCE for a caller the database would
+ * refuse anyway, not a narrowing of it. This adds ONLY that re-check and the
+ * revalidate of the live console, which that action does not refresh.
  */
 export async function floorAdvanceBlock(
   eventId: string,

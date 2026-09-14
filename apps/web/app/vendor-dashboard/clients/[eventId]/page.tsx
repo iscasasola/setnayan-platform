@@ -76,6 +76,7 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
+import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
@@ -470,6 +471,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // true. Deriving from `!isBooked` means the next rung is safe by default: a
   // new stage discloses nothing until somebody deliberately opens it.
   const preAgreement = !isBooked;
+
+  // 🔒 WHO MAY ADVANCE THE PROGRAMME — computed, because it used to be the
+  // literal `canAdvance`.
+  //
+  // `advance_schedule_block` now admits the booked COORDINATOR and no other
+  // supplier (migration 20271227867922; before it, every booked vendor). This
+  // page is one supplier's workspace, so the button was being shown to the
+  // caterer and the florist too. Narrowing the database without narrowing this
+  // would have MOVED the defect rather than fixed it: a control that is pressed
+  // and refused is worse than a control that is absent — and worse still here,
+  // because the thing it appears to move is somebody's ceremony.
+  //
+  // The predicate is the coordinator tile, the same fact
+  // `current_coordinator_booked_event_ids()` joins on (`'coordinator' = ANY
+  // (vp.services)`), so the screen and the gate cannot disagree about who this
+  // is. Booking is the other half and it is already established: everything
+  // below this point renders only when `isBooked`, and the RPC re-checks both
+  // regardless — this decides what to DRAW, never what is permitted.
+  const isBookedCoordinator =
+    isBooked && ((profile as { services?: string[] | null }).services ?? []).includes(COORDINATOR_TILE);
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
@@ -1388,6 +1409,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         mineOnly={mineOnly}
         mineCount={mineCount}
         runOfShowBlocks={runOfShowBlocks}
+        canAdvance={isBookedCoordinator}
         callTime={callTime}
         callTimeAlreadyRequested={callTimeAlreadyRequested}
         suggestions={suggestions}
@@ -2971,6 +2993,13 @@ function ScheduleTab(props: {
   mineOnly: boolean;
   mineCount: number;
   runOfShowBlocks: RunOfShowBlock[];
+  /**
+   * The booked COORDINATOR, and nobody else on the supplier side. Was a
+   * hardcoded `canAdvance` literal until the database stopped admitting every
+   * booked vendor (migration 20271227867922) — at which point a button every
+   * supplier could see became a button most of them would be refused.
+   */
+  canAdvance: boolean;
   callTime: ReturnType<typeof deriveCallTime>;
   callTimeAlreadyRequested: boolean;
   suggestions: SuggestionRow[];
@@ -2993,6 +3022,7 @@ function ScheduleTab(props: {
     mineOnly,
     mineCount,
     runOfShowBlocks,
+    canAdvance,
     callTime,
     callTimeAlreadyRequested,
     suggestions,
@@ -3059,7 +3089,12 @@ function ScheduleTab(props: {
 
         {runOfShowBlocks.length > 0 ? (
           <div className="mt-3">
-            <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance compact />
+            <RunOfShowHeader
+              eventId={eventId}
+              initial={runOfShowBlocks}
+              canAdvance={canAdvance}
+              compact
+            />
           </div>
         ) : null}
 

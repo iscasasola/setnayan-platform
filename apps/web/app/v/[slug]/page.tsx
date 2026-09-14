@@ -69,6 +69,8 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
+import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import {
   buildVendorVenueEvents,
@@ -1314,8 +1316,52 @@ export async function renderVendorBySlug({
   let existingThreadId: string | null = null;
   if (user) {
     const events = await fetchUserEvents(supabase, user.id, 'couple');
-    coupleEventId = events[0]?.event_id ?? null;
-    coupleEventDate = events[0]?.event_date ?? null;
+    /*
+      ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE A RULE PICKED ──
+      This was `events[0]`, and the couple was never asked.
+
+      ⚠ `events[0]` IS NOT ARBITRARY, and an earlier version of this comment said
+      it was. `fetchUserEvents` has no `.order()` on the QUERY, but it sorts the
+      rows in JS before returning: `is_primary` first, then soonest
+      `event_date`, dateless last. So `events[0]` is "your primary celebration,
+      otherwise the soonest one" — a real rule, just an invisible one that the
+      couple never chose and is never shown.
+
+      🔑 WHERE IT *IS* GENUINELY UNDECIDED: that sort returns 0 for a tie, and
+      `Array.prototype.sort` is stable, so tied rows keep the order the unordered
+      query happened to return. Nothing enforces a single primary — a real
+      account holding TWO events flagged `is_primary = true` was measured on
+      2026-09-08 (see `saveVendorToPicks`), and for that couple which event won
+      was arbitrary per request. Same for two celebrations on one date, or two
+      with no date.
+
+      Either way the couple is not asked, and this one line scopes the
+      existing-thread lookup, the composer, and the inquiry that eventually puts
+      this shop on somebody's list. A couple planning a wedding AND their
+      parents' anniversary could not tell, and were not told, which celebration
+      their question attached to.
+
+      `?event=` is the picker's answer (add-shop-to-event-data.ts). It is a
+      claim from a URL, so it is CHECKED — against `events` itself, the list of
+      this user's own ORGANISER memberships that was just read. That list IS the
+      authority, so the check cannot disagree with it and costs no second round
+      trip; `saveVendorToPicks` needs `userHostsEvent` for the same question only
+      because it never fetched the list. An id that is not yours, or is not real,
+      falls through to the existing behaviour rather than erroring: a mistyped
+      link must not break a shop page.
+
+      🔑 THE FALLBACK STAYS, DELIBERATELY. A couple with exactly one celebration
+      must never be made to choose, and everyone who has only one keeps today's
+      behaviour byte for byte. The picker earns its place only where the
+      invisible rule was deciding something the couple should.
+    */
+    const requestedEventId = String(search.event ?? '').trim();
+    const chosen =
+      requestedEventId && events.some((e) => e.event_id === requestedEventId)
+        ? events.find((e) => e.event_id === requestedEventId)
+        : undefined;
+    coupleEventId = chosen?.event_id ?? events[0]?.event_id ?? null;
+    coupleEventDate = chosen?.event_date ?? events[0]?.event_date ?? null;
     if (coupleEventId) {
       const threadResult = await supabase
         .from('chat_threads')
@@ -1405,6 +1451,22 @@ export async function renderVendorBySlug({
   // onboarding. Signed-out / anonymous → route through signup for a real account.
   const signedInNoEvent =
     user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
+
+  /*
+    ── D1 · THE QUESTION THE SHOP PAGE NEVER ASKED ──────────────────────────
+    Only fetched when there is an inquiry to scope. `resolveAddShopToEvent`
+    fails soft to `{ signedIn: false }`, so a bad read costs the picker and
+    never the page.
+
+    🔑 OFFERED ONLY WHEN THERE IS A REAL CHOICE — `options.length > 1`. A couple
+    with one celebration is not asked a question with one answer, and keeps
+    today's behaviour exactly. This is the whole reason the fallback above stays.
+  */
+  const shopEventPicker = showInquiryComposer ? await resolveAddShopToEvent(slug) : null;
+  const shopEventOptions =
+    shopEventPicker?.signedIn && shopEventPicker.options.length > 1
+      ? shopEventPicker.options
+      : [];
 
   // The event-type question in the anon composer (owner 2026-08-06: "for what
   // type of event? then onboarding"). Fed from the LIVE vocab so the offered
@@ -2882,6 +2944,29 @@ export async function renderVendorBySlug({
               </>
             )}
           </p>
+          {/* ⭐ D1 — WHICH CELEBRATION IS THIS FOR?
+              The page used to answer this silently: `events[0]`, which
+              `fetchUserEvents` sorts to "your primary celebration, otherwise the
+              soonest one". A real rule, and one the couple never chose and was
+              never shown — so somebody planning a wedding AND their parents'
+              anniversary could not tell which one their question attached to.
+
+              The SHIPPED picker (owner-ruled 2026-08-21), reused whole: its
+              drawer, its search, its empty sentences, its create row. Each row
+              is a link back to this page carrying `?event=`, so choosing writes
+              nothing. It renders only when there is more than one celebration to
+              choose between. */}
+          {shopEventOptions.length > 0 ? (
+            <div className="mb-3">
+              <AddToEvent
+                serviceName={displayLabel}
+                options={shopEventOptions}
+                emptyReason={null}
+                createHref="/dashboard/create-event"
+                createLabel="Start a new celebration"
+              />
+            </div>
+          ) : null}
           {showInquiryComposer && composerInitial ? (
             <InquiryComposer
               vendorProfileId={vendor.vendor_profile_id}

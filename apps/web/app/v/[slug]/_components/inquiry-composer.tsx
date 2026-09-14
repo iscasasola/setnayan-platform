@@ -221,6 +221,33 @@ type AutoCarryState =
   | { kind: 'sent'; threadHref: string }
   | { kind: 'error'; message: string };
 
+/**
+ * D1 — WHERE "you have no celebration yet" SENDS SOMEBODY.
+ *
+ * Both `no_event` branches below hard-coded `/onboarding/wedding`, so a person
+ * asking a caterer about their mother's 60th birthday was marched into planning
+ * a WEDDING. The sibling composer on this very page fixed exactly this on
+ * 2026-08-06 and records the same sentence in its docblock
+ * (`anon-inquiry-composer.tsx`): "This used to hard-code /onboarding/wedding,
+ * so someone asking a caterer about their mother's 60th birthday was marched
+ * into planning a WEDDING."
+ *
+ * 🔑 IT SENDS THEM TO THE PICKER, WHICH IS THE PAGE THAT ASKS. `/dashboard/create-event`
+ * IS the event-type picker — it reads `next` and returns them here afterwards,
+ * and it owns the THREE-branch rule for what each type's onboarding actually is
+ * (an explicit onboarding_href; else the generic experience flow when its flag
+ * is on; else an inline name form). Re-deriving that here would be a second copy
+ * that drifts, and its third branch is not a URL at all — so a naive
+ * `/onboarding/${key}` 404s for every type whenever that flag is off.
+ *
+ * No new question UI is added to this component: it already has a modal flow,
+ * and the product already has one screen whose whole job is this question.
+ */
+function noEventDestination(): string {
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  return `/dashboard/create-event?next=${next}`;
+}
+
 export function InquiryComposer({
   vendorProfileId,
   vendorLabel,
@@ -449,9 +476,9 @@ export function InquiryComposer({
       }
       if (result.status === 'no_event') {
         // No event yet — take them to create one instead of dead-ending on a
-        // message with no path forward; they return here after.
-        const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/onboarding/wedding?next=${next}`;
+        // message with no path forward; they return here after. D1: the picker
+        // ASKS which kind of celebration rather than assuming a wedding.
+        window.location.href = noEventDestination();
         return;
       }
       setModal({ kind: 'error', message: result.message ?? 'Could not send inquiry.' });
@@ -501,9 +528,9 @@ export function InquiryComposer({
         return;
       }
       if (result.status === 'no_event') {
-        // No event yet — take them to create one instead of dead-ending.
-        const next = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/onboarding/wedding?next=${next}`;
+        // Same as the manual path above — ask which kind of celebration rather
+        // than marching an anniversary into a wedding. D1.
+        window.location.href = noEventDestination();
         return;
       }
       setAutoState({

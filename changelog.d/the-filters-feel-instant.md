@@ -165,3 +165,39 @@ Telling those apart is the whole job — the first is obeyed, the second updated
 
 SPEC IMPACT: None — Rule 1 is unchanged. Whether it should exclude guest
 contacts is an OPEN OWNER QUESTION, not a decision taken here.
+
+## 2026-09-14 · feat(guests): tap-to-call, billed under an owner-scoped Rule 1
+
+Asked directly whether tap-to-call on a GUEST should be allowed given
+`no-door-out-of-the-app` Rule 1, the owner scoped the rule: **"only for the
+couple and if coordinator is given access."**
+
+Rule 1 had NO bill until today, deliberately — zero tolerance so nobody could
+argue a case into an exemption. It has one now because the OWNER scoped it, not
+because a case was argued. `GUEST_CONTACT_BILL` follows the exact shape of the
+file's other two bills: one line, a count, a reason, exact in both directions.
+
+The distinction the rule could not previously express: it stops a couple
+reaching a SHOP outside the app, because the booking fee is charged on sourced
+clients. A wedding guest is not a shop — no fee, no in-app booking to protect,
+and the couple typed the number in themselves.
+
+⚠ THE SCOPE IS ACCESS, NOT SUBJECT. The billed file renders only inside
+`/dashboard/[eventId]/guests`, already gated by `guest_list` access
+(`resolveAreaLevel`, lib/delegate-areas.ts) — a coordinator without that grant
+never reaches it. A public or guest-facing surface printing the same field is
+still Rule 1 and still fails.
+
+Sabotage-verified BOTH directions: a third contact link in the billed file turns
+it red, and the same link added to a public page turns it red.
+
+🔑 OPEN, NOT DONE — "coordinators will only have access until event day. but no
+access after." That is NOT BUILT, and not by this PR. Access in this codebase
+has NO time component anywhere: `resolveAreaLevel` has 38 call sites and none
+of them consults a date; `invitation_expires_at` expires the INVITE, not the
+access. Expiring a coordinator on event day is a platform-wide change to every
+area they hold — guest list, seat plan, schedule, suppliers, invitations — not
+a contact-link concern, and it belongs in its own PR.
+
+SPEC IMPACT: Rule 1 is now scoped by owner ruling 2026-09-14 — recorded in
+GUEST_CONTACT_BILL's docblock with his verbatim words.

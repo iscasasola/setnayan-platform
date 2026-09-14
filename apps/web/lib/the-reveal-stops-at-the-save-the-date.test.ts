@@ -1,39 +1,40 @@
 /**
- * THE CINEMATIC REVEAL REACHES THE INVITATION — AND STOPS THERE.
+ * THE CINEMATIC REVEAL STOPS AT THE SAVE-THE-DATE.
  *
- * Owner 2026-08-29: *"event hub should also have the cinematic reveal."*
- * "Also" is an addition, not a move.
+ * Owner 2026-09-14, looking at his own invitation: *"reveal should only be at
+ * the save the date. remove it from this part of the event hub."* Asked whether
+ * that meant the Event Hub alone or the invite link's first door as well, he
+ * chose BOTH — so `cinematicRevealPlays` stayed ONE rule instead of splitting
+ * into two that could drift.
  *
- * 🔴 WHAT IT WAS. The five cinematic openings — the veil, the flaps, the church
- * doors — already rendered on the Event Hub, gated by ONE line:
- * `revealEnabled: showSaveTheDate`. So they only ever played while the event was
- * still far enough out to sit in its save-the-date window. The moment the page
- * became the invitation, the reveal stopped forever — which is the moment most
- * guests actually open the link. A couple paid for an opening nearly none of
- * their guests would ever meet.
+ * ── 🔴 THIS FILE USED TO ASSERT THE OPPOSITE, AND THAT IS WHY IT SURVIVES ───
+ * It was `the-reveal-reaches-the-invitation.test.ts`, written on 2026-08-29 for
+ * the owner's earlier ruling — *"event hub should also have the cinematic
+ * reveal"*. Renamed and inverted rather than deleted, because the REASON the
+ * old ruling existed is the cost of the new one and must not be lost: the
+ * save-the-date window ENDS 90 days out (`STD_THRESHOLD_DAYS`), and inside
+ * those 90 days is when most guests actually open the link. A couple who buys
+ * the Cinematic Reveal now has an opening that plays only while the wedding is
+ * still distant. The owner was shown that and chose this; it is a taste
+ * decision about where a veil belongs, not something to "fix" later.
  *
- * ── WHAT THIS FILE PINS, AND WHY EACH ONE IS DERIVED ────────────────────────
- * 1. The reveal covers exactly two stages: the save-the-date window and the
- *    invitation. NOT the day itself — a veil between a guest and their table
- *    number at the venue is a toll gate — and NOT the story afterwards, which
- *    has its own cover. Both exclusions are owner rulings, so a future widening
- *    has to delete an assertion and say why.
+ * ── WHAT THIS FILE PINS ─────────────────────────────────────────────────────
+ * 1. The reveal covers exactly ONE stage. Not the invitation, not the day — a
+ *    veil between a guest and their table number at the venue is a toll gate —
+ *    and not the story, which has its own cover. Each exclusion is an owner
+ *    ruling, so widening it means deleting an assertion and saying why.
  *
- * 2. 🔒 A WAKE CAN NEVER SEE A CINEMATIC VEIL OVER ITS INVITATION, and this is
- *    the assertion that actually earns its keep. Before this change a wake was
- *    excluded TWICE — it never enters the save_the_date phase (gated on the
- *    solemn register) and its profile has no `save_the_date` surface. A wake
- *    DOES reach the invitation, so the first of those two protections is gone
- *    here and the surface flag is the whole fence.
- *    It is derived from the REAL `WAKE_PROFILE` through the REAL
- *    `resolveWeddingOnlyParts`, never from a hand-typed `false` — a hand-typed
- *    fixture would keep passing after somebody enabled the surface on wakes.
+ * 2. 🔒 A WAKE CAN NEVER SEE A CINEMATIC VEIL. A solemn event is now excluded
+ *    twice again (it never enters the save_the_date phase AND its profile has
+ *    no `save_the_date` surface) — but the surface flag is still asserted here
+ *    on its own, because a fence that is only redundant today is the one that
+ *    fails silently tomorrow. Derived from the REAL `WAKE_PROFILE` through the
+ *    REAL `resolveWeddingOnlyParts`, never a hand-typed `false`.
  *
  * 3. The rule is read off the shipped profiles rather than restated: whichever
  *    types may show the Save-the-Date film are exactly the types that may show
  *    its openings. `wedding-only-parts.ts` already defines that part as "The
- *    Save-the-Date cinematic film AND ITS FIVE REVEAL OPENINGS" — one part, so
- *    this applies an existing rule rather than inventing a second one.
+ *    Save-the-Date cinematic film AND ITS FIVE REVEAL OPENINGS" — one part.
  *
  * Run: pnpm --filter @setnayan/web test:unit
  */
@@ -46,8 +47,8 @@ import { resolveWeddingOnlyParts } from './wedding-only-parts';
 import { WAKE_PROFILE, WEDDING_PROFILE, GENERIC_PROFILE } from './event-type-profile';
 
 const PHASES: LifecyclePhase[] = ['save_the_date', 'rsvp', 'event', 'editorial'];
-/** The two stages the owner put the reveal on. */
-const REVEAL_PHASES: LifecyclePhase[] = ['save_the_date', 'rsvp'];
+/** The ONE stage the owner left the reveal on (2026-09-14). */
+const REVEAL_PHASES: LifecyclePhase[] = ['save_the_date'];
 
 function revealIn(
   phase: LifecyclePhase,
@@ -75,7 +76,7 @@ test('the guard is not vacuous — the phase list and the profiles are real', ()
   assert.equal(WAKE_PROFILE.terminology.register, 'solemn');
 });
 
-test('the reveal plays on the save-the-date AND the invitation', () => {
+test('the reveal plays on the save-the-date, and only there', () => {
   for (const phase of REVEAL_PHASES) {
     assert.equal(
       revealIn(phase, { weddingOnlyParts: resolveWeddingOnlyParts(WEDDING_PROFILE) }),
@@ -85,7 +86,7 @@ test('the reveal plays on the save-the-date AND the invitation', () => {
   }
 });
 
-test('the reveal does NOT play on the day itself or on the story afterwards', () => {
+test('the reveal does NOT play on the invitation, the day itself, or the story afterwards', () => {
   for (const phase of PHASES.filter((p) => !REVEAL_PHASES.includes(p))) {
     assert.equal(
       revealIn(phase, { weddingOnlyParts: resolveWeddingOnlyParts(WEDDING_PROFILE) }),

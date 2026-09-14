@@ -798,6 +798,31 @@ export async function SiteBody({
 
     return (
       <>
+        {/* ══ THE PAGE MOVES AS YOU READ IT ══════════════════════════════════
+            `data-pahina-chapters` is the §6 scroll choreography's ONE opt-in
+            marker (design 2026-07-25; mechanism in `pahina-motion.tsx`, rules in
+            globals.css). Each direct child fades up 22px as the reader reaches
+            it.
+
+            🔴 WHY THIS IS HERE NOW: the marker existed on the GUEST tree only.
+            So a guest opening their personal link got the choreography and the
+            page everyone else sees — the anonymous one, which is what a shared
+            link, a QR scan and the couple's own preview all render — got none of
+            it. Same page, two behaviours, decided by whether the reader happened
+            to hold a cookie.
+
+            ⛔ IT WRAPS THE CONTENT, NOT THE CHROME. The fixed `SiteMenuBar`
+            below stays OUTSIDE: it is pinned to the viewport, never scrolls into
+            view, and an IntersectionObserver that never fires for it would leave
+            the whole bottom bar at opacity 0 — the navigation gone, on a page
+            that still looked fine above the fold.
+
+            🔒 NO NEW SAFETY TO GET WRONG, deliberately: this adds a marker and
+            nothing else, so it inherits `pahina-motion.tsx`'s fail-visible
+            contract verbatim — no IntersectionObserver, reduced motion, or the
+            2s self-heal each drop `.pahina-js` and every section is instantly
+            visible and static. */}
+        <article data-pahina-chapters>
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
@@ -1038,6 +1063,7 @@ export async function SiteBody({
             will always run but the host of the event has the power to allow use and
             not allow use"); closed ⇒ DRAWN AND LOCKED, never absent, because the
             camera is part of what the invitation promises. */}
+        </article>
         {menuOn ? (
           <SiteMenuBar
             slots={resolveSiteNav({

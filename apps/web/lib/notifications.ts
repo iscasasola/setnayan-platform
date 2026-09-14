@@ -357,7 +357,20 @@ export type NotificationType =
   // quiet hours. Deliberately NOT `chat_message`, which means the couple↔vendor
   // booking thread and carries an email.
   | 'samahan_story'
-  | 'samahan_message';
+  | 'samahan_message'
+  /*
+    TD-1 · a guest's takedown reached the SUPPLIER's copy (owner ruling
+    2026-09-14: "no. we will honour the guest."). Recipient is the SUPPLIER,
+    who otherwise loses a tile out of "What you've shot" or their portfolio
+    album with no error, no entry, and nothing to read — the same
+    indistinguishable-from-nothing shape the takedown lane exists to end.
+
+    ⚠ On EMAIL_ENABLED_TYPES: it must reach somebody who is not in the app, and
+    a supplier on a wedding floor is exactly that. NOT marketing-gated (that set
+    silenced six transactional types for every user) and NOT push-enabled.
+    ⛔ The guest is never named — see `supplierTakedownNotice`.
+  */
+  | 'guest_takedown_honored';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -455,6 +468,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   connection_confirmed: 'Connection confirmed',
   samahan_story: 'New in your samahan',
   samahan_message: 'New in Usapan',
+  guest_takedown_honored: 'Photo taken down at a guest’s request',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -633,6 +647,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // Informational / social → sky, the same register as chat_message.
   samahan_story: 'bg-sky-100 text-sky-800',
   samahan_message: 'bg-sky-100 text-sky-800',
+  /*
+    Neutral, not danger and not success. Nothing has gone wrong for the
+    supplier and nothing is owed by them — a person exercised a right and we
+    honoured it. A red badge would read as an accusation.
+  */
+  guest_takedown_honored: 'bg-ink/15 text-ink/70',
 };
 
 export type NotificationRow = {

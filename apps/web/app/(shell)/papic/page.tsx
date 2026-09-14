@@ -46,8 +46,13 @@ import { Reveal } from '@/app/_components/marketing/_motion';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
   readPapicPassTiers,
-  readPapicFreeGrantPoints,
+  readPapicFreeGrantRead,
 } from '@/lib/papic-tier-config-read';
+import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
+import {
+  papicFreeCreditPoints,
+  papicFreeCreditPromise,
+} from '@/lib/papic-free-credit-promise';
 import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_CLIP } from '@/lib/papic-cameras-pure';
 import { setupPricePhp, hasSetupSaving, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -57,6 +62,12 @@ import { PapicDial, type PapicRung } from './_papic-dial';
 import { PapicFeatures, PapicHub } from './_papic-sections';
 import { PapicCostComparisonSection } from './_papic-cost-comparison';
 import { buildPapicCostComparison } from '@/lib/papic-cost-comparison';
+import {
+  Fact,
+  PapicFreeCreditBadge,
+  PapicFreeCreditClosing,
+  PapicFreeCreditFact,
+} from './_papic-free-credits';
 
 /*
  * ⛔ NO `force-static` HERE, AND NO `revalidate`. This page sits inside
@@ -125,7 +136,19 @@ export const metadata = {
   },
 };
 
-const APP_LD = {
+/**
+ * ⚠ A FUNCTION, NOT A CONSTANT, AND THE FREE-CREDIT LINE IS WHY. Structured
+ * data is a public claim like any other — it is what a search engine quotes —
+ * and this list used to open with a hand-typed "Free credits on every
+ * celebration". That sentence is materially false (an account claims the pool
+ * once; see `lib/papic-free-credit-promise.ts`), and a module-scope constant
+ * cannot read the admin column, so it could never have been anything else.
+ * When the allowance is switched off the entry is DROPPED rather than reworded
+ * — the same rule the visible page follows.
+ */
+function buildAppLd(read: PapicFreeGrantRead) {
+  const promise = papicFreeCreditPromise(read);
+  return {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'Papic — Guest Photo Gallery',
@@ -134,7 +157,7 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Free credits on every celebration — no card, no trial clock',
+    ...(promise ? [`${promise.sentence} — no card, no trial clock`] : []),
     'Cameras are free and unlimited',
     'Guests become the photo crew — everyone contributes',
     'A QR scan tags who is in a photo — no typing',
@@ -151,7 +174,8 @@ const APP_LD = {
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
-};
+  };
+}
 
 /**
  * The questions people actually stall on. The live page's old set answered
@@ -264,7 +288,11 @@ const VS: readonly (readonly [string, string])[] = [
  */
 const IDEAL_PHOTOGRAPHS_PER_GUEST = 15;
 
-type PapicAnchor = { rungs: PapicRung[]; freeCredits: number };
+type PapicAnchor = {
+  rungs: PapicRung[];
+  /** What the pool actually opens with, or 0 when the allowance is switched off. */
+  freeCredits: number;
+};
 
 /**
  * The house set-up discount, as a percentage.
@@ -297,12 +325,18 @@ async function readSetupDiscountPct(): Promise<number> {
  * section is omitted and the page renders without it.
  */
 async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
-  const [catalog, poolTiers, freeCredits, setupPct] = await Promise.all([
+  const [catalog, poolTiers, freeGrant, setupPct] = await Promise.all([
     fetchV2CustomerCatalog(),
     readPapicPassTiers(),
-    readPapicFreeGrantPoints(),
+    readPapicFreeGrantRead(),
     readSetupDiscountPct(),
   ]);
+  // 🔑 NOT `readPapicFreeGrantPoints()`. That reader folds a deliberate
+  // `free_grant_points = 0` onto the seed fallback of 50, so this page used to
+  // advertise 50 free credits at the exact moment SQL had stopped granting any.
+  // `papicFreeCreditPoints` returns null for "switched off" and the copy falls
+  // silent — see lib/papic-free-credit-promise.ts.
+  const freeCredits = papicFreeCreditPoints(freeGrant) ?? 0;
   const priceOf = (code: string): number | null => {
     const row = catalog.find((c) => c.service_code === code);
     const php = row ? Number(row.retail_price_php) : NaN;
@@ -344,7 +378,15 @@ async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
 
 export default async function PapicLandingPage() {
   const anchor = await resolvePapicAnchor();
-  const free = anchor?.freeCredits ?? 0;
+  /**
+   * 🔑 READ DIRECTLY, NOT OFF THE ANCHOR. `resolvePapicAnchor()` returns NULL
+   * when no rung can be priced AND the allowance is off — precisely the case
+   * where the page must stay silent — so taking the read off the anchor would
+   * degrade the one state that matters most into "unknown", i.e. back to the
+   * seed 50. `readPapicFreeGrantRead` is `cache()`d, so this is the same
+   * request-scoped answer the anchor already used, not a second query.
+   */
+  const freeGrant: PapicFreeGrantRead = await readPapicFreeGrantRead();
   // Derived from the SAME rung array `resolvePapicAnchor()` already resolved
   // from the live catalog — no second fetch. `null` when no rung can be
   // priced, and the section below is omitted rather than shown at ₱0. See
@@ -356,7 +398,7 @@ export default async function PapicLandingPage() {
     <main className="px-5 pb-24 pt-10 sm:pt-14">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildAppLd(freeGrant)) }}
       />
       <script
         type="application/ld+json"
@@ -380,26 +422,14 @@ export default async function PapicLandingPage() {
             sizes="(min-width:768px) 672px, 100vw"
             className="object-cover"
           />
-          {free > 0 ? (
-            <p className="absolute bottom-3 left-3 rounded-lg bg-black/75 px-2.5 py-1.5 font-mono text-xs text-[var(--m-paper)] backdrop-blur">
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--m-mulberry)] align-middle" />
-              {free.toLocaleString('en-PH')} credits left
-            </p>
-          ) : null}
+          <PapicFreeCreditBadge read={freeGrant} />
         </div>
       </section>
 
       {/* ── THE THREE FACTS ─────────────────────────────────────────────── */}
       <section className="mx-auto mt-8 max-w-2xl" aria-label="What Papic gives you">
         <ul className="space-y-2 text-[0.95rem]">
-          {free > 0 ? (
-            <Fact>
-              <span className="font-mono tabular-nums text-[var(--m-ink)]">
-                {free.toLocaleString('en-PH')}
-              </span>{' '}
-              free credits on every celebration
-            </Fact>
-          ) : null}
+          <PapicFreeCreditFact read={freeGrant} />
           <Fact>No app. No account.</Fact>
           <Fact>Yours for life.</Fact>
         </ul>
@@ -690,12 +720,7 @@ export default async function PapicLandingPage() {
       {/* ── CLOSING — no buttons. The page ends on the fact; the codes above
              are the way in. ───────────────────────────────────────────────── */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="Papic, in one line">
-        {free > 0 ? (
-          <p className="font-serif text-2xl leading-snug tracking-tight text-[var(--m-ink)] sm:text-3xl">
-            <span className="font-mono tabular-nums">{free.toLocaleString('en-PH')}</span> credits,
-            free, on every celebration.
-          </p>
-        ) : null}
+        <PapicFreeCreditClosing read={freeGrant} />
         <p className="mt-3 text-sm text-[var(--m-slate-2)]">
           Papic lives on the celebration page you already have, beside the guest list, the RSVP and
           the seating. There is nothing separate to buy, and nothing that expires.
@@ -716,17 +741,6 @@ const FOLDERS = [
   { src: '/demo/maria-jose/portraits/4aeae921-655e-411d-ae16-d165c53bda03.webp', n: 63 },
   { src: '/demo/maria-jose/portraits/58d37cc7-2a0c-42e2-bd06-00925f3e5274.webp', n: 18 },
 ] as const;
-
-function Fact({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-baseline gap-2.5">
-      <span aria-hidden className="translate-y-px text-[var(--m-orange-2)]">
-        ✓
-      </span>
-      <span className="text-[var(--m-slate-2)]">{children}</span>
-    </li>
-  );
-}
 
 function Cost({ n }: { n: number }) {
   return (

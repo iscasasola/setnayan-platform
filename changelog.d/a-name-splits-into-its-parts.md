@@ -38,3 +38,23 @@ authenticated=SIU` — byte-identical to the `last_name` line directly above the
 because `guests` is granted at TABLE level (verified against prod) and RLS is
 row-level. A title is no more sensitive than the name it precedes, and narrowing
 was not available: a column-level REVOKE against a table grant is a silent no-op.
+
+## 2026-09-14 · fix(guests): the bulk-action bar actually sticks
+
+`SelectionBar` carried `sticky top-20 z-20`, but it was mounted inside a
+wrapper whose height was exactly the bar — a sticky element can only slide
+within its parent's box, so with zero slack it scrolled away with the list.
+The sticky was present and INERT, which on screen is indistinguishable from
+having none, and the host had to scroll back up to reach Apply/Delete.
+Hoisted to the mount wrapper, whose containing block is the full roster
+column; `z-30` so it sits above the glass roster panel.
+
+## 2026-09-14 · fix(guests): two more write paths split names
+
+`join/[eventId]/actions.ts` (guest self-join, 2 sites) and `wizard-actions.ts`
+(onboarding entourage + guests, 2 sites) still used the whitespace split.
+`quickAddGuest` also became a BACKSTOP: a caller that supplies none of the
+three optional parts gets its first/last re-parsed, so a path nobody
+remembered to wire — "add from your people" today, any future one tomorrow —
+still cannot store a title as a given name. Callers that pass parts
+explicitly are trusted verbatim.

@@ -736,7 +736,15 @@ export function GuestListMultiselect({
           actions (owner directive 2026-06-03), so the floating bar would be
           redundant chrome there. */}
       {selectedIds.length > 0 ? (
-        <div className="hidden lg:block">
+        /* 🪤 THE STICKY LIVES HERE, NOT ON THE BAR ITSELF. A sticky element can
+           only slide inside its PARENT's box; this wrapper used to be exactly
+           as tall as the bar, so there was zero slack and it scrolled away the
+           instant the list moved — the bar carried `sticky top-20` and was
+           inert, which reads exactly like no sticky at all. Hoisting it to this
+           wrapper gives it the full `space-y-4` column as its containing block,
+           so it pins under the header for the whole scroll of the roster.
+           Keep `z-30`: it must sit above the glass roster panel below. */
+        <div className="sticky top-20 z-30 hidden lg:block">
           <SelectionBar
             eventId={eventId}
             count={selectedIds.length}
@@ -976,7 +984,10 @@ function SelectionBar({
     <div
       role="region"
       aria-label="Bulk actions for selected guests"
-      className="sticky top-20 z-20 rounded-xl border border-terracotta/40 bg-cream/95 p-3 shadow-md backdrop-blur"
+      /* Sticky positioning is owned by the mount wrapper (see the note at the
+         SelectionBar call site) — it is the element with room to slide. This
+         div keeps only the card's appearance. */
+      className="rounded-xl border border-terracotta/40 bg-cream/95 p-3 shadow-md backdrop-blur"
     >
       {/* Single-Apply toolbar (owner directive 2026-05-23 PM verbatim:
           "apply and add button should be 1 only and at the last, Apply.

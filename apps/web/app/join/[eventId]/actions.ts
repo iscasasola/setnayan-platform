@@ -1,6 +1,7 @@
 'use server';
 
 import { allowGuestSelfJoinAttempt } from '@/lib/join-door-throttle';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -213,9 +214,12 @@ async function admitAsUnlisted(
     avatarUrl: string | null;
   },
 ) {
-  const parts = args.presentedName.split(/\s+/);
-  const firstName = parts[0] || args.presentedName;
-  const lastName = parts.slice(1).join(' ') || '—'; // last_name is NOT NULL
+  // One shared parser (lib/person-name-parse.ts) so a guest who signs in as
+  // "Atty. Bob Casasola Jr." is not stored with the title as their given name.
+  // The '—' fallback stays: last_name is NOT NULL and a mononym must still join.
+  const parsed = parsePersonName(args.presentedName);
+  const firstName = parsed.firstName || args.presentedName;
+  const lastName = parsed.lastName || '—'; // last_name is NOT NULL
 
   const { data: inserted, error } = await admin
     .from('guests')
@@ -223,6 +227,9 @@ async function admitAsUnlisted(
       event_id: args.eventId,
       first_name: firstName,
       last_name: lastName,
+      ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
+      ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
+      ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
       side: 'both',
       group_category: 'other',
       role: args.role,
@@ -638,9 +645,9 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // 5. No confident match → create the guest row (admin) — same minimal shape the
   //    couple's quick-add uses, tagged `self_added_unlisted`. Split the name
   //    best-effort; couple can refine.
-  const parts = presentedName.split(/\s+/);
-  const firstName = parts[0] ?? presentedName;
-  const lastName = parts.slice(1).join(' ');
+  const parsed = parsePersonName(presentedName);
+  const firstName = parsed.firstName || presentedName;
+  const lastName = parsed.lastName;
 
   const { data: inserted, error } = await admin
     .from('guests')
@@ -648,6 +655,9 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
       event_id: eventId,
       first_name: firstName,
       last_name: lastName,
+      ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
+      ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
+      ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
       side: 'both',
       group_category: 'other',
       role,

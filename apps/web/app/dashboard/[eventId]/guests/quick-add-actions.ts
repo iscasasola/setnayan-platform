@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { parsePersonName } from '@/lib/person-name-parse';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -91,13 +92,30 @@ export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
 ): Promise<QuickAddResult> {
-  const first_name = normalizeGuestName(input.first_name);
-  const last_name = normalizeGuestName(input.last_name);
+  // BACKSTOP. Callers that already split a name (capture bar, the detailed
+  // form, the import) pass the parts explicitly and are trusted verbatim.
+  // A caller that passes NONE of the three gets its first/last re-parsed here,
+  // so a path nobody remembered to wire — today "add from your people", and
+  // any future one — still cannot store a title as a given name.
+  //
+  // The `undefined` check is load-bearing: an explicit null means "this guest
+  // HAS no prefix" and must not be overwritten by a parse, while an absent key
+  // means "this caller knows nothing about name parts".
+  const callerSuppliedParts =
+    input.name_prefix !== undefined ||
+    input.middle_name !== undefined ||
+    input.name_suffix !== undefined;
+  const derived = callerSuppliedParts
+    ? null
+    : parsePersonName(`${input.first_name ?? ''} ${input.last_name ?? ''}`.trim());
+
+  const first_name = normalizeGuestName(derived?.firstName || input.first_name);
+  const last_name = normalizeGuestName(derived?.lastName || input.last_name);
   // Same invisible-character + whitespace normalization the required names
   // get, then '' collapses to null — these three are optional by contract.
-  const name_prefix = normalizeGuestName(input.name_prefix) || null;
-  const middle_name = normalizeGuestName(input.middle_name) || null;
-  const name_suffix = normalizeGuestName(input.name_suffix) || null;
+  const name_prefix = normalizeGuestName(derived ? derived.prefix : input.name_prefix) || null;
+  const middle_name = normalizeGuestName(derived ? derived.middleName : input.middle_name) || null;
+  const name_suffix = normalizeGuestName(derived ? derived.suffix : input.name_suffix) || null;
   const side = input.side as GuestSide;
   const role = (input.role || 'guest') as GuestRole;
   const email = (input.email ?? '').trim().toLowerCase() || null;

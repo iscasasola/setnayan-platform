@@ -168,7 +168,29 @@ export const ROLE_MULTIPLIER: Record<AllotmentRole, number> = {
 };
 
 const SPONSOR_GUEST_ROLES: Record<string, AllotmentRole> = {
+  // 🔴 ALL THREE PRINCIPAL ROLES, AND THE TWO NEW ONES WERE MISSING FOR A DAY.
+  //
+  // The 2026-09-14 Ninong/Ninang split did not reach this map, so a ninong fell
+  // through to `'guest'` — the 1× multiplier. The docblock above says handing
+  // them "the same allowance as a plus-one is the kind of default that makes a
+  // couple edit every row by hand"; that is precisely what shipped.
+  //
+  // Measured on the live roster 2026-09-15, and it was not merely a shortfall
+  // but an INVERSION: all 38 principal sponsors weighed 1 while the 6 cord /
+  // veil / coin / candle sponsors weighed 2, so the couple's godparents ranked
+  // BELOW the secondary sponsors in the photo division.
+  //
+  // 🔑 AND THE TEST THAT EXISTS TO CATCH EXACTLY THIS STAYED GREEN. The docblock
+  // above is right that this table and `papic_share_weight()` are one rule
+  // written twice and are held together by a db test — but the split missed BOTH
+  // halves identically, and a test that compares two mechanisms to EACH OTHER
+  // cannot see an omission they share. Consistency is not correctness. That is
+  // why the guard added alongside this fix asserts the PROPERTY (roles in a
+  // group are worth the same) against the role vocabulary itself, not one half
+  // against the other.
   principal_sponsor: 'principal',
+  principal_sponsor_ninong: 'principal',
+  principal_sponsor_ninang: 'principal',
   cord_sponsor: 'cord',
   veil_sponsor: 'veil',
   coin_sponsor: 'coin',

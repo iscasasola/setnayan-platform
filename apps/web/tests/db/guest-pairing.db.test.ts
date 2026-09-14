@@ -160,7 +160,19 @@ test('the two new principal-sponsor roles are real enum values', async () => {
 });
 
 test('the legacy principal_sponsor value still exists and is still usable', async () => {
-  // 47 live rows hold it; the split must not have retired it.
+  // ⚠ READ THIS BEFORE "TIDYING" IT AWAY — the earlier note here said "47 live
+  // rows hold it", and that is no longer true: the owner RETIRED the role on
+  // 2026-09-15 and 0 live rows hold it now.
+  //
+  // The test stays because a PRODUCT retirement and a DATABASE capability are
+  // not the same claim. Postgres has no `ALTER TYPE … DROP VALUE`, so the value
+  // outlives the ruling, and every reader of a guest — seating tiers, the
+  // roster's grouping, the emcee script — must still survive meeting one. With
+  // no live row holding it, NOTHING ON SCREEN would reveal a reader that had
+  // quietly stopped understanding it. This assertion is the only witness.
+  //
+  // The matching product-side guard (it must never be OFFERED again) lives in
+  // lib/role-sets.test.ts and lib/bulk-role-vocabulary.test.ts.
   const { eventId } = await seed(0, 'k');
   await db.query(
     `insert into public.guests (event_id, first_name, last_name, side, group_category, role, rsvp_status)

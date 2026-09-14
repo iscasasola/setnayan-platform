@@ -14,9 +14,11 @@
  *     and are NOT pair-grouped via pair_index — each slot is an independent
  *     invitation (one may accept while the other declines without breaking
  *     the pair).
- *   - guest_role enum (per 20260513010000_iteration_0001_guests.sql) uses
- *     ONE 'principal_sponsor' value with side distinguishing ninong vs ninang;
- *     the four secondary tiers each have their own enum value.
+ *   - guest_role SPLIT 2026-09-14 into principal_sponsor_ninong / _ninang, and
+ *     the plain principal_sponsor was RETIRED 2026-09-15 (owner). This file used
+ *     to say side distinguished ninong from ninang — it never did. SIDE IS NOT
+ *     GENDER; see sponsorRoleHonorific below. The four secondary tiers each keep
+ *     their own enum value.
  */
 
 export type SponsorTier = 'principal' | 'cord' | 'veil' | 'coin' | 'candle';
@@ -72,13 +74,33 @@ export const SPONSOR_SIDE_LABEL: Record<SponsorSide, string> = {
 };
 
 /**
- * Honorific used in the invitation template. Principal sponsors get
- * "ninong" or "ninang" by side; secondaries get the role label.
+ * Honorific used in the invitation template and on the sponsors page.
+ *
+ * 🔴 IT USED TO READ NINONG/NINANG OFF `side`, AND THAT WAS ALWAYS WRONG.
+ * `side` is which half of the family a sponsor stands with; ninong/ninang is
+ * whether they are a godFATHER or a godMOTHER. The two are independent — a
+ * ninong invited by the bride's family is still a ninong — so this function
+ * addressed every bride-side godfather as "ninang" and every groom-side
+ * godmother as "ninong", in a LETTER, by name.
+ *
+ * It survived because `/sponsors` has never held a row (0 when this was
+ * written), so no one has ever been mis-addressed by it. That is luck, not a
+ * defence.
+ *
+ * The owner's 2026-09-15 ruling settles it: which half a principal sponsor is,
+ * is RECORDED (the Ninong/Ninang roles), never inferred. `event_sponsors`
+ * carries no such column, so this function genuinely cannot know — and the
+ * honest answer to a question you cannot answer is the neutral one. "Principal
+ * sponsor" is correct for every sponsor alive; "ninang" is wrong for half of
+ * them.
+ *
+ * ⚠ TO GET THE WARMER WORD BACK, GIVE THE TABLE THE FACT — an explicit
+ * ninong/ninang column on `event_sponsors`, chosen by the couple the way the
+ * guest list now does it. Do NOT re-derive it from `side`, `full_name`, or a
+ * name-prefix guess.
  */
-export function sponsorRoleHonorific(tier: SponsorTier, side: SponsorSide): string {
+export function sponsorRoleHonorific(tier: SponsorTier, _side: SponsorSide): string {
   if (tier === 'principal') {
-    if (side === 'groom') return 'ninong';
-    if (side === 'bride') return 'ninang';
     return 'principal sponsor';
   }
   if (tier === 'cord') return 'cord sponsor';
@@ -108,24 +130,43 @@ export const SECONDARY_TIERS: ReadonlyArray<Exclude<SponsorTier, 'principal'>> =
 ];
 
 /**
- * Map a sponsor tier + side to the canonical guest_role enum value used
- * when auto-creating a guests row on invitation acceptance.
+ * Map a sponsor tier to the canonical guest_role enum value used when
+ * auto-creating a guests row on invitation acceptance.
  *
- * Per migration 20260513010000_iteration_0001_guests.sql:
- *   - 'principal_sponsor' is ONE enum value; side distinguishes ninong/ninang.
- *   - Each secondary tier has its own enum value.
+ * ⚠ THE OLD CONTRACT HERE IS DEAD, AND THIS WAS THE LAST PLACE THAT COULD MINT
+ * IT. This file's header described the pre-split model — "ONE
+ * 'principal_sponsor' value with side distinguishing ninong vs ninang" — and it
+ * was wrong twice over (corrected in the same change as this):
+ *
+ *   1. Side is not gender. A Ninong standing on the BRIDE's side was called a
+ *      "ninang" by `sponsorRoleHonorific` below, which is the defect the
+ *      2026-09-14 role split exists to remove.
+ *   2. The plain `principal_sponsor` was RETIRED by the owner on 2026-09-15
+ *      ("the same rule across all other weddings"). Every picker dropped it;
+ *      this function was the one writer left, so leaving it would have made an
+ *      accepted invitation the only way back into a dead role.
+ *
+ * `event_sponsors` carries no gender column either, so this cannot resolve the
+ * half on its own. Owner's call, asked directly on 2026-09-15: an unspecified
+ * principal sponsor is a NINONG — the same answer the capture bar's bare
+ * `sponsor` token now gives, so the two doors agree. A Ninang is one dropdown.
+ *
+ * 🔑 This surface is currently DORMANT — `event_sponsors` held 0 rows when this
+ * was written — which is precisely why it needed fixing now rather than later:
+ * nothing on screen would have revealed it, and the first couple ever to use
+ * the page would have been the one to find it.
  */
 export function sponsorGuestRole(
   tier: SponsorTier,
 ):
-  | 'principal_sponsor'
+  | 'principal_sponsor_ninong'
   | 'cord_sponsor'
   | 'veil_sponsor'
   | 'coin_sponsor'
   | 'candle_sponsor' {
   switch (tier) {
     case 'principal':
-      return 'principal_sponsor';
+      return 'principal_sponsor_ninong';
     case 'cord':
       return 'cord_sponsor';
     case 'veil':

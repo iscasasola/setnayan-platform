@@ -124,8 +124,15 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'matron_of_honor',
   'bridesmaid',
   // The Ninong/Ninang pair ranks with the role it split from (2026-09-14).
-  // The plain `principal_sponsor` stays alongside them for the 47 live rows
-  // that have not been specified yet.
+  //
+  // ⚠ `principal_sponsor` IS DELIBERATELY STILL HERE, and this is an ORDER
+  // list, not an offer list — the owner retired it from every picker on
+  // 2026-09-15, and a retired role still has to sort somewhere. It ranks last
+  // of the three so a legacy row lands under its two successors rather than
+  // above them. (The earlier note here claimed "47 live rows"; re-measured
+  // 2026-09-15 there were 8, all on the Maria & Jose demo, and those were
+  // migrated in the same change. Re-measure, never trust the number:
+  //   select count(*) from guests where role = 'principal_sponsor' and deleted_at is null)
   'principal_sponsor_ninong',
   'principal_sponsor_ninang',
   'principal_sponsor',

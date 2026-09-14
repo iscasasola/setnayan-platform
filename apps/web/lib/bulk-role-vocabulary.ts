@@ -72,10 +72,13 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   },
   {
     label: ROLE_GROUP_LABELS.principal_sponsors,
-    // Ninong/Ninang first — they are what a host picks now. The plain
-    // `principal_sponsor` stays last and offered: 47 live rows hold it, and a
-    // host must be able to set a sponsor back to "not yet specified".
-    roles: ['principal_sponsor_ninong', 'principal_sponsor_ninang', 'principal_sponsor'],
+    // 🔒 TWO ROLES, NOT THREE (owner 2026-09-15). The plain `principal_sponsor`
+    // was offered here as "not yet specified" while the roster was mid-split.
+    // That split is finished — every principal sponsor on every live wedding is
+    // now a Ninong or a Ninang — and the owner retired the third option for all
+    // weddings from here on. Re-adding it would hand back the state a host has
+    // to come back and fix. See role-sets.ts for why the VALUE still exists.
+    roles: ['principal_sponsor_ninong', 'principal_sponsor_ninang'],
   },
   {
     label: ROLE_GROUP_LABELS.secondary_sponsors,

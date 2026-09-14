@@ -428,7 +428,6 @@
     },
     "/(shell)/papic": {
       "files": [
-        "(shell)/papic/_papic-cost-comparison.tsx",
         "(shell)/papic/_papic-dial.tsx",
         "(shell)/papic/_papic-film.tsx",
         "(shell)/papic/_papic-scan.tsx",
@@ -452,7 +451,6 @@
         "Link",
         "Mini",
         "PapicAnchor",
-        "PapicCostComparisonSection",
         "PapicDial",
         "PapicFeatures",
         "PapicFilm",

@@ -60,8 +60,6 @@ import { PapicScan } from './_papic-scan';
 import { PapicFilm } from './_papic-film';
 import { PapicDial, type PapicRung } from './_papic-dial';
 import { PapicFeatures, PapicHub } from './_papic-sections';
-import { PapicCostComparisonSection } from './_papic-cost-comparison';
-import { buildPapicCostComparison } from '@/lib/papic-cost-comparison';
 import {
   Fact,
   PapicFreeCreditBadge,
@@ -387,12 +385,27 @@ export default async function PapicLandingPage() {
    * request-scoped answer the anchor already used, not a second query.
    */
   const freeGrant: PapicFreeGrantRead = await readPapicFreeGrantRead();
-  // Derived from the SAME rung array `resolvePapicAnchor()` already resolved
-  // from the live catalog — no second fetch. `null` when no rung can be
-  // priced, and the section below is omitted rather than shown at ₱0. See
-  // `lib/papic-cost-comparison.ts` for the derivation and the flag on the
-  // photographer-side assumption.
-  const comparison = anchor ? buildPapicCostComparison(anchor.rungs) : null;
+  /*
+    ⛔ NO COMPARISON AGAINST A PHOTOGRAPHER'S PRICE (owner 2026-09-15: "remove it").
+
+    This page used to tell a visitor what Papic "would otherwise cost" them,
+    priced against ₱8,000 for a photographer producing 400 photos in four hours.
+    The owner withdrew his own figure — *"we have papic credits and 1 credit =
+    1 photo. i do not think 8000 costs 400 photos"* — and the direction of the
+    error is why it had to go rather than be softened: ₱8,000 of photographer
+    almost certainly delivers far MORE than 400 photographs, so the comparison
+    understated a competitor and flattered us, in public, with no source.
+
+    🔑 IT WAS FLAGGED AND SHIPPED ANYWAY. The building session typed it as a
+    MARKET ASSUMPTION and said in its PR that no DECISION_LOG row backed it.
+    Nobody read the PR. A flag in a description is not a mechanism — which is
+    why the replacement here is a TEST (`no-price-on-somebody-elses-business`)
+    and not a comment asking the next session to be careful.
+
+    ⛔ DO NOT put a gentler number here. There is no sourced figure to use, and
+    a softened invention reproduces the defect with better manners. If the page
+    reads thin, it reads thin until the owner has a number he can stand behind.
+  */
 
   return (
     <main className="px-5 pb-24 pt-10 sm:pt-14">
@@ -675,7 +688,6 @@ export default async function PapicLandingPage() {
             </p>
           </section>
 
-          {comparison ? <PapicCostComparisonSection comparison={comparison} /> : null}
         </>
       ) : null}
 

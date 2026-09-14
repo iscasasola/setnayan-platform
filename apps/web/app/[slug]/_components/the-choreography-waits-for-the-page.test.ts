@@ -100,7 +100,6 @@ function run(chaptersAfterFlush: number, chaptersNow = 0) {
   const console = { warn: (m: string) => void warnings.push(m) };
   const setTimeout = (fn: () => void) => void timers.push(fn);
 
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   new Function('document', 'window', 'IntersectionObserver', 'console', 'setTimeout', shippedScript())(
     document, win, FakeIO, console, setTimeout,
   );
@@ -191,7 +190,6 @@ test('it does nothing at all when the flag was never set (reduced motion / no IO
     addEventListener: () => {},
   };
   const win: Record<string, unknown> = {};
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   new Function('document', 'window', 'IntersectionObserver', 'console', 'setTimeout', shippedScript())(
     doc, win, class {}, { warn: () => {} }, () => {},
   );

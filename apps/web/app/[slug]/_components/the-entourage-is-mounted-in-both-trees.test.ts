@@ -95,11 +95,23 @@ test('🔑 every column the entourage renders from is named in ONE place, and bo
     );
   }
 
-  for (const file of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/everyone/page.tsx']) {
+  /*
+    🪤 COUNTED, NOT `includes`. `everyone/page.tsx` runs TWO reads — the cast and
+    the gated guest list — and a substring check is satisfied by either one. I
+    sabotaged exactly that (one read swapped back to its own literal, the other
+    left alone) and this guard PASSED. A file-level match cannot say WHICH read
+    drifted; the count can.
+  */
+  for (const [file, expected] of [
+    ['app/[slug]/_lib/loaders.ts', 1],
+    ['app/[slug]/everyone/page.tsx', 2],
+  ] as const) {
     const src = stripComments(read(file));
-    assert.ok(
-      src.includes('.select(ENTOURAGE_COLUMNS)'),
-      `${file} reads the entourage with its own column literal instead of ENTOURAGE_COLUMNS — the two pages can now drift`,
+    const uses = (src.match(/\.select\(ENTOURAGE_COLUMNS\)/g) ?? []).length;
+    assert.equal(
+      uses,
+      expected,
+      `${file} has ${uses} read(s) using ENTOURAGE_COLUMNS, expected ${expected} — one grew its own column literal and the two pages can now drift`,
     );
     assert.ok(
       /\.is\(\s*['"]deleted_at['"]\s*,\s*null\s*\)/.test(src),

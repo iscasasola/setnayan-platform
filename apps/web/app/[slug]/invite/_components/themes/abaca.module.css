@@ -1,0 +1,313 @@
+/*
+ * ABACA — the Rugged invite theme (Event Hub Pro · lib/invite-themes.ts).
+ *
+ * A letterpress show-card on kraft. The couple's reveal background is not the
+ * ground and it is not a picture hung on the ground — it is PRINTED INTO the
+ * paper: the photo multiplies into the kraft, so the paper is the white point,
+ * the tooth of the stock shows through the print, and no patch of ground can
+ * ever be lighter than the bare sheet. Their date is a rubber stamp, their mark
+ * is a wax seal, and their colour is the twine the steps hang from.
+ * Design: designs/abaca.html ("Five Invite Doors" · Abaca), ported.
+ *
+ * Imported ONLY by the invite routes (via app/[slug]/invite/_components/themes),
+ * never by DoorShell — so no theme reaches the shared chunk.
+ *
+ * 🎨 THE COUPLE'S COLOUR IS ORNAMENT AND NEVER A WORD: the bar under their
+ * name, the ring of the wax seal, the twine. Every piece of lettering this skin
+ * sets is #2B2118 ink on DoorShell's own paper card — the card, its 3px edge
+ * and its one action stay DoorShell's, as in every other theme.
+ *
+ * ── PORT CORRECTIONS — four, each measured, none a redraw ──────────────────
+ *
+ * 1 · THE NAME IS 30px, NOT THE DESIGN'S 40px. Alfa Slab One is a fat woodtype
+ *     slab: at 40px a 27-character name takes FOUR lines of the card's content
+ *     column and door 01's "Continue" lands at y=724 at 375×812, against the
+ *     640px bar that `lib/door-fold.ts` holds for every theme. Measured on the
+ *     real component tree, name "Cale & Ice", date line present:
+ *
+ *                              10 chars   27 chars   45 chars
+ *       40px (the design)         595        724        740
+ *       30px (shipped)            563        613        625
+ *
+ *     It is ONE size, not a phone size and a wide one — a name that changed
+ *     size between a phone and a tablet would read as two different marks
+ *     (Galeriya's note, and the same reasoning). 30px in this face still sets
+ *     the name far larger and far heavier than House's 24px serif; the slab is
+ *     what carries the theme, not the point size.
+ *
+ * 2 · THE HEAD RESERVES 56px ON ITS RIGHT for the wax seal, exactly as the
+ *     design's `.ru-head` does — so the seal is beside the name rather than on
+ *     it. That narrows the title column to 237px, which is why this theme's
+ *     entry in `the-door-keeps-its-action-on-screen.test.ts` carries a larger
+ *     `charWidth` than its face alone would explain: in that model `charWidth`
+ *     is the only term that can express "this column is narrower".
+ *
+ * 3 · THE PRINT FADES OUT BEHIND THE WORDMARK. The design keeps every piece of
+ *     lettering on the ground on an opaque kraft patch — the wordmark is a torn
+ *     strip of gummed tape. `<Wordmark>` is DoorShell's and a skin may not
+ *     reach it (themes-stay-skins.test.ts), so the patch is made the other way
+ *     round: the PHOTO layer is masked out of the top of the page and ramps in
+ *     below it, leaving bare kraft under the one line of lettering that ever
+ *     sits on the ground. Measured at 375×812: the wordmark box is y=16→40, and
+ *     at 1280×800 (the column is centred from `sm`) it is y=160→190 — so the
+ *     mask is clear to 220px and full by 340px, which holds both.
+ *     Contrast, wordmark ink #2C2A29 (24px/800 — large text, AA 3:1): 5.9:1 on
+ *     bare kraft, and 1.0:1 over a black photo without the mask. Multiply can
+ *     only ever DARKEN the paper, so this is not a hypothetical.
+ *
+ * 4 · THE TWINE IS THE HINGE; THE TAGS ARE DoorShell'S RAIL. The design strings
+ *     three tags on the couple's twine. A skin may not restyle the rail, so the
+ *     twine is drawn in the `hinge` slot and DoorShell's own beads hang beneath
+ *     it — which is also what moves the rail BELOW the header, where this design
+ *     ranges it. The dash is a repeating gradient rather than a dashed rule
+ *     because a skin may not declare a card edge at all.
+ */
+.abaca {
+  /* the stock */
+  --ab-kraft: #c4a171;
+  --ab-ink: #2b2118; /* 6.5:1 on bare kraft, 13.6:1 on DoorShell's card */
+
+  /* derived paper tones — neutral fallbacks where color-mix is unavailable */
+  --ab-kraft-hi: #cbab7e;
+  --ab-kraft-mid: #bd9b6c;
+  --ab-kraft-lo: #ad8d61;
+
+  /*
+   * WHERE THE CARD'S PADDING IS, written down the way DoorShell writes it
+   * (`p-6 sm:p-8`). The wax seal is placed from the card's own corner, so this
+   * is Abaca's copy of the pair `the-door-keeps-its-action-on-screen.test.ts`
+   * pins for Capiz and Galeriya: if DoorShell's card padding ever changes, this
+   * seal moves with it and this line is where to change it.
+   */
+  --ab-card-pad: 1.5rem; /* DoorShell's p-6 */
+
+  background-color: var(--ab-kraft);
+}
+@media (min-width: 640px) {
+  .abaca {
+    --ab-card-pad: 2rem; /* sm:p-8 */
+  }
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+  .abaca {
+    --ab-kraft-hi: color-mix(in srgb, var(--ab-kraft) 92%, #fff0d0);
+    --ab-kraft-mid: color-mix(in srgb, var(--ab-kraft) 96%, #2b1a08);
+    --ab-kraft-lo: color-mix(in srgb, var(--ab-kraft) 86%, #2b1a08);
+  }
+}
+
+/*
+ * THE SHEET — the kraft itself: the laid lines of the stock, a lit corner, a
+ * shaded one, and the base tone. The photo is NOT in here; it is the layer
+ * above, so it can be masked on its own (port correction 3).
+ */
+.paper {
+  position: absolute;
+  inset: 0;
+  background-color: var(--ab-kraft);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(60, 40, 20, 0.06) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(60, 40, 20, 0.028) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 18% 8%, rgba(255, 230, 190, 0.3), transparent 60%),
+    radial-gradient(110% 70% at 92% 100%, rgba(70, 45, 20, 0.34), transparent 62%),
+    linear-gradient(180deg, var(--ab-kraft-hi) 0%, var(--ab-kraft-mid) 55%, var(--ab-kraft-lo) 100%);
+  background-repeat: repeat, repeat, no-repeat, no-repeat, no-repeat;
+}
+
+/*
+ * THE PRINT — the couple's photo, multiplied into the sheet. Multiply is the
+ * whole theme: ink can only ever darken paper, so the lightest patch of ground
+ * is the bare kraft whatever photo a couple uploads, and the laid lines beneath
+ * read through the image.
+ *
+ * The mask is port correction 3 — clear at the crown, full from 340px down.
+ */
+.print {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 220px, #000 340px, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0, transparent 220px, #000 340px, #000 100%);
+}
+
+/*
+ * THE TOOTH — flecks and fibre, ABOVE the print, which is what makes the photo
+ * read as printed ON paper rather than pasted onto it. Two layers, each turned
+ * off-axis by a different angle so no dot lattice ever lines up with the eye.
+ */
+.tooth {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.tooth::before,
+.tooth::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: -100%;
+  width: 300%;
+  height: 300%;
+}
+.tooth::before {
+  transform: rotate(11deg);
+  background-image:
+    radial-gradient(circle, rgba(58, 38, 16, 0.34) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle, rgba(58, 38, 16, 0.26) 0 0.8px, transparent 1.3px),
+    radial-gradient(circle, rgba(36, 22, 8, 0.22) 0 1.1px, transparent 1.7px),
+    repeating-linear-gradient(0deg, rgba(60, 40, 20, 0.05) 0 2px, transparent 2px 11px);
+  background-size: 11px 13px, 17px 19px, 37px 41px, auto;
+  background-position: 0 0, 5px 7px, 19px 11px, 0 0;
+}
+.tooth::after {
+  transform: rotate(-14deg);
+  background-image:
+    radial-gradient(circle, rgba(255, 240, 208, 0.42) 0 0.7px, transparent 1.2px),
+    radial-gradient(circle, rgba(255, 244, 214, 0.3) 0 0.9px, transparent 1.5px),
+    repeating-linear-gradient(0deg, rgba(255, 235, 200, 0.08) 0 1px, transparent 1px 6px);
+  background-size: 23px 29px, 43px 31px, auto;
+  background-position: 11px 17px, 29px 5px, 0 0;
+}
+
+/*
+ * THE WAX SEAL — the couple's mark, pressed beside their name. It is placed
+ * from the CARD's corner (the card is the one positioned ancestor a skin can
+ * range off), which is why `--ab-card-pad` above is DoorShell's `p-6` written
+ * down. The head reserves 56px on its right so the name never runs under it.
+ */
+.crest {
+  position: absolute;
+  top: calc(var(--ab-card-pad) + 2px);
+  right: calc(var(--ab-card-pad) - 2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  transform: rotate(-8deg);
+}
+.crest::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--accent);
+  opacity: 0.9;
+}
+.seal {
+  position: relative;
+  padding-top: 1px;
+  font-family: var(--font-abaca-display), 'Rockwell', 'Roboto Slab', Georgia, serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ab-ink);
+  white-space: nowrap;
+}
+
+/*
+ * THE SHOW-CARD HEAD. This is the skin's ONE reach inside the card
+ * (themes-stay-skins.test.ts) and it stops at the header: the eyebrow keeps
+ * DoorShell's own #C24E25, because the doorway's label belongs to the app side
+ * — Velvet and Galeriya draw the line in the same place.
+ */
+.abaca :global(header) {
+  position: relative;
+  padding-right: 56px; /* the wax seal's room — port correction 2 */
+}
+
+/*
+ * The eyebrow, set as a show-card kicker: a pressed square, the words, and a
+ * short rule running off the end. Both marks take `currentColor`, so they are
+ * whatever DoorShell has decided the eyebrow is and can never disagree with it.
+ */
+.abaca :global(header) p:first-of-type {
+  font-family: var(--font-abaca-utility), 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.26em;
+}
+.abaca :global(header) p:first-of-type::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+}
+.abaca :global(header) p:first-of-type::after {
+  content: '';
+  flex: 1;
+  max-width: 72px;
+  height: 2px;
+  margin-left: 2px;
+  background: currentColor;
+}
+
+/*
+ * The name, in the woodtype slab, with the couple's colour struck under it as
+ * a printed bar. 30px — see port correction 1; ONE size ships.
+ */
+.abaca :global(header) h1 {
+  font-family: var(--font-abaca-display), 'Rockwell', 'Roboto Slab', Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.abaca :global(header) h1::after {
+  content: '';
+  display: block;
+  width: 66px;
+  height: 7px;
+  margin: 11px 0 0 2px;
+  background: var(--accent);
+  transform: rotate(-1.4deg);
+}
+
+/*
+ * The date, struck as a rubber stamp: a boxed rule, set off-square, and broken
+ * up by a mask so the impression reads as ink pressed unevenly rather than as a
+ * drawn frame. `:not(:first-of-type)` so an eyebrow standing alone is still the
+ * eyebrow and never becomes a stamp.
+ */
+.abaca :global(header) p:last-of-type:not(:first-of-type) {
+  display: inline-block;
+  margin: 16px 0 0 -3px;
+  padding: 7px 11px 6px;
+  border: 2.5px solid var(--ab-ink);
+  border-radius: 3px;
+  font-family: var(--font-abaca-utility), 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--ab-ink);
+  transform: rotate(-2deg);
+  transform-origin: left center;
+  -webkit-mask-image: repeating-linear-gradient(48deg, #000 0 2px, rgba(0, 0, 0, 0.72) 2px 3px);
+  mask-image: repeating-linear-gradient(48deg, #000 0 2px, rgba(0, 0, 0, 0.72) 2px 3px);
+}
+
+/*
+ * THE TWINE — the couple's colour, strung across the card, with DoorShell's own
+ * beads hanging beneath it as the tags. See port correction 4.
+ */
+.hinge {
+  height: 3px;
+  margin: 14px 4px 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--accent) 0 9px,
+    transparent 9px 16px
+  );
+}

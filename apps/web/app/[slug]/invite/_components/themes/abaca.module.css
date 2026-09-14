@@ -220,6 +220,14 @@
   border: 1.5px dashed var(--accent);
   opacity: 0.9;
 }
+/*
+ * 12px, where the design's board says 13. The board's monogram is "C&I"; this
+ * app's is `resolveMonogram(event).text`, which spaces it — "C & I" — and can
+ * be up to 12 characters. Measured in the browser: "C & I" at 12px is 31.2px
+ * wide inside the ring's ~34px of room, and at 13px it touches it. A longer
+ * mark still overruns the seal, exactly as Capiz's does; that is the monogram's
+ * own question, not this theme's.
+ */
 .seal {
   position: relative;
   padding-top: 1px;

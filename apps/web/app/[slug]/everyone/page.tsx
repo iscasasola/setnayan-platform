@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { isHostMemberType } from '../_lib/host-scope';
 import {
   buildEntourage,
@@ -51,14 +51,13 @@ const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
   const { data } = await admin
     .from('events')
-    .select('event_id, slug, display_name, event_type, landing_page_visibility')
+    .select('event_id, slug, display_name, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
   return data as {
     event_id: string;
     slug: string | null;
     display_name: string | null;
-    event_type: string | null;
     landing_page_visibility: string | null;
   } | null;
 });
@@ -97,8 +96,20 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   const event = await fetchEvent(slug);
   if (!event) notFound();
 
-  // Lives on the event website → the 'website' surface, as `/pabuya` does.
-  if (!surfaceEnabled(await resolveProfile(event.event_type ?? 'wedding'), 'website')) {
+  /*
+    Lives on the event website → the 'website' surface.
+
+    ⚠ NO `?? 'wedding'` FALLBACK, and a guard caught me writing one. I had
+    copied it from `/pabuya`, which is grandfathered onto that guard's
+    allow-list. Defaulting an unknown type to "wedding" is how a wake gets a
+    wedding's surfaces — the word is a guess dressed as a default.
+
+    🔑 RESOLVED FROM THE EVENT, not from a column this page had to re-type:
+    `resolveProfileByEvent` takes the id we already hold, so there is no
+    nullable string to fall back FROM and nothing for the next reader to guess
+    at. The `event_type` column is not selected here at all.
+  */
+  if (!surfaceEnabled(await resolveProfileByEvent(event.event_id), 'website')) {
     notFound();
   }
 

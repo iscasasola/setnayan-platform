@@ -259,17 +259,31 @@ test('THE ROW: the shop admin cannot repoint the grant at a celebration it was n
     ]),
   );
 
-  assert.ok(
-    'err' in r,
-    `shop admin ${F.shopAdmin} moved grant ${F.grantId} from ${F.bookedEvent} to stranger event ${F.strangerEvent} and the database allowed it`,
-  );
+  // ⚠ THREE OUTCOMES, NOT TWO. "It raised" and "it did nothing" are different
+  // facts, and only one of them is a refusal anybody can act on. A predicate
+  // that quietly matches zero rows leaves "refused" and "already done" as the
+  // same observation — which is the exact failure shape this row exists to
+  // close, so it is named here rather than counted as a pass.
+  const after_ = await targetOf(F.grantId);
+  const moved = after_.event_id !== F.bookedEvent;
+
+  if (!('err' in r)) {
+    assert.ok(
+      !moved,
+      `shop admin ${F.shopAdmin} moved grant ${F.grantId} from ${F.bookedEvent} to stranger event ${F.strangerEvent} and the database allowed it`,
+    );
+    assert.fail(
+      `the row did not move, but NOTHING WAS RAISED: the UPDATE reported ${r.affectedRows ?? 0} rows and no error, so a caller cannot tell "refused" from "already done". ` +
+        `shop admin ${F.shopAdmin}, grant ${F.grantId}, stranger event ${F.strangerEvent}. The refusal must be explicit.`,
+    );
+  }
+
   assert.match(
     r.err,
     /DAYOF_GRANT_TARGET_IMMUTABLE/,
     `the write was refused, but not by the guard — by "${r.err}". A refusal nobody can name is a refusal nobody can trust.`,
   );
 
-  const after_ = await targetOf(F.grantId);
   assert.equal(
     after_.event_id,
     F.bookedEvent,
@@ -356,9 +370,10 @@ test('ERASURE STAYS OPEN: nulling granted_by (RA 10173) is not a retarget', asyn
   assert.equal(r.affectedRows, 1, 'lib/erasure/coverage.ts nulls this column — the guard must not refuse it');
 });
 
-test('THE SHAPE THAT KEEPS IT SHUT: the trigger is armed on all three identity columns', async () => {
-  const r = await db.query<{ armed: string[]; enabled: string }>(
-    `SELECT array_agg(a.attname ORDER BY a.attname) AS armed, max(t.tgenabled::text) AS enabled
+test('THE SHAPE THAT KEEPS IT SHUT: armed on every identity column, enabled, and with no WHEN to switch it off', async () => {
+  const r = await db.query<{ armed: string[]; enabled: string; condition: string | null }>(
+    `SELECT array_agg(a.attname ORDER BY a.attname) AS armed, max(t.tgenabled::text) AS enabled,
+            max(pg_get_expr(t.tgqual, t.tgrelid)) AS condition
        FROM pg_trigger t
        JOIN unnest(t.tgattr::smallint[]) AS col(attnum) ON TRUE
        JOIN pg_attribute a ON a.attrelid = t.tgrelid AND a.attnum = col.attnum
@@ -372,4 +387,16 @@ test('THE SHAPE THAT KEEPS IT SHUT: the trigger is armed on all three identity c
     'the trigger stopped covering one of the identity columns',
   );
   assert.equal(row.enabled, 'O', 'the trigger is not enabled');
+
+  // 🔑 AND IT HAS NO OFF-SWITCH. Measured: adding `WHEN (OLD.revoked_at IS NOT
+  // NULL)` leaves the function, the trigger, its name, all four armed columns
+  // and tgenabled='O' exactly as they are — every structural claim above still
+  // passes — while the guard never fires on a live grant. Presence is not
+  // reach. Only the behavioural probes above caught that, and this closes the
+  // gap in what THIS test claims to have checked.
+  assert.equal(
+    row.condition,
+    null,
+    `the trigger gained a WHEN condition (${row.condition}) — it is still present, still armed and still enabled, and may now never fire`,
+  );
 });

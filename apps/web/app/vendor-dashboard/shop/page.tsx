@@ -1845,14 +1845,19 @@ export default async function VendorShopHub({
         <EarningsSurface searchParams={Promise.resolve(sp) as never} />
       </div>
 
-      {/* Everything else folds in below — one open at a time, loaded on expand. */}
-      <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
-        {open ? (
-          <Suspense fallback={<AccordionSkeleton />}>
-            <ShopSectionBody open={open} sp={sp} />
-          </Suspense>
-        ) : null}
-      </FeatureAccordion>
+      {/* Everything else folds in below — one open at a time, loaded on expand.
+          The id is what door 6 on the rail points at: the folds are where those
+          tools live today, and a map must not point at a room that is not
+          there. Naming an existing room is not building a door. */}
+      <div id="shop-folds" className="scroll-mt-24">
+        <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+          {open ? (
+            <Suspense fallback={<AccordionSkeleton />}>
+              <ShopSectionBody open={open} sp={sp} />
+            </Suspense>
+          ) : null}
+        </FeatureAccordion>
+      </div>
     </>
   );
 }

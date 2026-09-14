@@ -65,14 +65,16 @@ export const SHOP_DOORS: readonly ShopDoor[] = [
     key: 'd2',
     title: 'Your website',
     question: 'Edit the website couples see',
-    href: '#d2',
+    // Today the website editor is a panel INSIDE the manage tiles, so that is
+    // where this door honestly points until G2 gives it a room of its own.
+    href: '#manage-shop',
     built: false,
   },
   {
     key: 'd3',
     title: 'What you sell',
     question: 'Coverage, service cards and packages',
-    href: '#d3',
+    href: '#packages',
     built: false,
   },
   {

@@ -122,15 +122,20 @@ test('golden matrix — chrome gates (full-bleed, beacon, reveal, music) per pha
         false,
         `beacon suppressed for sample ${identity}/${phase}`,
       );
-      // The reveal covers the STD phase AND the invitation (owner 2026-08-29:
-      // "event hub should also have the cinematic reveal"). NOT the day itself
-      // — a veil between a guest and their table number at the venue — and not
-      // the story afterwards, which has its own cover.
-      const revealPhase = phase === 'save_the_date' || phase === 'rsvp';
+      // The reveal covers the SAVE-THE-DATE WINDOW AND NOTHING ELSE (owner
+      // 2026-09-14: "reveal should only be at the save the date"). It reached
+      // the invitation too between 2026-08-29 and that date — the owner
+      // reversed his own ruling knowing the cost, that the window closes 90
+      // days out. Never the day itself — a veil between a guest and their
+      // table number at the venue — and never the story, which has its own
+      // cover.
+      const revealPhase = phase === 'save_the_date';
       assert.equal(plan.revealEnabled, revealPhase, `reveal ${identity}/${phase}`);
       // An event type that may not have the film may not have its openings
-      // either — the two are ONE part. This is the whole fence for a wake,
-      // which (unlike the STD phase) really does reach the invitation.
+      // either — the two are ONE part. Kept as the explicit fence even though
+      // a solemn event is now also excluded by the phase test, because
+      // removing a fence on the grounds that the other one currently holds is
+      // how one later change becomes an incident.
       assert.equal(
         planFor(identity, phase, {
           weddingOnlyParts: {

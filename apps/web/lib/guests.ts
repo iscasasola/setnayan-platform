@@ -667,30 +667,51 @@ export function guestDisplayName(
 }
 
 /**
- * The guest's FULL FORMAL name — "Atty. Ma. Teresita Sacdalan Sison-Baluis Jr."
+ * THE WHOLE NAME, AS AN INVITATION PRINTS IT — prefix · first · middle · last ·
+ * suffix.
  *
- * ⚠ NOT a replacement for `guestDisplayName`, and the difference is deliberate.
- * They answer two different questions, and 83 call sites depend on the short
- * one: seating cards, QR labels, the caterer export, the print routes, the
- * Patiktok booth. Widening THAT would push a five-part name onto a printed
- * place card sized for two, so the formal name is opt-in per surface.
+ * ⚠ DELIBERATELY NOT `guestDisplayName` ABOVE, AND NOT A REPLACEMENT FOR IT.
+ * The two answer different questions and both are wanted:
+ *   · `guestDisplayName` — the COMPACT name, for a chip, a seat card, a row in
+ *     a list. "Arnaldo Espinas".
+ *   · `guestFullName`    — the FORMAL name, for the entourage on the couple's
+ *     invitation. "Atty. Arnaldo M. Espinas".
+ * Widening the compact one instead would have moved every name in seating, the
+ * emcee script and the guest list at once, which nobody asked for.
  *
- *   guestDisplayName  → "Claire Buanhog"              (chips, cards, labels)
- *   guestFormalName   → "Ms. Claire Estoras Buanhog"  (the roster, the detail
- *                                                      header, invitations)
+ * 🔴 WHY THIS EXISTS: `name_prefix` / `middle_name` / `name_suffix` shipped on
+ * 2026-09-10 (a typed name splits into its parts) and NO display helper was
+ * taught about them, so every surface kept printing the short name. Measured on
+ * one real wedding the day this was written: of 72 entourage rows, **66 carried
+ * a prefix** — Atty., Comm., Associate Dean — and the invitation dropped every
+ * one. On a Filipino invitation a ninong's title is not decoration.
  *
- * An explicit `display_name` still wins in both: a host who typed a display
- * name chose it on purpose, and a title must not override that choice.
+ * 🔑 The couple's own `display_name` still WINS when they set one: it is the
+ * name they chose for this person, and a composed one must never override it.
+ *
+ * Returns null when there is nothing usable, so a caller can drop the row
+ * rather than print an empty line where a person should be.
  */
-export function guestFormalName(
-  guest: Pick<
-    GuestRow,
-    'display_name' | 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix'
-  >,
-): string {
+export function guestFullName(guest: {
+  /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
+     `Partial` widens to `string | undefined`, which a real row cannot satisfy:
+     PostgREST hands back NULL for an unset column, and `GuestRow` types
+     `first_name`/`last_name` as non-null besides. The first caller to pass a
+     row read straight from the database was rejected by the compiler — the
+     annotation was the fault, not the caller. */
+  display_name?: string | null;
+  name_prefix?: string | null;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  name_suffix?: string | null;
+}): string | null {
   const chosen = guest.display_name?.trim();
   if (chosen) return chosen;
-  return [
+  /* Order is the printed order, and every part is optional EXCEPT that at least
+     one must survive. A lone stray space between two absent parts is what the
+     filter is for — `${a} ${b}` with both empty is the bug this avoids. */
+  const whole = [
     guest.name_prefix,
     guest.first_name,
     guest.middle_name,
@@ -700,6 +721,7 @@ export function guestFormalName(
     .map((part) => (part ?? '').trim())
     .filter(Boolean)
     .join(' ');
+  return whole || null;
 }
 
 export function guestInitials(guest: GuestRow): string {

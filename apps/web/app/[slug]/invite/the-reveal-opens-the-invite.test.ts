@@ -128,7 +128,11 @@ const MOMENTS: ReadonlyArray<{ stage: LifecyclePhase; eventDate: string; nowMs: 
   { stage: 'event', eventDate: '2026-08-20', nowMs: at('2026-08-20T22:00:00+08:00') },
   { stage: 'editorial', eventDate: '2026-08-20', nowMs: at('2026-09-10T12:00:00+08:00') },
 ];
-const REVEAL_STAGES: ReadonlySet<LifecyclePhase> = new Set(['save_the_date', 'rsvp']);
+/* THE SAVE-THE-DATE WINDOW AND NOTHING ELSE (owner 2026-09-14). 'rsvp' was in
+   this set from 2026-08-29 until then; the owner reversed his own ruling with
+   the 90-day consequence in front of him, and chose BOTH doors rather than let
+   this one drift from the Hub's. See lib/site-body-plan.ts. */
+const REVEAL_STAGES: ReadonlySet<LifecyclePhase> = new Set(['save_the_date']);
 
 test('the fixtures land in the stage they claim — otherwise every assertion below is about nothing', () => {
   assert.equal(MOMENTS.length, 4);
@@ -137,7 +141,7 @@ test('the fixtures land in the stage they claim — otherwise every assertion be
   }
 });
 
-test('a wedding’s invite opens with the reveal on the save-the-date and the invitation — not the day, not the story', () => {
+test('a wedding’s invite opens with the reveal on the save-the-date ONLY — not the invitation, not the day, not the story', () => {
   for (const m of MOMENTS) {
     assert.equal(
       inviteRevealPlays({ profile: WEDDING_PROFILE, eventDate: m.eventDate, eventEndDate: null, venueTz: MNL, nowMs: m.nowMs }),

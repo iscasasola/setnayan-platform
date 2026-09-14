@@ -666,6 +666,64 @@ export function guestDisplayName(
   return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
 }
 
+/**
+ * THE WHOLE NAME, AS AN INVITATION PRINTS IT — prefix · first · middle · last ·
+ * suffix.
+ *
+ * ⚠ DELIBERATELY NOT `guestDisplayName` ABOVE, AND NOT A REPLACEMENT FOR IT.
+ * The two answer different questions and both are wanted:
+ *   · `guestDisplayName` — the COMPACT name, for a chip, a seat card, a row in
+ *     a list. "Arnaldo Espinas".
+ *   · `guestFullName`    — the FORMAL name, for the entourage on the couple's
+ *     invitation. "Atty. Arnaldo M. Espinas".
+ * Widening the compact one instead would have moved every name in seating, the
+ * emcee script and the guest list at once, which nobody asked for.
+ *
+ * 🔴 WHY THIS EXISTS: `name_prefix` / `middle_name` / `name_suffix` shipped on
+ * 2026-09-10 (a typed name splits into its parts) and NO display helper was
+ * taught about them, so every surface kept printing the short name. Measured on
+ * one real wedding the day this was written: of 72 entourage rows, **66 carried
+ * a prefix** — Atty., Comm., Associate Dean — and the invitation dropped every
+ * one. On a Filipino invitation a ninong's title is not decoration.
+ *
+ * 🔑 The couple's own `display_name` still WINS when they set one: it is the
+ * name they chose for this person, and a composed one must never override it.
+ *
+ * Returns null when there is nothing usable, so a caller can drop the row
+ * rather than print an empty line where a person should be.
+ */
+export function guestFullName(guest: {
+  /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
+     `Partial` widens to `string | undefined`, which a real row cannot satisfy:
+     PostgREST hands back NULL for an unset column, and `GuestRow` types
+     `first_name`/`last_name` as non-null besides. The first caller to pass a
+     row read straight from the database was rejected by the compiler — the
+     annotation was the fault, not the caller. */
+  display_name?: string | null;
+  name_prefix?: string | null;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  name_suffix?: string | null;
+}): string | null {
+  const chosen = guest.display_name?.trim();
+  if (chosen) return chosen;
+  /* Order is the printed order, and every part is optional EXCEPT that at least
+     one must survive. A lone stray space between two absent parts is what the
+     filter is for — `${a} ${b}` with both empty is the bug this avoids. */
+  const whole = [
+    guest.name_prefix,
+    guest.first_name,
+    guest.middle_name,
+    guest.last_name,
+    guest.name_suffix,
+  ]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  return whole || null;
+}
+
 export function guestInitials(guest: GuestRow): string {
   const first = guest.first_name.charAt(0).toUpperCase();
   const last = guest.last_name.charAt(0).toUpperCase();

@@ -1,4 +1,4 @@
-import type { GuestRole } from '@/lib/guests';
+import { guestFullName, type GuestRole } from '@/lib/guests';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -147,25 +147,29 @@ export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g
 /** One guest row, reduced to what this builder reads. */
 export type EntourageGuestRow = {
   display_name?: string | null;
+  name_prefix?: string | null;
   first_name?: string | null;
+  middle_name?: string | null;
   last_name?: string | null;
+  name_suffix?: string | null;
   role?: string | null;
   extra_roles?: readonly string[] | null;
 };
 
 /**
- * The name a guest is printed under. `display_name` when the couple set one —
- * it is the name they chose — otherwise first + last.
+ * The name a guest is printed under — THE WHOLE NAME, prefix and all.
+ *
+ * 🔑 DELEGATED, NEVER RE-COMPOSED. `guestFullName` in lib/guests.ts is the one
+ * place that knows the printed order of a name's five parts; a second copy here
+ * would be a second mechanism answering one question, and they would disagree
+ * the first time somebody added a part to only one of them.
  *
  * ⚠ RETURNS null RATHER THAN AN EMPTY LINE. A row with no usable name is
  * dropped, because a bullet with nothing beside it reads as a person whose name
  * we lost.
  */
 export function personName(row: EntourageGuestRow): string | null {
-  const display = (row.display_name ?? '').trim();
-  if (display) return display;
-  const joined = [row.first_name ?? '', row.last_name ?? ''].map((s) => s.trim()).filter(Boolean).join(' ');
-  return joined || null;
+  return guestFullName(row);
 }
 
 /**

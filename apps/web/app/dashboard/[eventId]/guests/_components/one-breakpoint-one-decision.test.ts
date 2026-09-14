@@ -62,10 +62,27 @@ test('the table SCROLLS rather than clipping its own columns', () => {
 test('the contact column is icons, not a raw number', () => {
   // Owner: "contact number should just show icon to call." The raw string was
   // also the widest value in the row, in the column squeezing the name.
-  assert.match(SRC, /href=\{`tel:\$\{guest\.mobile/, 'the phone icon must be a real tel: link');
-  assert.match(SRC, /href=\{`mailto:\$\{guest\.email\}`\}/, 'the mail icon must be a real mailto: link');
+  assert.match(SRC, /<Phone aria-hidden/, 'the mobile must render as an icon');
+  assert.match(SRC, /<Mail aria-hidden/, 'the email must render as an icon');
   assert.ok(
     !/\{guest\.email \?\? guest\.mobile \?\? '—'\}/.test(SRC),
     'the raw contact string must not come back',
   );
+});
+
+test('🔴 and those icons do NOT dial — no-door-out-of-the-app Rule 1', () => {
+  // This assertion is the INVERSE of what it first said. The icons shipped as
+  // real `tel:`/`mailto:` links and `lib/no-door-out-of-the-app.test.ts` caught
+  // them: a couple-facing surface may not COMPUTE a contact scheme. Zero
+  // tolerance, no exemption bill, deliberately — because a couple who phones a
+  // SHOP books off-platform (owner, verbatim 2026-09-10).
+  //
+  // A guest is not a shop, so the harm model does not reach this cell — but
+  // carving the first exemption into a zero-tolerance rule is a product
+  // decision, not a refactor. Until the owner rules, the icon SHOWS the contact
+  // and does not dial it. If he later scopes Rule 1 to vendors, this test is
+  // the one to change, and the comment above is why.
+  const cell = SRC.slice(SRC.indexOf('<Phone aria-hidden') - 1200, SRC.indexOf('<Mail aria-hidden') + 400);
+  assert.ok(!/href=\{`tel:/.test(cell), 'the contact cell must not compute a tel: link');
+  assert.ok(!/href=\{`mailto:/.test(cell), 'the contact cell must not compute a mailto: link');
 });

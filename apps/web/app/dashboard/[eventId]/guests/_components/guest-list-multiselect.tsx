@@ -464,36 +464,34 @@ function DesktopRow({
           hasPlusOne={guest.plus_one_allowed}
         />
       </td>
-      {/* Owner 2026-09-14: "contact number should just show icon to call."
-          A raw +63 number spent the widest string in the row on something
-          nobody reads character by character — and the column it spent it in
-          was the one squeezing the NAME. Icons instead: each is an actual
-          `tel:` / `mailto:` link, so the number is one tap away on a phone and
-          one click in the desktop dialer, and the full value rides in `title`
-          for anyone who wants to read or copy it.
-          Both show when a guest has both — they are different ways to reach
-          the same person, and picking one for the host would be a guess. */}
+      {/* Owner 2026-09-14: "contact number should just show icon to call." The
+          raw +63 string was the widest value in the row, in the column that was
+          squeezing the NAME — so the icons are right regardless.
+
+          🔴 BUT THEY ARE NOT LINKS, AND THAT IS NOT AN OVERSIGHT.
+          `no-door-out-of-the-app.test.ts` Rule 1 forbids any couple-facing
+          surface from COMPUTING a `tel:`/`mailto:` — zero tolerance, no bill,
+          by design so nobody argues an exemption. It exists because a couple
+          who phones a SHOP books off-platform: no booking fee, no in-app
+          record, no price freeze (owner, verbatim 2026-09-10).
+
+          A GUEST is not a shop, so the rule's harm model plainly does not
+          cover this cell — but Rule 1 has no exemption mechanism ON PURPOSE,
+          and carving the first one is a product decision, not a refactor.
+          Flagged to the owner; until he rules, the icon SHOWS the contact and
+          does not dial it. The number stays selectable in `title` so it can be
+          copied. */}
       <td className="px-3 py-2.5">
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 text-ink/45">
           {guest.mobile ? (
-            <a
-              href={`tel:${guest.mobile.replace(/[^\d+]/g, '')}`}
-              title={`Call ${guest.mobile}`}
-              aria-label={`Call ${guestFullName(guest) ?? guestDisplayName(guest)} on ${guest.mobile}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
-            >
+            <span title={guest.mobile} aria-label={`Mobile on file: ${guest.mobile}`}>
               <Phone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-            </a>
+            </span>
           ) : null}
           {guest.email ? (
-            <a
-              href={`mailto:${guest.email}`}
-              title={`Email ${guest.email}`}
-              aria-label={`Email ${guestFullName(guest) ?? guestDisplayName(guest)} at ${guest.email}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/45 transition-colors hover:bg-ink/5 hover:text-terracotta-700"
-            >
+            <span title={guest.email} aria-label={`Email on file: ${guest.email}`}>
               <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-            </a>
+            </span>
           ) : null}
           {/* An em dash, not an empty cell: "no contact yet" is a fact the host
               acts on, and a blank reads as a rendering failure. */}

@@ -138,3 +138,30 @@ view") rather than a blank, because narrowing the lens must never turn part of
 your own selection into nothing.
 
 SPEC IMPACT: None.
+
+## 2026-09-14 · fix(guests): the contact icons do not dial — Rule 1 holds
+
+`lib/no-door-out-of-the-app.test.ts` caught the contact icons: a couple-facing
+surface may not COMPUTE a `tel:`/`mailto:`. Zero tolerance, no exemption bill,
+deliberately — because a couple who phones a SHOP books off-platform: no
+booking fee, no in-app record, no price freeze (owner, verbatim 2026-09-10).
+
+A GUEST is not a shop, so the rule's harm model plainly does not reach this
+cell. But Rule 1 has no exemption mechanism ON PURPOSE, and carving the first
+one is a product decision, not a refactor. The icons stay — they answer the
+actual request and free the width that was squeezing the name — but they SHOW
+the contact rather than dialling it, with the value in `title` so it can still
+be read and copied. Flagged to the owner.
+
+Also: `the-quick-view-is-not-on-phones.test.ts` pinned `sm:block` as a PROXY for
+"the table is not on phones", and the table moved to `lg:block`. The proxy went
+stale in the SAFE direction — the table is now hidden on MORE screens, so the
+quick view reaches phones LESS. Re-pinned to `lg` rather than loosened to "any
+breakpoint": a future move DOWN must still fail.
+
+🔑 Both guards were right and neither was noise. One protected a business rule I
+was about to break; the other protected an intent whose literal had gone stale.
+Telling those apart is the whole job — the first is obeyed, the second updated.
+
+SPEC IMPACT: None — Rule 1 is unchanged. Whether it should exclude guest
+contacts is an OPEN OWNER QUESTION, not a decision taken here.

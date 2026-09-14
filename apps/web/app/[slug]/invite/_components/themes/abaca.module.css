@@ -311,7 +311,11 @@
   margin: 16px 0 0 -3px;
   padding: 7px 11px 6px;
   border: 2.5px solid var(--ab-ink);
-  border-radius: 3px;
+  /* the design's 3px — a rubber stamp's corner is almost square. Written off
+     the scale (`--m-r-xs` is 4px) rather than as a literal, the way Velvet
+     ranges its engraving off `--m-r-lg`: `scripts/lint-radius.mjs` fails an
+     ad-hoc px radius, and it is right to. */
+  border-radius: calc(var(--m-r-xs) - 1px);
   font-family: var(--font-abaca-utility), 'Arial Narrow', 'Helvetica Neue', sans-serif;
   font-weight: 500;
   font-size: 12px;

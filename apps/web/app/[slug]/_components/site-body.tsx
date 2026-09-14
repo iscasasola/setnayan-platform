@@ -129,6 +129,8 @@ import {
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
+import { EntourageSection } from './entourage-section';
+import type { EntourageGroup } from '@/lib/entourage';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -328,6 +330,8 @@ type SiteBodyProps = {
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
   chaptersOnThisDay?: ChapterOnThisDay[];
+  /** The entourage, already grouped and ordered by `lib/entourage.ts`. */
+  entourage?: EntourageGroup[];
   vendorCapability?: VendorCapability | null;
   /** THE SUPPLIER'S DESK — built only on the day, only for a booked supplier,
    *  and only from reads made under that supplier's OWN session. Null on every
@@ -375,6 +379,7 @@ export async function SiteBody({
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
+  entourage = [],
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -976,6 +981,12 @@ export async function SiteBody({
                 {publicWidgetNodes}
               </section>
             ) : null}
+
+            {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
+                2026-09-14). Its own anchor so the couple can link straight at
+                it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
+                untouched. Draws nothing when nobody holds a role. */}
+            <EntourageSection groups={entourage} id="site-entourage" />
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
@@ -1721,6 +1732,13 @@ export async function SiteBody({
                   words={clientWords}
                 />
               ))}
+
+              {/* The same entourage, for the guest tree. TWO MOUNTS, ONE
+                  SECTION: the anonymous and guest trees are separate subtrees
+                  and a single mount above the fork would land outside Details
+                  in one of them. `the-entourage-is-mounted-in-both-trees.test.ts`
+                  fails if either disappears. */}
+              <EntourageSection groups={entourage} id="site-entourage" />
 
               {isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">

@@ -23,6 +23,13 @@ import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  buildEntourage,
+  ENTOURAGE_ROLES,
+  type EntourageGroup,
+  type EntourageGuestRow,
+} from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -1377,5 +1384,49 @@ export const loadGuestContext = cache(
       rsvpFaceMode,
       eventVendorCredits,
     };
+  },
+);
+
+/**
+ * THE ENTOURAGE, FOR THE INVITATION.
+ *
+ * Reads only the rows that hold a published entourage role — the allow-list in
+ * `lib/entourage.ts`, passed to PostgREST as an `in` filter so a plain guest's
+ * name never leaves the database on this path at all. Four columns, no contact
+ * details, no RSVP state, no seat.
+ *
+ * ⚠ A FAILED READ DRAWS NOTHING, AND THAT IS THE HONEST ANSWER HERE — not the
+ * blank-page trap `loadWidgets` throws over. A missing entourage section says
+ * nothing untrue to a guest; an error plate on somebody's wedding invitation
+ * does, and there is no version of "we could not read your entourage" that
+ * helps the person reading it. The failure is logged and the rest of the
+ * invitation renders exactly as it did.
+ *
+ * 🔑 THE ROLES COME FROM THE GUEST LIST AND NOWHERE ELSE. `event_sponsors` —
+ * the table behind /dashboard/<eventId>/sponsors — held ZERO rows in production
+ * when this shipped; see the docblock on `lib/entourage.ts` before adding it as
+ * a second source.
+ */
+export const loadEntourage = cache(
+  async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
+    const { data, error } = await admin
+      .from('guests')
+      .select('display_name, first_name, last_name, role, extra_roles')
+      .eq('event_id', eventId)
+      /*
+        🔑 BOTH COLUMNS, OR THE SECOND ROLE IS INVISIBLE. `extra_roles` is how a
+        guest holds a role BESIDE their main one — and a ring bearer whose main
+        role is still the default `guest` lives ONLY there. Filtering on `role`
+        alone dropped exactly the people the couple went out of their way to
+        mark, and the page would have looked correct while doing it.
+      */
+      .or(
+        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
+      );
+    if (error) {
+      logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
+      return [];
+    }
+    return buildEntourage((data ?? []) as EntourageGuestRow[]);
   },
 );

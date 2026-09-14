@@ -58,6 +58,7 @@ import {
   loadDoorwayFacts,
   loadMedia,
   loadWidgets,
+  loadEntourage,
   type EventShellRow,
 } from './_lib/loaders';
 import {
@@ -992,6 +993,22 @@ async function InvitationBody({
       ownerCapability || vendorCapability || viewerHoldsASeat || session?.event_id === event.event_id
         ? await loadChaptersOnThisDay(event.event_id)
         : [],
+    /*
+      THE ENTOURAGE — loaded for every viewer this page already admits, which
+      is NOT the rule one line above.
+
+      ⚠ THE DIFFERENCE IS DELIBERATE AND IT IS A DISCLOSURE DECISION, so read
+      it before copying either shape. `chaptersOnThisDay` is content written
+      FOR the people of this celebration and is withheld from a passer-by. The
+      entourage is the opposite kind of fact: it is what an invitation PRINTS
+      — the names every guest reads on the paper — so it is shown to whoever
+      can already read the couple's names, date and venue on this page. On a
+      PRIVATE event that is only people who got through the gate above; on a
+      public one it is anybody with the link, exactly as their names and date
+      already are. If the owner ever wants the entourage held back from the
+      open internet on a public event, this is the one line to change.
+    */
+    entourage: await loadEntourage(admin, event.event_id),
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

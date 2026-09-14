@@ -42,6 +42,7 @@
  */
 import Link from 'next/link';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { doorTitleFit } from '@/lib/door-fold';
 
 /**
  * THRESHOLD vs DEAD-END — the one real branch a door has.
@@ -188,14 +189,54 @@ export function DoorShell({
       } as React.CSSProperties)
     : null;
 
+  /*
+    THE FOLD — the door's one action stays on the first screen of a phone.
+    Measured on door 01's real tree at 375×812, "Continue" sat at y=648 on
+    Velvet (merged and live) and y=720 on Velvet with a 45-character name,
+    against a 640 bar. See lib/door-fold.ts for the numbers and the ruling.
+
+    🔑 THE SIZE IS A RATIO THE SHELL IMPOSES, NOT A SIZE IT PICKS. A skin sets
+    its own name size (House 24px · Velvet and Galeriya 40px) and out-specifies
+    anything this file could say about `font-size`; a ratio multiplies whatever
+    the theme asked for. It rides a custom property read by ONE media-scoped
+    rule in globals.css — the same mechanism, and for the same reason, as
+    `--door-action` above: globals.css is already on every page, so it adds no
+    module to the shared chunk, and the attribute scopes it to doors alone.
+    Above `sm` there is no fold to lose and the rule does not apply.
+  */
+  const titleFit = typeof title === 'string' ? doorTitleFit(title) : undefined;
+
   return (
     <main
       className={[
-        'relative isolate flex min-h-dvh w-full flex-col items-center justify-center px-4 py-10 sm:px-6',
+        /*
+          ⬆ TOP-RANGED ON A PHONE, CENTRED FROM `sm`. A centred card spends the
+          fold twice: once on the air above it, and again on every pixel saved
+          below it — the column moves half as far as the content it lost, which
+          is why "shorten the theme" could never win this. Every one of these
+          doors was DESIGNED as a top-ranged 375×812 column (the invite themes'
+          own design boards are exactly that); the centring is the port's, and
+          on a phone it costs up to ~95px of the first screen.
+          `py-4` for the same reason — 40px of page padding is air a phone does
+          not have to spend. The CARD's own padding is deliberately NOT touched:
+          `capiz.module.css` positions its seal with `calc(-1.5rem - 33px)` and
+          `galeriya.module.css` ranges its accent tab off `--ga-card-pad: 1.5rem`,
+          both of which are DoorShell's `p-6` written down in a skin.
+        */
+        'relative isolate flex min-h-dvh w-full flex-col items-center justify-start px-4 py-4 sm:justify-center sm:px-6 sm:py-10',
         skin ? skin.className : 'bg-cream',
       ].join(' ')}
-      style={actionVars ? { ...skin?.style, ...actionVars } : skin?.style}
+      style={
+        titleFit || actionVars
+          ? ({
+              ...skin?.style,
+              ...actionVars,
+              ...(titleFit ? { ['--door-title-fit' as string]: titleFit } : null),
+            } as React.CSSProperties)
+          : skin?.style
+      }
       data-door-action={skin?.action ? '' : undefined}
+      data-door-title-fit={titleFit ? '' : undefined}
     >
       {skin?.ground ? (
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -211,7 +252,7 @@ export function DoorShell({
         <Link
           href="/"
           aria-label="Setnayan home"
-          className="mb-5 inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          className="mb-4 inline-flex rounded-sm sm:mb-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
         >
           <Wordmark size={24} />
         </Link>
@@ -260,11 +301,11 @@ export function DoorShell({
           {skin?.hinge ? (
             <>
               <div aria-hidden>{skin.hinge}</div>
-              {rail ? <div className="mt-6">{rail}</div> : null}
+              {rail ? <div className="mt-4 sm:mt-6">{rail}</div> : null}
             </>
           ) : null}
 
-          {children ? <div className="mt-6 space-y-4">{children}</div> : null}
+          {children ? <div className="mt-4 space-y-4 sm:mt-6">{children}</div> : null}
         </div>
       </div>
     </main>
@@ -284,7 +325,7 @@ function StepRail({ steps }: { steps: DoorStep[] }) {
   const current = currentIndex >= 0 ? steps[currentIndex] : undefined;
 
   return (
-    <div className="mb-6">
+    <div className="mb-4 sm:mb-6">
       <p className="sr-only">
         {current
           ? `Step ${currentIndex + 1} of ${steps.length} · ${current.label}`

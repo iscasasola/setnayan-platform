@@ -797,6 +797,32 @@ html.subnav-docked [data-shell-main] {
   }
 
   /*
+   * THE DOOR'S NAME IS FITTED TO THE FOLD, NEVER TRUNCATED (row 4a, 2026-09-14).
+   *
+   * `DoorShell` sets `--door-title-fit` only when the title it was handed is
+   * longer than `DOOR_TITLE_FULL_CHARS` (lib/door-fold.ts) — so the ordinary
+   * two-name mark every shipped screenshot shows is untouched, and no page
+   * outside a door is in this scope at all.
+   *
+   * 🔑 `zoom`, NOT `font-size`. Each invite theme sets the name's size in its
+   * OWN stylesheet (`.velvet header h1 { font-size: 40px }`), which
+   * out-specifies anything the shell can say about `font-size` — and a shell
+   * that named a size would have to know every theme, including the ones not
+   * written yet. `zoom` multiplies whatever the theme asked for and, unlike
+   * `transform: scale()`, it changes LAYOUT: the 168px four-line name that
+   * pushed door 01's "Continue" to y=720 becomes 83px of real, recovered fold.
+   *
+   * 📱 PHONE ONLY. Above `sm` the column is centred in a viewport with room to
+   * spare and there is no fold to lose, so a long name is set exactly as its
+   * theme asks.
+   */
+  @media (max-width: 639px) {
+    [data-door-title-fit] h1 {
+      zoom: var(--door-title-fit);
+    }
+  }
+
+  /*
    * .button-secondary — slate indigo (Warm Editorial Archive, owner 2026-08-01).
    * One of the two sanctioned homes for the new `link` token (the other being
    * inline anchors). Border and label carry the indigo; the fill stays cream so

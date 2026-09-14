@@ -183,10 +183,13 @@ test('vip → roleHint vip', () => {
   assert.equal(parseGuestInput('Ana Cruz vip').roleHint, 'vip');
 });
 
-test('sponsor / ninong / ninang → roleHint principal_sponsor', () => {
+test('ninong / ninang tag the SPECIFIC half; bare sponsor stays unspecified', () => {
+  // Split 2026-09-14 (owner): principal sponsors stand in pairs, so the token
+  // that names which half must not collapse to the generic role any more.
+  assert.equal(parseGuestInput('Ana ninong').roleHint, 'principal_sponsor_ninong');
+  assert.equal(parseGuestInput('Ana NINANG').roleHint, 'principal_sponsor_ninang');
+  // `sponsor` cannot know which half — it must NOT guess.
   assert.equal(parseGuestInput('Ana sponsor').roleHint, 'principal_sponsor');
-  assert.equal(parseGuestInput('Ana ninong').roleHint, 'principal_sponsor');
-  assert.equal(parseGuestInput('Ana NINANG').roleHint, 'principal_sponsor');
 });
 
 test('no role keyword → roleHint null', () => {
@@ -225,7 +228,7 @@ test('keyword tokens can appear before the name and in any order', () => {
     side: 'groom',
     plusOnes: 2,
     groups: ['Ninang'],
-    roleHint: 'principal_sponsor',
+    roleHint: 'principal_sponsor_ninang',
   });
 });
 

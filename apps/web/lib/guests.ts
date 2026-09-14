@@ -24,6 +24,12 @@ export type GuestRole =
   | 'bridesmaid'
   | 'groomsman'
   | 'principal_sponsor'
+  // Split 2026-09-14 (owner): Filipino principal sponsors stand in PAIRS, and
+  // one role could not say which half of a pair a sponsor was. `principal_sponsor`
+  // is KEPT — 47 live rows hold it and gender is not stored, so there is no
+  // honest rule to migrate them; it now reads as "not yet specified".
+  | 'principal_sponsor_ninong'
+  | 'principal_sponsor_ninang'
   | 'candle_sponsor'
   | 'veil_sponsor'
   | 'cord_sponsor'
@@ -290,7 +296,9 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   best_man: 'Best Man',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
-  principal_sponsor: 'Principal Sponsor (Ninong/Ninang)',
+  principal_sponsor: 'Principal Sponsor',
+  principal_sponsor_ninong: 'Principal Sponsor (Ninong)',
+  principal_sponsor_ninang: 'Principal Sponsor (Ninang)',
   candle_sponsor: 'Candle Sponsor',
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',

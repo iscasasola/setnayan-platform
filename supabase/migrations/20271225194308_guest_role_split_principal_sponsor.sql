@@ -1,0 +1,38 @@
+-- guest_role_split_principal_sponsor
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration.
+--
+-- WHY. `principal_sponsor` is one role for what Filipino weddings treat as two:
+-- the Ninong (godfather) and the Ninang (godmother), who stand and process in
+-- PAIRS. With one role there is nothing to pair — the list cannot tell which
+-- half of a pair a sponsor is. Owner directive 2026-09-14, verbatim: "we want
+-- them separated Principal Sponsor (Ninong) and Principal Sponsor (Ninang)
+-- instead of Ninong/Ninang so it will be easier to pair".
+--
+-- 🔑 THE BUG THIS ALSO ENDS. `lib/event-sponsors.ts › sponsorRoleHonorific`
+-- derives the honorific from WHICH FAMILY'S SIDE the sponsor is on —
+-- `side === 'groom' → 'ninong'`, `side === 'bride' → 'ninang'`. Side is not
+-- gender: a Ninong on the bride's side was addressed as "ninang" on the
+-- invitation. Ninong/Ninang becomes a property of the ROLE, which is what it
+-- actually is, instead of being inferred from an unrelated column.
+--
+-- ⚠ NO BEGIN/COMMIT, AND NOTHING ELSE IN THIS FILE. A newly-added enum value
+-- CANNOT be referenced in the same transaction that adds it, so every use of
+-- these two values — backfills, CHECKs, indexes, partial predicates — must
+-- live in a LATER migration. Same pattern as
+-- 20260530020000_guest_role_add_bride_groom.sql,
+-- 20260607040000_guest_role_add_vip_family.sql and
+-- 20270220984328_guest_role_add_generic.sql. Additive and idempotent.
+--
+-- NO BACKFILL, DELIBERATELY. 47 guests currently hold `principal_sponsor` on
+-- the live roster (measured 2026-09-14) and GENDER IS NOT STORED ANYWHERE —
+-- `side` is which family, not who. There is no honest rule that splits them, so
+-- the old value is KEPT as a valid role and those rows stay untouched. The app
+-- suggests a split from the name prefix (Mr./Mrs./Ms.) for the host to confirm;
+-- a guess must not be written by a migration.
+--
+-- Enum sort order = creation order, so these two sort last. Display order comes
+-- from ROLE_IMPORTANCE in lib/role-groups.ts, never from the enum.
+
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'principal_sponsor_ninong';
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'principal_sponsor_ninang';

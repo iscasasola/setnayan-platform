@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
-import { hideReportedPhoto, type ReportedPhotoTable } from '@/lib/hide-a-reported-photo';
+import { hideReportedPhoto, isSupplierOwned, type ReportedPhotoTable } from '@/lib/hide-a-reported-photo';
+import { tellTheSupplierItCameDown } from '@/lib/tell-the-supplier-it-came-down';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -142,6 +143,24 @@ export async function resolveReport(formData: FormData) {
     this it stayed on all of them after the moderator pressed Hide.
   */
   if (hiddenIn && report.event_id) await everyCopyIsNowStale(report.event_id as string);
+
+  /*
+    A SUPPLIER'S PHOTOGRAPH DOES NOT JUST VANISH OUT OF THEIR WORKSPACE.
+    `hideReportedPhoto` now reaches the two supplier-owned tables as well
+    (owner ruling 2026-09-14: "no. we will honour the guest."), so a tile
+    disappears from "What you've shot" or from their portfolio album with no
+    error and nothing to read — the same absence-shaped failure the takedown
+    lane exists to end, pointed at the other party. Fail-soft: the photograph
+    is already down, and a failed notice must not read as a failed takedown.
+  */
+  if (isSupplierOwned(hiddenIn) && report.event_id) {
+    await tellTheSupplierItCameDown(
+      admin,
+      hiddenIn,
+      report.target_id as string,
+      report.event_id as string,
+    );
+  }
 
   // A chapter "hide" is really an unfeature (the content stays on the
   // creator's own page) — say so honestly in the resolution note. A photo

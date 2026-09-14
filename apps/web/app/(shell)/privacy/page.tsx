@@ -1100,6 +1100,13 @@ export default function PrivacyPage() {
               <strong>Right to object:</strong> reach us at the help center to opt out of
               specific processing.
             </li>
+            <li>
+              <strong>Right to have a supplier&rsquo;s photo of you taken down:</strong>{' '}
+              if a supplier working an event photographs you, you can ask for that
+              photograph to be removed, and we remove it from the supplier&rsquo;s
+              own copy too &mdash; including their portfolio album &mdash; not only
+              from the couple&rsquo;s gallery.
+            </li>
           </ul>
         </Section>
 

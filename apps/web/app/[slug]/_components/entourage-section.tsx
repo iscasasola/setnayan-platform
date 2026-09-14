@@ -1,5 +1,5 @@
-import type { EntourageGroup } from '@/lib/entourage';
-import { roleLabel } from '@/lib/entourage';
+import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
+import { roleLabel, peopleOf } from '@/lib/entourage';
 
 /**
  * THE ENTOURAGE — the people standing up with the couple, on the invitation.
@@ -41,26 +41,41 @@ export function EntourageSection({ groups, id }: { groups: readonly EntourageGro
         </h3>
       </header>
 
-      <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2">
+      <div className="space-y-8">
         {groups.map((group) => {
           /* Does this group hold more than one role? Computed per group, from
              the people actually in it — never assumed from the group's key, so
              a group whose couple only filled in one of its roles reads as
              cleanly as a single-role one. */
-          const distinctRoles = new Set(group.people.map((p) => p.role));
+          const distinctRoles = new Set(peopleOf(group).map((p) => p.role));
           const showRole = distinctRoles.size > 1;
+          /* Does ANY line in this group hold two people? A group nobody paired
+             prints as one column — two columns of names with every right-hand
+             cell empty is a table pretending to be a pairing. */
+          const paired = group.rows.some(([l, r]) => l !== null && r !== null);
           return (
             <div key={group.key} className="space-y-3">
               <h4 className="pahina-eyebrow">
                 <span>{group.label}</span>
               </h4>
               <ul className="space-y-2">
-                {group.people.map((person, i) => (
-                  <li key={`${person.role}-${person.name}-${i}`} className="leading-snug">
-                    <span className="text-base text-ink">{person.name}</span>
-                    {showRole ? (
-                      <span className="ml-2 text-sm text-ink/55">{roleLabel(person.role)}</span>
-                    ) : null}
+                {group.rows.map((row, i) => (
+                  <li
+                    key={`${group.key}-${i}`}
+                    className={
+                      paired
+                        ? 'grid grid-cols-1 items-baseline gap-x-8 gap-y-1 leading-snug sm:grid-cols-2'
+                        : 'leading-snug'
+                    }
+                  >
+                    {paired ? (
+                      <>
+                        <Cell person={row[0]} showRole={showRole} />
+                        <Cell person={row[1]} showRole={showRole} />
+                      </>
+                    ) : (
+                      <Cell person={row[0] ?? row[1]} showRole={showRole} />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -69,5 +84,23 @@ export function EntourageSection({ groups, id }: { groups: readonly EntourageGro
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * One cell of a printed line.
+ *
+ * 🔑 A NULL RENDERS AN EMPTY CELL, NOT NOTHING. Owner 2026-09-14: *"if the
+ * other side is left blank, then keep that line blank."* Returning `null` here
+ * would collapse the grid column and slide the next name up into the gap, which
+ * is precisely the re-flow the two-column layout exists to prevent.
+ */
+function Cell({ person, showRole }: { person: EntouragePerson | null; showRole: boolean }) {
+  if (!person) return <span aria-hidden className="hidden sm:block" />;
+  return (
+    <span>
+      <span className="text-base text-ink">{person.name}</span>
+      {showRole ? <span className="ml-2 text-sm text-ink/55">{roleLabel(person.role)}</span> : null}
+    </span>
   );
 }

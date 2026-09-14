@@ -61,12 +61,24 @@ test('the section draws nothing when nobody holds a role', () => {
   So the read is pinned here, beside the render, not left to the resolver's own
   test.
 */
-test('the entourage read asks for all five parts of a name', () => {
+test('the entourage read asks for every column it renders from', () => {
   const src = stripComments(read('app/[slug]/_lib/loaders.ts'));
   const start = src.indexOf('loadEntourage');
   assert.ok(start > 0, 'loadEntourage is gone — this guard is pointing at nothing');
   const select = src.slice(start, start + 1200);
-  for (const column of ['name_prefix', 'first_name', 'middle_name', 'last_name', 'name_suffix']) {
+  /* 🔑 `guest_id` and `pair_with_guest_id` join the list for the same reason the
+     name parts did: pairing is resolved entirely from those two columns, so a
+     query that stops naming them makes every pair vanish — the couple's work
+     silently undone, the page still perfectly formed. */
+  for (const column of [
+    'guest_id',
+    'pair_with_guest_id',
+    'name_prefix',
+    'first_name',
+    'middle_name',
+    'last_name',
+    'name_suffix',
+  ]) {
     assert.ok(
       select.includes(column),
       `loadEntourage no longer selects ${column} — that part of every name stops printing, silently`,

@@ -1417,7 +1417,7 @@ export const loadEntourage = cache(
         correct while dropping "Atty." from a ninong's name.
       */
       .select(
-        'display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles',
+        'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles',
       )
       .eq('event_id', eventId)
       /*

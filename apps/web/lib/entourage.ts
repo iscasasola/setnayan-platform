@@ -43,19 +43,38 @@ import { guestFullName, type GuestRole } from '@/lib/guests';
 
 /** One person, as the list needs them. Nothing else about a guest is read. */
 export type EntouragePerson = {
+  /** The guest row's own id — how a pair is resolved. */
+  id: string | null;
   /** Already-composed display name. Never assembled from parts in here. */
   name: string;
   /** The role this appearance is for — a guest with `extra_roles` appears once per role. */
   role: GuestRole;
+  /** Their partner's guest id, when the couple paired them. */
+  pairId: string | null;
 };
+
+/**
+ * One printed line: `[left, right]`. Either cell may be null.
+ *
+ * 🔑 A NULL IS A DELIBERATE BLANK, NOT A MISSING PERSON. The owner's ruling is
+ * that an unpartnered name keeps its line and leaves the other side empty, so
+ * the columns stay columns instead of re-flowing into two ragged lists.
+ */
+export type EntourageRow = readonly [EntouragePerson | null, EntouragePerson | null];
 
 export type EntourageGroup = {
   /** Stable key, for the render's list identity and for tests. */
   key: string;
-  /** The heading a guest reads — "Principal Sponsors", "Bridesmaids". */
+  /** The heading a guest reads — "Principal Sponsors", "Bridesmaids & Groomsmen". */
   label: string;
-  people: EntouragePerson[];
+  /** The printed lines, in order. */
+  rows: EntourageRow[];
 };
+
+/** Everyone in a group, in printed order — the flat view, for counting and tests. */
+export function peopleOf(group: EntourageGroup): EntouragePerson[] {
+  return group.rows.flatMap((r) => r.filter((p): p is EntouragePerson => p !== null));
+}
 
 /**
  * The roles this list prints, in the order it prints them, grouped the way an
@@ -66,7 +85,29 @@ export type EntourageGroup = {
  * generic non-wedding roles are not entourage and must never be published as
  * one. Adding a role to `GuestRole` therefore does NOT silently publish it.
  */
-const GROUPS: ReadonlyArray<{ key: string; label: string; roles: readonly GuestRole[] }> = [
+/**
+ * A group's two columns, when it has two sides.
+ *
+ * ⚖ OWNER 2026-09-14: *"two columns, paired across. but if the other side is
+ * left blank, then keep that line blank."* So a side is not decoration — it
+ * decides which CELL a person occupies, and an unpartnered groomsman sits in
+ * the RIGHT cell with the left one empty, rather than sliding left and pairing
+ * himself with the next bridesmaid by accident.
+ *
+ * A group with no `sides` still pairs: the first of a pair takes the left cell
+ * and the partner the right. That is the right answer for the secondary
+ * sponsors, where BOTH halves hold the same role (two candle sponsors) and
+ * nothing in the role can say which side anyone is on.
+ */
+type GroupSpec = {
+  key: string;
+  label: string;
+  roles: readonly GuestRole[];
+  /** `[left, right]` — roles that belong in each column. Omit when the group has one side. */
+  sides?: readonly [readonly GuestRole[], readonly GuestRole[]];
+};
+
+const GROUPS: ReadonlyArray<GroupSpec> = [
   { key: 'parents', label: 'Parents', roles: ['bride_parents', 'groom_parents'] },
   {
     key: 'principal_sponsors',
@@ -90,6 +131,13 @@ const GROUPS: ReadonlyArray<{ key: string; label: string; roles: readonly GuestR
       what stops the next role doing the same thing.
     */
     roles: ['principal_sponsor', 'principal_sponsor_ninong', 'principal_sponsor_ninang'],
+    /* Ninong left, Ninang right — the order a Filipino invitation prints a pair.
+       ⚠ The LEGACY `principal_sponsor` sits on the left with its right cell
+       empty, and that is honest rather than tidy: gender is stored nowhere for
+       those rows (`side` is which family, not who), so putting them on a side
+       would be a guess printed on an invitation. A couple who wants them paired
+       re-types the role; nothing here invents it for them. */
+    sides: [['principal_sponsor', 'principal_sponsor_ninong'], ['principal_sponsor_ninang']],
   },
   {
     key: 'secondary_sponsors',
@@ -100,9 +148,22 @@ const GROUPS: ReadonlyArray<{ key: string; label: string; roles: readonly GuestR
     key: 'honour',
     label: 'Maid of Honour & Best Man',
     roles: ['maid_of_honor', 'matron_of_honor', 'best_man'],
+    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man']],
   },
-  { key: 'bridesmaids', label: 'Bridesmaids', roles: ['bridesmaid'] },
-  { key: 'groomsmen', label: 'Groomsmen', roles: ['groomsman'] },
+  /*
+    ⚖ ONE GROUP, TWO COLUMNS — they were two separate groups until 2026-09-15.
+    The owner's pairing ruling covers "sponsors AND the entourage", and a
+    bridesmaid pairs with a GROOMSMAN — two different roles. While they were two
+    groups, a pair could never share a row: each half sat under its own heading,
+    and the pairing the couple had entered was invisible. They walk in pairs on
+    the day; they print in pairs here.
+  */
+  {
+    key: 'bridesmaids_groomsmen',
+    label: 'Bridesmaids & Groomsmen',
+    roles: ['bridesmaid', 'groomsman'],
+    sides: [['bridesmaid'], ['groomsman']],
+  },
   {
     key: 'bearers',
     label: 'Bearers & Flower Girls',
@@ -171,6 +232,12 @@ export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g
 
 /** One guest row, reduced to what this builder reads. */
 export type EntourageGuestRow = {
+  guest_id?: string | null;
+  /** `guests.pair_with_guest_id` — written ONLY through the `pair_guests` /
+   *  `unpair_guest` SQL functions, which write both halves in one statement.
+   *  Never write this column directly: mutuality is not expressible as a row
+   *  constraint, so two round trips leave a half-pair. */
+  pair_with_guest_id?: string | null;
   display_name?: string | null;
   name_prefix?: string | null;
   first_name?: string | null;
@@ -218,10 +285,75 @@ export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGro
         if (!held) continue;
         const name = personName(row);
         if (!name) continue;
-        people.push({ name, role });
+        people.push({ id: row.guest_id ?? null, name, role, pairId: row.pair_with_guest_id ?? null });
       }
     }
-    if (people.length > 0) groups.push({ key: spec.key, label: spec.label, people });
+    const built = pairUp(people, spec.sides);
+    if (built.length > 0) groups.push({ key: spec.key, label: spec.label, rows: built });
   }
   return groups;
+}
+
+/** Which column a person belongs in, or null when the group has one side. */
+function sideOf(
+  person: EntouragePerson,
+  sides: GroupSpec['sides'],
+): 0 | 1 | null {
+  if (!sides) return null;
+  if (sides[0].includes(person.role)) return 0;
+  if (sides[1].includes(person.role)) return 1;
+  /* A role in the group but on neither side. Left column — visible and
+     unpaired — rather than dropped. Losing somebody from an invitation to keep
+     a layout tidy is the trade this whole module exists to refuse. */
+  return 0;
+}
+
+/**
+ * Lay a group out as printed lines.
+ *
+ * ⚖ OWNER 2026-09-14: *"two columns, paired across. but if the other side is
+ * left blank, then keep that line blank."*
+ *
+ * · A pair whose two halves are BOTH in this group shares one line, each in the
+ *   column their role says (or first-then-partner when the group has no sides —
+ *   two candle sponsors hold the same role and nothing in it can say which side
+ *   anyone is on).
+ * · Everyone else keeps their own line, in their own column, with the other
+ *   cell empty.
+ * · 🔑 A PAIR THAT SPANS TWO GROUPS IS NOT A PAIR ON THE PAGE. Each half prints
+ *   in its own group, unpartnered. That is why bridesmaids and groomsmen were
+ *   merged into ONE group: while they were two, every bridesmaid↔groomsman pair
+ *   the couple had entered was invisible, and nothing said so.
+ * · A half-pair — A points at B, B points at nobody or at someone else — still
+ *   prints both people, once each. The SQL functions make that unreachable by
+ *   writing both halves in one statement; this is what the page does if one
+ *   ever appears anyway, and it is "show everybody", never "drop one".
+ */
+function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): EntourageRow[] {
+  const byId = new Map<string, EntouragePerson>();
+  for (const p of people) if (p.id) byId.set(p.id, p);
+
+  const placed = new Set<EntouragePerson>();
+  const out: EntourageRow[] = [];
+
+  for (const person of people) {
+    if (placed.has(person)) continue;
+    const partner = person.pairId ? byId.get(person.pairId) : undefined;
+    /* Mutual only. A dangling pointer prints as two singles rather than
+       silently adopting somebody who is paired elsewhere. */
+    const mutual = partner && partner !== person && partner.pairId === person.id ? partner : null;
+
+    if (mutual && !placed.has(mutual)) {
+      placed.add(person);
+      placed.add(mutual);
+      const mine = sideOf(person, sides);
+      if (mine === 1) out.push([mutual, person]);
+      else out.push([person, mutual]);
+      continue;
+    }
+
+    placed.add(person);
+    out.push(sideOf(person, sides) === 1 ? [null, person] : [person, null]);
+  }
+  return out;
 }

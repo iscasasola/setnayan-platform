@@ -102,6 +102,9 @@ export type CategoryVendorResult = {
   nameAnonymized: boolean;
   city: string | null;
   logoUrl: string | null;
+  /** The matching service card's COVER (resolved), when it has one — what the
+   *  card shows before the logo. See lib/bench-card-image. */
+  photoUrl: string | null;
   rating: number | null;
   reviewCount: number | null;
   /** km from the event's reception/ceremony/target coords; null when unknown. */
@@ -1189,6 +1192,9 @@ export async function searchCategoryVendors(input: {
       nameAnonymized,
       city: r.location_city ?? null,
       logoUrl: r.logo_url ?? null,
+      // The recommendations read already resolved the matching card's cover
+      // (primary_photo_url); the bench dropped it and drew a monogram.
+      photoUrl: r.primary_photo_url ?? null,
       // A shop with 0 reviews carries avg_rating_overall = 0 (the view
       // COALESCEs it, never NULL) — `?? null` let that 0 pass straight
       // through as a "real" rating, which is how the category-search
@@ -1395,6 +1401,7 @@ export async function searchCategoryVendors(input: {
     nameAnonymized: s.nameAnonymized,
     city: s.city,
     logoUrl: s.logoUrl,
+    photoUrl: s.photoUrl,
     rating: s.rating,
     reviewCount: s.reviewCount,
     distanceKm: s.distanceKm,

@@ -5,7 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows } from '@/lib/conversation-list';
-import { interestChipLabel } from '@/lib/thread-interests';
+import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
@@ -272,7 +272,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     listThreadIds.length > 0
       ? supabase
           .from('thread_service_interests')
-          .select('thread_id, category_key, created_at')
+          .select('thread_id, category_key, vendor_service_id, created_at')
           .in('thread_id', listThreadIds)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
@@ -310,12 +310,15 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
      every row is the SAME wedding, so a date would print the couple's own date
      six times and say nothing. */
   const listLabels = new Map<string, string[]>();
-  for (const i of (listInterestRes.data ?? []) as Array<{
+  const listInterests = (listInterestRes.data ?? []) as Array<{
     thread_id: string;
     category_key: string | null;
-  }>) {
-    if (!listLabels.has(i.thread_id) && i.category_key) {
-      listLabels.set(i.thread_id, [interestChipLabel({ category_key: i.category_key })]);
+    vendor_service_id: string | null;
+  }>;
+  const labelListInterest = await interestLabeller(decisionAdmin, listInterests);
+  for (const i of listInterests) {
+    if (!listLabels.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
+      listLabels.set(i.thread_id, [labelListInterest(i)]);
     }
   }
 

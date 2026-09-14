@@ -62,6 +62,7 @@ import {
 } from '@/lib/thread-decisions';
 import { buildSharedFiles } from '@/lib/chat-shared-files';
 import type { SupplierStanding } from '@/lib/supplier-standing';
+import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalCardData = {
@@ -950,7 +951,10 @@ export function ChatMessageStream({
             return (
               <li key={m.message_id} className="flex justify-center">
                 <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  {/* renderPerkUnlock: an old perk line stored with markdown
+                      and a raw card key reads in today's words; any other
+                      system body is unchanged. */}
+                  <p className="whitespace-pre-wrap break-words">{renderPerkUnlock(m.body ?? '')}</p>
                   <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
                     Setnayan · {formatChatTimestamp(m.created_at)}
                   </p>

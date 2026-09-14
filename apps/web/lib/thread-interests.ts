@@ -86,9 +86,19 @@ export async function fetchThreadInterests(
 export function interestChipLabel(
   row: Pick<ThreadServiceInterestRow, 'category_key'>,
   serviceTitle?: string | null,
+  /**
+   * The linked card's OWN category (owner's test round 1, 2026-09-11). An
+   * untitled card used to fall straight to the interest's category_key — which
+   * is copied from the booking row's COARSE category, so a Live Band card read
+   * "Band / DJ", and an interest written before the 2026-09-08 save fix read
+   * "Miscellaneous". The card knows what it is; ask it before the coarse key.
+   */
+  serviceCategory?: string | null,
 ): string {
   const title = serviceTitle?.trim();
   if (title) return title;
+  const own = serviceCategory?.trim();
+  if (own) return displayServiceLabel(own);
   if (row.category_key) return displayServiceLabel(row.category_key);
   return 'Service';
 }

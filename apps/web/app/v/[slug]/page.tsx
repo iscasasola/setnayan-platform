@@ -1314,8 +1314,43 @@ export async function renderVendorBySlug({
   let existingThreadId: string | null = null;
   if (user) {
     const events = await fetchUserEvents(supabase, user.id, 'couple');
-    coupleEventId = events[0]?.event_id ?? null;
-    coupleEventDate = events[0]?.event_date ?? null;
+    /*
+      ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE THAT SORTED FIRST ──
+      This was `events[0]`, and the comment below still called it the couple's
+      "primary" event. It is not: `fetchUserEvents` issues its query with NO
+      `.order()` at all, so `events[0]` is whatever Postgres returned first —
+      arbitrary per request for anyone holding more than one celebration.
+      `is_primary` is SELECTED by that query and never sorted on. The name in
+      the comment and the value in the variable were two different things, which
+      is why nobody saw it.
+
+      Everything downstream hangs off this one line: the existing-thread lookup,
+      the composer's scope, and the inquiry that eventually puts this shop on
+      somebody's list. So a couple planning a wedding AND their parents'
+      anniversary asked a caterer a question and could not tell, and were not
+      told, which celebration it attached to.
+
+      `?event=` is the picker's answer (add-shop-to-event-data.ts). It is a
+      claim from a URL, so it is CHECKED — against `events` itself, the list of
+      this user's own ORGANISER memberships that was just read. That list IS the
+      authority, so the check cannot disagree with it and costs no second round
+      trip; `saveVendorToPicks` needs `userHostsEvent` for the same question only
+      because it never fetched the list. An id that is not yours, or is not real,
+      falls through to the existing behaviour rather than erroring: a mistyped
+      link must not break a shop page.
+
+      🔑 THE FALLBACK STAYS, DELIBERATELY. A couple with exactly one celebration
+      must never be made to choose, and everyone who has only one keeps today's
+      behaviour byte for byte. The picker earns its place only where "first" was
+      meaningless.
+    */
+    const requestedEventId = String(search.event ?? '').trim();
+    const chosen =
+      requestedEventId && events.some((e) => e.event_id === requestedEventId)
+        ? events.find((e) => e.event_id === requestedEventId)
+        : undefined;
+    coupleEventId = chosen?.event_id ?? events[0]?.event_id ?? null;
+    coupleEventDate = chosen?.event_date ?? events[0]?.event_date ?? null;
     if (coupleEventId) {
       const threadResult = await supabase
         .from('chat_threads')

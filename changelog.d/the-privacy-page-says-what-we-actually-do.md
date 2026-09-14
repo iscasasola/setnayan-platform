@@ -58,3 +58,23 @@ RED with the reason. Control green after each restore.
 
 SPEC IMPACT: None in the corpus — this makes a published page match shipped code. The four newly
 named processors and the Gemini disclosure are recorded in `DECISION_LOG.md`.
+
+### Follow-up — `tsx --test` runs a file, it does not TYPECHECK it
+
+The guard passed locally (2/2, three sabotages red) and then failed CI on
+`Typecheck` with two `TS2345`s: under `noUncheckedIndexedAccess` a regex capture
+group is `string | undefined` to the compiler even where the pattern guarantees a
+value. Narrowed at both sites rather than asserted with `!`.
+
+🔑 **A green `tsx --test` is not a green build.** The runner executes; the
+compiler is a separate gate, and a source-scanning guard — which lives on regex
+captures and array indexing — is exactly the shape that trips strict null checks
+while running perfectly.
+
+⚠ Two traps this repo already records, both hit while fixing it: a typecheck run
+from the MAIN checkout does not see a file that only exists in a worktree, so it
+reports success about a tree that does not contain your change; and `PIPESTATUS`
+is **bash-only**, so `TSC_EXIT=${PIPESTATUS[0]}` in zsh prints nothing and the
+exit check is vacuous. Verified instead by compiling the single file with the
+flags that produced the error and confirming the ONLY remaining diagnostic is the
+expected `TS2307` for `@/lib/...` outside the project tsconfig.

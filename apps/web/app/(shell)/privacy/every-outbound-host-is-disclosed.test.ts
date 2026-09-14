@@ -112,13 +112,17 @@ function outboundHosts(): Map<string, string> {
       const rel = file.slice(WEB.length + 1);
       // 1 — fetch('https://…')
       for (const m of src.matchAll(/fetch\(\s*[`'"]https:\/\/([a-z0-9][a-z0-9.-]*\.[a-z]{2,})/gi)) {
-        note(m[1], rel);
+        // `noUncheckedIndexedAccess` is on: a capture group is `string | undefined`
+        // to the compiler even when the pattern guarantees it. Narrow, don't assert.
+        const host = m[1];
+        if (host) note(host, rel);
       }
       // 2 — const NAME = 'https://…'  … later  fetch(NAME  or  fetch(`${NAME}
       for (const m of src.matchAll(
         /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*[`'"]https:\/\/([a-z0-9][a-z0-9.-]*\.[a-z]{2,})/gi,
       )) {
         const [, name, host] = m;
+        if (!name || !host) continue;
         const used = new RegExp(`fetch\\(\\s*(?:\`\\$\\{)?${name}\\b`).test(src);
         if (used) note(host, rel);
       }

@@ -1,0 +1,19 @@
+# ROLES A WEDDING OFFERS THAT THE INVITATION DELIBERATELY DOES NOT PUBLISH.
+#
+# `entourage-covers-the-cast.test.ts` requires every role in WEDDING_ROLE_SET
+# and MUSLIM_ROLE_SET `offeredRoles` to be EITHER published in ENTOURAGE_ROLES
+# (lib/entourage.ts) OR named here with a reason. There is no third answer, and
+# "we'll decide later" is not one of them.
+#
+# ⛔ THIS IS A DECISION RECORD, NOT A DUMPING GROUND. If you cannot write an
+# honest one-line reason, the role should be PUBLISHED instead. A baseline that
+# absorbs whatever is inconvenient stops being a record and becomes the thing it
+# was built to prevent.
+#
+# Format: <role>  —  <why a guest never reads this name in the entourage>
+
+guest                     — an ordinary guest is not entourage; publishing this would put the whole list on the page.
+bride                     — the couple. The invitation is theirs; they do not stand with themselves.
+groom                     — the couple, as above.
+bride_immediate_family    — ⚠ OWNER CALL, NOT SETTLED. A printed invitation names the PARENTS; siblings and grandparents are not part of the entourage list. Publish these two if the owner wants a "Family" section on the page.
+groom_immediate_family    — ⚠ OWNER CALL, NOT SETTLED. As above.

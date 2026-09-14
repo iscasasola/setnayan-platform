@@ -5,7 +5,7 @@ import styles from './abaca.module.css';
 
 /**
  * ABACA — the Rugged invite theme (Event Hub Pro). See abaca.module.css for the
- * port and its four measured corrections.
+ * port and its three measured corrections.
  *
  * The photo is painted as a CSS background whose URL goes through
  * `JSON.stringify` — a quoted, escaped CSS string — so a presigned URL's `&`,

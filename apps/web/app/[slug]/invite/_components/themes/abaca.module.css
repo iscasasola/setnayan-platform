@@ -17,45 +17,64 @@
  * sets is #2B2118 ink on DoorShell's own paper card — the card, its 3px edge
  * and its one action stay DoorShell's, as in every other theme.
  *
- * ── PORT CORRECTIONS — four, each measured, none a redraw ──────────────────
+ * ── PORT CORRECTIONS — three, each measured, none a redraw ────────────────
  *
- * 1 · THE NAME IS 30px, NOT THE DESIGN'S 40px. Alfa Slab One is a fat woodtype
- *     slab: at 40px a 27-character name takes FOUR lines of the card's content
- *     column and door 01's "Continue" lands at y=724 at 375×812, against the
- *     640px bar that `lib/door-fold.ts` holds for every theme. Measured on the
- *     real component tree, name "Cale & Ice", date line present:
+ * 🔑 AND THE ONE THAT IS NOT HERE: THE NAME SHIPS AT THE DESIGN'S OWN 40px.
+ *     Both 40px themes before this one had to come down for door 01's fold, so
+ *     this one was expected to as well — it does not. Measured in a browser on
+ *     the real component tree at 375×812, the top of "Continue", date and venue
+ *     on the line, against `lib/door-fold.ts`'s 640 bar:
  *
- *                              10 chars   27 chars   45 chars
- *       40px (the design)         595        724        740
- *       30px (shipped)            563        613        625
+ *       name length     10        27        45
+ *       Abaca @40px    529       605       599      (all on the first screen)
  *
- *     It is ONE size, not a phone size and a wide one — a name that changed
- *     size between a phone and a tablet would read as two different marks
- *     (Galeriya's note, and the same reasoning). 30px in this face still sets
- *     the name far larger and far heavier than House's 24px serif; the slab is
- *     what carries the theme, not the point size.
+ *     The reason is `fixed`, not the point size: this theme's head starts 66px
+ *     higher up the card than Velvet's does, because Abaca hangs no ornament
+ *     above the name — the seal is beside it, not over it. It buys back what
+ *     three lines of a fat slab spend. Measured, not assumed, and the numbers
+ *     are re-asserted by `the-door-keeps-its-action-on-screen.test.ts`.
  *
- * 2 · THE HEAD RESERVES 56px ON ITS RIGHT for the wax seal, exactly as the
+ * 1 · THE HEAD RESERVES 56px ON ITS RIGHT for the wax seal, exactly as the
  *     design's `.ru-head` does — so the seal is beside the name rather than on
  *     it. That narrows the title column to 237px, which is why this theme's
  *     entry in `the-door-keeps-its-action-on-screen.test.ts` carries a larger
- *     `charWidth` than its face alone would explain: in that model `charWidth`
+ *     `charWidth` than this face alone would explain: in that model `charWidth`
  *     is the only term that can express "this column is narrower".
  *
- * 3 · THE PRINT FADES OUT BEHIND THE WORDMARK. The design keeps every piece of
- *     lettering on the ground on an opaque kraft patch — the wordmark is a torn
- *     strip of gummed tape. `<Wordmark>` is DoorShell's and a skin may not
- *     reach it (themes-stay-skins.test.ts), so the patch is made the other way
- *     round: the PHOTO layer is masked out of the top of the page and ramps in
- *     below it, leaving bare kraft under the one line of lettering that ever
- *     sits on the ground. Measured at 375×812: the wordmark box is y=16→40, and
- *     at 1280×800 (the column is centred from `sm`) it is y=160→190 — so the
- *     mask is clear to 220px and full by 340px, which holds both.
- *     Contrast, wordmark ink #2C2A29 (24px/800 — large text, AA 3:1): 5.9:1 on
- *     bare kraft, and 1.0:1 over a black photo without the mask. Multiply can
- *     only ever DARKEN the paper, so this is not a hypothetical.
+ * 2 · THE PRINT FADES OUT BEHIND THE WORDMARK, AND THE FADE IS A PERCENTAGE.
+ *     The design keeps every piece of lettering that sits on the ground on an
+ *     opaque kraft patch — the wordmark is a torn strip of gummed tape.
+ *     `<Wordmark>` is DoorShell's and a skin may not reach it
+ *     (themes-stay-skins.test.ts), so the patch is made the other way round:
+ *     the PHOTO layer is masked out of the crown of the page and ramps in below
+ *     it, leaving bare kraft under the one line of lettering that ever sits on
+ *     the ground. Multiply can only ever DARKEN the paper, so ink on a dark
+ *     photo is not a hypothetical — it is the worst case by construction.
  *
- * 4 · THE TWINE IS THE HINGE; THE TAGS ARE DoorShell'S RAIL. The design strings
+ *     🪤 A FIXED PIXEL BAND CANNOT HOLD IT, and that is the whole reason this
+ *     mask is written in %. Below `sm` the column is top-ranged and the
+ *     wordmark is at y=16→46 always; from `sm` DoorShell CENTRES it, so the
+ *     wordmark floats with the viewport. Measured across 21 viewports:
+ *
+ *        375×812  y=16→46   ( 5.7% of the page)   1024×1366  y=396→426 (31.2%)
+ *       1280×800  y=113→143 (17.9%)               1280×1440  y=433→463 (32.1%)
+ *        768×1024 y=225→255 (24.9%)               1920×2160  y=793→823 (38.1%)
+ *
+ *     In pixels the worst case is 17× the best; as a FRACTION of the page it
+ *     never passed 38.1%, and it approaches 50% only as the viewport grows
+ *     without bound. So the mask is clear to 40% and full at 56%.
+ *
+ *     What that buys, over a PURE BLACK photo (the worst a couple can upload):
+ *     the wordmark is #2C2A29 at 24px/800 — large text, AA 3:1 — which needs
+ *     the mask no more than 30.7% open under it, i.e. the wordmark's foot above
+ *     44.9% of the page. Every viewport measured is at 38.1% or less. On bare
+ *     kraft, with no photo or above the ramp, it measures 5.9:1.
+ *     ⚠ Past ~45% the ramp is still opening, so the contrast DEGRADES instead
+ *     of falling off a cliff — but it is no longer a guarantee. Capiz and
+ *     Velvet both ship the same exposure with a fixed band and no ratio; this
+ *     is the first theme to bound it.
+ *
+ * 3 · THE TWINE IS THE HINGE; THE TAGS ARE DoorShell'S RAIL. The design strings
  *     three tags on the couple's twine. A skin may not restyle the rail, so the
  *     twine is drawn in the `hinge` slot and DoorShell's own beads hang beneath
  *     it — which is also what moves the rail BELOW the header, where this design
@@ -65,7 +84,7 @@
 .abaca {
   /* the stock */
   --ab-kraft: #c4a171;
-  --ab-ink: #2b2118; /* 6.5:1 on bare kraft, 13.6:1 on DoorShell's card */
+  --ab-ink: #2b2118; /* measured: 6.5:1 on bare kraft, 15.8:1 on DoorShell's card */
 
   /* derived paper tones — neutral fallbacks where color-mix is unavailable */
   --ab-kraft-hi: #cbab7e;
@@ -99,7 +118,7 @@
 /*
  * THE SHEET — the kraft itself: the laid lines of the stock, a lit corner, a
  * shaded one, and the base tone. The photo is NOT in here; it is the layer
- * above, so it can be masked on its own (port correction 3).
+ * above, so it can be masked on its own (port correction 2).
  */
 .paper {
   position: absolute;
@@ -120,7 +139,8 @@
  * is the bare kraft whatever photo a couple uploads, and the laid lines beneath
  * read through the image.
  *
- * The mask is port correction 3 — clear at the crown, full from 340px down.
+ * The mask is port correction 2 — clear at the crown of the page, full from
+ * 56% down, and written as a PERCENTAGE because the wordmark floats.
  */
 .print {
   position: absolute;
@@ -129,8 +149,8 @@
   background-position: center;
   background-repeat: no-repeat;
   mix-blend-mode: multiply;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 220px, #000 340px, #000 100%);
-  mask-image: linear-gradient(180deg, transparent 0, transparent 220px, #000 340px, #000 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 40%, #000 56%, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0, transparent 40%, #000 56%, #000 100%);
 }
 
 /*
@@ -220,7 +240,7 @@
  */
 .abaca :global(header) {
   position: relative;
-  padding-right: 56px; /* the wax seal's room — port correction 2 */
+  padding-right: 56px; /* the wax seal's room — port correction 1 */
 }
 
 /*
@@ -242,10 +262,16 @@
   height: 6px;
   background: currentColor;
 }
+/*
+ * ⚠ `width`, NOT the design's `flex: 1`. DoorShell's eyebrow is an INLINE-flex
+ * whose width is shrink-to-fit, so a `flex: 1` rule with `max-width: 72px`
+ * resolves to ZERO and the rule is never drawn — measured: 0px. It rendered as
+ * a missing ornament with every stylesheet valid and no error anywhere.
+ */
 .abaca :global(header) p:first-of-type::after {
   content: '';
-  flex: 1;
-  max-width: 72px;
+  flex: none;
+  width: 72px;
   height: 2px;
   margin-left: 2px;
   background: currentColor;
@@ -257,7 +283,7 @@
  */
 .abaca :global(header) h1 {
   font-family: var(--font-abaca-display), 'Rockwell', 'Roboto Slab', Georgia, serif;
-  font-size: 30px;
+  font-size: 40px;
   font-weight: 400;
   line-height: 1.02;
   letter-spacing: -0.005em;
@@ -300,7 +326,7 @@
 
 /*
  * THE TWINE — the couple's colour, strung across the card, with DoorShell's own
- * beads hanging beneath it as the tags. See port correction 4.
+ * beads hanging beneath it as the tags. See port correction 3.
  */
 .hinge {
   height: 3px;

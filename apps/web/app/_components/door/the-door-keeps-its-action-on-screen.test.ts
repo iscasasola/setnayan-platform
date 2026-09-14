@@ -14,6 +14,11 @@
  *     Galeriya       635           654        691
  *     Velvet         648           669        720   ← merged, live, missed it
  *
+ * Abaca is not in that table because it did not exist yet — it is the theme
+ * this file was written to catch, and it arrived (2026-09-14) already clearing
+ * the bar at its design size, because its head hangs no ornament above the
+ * name. Its six cells are measured and modelled below like everyone else's.
+ *
  * against a 640 bar (what is left of 812 once a phone browser's own chrome is
  * on screen). Velvet missed it on a TEN-character name; the two themes whose
  * skin sets the name at 40px missed it on any long one.
@@ -39,7 +44,7 @@
  * ─── WHAT THIS FILE CAN AND CANNOT DO ─────────────────────────────────────
  * ⚠ IT DOES NOT MEASURE A PIXEL. `tsx --test` has no layout engine, so the
  * numbers below come from a browser at 375×812 and this file is (a) an
- * ARITHMETIC MODEL of the stack, calibrated against those 24 measured cells and
+ * ARITHMETIC MODEL of the stack, calibrated against those 30 measured cells and
  * re-checked against every one of them, and (b) text pins on the three
  * mechanisms, because a model cannot see that the component still ranges from
  * the top. Say both; never upgrade "this file is green" to "it was measured
@@ -93,6 +98,15 @@ type ThemeModel = {
   lineHeight: number;
   /** Mean advance per character, as a multiple of the size — this face, this string. */
   charWidth: number;
+  /**
+   * What a SECOND line of meta costs this theme, when it differs from the 16px
+   * a plain `font-mono text-xs` line costs. Abaca strikes the date as a rubber
+   * stamp — `display: inline-block`, `line-height: 1` at 12px — so its second
+   * line is 12px, not 16. Measured, and the only per-theme term this model
+   * grew: folding 4px of error into `charWidth` instead would have made the
+   * line COUNT wrong, which is a much larger lie than the 4px it hid.
+   */
+  venueLine?: number;
 };
 
 /**
@@ -105,6 +119,24 @@ const MODEL: Record<string, ThemeModel> = {
   capiz: { fixed: 465, size: 24, lineHeight: 1.333, charWidth: 0.45 },
   galeriya: { fixed: 485, size: 40, lineHeight: 0.94, charWidth: 0.46 },
   velvet: { fixed: 508, size: 40, lineHeight: 1.05, charWidth: 0.5 },
+  /*
+   * ABACA (2026-09-14). `fixed` 478 = the measured 517 minus its one-line name
+   * box (40 × 0.97). Two of its terms are not what a face alone would give:
+   *
+   *  · `charWidth` 0.70 is Alfa Slab One's own ~0.57 scaled by 293/237,
+   *    because Abaca's head reserves 56px on the right for the wax seal and
+   *    CONTENT_W above is one shared number. It is the only term in this model
+   *    that can say "this column is narrower", and it is carrying that here.
+   *  · `lineHeight` 0.97 is under the stylesheet's own 1.02 because Abaca's
+   *    name carries a 7px accent bar (plus 11px of margin) INSIDE the h1 box,
+   *    and that bar is scaled by `doorTitleFit`'s zoom while `fixed` is not.
+   *    0.97 is the fit that keeps all six cells within 4px; 1.02 with the bar
+   *    folded into `fixed` misses the 45-character cell by 5.
+   *
+   * Both are noted rather than hidden, because a future session reading 0.70 as
+   * "this face is wide" would draw the wrong conclusion about the next theme.
+   */
+  abaca: { fixed: 478, size: 40, lineHeight: 0.97, charWidth: 0.7, venueLine: 12 },
 };
 
 /** Where "Continue" starts, in px from the top of the document, at 375×812. */
@@ -114,7 +146,7 @@ function actionY(themeId: string, name: string, opts: { venue: boolean }): numbe
   const ratio = Number(doorTitleFit(name) ?? 1);
   const size = m.size * ratio;
   const lines = Math.max(1, Math.ceil((name.length * size * m.charWidth) / CONTENT_W));
-  return m.fixed + lines * size * m.lineHeight + (opts.venue ? VENUE_LINE : 0);
+  return m.fixed + lines * size * m.lineHeight + (opts.venue ? (m.venueLine ?? VENUE_LINE) : 0);
 }
 
 /** The names the bar is claimed for. 27 is the minimum this row was set. */
@@ -135,9 +167,11 @@ const MEASURED: ReadonlyArray<[string, string, boolean, number]> = [
   ['capiz', SHORT, true, 513], ['capiz', LONG, true, 511], ['capiz', LONGEST, true, 524],
   ['galeriya', SHORT, true, 539], ['galeriya', LONG, true, 573], ['galeriya', LONGEST, true, 580],
   ['velvet', SHORT, true, 566], ['velvet', LONG, true, 604], ['velvet', LONGEST, true, 612],
+  ['abaca', SHORT, false, 517], ['abaca', LONG, false, 593], ['abaca', LONGEST, false, 587],
+  ['abaca', SHORT, true, 529], ['abaca', LONG, true, 605], ['abaca', LONGEST, true, 599],
 ];
 
-test('the model reproduces the browser — all 24 measured cells, within 4px', () => {
+test('the model reproduces the browser — all 30 measured cells, within 4px', () => {
   const rows: string[] = [];
   const wrong: string[] = [];
   for (const [theme, name, venue, measured] of MEASURED) {
@@ -254,7 +288,7 @@ test('the zoom rule exists, is scoped to a door, and only applies where there is
 
 test('every live theme is modelled, and the modelled name size is the size its skin sets', () => {
   const live = INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].ready);
-  assert.ok(live.length >= 4, `only ${live.length} themes are ready — this rule derives its set and a derivation that stopped matching reads exactly like a pass`);
+  assert.ok(live.length >= 5, `only ${live.length} themes are ready — all five have shipped, and this rule derives its set, so a derivation that stopped matching reads exactly like a pass`);
   const missing = live.filter((id) => !MODEL[id]);
   assert.deepEqual(
     missing,

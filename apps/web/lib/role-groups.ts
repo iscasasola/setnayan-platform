@@ -43,6 +43,8 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   bridesmaid: 'wedding_party',
   groomsman: 'wedding_party',
   principal_sponsor: 'principal_sponsors',
+  principal_sponsor_ninong: 'principal_sponsors',
+  principal_sponsor_ninang: 'principal_sponsors',
   candle_sponsor: 'secondary_sponsors',
   veil_sponsor: 'secondary_sponsors',
   cord_sponsor: 'secondary_sponsors',
@@ -102,6 +104,11 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'best_man',
   'bridesmaid',
   'groomsman',
+  // The Ninong/Ninang pair ranks with the role it split from (2026-09-14).
+  // The plain `principal_sponsor` stays alongside them for the 47 live rows
+  // that have not been specified yet.
+  'principal_sponsor_ninong',
+  'principal_sponsor_ninang',
   'principal_sponsor',
   'candle_sponsor',
   'veil_sponsor',

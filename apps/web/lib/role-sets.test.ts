@@ -67,8 +67,17 @@ test('MUSLIM_ROLE_SET swaps Catholic sponsors for the Nikah principals', () => {
 
 // --- WEDDING_ROLE_SET stays byte-identical (Muslim work must not touch it) --
 test('adding MUSLIM_ROLE_SET leaves WEDDING_ROLE_SET untouched', () => {
-  assert.equal(WEDDING_ROLE_SET.offeredRoles.length, 24);
-  assert.ok(!WEDDING_ROLE_SET.offeredRoles.includes('wali' as never));
+  // No Nikah principal ever leaks into the Catholic/civil wedding cast. The
+  // count assertion that used to stand here is gone on purpose: a bare number
+  // goes red for ANY change and cannot say WHICH, so it fired on a deliberate
+  // owner-requested addition and said nothing about wali. The exclusions below
+  // are what this test was actually protecting.
+  for (const nikahOnly of ['wali', 'imam', 'witness', 'wakil']) {
+    assert.ok(
+      !WEDDING_ROLE_SET.offeredRoles.includes(nikahOnly as never),
+      `${nikahOnly} must not be offered at a Catholic/civil wedding`,
+    );
+  }
   assert.deepEqual(WEDDING_ROLE_SET.singletonRoles, ['bride', 'groom']);
 });
 
@@ -90,13 +99,35 @@ test('SIMPLE_ROLE_SET offers only guest and has no tiers/singletons', () => {
 
 // --- WEDDING_ROLE_SET byte-identity anchors --------------------------------
 test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
-  // Picker: 24 roles, 'guest' first, includes the couple.
-  assert.equal(WEDDING_ROLE_SET.offeredRoles.length, 24);
+  // The pre-0053 wedding cast was 24 offered / 18 self-claimable. The ONLY
+  // sanctioned change since is the 2026-09-14 Ninong/Ninang split (owner
+  // directive), which added exactly two roles to each. Asserting the DELTA
+  // rather than a new magic number keeps this guard able to say WHAT changed:
+  // any further addition fails here and must be justified the same way.
+  const SANCTIONED_ADDITIONS = [
+    'principal_sponsor_ninong',
+    'principal_sponsor_ninang',
+  ] as const;
+
+  assert.equal(WEDDING_ROLE_SET.offeredRoles.length, 24 + SANCTIONED_ADDITIONS.length);
   assert.equal(WEDDING_ROLE_SET.offeredRoles[0], 'guest');
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('bride'));
   assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('groom'));
-  // Self-claim: 18 roles, excludes couple + the 4 VIP-family roles.
-  assert.equal(WEDDING_ROLE_SET.selfClaimableRoles.length, 18);
+  for (const added of SANCTIONED_ADDITIONS) {
+    assert.ok(WEDDING_ROLE_SET.offeredRoles.includes(added), `${added} must be offered`);
+    assert.ok(
+      WEDDING_ROLE_SET.selfClaimableRoles.includes(added),
+      `${added} must be self-claimable, exactly as principal_sponsor is`,
+    );
+    assert.ok(WEDDING_ROLE_SET.tier1Roles.has(added), `${added} seats at tier 1`);
+  }
+  // The legacy value survives the split — 47 live rows still hold it.
+  assert.ok(WEDDING_ROLE_SET.offeredRoles.includes('principal_sponsor'));
+  // Self-claim: excludes couple + the 4 VIP-family roles.
+  assert.equal(
+    WEDDING_ROLE_SET.selfClaimableRoles.length,
+    18 + SANCTIONED_ADDITIONS.length,
+  );
   for (const excluded of [
     'bride',
     'groom',

@@ -17,7 +17,8 @@
  *   • `+N` (`/^\+(\d+)$/`)                   → plusOnes, `min(2, N || 1)`
  *   • `#Word`                               → group name (case preserved, deduped)
  *   • `vip`                                 → roleHint 'vip'
- *   • `sponsor` | `ninong` | `ninang`       → roleHint 'principal_sponsor'
+ *   • `ninong` → 'principal_sponsor_ninong'; `ninang` → '..._ninang'
+ *   • `sponsor`                              → roleHint 'principal_sponsor'
  *   • everything else                       → a name word (word[0]=first, rest=last)
  *
  * The parser is deliberately schema-DUMB: it returns `roleHint` as a GuestRole
@@ -113,6 +114,17 @@ export function parseGuestInput(
 
       if (lw === 'vip') {
         roleHint = 'vip';
+        continue;
+      }
+      // Split 2026-09-14: `ninong` and `ninang` name WHICH half of a principal
+      // pair the guest is, so they tag the specific role. A bare `sponsor`
+      // cannot know, and stays the unspecified `principal_sponsor`.
+      if (lw === 'ninong') {
+        roleHint = 'principal_sponsor_ninong';
+        continue;
+      }
+      if (lw === 'ninang') {
+        roleHint = 'principal_sponsor_ninang';
         continue;
       }
       if (SPONSOR_TOKENS.has(lw)) {

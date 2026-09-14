@@ -62,7 +62,13 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
     label: ROLE_GROUP_LABELS.wedding_party,
     roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'bridesmaid', 'groomsman'],
   },
-  { label: ROLE_GROUP_LABELS.principal_sponsors, roles: ['principal_sponsor'] },
+  {
+    label: ROLE_GROUP_LABELS.principal_sponsors,
+    // Ninong/Ninang first — they are what a host picks now. The plain
+    // `principal_sponsor` stays last and offered: 47 live rows hold it, and a
+    // host must be able to set a sponsor back to "not yet specified".
+    roles: ['principal_sponsor_ninong', 'principal_sponsor_ninang', 'principal_sponsor'],
+  },
   {
     label: ROLE_GROUP_LABELS.secondary_sponsors,
     roles: ['candle_sponsor', 'veil_sponsor', 'cord_sponsor', 'coin_sponsor'],

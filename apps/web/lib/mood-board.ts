@@ -570,6 +570,8 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
     case 'wakil':
       return 'muslim_principals';
     case 'principal_sponsor':
+    case 'principal_sponsor_ninong':
+    case 'principal_sponsor_ninang':
       return 'principal_sponsors';
     case 'candle_sponsor':
     case 'veil_sponsor':

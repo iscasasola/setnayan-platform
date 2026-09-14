@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDown, Trash2, X } from 'lucide-react';
+import { ChevronDown, Link2 as LinkIcon, Link2Off, Trash2, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
@@ -22,6 +22,7 @@ import {
   SideChipEditor,
 } from './chip-editors';
 import { keepGuestAction, removeGuestAction } from '../claims/actions';
+import { pairSelectedGuests, unpairGuestAction } from '../pair-actions';
 import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
@@ -302,6 +303,7 @@ function DesktopRow({
   currentGroupId,
   bulkRoleSections,
   seat,
+  partnerNameById,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -312,6 +314,9 @@ function DesktopRow({
   groupIds: string[];
   groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
+  /** guest_id → display name, built ONCE from the roster this page already
+   *  holds. Resolving a partner per row would be a query per paired guest. */
+  partnerNameById: Record<string, string>;
   currentGroupId: string | null;
   bulkRoleSections: RoleSection[];
   // Reactive seat state (Living Roster P3) — undefined only if a guest slips the
@@ -372,6 +377,19 @@ function DesktopRow({
                   + {guest.plus_one_name ?? 'TBA'}
                 </p>
               ) : null}
+              {/* 🔑 A PAIR THAT NOTHING RENDERS IS NOT A PAIR. The column has
+                  existed since May 2026 with no reader; writing it without
+                  showing it would leave the host unable to tell a paired guest
+                  from an unpaired one. */}
+              <PartnerLine
+                eventId={eventId}
+                guest={guest}
+                partnerName={
+                  guest.pair_with_guest_id
+                    ? (partnerNameById[guest.pair_with_guest_id] ?? null)
+                    : null
+                }
+              />
             </div>
           </InspectorTrigger>
           {/* Quick-view (P1) — desktop selects the inspector, below xl opens the
@@ -606,6 +624,15 @@ export function GuestListMultiselect({
     [guests, optimistic],
   );
 
+  // guest_id → display name, for the "walks with …" line. Built from the FULL
+  // roster, not the filtered view: a partner filtered out of the current lens
+  // must still be nameable, or a real pair would read as a broken one.
+  const partnerNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of rosterGuests) map[g.guest_id] = guestDisplayName(g);
+    return map;
+  }, [rosterGuests]);
+
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -821,6 +848,7 @@ export function GuestListMultiselect({
                         currentGroupId={currentGroupId}
                         bulkRoleSections={bulkRoleSections}
                         seat={seatByGuest[guest.guest_id]}
+                        partnerNameById={partnerNameById}
                       />
                     ),
                   )}
@@ -986,6 +1014,13 @@ function SelectionBar({
           selectedIds={selectedIds}
           count={count}
         />
+
+        {/* Pair · Filipino entourages walk in pairs (groomsman↔bridesmaid,
+         *  ninong↔ninang). Shown ONLY at exactly two selected: "pair these 3"
+         *  has no meaning, and pairing the first two of a bigger selection
+         *  would be guessing which two the host meant. The server action
+         *  re-checks the count — this is the affordance, not the guard. */}
+        <PairSelectedForm eventId={eventId} selectedIds={selectedIds} count={count} />
       </div>
 
       {showNewGroupForm ? (
@@ -1076,6 +1111,77 @@ function useGuestRemoval(eventId: string) {
   }
 
   return { removing, remove };
+}
+
+/**
+ * "Pair these 2" — visible only when the selection is exactly two guests.
+ *
+ * A plain form posting to a server action, matching BulkApplyForm and
+ * NewGroupInlineForm rather than inventing a client-side flow: pairing writes
+ * both halves in one SQL statement and the list must re-render from the server
+ * afterwards, so there is nothing useful to do optimistically.
+ */
+/**
+ * The "walks with <name>" line under a paired guest, plus its unpair control.
+ *
+ * `partnerName` is resolved by the caller from the roster it already has —
+ * never by a per-row fetch, which would be one query per paired guest.
+ * A partner the host cannot see (filtered out of the current view) still
+ * renders as a pair, with the id standing in for the name, so a pair never
+ * silently looks like no pair.
+ */
+function PartnerLine({
+  eventId,
+  guest,
+  partnerName,
+}: {
+  eventId: string;
+  guest: GuestRow;
+  partnerName: string | null;
+}) {
+  if (!guest.pair_with_guest_id) return null;
+  return (
+    <span className="mt-0.5 flex items-center gap-1 text-xs text-ink/55">
+      <LinkIcon aria-hidden className="h-3 w-3 flex-none" strokeWidth={1.9} />
+      <span className="truncate">walks with {partnerName ?? 'a guest not in this view'}</span>
+      <form action={unpairGuestAction.bind(null, eventId, guest.guest_id)}>
+        <button
+          type="submit"
+          title="Unpair"
+          aria-label={`Unpair ${guest.first_name}`}
+          className="inline-flex items-center rounded p-0.5 text-ink/40 hover:text-danger-700"
+        >
+          <Link2Off aria-hidden className="h-3 w-3" strokeWidth={1.9} />
+        </button>
+      </form>
+    </span>
+  );
+}
+
+function PairSelectedForm({
+  eventId,
+  selectedIds,
+  count,
+}: {
+  eventId: string;
+  selectedIds: string[];
+  count: number;
+}) {
+  if (count !== 2) return null;
+  return (
+    <form action={pairSelectedGuests.bind(null, eventId)}>
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="guest_ids[]" value={id} />
+      ))}
+      <SubmitButton
+        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink hover:border-ink/40"
+        pendingLabel="Pairing…"
+      >
+        <LinkIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+        Pair these 2
+      </SubmitButton>
+    </form>
+  );
 }
 
 function OptimisticDeleteButton({

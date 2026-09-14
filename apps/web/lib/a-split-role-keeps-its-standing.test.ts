@@ -38,6 +38,50 @@ import { defaultInvitedToForRole } from './guests';
 import type { GuestRole } from './guests';
 import { roleGroupOf } from './role-groups';
 import { WEDDING_ROLE_SET, MUSLIM_ROLE_SET } from './role-sets';
+import { allotmentRoleOf, suggestedAllotment } from './papic-guest-allotments';
+
+/**
+ * EVERY BEHAVIOUR KEYED ON A ROLE, in one place.
+ *
+ * Owner, relayed 2026-09-15: *"whatever their codes are on the app must stay.
+ * both ninongs and ninangs should inherit what the original principal sponsor
+ * does."* Inner-circle standing was the INSTANCE; this is the rule.
+ *
+ * 🔑 ADD A ROW HERE WHENEVER A NEW BEHAVIOUR KEYS ON `guests.role`. That is the
+ * whole maintenance burden, and it is one line — deliberately cheaper than
+ * remembering to update N scattered lists, because remembering is what failed
+ * twice in two days.
+ */
+const KEYED_BEHAVIOURS: { name: string; of: (r: GuestRole) => string | number }[] = [
+  {
+    name: 'invited-to blocks (inner circle)',
+    of: (r) => defaultInvitedToForRole(r).length,
+  },
+  {
+    name: 'seating tier',
+    of: (r) =>
+      WEDDING_ROLE_SET.tier1Roles.has(r)
+        ? 1
+        : WEDDING_ROLE_SET.tier2Roles.has(r)
+          ? 2
+          : WEDDING_ROLE_SET.tier3Roles.has(r)
+            ? 3
+            : 4,
+  },
+  {
+    name: 'Papic share weight (MONEY — photo credits)',
+    // The second instance, found by extending this guard on 2026-09-15: a
+    // ninong fell through to 'guest' at 1x while cord/veil/coin/candle
+    // sponsors weighed 2x, so the godparents were OUTRANKED by the secondary
+    // sponsors on a live roster.
+    // ⚠ THE EFFECTIVE MULTIPLIER, NOT THE TIER NAME. A first cut compared
+    // `allotmentRoleOf` itself and fired on the secondary sponsors — cord, veil,
+    // coin and candle are four DISTINCT tier names that all resolve to the same
+    // weight, which is correct and not a defect. What must match across a group
+    // is what a guest actually GETS.
+    of: (r) => suggestedAllotment(allotmentRoleOf(r, []), 10),
+  },
+];
 
 /** Every role the product can put on a wedding guest, offered or retired. */
 function allWeddingRoles(): GuestRole[] {
@@ -58,30 +102,22 @@ function allWeddingRoles(): GuestRole[] {
  * ⚠ This is a decision log, not a mute button. A group belongs here only when
  * someone has LOOKED and judged the disagreement correct. Adding a line to
  * silence a red test is the failure this whole file is about, one level up.
+ *
+ * 📖 IT HAS HELD EXACTLY ONE ENTRY, AND THAT ENTRY IS GONE — which is the
+ * outcome the design was for, so it is worth recording rather than leaving the
+ * map blank and unexplained. On 2026-09-15 this guard's first run found
+ * `witness` sitting outside INNER_CIRCLE_ROLES while `wali`, `imam` and `wakil`
+ * sat inside it. It was NOT guessed at: how a Muslim ceremony seats its
+ * witnesses is the owner's judgement, so it was parked here with a date and put
+ * on his desk. He ruled the same day — "witness should be inner circle too" —
+ * `lib/guests.ts` was corrected, and the stale-entry assertion below then
+ * FORCED this line to be deleted rather than left as decoration.
+ *
+ * Park → ask → rule → delete. An empty map is the healthy state.
  */
-const SANCTIONED_DISAGREEMENTS: Record<string, string> = {
-  // Found by this very guard on 2026-09-15, on its first run.
-  //
-  // `INNER_CIRCLE_ROLES` names three of the four Nikah principals — wali, imam,
-  // wakil — under a comment reading "Muslim Nikah principals are inner-circle
-  // (invited to every block)". `witness` is the fourth and is absent, so a
-  // Nikah witness defaults to three blocks while the other three get five.
-  //
-  // It reads exactly like the sponsor omission this file was written for, and
-  // it may well be one. It is NOT being changed here, for two reasons: it is a
-  // judgement about how a Muslim ceremony seats its witnesses, which is the
-  // owner's to make and not a refactor's; and it is genuinely arguable, since a
-  // witness attests the contract without necessarily being family the way a
-  // wali is. Measured the same day: 0 guests in production hold any Nikah role
-  // and no Muslim wedding exists yet, so nothing is on fire — which is the only
-  // reason it is safe to leave open rather than guess.
-  //
-  // 🔑 SURFACED TO THE OWNER 2026-09-15. Delete this entry the moment he rules.
-  muslim_principals:
-    'witness vs wali/imam/wakil — awaiting an owner ruling on Nikah witnesses (0 live rows)',
-};
+const SANCTIONED_DISAGREEMENTS: Record<string, string> = {};
 
-test('roles in the same group agree about inner-circle standing', () => {
+test('roles in the same group agree about EVERY keyed behaviour', () => {
   const byGroup = new Map<string, GuestRole[]>();
   for (const role of allWeddingRoles()) {
     const group = roleGroupOf(role);
@@ -92,25 +128,34 @@ test('roles in the same group agree about inner-circle standing', () => {
 
   for (const [group, roles] of byGroup) {
     if (roles.length < 2) continue;
-    const blocksFor = (r: GuestRole) => defaultInvitedToForRole(r).length;
-    const counts = new Map<number, GuestRole[]>();
-    for (const r of roles) {
-      counts.set(blocksFor(r), [...(counts.get(blocksFor(r)) ?? []), r]);
+    if (group in SANCTIONED_DISAGREEMENTS) {
+      // Only counts as "seen" if it actually still disagrees about something.
+      const anyDisagreement = KEYED_BEHAVIOURS.some(
+        (b) => new Set(roles.map((r) => b.of(r))).size > 1,
+      );
+      if (anyDisagreement) {
+        seenDisagreements.push(group);
+        continue;
+      }
     }
-    if (counts.size > 1 && group in SANCTIONED_DISAGREEMENTS) {
-      seenDisagreements.push(group);
-      continue;
+    for (const behaviour of KEYED_BEHAVIOURS) {
+      const counts = new Map<string | number, GuestRole[]>();
+      for (const r of roles) {
+        counts.set(behaviour.of(r), [...(counts.get(behaviour.of(r)) ?? []), r]);
+      }
+      assert.equal(
+        counts.size,
+        1,
+        `group "${group}" disagrees with itself about ${behaviour.name}: ` +
+          [...counts.entries()]
+            .map(([v, rs]) => `${v} → ${rs.join(', ')}`)
+            .join('  |  ') +
+          '. Roles under one heading are the same kind of guest to this product — ' +
+          'that is what putting them in one group MEANS — so a behaviour keyed on ' +
+          'the role must treat them identically. Owner 2026-09-15: "both ninongs ' +
+          'and ninangs should inherit what the original principal sponsor does."',
+      );
     }
-    assert.equal(
-      counts.size,
-      1,
-      `group "${group}" disagrees with itself about inner-circle standing: ` +
-        [...counts.entries()]
-          .map(([n, rs]) => `${n} blocks → ${rs.join(', ')}`)
-          .join('  |  ') +
-        '. Roles under one heading are the same kind of guest; if one is inner ' +
-        'circle they all are. Add the missing role to INNER_CIRCLE_ROLES in lib/guests.ts.',
-    );
   }
 
   // 🔑 THE EXCEPTION LIST MUST EXPIRE BY ITSELF. If a sanctioned group has

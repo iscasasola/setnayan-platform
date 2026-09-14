@@ -275,7 +275,19 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'principal_sponsor_ninong',
   'principal_sponsor_ninang',
   // Muslim Nikah principals are inner-circle (invited to every block).
+  //
+  // ⚠ ALL FOUR. `witness` was missing until 2026-09-15 — the other three were
+  // listed under a comment that said "Nikah principals", which reads as though
+  // it covers the whole cast, and it did not. A Nikah witness therefore
+  // defaulted to three blocks while the wali, imam and wakil got five.
+  //
+  // Found by `a-split-role-keeps-its-standing.test.ts` on its first run, and
+  // left OPEN rather than guessed, because how a Muslim ceremony seats its
+  // witnesses is not a refactor's call. Owner ruled the same day: **"witness
+  // should be inner circle too."** A nikah is not valid without its witnesses;
+  // they are principals, not attendees.
   'wali',
+  'witness',
   'imam',
   'wakil',
 ]);

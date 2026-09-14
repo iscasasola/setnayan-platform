@@ -27,6 +27,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     name_prefix: null,
     middle_name: null,
     name_suffix: null,
+    pair_with_guest_id: null,
     display_name: null,
     side: 'both',
     group_category: 'family',

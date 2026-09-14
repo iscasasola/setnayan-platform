@@ -1315,20 +1315,29 @@ export async function renderVendorBySlug({
   if (user) {
     const events = await fetchUserEvents(supabase, user.id, 'couple');
     /*
-      ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE THAT SORTED FIRST ──
-      This was `events[0]`, and the comment below still called it the couple's
-      "primary" event. It is not: `fetchUserEvents` issues its query with NO
-      `.order()` at all, so `events[0]` is whatever Postgres returned first —
-      arbitrary per request for anyone holding more than one celebration.
-      `is_primary` is SELECTED by that query and never sorted on. The name in
-      the comment and the value in the variable were two different things, which
-      is why nobody saw it.
+      ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE A RULE PICKED ──
+      This was `events[0]`, and the couple was never asked.
 
-      Everything downstream hangs off this one line: the existing-thread lookup,
-      the composer's scope, and the inquiry that eventually puts this shop on
-      somebody's list. So a couple planning a wedding AND their parents'
-      anniversary asked a caterer a question and could not tell, and were not
-      told, which celebration it attached to.
+      ⚠ `events[0]` IS NOT ARBITRARY, and an earlier version of this comment said
+      it was. `fetchUserEvents` has no `.order()` on the QUERY, but it sorts the
+      rows in JS before returning: `is_primary` first, then soonest
+      `event_date`, dateless last. So `events[0]` is "your primary celebration,
+      otherwise the soonest one" — a real rule, just an invisible one that the
+      couple never chose and is never shown.
+
+      🔑 WHERE IT *IS* GENUINELY UNDECIDED: that sort returns 0 for a tie, and
+      `Array.prototype.sort` is stable, so tied rows keep the order the unordered
+      query happened to return. Nothing enforces a single primary — a real
+      account holding TWO events flagged `is_primary = true` was measured on
+      2026-09-08 (see `saveVendorToPicks`), and for that couple which event won
+      was arbitrary per request. Same for two celebrations on one date, or two
+      with no date.
+
+      Either way the couple is not asked, and this one line scopes the
+      existing-thread lookup, the composer, and the inquiry that eventually puts
+      this shop on somebody's list. A couple planning a wedding AND their
+      parents' anniversary could not tell, and were not told, which celebration
+      their question attached to.
 
       `?event=` is the picker's answer (add-shop-to-event-data.ts). It is a
       claim from a URL, so it is CHECKED — against `events` itself, the list of
@@ -1341,8 +1350,8 @@ export async function renderVendorBySlug({
 
       🔑 THE FALLBACK STAYS, DELIBERATELY. A couple with exactly one celebration
       must never be made to choose, and everyone who has only one keeps today's
-      behaviour byte for byte. The picker earns its place only where "first" was
-      meaningless.
+      behaviour byte for byte. The picker earns its place only where the
+      invisible rule was deciding something the couple should.
     */
     const requestedEventId = String(search.event ?? '').trim();
     const chosen =

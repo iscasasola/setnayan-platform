@@ -2,24 +2,30 @@
  * add-shop-to-event-data.ts — WHICH of your celebrations is this shop for?
  *
  * ── WHAT IT REPLACES (measured on origin/main, 2026-09-14) ─────────────────
- * The shop page never asked. It took the couple's FIRST event and used it for
- * everything — the existing-thread lookup, the composer's scope, the inquiry
- * that eventually lands on somebody's list:
+ * The shop page never asked which celebration a visit was about. It took
+ * `events[0]` and scoped everything to it — the existing-thread lookup, the
+ * composer, and the inquiry that eventually puts this shop on somebody's list:
  *
  *     app/v/[slug]/page.tsx        `coupleEventId = events[0]?.event_id ?? null`
  *     app/v/[slug]/inquiry-actions.ts  `: (events[0]?.event_id ?? null)`
  *
- * 🔑 AND "FIRST" IS NOT A PROPERTY OF ANYTHING. `fetchUserEvents` (lib/events.ts)
- * issues its query with NO `.order()` at all, so `events[0]` is whatever
- * Postgres happened to return first — arbitrary per request for anyone holding
- * more than one celebration. Both call sites carry a comment calling it the
- * couple's "primary" event; `is_primary` is SELECTED by that query and never
- * sorted on. The name in the comments and the value in the variable are two
- * different things, which is why this was invisible.
+ * ⚠ `events[0]` IS NOT ARBITRARY — a first draft of this file said it was, and
+ * that was wrong. `fetchUserEvents` puts no `.order()` on the query, but it
+ * SORTS THE ROWS IN JS before returning: `is_primary` first, then soonest
+ * `event_date`, dateless last. So `events[0]` means "your primary celebration,
+ * otherwise the soonest one". A real rule — just an invisible one the couple
+ * never chose and is never shown.
  *
- * So a couple planning a wedding AND their parents' anniversary asked a caterer
- * a question from the shop page and could not tell, and were not told, which
- * celebration it attached to.
+ * 🔑 IT IS GENUINELY UNDECIDED ONLY AMONG TIES. The comparator returns 0 for a
+ * tie and `Array.prototype.sort` is stable, so tied rows keep whatever order the
+ * unordered query returned. Nothing enforces a single primary: an account with
+ * TWO events flagged `is_primary = true` was measured on 2026-09-08 (see
+ * `saveVendorToPicks`), and for that couple which event won was arbitrary per
+ * request. Two celebrations sharing a date, or both dateless, tie the same way.
+ *
+ * Either way the couple is not asked. Someone planning a wedding AND their
+ * parents' anniversary asked a caterer a question from the shop page and could
+ * not tell, and was not told, which celebration it attached to.
  *
  * ── WHY THIS RESOLVER AND NOT A NEW RULE ──────────────────────────────────
  * The picker already exists — `app/_components/marketing/add-to-event*` — built

@@ -1422,6 +1422,23 @@ export const loadEntourage = cache(
       )
       .eq('event_id', eventId)
       /*
+        🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.
+
+        This line was missing when the entourage shipped, and it put two
+        REMOVED people back on a real wedding's public page — a best man and a
+        principal sponsor the couple had deleted hours earlier. The owner spotted
+        it himself ("i can only see 1 indalecio and 1 indalecia"), and the reason
+        it read as a pair of duplicate rows rather than as deleted ones is that
+        `guests` deletes SOFTLY: the row stays, with `deleted_at` set.
+
+        ⚠ Every other guest read in this repo already filters it — including one
+        forty lines up in THIS FILE, and four in lib/guests.ts. This read was the
+        only one that did not, so "the convention" was never the problem; missing
+        it once was. `a-removed-guest-leaves-the-invitation.test.ts` now fails if
+        it goes again.
+      */
+      .is('deleted_at', null)
+      /*
         🔑 BOTH COLUMNS, OR THE SECOND ROLE IS INVISIBLE. `extra_roles` is how a
         guest holds a role BESIDE their main one — and a ring bearer whose main
         role is still the default `guest` lives ONLY there. Filtering on `role`

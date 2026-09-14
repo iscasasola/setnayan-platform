@@ -42,20 +42,35 @@ export async function tellTheSupplierItCameDown(
 ): Promise<void> {
   if (!isSupplierOwned(table) || !photoId || !eventId) return;
   const hit = table as 'vendor_papic_captures' | 'vendor_papic_portfolio_photos';
-  const idColumn = hit === 'vendor_papic_captures' ? 'capture_id' : 'photo_id';
 
   try {
-    const { data: row, error } = await admin
-      .from(hit)
-      .select('vendor_profile_id')
-      .eq(idColumn, photoId)
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if (error) {
-      console.error('[takedown] could not find the supplier to tell:', error.message);
+    /*
+      ⚠ TWO LITERAL BRANCHES, NOT ONE `.from(variable)`. The column scanner
+      (`lib/security/select-column-scan.test.ts`) resolves a select's columns
+      only when the table is a literal; a computed one joins a capped list of
+      selects NOTHING can check for a missing GRANT, and that ceiling is there
+      to shrink. The two tables also disagree on their id column, so the branch
+      was going to exist either way — it may as well be the checkable shape.
+    */
+    const found =
+      hit === 'vendor_papic_captures'
+        ? await admin
+            .from('vendor_papic_captures')
+            .select('vendor_profile_id')
+            .eq('capture_id', photoId)
+            .eq('event_id', eventId)
+            .maybeSingle()
+        : await admin
+            .from('vendor_papic_portfolio_photos')
+            .select('vendor_profile_id')
+            .eq('photo_id', photoId)
+            .eq('event_id', eventId)
+            .maybeSingle();
+    if (found.error) {
+      console.error('[takedown] could not find the supplier to tell:', found.error.message);
       return;
     }
-    const vendorProfileId = (row as { vendor_profile_id?: string | null } | null)
+    const vendorProfileId = (found.data as { vendor_profile_id?: string | null } | null)
       ?.vendor_profile_id;
     if (!vendorProfileId) return;
 

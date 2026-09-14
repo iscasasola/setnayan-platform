@@ -36,3 +36,33 @@ The COUPLE never expire, and the read is skipped entirely for them.
 
 SPEC IMPACT: New access rule, owner-set 2026-09-14. Recorded verbatim in
 `lib/delegate-access-window.ts`.
+
+## 2026-09-14 · fix(access): the window helper drops `server-only`
+
+Marking `delegate-access-window.server.ts` with `import 'server-only'` broke
+THREE existing suites — `budget-visibility.test.ts`,
+`run-of-show-advance.test.ts` and `stage-notes-event-side.test.ts` — with
+"Cannot find module 'server-only'". `tsx --test` cannot resolve that marker, so
+any file importing this one became unloadable BY ITS OWN TEST, and the failure
+is a module-resolution error that says nothing about access windows.
+
+Both consumers are unmarked for exactly that reason. The marker out-ranked the
+layer it serves.
+
+🔒 What keeps it server-side instead: it holds no credentials and reads no env —
+THE CLIENT IS A PARAMETER, so it can only reach what its caller could already
+reach. If it ever grows an ambient admin client or an env read, the marker comes
+back and its consumers must stop importing it directly. That condition is
+written at the top of the file.
+
+Also repinned `stage-notes-event-side.test.ts`: its gate assertion pinned the
+EXPRESSION'S SHAPE (an inline, multi-line `resolveAreaLevel(...)`), and hoisting
+that argument into a variable — so the window could be applied BEFORE the area
+question — broke a regex while preserving exactly what it protects. Now pinned
+to the MEANING: both branches present, still asking for schedule:'edit'.
+Sabotage-verified two ways — dropping the host branch goes red, and asking for
+the wrong area goes red.
+
+🔑 The process failure, not the code one: I ran only my own new test locally and
+let CI find the other three. The full suite (15,642 pass) is the check that
+should have run before the previous push.

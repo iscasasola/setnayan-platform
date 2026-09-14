@@ -1,5 +1,3 @@
-import 'server-only';
-
 import { cache } from 'react';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -39,6 +37,23 @@ type QueryableClient = {
  *
  * `cache()` per request, so the extra read costs one round trip on a page that
  * resolves permissions more than once — not one per reader.
+ *
+ * ⚠ NO `import 'server-only'`, DELIBERATELY, AND THE REASON IS A REAL FAILURE.
+ * Marking it broke THREE existing suites — `budget-visibility.test.ts`,
+ * `run-of-show-advance.test.ts` and the send-box gate — with "Cannot find
+ * module 'server-only'". `tsx --test` cannot resolve that marker, so ANY file
+ * importing this one became unloadable by its own test, and the failure is a
+ * module-resolution error that says nothing about access windows.
+ *
+ * Both consumers (`budget-visibility.ts`, `run-of-show-advance.ts`) are
+ * unmarked for exactly the same reason, so this module matches the layer it
+ * serves rather than out-ranking it.
+ *
+ * 🔒 WHAT KEEPS IT SERVER-SIDE INSTEAD: it holds no credentials and reads no
+ * env — the CLIENT IS A PARAMETER, so it can only ever reach what its caller
+ * could already reach. If this module ever grows an ambient admin client or an
+ * env read, it must gain the marker back and its consumers must stop importing
+ * it directly.
  */
 const readEventWindowRow = cache(
   async (

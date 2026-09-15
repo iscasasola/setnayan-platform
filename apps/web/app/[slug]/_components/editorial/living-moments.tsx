@@ -140,12 +140,32 @@ export function ClipFrame({
     }
   }, [muted, reducedMotion]);
 
+  /*
+    ── ST-4 · THE WHOLE TILE USED TO BE THE MUTE BUTTON ──────────────────────
+    This returned a `<button className="block w-full">` wrapping the clip, with
+    the speaker circle a decorative `aria-hidden` span inside it. So the sound
+    toggle's hit area was the ENTIRE moment: a guest tapping a photo of
+    themselves to look at it turned the audio on, and tapping again to look
+    closer turned it off. The visible control was 32 px and controlled nothing;
+    the real control was a few hundred pixels wide and invisible.
+
+    Now the tile is a plain figure and the speaker circle IS the button.
+
+    🔑 GROW THE TARGET, NOT THE DECORATION. The button box is h-11 w-11 — 44 px,
+    the touch floor — while the drawn circle stays h-8 w-8, so it looks exactly
+    as it did. Round 3 removed the halos on this page because they stole
+    presses; this adds no halo, it just stops the target being smaller than a
+    finger. A nested button is invalid HTML, which is the other reason the tile
+    cannot stay interactive.
+
+    ⚠ THIS CHANGES AN INTERACTION ON A PUBLIC PAGE: tap-anywhere-to-unmute is
+    gone, deliberately, because it was indistinguishable from tap-to-look. If
+    the owner wants tap-anywhere back it is one line, and it should be his call
+    rather than a silent restoration.
+  */
   return (
-    <button
-      type="button"
-      onClick={toggleSound}
-      aria-label={muted ? 'Play sound for this moment' : 'Mute this moment'}
-      className={`group relative block w-full cursor-pointer overflow-hidden bg-ink/10 ${className ?? ''}`}
+    <figure
+      className={`group relative block w-full overflow-hidden bg-ink/10 ${className ?? ''}`}
     >
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
@@ -160,15 +180,22 @@ export function ClipFrame({
       >
         <source src={media.url} />
       </video>
-      {/* Sound state glyph — top-right, quiet until hover/tap. */}
-      <span
-        aria-hidden
-        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-ink/55 text-cream backdrop-blur-sm transition group-hover:bg-ink/75"
+      {/* The sound control — a 44 px target drawn as a 32 px circle. */}
+      <button
+        type="button"
+        onClick={toggleSound}
+        aria-label={muted ? 'Play sound for this moment' : 'Mute this moment'}
+        className="absolute right-0 top-0 flex h-11 w-11 cursor-pointer items-center justify-center"
       >
-        {muted ? <VolumeX size={15} strokeWidth={2} /> : <Volume2 size={15} strokeWidth={2} />}
-      </span>
-      <span className="sr-only">{names} — a living moment from the day</span>
-    </button>
+        <span
+          aria-hidden
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/55 text-cream backdrop-blur-sm transition group-hover:bg-ink/75"
+        >
+          {muted ? <VolumeX size={15} strokeWidth={2} /> : <Volume2 size={15} strokeWidth={2} />}
+        </span>
+      </button>
+      <figcaption className="sr-only">{names} — a living moment from the day</figcaption>
+    </figure>
   );
 }
 

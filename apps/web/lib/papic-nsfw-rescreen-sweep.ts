@@ -1,5 +1,5 @@
 import 'server-only';
-import { claimPeriodicJob } from '@/lib/periodic-jobs';
+import { runClaimedJob } from '@/lib/periodic-jobs';
 import { reScreenAllStuckCaptures } from '@/lib/nsfw-screen';
 
 // ============================================================================
@@ -29,11 +29,7 @@ const RESCREEN_SWEEP_GAP_MS = 20 * 60 * 1000;
  * the next eligible admin request. Safe to fire-and-forget from after().
  */
 export async function maybeRunPapicNsfwRescreen(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('papic-nsfw-rescreen', RESCREEN_SWEEP_GAP_MS)) {
-      await reScreenAllStuckCaptures();
-    }
-  } catch {
-    /* best-effort — a missed window retries on the next eligible admin request */
-  }
+  await runClaimedJob('papic-nsfw-rescreen', RESCREEN_SWEEP_GAP_MS, () =>
+    reScreenAllStuckCaptures(),
+  );
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import {
   FACE_DATA_POST_EVENT_GRACE_DAYS,
@@ -309,11 +309,8 @@ export async function runFaceDataRetention(
  * deploys. Best-effort, never throws.
  */
 export async function maybeRunFaceDataRetention(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('face-data-retention', WEEKLY_GAP_MS)) {
-      await runFaceDataRetention();
-    }
-  } catch {
-    /* best-effort — a missed week retries on the next eligible admin request */
-  }
+  await runClaimedJob('face-data-retention', WEEKLY_GAP_MS, async () => {
+    const summary = await runFaceDataRetention();
+    return summary.deleted;
+  });
 }

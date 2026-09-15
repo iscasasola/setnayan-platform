@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
 /**
  * Data-retention chat purge (RA 10173 class 1 · 5-yr default). Hard-deletes whole
@@ -14,12 +14,15 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
  */
 const RETENTION_YEARS = 5;
 
-export async function runRetentionSweep(): Promise<{ purged: number }> {
+export async function runRetentionSweep(): Promise<{ purged: number; failed?: string }> {
   const admin = createAdminClient();
   const { data, error } = await admin.rpc('purge_expired_chat', { p_years: RETENTION_YEARS });
   if (error) {
     console.error('[retention-sweep] purge failed:', error.message);
-    return { purged: 0 };
+    // ⚠ `purged: 0` ALONE IS A LIE HERE. Zero is what a healthy sweep with
+    // nothing due also returns, so the failure has to travel with the number —
+    // otherwise the run records a confident, successful "deleted nothing".
+    return { purged: 0, failed: error.message };
   }
   const purged = typeof data === 'number' ? data : Number(data ?? 0);
   return { purged: Number.isFinite(purged) ? purged : 0 };
@@ -32,9 +35,9 @@ export async function runRetentionSweep(): Promise<{ purged: number }> {
  * Best-effort, never throws.
  */
 export async function maybeRunRetentionSweep(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('retention-sweep', WEEKLY_GAP_MS)) await runRetentionSweep();
-  } catch {
-    /* best-effort — a missed week retries on the next eligible admin request */
-  }
+  await runClaimedJob('retention-sweep', WEEKLY_GAP_MS, async () => {
+    const { purged, failed } = await runRetentionSweep();
+    if (failed) throw new Error(`purge_expired_chat failed: ${failed}`);
+    return purged;
+  });
 }

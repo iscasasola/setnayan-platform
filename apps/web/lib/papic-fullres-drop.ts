@@ -27,7 +27,7 @@ import {
   type DriveCopyState,
   type PapicDropItem,
 } from '@/lib/papic-fullres-drop-core';
-import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
 // ============================================================================
 // 6-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
@@ -775,11 +775,8 @@ export async function runFullResDropSweep(
  * and safe-by-default. Best-effort, never throws.
  */
 export async function maybeRunPapicFullResDrop(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('papic-fullres-drop', WEEKLY_GAP_MS)) {
-      await runFullResDropSweep();
-    }
-  } catch {
-    /* best-effort — a missed week retries on the next eligible admin request */
-  }
+  await runClaimedJob('papic-fullres-drop', WEEKLY_GAP_MS, async () => {
+    const summary = await runFullResDropSweep();
+    return summary.dropped;
+  });
 }

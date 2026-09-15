@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob } from '@/lib/periodic-jobs';
+import { runClaimedJob } from '@/lib/periodic-jobs';
 import { processBatchForEvent } from '@/lib/photo-delivery-release';
 
 /**
@@ -72,9 +72,8 @@ export async function runPhotoDeliveryDrain(): Promise<{ events: number; uploade
  * it to ~once / DRAIN_GAP_MS across the fleet. Best-effort, never throws.
  */
 export async function maybeRunPhotoDeliveryDrain(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('photo-delivery-drain', DRAIN_GAP_MS)) await runPhotoDeliveryDrain();
-  } catch {
-    /* best-effort — the next admin request retries */
-  }
+  await runClaimedJob('photo-delivery-drain', DRAIN_GAP_MS, async () => {
+    const { uploaded } = await runPhotoDeliveryDrain();
+    return uploaded;
+  });
 }

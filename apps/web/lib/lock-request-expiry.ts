@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { emitNotification } from '@/lib/notification-emit';
 
 /**
@@ -164,11 +164,8 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
  * Best-effort; never throws — a missed day retries on the next eligible request.
  */
 export async function maybeRunLockRequestExpiry(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('lock-request-expiry', DAILY_GAP_MS)) {
-      await runLockRequestExpirySweep();
-    }
-  } catch {
-    /* best-effort */
-  }
+  await runClaimedJob('lock-request-expiry', DAILY_GAP_MS, async () => {
+    const { nudged, expired } = await runLockRequestExpirySweep();
+    return nudged + expired;
+  });
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import {
   IDENTITY_VERIFICATION_COLUMNS,
@@ -341,11 +341,8 @@ export async function runVendorIdentityRetention(
  * deploys. Best-effort, never throws.
  */
 export async function maybeRunVendorIdentityRetention(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('vendor-identity-retention', WEEKLY_GAP_MS)) {
-      await runVendorIdentityRetention();
-    }
-  } catch {
-    /* best-effort — a missed week retries on the next eligible admin request */
-  }
+  await runClaimedJob('vendor-identity-retention', WEEKLY_GAP_MS, async () => {
+    const summary = await runVendorIdentityRetention();
+    return summary.scrubbed;
+  });
 }

@@ -22,7 +22,7 @@ import {
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
-import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
 import { runVerifiedBadgeDeadlineSweep } from '@/lib/verified-badge-sweep';
@@ -650,60 +650,55 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
  * its own send-idempotency lock. Best-effort, never throws.
  */
 export async function runDailyEmailJobs(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('anniversary-digest', DAILY_GAP_MS)) await runAnniversaryDigest();
-  } catch {
-    /* best-effort */
-  }
-  try {
-    if (await claimPeriodicJob('anniversary-headsup', DAILY_GAP_MS)) await runAnniversaryHeadsup();
-  } catch {
-    /* best-effort */
-  }
-  try {
-    if (await claimPeriodicJob('godchild-birthday-reminder', DAILY_GAP_MS))
-      await runGodchildBirthdayReminders();
-  } catch {
-    /* best-effort */
-  }
-  try {
-    if (await claimPeriodicJob('renewal-reminders', DAILY_GAP_MS)) await runRenewalReminders();
-  } catch {
-    /* best-effort */
-  }
-  try {
-    if (await claimPeriodicJob('papic-fullres-drop-warning', DAILY_GAP_MS)) await runPapicDropWarning();
-  } catch {
-    /* best-effort */
-  }
+  await runClaimedJob('anniversary-digest', DAILY_GAP_MS, async () => {
+    const { sent } = await runAnniversaryDigest();
+    return sent;
+  });
+  await runClaimedJob('anniversary-headsup', DAILY_GAP_MS, async () => {
+    const { sent } = await runAnniversaryHeadsup();
+    return sent;
+  });
+  await runClaimedJob('godchild-birthday-reminder', DAILY_GAP_MS, async () => {
+    const { sent } = await runGodchildBirthdayReminders();
+    return sent;
+  });
+  await runClaimedJob('renewal-reminders', DAILY_GAP_MS, async () => {
+    const { sent } = await runRenewalReminders();
+    return sent;
+  });
+  await runClaimedJob('papic-fullres-drop-warning', DAILY_GAP_MS, async () => {
+    const { sent } = await runPapicDropWarning();
+    return sent;
+  });
   // Not an email job — a RETENTION job, riding the same traffic-driven runner
   // because this codebase has no cron. It keeps the sentence `/privacy` prints
   // about unanswered and declined connection requests; before it existed,
   // nothing deleted them and the promise was live and unbacked.
-  try {
-    if (await claimPeriodicJob('connection-request-expiry', DAILY_GAP_MS))
-      await runConnectionRequestExpiry();
-  } catch {
-    /* best-effort */
-  }
+  await runClaimedJob('connection-request-expiry', DAILY_GAP_MS, async () => {
+    const { deleted } = await runConnectionRequestExpiry();
+    // The sweep already distinguishes "deleted nothing" (0) from "the delete
+    // never happened" (null). Turn the null into a RECORDED failure rather than
+    // letting it reach the ledger as an absent count — for a retention promise
+    // with a date on it, "we do not know" must not look like "nothing was due".
+    if (deleted === null) {
+      throw new Error('expire_stale_connection_requests failed — see [connection-expiry] in the logs');
+    }
+    return deleted;
+  });
   // S5 — ships OFF (WHATS_NEXT_Suppliers_Room_SESSIONS_2026-08-27.md). The
   // claim always fires; runSupplierNightBeforeEmailReminders() itself no-ops
   // until isSupplierNightBeforeEmailEnabled() is flipped, so this mount stays
   // permanently present rather than being a second thing to remember to wire.
-  try {
-    if (await claimPeriodicJob('supplier-night-before-email', DAILY_GAP_MS))
-      await runSupplierNightBeforeEmailReminders();
-  } catch {
-    /* best-effort */
-  }
+  await runClaimedJob('supplier-night-before-email', DAILY_GAP_MS, async () => {
+    const { sent } = await runSupplierNightBeforeEmailReminders();
+    return sent;
+  });
   // The Verified badge's deadline (owner 2026-09-11 · Q4 + Q5): the 60-day
   // reminder and the "badge is off" note. The badge itself expires on read,
   // so a missed day here delays a NOTE, never the badge; and nothing in it
   // hides or unpublishes a shop.
-  try {
-    if (await claimPeriodicJob('verified-badge-deadlines', DAILY_GAP_MS))
-      await runVerifiedBadgeDeadlineSweep();
-  } catch {
-    /* best-effort */
-  }
+  await runClaimedJob('verified-badge-deadlines', DAILY_GAP_MS, async () => {
+    const { reminded, lapsed } = await runVerifiedBadgeDeadlineSweep();
+    return reminded + lapsed;
+  });
 }

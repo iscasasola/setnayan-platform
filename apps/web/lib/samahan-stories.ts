@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob } from '@/lib/periodic-jobs';
+import { runClaimedJob } from '@/lib/periodic-jobs';
 import { isR2Configured } from '@/lib/r2';
 import { cleanupDelete } from '@/lib/cleanup-delete';
 import { samahanStoryScope } from '@/lib/cleanup-delete-scope';
@@ -141,24 +141,30 @@ export async function hardDeleteStory(
  * expire — this pass reclaims the bytes. Never throws.
  */
 export async function maybeRunSamahanStorySweep(): Promise<void> {
-  try {
-    if (!isR2Configured()) return;
-    if (!(await claimPeriodicJob('samahan-story-sweep', STORY_SWEEP_GAP_MS))) return;
+  if (!isR2Configured()) return;
+  await runClaimedJob('samahan-story-sweep', STORY_SWEEP_GAP_MS, async () => {
     const admin = createAdminClient();
-    const { data } = await admin
+    const { data, error } = await admin
       .from('samahan_stories')
       .select('id, community_id, r2_object_key, poster_r2_key')
       .lt('expires_at', new Date().toISOString())
       .limit(STORY_SWEEP_LIMIT);
+    // A refused or failed read returns no rows, which is exactly what "nothing
+    // had expired" looks like. Without this the run would record a confident
+    // `0` for a pass that never saw the table.
+    if (error) throw new Error(`expired-story read failed: ${error.message}`);
+    let deleted = 0;
     for (const row of (data ?? []) as Array<{
       id: number;
       community_id: string | null;
       r2_object_key: string;
       poster_r2_key: string;
     }>) {
-      await hardDeleteStory(admin, row);
+      if (await hardDeleteStory(admin, row)) deleted += 1;
     }
-  } catch (e) {
-    console.warn('[samahan-story-sweep] pass failed', e);
-  }
+    // 🔑 0 HERE MEANS "nothing had expired", and that is the answer. It took six
+    // queries to establish exactly that about this job on 2026-09-15, because
+    // the record could not tell "has not run" from "had nothing to do".
+    return deleted;
+  });
 }

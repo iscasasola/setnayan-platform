@@ -32,6 +32,42 @@
  * tidier word at the cost of touching three guards — see the repo note that
  * some guards assert by file path. The docblock carries the meaning instead.
  *
+ * ── 🔬 THIS IS A MITIGATION, NOT A CURE — AND HERE IS HOW TO FINISH IT ──────
+ * What reloads is the SYMPTOM. Nobody has established WHY the follow-up request
+ * comes back unreadable, and a symptom that stops being visible is a question
+ * that stops being asked — which is why the open half is written HERE, in the
+ * file, rather than left in a conversation.
+ *
+ * Measured and settled: the write always lands; no 5xx; no server digest; the
+ * Server Action POST returns a healthy 303 with a Location, so the action ran.
+ * Two candidates remain and nothing on the server can separate them:
+ *   (a) the POST resolves against a NEWER deployment than the tab loaded from
+ *       (skew protection IS on — 12h — and the deployment id IS embedded, so
+ *        this is not simply "unconfigured"; verify on the Vercel PROJECT, never
+ *        by grepping this repo, where the setting cannot exist);
+ *   (b) middleware intercepts the follow-up. `middleware.ts` has NO RSC
+ *       awareness anywhere and its matcher covers the dashboard.
+ *
+ * 🔑 ONE CAPTURE DECIDES IT, and it takes about ten seconds while the error is
+ * on screen. Before reloading:
+ *   1. DevTools → Network, tick **Preserve log** (the error page navigates and
+ *      the entries vanish without it).
+ *   2. Find the POST that returned 303, then the request DIRECTLY BELOW it — a
+ *      GET to the same URL, usually carrying `_rsc=`.
+ *   3. Read that GET's **content-type**:
+ *        `text/x-component` → the payload was fine; look elsewhere.
+ *        `text/html`        → it was handed a page where data was expected.
+ *                             Then the `x-vercel-id` / any `location` header
+ *                             says whether a deployment (a) or a redirect (b)
+ *                             did it.
+ *
+ * ── AND A ONE-GLANCE DISCRIMINATOR WORTH KNOWING GENERALLY ─────────────────
+ * `app/error.tsx` prints a "Reference: …" line ONLY when `error.digest` exists,
+ * and a digest exists only for a SERVER-side failure. So whether that line is
+ * on screen splits server-fault from client-fault before any log is opened —
+ * on a screen the person is already looking at, at no cost. Its ABSENCE is what
+ * identified this whole class.
+ *
  * ── WHY MATCH ON THE MESSAGE, WHICH IS USUALLY A BAD IDEA ───────────────────
  * There is no error CODE for this. Webpack throws a plain `Error` with
  * `name === 'ChunkLoadError'`; Vite and Safari surface it as a failed dynamic

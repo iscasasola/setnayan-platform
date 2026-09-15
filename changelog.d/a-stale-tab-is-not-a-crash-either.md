@@ -39,7 +39,10 @@ removing the new pattern fails the save case; widening it to `/server/i` fails t
 real-crash test.
 
 **What this does NOT do, stated plainly.** It does not stop the mismatch happening —
-it stops it reading as lost work. The underlying cause is still unconfirmed: Vercel
+it stops it reading as lost work. A symptom that stops being visible is a question
+that stops being asked, so the open half is written into `stale-bundle.ts` itself —
+including the ten-second Network capture that decides between the two remaining
+candidates — rather than left in a conversation. The underlying cause is still unconfirmed: Vercel
 skew protection IS enabled (12h, verified on the project, not the repo) and the
 deployment id IS embedded in the page, so the two candidates are a Server Action
 POST resolving against a newer deployment, or middleware — which has NO RSC

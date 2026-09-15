@@ -611,7 +611,7 @@ export async function startServiceInquiry(input: {
     // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
       .from('event_vendors')
-      .select('vendor_id, requested_service_ids')
+      .select('vendor_id, requested_service_ids, service_id')
       .eq('event_id', eventId)
       .eq('marketplace_vendor_id', vendorProfileId)
       .maybeSingle();
@@ -626,9 +626,37 @@ export async function startServiceInquiry(input: {
         ? ((evRow as unknown as { requested_service_ids: string[] }).requested_service_ids)
         : [];
       const merged = Array.from(new Set([...existing, ...confirmedServiceIds]));
+
+      /**
+       * 🔴 AND THE SERVICE LINK, WHICH THIS BRANCH NEVER SET — measured NULL on
+       * 48 of 48 `event_vendors` rows in production (2026-09-16), including a
+       * CONTRACTED booking.
+       *
+       * Both writers that set `service_id` set it only when they INSERT. This
+       * branch is the one that runs when the row ALREADY EXISTS — the ordinary
+       * path, since a couple typically saves a shop to their picks (or an
+       * auto-add creates the row) before inquiring. So the couple named which
+       * service they wanted, `requested_service_ids` recorded it, and the
+       * column everything else joins on stayed empty forever.
+       *
+       * 🔑 IT IS NOT COSMETIC. `setnayan_gift_offered_on` answers "does this
+       * booking carry the Setnayan gift?" by joining `vendor_services` ON
+       * `event_vendors.service_id`. With the column NULL the join matches
+       * nothing, so the answer is FALSE for every booking that exists — not
+       * because suppliers declined, but because the question cannot be reached.
+       * A supplier could switch the gift on and no couple would ever receive it,
+       * and nothing anywhere would report a fault.
+       *
+       * ⚠ ONLY WHEN IT IS NULL. A couple may inquire about a second service
+       * later; overwriting would silently move which card the booking is for —
+       * and that card is what the gift, the quote and the bill all read.
+       */
+      const patch: Record<string, unknown> = { requested_service_ids: merged };
+      if (!evRow.service_id && initialServiceId) patch.service_id = initialServiceId;
+
       const { error: updateError } = await supabase
         .from('event_vendors')
-        .update({ requested_service_ids: merged } as Record<string, unknown>)
+        .update(patch)
         .eq('vendor_id', evRow.vendor_id as string);
       if (updateError) reportEventVendorFault('update', updateError, null);
     } else if (confirmedServiceIds.length > 0) {

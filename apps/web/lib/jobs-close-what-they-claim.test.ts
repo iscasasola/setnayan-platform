@@ -28,6 +28,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 import { PERIODIC_JOBS, PERIODIC_JOB_KEYS } from './periodic-job-registry';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -47,15 +48,14 @@ function sources(dir: string, out: string[] = []): string[] {
 }
 
 /**
- * Comment-stripped. On 2026-08-11 a check in this repo passed because a COMMENT
- * contained the string it was looking for — and half the files here explain
- * `claimPeriodicJob` in prose directly above code that no longer calls it.
+ * Comment-stripped through the ONE canonical stripper. On 2026-08-11 a check in
+ * this repo passed because a COMMENT contained the string it was looking for —
+ * and half the files here explain `claimPeriodicJob` in prose directly above
+ * code that no longer calls it. A hand-rolled two-replace regex is its own trap
+ * (`lint-one-comment-stripper.mjs` refuses one), so this uses lib/strip-comments.
  */
 function code(file: string): string {
-  return readFileSync(file, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  return stripComments(readFileSync(file, 'utf8'));
 }
 
 const FILES = ROOTS.flatMap((r) => sources(r)).map((abs) => ({

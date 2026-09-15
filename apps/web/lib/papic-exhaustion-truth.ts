@@ -222,7 +222,21 @@ export function arrivalTally(
   return {
     headline: `${landed} of your ${total} shots landed.`,
     detail:
+      // ⛔ "THE SHOTS", NEVER "YOUR CREDITS". Measured in production: not one
+      // of `papic_event_pool_status`, `papic_capture_points_available` or
+      // `papic_camera_points_remaining` reads `papic_guest_spend_ceilings` — the
+      // pool subtracts `papic_seat_allocations` and nothing else. A guest's
+      // ceiling is a LIMIT on what she may take and it holds NOTHING back for
+      // her: every credit comes out of one shared pot, first come first served,
+      // and a named guest can arrive to find it empty and her number worth
+      // nothing. Second person plus a possessive is exactly how a limit reads as
+      // a reservation, and this sentence fires at the moment she is most likely
+      // to believe it.
+      // (A camera's DEDICATED balance IS a real reservation — `papic_seat_
+      // allocations` is deducted from the pot by `papic_event_pool_status` —
+      // which is why the own_camera copy may say "added to this camera" and this
+      // one may not.)
       `The other ${refused} ${refused === 1 ? 'wasn’t' : 'weren’t'} saved — ` +
-      `your credits ran out partway through.`,
+      `the shots ran out partway through.`,
   };
 }

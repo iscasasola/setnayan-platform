@@ -40,6 +40,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { bypassExpiryFrom } from '@/lib/verification-bypass';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
+import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 
 /**
  * The same gate every other admin vendor action uses, copied rather than
@@ -124,6 +125,11 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
     .eq('vendor_profile_id', vendorId);
   if (error) throw new Error(error.message);
 
+  // SUP-31 — the shop is TOLD it is live. After the notify, because a failed
+  // notification must never leave a shop listed-but-unrecorded; the notifier is
+  // fail-soft either way and an unclaimed shop is skipped inside it.
+  await notifyVendorStatusChange({ vendorProfileId: vendorId, decision: 'listed' });
+
   const { error: bypassErr } = await admin.from('vendor_verification_bypasses').upsert(
     {
       vendor_profile_id: vendorId,
@@ -182,6 +188,10 @@ export async function revokeVerificationBypass(formData: FormData): Promise<void
     .from('vendor_verification_bypasses')
     .update({ expires_at: null, expired_at: nowIso, updated_at: nowIso })
     .eq('vendor_profile_id', vendorId);
+
+  // SUP-31 — withdrawing a vouch hides the shop from couples. Without this the
+  // shop found out by discovering its own page gone.
+  await notifyVendorStatusChange({ vendorProfileId: vendorId, decision: 'hidden' });
 
   await admin.from('admin_audit_log').insert({
     action: 'vendor_verification_bypass_revoke',

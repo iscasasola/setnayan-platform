@@ -398,12 +398,54 @@ test('the headline is followed by the product, not by an explaining line', () =>
  *
  * It is the same defect this whole stream exists to cure — a measurement that
  * never reaches the render changes nothing — so the per-guest claim gets a real
- * assertion rather than an assumed one. The chapters line is still unpinned;
- * that belongs to whoever owns that copy, and is recorded rather than silently
- * adopted here.
+ * assertion rather than an assumed one.
+ *
+ * ✅ THE CHAPTERS LINE IS NOW PINNED TOO (PAP-11, 2026-09-16). It was left
+ * unpinned above and recorded rather than silently adopted — the right call at
+ * the time, and the row that closes it. The sentence is TRUE:
+ * `lib/papic-chapters.ts` ships and derives a chapter from `captured_at`, and
+ * `papic/pool/_components/pool-grid.tsx` and `papic/me/[token]/page.tsx` read
+ * it. So the risk here is the OPPOSITE of the prohibitions above — not a false
+ * claim creeping on, but a **true one being tidied off** by a reader who has
+ * read this file's own warning that "the year" is unbuilt and does not notice
+ * that a gallery reading in chapters is a different thing wearing the same
+ * word. The docblock says exactly that at the top; the page needs a test.
  *
  * Matched on whitespace-normalised source so reflowing the JSX cannot break it.
  */
+test('the chapters line is on the page, because it is true', () => {
+  // Whitespace-normalised so reflowing the JSX cannot break it, and matched on
+  // the CLAIM rather than the exact sentence — the wording may be improved, the
+  // promise may not quietly leave.
+  const src = read('app/(shell)/papic/_papic-sections.tsx').replace(/\s+/g, ' ');
+
+  assert.match(
+    src,
+    /reads in chapters/i,
+    'The "A gallery that reads in chapters" line has left the page. It is TRUE — ' +
+      'lib/papic-chapters.ts ships and groups one gallery by distance from the day, read by ' +
+      'pool-grid.tsx and papic/me/[token]/page.tsx. Do not delete it because this file warns ' +
+      'that "the year" is unbuilt: those are two different things wearing the same word. ' +
+      'If the gallery ever stops grouping that way, delete the MECHANISM check below first.',
+  );
+
+  // The claim is pinned to its mechanism, not merely to its words: if the module
+  // that makes it true disappears, this test must be reconsidered rather than
+  // going on guarding a sentence nothing backs.
+  // ⚠ The first version of this asserted `captured_at` — guessed from a docblock
+  // rather than read from the module, and it failed on the untouched tree. Both
+  // "sabotages" then went red against an already-red control, which proved
+  // nothing at all. Read the mechanism, do not infer it.
+  assert.match(
+    read('lib/papic-chapters.ts'),
+    /PapicChapter/,
+    'lib/papic-chapters.ts no longer exports the chapter type, so "a gallery that reads in ' +
+      'chapters" may no longer be true. Decide: fix the mechanism, or remove the claim AND ' +
+      'this test together. A guard that keeps a sentence alive after its mechanism dies is ' +
+      'worse than no guard — it makes a false claim load-bearing.',
+  );
+});
+
 test('the per-guest claim is actually on the page', () => {
   const src = read('app/(shell)/papic/page.tsx').replace(/\s+/g, ' ');
 

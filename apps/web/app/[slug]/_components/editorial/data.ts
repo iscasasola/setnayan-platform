@@ -44,6 +44,7 @@ import {
 import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { storyDayWindow, manilaDayOf, allocateChapterCounts } from '@/lib/story-day-window';
+import { guestFullName } from '@/lib/guests';
 
 // ── Tunable constants (admin-tunable later · §6.8 + §6.4 M3) ────────────────
 
@@ -2506,16 +2507,41 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         const colRoleByGuest = new Map<string, string>();
         if (colGuestIds.length > 0) {
           try {
+            /*
+              🔑 THE FIVE NAME PARTS, because this name is PUBLISHED — it is the
+              byline under a guest's own words on the couple's story page, which
+              is the same class of thing as the entourage: a real person's name,
+              printed for everyone who opens the link.
+
+              Selecting only first + last is why a column by "Atty. Cherry Liez
+              O. Rafal-Roble" was signed "Cherry Rafal-Roble". On a Filipino
+              page, dropping a title from a byline is a discourtesy, not a
+              formatting nit.
+            */
             const { data: gRows } = await admin
               .from('guests')
-              .select('guest_id, display_name, first_name, last_name, role')
+              .select(
+                'guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role',
+              )
               .in('guest_id', colGuestIds);
             for (const g of (gRows ?? []) as Array<Record<string, unknown>>) {
               const id = asString(g.guest_id);
               if (!id) continue;
-              const name =
-                asString(g.display_name) ??
-                [asString(g.first_name), asString(g.last_name)].filter(Boolean).join(' ').trim();
+              /*
+                🔑 DELEGATED, NEVER RE-COMPOSED. This was a hand-rolled copy of
+                `guestFullName`'s rule — display_name first, else the parts —
+                and being a copy is exactly why it never learned about the three
+                parts added on 2026-09-10. One place knows the printed order of
+                a name; everywhere else asks it.
+              */
+              const name = guestFullName({
+                display_name: asString(g.display_name) ?? null,
+                name_prefix: asString(g.name_prefix) ?? null,
+                first_name: asString(g.first_name) ?? null,
+                middle_name: asString(g.middle_name) ?? null,
+                last_name: asString(g.last_name) ?? null,
+                name_suffix: asString(g.name_suffix) ?? null,
+              });
               if (name) colNameByGuest.set(id, name);
               const role = asString(g.role);
               if (role) colRoleByGuest.set(id, role);

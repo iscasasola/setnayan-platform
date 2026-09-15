@@ -1683,7 +1683,15 @@ export function MakeItYours({
                     hidden={!canRemoveMoment}
                     onClick={(e) => onRemoveMoment(m.id, e.detail === 0)}
                   >
-                    ×
+                    {/*
+                      ST-11 — the glyph is wrapped so the BUTTON can be the 44px
+                      target while the drawn circle stays 28/36px. Without the
+                      span the hover circle grows with the button, which is the
+                      decoration growing instead of the target.
+                    */}
+                    <span className={s.cxDot} aria-hidden>
+                      ×
+                    </span>
                   </button>
                 </div>
               );

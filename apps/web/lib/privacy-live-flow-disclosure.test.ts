@@ -84,7 +84,17 @@ test('/privacy does NOT re-claim that call media never reaches our servers', () 
 
 test('the policy states its own last-updated date as the day it last changed', () => {
   // A policy that changes without moving its date misrepresents its currency.
-  assert.match(privacySrc, /last updated 2026-08-04/);
+  //
+  // 🔒 THIS DATE IS PINNED ON PURPOSE AND IS NOT A CHORE. It fails on ANY edit to
+  // the policy, which is the point: it forces the editor to decide, consciously,
+  // that the currency claim moved too. Move BOTH — this literal and the line in
+  // `privacy/page.tsx` — in the same commit, to the day the change SHIPS, not
+  // the day it was written.
+  //
+  // It caught exactly that on 2026-09-15: a PR that removed a false analytics
+  // claim and named four undisclosed processors had moved the page's date and
+  // would otherwise have been judged only by whether it compiled.
+  assert.match(privacySrc, /last updated 2026-09-15/);
 });
 
 test('the coverage map still shows the filing gap — the alarm is not silenced', async () => {

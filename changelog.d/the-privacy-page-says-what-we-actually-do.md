@@ -78,3 +78,13 @@ is **bash-only**, so `TSC_EXIT=${PIPESTATUS[0]}` in zsh prints nothing and the
 exit check is vacuous. Verified instead by compiling the single file with the
 flags that produced the error and confirming the ONLY remaining diagnostic is the
 expected `TS2307` for `@/lib/...` outside the project tsconfig.
+
+### Follow-up 2 — the last-updated guard caught this PR, exactly as designed
+
+`privacy-live-flow-disclosure.test.ts` pins the policy's own currency date as a LITERAL, so it fails
+on **any** edit to the page until the editor consciously moves it. That is not a chore — it is the
+only thing standing between "the policy changed" and "the policy still claims it last changed in
+August". It fired on this PR and I had to decide, rather than drift.
+
+Both moved together, to the day the change **ships** rather than the day it was written, and the
+guard now says in its own comment that both must move in the same commit and why.

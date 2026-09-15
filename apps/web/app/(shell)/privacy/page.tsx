@@ -56,7 +56,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-09-14 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-09-15 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 

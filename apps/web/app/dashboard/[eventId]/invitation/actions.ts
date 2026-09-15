@@ -246,3 +246,61 @@ export async function updateMonogram(
   revalidatePath(`/dashboard/${eventId}/invitation/print`);
   redirect(`/dashboard/${eventId}/invitation?mono_saved=1`);
 }
+
+/**
+ * RECORD THAT THIS GUEST HAS BEEN GIVEN THEIR INVITATION.
+ *
+ * ── 🔴 WHY THIS ACTION IS NEW AND THE COLUMN IS OLD ────────────────────────
+ * `guests.invitation_sent_at` has existed for months with **zero writers
+ * anywhere** — no TypeScript, no SQL. The guest list's Invite step once counted
+ * `invitation_sent_at IS NULL`, which meant the number could never fall no
+ * matter what the couple did; that count was removed rather than faked, and
+ * `lib/the-invite-step-counts-what-is-true.test.ts` has stood guard over the
+ * dead column ever since, with instructions for whoever finally wrote to it.
+ * This is that writer.
+ *
+ * ── WHY A COUPLE NEEDS IT ──────────────────────────────────────────────────
+ * Measured 2026-09-16 on a real event: **75 of 77 guests have no email and no
+ * mobile.** V1 sends no SMS, so those invitations travel by Viber message or by
+ * hand. Nothing recorded that, which makes "who still needs theirs?"
+ * unanswerable across a list of 77 people and several weeks.
+ *
+ * 🔑 IT IS A TOGGLE, NOT A LATCH. Marking sent is a human claim about the
+ * physical world, and humans mis-click. A control that cannot be undone teaches
+ * couples not to use it.
+ *
+ * ⚠ THE UPDATE COUNTS ROWS. A PostgREST update whose filter matches nothing —
+ * including when RLS refused the row — returns **no error**, so without
+ * `.select()` this would report success over a list that never changed.
+ */
+export async function markGuestInvitationSent(
+  eventId: string,
+  guestId: string,
+  formData: FormData,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  /* `sent` absent → the host is UNDOING the mark. The form posts the value it
+     wants to end up at, so the button label and the outcome cannot disagree. */
+  const markSent = formData.get('sent') === '1';
+
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ invitation_sent_at: markSent ? new Date().toISOString() : null })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId)
+    .select('guest_id');
+
+  if (error || !data || data.length === 0) {
+    /* No silent success. The page re-reads on revalidate, so a refused write
+       simply leaves the chip as it was rather than claiming a state change. */
+    redirect(`/dashboard/${eventId}/invitation?invite=failed`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/invitation`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+}

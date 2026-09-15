@@ -19,7 +19,14 @@ import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
+import {
+  markGuestInvitationSent,
+  reissueGuestToken,
+  updateEventSlug,
+  updateMonogram,
+} from './actions';
+import { GuestInviteModal } from './_components/guest-invite-modal';
+import { buildGuestInviteMessage } from '@/lib/guest-invite-message';
 import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -61,7 +68,10 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
+      /* `venue_name` joins the read for ONE reason: the message names where the
+         wedding is. The sponsors page already reads it for its own invitation
+         template, so this is the same host-only fact on a second host-only page. */
+      'event_id, public_id, display_name, event_date, slug, venue_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -72,6 +82,9 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const guests = await fetchGuestsByEvent(supabase, eventId);
+  /* Counted from the rows already in hand — no second query for a number the
+     page has already read. */
+  const invitationsMarked = guests.filter((g) => g.invitation_sent_at !== null).length;
 
   const monogram = resolveMonogram(event);
 
@@ -373,6 +386,35 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         ) : null}
       </section>
 
+      {/*
+        HOW MANY STILL NEED THEIRS — the question a couple actually has.
+
+        🔑 THIS NUMBER CAN NOW FALL, which is the whole reason it is allowed to
+        exist. The guest list's old "N to send" counted the same column while
+        NOTHING in the product wrote to it, so it was frozen forever beside
+        three siblings whose numbers moved; it was removed rather than faked
+        (`lib/the-invite-step-counts-what-is-true.test.ts`). `markGuestInvitationSent`
+        is the writer that was missing, so counting is honest again.
+
+        ⚠ It counts what the couple RECORDED, not what any system delivered —
+        Setnayan sends none of these. The wording says "marked", never "sent".
+      */}
+      {guests.length > 0 ? (
+        <p className="mb-2 text-xs text-ink/60">
+          {invitationsMarked === 0 ? (
+            <>None marked as handed out yet — open <span className="font-medium">Send</span> on a
+            row to copy that guest&rsquo;s own message.</>
+          ) : invitationsMarked === guests.length ? (
+            <>All {guests.length} marked as handed out.</>
+          ) : (
+            <>
+              <span className="font-medium text-ink/80">{invitationsMarked}</span> of {guests.length}{' '}
+              marked as handed out &mdash; {guests.length - invitationsMarked} still to go.
+            </>
+          )}
+        </p>
+      ) : null}
+
       {/* Guest table */}
       <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
         <table className="w-full text-left text-sm">
@@ -390,6 +432,17 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             {guests.map((guest) => {
               const qr = qrByGuest.get(guest.guest_id);
               const reissueAction = reissueGuestToken.bind(null, eventId, guest.guest_id);
+              /* One message per guest, carrying THAT guest's own link. Null when
+                 they have no link yet — the modal then offers no Copy button. */
+              const inviteMessage = buildGuestInviteMessage({
+                guestName: guestDisplayName(guest),
+                role: guest.role,
+                coupleNames: event.display_name ?? '',
+                weddingDate: event.event_date,
+                venue: event.venue_name,
+                inviteUrl: qr?.url ?? '',
+              });
+              const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
               return (
                 <tr key={guest.guest_id} className="border-t border-ink/5 align-top">
                   <td className="px-4 py-3">
@@ -429,6 +482,16 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                           PNG
                         </a>
                       ) : null}
+                      {/* ⚖ SEND SITS BEFORE RE-ISSUE, and not only for reading order:
+                          sending is the ordinary weekly act and re-issuing is the rare
+                          repair. The common control goes first. */}
+                      <GuestInviteModal
+                        guestId={guest.guest_id}
+                        guestName={guestDisplayName(guest)}
+                        message={inviteMessage}
+                        sentAt={guest.invitation_sent_at}
+                        markSent={markSentAction}
+                      />
                       <ReissueQrButton
                         action={reissueAction}
                         guestName={guestDisplayName(guest)}
@@ -450,6 +513,17 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         {guests.map((guest) => {
           const qr = qrByGuest.get(guest.guest_id);
           const reissueAction = reissueGuestToken.bind(null, eventId, guest.guest_id);
+          /* One message per guest, carrying THAT guest's own link. Null when
+             they have no link yet — the modal then offers no Copy button. */
+          const inviteMessage = buildGuestInviteMessage({
+            guestName: guestDisplayName(guest),
+            role: guest.role,
+            coupleNames: event.display_name ?? '',
+            weddingDate: event.event_date,
+            venue: event.venue_name,
+            inviteUrl: qr?.url ?? '',
+          });
+          const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
           return (
             <li
               key={guest.guest_id}
@@ -473,6 +547,16 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {/* ⚖ SEND SITS BEFORE RE-ISSUE, and not only for reading order:
+                    sending is the ordinary weekly act and re-issuing is the rare
+                    repair. The common control goes first. */}
+                <GuestInviteModal
+                  guestId={guest.guest_id}
+                  guestName={guestDisplayName(guest)}
+                  message={inviteMessage}
+                  sentAt={guest.invitation_sent_at}
+                  markSent={markSentAction}
+                />
                 <ReissueQrButton
                   action={reissueAction}
                   guestName={guestDisplayName(guest)}

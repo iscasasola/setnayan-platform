@@ -40,6 +40,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
   return {
     guest_id: p.guest_id ?? 'g',
     rsvp_responded_at: null,
+    invitation_sent_at: null,
     public_id: 'S89G-x',
     event_id: 'e',
     first_name: p.first_name ?? 'A',

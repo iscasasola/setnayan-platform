@@ -28,6 +28,29 @@
  * already knows without another read — `fetchJoinUrl` asks `sharedJoinLinkState`
  * and returns null when the event has no address, is still private, or its
  * token was revoked.
+ *
+ * ── ✅ AMENDED 2026-09-16 — THE FEATURE NOW EXISTS ──────────────────────────
+ * This file's first test used to assert that **nothing writes the column**, and
+ * it left instructions for whoever changed that. They have been followed. The
+ * per-guest send was built: `markGuestInvitationSent` in
+ * `app/dashboard/[eventId]/invitation/actions.ts`, driven by a modal that copies
+ * ONE message carrying THAT guest's own invitation link.
+ *
+ * ⚠ WHY IT WAS BUILT: measured on a real event, **75 of 77 guests have no email
+ * and no mobile**. V1 sends no SMS, so those invitations travel by Viber or by
+ * hand, and nothing recorded that — "who still needs theirs?" was unanswerable.
+ *
+ * 🔑 SO THE ASSERTION IS INVERTED, NOT DELETED. It now pins **exactly one
+ * writer**, because the failure this file exists to prevent has a twin: a
+ * SECOND writer — a fan-out that stamps every row at once, say — would make the
+ * number fall without anybody handing anything to anybody, which is the same
+ * lie pointing the other way.
+ *
+ * ⚠ AND THE INVITE STEP IN THE GUEST-LIST RIBBON IS DELIBERATELY UNCHANGED. It
+ * still reports whether the shared link works, because that is still what THAT
+ * stage does. The count of who has been handed their own invitation lives on
+ * the invitation page, where the sending happens. Two surfaces, two honest
+ * answers; the second test below still holds the first one.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,21 +105,48 @@ function guestsChains(): { file: string; chain: string }[] {
   return out;
 }
 
-test('nothing filters the guest list on a column nothing writes', () => {
-  const chains = guestsChains();
-  assert.ok(chains.length > 0, 'No .from(\'guests\') query found at all — this guard is scanning nothing.');
-  const hits = [...new Set(chains.filter((c) => c.chain.includes(DEAD_COLUMN)).map((c) => c.file))];
-  assert.deepEqual(
-    hits,
-    [],
-    `A query filters guests on ${DEAD_COLUMN}, which has no writer anywhere — ` +
-      'so whatever it feeds is a constant, not a measurement. If a per-guest ' +
-      'send is being built, write the column in the same PR and delete this ' +
-      `test with a sentence saying so. Files: ${hits.join(', ')}`,
-  );
+test('the count says MARKED, never "sent" — Setnayan delivers none of these', () => {
+  /*
+    ⚖ THIS TEST REPLACES "nothing filters the guest list on a column nothing
+    writes". That one existed because a number was fed by a column with no
+    writer. The writer now exists, so a count is legitimate — and the risk moves
+    one step along: the count is of what the COUPLE RECORDED BY HAND, and the
+    product must not let it drift into claiming a delivery it never performed.
+
+    🔑 V1 SENDS NOTHING HERE. No SMS, no Viber integration; the couple copies a
+    message and pastes it themselves. A pill reading "40 sent" would be the
+    product taking credit for forty acts it did not perform and cannot verify —
+    the same species of false claim as the frozen number, wearing better clothes.
+  */
+  const page = strip(
+    readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'invitation', 'page.tsx'), 'utf8'),
+  ).replace(/\s+/g, ' ');
+
+  assert.match(page, /invitationsMarked/, 'the invitation page no longer counts what was marked');
+
+  /* ⚠ SLICE THE WHOLE SUMMARY, NOT ONE PHRASE. The block has THREE branches —
+     none marked, all marked, some marked — and an earlier version of this test
+     matched a single phrase, so rewording two branches out of three left it
+     GREEN. Face every branch at once. */
+  const start = page.indexOf('{invitationsMarked === 0 ?');
+  assert.ok(start > 0, 'the summary block is gone — the count no longer renders');
+  const end = page.indexOf('</p>', start);
+  assert.ok(end > start, 'the summary block has no end tag; the slice would run to the file end');
+  const summary = page.slice(start, end);
+
+  /* The forbidden word is the confident one. "Mark sent" on a BUTTON is the
+     couple's own verb for their own act and is fine — it is not in this slice.
+     A COUNT that reports "N sent" is the PRODUCT asserting a delivery it never
+     performed. \bsent\b does not match "Send", which the copy legitimately uses
+     to point at the control. */
+  assert.doesNotMatch(summary, /\bsent\b/i,
+    'the count must not use the verb "sent" — Setnayan delivers none of these; ' +
+      'the couple copies a message and pastes it themselves');
+  assert.match(summary, /marked/,
+    'the count must say what it actually knows: that the couple MARKED it');
 });
 
-test('the column still has no writer — if that changes, this test is what tells you', () => {
+test('the column has EXACTLY ONE writer — zero froze the number, two would fake it', () => {
   // A WRITE is the column as an OBJECT KEY inside a guests-table chain
   // (`.update({ invitation_sent_at: … })`). A read is the same name inside a
   // select string or a `.is(…)` filter, which is a quoted argument, not a key.
@@ -117,13 +167,19 @@ test('the column still has no writer — if that changes, this test is what tell
     )
     .map((f) => relative(REPO, f));
 
+  /* ⚖ EXACTLY ONE WRITER, AND IT IS THE PER-GUEST ONE.
+     Zero writers is the original defect: a number that can never fall.
+     TWO writers is the same defect pointing the other way — a fan-out that
+     stamps every row at once makes the number fall without anybody handing
+     anything to anybody. Both are "a constant wearing a number's clothes". */
+  const EXPECTED_WRITER = 'app/dashboard/[eventId]/invitation/actions.ts';
   assert.deepEqual(
-    [...writers, ...sqlWriters],
-    [],
-    'Something now writes guests.invitation_sent_at. That is good news — it ' +
-      'means a per-guest send exists. Re-point the Invite step at it and ' +
-      'replace this test. Do NOT just delete it: the whole defect was a number ' +
-      'nobody could explain.',
+    [...writers, ...sqlWriters].sort(),
+    [EXPECTED_WRITER],
+    'guests.invitation_sent_at must have exactly one writer — the per-guest ' +
+      '"Mark sent" on the invitation page. A new writer here means something ' +
+      'else is stamping invitations; a missing one means the count on the ' +
+      'invitation page is frozen again, which is the defect this file is for.',
   );
 });
 

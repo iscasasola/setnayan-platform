@@ -143,7 +143,7 @@ test('🚨 sponsors are counted as extra HEADS, so their bigger shares still add
   assert.equal(promised, WORKED.pot, 'named + plain + sponsors + spare is the pot, exactly');
   assert.equal(
     summariseAllotments({ ...WORKED, sponsors: ['principal', 'principal', 'cord'] }),
-    '120 guests · 8 named · 3 sponsors get 39 or 26 · everyone else gets 13 credits each · 79 spare',
+    '120 guests · 8 named · 3 sponsors capped at 39 or 26 · everyone else capped at 13 credits each · 79 covered by no limit',
   );
 });
 
@@ -153,7 +153,7 @@ test('a list with no sponsors divides exactly as before — and a plain guest ad
   assert.equal(summariseAllotments({ ...WORKED, sponsors: [] }), summariseAllotments(WORKED));
   assert.equal(
     summariseAllotments({ ...WORKED, sponsors: ['veil'] }),
-    '120 guests · 8 named · 1 sponsor gets 28 · everyone else gets 14 credits each · 18 spare',
+    '120 guests · 8 named · 1 sponsor capped at 28 · everyone else capped at 14 credits each · 18 covered by no limit',
   );
 });
 
@@ -174,7 +174,10 @@ test('who is a sponsor is read off the guest list — role and extra roles, bigg
 
 test('🚨 the copy says CREDITS, and never a bare "per guest"', () => {
   const line = summariseAllotments(WORKED);
-  assert.equal(line, '120 guests · 8 named · everyone else gets 14 credits each · 32 spare');
+  assert.equal(
+    line,
+    '120 guests · 8 named · everyone else capped at 14 credits each · 32 covered by no limit',
+  );
   // The currency meaning is a CREDIT (32df56e81). "Shot" is still correct for a
   // photograph, but this line is about money and must not say it.
   assert.ok(!/\bshots?\b/i.test(line), 'the currency reads credits, never shots');

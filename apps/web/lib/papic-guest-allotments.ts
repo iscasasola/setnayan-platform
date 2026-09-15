@@ -260,10 +260,27 @@ export type SplitInputs = {
   sponsors?: readonly AllotmentRole[];
 };
 
+/**
+ * ⚠ THIS IS A SUGGESTION ENGINE, NOT AN ALLOCATION — measured 2026-09-16.
+ *
+ * `papic_guest_spend_ceilings.ceiling_points` is a CEILING: the most one guest
+ * may take. `papic_event_pool_status` subtracts `papic_seat_allocations` from
+ * the shared pot and NOTHING ELSE — no named guest's number is ever held back
+ * for her. Every credit comes out of the one pot, first come first served, and
+ * a guest who arrives late finds whatever is left regardless of her number.
+ *
+ * So read `perHead` and `spare` as "the limit we suggest" and "how much of the
+ * pot no limit covers" — never as "what she gets" and "what remains after
+ * everyone has been given theirs". The names predate the measurement and are
+ * kept because renaming them touches every reader; the meaning is here.
+ *
+ * 🔑 Whether these numbers SHOULD reserve is an open owner decision — the
+ * screen used to say they did, which is the reason this note exists.
+ */
 export type Split = {
-  /** How many credits each un-named guest gets. */
+  /** The limit we suggest for each un-named guest — NOT what she is given. */
   perHead: number;
-  /** What is left over after the equal split — anyone's. */
+  /** How much of the pot no limit covers. Not "left over": nothing was taken. */
   spare: number;
   /** Guests who are not named. */
   unnamedCount: number;
@@ -366,7 +383,7 @@ export function summariseAllotments(i: SplitInputs): string {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   if (split.overCommitted) {
-    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests are promised ${split.namedTotal - i.pot} credits more than this celebration holds`;
+    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${split.namedTotal - i.pot} credits more than this celebration holds, so they cannot all take their full amount`;
   }
 
   // Sponsors get their own clause, so the couple can see a ninong's bigger
@@ -378,7 +395,7 @@ export function summariseAllotments(i: SplitInputs): string {
   const sponsorClause =
     sponsors.length === 0
       ? null
-      : `${plural(sponsors.length, 'sponsor gets', 'sponsors get')} ${sponsorAmounts.join(' or ')}${
+      : `${plural(sponsors.length, 'sponsor capped at', 'sponsors capped at')} ${sponsorAmounts.join(' or ')}${
           sponsorAmounts.length === 1 && sponsors.length > 1 ? ' each' : ''
         }`;
 
@@ -388,8 +405,8 @@ export function summariseAllotments(i: SplitInputs): string {
     sponsorClause,
     split.unnamedCount === 0
       ? 'everyone on your list is named'
-      : `everyone else gets ${split.perHead} credits each`,
-    `${split.spare} spare`,
+      : `everyone else capped at ${split.perHead} credits each`,
+    `${split.spare} covered by no limit`,
   ]
     .filter((part): part is string => part !== null)
     .join(' · ');

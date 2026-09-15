@@ -1593,8 +1593,8 @@ export function PapicGuestCapture({
                     only fires when the RPC itself says `guest_spend_ceiling`. */}
                 {capReason === 'guest_spend_ceiling' ? (
                   <p className="text-sm text-cream/70">
-                    This is the number the host set aside for you — they can open
-                    up more at any time.
+                    This is the limit the host set for you — they can raise it at
+                    any time.
                   </p>
                 ) : null}
               </>

@@ -79,6 +79,27 @@ export function resolveExhaustionCause(
 }
 
 /**
+ * The same question, asked from the RECORD seam, where the refusal carries no
+ * cause of its own.
+ *
+ * ⚠ AND THAT SEAM IS NOT A RARE RACE. The presign deliberately gates a clip at
+ * `PAPIC_CLIP_COST_MIN` — the cheapest band, so a shooter with 3 credits is not
+ * refused a URL for a two-second clip she can plainly afford — so a LONG clip
+ * routinely passes the presign and is refused by `papic_record_seat_capture`.
+ * The camera therefore latches `ownCamera` from every successful presign and
+ * answers from that, rather than defaulting a guest with a camera of her own to
+ * "the celebration ran out".
+ *
+ * Unknown (null/undefined) falls to the pot, the same conservative direction as
+ * `resolveExhaustionCause`.
+ */
+export function exhaustionCauseFromOwnCamera(
+  hasOwnCamera: boolean | null | undefined,
+): PapicExhaustionCause {
+  return hasOwnCamera === true ? 'own_camera' : 'event_pool';
+}
+
+/**
  * The refusal, in one sentence, for the API body and the screen.
  *
  * ⛔ NEITHER SENTENCE MAY PROMISE A REFILL, because there is none. Both say what
@@ -135,11 +156,13 @@ export function arrivalTally(
 ): { headline: string; detail: string } | null {
   if (refused <= 0) return null;
   const total = landed + refused;
+  // ⚠ "your", not "these". The visible roll is trimmed to ROLL_MAX, so a
+  // sentence anchored on what is on screen would misreport a long night. These
+  // two figures are session counters that are never trimmed.
   return {
-    headline: `${refused} of these ${total} didn’t land.`,
+    headline: `${landed} of your ${total} shots landed.`,
     detail:
-      `Your credits ran out partway through. ` +
-      `${landed} ${landed === 1 ? 'is' : 'are'} in the gallery; ` +
-      `the other ${refused} ${refused === 1 ? 'was' : 'were'} not saved.`,
+      `The other ${refused} ${refused === 1 ? 'wasn’t' : 'weren’t'} saved — ` +
+      `your credits ran out partway through.`,
   };
 }

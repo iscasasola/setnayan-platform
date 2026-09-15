@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import {
   PAPIC_POOL_NOT_BINDING,
   arrivalTally,
+  exhaustionCauseFromOwnCamera,
   exhaustionDetail,
   exhaustionHeadline,
   resolveExhaustionCause,
@@ -65,6 +66,17 @@ test('an unreadable probe falls to the pot, never to "you can buy more"', () => 
   // with a cost; the other direction just sends her to the host.
   assert.equal(resolveExhaustionCause(null), 'event_pool');
   assert.equal(resolveExhaustionCause(undefined), 'event_pool');
+});
+
+test('the record seam answers from the latched camera, not from a default', () => {
+  // A long clip passes the presign (gated at the cheapest band) and is refused
+  // at the record — so this path is ordinary, not a race, and defaulting a
+  // guest with her own camera to "the celebration ran out" would be wrong on a
+  // routine capture.
+  assert.equal(exhaustionCauseFromOwnCamera(true), 'own_camera');
+  assert.equal(exhaustionCauseFromOwnCamera(false), 'event_pool');
+  assert.equal(exhaustionCauseFromOwnCamera(null), 'event_pool');
+  assert.equal(exhaustionCauseFromOwnCamera(undefined), 'event_pool');
 });
 
 // ── 2 · no surface may promise a refill ────────────────────────────────────
@@ -180,16 +192,24 @@ test('nothing refused → no tally, and the celebratory copy stands', () => {
 test('3 of 8 landed is said as 3 of 8, in the guest’s own numbers', () => {
   const t = arrivalTally(3, 5);
   assert.ok(t);
-  assert.match(t.headline, /5 of these 8/);
-  assert.match(t.detail, /3 are in the gallery/);
-  assert.match(t.detail, /the other 5 were not saved/);
+  assert.match(t.headline, /3 of your 8 shots landed/);
+  assert.match(t.detail, /The other 5 weren’t saved/);
 });
 
 test('one refused shot is not reported in the plural', () => {
   const t = arrivalTally(7, 1);
   assert.ok(t);
-  assert.match(t.headline, /1 of these 8/);
-  assert.match(t.detail, /the other 1 was not saved/);
+  assert.match(t.headline, /7 of your 8 shots landed/);
+  assert.match(t.detail, /The other 1 wasn’t saved/);
+});
+
+test('the tally counts the session, not the trimmed roll', () => {
+  // ROLL_MAX trims what is on screen; a sentence saying "of these N" would
+  // misreport a long night. Nothing in the copy may point at the visible strip.
+  const t = arrivalTally(40, 12);
+  assert.ok(t);
+  assert.match(t.headline, /40 of your 52 shots/);
+  assert.doesNotMatch(`${t.headline} ${t.detail}`, /of these/i);
 });
 
 test('a refused shot is never called saved', () => {

@@ -162,6 +162,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         eventStyle={eventStyle}
         faceMode={faceMode}
         geoEnabled={geoEnabled}
+        buyOffered={canReloadOwnCamera}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

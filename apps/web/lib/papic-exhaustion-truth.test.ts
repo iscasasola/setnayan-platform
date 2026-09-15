@@ -289,13 +289,52 @@ test('a refused shot is never called saved', () => {
 
 test('the seat screen mounts the tally and badges a refused shot', () => {
   const src = stripComments(readFileSync(SEAT, 'utf8'));
-  assert.match(src, /arrivalTally\(/, 'the seat roll must compute the tally');
-  // A capped shot drew NOTHING before this — no overlay at all, so it looked
-  // exactly like a photograph that was kept. Pin the overlay to the status.
-  const overlays = src.match(/shot\.status === 'capped'/g) ?? [];
-  assert.ok(
-    overlays.length >= 2,
-    `a refused shot must be BOTH disabled and visibly badged; found ${overlays.length} site(s)`,
+  /*
+    ⚠ AND NOT MERELY "arrivalTally IS CALLED". `arrivalTally(landedCount, 0)`
+    returns null forever, the panel silently falls back to the celebratory
+    branch, and every assertion about the copy stays green — which is exactly the
+    cheapest off-switch a future edit would reach for ("the numbers confuse
+    people"). Pin BOTH counters into the call.
+  */
+  assert.match(
+    src,
+    /arrivalTally\(\s*landedCount\s*,\s*refusedCount\s*\)/,
+    'the tally must be computed from the refusal counter, not from a constant',
+  );
+  // And those counters must actually move, at the arrival, where a credit is spent.
+  assert.match(src, /setLandedCount\(\(n\) => n \+ 1\)/);
+  assert.match(src, /setRefusedCount\(\(n\) => n \+ 1\)/);
+
+  /*
+    ⚠ COUNTING THE OCCURRENCES OF `shot.status === 'capped'` IS NOT ENOUGH, and
+    this guard shipped that way for one round. Deleting the OVERLAY's condition
+    left the `disabled` test and the aria-label branch behind — still two
+    matches, still green, and a refused photograph back to drawing nothing. A
+    file-level match cannot say WHICH site went. So each site is anchored to
+    what it actually does.
+  */
+  assert.match(
+    src,
+    /shot\.status === 'capped' && \([\s\S]{0,400}?<Ban\b/,
+    'a refused shot must draw a visible badge — before this it drew NOTHING, a ' +
+      'bare thumbnail indistinguishable from a photograph that was kept',
+  );
+  assert.match(
+    src,
+    /shot\.status === 'capped'\s*\?\s*'[^']*credits ran out'/,
+    'a refused shot must say so to a screen reader too',
+  );
+  assert.match(
+    src,
+    /disabled=\{[\s\S]{0,200}?shot\.status === 'capped'/,
+    'a refused shot must not be tappable as if it could be retried',
+  );
+
+  // And the panel must not congratulate her over refused shots.
+  assert.match(
+    src,
+    /arrivalNote \?/,
+    'the exhausted panel must branch on whether anything was actually refused',
   );
 });
 

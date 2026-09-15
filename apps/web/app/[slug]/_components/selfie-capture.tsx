@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import { FaceReceiptCard } from './face-receipt-card';
 
 /**
  * RSVP selfie capture (owner directive 2026-06-05 — guest photos come from a
@@ -554,6 +555,25 @@ export function SelfieCapture({
           )}
         </span>
       </label>
+
+      {/* ── THE RECEIPT (RA 10173) ────────────────────────────────────────
+          Shown at the moment of enrolling, under the boxes she is about to
+          tick, so the four facts are in front of her BEFORE she decides and not
+          only afterwards. It is also rendered on her own event page next to the
+          removal control (face-data-notice.tsx), because a receipt she can read
+          once and never find again is not a receipt.
+
+          🔑 THE PERIOD IS NOT WRITTEN HERE. It is derived in lib/face-receipt.ts
+          from the constant the deletion sweep actually compares against. A
+          number typed into this JSX is a promise nothing keeps. */}
+      <div className="mt-2">
+        <FaceReceiptCard
+          heading="What this saves, and for how long"
+          faceMode={faceMode}
+          eventWord={w.eventWord}
+          theOrganizer={w.theOrganizer}
+        />
+      </div>
 
       {/* Hidden picker for the multi-shot upload path (up to maxShots photos). */}
       {multiShot ? (

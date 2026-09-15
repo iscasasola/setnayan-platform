@@ -2,6 +2,8 @@ import { eventWordsForEvent } from '../_lib/event-words';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withdrawFaceConsent, setGuestFaceBlock } from '../actions';
+import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { FaceReceiptCard } from './face-receipt-card';
 
 /**
  * This guest's CURRENT FaceBlock setting, read here rather than threaded down.
@@ -32,6 +34,32 @@ async function readFaceBlock(eventId: string, guestId: string): Promise<boolean>
   }
 }
 
+/**
+ * The event's own dates, so the receipt can name the DAY the retention clock
+ * runs out instead of only the length of it.
+ *
+ * ⚠ FAILS TOWARD SAYING LESS. A failed read returns nulls, and
+ * `faceDataDeletionDay` then returns null, and the receipt prints the period
+ * without a date. The alternative — printing a date computed from a guess — is
+ * the one outcome a retention notice must never produce.
+ */
+async function readEventClock(
+  eventId: string,
+): Promise<{ eventDate: string | null; eventEndDate: string | null }> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('events')
+      .select('event_date, event_end_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) return { eventDate: null, eventEndDate: null };
+    const row = data as { event_date?: string | null; event_end_date?: string | null } | null;
+    return { eventDate: row?.event_date ?? null, eventEndDate: row?.event_end_date ?? null };
+  } catch {
+    return { eventDate: null, eventEndDate: null };
+  }
+}
+
 // Guest-facing face controls (RA 10173). Shown under the RSVP once the guest has
 // a stored selfie; separate forms so neither ever nests in the RSVP form.
 //
@@ -49,9 +77,14 @@ export async function FaceDataNotice({
   eventId: string;
   guestId: string;
 }) {
-  const [w, faceblockEnabled] = await Promise.all([
+  const [w, faceblockEnabled, clock, faceMode] = await Promise.all([
     eventWordsForEvent(eventId),
     readFaceBlock(eventId, guestId),
+    readEventClock(eventId),
+    // The EFFECTIVE mode, resolved server-side and fail-closed to mode_b — the
+    // same resolver the enrollment write uses, so the receipt cannot describe a
+    // measurement this event never takes.
+    resolvePapicFaceMode(createAdminClient(), eventId),
   ]);
   const withdraw = withdrawFaceConsent.bind(null, eventId, guestId);
   const toggleBlur = setGuestFaceBlock.bind(null, eventId, guestId, !faceblockEnabled);
@@ -59,9 +92,26 @@ export async function FaceDataNotice({
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3 text-xs text-ink/60">
+        {/* ⚠ THIS LINE USED TO SAY "set up for face recognition" ON EVERY
+            EVENT. Every event is mode_b until an admin switches matching on,
+            and in mode_b no descriptor is ever computed — so the sentence told
+            most guests that a measurement of their face existed when none did.
+            The consent copy two screens back was fixed for exactly this; this
+            claim sat un-branched underneath it. The words follow the mode
+            because the processing does. */}
         <p className="min-w-0">
-          Your photo is set up for face recognition at this {w.eventWord}, so
-          {' '}{w.theOrganizerPossessive} photographers can find your candid shots.
+          {faceMode === 'mode_a' ? (
+            <>
+              Your photo is set up for face recognition at this {w.eventWord}, so
+              {' '}{w.theOrganizerPossessive} photographers can find your candid shots.
+            </>
+          ) : (
+            <>
+              Your photo is on the guest list for this {w.eventWord}, so
+              {' '}{w.theOrganizerPossessive} team can recognise you. No facial
+              recognition runs here.
+            </>
+          )}
         </p>
 
         {/* The gentle option first — it is the one most people want, and putting
@@ -80,6 +130,18 @@ export async function FaceDataNotice({
           </SubmitButton>
         </form>
       </div>
+
+      {/* The same four facts she was shown when she enrolled, kept reachable —
+          and here the event's dates are known, so the period can name its day.
+          The removal control it points at is the form directly below. */}
+      <FaceReceiptCard
+        heading="Your face-data receipt"
+        faceMode={faceMode}
+        eventWord={w.eventWord}
+        theOrganizer={w.theOrganizer}
+        eventDate={clock.eventDate}
+        eventEndDate={clock.eventEndDate}
+      />
 
       <form
         action={withdraw}

@@ -26,6 +26,19 @@ import type { createAdminClient } from '@/lib/supabase/admin';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
+/**
+ * Is this timestamp column actually set? NOT `asString` — a driver may hand a
+ * `timestamptz` back as a Date (PostgREST sends a JSON string, PGlite sends a
+ * Date), and coercing to string first would read a REAL BAKE as an absent one,
+ * silently withholding every blurred stand-in. Presence is the question here,
+ * never the value.
+ */
+function hasValue(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
+}
+
 /** Local, dependency-free string coercion (mirrors data.ts `asString`). */
 function asString(v: unknown): string | null {
   if (typeof v === 'string') {
@@ -161,7 +174,7 @@ const CAPTURE_SOURCES: readonly StandInSource[] = [
  * refusal the pool makes.
  */
 function trustedStandIn(row: Record<string, unknown>, src: StandInSource): string | null {
-  if (!asString(row.faceblock_baked_at)) return null;
+  if (!hasValue(row.faceblock_baked_at)) return null;
   if (asString(row[src.typeCol]) === 'clip') return null;
   return asString(row.safe_display_r2_key) ?? asString(row.wall_safe_r2_key);
 }

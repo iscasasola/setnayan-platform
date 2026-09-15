@@ -19,6 +19,19 @@
  * OPPOSITE OF ONE. Every vendor and couple with a tab open during a deploy sees
  * it. We cannot stop deploying; we can stop it reading as a failure.
  *
+ * ── TWO SHAPES, ONE DISEASE (the second added 2026-09-15) ───────────────────
+ * The file is named for the first one it caught, and the name is now too
+ * narrow: the tab can be out of date about a SCRIPT (a chunk that moved) or
+ * about an ACTION (a Server Action the new build answers differently). The
+ * second is worse, because it strikes the moment somebody presses Save — so
+ * the error lands exactly where a person is most likely to conclude their work
+ * is gone, and their work is in fact already written.
+ *
+ * ⚠ THE NAME IS KEPT DELIBERATELY. `stale-bundle.test.ts`, `app/error.tsx` and
+ * `app/global-error.tsx` all reference these symbols, and a rename buys a
+ * tidier word at the cost of touching three guards — see the repo note that
+ * some guards assert by file path. The docblock carries the meaning instead.
+ *
  * ── WHY MATCH ON THE MESSAGE, WHICH IS USUALLY A BAD IDEA ───────────────────
  * There is no error CODE for this. Webpack throws a plain `Error` with
  * `name === 'ChunkLoadError'`; Vite and Safari surface it as a failed dynamic
@@ -36,6 +49,41 @@ const STALE_PATTERNS = [
   /error loading dynamically imported module/i,
   /importing a module script failed/i, // Safari
   /'text\/html' is not a valid javascript mime type/i, // a 404 HTML page served where JS was expected
+
+  // ── THE SECOND SHAPE: A STALE *ACTION*, NOT A STALE SCRIPT (2026-09-15) ────
+  //
+  // The owner reported an error page after saving a guest — twice, days apart.
+  // Measured each time: THE WRITE LANDED. The email was in the database, the
+  // rename was in the database, no 5xx was logged, no server digest was shown.
+  // Reproduced live with the console open, the message was:
+  //
+  //     An unexpected response was received from the server.
+  //
+  // That is Next.js's Server Action transport error. It does NOT mean the
+  // action failed — an action that throws is serialised properly and arrives
+  // here as its own error WITH a `digest`. It means the reply could not be
+  // read as an action response at all: the tab posted to a build that answers
+  // differently than the one it loaded from.
+  //
+  // 🔑 SAME DISEASE AS THE CHUNKS ABOVE, ONE LAYER UP. The scripts case is a
+  // tab asking for a FILE that moved; this is a tab asking for an ACTION that
+  // moved. Both are "the tab is older than the server", both are cured by one
+  // reload, and both currently read to the person as "I just lost my work" —
+  // which is the opposite of the truth, because the work is already saved.
+  //
+  // ⚠ WHY THIS IS SAFE TO RELOAD ON, given the test right below it insists a
+  // REAL crash must not be. This message is about the ENVELOPE, never about
+  // the action's own logic. A failing action reaches the boundary as a normal
+  // error with a digest, and `digest` is exactly what was ABSENT on the
+  // owner's screen — the "Reference:" line the boundary prints was not there.
+  // So this pattern cannot swallow an application bug: an application bug does
+  // not produce this string.
+  /an unexpected response was received from the server/i,
+  // The sibling shape, when the follow-up navigation payload is the unreadable
+  // half rather than the action's reply. Next usually recovers from this on its
+  // own with a hard navigation; when it surfaces instead, a reload is the same
+  // remedy it would have applied.
+  /failed to fetch rsc payload/i,
 ];
 
 export function isStaleBundleError(error: unknown): boolean {

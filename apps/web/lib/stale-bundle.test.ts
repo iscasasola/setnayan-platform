@@ -38,6 +38,25 @@ test('the shapes a browser actually produces are recognised', () => {
   );
 });
 
+test('THE SAVE CASE: a stale ACTION reads the same as a stale script', () => {
+  // Owner, 2026-09-15, reproduced live with the console open after pressing
+  // Save on a guest. Measured both times it happened: the write had ALREADY
+  // LANDED — the value was in the database, no 5xx was logged, and the error
+  // screen showed no "Reference:" line because there was no server digest.
+  //
+  // Before this, the message matched none of the five patterns above, so the
+  // boundary did not reload and the person was told "Something on our end
+  // didn't work" about work that was safely saved.
+  assert.ok(
+    isStaleBundleError(new Error('An unexpected response was received from the server.')),
+    'the Server Action transport error is a stale tab, not a crash',
+  );
+  assert.ok(
+    isStaleBundleError(new Error('Failed to fetch RSC payload for https://x/y. Falling back.')),
+    'the follow-up navigation payload is the same situation',
+  );
+});
+
 test('a REAL crash is not mistaken for a stale tab', () => {
   // 🔑 The dangerous direction. Reloading on a genuine bug hides it behind a
   // refresh and loses the error the person could have reported.
@@ -47,6 +66,25 @@ test('a REAL crash is not mistaken for a stale tab', () => {
   assert.equal(isStaleBundleError(undefined), false);
   assert.equal(isStaleBundleError('Loading chunk 1 failed'), false, 'a bare string is not an error');
   assert.equal(isStaleBundleError({}), false);
+
+  // 🔑 THE NEW PATTERNS MUST NOT WIDEN THIS DOOR. The 2026-09-15 addition
+  // catches a TRANSPORT failure; an action whose own code throws must still
+  // reach a human. These are the shapes a genuinely broken Server Action
+  // produces — server-side failures that Next serialises properly and that
+  // arrive WITH a digest, which is precisely what the owner's screen lacked.
+  for (const real of [
+    new Error('An error occurred in the Server Components render.'),
+    new Error('Failed to update guest: permission denied for table guests'),
+    new Error('duplicate key value violates unique constraint'),
+    new Error('An unexpected error occurred'), // near-miss wording: error != response
+    new Error('The server responded with a status of 500'),
+  ]) {
+    assert.equal(
+      isStaleBundleError(real),
+      false,
+      `"${real.message}" is a real failure and must NOT be reloaded away`,
+    );
+  }
 });
 
 test('it reloads once', () => {

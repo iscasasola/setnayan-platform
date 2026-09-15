@@ -3,7 +3,7 @@ import {
   tenancyForPathPrefix,
   UPLOAD_TENANCY_REFUSAL,
 } from '@/lib/upload-prefix-tenancy';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -37,6 +37,7 @@ import {
   resolveExhaustionCause,
 } from '@/lib/papic-exhaustion-truth';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
 
@@ -573,6 +574,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // mounted on the page below (app/papic/seat/[token]/page.tsx), so the
           // sentence can never name a control that is not on the screen.
           const buyOffered = papicGuestBuyEnabled();
+          // ⬇ AND TELL THE COUPLE, who are the only people who can act on a
+          // spent pot. Only for the POOL cause: a guest whose OWN camera is
+          // spent is not the couple's problem to solve, and a notice that fires
+          // for both would be noise that teaches them to ignore the one that
+          // matters. Deduped inside; `after()` so the refusal is not delayed.
+          if (cause === 'event_pool') {
+            after(async () => {
+              await tellTheCouplePapicPoolIsSpent(seat.event_id as string);
+            });
+          }
           return NextResponse.json(
             {
               error: `${exhaustionHeadline(cause)} ${exhaustionDetail(cause, { buyOffered })}`,

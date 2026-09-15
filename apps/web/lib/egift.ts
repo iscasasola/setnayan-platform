@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { EgiftMethodKind } from '@/lib/egift-kinds';
+import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
  * apps/web/lib/egift.ts (server-only)
@@ -52,8 +53,24 @@ const SELECT_COLUMNS =
  * to show the "Open ↗" link.
  */
 export function isPabuyaPublicRouteEnabled(): boolean {
-  const v = process.env.PABUYA_PUBLIC_ROUTE_ENABLED;
-  return v === '1' || v === 'true';
+  /*
+    🔴 THIS USED TO BE `v === '1' || v === 'true'` — TWO EXACT SPELLINGS,
+    case-sensitive and untrimmed — and it cost the owner a switch he had already
+    set.
+
+    He turned the page on, redeployed, and `/[slug]/pabuya` still answered 404.
+    Every other gate was measured and passed: the event exists, weddings carry
+    the `website` surface, and the visibility gate REDIRECTS rather than 404s. It
+    was this line. `TRUE`, `True`, or `true ` with a trailing space — trivially
+    easy to produce in a web form — each failed silently, and a flag that is off
+    renders as a page that was never built.
+
+    🔑 THE REPO ALREADY HAD THE ANSWER: `envFlagEnabled` accepts
+    true · 1 · yes · on, case-insensitively and trimmed. This function was a
+    private re-implementation of a shared rule, and being private is exactly why
+    it was stricter than the rule it was copying.
+  */
+  return envFlagEnabled(process.env.PABUYA_PUBLIC_ROUTE_ENABLED);
 }
 
 /**

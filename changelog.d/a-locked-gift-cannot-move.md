@@ -60,3 +60,31 @@ Verified: 15,747 unit tests · typecheck clean · 19 db tests (incl. exposure-fr
 and the existing gift suite) · 7/7 on the new suite.
 
 SPEC IMPACT: `DECISION_LOG.md` — the 2026-09-16 "both moments" ruling.
+
+## 2026-09-16 · fix(security): guard_setnayan_gift_stamp is not callable by anyone
+
+`tests/db/anon-rpc-surface.db.test.ts` caught the new trigger function arriving
+on the anon-callable SECURITY DEFINER surface — a new function inherits EXECUTE
+for `anon` and `authenticated`, and `anon` is any holder of the publishable key
+that ships in the public JavaScript bundle.
+
+Revoked from PUBLIC, anon and authenticated in the same migration, rather than
+written into `tests/db/anon-rpc-surface.baseline.txt`. The baseline is the right
+home for a function whose grant can be justified (a token-gated guest RPC, say);
+this one is a trigger body whose whole contract is NEW/OLD, so there is nothing
+to justify. That file's own header says the count SHOULD SHRINK.
+
+⚠ **The revoke does not disarm the trigger, and that is measured, not assumed.**
+PostgreSQL checks EXECUTE on a trigger function when the TRIGGER IS CREATED, not
+each time it fires. `a-locked-gift-cannot-move.db.test.ts` still passes all
+seven of its own tests after the revoke — including *"once CONFIRMED, nothing
+may change it — not even the platform"*, which can only pass if the trigger
+still runs.
+
+🪤 The PR page had blamed **"native encoder tests failed"**, a Rust crate this
+branch does not contain. The db-replay step is one of only two guard steps in
+`ci.yml` that are not `continue-on-error`; when it exits 1 every later step —
+including the three Rust ones — is `skipped`, and the fail-closed aggregator
+names the skip. Read the step list, not the annotation.
+
+SPEC IMPACT: None.

@@ -216,6 +216,24 @@ BEGIN
 END;
 $$;
 
+-- 🔒 NOBODY MAY CALL IT DIRECTLY. A new SECURITY DEFINER function inherits
+-- EXECUTE for anon and authenticated, and `anon` is any holder of the
+-- publishable key that ships in the public JavaScript bundle. This one is a
+-- trigger body, so a direct call would raise 0A000 anyway — but the repo's own
+-- rule is that the GRANT decides who may call a function, never the caller the
+-- author had in mind, and an unusable grant is still surface. Revoked rather
+-- than written into tests/db/anon-rpc-surface.baseline.txt: that file says the
+-- count SHOULD SHRINK, and a line there records a grant nobody can justify.
+--
+-- ⚠ THIS DOES NOT DISARM THE TRIGGER. PostgreSQL checks EXECUTE on a trigger
+-- function when the TRIGGER IS CREATED, not each time it fires; the fire path
+-- runs as the table owner. Proven, not assumed — `a-locked-gift-cannot-move`'s
+-- own db test still refuses a confirmed gift after this revoke, and that test
+-- can only pass if the trigger still runs.
+REVOKE EXECUTE ON FUNCTION public.guard_setnayan_gift_stamp() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.guard_setnayan_gift_stamp() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.guard_setnayan_gift_stamp() FROM authenticated;
+
 DROP TRIGGER IF EXISTS guard_setnayan_gift_stamp ON public.event_vendors;
 CREATE TRIGGER guard_setnayan_gift_stamp
   BEFORE UPDATE ON public.event_vendors

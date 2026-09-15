@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
 import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -313,6 +314,61 @@ export async function moveEgiftMethod(
       .eq('event_id', eventId),
   ]);
   if (r1.error || r2.error) return { ok: false, error: GENERIC_WRITE_ERROR };
+
+  await revalidateSurfaces(eventId);
+  return { ok: true };
+}
+
+/**
+ * SAVE THE COUPLE'S OWN SENTENCE above their e-gift methods.
+ *
+ * ⚖ Owner 2026-09-15: *"so pick among 5 or create your own."* The templates are
+ * starting points in the UI; what is stored is always the couple's TEXT, never
+ * a template key — so editing a template after picking it is just editing, and
+ * a template's wording can be improved later without silently rewriting a page
+ * somebody already published.
+ *
+ * 🔒 OWNERSHIP IS RLS's JOB, as with every other action in this file: the write
+ * goes through the caller's own session client, and `events`' policies decide
+ * whether this person may touch this row. There is no second check here to
+ * drift out of step with the first.
+ *
+ * ⚠ EMPTY CLEARS IT — `cleanPabuyaMessage` returns null for whitespace, and null
+ * is what makes the public page read exactly as it did before anybody typed
+ * anything. Storing `''` would render a blank paragraph above the QR codes,
+ * which looks like a layout fault rather than an empty field.
+ */
+export async function savePabuyaMessage(
+  formData: FormData,
+): Promise<EgiftActionResult> {
+  let eventId: string;
+  try {
+    eventId = await requireEventId(formData);
+  } catch {
+    return { ok: false, error: 'Missing event reference. Please refresh.' };
+  }
+
+  const message = cleanPabuyaMessage(str(formData, 'pabuya_message'));
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('events')
+    .update({ pabuya_message: message })
+    .eq('event_id', eventId)
+    .select('event_id');
+
+  if (error) {
+    return { ok: false, error: 'Could not save your message. Please try again.' };
+  }
+  /*
+    🔑 A ZERO-ROW UPDATE IS SUCCESS-SHAPED. PostgREST returns no error when the
+    filter matches nothing — including when RLS refused the row — so without
+    counting we would tell a couple their words were saved and show them a page
+    that never changed.
+  */
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'We could not save that — please reload and try again.' };
+  }
 
   await revalidateSurfaces(eventId);
   return { ok: true };

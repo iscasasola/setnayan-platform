@@ -7,9 +7,9 @@
 // photos, thank-you note) and writes content + section visibility to draft_json.
 // ============================================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { StoryRail, type StoryStep, type StoryStepKey } from './story-rail';
+import { StoryRail, STORY_STEPS, type StoryStep, type StoryStepKey } from './story-rail';
 import Link from 'next/link';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { eventNoun } from '@/lib/event-noun';
@@ -498,8 +498,43 @@ export function EditorialEditor({
   /*
     WHICH STEP IS OPEN — the thirteenth piece of state, and the only one the rail owns.
     `desk` first, exactly as the prototype opens (`<section class="panel on" id="p-desk">`).
+
+    ── ST-4 · AND IT SURVIVES A RELOAD ──────────────────────────────────────
+    This was plain `useState('desk')`, so every reload threw the host back to
+    the desk from wherever they were. Writing your own columns, refreshing, and
+    landing on the desk is the kind of small wrong that makes a tool feel
+    untrustworthy — nothing is lost, but the page has forgotten you.
+
+    HASH-DRIVEN, because this codebase already solved exactly this in
+    `panood/control/[eventId]/_components/setup-sheet.tsx`: read the hash on
+    mount, validate it against the known list, listen for `hashchange` so Back
+    and Forward work, and write with `replaceState` so choosing a step does not
+    stack a history entry per click. A plain `<a href="#theme">` deep-links for
+    free as a result.
+
+    ⚠ VALIDATED AGAINST `STORY_STEPS`, never trusted: `#publish'; DROP` or a
+    stale `#gallery` from the section list is not a step, and an unknown hash
+    must open the desk rather than a blank rail with nothing selected.
   */
   const [step, setStep] = useState<StoryStepKey>('desk');
+
+  /*
+    Read on mount, not during render: `window` does not exist on the server, and
+    seeding `useState` from the hash would make the first client paint disagree
+    with the server's HTML. One frame on the desk then the real step is the
+    honest trade, and it is what the setup-sheet precedent does.
+  */
+  useEffect(() => {
+    const readHash = () => {
+      const raw = window.location.hash.replace(/^#/, '');
+      if ((STORY_STEPS as readonly string[]).includes(raw)) {
+        setStep(raw as StoryStepKey);
+      }
+    };
+    readHash();
+    window.addEventListener('hashchange', readHash);
+    return () => window.removeEventListener('hashchange', readHash);
+  }, []);
   const setTheme = (next: StoryTheme) => {
     setThemeState(next);
     setDirty(true);
@@ -781,9 +816,19 @@ export function EditorialEditor({
         active={step}
         onSelect={(k) => {
           setStep(k);
-          // The prototype's own last line in `show()`. A step opened half-scrolled reads as a
-          // page that did not change.
-          if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
+          if (typeof window !== 'undefined') {
+            /*
+              ST-4 — remember the step across a reload. `replaceState`, not
+              `location.hash =`: assigning the hash pushes a history entry, so
+              six clicks around the rail would need six Back presses to leave
+              the page. This also fires no `hashchange`, which is why the step
+              is set above rather than left to the listener.
+            */
+            window.history.replaceState(null, '', `#${k}`);
+            // The prototype's own last line in `show()`. A step opened half-scrolled reads as a
+            // page that did not change.
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }
         }}
         percentDecided={deskPercentDecided}
       />

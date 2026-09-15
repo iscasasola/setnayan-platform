@@ -483,8 +483,21 @@ export function PabuyaManager({
                 />
               </div>
 
-              {/* Note */}
-              <Field label="Note for guests (optional)">
+              {/*
+                ⚖ "NOTE FOR THIS ACCOUNT", not "note for guests" — owner
+                2026-09-15, "move the message off the bank card".
+
+                🔑 THIS LABEL IS WHY HIS WORDS ENDED UP HERE. "Note for guests"
+                is exactly what a couple reads when they want to say why they
+                are asking, so he typed his whole 171-character message into a
+                per-account field and it became the bank card's property.
+
+                The page-level box ("Your own words") is the WHY. This one is
+                per-account plumbing — which name to put in the reference, which
+                account is for what. They must not read as two boxes holding the
+                same kind of sentence.
+              */}
+              <Field label="Note for this account (optional)">
                 <input
                   type="text"
                   value={draft.note}
@@ -492,7 +505,7 @@ export function PabuyaManager({
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, note: e.target.value }))
                   }
-                  placeholder="e.g. Please put our names in the message"
+                  placeholder="e.g. Please put your name in the reference"
                   className="input-field h-11"
                 />
               </Field>

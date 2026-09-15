@@ -4,6 +4,7 @@ import { CalendarDays } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { giftQuoteBasis } from '@/lib/setnayan-gift.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   fetchMessages,
@@ -34,6 +35,7 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
 import { dayMonth, formatLongDate } from '@/lib/format-date';
@@ -153,6 +155,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
   const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
+  /**
+   * The Setnayan gift's basis for this thread — resolved ONCE here so the
+   * composer can re-price it as the supplier types, rather than asking the
+   * server on every keystroke.
+   *
+   * ⚠ Safe to run with the admin client HERE and not earlier: line 150 above
+   * already refused the request unless this viewer is the supplier on this
+   * thread (`thread.vendor_profile_id !== profile.vendor_profile_id` → notFound).
+   * Returns null on every doubt, and the composer then says nothing.
+   */
+  const composerGiftBasis = thread.event_id
+    ? await giftQuoteBasis(createAdminClient(), {
+        eventId: thread.event_id,
+        vendorProfileId: thread.vendor_profile_id,
+      })
+    : null;
+
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
   // livePax first — so they run in ONE parallel batch instead of the former
@@ -204,11 +223,24 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     Promise.all([
       supabase
         .from('vendor_proposal_templates')
-        .select('template_id, template_name')
+        // `default_package_id` is NOT decoration: sendProposalCore prices the
+        // proposal from it when the supplier leaves the package selector on
+        // "No package". Without it the composer cannot know its own total.
+        .select('template_id, template_name, default_package_id')
         .eq('vendor_profile_id', profile.vendor_profile_id),
       supabase
         .from('vendor_packages')
-        .select('package_id, package_name')
+        // The package's own price is what the send path bills — the Price field
+        // is only a fallback when this is 0.
+        //
+        // ⚠ READ THE CONSTANT, NOT A THIRD HAND-TYPED LIST. Adding
+        // `total_price_centavos` to the old two-column literal took this read
+        // past the duplicated-rule guard's threshold and turned CI red — and
+        // the annotation it produced said "native encoder tests failed", a
+        // crate this branch does not touch. The literal was the fault. Three
+        // of these twelve columns are used below; the other nine cost one
+        // round trip on a page that already makes a dozen.
+        .select(VENDOR_PACKAGE_SELECT)
         .eq('vendor_profile_id', profile.vendor_profile_id),
     ]),
     // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
@@ -342,12 +374,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       label: s.title?.trim() || kindLabel(s.category),
     }));
 
-  const proposalTemplates = ((tplRes.data ?? []) as { template_id: string; template_name: string }[]).map(
-    (t) => ({ id: t.template_id, name: t.template_name }),
-  );
-  const proposalPackages = ((pkgRes.data ?? []) as { package_id: string; package_name: string }[]).map(
-    (p) => ({ id: p.package_id, name: p.package_name }),
-  );
+  const proposalTemplates = (
+    (tplRes.data ?? []) as {
+      template_id: string;
+      template_name: string;
+      default_package_id: string | null;
+    }[]
+  ).map((t) => ({
+    id: t.template_id,
+    name: t.template_name,
+    defaultPackageId: t.default_package_id ?? null,
+  }));
+  const proposalPackages = (
+    (pkgRes.data ?? []) as {
+      package_id: string;
+      package_name: string;
+      total_price_centavos: number | null;
+    }[]
+  ).map((p) => ({
+    id: p.package_id,
+    name: p.package_name,
+    totalCentavos: Number(p.total_price_centavos) || 0,
+  }));
   // Vendor Proposal Maker (§ 9) — the vendor's payment rails for the quote's
   // method picker (default-selects the publishable ones).
   const proposalPaymentMethods = (ownPaymentMethods ?? []).map((m) => ({
@@ -499,6 +547,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const toolNodes: Record<string, React.ReactNode> = {
     'send-proposal': (
         <SendProposalCard
+          giftBasis={composerGiftBasis}
           threadId={threadId}
           templates={proposalTemplates}
           packages={proposalPackages}
@@ -521,6 +570,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     'build-quote': (
         <ProposalMaker
           threadId={threadId}
+          giftBasis={composerGiftBasis}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}

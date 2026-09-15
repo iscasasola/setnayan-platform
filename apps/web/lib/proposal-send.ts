@@ -16,6 +16,7 @@ import {
 } from '@/lib/proposal-payment-schedule';
 import { applyFreeTransportToQuote } from '@/lib/vendor-free-transport';
 import { resolveThreadFreeTransport } from '@/lib/vendor-free-transport.server';
+import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -231,11 +232,10 @@ export async function sendProposalCore(
     totalCentavos: pkgTotal,
     lineItems,
   } = await resolvePackageLineItems(supabase, profile.vendor_profile_id, packageId);
-  let totalCentavos = pkgTotal;
-  const totalPhpRaw = Number(input.totalPhp);
-  if (totalCentavos === 0 && Number.isFinite(totalPhpRaw) && totalPhpRaw > 0) {
-    totalCentavos = Math.round(totalPhpRaw * 100);
-  }
+  // ⚠ THE PACKAGE WINS. Kept in lib/quote-total.ts so the in-chat composer can
+  // PREVIEW against the same rule — it previously previewed off the typed field
+  // alone and quoted a gift 2.3x below the bill. One function, no drift.
+  const totalCentavos = resolveQuoteTotalCentavos(pkgTotal, input.totalPhp);
 
   // 4 · Resolve merge tokens (shared resolver) + title.
   const values = resolveProposalValues(brief, {

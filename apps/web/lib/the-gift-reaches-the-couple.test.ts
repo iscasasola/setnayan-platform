@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { giftQuoteCopy } from './setnayan-gift';
 
 const WEB = join(import.meta.dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -52,12 +53,32 @@ test('the quote asks for the gift and tells the couple PHOTOS, never pesos', () 
   const src = code('app/proposals/[publicId]/page.tsx');
   assert.match(src, /await quoteSetnayanGift\(createAdminClient\(\), \{/);
   assert.match(src, /amountCentavos: proposal\.total_centavos/);
-  // The couple's line: a photo count, and no money in it.
-  const couple = src.match(/`Includes a Setnayan gift — you get \$\{formatGiftPhotos\(gift\.credits\)\} free Papic photos`/);
+
+  // ⚠ REPINNED 2026-09-15, TO MEANING RATHER THAN TO SHAPE.
+  //
+  // This used to match the page's two inline template literals character for
+  // character. Those strings have MOVED into `giftQuoteCopy` — one copy now
+  // serves this page and both quote composers — so the old patterns could only
+  // ever fail, and "make the guard pass" would have meant re-typing a third
+  // copy of the sentence: the exact drift the move removed.
+  //
+  // What must stay true is unchanged, and is now checked two ways instead of
+  // one: the page renders the SHARED copy for the right audience, and the
+  // couple's words are EXECUTED and inspected rather than grepped — which a
+  // literal match never did.
+  assert.match(src, /giftQuoteCopy\(gift, isVendorSide \? 'supplier' : 'couple'/,
+    'the page must render the shared copy, for the audience actually looking');
+  assert.ok(
+    !/Includes (a|your) Setnayan gift/.test(src),
+    'a re-typed gift sentence is back on the page — there must be exactly one copy',
+  );
+
+  const couple = giftQuoteCopy({ credits: 1_429, chargeCentavos: 100_000 }, 'couple', {
+    businessName: 'Studio Vera',
+  });
   assert.ok(couple, 'the couple is told the photo count');
-  const coupleNote = src.match(/`For your celebration, from \$\{businessName\}\.[^`]*`/);
-  assert.ok(coupleNote, 'the couple’s note is present');
-  for (const line of [couple[0], coupleNote[0]]) {
+  assert.match(couple.headline, /1,429 free Papic photos/);
+  for (const line of [couple.headline, couple.detail]) {
     assert.doesNotMatch(line, /₱|formatCentavos|chargeCentavos|peso/i, `no pesos to the couple: ${line}`);
   }
 });

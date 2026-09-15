@@ -625,8 +625,17 @@ function replyCell(guests: HubGuestRead, text: (n: number) => string): HubRoleCe
  * reads no guest by name — not even for `named_guest`, whose door is the
  * FABRICATED sample seat-holder that `lib/simulated-guest-preview.ts` already
  * ships. So even with the flag ON, no real guest's data flows down this path;
- * turning it on offers the couple the seat-holder SHAPE, and rendering an
- * actual named person remains unbuilt and unruled.
+ * turning it on offers the couple the seat-holder SHAPE.
+ *
+ * ⚖ RULED 2026-09-14 — "Preview as a guest" shows a GENERIC guest, NEVER a real
+ * named one, on both pages. (DECISION_LOG.md, the owner's Part A acceptance.)
+ * This docblock called it open for one day after that stopped being true,
+ * which is how a settled question gets re-asked: a session grepping for open
+ * decisions finds the word and puts it back on the owner's desk.
+ *
+ * ⚠ The guard beside this file bans that phrase, and a comment QUOTING it reads
+ * the same to a text scan — so this note describes it instead of repeating it. The fabricated seat-holder IS the answer, not a placeholder for one —
+ * rendering an actual named person is not a later phase, it is refused.
  *
  * ⛔ A null `slug` (or an unmeasured event) removes every door rather than
  * pointing one at `/null`. The description survives; the link does not.

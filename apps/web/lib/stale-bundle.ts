@@ -19,6 +19,55 @@
  * OPPOSITE OF ONE. Every vendor and couple with a tab open during a deploy sees
  * it. We cannot stop deploying; we can stop it reading as a failure.
  *
+ * ── TWO SHAPES, ONE DISEASE (the second added 2026-09-15) ───────────────────
+ * The file is named for the first one it caught, and the name is now too
+ * narrow: the tab can be out of date about a SCRIPT (a chunk that moved) or
+ * about an ACTION (a Server Action the new build answers differently). The
+ * second is worse, because it strikes the moment somebody presses Save — so
+ * the error lands exactly where a person is most likely to conclude their work
+ * is gone, and their work is in fact already written.
+ *
+ * ⚠ THE NAME IS KEPT DELIBERATELY. `stale-bundle.test.ts`, `app/error.tsx` and
+ * `app/global-error.tsx` all reference these symbols, and a rename buys a
+ * tidier word at the cost of touching three guards — see the repo note that
+ * some guards assert by file path. The docblock carries the meaning instead.
+ *
+ * ── 🔬 THIS IS A MITIGATION, NOT A CURE — AND HERE IS HOW TO FINISH IT ──────
+ * What reloads is the SYMPTOM. Nobody has established WHY the follow-up request
+ * comes back unreadable, and a symptom that stops being visible is a question
+ * that stops being asked — which is why the open half is written HERE, in the
+ * file, rather than left in a conversation.
+ *
+ * Measured and settled: the write always lands; no 5xx; no server digest; the
+ * Server Action POST returns a healthy 303 with a Location, so the action ran.
+ * Two candidates remain and nothing on the server can separate them:
+ *   (a) the POST resolves against a NEWER deployment than the tab loaded from
+ *       (skew protection IS on — 12h — and the deployment id IS embedded, so
+ *        this is not simply "unconfigured"; verify on the Vercel PROJECT, never
+ *        by grepping this repo, where the setting cannot exist);
+ *   (b) middleware intercepts the follow-up. `middleware.ts` has NO RSC
+ *       awareness anywhere and its matcher covers the dashboard.
+ *
+ * 🔑 ONE CAPTURE DECIDES IT, and it takes about ten seconds while the error is
+ * on screen. Before reloading:
+ *   1. DevTools → Network, tick **Preserve log** (the error page navigates and
+ *      the entries vanish without it).
+ *   2. Find the POST that returned 303, then the request DIRECTLY BELOW it — a
+ *      GET to the same URL, usually carrying `_rsc=`.
+ *   3. Read that GET's **content-type**:
+ *        `text/x-component` → the payload was fine; look elsewhere.
+ *        `text/html`        → it was handed a page where data was expected.
+ *                             Then the `x-vercel-id` / any `location` header
+ *                             says whether a deployment (a) or a redirect (b)
+ *                             did it.
+ *
+ * ── AND A ONE-GLANCE DISCRIMINATOR WORTH KNOWING GENERALLY ─────────────────
+ * `app/error.tsx` prints a "Reference: …" line ONLY when `error.digest` exists,
+ * and a digest exists only for a SERVER-side failure. So whether that line is
+ * on screen splits server-fault from client-fault before any log is opened —
+ * on a screen the person is already looking at, at no cost. Its ABSENCE is what
+ * identified this whole class.
+ *
  * ── WHY MATCH ON THE MESSAGE, WHICH IS USUALLY A BAD IDEA ───────────────────
  * There is no error CODE for this. Webpack throws a plain `Error` with
  * `name === 'ChunkLoadError'`; Vite and Safari surface it as a failed dynamic
@@ -36,6 +85,41 @@ const STALE_PATTERNS = [
   /error loading dynamically imported module/i,
   /importing a module script failed/i, // Safari
   /'text\/html' is not a valid javascript mime type/i, // a 404 HTML page served where JS was expected
+
+  // ── THE SECOND SHAPE: A STALE *ACTION*, NOT A STALE SCRIPT (2026-09-15) ────
+  //
+  // The owner reported an error page after saving a guest — twice, days apart.
+  // Measured each time: THE WRITE LANDED. The email was in the database, the
+  // rename was in the database, no 5xx was logged, no server digest was shown.
+  // Reproduced live with the console open, the message was:
+  //
+  //     An unexpected response was received from the server.
+  //
+  // That is Next.js's Server Action transport error. It does NOT mean the
+  // action failed — an action that throws is serialised properly and arrives
+  // here as its own error WITH a `digest`. It means the reply could not be
+  // read as an action response at all: the tab posted to a build that answers
+  // differently than the one it loaded from.
+  //
+  // 🔑 SAME DISEASE AS THE CHUNKS ABOVE, ONE LAYER UP. The scripts case is a
+  // tab asking for a FILE that moved; this is a tab asking for an ACTION that
+  // moved. Both are "the tab is older than the server", both are cured by one
+  // reload, and both currently read to the person as "I just lost my work" —
+  // which is the opposite of the truth, because the work is already saved.
+  //
+  // ⚠ WHY THIS IS SAFE TO RELOAD ON, given the test right below it insists a
+  // REAL crash must not be. This message is about the ENVELOPE, never about
+  // the action's own logic. A failing action reaches the boundary as a normal
+  // error with a digest, and `digest` is exactly what was ABSENT on the
+  // owner's screen — the "Reference:" line the boundary prints was not there.
+  // So this pattern cannot swallow an application bug: an application bug does
+  // not produce this string.
+  /an unexpected response was received from the server/i,
+  // The sibling shape, when the follow-up navigation payload is the unreadable
+  // half rather than the action's reply. Next usually recovers from this on its
+  // own with a hard navigation; when it surfaces instead, a reload is the same
+  // remedy it would have applied.
+  /failed to fetch rsc payload/i,
 ];
 
 export function isStaleBundleError(error: unknown): boolean {

@@ -76,9 +76,22 @@ export function PublicLineCard({
           (optional)
         </span>
       </h3>
+      {/*
+        SUP-30 · THIS SENTENCE USED TO PUT THE WEBSITE INSIDE "what couples read".
+        It said: "…on your page and in search results — and your own website, if
+        you have one." Couples never see it, and that is a RULING, not an
+        oversight — owner 2026-09-11, DECISION_LOG "SEVEN SUPPLIER-SIDE
+        QUESTIONS" Q3: "Never show links", no tappable website or social link on
+        the shop page, before or after booking. `/v/[slug]` selects `website` and
+        deliberately never renders it, and `lib/no-door-out-of-the-app.test.ts`
+        fails if a website href reaches any couple-facing surface.
+
+        So the shop was being told its website is part of its public line while
+        the product is built, on purpose, never to show it. The tagline half of
+        the sentence was true; only the website half was not.
+      */}
       <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-        The one line couples read under your name on your page and in search results
-        — and your own website, if you have one.
+        The one line couples read under your name on your page and in search results.
       </p>
 
       <div className="mt-3 space-y-3">
@@ -132,6 +145,13 @@ export function PublicLineCard({
           />
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
             Your own site, not your Setnayan page. Leave blank if you don&rsquo;t have one.
+          </p>
+          {/* Says where the value DOES and does not go, in the voice /v/[slug]
+              already uses when it tells a shop previewing itself why its email
+              and phone are absent. Saved, not published. */}
+          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
+            Couples don&rsquo;t see this. Setnayan never puts a link off the app on
+            your page — your enquiries stay in your Setnayan inbox.
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
             The first time you add this, Setnayan reads it once, for free, to

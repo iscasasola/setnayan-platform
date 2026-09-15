@@ -110,13 +110,12 @@ export default async function PabuyaPublicPage({
     very account it stands for, so hiding the digits and printing the code beside
     them would be a gate with a window next to it.
 
-    ⚠ WHY BANK METHODS AND NOT WALLETS — stated, not assumed. The owner's words
-    were about the account number, and a bank account is the case that cannot be
-    undone: it is a durable identifier a couple cannot rotate, unlike a wallet
-    handle they can change in an app. A GCash number is a mobile number and is
-    arguably the same question; it is NOT covered here because nobody has ruled
-    on it, and quietly widening a disclosure rule past what was asked is how the
-    next person inherits a decision nobody made.
+    ⚖ EVERY METHOD, and it took two rulings to get here. The first — "gate the
+    account number" — was about the bank, and this code gated only the bank,
+    because widening a disclosure rule past what was asked is how the next person
+    inherits a decision nobody made. The owner then ruled on the rest himself:
+    *"gate the gcash number too."* So the shape is now one rule for every payment
+    identifier, which is also one rule to reason about.
   */
   /*
     Does this event RECOGNISE the reader? A guest who opened their personal link
@@ -149,8 +148,12 @@ export default async function PabuyaPublicPage({
   }
 
   const cards: PabuyaMethodCard[] = methods.map((m) => {
-    const isBank = m.method_kind === 'bank';
-    const withhold = isBank && !viewerIsRecognised;
+    /* ⚖ EVERY method, not only the bank — owner 2026-09-15, twice: "gate the
+       account number", then "gate the gcash number too". A wallet handle is a
+       mobile number; that it can be changed in an app makes it recoverable, not
+       public. One rule for every payment identifier is also one rule to reason
+       about, which is worth more than the distinction it replaces. */
+    const withhold = !viewerIsRecognised;
     return {
       kind: m.method_kind,
       label: m.label,
@@ -160,7 +163,7 @@ export default async function PabuyaPublicPage({
       qrUrl: withhold ? null : m.qrDisplayUrl,
     };
   });
-  const bankWithheld = cards.some((c, i) => c.handle === null && methods[i]?.handle != null);
+  const identifiersWithheld = cards.some((c, i) => c.handle === null && methods[i]?.handle != null);
 
   // This event type's word for whoever is throwing it. Wedding → 'couple', so
   // both sentences below stay byte-identical for a wedding.
@@ -225,10 +228,10 @@ export default async function PabuyaPublicPage({
                 with no number and no QR, and no sentence, reads as a couple who
                 filled the form in wrong. This is the difference between a gate
                 and a bug. */}
-            {bankWithheld ? (
+            {identifiersWithheld ? (
               <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-6 text-center text-sm text-ink/65">
-                Bank details are shown to invited guests. Open your own invitation
-                link, or scan your QR, and the account number appears here.
+                Payment details are shown to invited guests. Open your own
+                invitation link, or scan your QR, and the account numbers appear here.
               </p>
             ) : null}
           </>

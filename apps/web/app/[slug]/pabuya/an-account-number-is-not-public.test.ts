@@ -1,5 +1,5 @@
 /**
- * A BANK ACCOUNT NUMBER IS SHOWN TO INVITED GUESTS, NOT TO THE INTERNET.
+ * A PAYMENT IDENTIFIER IS SHOWN TO INVITED GUESTS, NOT TO THE INTERNET.
  *
  * ── 🔴 WHAT WAS PUBLIC ─────────────────────────────────────────────────────
  * The gifts page is reachable by anyone holding the link — deliberately, so a
@@ -18,11 +18,12 @@
  *    no sentence reads as a couple who filled the form in wrong; that sentence
  *    is the difference between a gate and a bug.
  *
- * ⛔ WALLETS ARE DELIBERATELY NOT COVERED. The ruling was about the account
- * number, and a bank account is the case that cannot be undone — a couple can
- * change a GCash number in an app and cannot rotate a bank account. Widening a
+ * ⚖ EVERY METHOD, AND IT TOOK TWO RULINGS. The first — "gate the account
+ * number" — was about the bank, and the code gated only the bank: widening a
  * disclosure rule past what was asked is how the next person inherits a decision
- * nobody made. If that changes, this test changes with it.
+ * nobody made. The owner then ruled on the rest himself: "gate the gcash number
+ * too." A wallet handle is a mobile number; being changeable in an app makes it
+ * recoverable, not public.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,7 +43,7 @@ function pageBody(): string {
   return whole.slice(start).replace(/\s+/g, ' ');
 }
 
-test('🔒 the bank number and its QR are withheld from an unrecognised reader', () => {
+test('🔒 EVERY payment identifier and its QR are withheld from an unrecognised reader', () => {
   const src = pageBody();
   assert.match(
     src,
@@ -56,7 +57,7 @@ test('🔒 the bank number and its QR are withheld from an unrecognised reader',
   );
   assert.match(
     src,
-    /const withhold = isBank && !viewerIsRecognised/,
+    /const withhold = !viewerIsRecognised/,
     'the withholding condition changed shape — re-read it before assuming it still holds',
   );
 });
@@ -77,11 +78,11 @@ test('recognition is a session for THIS event, or a real host', () => {
 
 test('🔑 the page says something is withheld, so a gate cannot read as a bug', () => {
   const src = pageBody();
-  assert.ok(src.includes('bankWithheld'), 'nothing tracks whether anything was withheld');
+  assert.ok(src.includes('identifiersWithheld'), 'nothing tracks whether anything was withheld');
   const whole = readFileSync(join(process.cwd(), 'app/[slug]/pabuya/page.tsx'), 'utf8');
   assert.match(
     whole,
-    /Bank details are shown to invited guests/,
-    'the explanation is gone — a bank card with no number and no sentence reads as a couple who filled the form in wrong',
+    /Payment details are shown to invited guests/,
+    'the explanation is gone — a card with no number and no sentence reads as a couple who filled the form in wrong',
   );
 });

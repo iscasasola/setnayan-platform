@@ -11,6 +11,9 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { readGuestSession } from '@/lib/guest-session';
+import { createClient } from '@/lib/supabase/server';
+import { isHostMemberType } from '../_lib/host-scope';
 import {
   PabuyaCardList,
   PabuyaTrustNote,
@@ -92,14 +95,72 @@ export default async function PabuyaPublicPage({
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
 
-  const cards: PabuyaMethodCard[] = methods.map((m) => ({
-    kind: m.method_kind,
-    label: m.label,
-    accountName: m.account_name,
-    handle: m.handle,
-    note: m.note,
-    qrUrl: m.qrDisplayUrl,
-  }));
+  /*
+    ══ 🔒 AN ACCOUNT NUMBER IS NOT PUBLIC CONTENT ══════════════════════════════
+    ⚖ Owner 2026-09-15, shown his own bank number readable at this URL with no
+    session at all: **"gate the account number."**
+
+    This page is reachable by anyone holding the link — that is deliberate and
+    unchanged, because it is how a relative abroad sends a gift. What changed is
+    WHO SEES THE PAYMENT IDENTIFIER. A stranger sees that the couple accept a
+    bank transfer and the account's NAME; the number, and the QR that encodes
+    it, are shown only to someone the event recognises.
+
+    🔑 THE QR IS GATED WITH THE NUMBER, NOT LEFT BEHIND. A bank QR encodes the
+    very account it stands for, so hiding the digits and printing the code beside
+    them would be a gate with a window next to it.
+
+    ⚠ WHY BANK METHODS AND NOT WALLETS — stated, not assumed. The owner's words
+    were about the account number, and a bank account is the case that cannot be
+    undone: it is a durable identifier a couple cannot rotate, unlike a wallet
+    handle they can change in an app. A GCash number is a mobile number and is
+    arguably the same question; it is NOT covered here because nobody has ruled
+    on it, and quietly widening a disclosure rule past what was asked is how the
+    next person inherits a decision nobody made.
+  */
+  /*
+    Does this event RECOGNISE the reader? A guest who opened their personal link
+    or scanned their QR carries a session for this event; a host is signed in
+    and holds an `event_members` row. Anybody else — including somebody the
+    couple forwarded the link to — is a passer-by.
+
+    ⚠ `isHostMemberType`, never `Boolean(row)`: a `guest`-typed member row once
+    waved somebody into a private site because membership was tested for
+    existence and never compared.
+  */
+  const guestSession = await readGuestSession();
+  let viewerIsRecognised = guestSession?.event_id === event.event_id;
+  if (!viewerIsRecognised) {
+    const sb = await createClient();
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (user) {
+      const { data: member } = await sb
+        .from('event_members')
+        .select('member_type')
+        .eq('event_id', event.event_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      viewerIsRecognised = isHostMemberType(
+        (member as { member_type?: string | null } | null)?.member_type,
+      );
+    }
+  }
+
+  const cards: PabuyaMethodCard[] = methods.map((m) => {
+    const isBank = m.method_kind === 'bank';
+    const withhold = isBank && !viewerIsRecognised;
+    return {
+      kind: m.method_kind,
+      label: m.label,
+      accountName: m.account_name,
+      handle: withhold ? null : m.handle,
+      note: m.note,
+      qrUrl: withhold ? null : m.qrDisplayUrl,
+    };
+  });
+  const bankWithheld = cards.some((c, i) => c.handle === null && methods[i]?.handle != null);
 
   // This event type's word for whoever is throwing it. Wedding → 'couple', so
   // both sentences below stay byte-identical for a wedding.
@@ -158,7 +219,19 @@ export default async function PabuyaPublicPage({
         </div>
 
         {cards.length > 0 ? (
-          <PabuyaCardList methods={cards} />
+          <>
+            <PabuyaCardList methods={cards} />
+            {/* 🔑 SAY THAT SOMETHING IS WITHHELD, AND WHY. A card showing a bank
+                with no number and no QR, and no sentence, reads as a couple who
+                filled the form in wrong. This is the difference between a gate
+                and a bug. */}
+            {bankWithheld ? (
+              <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-6 text-center text-sm text-ink/65">
+                Bank details are shown to invited guests. Open your own invitation
+                link, or scan your QR, and the account number appears here.
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-white/60 px-4 py-10 text-center text-sm text-ink/60">
             {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or

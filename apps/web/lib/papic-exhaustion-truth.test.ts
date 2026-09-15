@@ -257,6 +257,7 @@ test('3 of 8 landed is said as 3 of 8, in the guest’s own numbers', () => {
   assert.ok(t);
   assert.match(t.headline, /3 of your 8 shots landed/);
   assert.match(t.detail, /The other 5 weren’t saved/);
+  assert.match(t.detail, /the shots ran out/);
 });
 
 test('one refused shot is not reported in the plural', () => {
@@ -273,6 +274,54 @@ test('the tally counts the session, not the trimmed roll', () => {
   assert.ok(t);
   assert.match(t.headline, /40 of your 52 shots/);
   assert.doesNotMatch(`${t.headline} ${t.detail}`, /of these/i);
+});
+
+test('no sentence implies a guest has credits held back for her', () => {
+  /*
+    A guest's `papic_guest_spend_ceilings.ceiling_points` is a LIMIT, not a
+    reservation. Measured in production: not one of `papic_event_pool_status`,
+    `papic_capture_points_available` or `papic_camera_points_remaining` reads
+    that table; the pool subtracts `papic_seat_allocations` and nothing else.
+    Every credit comes out of one shared pot, first come first served, and a
+    named guest can arrive to find it empty and her number worth nothing.
+
+    ⚠ Second person plus a possessive is exactly how a limit reads as a
+    reservation, and a console-side sweep cannot see it — this copy shares no
+    vocabulary with the couple's screens. So the sweep is written in HER words.
+
+    The one true possessive is a camera's DEDICATED balance: `papic_seat_
+    allocations` IS deducted from the pot, so those really are set aside. The
+    own_camera branch may say so; nothing else may.
+  */
+  const held =
+    /set aside|stays? (theirs|hers)|held (for|back) (for )?you|saved for you|reserved|guaranteed|promised|your own number/i;
+  for (const s of everySentence()) {
+    assert.doesNotMatch(s, held, `this sentence implies a reservation that does not exist: ${s}`);
+  }
+  // And the shared-pot branch may not make the shots hers by any wording.
+  for (const buyOffered of [true, false]) {
+    for (const dailyBudget of [true, false]) {
+      assert.doesNotMatch(
+        exhaustionDetail('event_pool', { buyOffered, dailyBudget }),
+        /your credits|your shots (are|were) /i,
+        'the shared pot is nobody’s in particular — first come, first served',
+      );
+    }
+  }
+  // The tally fires at the moment she is most likely to believe it.
+  const t = arrivalTally(3, 5);
+  assert.ok(t);
+  assert.doesNotMatch(`${t.headline} ${t.detail}`, /your credits/i);
+});
+
+test('and the seat screen says the same thing to a screen reader', () => {
+  const src = stripComments(readFileSync(SEAT, 'utf8'));
+  assert.doesNotMatch(
+    src,
+    /'Not saved — your credits ran out'/,
+    'the refused-shot label must not call a shared pot her credits',
+  );
+  assert.match(src, /'Not saved — the shots ran out'/);
 });
 
 test('a refused shot is never called saved', () => {
@@ -321,7 +370,7 @@ test('the seat screen mounts the tally and badges a refused shot', () => {
   );
   assert.match(
     src,
-    /shot\.status === 'capped'\s*\?\s*'[^']*credits ran out'/,
+    /shot\.status === 'capped'\s*\?\s*'[^']*the shots ran out'/,
     'a refused shot must say so to a screen reader too',
   );
   assert.match(

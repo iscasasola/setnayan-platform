@@ -1501,7 +1501,9 @@ export function PapicSeatCapture({
                     : shot.status === 'queued'
                       ? 'Waiting to upload when back online'
                       : shot.status === 'capped'
-                        ? 'Not saved — your credits ran out'
+                        // ⛔ "the shots", not "your credits" — a guest's ceiling
+                        // holds nothing back for her (see papic-exhaustion-truth).
+                        ? 'Not saved — the shots ran out'
                         : shot.status === 'saved'
                           ? 'Tag who’s in this shot'
                           : shot.kind === 'clip'

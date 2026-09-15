@@ -222,11 +222,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     Promise.all([
       supabase
         .from('vendor_proposal_templates')
-        .select('template_id, template_name')
+        // `default_package_id` is NOT decoration: sendProposalCore prices the
+        // proposal from it when the supplier leaves the package selector on
+        // "No package". Without it the composer cannot know its own total.
+        .select('template_id, template_name, default_package_id')
         .eq('vendor_profile_id', profile.vendor_profile_id),
       supabase
         .from('vendor_packages')
-        .select('package_id, package_name')
+        // The package's own price is what the send path bills — the Price field
+        // is only a fallback when this is 0.
+        .select('package_id, package_name, total_price_centavos')
         .eq('vendor_profile_id', profile.vendor_profile_id),
     ]),
     // Returning-client flag (owner-locked 2026-06-12) — only relevant while the
@@ -360,12 +365,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       label: s.title?.trim() || kindLabel(s.category),
     }));
 
-  const proposalTemplates = ((tplRes.data ?? []) as { template_id: string; template_name: string }[]).map(
-    (t) => ({ id: t.template_id, name: t.template_name }),
-  );
-  const proposalPackages = ((pkgRes.data ?? []) as { package_id: string; package_name: string }[]).map(
-    (p) => ({ id: p.package_id, name: p.package_name }),
-  );
+  const proposalTemplates = (
+    (tplRes.data ?? []) as {
+      template_id: string;
+      template_name: string;
+      default_package_id: string | null;
+    }[]
+  ).map((t) => ({
+    id: t.template_id,
+    name: t.template_name,
+    defaultPackageId: t.default_package_id ?? null,
+  }));
+  const proposalPackages = (
+    (pkgRes.data ?? []) as {
+      package_id: string;
+      package_name: string;
+      total_price_centavos: number | null;
+    }[]
+  ).map((p) => ({
+    id: p.package_id,
+    name: p.package_name,
+    totalCentavos: Number(p.total_price_centavos) || 0,
+  }));
   // Vendor Proposal Maker (§ 9) — the vendor's payment rails for the quote's
   // method picker (default-selects the publishable ones).
   const proposalPaymentMethods = (ownPaymentMethods ?? []).map((m) => ({

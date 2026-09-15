@@ -9,8 +9,13 @@ import {
 } from '@/lib/setnayan-gift';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { sendProposalFromChat } from '../proposal-actions';
+import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
 
 type Option = { id: string; name: string };
+/** A package carries the price the SEND PATH bills — see resolveQuoteTotalCentavos. */
+type PackageOption = Option & { totalCentavos: number };
+/** A template can price the proposal through its default package. */
+type TemplateOption = Option & { defaultPackageId: string | null };
 
 /**
  * In-chat "Send a proposal" — the vendor-only composer affordance that creates
@@ -26,8 +31,8 @@ export function SendProposalCard({
   giftBasis = null,
 }: {
   threadId: string;
-  templates: Option[];
-  packages: Option[];
+  templates: TemplateOption[];
+  packages: PackageOption[];
   /**
    * The Setnayan gift's basis, or null when this quote carries no gift.
    *
@@ -44,7 +49,33 @@ export function SendProposalCard({
   // Controlled so the gift can be re-priced as they type. The field still posts
   // `total_php` exactly as before.
   const [totalPhp, setTotalPhp] = useState('');
-  const gift = previewGiftForTotal(Math.round((Number(totalPhp) || 0) * 100), giftBasis);
+  const [templateId, setTemplateId] = useState('');
+  const [packageId, setPackageId] = useState('');
+
+  /**
+   * 🔴 THE TOTAL IS NOT THE PRICE FIELD, AND ASSUMING IT WAS COST A REAL BUG.
+   *
+   * `sendProposalCore` bills the PACKAGE's price when one prices the proposal —
+   * including the package a TEMPLATE supplies through `default_package_id`,
+   * which applies even with the selector left on "No package — set a price
+   * below". The typed figure is only a fallback when the package total is 0.
+   *
+   * A first cut of this preview read `totalPhp` alone. Measured against the real
+   * send path: a ₱120,000 package with 45000 typed showed "1,786 free Papic
+   * photos … ₱900" while the bill charged ₱2,080 for 4,880 — and with the Price
+   * field blank (its normal use beside a package) it showed NOTHING at all while
+   * the bill still carried a charge.
+   *
+   * `resolveQuoteTotalCentavos` is the SEND PATH'S OWN RULE, imported — not a
+   * copy of it. The two cannot disagree.
+   */
+  const effectivePackageId =
+    packageId || templates.find((t) => t.id === templateId)?.defaultPackageId || '';
+  const packageTotalCentavos =
+    packages.find((p) => p.id === effectivePackageId)?.totalCentavos ?? 0;
+  const quoteTotalCentavos = resolveQuoteTotalCentavos(packageTotalCentavos, totalPhp);
+
+  const gift = previewGiftForTotal(quoteTotalCentavos, giftBasis);
   const giftCopy = giftQuoteCopy(gift, 'supplier');
 
   if (templates.length === 0) {
@@ -79,7 +110,13 @@ export function SendProposalCard({
 
           <label className="block space-y-1">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Template</span>
-            <select name="template_id" required defaultValue="" className={field}>
+            <select
+              name="template_id"
+              required
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className={field}
+            >
               <option value="" disabled>
                 Choose a template…
               </option>
@@ -96,7 +133,12 @@ export function SendProposalCard({
               <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Package (optional)
               </span>
-              <select name="package_id" defaultValue="" className={field}>
+              <select
+                name="package_id"
+                value={packageId}
+                onChange={(e) => setPackageId(e.target.value)}
+                className={field}
+              >
                 <option value="">No package — set a price below</option>
                 {packages.map((p) => (
                   <option key={p.id} value={p.id}>

@@ -67,7 +67,38 @@ services with the gift switched on, 0 booking-fee charges, 0 ledger rows —
 state is the normal state today, and that is the state the composer is designed for:
 it renders nothing at all until a booking will really be billed.
 
-Verified: 15,744 unit tests pass · typecheck clean · 31 CI lint guards green · every
+Verified: 15,749 unit tests pass · typecheck clean · 31 CI lint guards green · every
 new guard sabotage-verified with occurrence counts printed before and after.
 
 SPEC IMPACT: `DECISION_LOG.md` — the 2026-09-15 "show both" ruling on the composer.
+
+### 🔴 Caught in adversarial review before merge — the preview read the wrong field
+
+The first cut of the in-chat composer's preview sized the gift off the typed **Price**
+field. `sendProposalCore` does not bill that: it takes the **package's** price when one
+prices the proposal — including the package a template supplies through
+`default_package_id`, which applies even with the selector on *"No package — set a price
+below"* — and uses the typed figure only when the package total is 0.
+
+Measured against the real send path:
+
+- ₱120,000 package + `45000` typed → shown *"1,786 photos … ₱900"*, **billed 4,880 photos
+  and ₱2,080**. The supplier agrees to one number and is invoiced 2.3× it.
+- ₱120,000 package + Price left blank (its normal use beside a package) → the preview
+  resolved to 0 and the block rendered **nothing**, while the bill carried a real charge.
+  "Show both" showed neither.
+
+🔑 **And every test passed through all of it.** The mount guard asserted the file *called*
+`previewGiftForTotal(`; the arithmetic guard fed one total to both the preview and the
+reference computation, proving the function agrees with **itself**. Neither could see that
+the call site handed it a figure the server discards — the same shape as the Papic share
+weight and the Ninong seating tier the same day: two mechanisms in perfect agreement, both
+describing the wrong thing.
+
+Fixed by removing the possibility rather than the symptom: the send path's own rule is
+extracted to `lib/quote-total.ts` and **imported by both** `proposal-send.ts` and the
+composer, so they cannot disagree. The composer resolves the effective package (explicit
+selection, else the template's default), and both selects become controlled so the
+resolution reads live values. `the-preview-reads-the-billed-total.test.ts` asserts the
+ARGUMENT, not the call — sabotage-verified against the original defect, against ignoring
+the template default, and against the server re-implementing the rule inline.

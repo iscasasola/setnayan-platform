@@ -1,0 +1,25 @@
+-- ============================================================================
+-- THE COUPLE IS TOLD WHEN THE SHARED PAPIC POT IS SPENT
+-- ----------------------------------------------------------------------------
+-- A guest whose celebration has run out of shared Papic shots is handed a
+-- refusal she cannot resolve: the pot is the couple's, and only the couple can
+-- top it up. Nothing anywhere told them. No notification type existed, so the
+-- guest's own screen was the only place in the system where the fact appeared —
+-- and she is standing at their wedding while they are getting married. Neither
+-- of them raises it, and the celebration ends that night with the couple never
+-- learning their guests were cut off.
+--
+-- 🔴 WHY THIS FILE EXISTS AT ALL, rather than just a TypeScript union member:
+-- `notification_type` is a Postgres ENUM. Adding a member to the union costs one
+-- line and typechecks instantly; without the matching ADD VALUE the INSERT is
+-- REFUSED, `emitNotification` logs it by design so the action it follows still
+-- completes, and everything downstream looks calm — green CI, no crash, and a
+-- notification that silently reaches nobody. `every-notice-type-exists-in-the-
+-- database.test.ts` exists because that already happened to three types across
+-- four live emit sites.
+--
+-- Idempotent (IF NOT EXISTS) and additive: adding an enum label changes no row,
+-- no column, no grant and no policy. Nothing reads it until the emit site does.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'papic_pool_spent';

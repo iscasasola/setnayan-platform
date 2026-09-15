@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   CloudOff,
+  Ban,
 } from 'lucide-react';
 import {
   recordSeatCapture,
@@ -40,6 +41,13 @@ import {
   isPapicTerminalError,
 } from '@/lib/offline/service-handlers/papic-drain';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
+import {
+  arrivalTally,
+  exhaustionCauseFromOwnCamera,
+  exhaustionDetail,
+  exhaustionHeadline,
+  type PapicExhaustionCause,
+} from '@/lib/papic-exhaustion-truth';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
   getPapicQualityTier,
@@ -163,6 +171,11 @@ type Props = {
    *  false (the default — the control ships OFF), the client NEVER requests a
    *  location fix and never stamps geo; the server re-gates on write. */
   geoEnabled?: boolean;
+  /** NEXT_PUBLIC_PAPIC_GUEST_BUY, resolved once on the page — the SAME boolean
+   *  that decides whether <PapicGuestBuyPanel> is mounted below this component.
+   *  Passed in rather than read here so the refusal copy can never name an
+   *  “add more shots” control that is not on the screen. */
+  buyOffered?: boolean;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -232,6 +245,7 @@ export function PapicSeatCapture({
   eventStyle,
   faceMode,
   geoEnabled = false,
+  buyOffered = false,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
@@ -366,6 +380,40 @@ export function PapicSeatCapture({
   // cap props, i.e. never for a pack seat, and a dry camera kept looking like
   // a working one that silently refuses every shot.
   const [outOfShots, setOutOfShots] = useState(false);
+  /*
+    WHICH BUDGET RAN OUT — and it is NOT the same question as "is the camera
+    dry". A guest out of HER OWN credits can add more (and the couple can hand
+    shots to one camera); a guest on a spent SHARED POOL can only be topped up
+    by the couple. One sentence for both is a smaller lie in place of a bigger
+    one, so the cause is carried, not inferred at the last moment.
+
+    Null until something refuses. `hasOwnCamera` is latched on every successful
+    presign, so the RECORD seam's refusal — which is a race and carries no
+    cause of its own — still resolves honestly instead of defaulting to the
+    pot for a guest who plainly has a camera of her own.
+  */
+  const [outOfShotsCause, setOutOfShotsCause] = useState<PapicExhaustionCause | null>(null);
+  /*
+    ⛔ AND THE HONEST SENTENCE IS NOT HARDCODED EITHER. A per-day budget is real
+    in this schema (`papic_tier_config.points_per_day` − `papic_seat_day_usage`
+    for CURRENT_DATE, which resets with no job because tomorrow is a different
+    row). It is NULL on every tier a real guest holds today and nothing reads it
+    — but "it refills tomorrow" would be TRUE on a tier that carries one, so the
+    server derives this per seat and sends it rather than either side assuming.
+    False until told otherwise: claiming an allowance comes back when it may not
+    is the error that ends the conversation.
+  */
+  const [dailyBudget, setDailyBudget] = useState(false);
+  const hasOwnCameraRef = useRef<boolean | null>(null);
+  /*
+    PAP-13 · SESSION COUNTERS, NOT THE ROLL. Credits are spent when a capture
+    ARRIVES (the reserve runs server-side at presign + record; a shot in the
+    offline queue has spent nothing yet), so a guest can shoot more than she can
+    afford and the ceiling decides which ones LAND. The roll is trimmed to
+    ROLL_MAX, so the tally counts here where nothing is dropped.
+  */
+  const [landedCount, setLandedCount] = useState(0);
+  const [refusedCount, setRefusedCount] = useState(0);
 
   const photoFull = photoCap != null && photos >= photoCap;
   const clipFull = clipCap != null && clips >= clipCap;
@@ -398,6 +446,26 @@ export function PapicSeatCapture({
     setShots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }, []);
 
+  /*
+    🛑 A PHOTOGRAPH THAT VANISHES WITH NO MESSAGE IS THE DISEASE THIS PROJECT
+    KEEPS PAYING FOR — and a refused shot used to do exactly that here. The roll
+    drew a `capped` shot with NO overlay at all: no spinner, no retry arrow, no
+    cloud, not even the tick a saved shot gets. A bare thumbnail, sitting in the
+    strip, indistinguishable from a photograph that was kept — while the panel
+    above it read "every photo and clip is in the host's gallery".
+
+    One place now books a refusal, so the badge, the count and the cause can
+    never disagree about it. The FIRST cause wins: what ran out first is what
+    ran out.
+  */
+  const noteRefused = useCallback((id: string) => {
+    patchShot(id, { status: 'capped' });
+    setRefusedCount((n) => n + 1);
+    setOutOfShots(true);
+    setOutOfShotsCause((prev) => prev ?? exhaustionCauseFromOwnCamera(hasOwnCameraRef.current));
+    announceOutOfShots();
+  }, [patchShot]);
+
   // Presign + PUT a blob to R2; returns the stored r2:// ref (or throws).
   // The server derives the bucket + event/seat-scoped object prefix from the
   // seat token (and verifies the caller is the seat's claimer) — the client
@@ -419,12 +487,26 @@ export function PapicSeatCapture({
         // its per-kind daily cap. Surface that as the SAME cap signal
         // recordSeatCapture returns.
         let code: string | undefined;
+        let reason: string | undefined;
+        let presignDailyBudget: boolean | undefined;
         try {
-          ({ code } = (await presignRes.json()) as { code?: string });
+          ({ code, reason, dailyBudget: presignDailyBudget } = (await presignRes.json()) as {
+            code?: string;
+            reason?: string;
+            dailyBudget?: boolean;
+          });
         } catch {
           // non-JSON body — fall through to the generic presign error
         }
         if (isCapCode(code)) {
+          // 🔑 THE MEASUREMENT HAS TO REACH THE RENDER. The route knows which of
+          // the two budgets ran out; before this it threw that away and the
+          // screen said one sentence for both. `code` still carries the
+          // terminal semantics — nothing about the retry policy changes.
+          if (reason === 'own_camera' || reason === 'event_pool') {
+            setOutOfShotsCause(reason);
+          }
+          if (typeof presignDailyBudget === 'boolean') setDailyBudget(presignDailyBudget);
           throw new Error(code);
         }
         // ⚠ WINDOW REFUSALS MUST BE TERMINAL, NOT RETRIED. Both codes are
@@ -438,10 +520,13 @@ export function PapicSeatCapture({
         }
         throw new Error('presign');
       }
-      const { uploadUrl, r2Ref } = (await presignRes.json()) as {
+      const { uploadUrl, r2Ref, ownCamera } = (await presignRes.json()) as {
         uploadUrl?: string;
         r2Ref?: string;
+        /** True when this seat holds a dedicated balance — see the route. */
+        ownCamera?: boolean;
       };
+      if (typeof ownCamera === 'boolean') hasOwnCameraRef.current = ownCamera;
       if (!uploadUrl || !r2Ref) throw new Error('presign');
       const putStart = Date.now();
       const putRes = await fetch(uploadUrl, {
@@ -679,9 +764,7 @@ export function PapicSeatCapture({
             // cap and mark the shot capped (it never lands; no retry).
             if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
             else setClips(clipCap ?? ((n) => n));
-            patchShot(shot.id, { status: 'capped' });
-            setOutOfShots(true);
-            announceOutOfShots();
+            noteRefused(shot.id);
             return;
           }
           if (result.error === 'clip_too_long') {
@@ -712,6 +795,9 @@ export function PapicSeatCapture({
           setPoolNotice(null);
         }
         patchShot(shot.id, { status: 'saved', photoId: result.photoId });
+        // The other half of the tally — counted here, at the ARRIVAL, because
+        // that is where a credit is actually spent.
+        setLandedCount((n) => n + 1);
         // Arm the inline "tag who's in it" affordance on the freshest saved shot.
         armTagging(result.photoId);
         if (result.photoId) {
@@ -738,9 +824,7 @@ export function PapicSeatCapture({
         if (err instanceof Error && isCapCode(err.message)) {
           if (shot.kind === 'photo') setPhotos(photoCap ?? ((n) => n));
           else setClips(clipCap ?? ((n) => n));
-          patchShot(shot.id, { status: 'capped' });
-          setOutOfShots(true);
-          announceOutOfShots();
+          noteRefused(shot.id);
           return;
         }
         const code = err instanceof Error ? err.message : '';
@@ -819,6 +903,7 @@ export function PapicSeatCapture({
       photoCap,
       clipCap,
       patchShot,
+      noteRefused,
       armTagging,
       autoTagFromBlob,
       autoTagFromClip,
@@ -1204,6 +1289,9 @@ export function PapicSeatCapture({
   // photo-only seat just needs photos gone). Pack seats carry no client cap, so
   // for them the ONLY exhaustion signal is the async `outOfShots` latch above.
   const allFull = outOfShots || (photoFull && (clipFull || !clipsAllowed));
+  // Null when nothing was refused — then, and only then, the celebratory copy
+  // is correct.
+  const arrivalNote = arrivalTally(landedCount, refusedCount);
 
   const countLabel = capped
     ? `${photos}/${photoCap} ${photos === 1 ? 'photo' : 'photos'}${
@@ -1412,11 +1500,13 @@ export function PapicSeatCapture({
                     ? 'Retry upload'
                     : shot.status === 'queued'
                       ? 'Waiting to upload when back online'
-                      : shot.status === 'saved'
-                        ? 'Tag who’s in this shot'
-                        : shot.kind === 'clip'
-                          ? 'Clip'
-                          : 'Photo'
+                      : shot.status === 'capped'
+                        ? 'Not saved — your credits ran out'
+                        : shot.status === 'saved'
+                          ? 'Tag who’s in this shot'
+                          : shot.kind === 'clip'
+                            ? 'Clip'
+                            : 'Photo'
                 }
                 className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-cream/15 bg-cream/5"
               >
@@ -1442,6 +1532,15 @@ export function PapicSeatCapture({
                 {shot.status === 'queued' && (
                   <span className="absolute inset-0 flex items-center justify-center bg-ink/55">
                     <CloudOff aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
+                  </span>
+                )}
+                {/* 🔑 THE ONE STATE THAT DREW NOTHING. `capped` had no overlay at
+                    all — a bare thumbnail sitting in the roll, indistinguishable
+                    from a photograph that was kept. Heavier than the others on
+                    purpose: this is the only status where the picture is gone. */}
+                {shot.status === 'capped' && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/75">
+                    <Ban aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2.25} />
                   </span>
                 )}
                 {shot.status === 'saved' && (
@@ -1514,11 +1613,61 @@ export function PapicSeatCapture({
 
             {allFull ? (
               <div className="mx-auto max-w-sm text-center">
-                <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
-                <p className="mt-2 text-sm font-medium text-cream">
-                  That&rsquo;s everything you can shoot — every photo and clip is in
-                  the host&rsquo;s gallery.
-                </p>
+                {/*
+                  🛑 WHAT THIS REPLACES: one sentence for every case — "That's
+                  everything you can shoot — every photo and clip is in the
+                  host's gallery." It was congratulatory, it named no next step,
+                  and when a shot had been refused it was FLATLY FALSE: it said
+                  every photo was in the gallery while some of them were not
+                  saved at all.
+
+                  Three things are now true on this panel and were not before:
+                  the PER-PHOTO count (PAP-13), WHICH budget ran out, and WHO can
+                  do something about it. Credits are spent on ARRIVAL, so a guest
+                  can shoot more than she can afford and this is the only place
+                  she learns which ones landed.
+                */}
+                {/*
+                  ⚠ CREDITS, NOT A PER-KIND CAP. `allFull` is ALSO true when a
+                  tier seat simply used its photo + clip allowance
+                  (photoCap/clipCap), which is not a credits refusal and must
+                  not be told it is one. The seat page passes null for both
+                  today, so this branch is the whole surface — but the component
+                  still accepts caps, and a copy change that fires off the wrong
+                  cause is exactly the class this row exists to stop.
+                */}
+                {!outOfShots ? (
+                  <>
+                    <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
+                    <p className="mt-2 text-sm font-medium text-cream">
+                      That&rsquo;s everything you can shoot &mdash; every photo and clip
+                      is in the host&rsquo;s gallery.
+                    </p>
+                  </>
+                ) : arrivalNote ? (
+                  <>
+                    <Ban aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
+                    <p className="mt-2 text-sm font-medium text-cream">
+                      {arrivalNote.headline}
+                    </p>
+                    <p className="mt-1 text-xs text-cream/75">{arrivalNote.detail}</p>
+                  </>
+                ) : (
+                  <>
+                    <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
+                    <p className="mt-2 text-sm font-medium text-cream">
+                      {exhaustionHeadline(outOfShotsCause ?? 'event_pool')}
+                    </p>
+                  </>
+                )}
+                {outOfShots ? (
+                  <p className="mt-1 text-xs text-cream/75">
+                    {exhaustionDetail(outOfShotsCause ?? 'event_pool', {
+                      buyOffered,
+                      dailyBudget,
+                    })}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <>

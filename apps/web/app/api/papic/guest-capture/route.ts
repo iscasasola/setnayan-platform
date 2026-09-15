@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server';
+import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -423,6 +424,15 @@ export async function POST(req: Request) {
       !spendOwn &&
       (await papicEventPoolPreCheckExhausted(admin, session.event_id, cost))
     ) {
+      // ⬇ THE COUPLE ARE THE ONLY PEOPLE WHO CAN ACT ON THIS. The guest's own
+      // screen already says so honestly ("Everybody here is sharing one set of
+      // shots… The host can add more") — but she is standing at their wedding
+      // and they are getting married, so nobody raises it and the celebration
+      // ends with them never learning their guests were cut off. Deduped
+      // inside; after() so the refusal is not delayed.
+      after(async () => {
+        await tellTheCouplePapicPoolIsSpent(session.event_id);
+      });
       return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
     }
   }
@@ -500,6 +510,13 @@ export async function POST(req: Request) {
         }));
     poolSpent = booked;
     if (outcome === 'exhausted') {
+      // The authoritative reserve. Reached from BOTH shapes — the plain pool
+      // reserve, and the split, which refuses only when the guest's own balance
+      // AND the pot together cannot cover the cost. Either way the pot is short,
+      // so the couple is the right person to tell.
+      after(async () => {
+        await tellTheCouplePapicPoolIsSpent(session.event_id);
+      });
       return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
     }
     if (outcome === 'blocked') {

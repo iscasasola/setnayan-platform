@@ -75,6 +75,18 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'order_cancelled',
   'payment_resubmit_requested',
   'payment_refunded',
+  /*
+    🔑 THE NOTIFICATION AND THE ALLOWLIST ARE TWO HALVES OF ONE MECHANISM;
+    HAVING ONE IS INDISTINGUISHABLE FROM HAVING NEITHER. The couple are at their
+    own reception when their guests' shared Papic pot runs dry — a tray badge
+    reaches nobody who is not already at a console, which is precisely nobody
+    here. The guests being refused cannot fix it and will not raise it.
+    Transactional (it is their money and their celebration), so deliberately NOT
+    in MARKETING_GATED_EMAIL_TYPES below — that set suppresses unless
+    `marketing_opt_in` is TRUE, a NOT NULL DEFAULT FALSE column, and it has
+    silenced a money notice for everybody once already.
+  */
+  'papic_pool_spent',
   // Account + security.
   'security_alert',
   'vendor_status_change',

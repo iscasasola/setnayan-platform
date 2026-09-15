@@ -27,13 +27,14 @@ import {
   exhaustionHeadline,
   resolveExhaustionCause,
 } from './papic-exhaustion-truth';
+// 🔑 THE SHARED, STRING-AWARE STRIPPER — never a two-replace regex. `/*` inside
+// a string (accept="image/*") opens a comment that runs to the next real close
+// marker and blanks every line between, so a guard asserts against a blank and
+// passes. lib/strip-comments.ts is a small lexer for exactly that reason.
+import { stripComments } from './strip-comments';
 
 /** Strip block + line comments so prose that QUOTES a banned string can't pass
  *  or fail a check about the code. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
-
 const ROUTE = join(process.cwd(), 'app', 'api', 'upload', 'route.ts');
 const SEAT = join(
   process.cwd(),
@@ -87,7 +88,9 @@ function everySentence(): string[] {
   for (const cause of ['own_camera', 'event_pool'] as const) {
     out.push(exhaustionHeadline(cause));
     for (const buyOffered of [true, false]) {
-      out.push(exhaustionDetail(cause, { buyOffered }));
+      for (const dailyBudget of [true, false]) {
+        out.push(exhaustionDetail(cause, { buyOffered, dailyBudget }));
+      }
     }
   }
   for (const [landed, refused] of [
@@ -103,25 +106,85 @@ function everySentence(): string[] {
   return out;
 }
 
-test('nothing this module can say promises a refill', () => {
-  // Every phrasing of the lie, not just the one that shipped.
-  const banned = /refills?\s+tomorrow|today['’]s shots|resets?\s+(tomorrow|daily|each day)|come back tomorrow|try again tomorrow|per day|daily (limit|allowance)/i;
+test('nothing this module can say claims the exhausted budget comes back', () => {
+  const banned =
+    /refills?\s+tomorrow|today['’]s shots|come back tomorrow|try again tomorrow|daily (limit|allowance) (resets|refills) (so|and) you/i;
   for (const s of everySentence()) {
-    assert.doesNotMatch(s, banned, `this sentence promises a refill that does not exist: ${s}`);
+    assert.doesNotMatch(s, banned, `this sentence promises the refused budget back: ${s}`);
   }
 });
 
-test('and every one of them says, positively, that they do not refill', () => {
+test('and every one of them says, positively, what does NOT come back', () => {
   // A sentence can avoid the banned words and still leave the guest waiting.
   for (const cause of ['own_camera', 'event_pool'] as const) {
     for (const buyOffered of [true, false]) {
-      assert.match(
-        exhaustionDetail(cause, { buyOffered }),
-        /don['’]t refill/i,
-        `${cause}/${buyOffered}: silence about the refill is what made her wait`,
-      );
+      for (const dailyBudget of [true, false]) {
+        assert.match(
+          exhaustionDetail(cause, { buyOffered, dailyBudget }),
+          /don['’]t come back|doesn['’]t refill/i,
+          `${cause}/${buyOffered}/${dailyBudget}: silence about the refill is what made her wait`,
+        );
+      }
     }
   }
+});
+
+// ── 2b · THE HONEST SENTENCE IS NOT HARDCODED EITHER ───────────────────────
+//
+// A per-day budget is REAL: papic_tier_config.points_per_day minus
+// papic_seat_day_usage for CURRENT_DATE, resetting with no job because tomorrow
+// is a different row. It is NULL on every tier a guest holds today and nothing
+// reads it — but "it refills tomorrow" is TRUE on a tier that carries one, and
+// ltd/roll/unlimited are one is_active flip away. Swapping one hardcoded claim
+// for the opposite hardcoded claim is the same defect facing the other way.
+
+test('a seat WITH a daily allowance is told about it', () => {
+  for (const cause of ['own_camera', 'event_pool'] as const) {
+    const withBudget = exhaustionDetail(cause, { buyOffered: false, dailyBudget: true });
+    const without = exhaustionDetail(cause, { buyOffered: false, dailyBudget: false });
+    assert.notEqual(
+      withBudget,
+      without,
+      `${cause}: the copy ignores whether this seat actually has a daily allowance`,
+    );
+    assert.match(withBudget, /tomorrow/i);
+    assert.doesNotMatch(without, /tomorrow/i);
+  }
+});
+
+test('and "tomorrow" never attaches to the budget that just refused', () => {
+  // The whole hazard: a guest reads "tomorrow" and waits. Whenever the daily
+  // allowance is mentioned, the sentence must say in the same breath which
+  // budget it does NOT apply to.
+  for (const cause of ['own_camera', 'event_pool'] as const) {
+    const s = exhaustionDetail(cause, { buyOffered: false, dailyBudget: true });
+    const at = s.search(/tomorrow/i);
+    assert.ok(at > 0);
+    const clause = s.slice(at);
+    assert.match(
+      clause,
+      /don['’]t|doesn['’]t/i,
+      `${cause}: "tomorrow" is left hanging with nothing saying it is not these shots`,
+    );
+  }
+});
+
+test('the route DERIVES the daily budget from this seat, never assumes it', () => {
+  const src = stripComments(readFileSync(ROUTE, 'utf8'));
+  assert.match(
+    src,
+    /from\('papic_tier_config'\)/,
+    'the route must read this seat’s own tier row, not assume a posture',
+  );
+  assert.match(src, /points_per_day/);
+  assert.match(
+    src,
+    /dailyBudget/,
+    'the derived value must reach exhaustionDetail and the client',
+  );
+  // And it must fail to FALSE — claiming an allowance comes back when it may
+  // not is the error that ends the conversation.
+  assert.match(src, /let dailyBudget = false;/);
 });
 
 test('the shipped route no longer carries the false sentence', () => {
@@ -140,8 +203,8 @@ test('the two causes never produce the same sentence', () => {
   assert.notEqual(exhaustionHeadline('own_camera'), exhaustionHeadline('event_pool'));
   for (const buyOffered of [true, false]) {
     assert.notEqual(
-      exhaustionDetail('own_camera', { buyOffered }),
-      exhaustionDetail('event_pool', { buyOffered }),
+      exhaustionDetail('own_camera', { buyOffered, dailyBudget: false }),
+      exhaustionDetail('event_pool', { buyOffered, dailyBudget: false }),
       'a guest who can add her own shots and a guest who can only ask the host ' +
         'were handed the same next step',
     );
@@ -149,17 +212,17 @@ test('the two causes never produce the same sentence', () => {
 });
 
 test('only the pot names the couple as the only person who can act', () => {
-  assert.match(exhaustionDetail('event_pool', { buyOffered: false }), /only the couple/i);
-  assert.doesNotMatch(exhaustionDetail('own_camera', { buyOffered: false }), /only the couple/i);
+  assert.match(exhaustionDetail('event_pool', { buyOffered: false, dailyBudget: false }), /only the couple/i);
+  assert.doesNotMatch(exhaustionDetail('own_camera', { buyOffered: false, dailyBudget: false }), /only the couple/i);
 });
 
 test('a remedy is named only when it is actually on the screen', () => {
   // `buyOffered` is the same boolean that mounts the panel; promising "add more
   // shots below" with nothing below it is a dead control.
-  assert.match(exhaustionDetail('own_camera', { buyOffered: true }), /below/i);
-  assert.doesNotMatch(exhaustionDetail('own_camera', { buyOffered: false }), /below/i);
-  assert.match(exhaustionDetail('event_pool', { buyOffered: true }), /below/i);
-  assert.doesNotMatch(exhaustionDetail('event_pool', { buyOffered: false }), /below/i);
+  assert.match(exhaustionDetail('own_camera', { buyOffered: true, dailyBudget: false }), /below/i);
+  assert.doesNotMatch(exhaustionDetail('own_camera', { buyOffered: false, dailyBudget: false }), /below/i);
+  assert.match(exhaustionDetail('event_pool', { buyOffered: true, dailyBudget: false }), /below/i);
+  assert.doesNotMatch(exhaustionDetail('event_pool', { buyOffered: false, dailyBudget: false }), /below/i);
 });
 
 test('the route sends the cause, not just the code', () => {

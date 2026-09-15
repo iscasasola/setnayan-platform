@@ -393,6 +393,17 @@ export function PapicSeatCapture({
     pot for a guest who plainly has a camera of her own.
   */
   const [outOfShotsCause, setOutOfShotsCause] = useState<PapicExhaustionCause | null>(null);
+  /*
+    ⛔ AND THE HONEST SENTENCE IS NOT HARDCODED EITHER. A per-day budget is real
+    in this schema (`papic_tier_config.points_per_day` − `papic_seat_day_usage`
+    for CURRENT_DATE, which resets with no job because tomorrow is a different
+    row). It is NULL on every tier a real guest holds today and nothing reads it
+    — but "it refills tomorrow" would be TRUE on a tier that carries one, so the
+    server derives this per seat and sends it rather than either side assuming.
+    False until told otherwise: claiming an allowance comes back when it may not
+    is the error that ends the conversation.
+  */
+  const [dailyBudget, setDailyBudget] = useState(false);
   const hasOwnCameraRef = useRef<boolean | null>(null);
   /*
     PAP-13 · SESSION COUNTERS, NOT THE ROLL. Credits are spent when a capture
@@ -477,10 +488,12 @@ export function PapicSeatCapture({
         // recordSeatCapture returns.
         let code: string | undefined;
         let reason: string | undefined;
+        let presignDailyBudget: boolean | undefined;
         try {
-          ({ code, reason } = (await presignRes.json()) as {
+          ({ code, reason, dailyBudget: presignDailyBudget } = (await presignRes.json()) as {
             code?: string;
             reason?: string;
+            dailyBudget?: boolean;
           });
         } catch {
           // non-JSON body — fall through to the generic presign error
@@ -493,6 +506,7 @@ export function PapicSeatCapture({
           if (reason === 'own_camera' || reason === 'event_pool') {
             setOutOfShotsCause(reason);
           }
+          if (typeof presignDailyBudget === 'boolean') setDailyBudget(presignDailyBudget);
           throw new Error(code);
         }
         // ⚠ WINDOW REFUSALS MUST BE TERMINAL, NOT RETRIED. Both codes are
@@ -1648,7 +1662,10 @@ export function PapicSeatCapture({
                 )}
                 {outOfShots ? (
                   <p className="mt-1 text-xs text-cream/75">
-                    {exhaustionDetail(outOfShotsCause ?? 'event_pool', { buyOffered })}
+                    {exhaustionDetail(outOfShotsCause ?? 'event_pool', {
+                      buyOffered,
+                      dailyBudget,
+                    })}
                   </p>
                 ) : null}
               </div>

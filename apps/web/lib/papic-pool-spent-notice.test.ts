@@ -32,14 +32,15 @@ import {
   poolSpentNoticeBody,
   poolSpentNoticeTitle,
 } from './papic-pool-spent-copy';
+// 🔑 THE SHARED, STRING-AWARE STRIPPER — never a two-replace regex. `/*` inside
+// a string (accept="image/*") opens a comment that runs to the next real close
+// marker and blanks every line between, so a guard asserts against a blank and
+// passes. lib/strip-comments.ts is a small lexer for exactly that reason.
+import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 const REPO = join(WEB, '..', '..');
 const EMIT = readFileSync(join(WEB, 'lib', 'notification-emit.ts'), 'utf8');
-
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
 
 /** The body of one `const NAME: … = new Set([ … ]);` declaration. */
 function setBody(name: string): string {

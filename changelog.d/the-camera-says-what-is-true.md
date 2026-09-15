@@ -1,17 +1,44 @@
 ## 2026-09-16 · fix(papic): the camera says what is true about a guest's credits
 
 **PAP-2 · the refusal tells the truth.** `app/api/upload/route.ts` told a guest
-*"This camera has used today's shots — it refills tomorrow."* Nothing refills a
-Papic seat. Measured against production: `papic_capture_points_available` =
-`papic_seat_dedicated_points` − `papic_seat_point_usage.points_used` +
-`papic_event_pool_status(...).remaining_points`; none of them carries a date, a
-day boundary, a reset or a `now()`, the usage table has no period column to hold
-one, the only three functions that reduce `points_used` are release paths (a
-failed capture, a returned split), `cron.job` is empty and none of the 22 job
-keys in `cron_job_runs` touches seat usage. The ceiling is CUMULATIVE.
+*"This camera has used today's shots — it refills tomorrow."*
+
+⚠ **The first correction is to the REASON, not the verdict.** An earlier pass of
+this work asserted *"nothing refills a seat, anywhere in the schema"* — **false
+as stated.** `papic_tier_config.points_per_day` minus
+`papic_seat_day_usage.points_used WHERE usage_date = CURRENT_DATE` is a genuine
+daily allowance, read by `papic_camera_points_remaining` and enforced by
+`papic_reserve_camera_points`. It resets with **no job at all** — tomorrow is
+simply a different row. Searching for a scheduled job, finding none, and reading
+that absence as proof was the wrong mechanism.
+
+**Why the sentence is still false for every guest who exists** (measured in
+production, the tier table re-measured independently after the correction):
+`free` is the only active tier and the only tier any of the 23 production seats
+is on, and its `points_per_day` is **NULL**; `ltd` (70) / `roll` (200) /
+`unlimited` (500) are all `is_active = false` with zero seats;
+`papic_seat_day_usage` holds **zero rows, ever**; and the only two functions that
+read the daily budget have **no caller anywhere** — 0 in `apps/`, 0 in RLS
+policies, views, CHECK clauses or other functions. (`papic_reserve_camera_capture`
+appears once inside `papic_record_guest_capture` — **in a comment**.) What
+`api/upload` actually resolves is `papic_capture_points_available` (dedicated −
+used + pool) and `papic_event_points_remaining_for_seat`; neither carries a date,
+and the dedicated bucket is "a lifetime bucket, not a daily one" in the live
+SQL's own words.
+
+⛔ **So the honest sentence is not hardcoded either.** "It refills tomorrow" is
+TRUE on a tier that carries a `points_per_day`, and three of them are one
+`is_active` flip away. `exhaustionDetail` takes a `dailyBudget` the route reads
+from **this seat's own tier row** (failing to `false`), and when a daily
+allowance does exist the copy says so *and* says which budget it is not — so
+"tomorrow" can never be read as applying to the one that just refused.
 
 A false reassurance is worse than a refusal: she reads it, stops asking, does
-not tell the couple, does not buy more — and the wedding ends that night.
+not tell the couple, does not buy more — and the wedding ends that night. With
+one shared pool (owner: *"the guests or anyone connected to the papic app via
+event hub except vendors share the same pool"*) the pool case is the **common**
+one, so both sentences name **who can act**: she cannot top up a pool she shares;
+the couple can.
 
 - The old branch condition did not ask the question it looked like it asked.
   `papic_capture_points_available` **already adds the pool in**, so

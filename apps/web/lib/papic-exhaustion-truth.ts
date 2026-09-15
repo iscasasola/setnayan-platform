@@ -1,48 +1,76 @@
 /**
  * papic-exhaustion-truth.ts — WHAT A SPENT CAMERA IS ALLOWED TO SAY.
  *
- * 🛑 THE SENTENCE THIS FILE EXISTS TO DELETE, measured against production on
- * 2026-09-16 and shipped live in `app/api/upload/route.ts`:
+ * 🛑 THE SENTENCE THIS FILE EXISTS TO DELETE, shipped live in
+ * `app/api/upload/route.ts`:
  *
  *     "This camera has used today's shots — it refills tomorrow."
  *
- * IT IS FALSE, AND NOT BY A LITTLE. Read out of production, the whole ceiling is:
+ * ⚠ AND THE FIRST CORRECTION IS TO THE REASON, NOT THE VERDICT. A per-day
+ * budget DOES exist in this schema, and an earlier pass of this work asserted
+ * "nothing refills a seat, anywhere" — which is false as stated.
+ * `papic_tier_config.points_per_day` minus `papic_seat_day_usage.points_used
+ * WHERE usage_date = CURRENT_DATE` is a genuine daily allowance, read by
+ * `papic_camera_points_remaining` and enforced by `papic_reserve_camera_points`.
+ * It resets with no job at all: tomorrow is simply a different row.
+ * 🔑 SEARCHING FOR A SCHEDULED JOB AND FINDING NONE IS NOT EVIDENCE THAT
+ * NOTHING RESETS. That was the wrong mechanism, and its absence proved nothing.
  *
- *   papic_capture_points_available = papic_seat_dedicated_points(seat)
- *                                  − papic_seat_point_usage.points_used
- *                                  + papic_event_pool_status(event).remaining_points
+ * ── WHY THE SENTENCE IS STILL FALSE FOR EVERY GUEST WHO EXISTS ────────────
+ * Measured in production 2026-09-16, and the first three lines were re-measured
+ * independently after the correction above:
  *
- * Not one of those four functions carries a date, a day boundary, a reset or a
- * `now()`; `papic_seat_point_usage` has no period column to hold one (its
- * columns are seat_id · points_used · created_at · updated_at). Of every
- * function in the schema that touches that table, exactly three REDUCE
- * `points_used` — `papic_release_camera_points`, `papic_release_capture_split`,
- * `papic_release_event_points` — and all three are RELEASE paths (a failed
- * capture, a returned split). None is scheduled: `cron.job` is empty and none
- * of the 22 job keys in `cron_job_runs` touches seat usage. **Nothing refills a
- * seat, anywhere.** The ceiling is CUMULATIVE.
+ *   tier         points_per_day   is_active   seats
+ *   free              NULL          true        23   ← every seat in production
+ *   mini              NULL          false        0
+ *   ltd                70           false        0
+ *   roll              200           false        0
+ *   unlimited         500           false        0
+ *
+ *   · `papic_seat_day_usage` holds ZERO rows. It has never recorded anything.
+ *   · `papic_camera_points_remaining` and `papic_reserve_camera_points` — the
+ *     only two functions that read the daily budget — have NO caller anywhere:
+ *     0 in `apps/`, 0 in RLS policies, 0 in views, 0 in CHECK clauses, 0 in
+ *     other functions. (`papic_reserve_camera_capture` appears once inside
+ *     `papic_record_guest_capture` — in a COMMENT. A code comment is not a call
+ *     site, and `position('…(' in …)` returns 0 for it.)
+ *   · What `api/upload` actually resolves is `papic_capture_points_available`
+ *     (= dedicated − used + pool) and `papic_event_points_remaining_for_seat`.
+ *     Neither carries a date, a day boundary, a reset or a `now()`, and
+ *     `papic_seat_point_usage` has no period column to hold one. The dedicated
+ *     bucket is, in the live SQL's own words, "a lifetime bucket, not a daily
+ *     one".
+ *
+ * So the budgets that actually refuse a capture today do not refill, and the
+ * one that would refill belongs to tiers nobody holds and nothing enforces.
+ *
+ * ⛔ WHICH IS EXACTLY WHY THE HONEST SENTENCE IS NOT HARDCODED EITHER.
+ * "It refills tomorrow" is TRUE on a tier with a non-null `points_per_day`, and
+ * `ltd`/`roll`/`unlimited` are one `is_active` flip away. Replacing one
+ * hardcoded claim with the opposite hardcoded claim is the same defect facing
+ * the other way. `exhaustionDetail` therefore takes `dailyBudget` — read from
+ * this seat's own tier row — and says the thing that is true for THIS camera.
  *
  * 🔑 AND A FALSE REASSURANCE IS WORSE THAN A REFUSAL. A guest hits the ceiling
  * at a wedding, reads "it refills tomorrow", and STOPS ASKING. She does not
  * tell the couple, does not buy more, does not mention it — she waits. The
  * wedding ends that night. A refusal gets escalated; a reassurance ends the
- * conversation.
+ * conversation. So every sentence here must also name WHO CAN ACT: she cannot
+ * top up a pool she shares with everybody — the couple can.
  *
  * ── WHY THE TWO CAUSES MUST STAY DISTINGUISHABLE ──────────────────────────
- * A guest out of HER OWN credits and an event out of ITS SHARED POOL need
- * different next steps: she can add more to her own camera (and the host can
- * hand shots to one camera — `papic_dedicate_shots`); only the host can top up
- * the pool everyone draws from. One sentence for both would be a smaller lie in
- * place of a bigger one.
+ * Out of HER OWN dedicated credits and the EVENT POOL being dry are different
+ * situations with different next steps. With one shared pool (owner, verbatim:
+ * "the guests or anyone connected to the papic app via event hub except vendors
+ * share the same pool") the POOL is the common case, not the edge.
  *
- * ⚠ THE OLD BRANCH CONDITION DID NOT ACTUALLY ASK THAT QUESTION. The route
+ * ⚠ THE OLD BRANCH CONDITION DID NOT ASK THAT QUESTION AT ALL. The route
  * branched on `seatGate === 'exhausted'`, but `papic_capture_points_available`
  * already ADDS the pool in, so that verdict means "her own balance AND the pot
  * together are short" — true for a pool guest who never owned a credit. The
  * honest discriminator is the OTHER probe the route already makes:
  * `papic_event_points_remaining_for_seat` returns `PAPIC_POOL_NOT_BINDING`
- * (2147483647) if and only if `papic_seat_dedicated_points(seat) > 0`, i.e.
- * this camera holds a balance of its own. That is the question.
+ * (2147483647) if and only if `papic_seat_dedicated_points(seat) > 0`.
  *
  * PURE by design, and that is load-bearing: `app/api/upload/route.ts` is
  * `server-only`, so a guard that imported it could only ever grep it. The
@@ -113,23 +141,55 @@ export function exhaustionHeadline(cause: PapicExhaustionCause): string {
 }
 
 /**
- * The next step. `buyOffered` must be the SAME boolean that decides whether the
- * "add more shots" panel is actually mounted (NEXT_PUBLIC_PAPIC_GUEST_BUY via
- * `papicGuestBuyEnabled`) — naming a remedy that is not on the screen is its own
- * small lie, and a dead control makes working code look broken.
+ * The next step — and whether what just ran out comes back.
+ *
+ * @param opts.buyOffered must be the SAME boolean that decides whether the
+ *   "add more shots" panel is actually mounted (`papicGuestBuyEnabled`).
+ *   Naming a remedy that is not on the screen is its own small lie, and a dead
+ *   control makes working code look broken.
+ * @param opts.dailyBudget whether THIS seat's tier carries a non-null
+ *   `points_per_day`. DERIVED, never assumed — see the docblock: the honest
+ *   sentence is as tier-dependent as the false one was, and hardcoding either
+ *   direction is the same defect.
+ *
+ * ⛔ NEITHER SENTENCE MAY SAY THE EXHAUSTED BUDGET COMES BACK, because neither
+ * of them does: the dedicated bucket is a lifetime bucket by the live SQL's own
+ * words, and the shared pool carries no date at all. When a daily allowance
+ * ALSO exists for this camera, that is said — and said alongside which budget it
+ * is not, so "tomorrow" can never be read as applying to the one that refused.
+ *
+ * ⛔ AND BOTH MUST NAME WHO CAN ACT. She cannot top up a pool she shares with
+ * every other guest; the couple can. A refusal that is accurate and still a
+ * dead end is the same conversation-ender as the lie was.
  */
 export function exhaustionDetail(
   cause: PapicExhaustionCause,
-  opts: { buyOffered: boolean },
+  opts: { buyOffered: boolean; dailyBudget: boolean },
 ): string {
   if (cause === 'own_camera') {
-    return opts.buyOffered
-      ? 'They don’t refill. Add more shots below to keep shooting, or ask the couple to top up this camera.'
-      : 'They don’t refill. Ask the couple to add more shots to this camera.';
+    return [
+      'The shots added to this camera are spent, and a camera’s own shots don’t come back.',
+      opts.dailyBudget
+        ? 'This camera’s daily allowance does reset tomorrow — the shots you added don’t.'
+        : null,
+      opts.buyOffered
+        ? 'Add more shots below, or ask the couple to top up this camera.'
+        : 'Ask the couple to add more shots to this camera.',
+    ]
+      .filter((part): part is string => part !== null)
+      .join(' ');
   }
-  return opts.buyOffered
-    ? 'Everybody here shares one set of shots and they’re all spent. They don’t refill — the couple can add more at any time, or you can add your own below.'
-    : 'Everybody here shares one set of shots and they’re all spent. They don’t refill — only the couple can add more.';
+  return [
+    'Everybody here shares one set of shots and they’re all spent. The shared set doesn’t refill.',
+    opts.dailyBudget
+      ? 'A camera’s own daily allowance resets tomorrow — the shared set doesn’t.'
+      : null,
+    opts.buyOffered
+      ? 'Only the couple can add more to it — or you can add your own shots below.'
+      : 'Only the couple can add more.',
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' ');
 }
 
 /**

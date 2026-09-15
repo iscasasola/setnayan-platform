@@ -130,6 +130,61 @@ test('a missing count resolves to 0, never null or undefined, on the happy path'
   assert.match(fn, /answeredCount:\s*count \?\? 0/, 'the render cannot print a null count');
 });
 
+// ── PAP-3 · how long is left ──────────────────────────────────────────────
+
+test('the read carries the expiry the RPC already returns', () => {
+  const fn = challengeReaderFn();
+  // `papic_armed_challenge` has returned `expires_at` since migration
+  // 20271188710305. The cast used to name only mission_id and prompt, so the
+  // expiry was FETCHED AND THROWN AWAY — the wall could not tell a room how
+  // long was left while the database knew exactly. No migration fixes that;
+  // only the cast and the mapping.
+  assert.match(
+    fn,
+    /expires_at:\s*string \| null/,
+    'the cast must name expires_at, or the expiry is discarded between the RPC and the render',
+  );
+  assert.match(
+    fn,
+    /expiresAt:\s*mission\.expires_at \?\? null/,
+    'the expiry must reach the returned challenge — a column fetched and not mapped is a column nobody has',
+  );
+});
+
+test('the countdown renders from an ABSOLUTE instant, ticking in the browser', () => {
+  const src = block();
+  assert.match(src, /<ChallengeCountdown/, 'the banner must MOUNT a countdown, not merely define one');
+
+  // ⚠ SCOPED TO THE COUNTDOWN'S OWN BODY. The first version asserted
+  // /setInterval\(/ against the whole file and did NOT fail when the countdown's
+  // timer was deleted — live-wall-block.tsx has another interval for the feed
+  // poll, so the file-level match stayed true and the sabotage passed. A guard
+  // that can be satisfied by an unrelated line is not guarding this one.
+  const start = src.indexOf('function ChallengeCountdown');
+  assert.ok(start > 0, 'ChallengeCountdown must exist as its own function');
+  const body = src.slice(start, src.indexOf('\n}', start));
+
+  // 🔑 A wall is left open on a venue screen for hours. A remaining-minutes
+  // number computed at request time freezes, and a countdown that does not move
+  // reads as correct to anyone who glances once.
+  assert.match(body, /setInterval\(/, 'the countdown must tick from the real clock, not render a server-computed remainder');
+  assert.match(body, /clearInterval\(/, 'and clear its own timer — a wall left open all night must not leak one per mount');
+});
+
+test('untimed is not zero, and expired does not go negative', () => {
+  const src = block();
+  assert.match(
+    src,
+    /if \(endMs === null \|\| nowMs === null\) return null;/,
+    'an untimed challenge (duration_minutes is nullable) must render NO clock — not "0:00", not a dash',
+  );
+  assert.match(
+    src,
+    /leftMs <= 0/,
+    'past the instant must be its own branch, so the clock stops rather than counting below zero',
+  );
+});
+
 // ── the render layer — precedent rule 2: the flag must reach the screen ────
 
 const BLOCK = join(HERE, '..', 'app/[slug]/_components/live-wall-block.tsx');

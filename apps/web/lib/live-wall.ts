@@ -413,6 +413,19 @@ export type WallArmedChallenge = {
   prompt: string;
   /** Guests who have answered THIS challenge — from papic_mission_completions. */
   answeredCount: number;
+  /**
+   * When this challenge stops being armed, as an ABSOLUTE instant (ISO).
+   *
+   * 🔑 ABSOLUTE, NEVER A REMAINING-SECONDS NUMBER. A wall is left open on a
+   * venue screen for hours; a duration computed at request time freezes at
+   * whatever it was when the page was built and reads as a countdown that has
+   * stopped. The browser counts down from this instant.
+   *
+   * `null` when the challenge carries no expiry — an untimed challenge is a
+   * real state (`duration_minutes` is nullable), and it is NOT "expired" and
+   * NOT "unknown". The render shows no clock for it.
+   */
+  expiresAt: string | null;
 };
 
 /**
@@ -481,7 +494,16 @@ export async function fetchWallArmedChallenge(
     return { measured: true, challenge: null };
   }
 
-  const mission = missions[0] as { mission_id: string; prompt: string };
+  // `papic_armed_challenge` has RETURNED `expires_at` since
+  // 20271188710305_papic_timed_challenge_duration.sql. This cast used to name
+  // only two of its eight columns, so the expiry was fetched and thrown away —
+  // the wall could not tell a room how long was left while the database knew
+  // exactly. Widening the cast is the whole fix; no migration is involved.
+  const mission = missions[0] as {
+    mission_id: string;
+    prompt: string;
+    expires_at: string | null;
+  };
 
   const { count, error: cErr } = await admin
     .from('papic_mission_completions')
@@ -498,6 +520,7 @@ export async function fetchWallArmedChallenge(
       missionId: mission.mission_id,
       prompt: mission.prompt,
       answeredCount: count ?? 0,
+      expiresAt: mission.expires_at ?? null,
     },
   };
 }

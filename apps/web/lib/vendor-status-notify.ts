@@ -79,7 +79,23 @@ export async function notifyAdminsApplicationSubmitted(args: {
  */
 export async function notifyVendorStatusChange(args: {
   vendorProfileId: string;
-  decision: 'approved' | 'rejected' | 'demoted';
+  /*
+    SUP-31 — the last three are LISTING decisions, not verification ones.
+    Measured on origin/main 2026-09-15: four admin surfaces move a shop in or
+    out of the marketplace and only `/admin/verify` ever told it. A shop whose
+    vouched badge was withdrawn by hand, or whose listing was un-published off
+    an integrity flag, learned by finding its own page gone.
+
+    They ride THIS function rather than a sibling because everything that makes
+    it safe is already here and is easy to get wrong alone: it resolves the
+    owning account, SKIPS an unclaimed shop that has no account yet, is
+    fail-soft so a notify failure can never roll back the admin action, and
+    emits `vendor_status_change` — a type already on BOTH the email allowlist
+    and the push allowlist. That last part matters: in this repo a notification
+    and its allowlist entry are two halves of one mechanism, and having one is
+    indistinguishable from having neither.
+  */
+  decision: 'approved' | 'rejected' | 'demoted' | 'listed' | 'hidden' | 'unpublished';
   reason?: string | null;
 }): Promise<void> {
   try {
@@ -104,17 +120,44 @@ export async function notifyVendorStatusChange(args: {
               title: 'Your verification needs another look',
               body: `Your verification application wasn't approved this time. You can address the notes and submit a new application.${reasonSuffix}`,
             }
-          : {
-              title: 'Your account was moved to limited status',
-              body: `Your vendor account was demoted from verified status.${reasonSuffix} Reach the Setnayan team if you have questions or to re-apply.`,
-            };
+          : args.decision === 'demoted'
+            ? {
+                title: 'Your account was moved to limited status',
+                body: `Your vendor account was demoted from verified status.${reasonSuffix} Reach the Setnayan team if you have questions or to re-apply.`,
+              }
+            : args.decision === 'listed'
+              ? {
+                  title: 'Your shop is live in the marketplace',
+                  body: `Setnayan has listed your shop — couples can find it and send you enquiries now.${reasonSuffix}`,
+                }
+              : args.decision === 'hidden'
+                ? {
+                    title: 'Your shop is no longer shown to couples',
+                    body: `Setnayan has hidden your shop from the marketplace, so it no longer appears in search or on your public page.${reasonSuffix} Your shop, services and messages are all still here. Reach the Setnayan team if you have questions.`,
+                  }
+                : {
+                    title: 'Your listing was taken down',
+                    body: `Setnayan has un-published your listing, so couples can no longer find it.${reasonSuffix} Nothing has been deleted — your shop and its services are intact. Reach the Setnayan team if you have questions.`,
+                  };
 
     await emitNotification({
       userId: vendorUserId,
       type: 'vendor_status_change',
       title: copy.title,
       body: copy.body,
-      relatedUrl: '/vendor-dashboard/verify',
+      /*
+        A listing decision sends them to My Shop, where the listing state and
+        its controls actually live. The verification decisions keep
+        `/vendor-dashboard/verify` — which is itself now a redirect to
+        `/vendor-dashboard/shop#get-verified`, so both land on the same page and
+        the verification ones land on the right ANCHOR.
+      */
+      relatedUrl:
+        args.decision === 'listed' ||
+        args.decision === 'hidden' ||
+        args.decision === 'unpublished'
+          ? '/vendor-dashboard/shop'
+          : '/vendor-dashboard/verify',
     });
   } catch (e) {
     console.error('[vendor-status] vendor status-change notify failed:', e);

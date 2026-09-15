@@ -11,6 +11,7 @@ import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 /**
  * /admin/integrity-watch actions — moderator resolution path for the unified
  * review-fraud + ghost-listing queue (integrity_flags, migration 20270412000042).
@@ -144,6 +145,11 @@ export async function resolveIntegrityFlag(formData: FormData) {
       .update({ is_published: false })
       .eq('vendor_profile_id', vendorId);
     if (hideErr) throw new Error(`Failed to hide listing: ${hideErr.message}`);
+
+    // SUP-31 — tell the shop its listing came down. Inside the `transitioned`
+    // guard on purpose: the un-publish is idempotent and a re-hide of an
+    // already-resolved flag touches nothing, so it must not notify twice either.
+    await notifyVendorStatusChange({ vendorProfileId: vendorId, decision: 'unpublished' });
   }
 
   // Audit — every admin mutation logs to admin_audit_log (§ 9.1 discipline).

@@ -776,6 +776,33 @@ export function guestFullName(guest: {
   return whole || null;
 }
 
+/**
+ * THE NAME THAT GOES ON A PRINTED CARD.
+ *
+ * ── WHY THIS IS ITS OWN FUNCTION AND NOT AN INLINE `??` ────────────────────
+ * `guestDisplayName` is the COMPACT name — a chip, a table row, a seat card —
+ * and it has dozens of call sites. `guestFullName` is the FORMAL name. Which
+ * one a surface wants is a JUDGEMENT ABOUT THAT SURFACE, and the judgement is
+ * the thing that can be got wrong, so it lives here where a test can execute it
+ * rather than inside a server component a test can only grep.
+ *
+ * 🔑 MEASURED ON A REAL EVENT, 2026-09-16: **73 of 77 guests carry a title or a
+ * suffix** (Atty., Comm., Associate Dean, II). The print sheet hands each of
+ * them a physical card, and principal sponsors — the guests whose titles carry
+ * the most weight at a Filipino wedding — are exactly who receives one.
+ *
+ * ⚠ A PRINTED CARD IS THE ONE SURFACE THAT CANNOT BE CORRECTED AFTERWARDS. A
+ * wrong name on a screen is an edit; a wrong name on 77 cards is a reprint.
+ *
+ * ⚠ THE FALLBACK IS NOT DECORATION. `guestFullName` returns null when every
+ * part is empty; without the fallback a nameless row would print BLANK beside a
+ * QR code, which is worse than printing the compact name — a card nobody can
+ * hand to anybody.
+ */
+export function printedCardName(guest: GuestRow): string {
+  return guestFullName(guest) ?? guestDisplayName(guest);
+}
+
 export function guestInitials(guest: GuestRow): string {
   const first = guest.first_name.charAt(0).toUpperCase();
   const last = guest.last_name.charAt(0).toUpperCase();

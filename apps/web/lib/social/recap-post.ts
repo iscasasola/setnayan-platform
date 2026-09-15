@@ -6,6 +6,7 @@ import { loadRecapCardData } from '@/lib/auto-recap';
 import { renderRecapOgJpeg } from '@/lib/social/recap-card';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 
 /**
  * apps/web/lib/social/recap-post.ts — compose a Setnayan-owned social post when
@@ -76,7 +77,7 @@ export async function isRecapSocialShareAllowed(
     const { data, error } = await admin
       .from('events')
       .select(
-        'recap_social_optout_at, landing_page_visibility, scheduled_launch_at, std_launched_at',
+        'recap_social_optout_at, landing_page_visibility, scheduled_launch_at, std_launched_at, event_type',
       )
       .eq('event_id', eventId)
       .maybeSingle();
@@ -86,8 +87,25 @@ export async function isRecapSocialShareAllowed(
       landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
       scheduled_launch_at?: string | null;
       std_launched_at?: string | null;
+      event_type?: string | null;
     };
     if (ev.recap_social_optout_at) return false; // couple opted out
+
+    // 🕯 A SOLEMN EVENT IS NEVER CONTENT.
+    //
+    // `/[slug]/recap` already refuses a wake in BOTH arms — the metadata arm so
+    // it is not indexed, the render arm so it is not served (`notFound()`). This
+    // gate did not ask, so the same recap the PAGE refuses to show could be
+    // composed for Setnayan's own Facebook Page and Instagram — a bereaved
+    // family's farewell, marketing the platform. Autopost defaults to ON
+    // (`val !== false`) and the couple's opt-out defaults to ALLOWED, so nothing
+    // upstream would have stopped it.
+    //
+    // Asked through `eventWordsFor`, the same resolver the route uses, rather
+    // than a second list of solemn types — two lists is how one of them goes
+    // stale without anybody noticing.
+    if ((await eventWordsFor(ev.event_type ?? '')).solemn) return false;
+
     return resolveEffectiveVisibility(ev) === 'public'; // private/unlisted → never
   } catch {
     return false;

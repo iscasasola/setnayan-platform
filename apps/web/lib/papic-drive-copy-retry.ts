@@ -1,7 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runDriveCopyBatch } from '@/lib/drive-copy';
-import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import {
   DRIVE_COPY_RETRY_CEILING,
   driveCopyRetryDue,
@@ -181,11 +181,8 @@ export async function runDriveCopyRetrySweep(
  * Best-effort, never throws.
  */
 export async function maybeRunDriveCopyRetry(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('papic-drive-copy-retry', DAILY_GAP_MS)) {
-      await runDriveCopyRetrySweep();
-    }
-  } catch {
-    /* best-effort — a missed day retries on the next eligible admin request */
-  }
+  await runClaimedJob('papic-drive-copy-retry', DAILY_GAP_MS, async () => {
+    const summary = await runDriveCopyRetrySweep();
+    return summary.uploaded;
+  });
 }

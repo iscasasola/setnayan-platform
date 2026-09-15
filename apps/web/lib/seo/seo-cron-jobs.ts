@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
 import { gscConfigured, pullSearchConsole } from '@/lib/seo/search-console';
-import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 // Single source of truth for both — see lib/seo/org-same-as.ts for why the
 // audit used to read sources nothing else consumed.
@@ -136,14 +136,13 @@ export async function runSeoGscPull(): Promise<{ ok: boolean; days?: number; ski
  * ~once/day; best-effort, never throws.
  */
 export async function runSeoPeriodicJobs(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('seo-health', DAILY_GAP_MS)) await runSeoHealthAudit();
-  } catch {
-    /* best-effort */
-  }
-  try {
-    if (await claimPeriodicJob('seo-gsc', DAILY_GAP_MS)) await runSeoGscPull();
-  } catch {
-    /* best-effort */
-  }
+  // Both return a STATUS, not a tally, so neither reports a row count — which
+  // the job catalog says out loud (reportsCount: false) rather than leaving a
+  // null to be read as "we never found out".
+  await runClaimedJob('seo-health', DAILY_GAP_MS, async () => {
+    await runSeoHealthAudit();
+  });
+  await runClaimedJob('seo-gsc', DAILY_GAP_MS, async () => {
+    await runSeoGscPull();
+  });
 }

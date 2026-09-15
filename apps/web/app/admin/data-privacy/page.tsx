@@ -14,6 +14,8 @@ import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-
 import { ControlActions } from './_components/control-actions';
 import { CoveragePanel } from './_components/coverage-panel';
 import { NpcChecklist } from './_components/npc-checklist';
+import { DeletionRunsPanel } from './_components/deletion-runs-panel';
+import { fetchPeriodicJobLedger } from '@/lib/periodic-job-health';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Data Privacy & NPC Filing · Admin' };
@@ -30,6 +32,14 @@ export const dynamic = 'force-dynamic';
  *                     decision — no env flag, no redeploy.
  *   - Coverage & drift the bridge: which live controls are declared in the NPC
  *                     filing, and which declared activities lack a live control.
+ *   - Deletions       the RA 10173 promises with dates on them, and whether the
+ *                     job behind each one actually ran and what it did. Added
+ *                     2026-09-15: until then `cron_job_runs` recorded only that
+ *                     a job had been CLAIMED — a timestamp stamped the instant
+ *                     BEFORE the body ran, inside a catch that swallowed every
+ *                     failure — and NOTHING in the app read that table at all.
+ *                     A silently failing deletion job and a working one were
+ *                     byte-identical from every record we keep.
  *   - Checklist       the counsel-prepared NPC pre-filing worklist.
  *   - Documents       the DPO-prepared NPC submission PDFs (drafts pending
  *                     external counsel review before lodging).
@@ -40,11 +50,12 @@ export const dynamic = 'force-dynamic';
  * Pre-migration DBs render the code catalog, all inactive (fail-closed).
  */
 
-type TabKey = 'controls' | 'coverage' | 'checklist' | 'documents';
+type TabKey = 'controls' | 'coverage' | 'deletions' | 'checklist' | 'documents';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'controls', label: 'Controls' },
   { key: 'coverage', label: 'Coverage & drift' },
+  { key: 'deletions', label: 'Deletions' },
   { key: 'checklist', label: 'NPC checklist' },
   { key: 'documents', label: 'Documents' },
 ];
@@ -70,6 +81,9 @@ export default async function DataPrivacyPage({
 
   const admin = createAdminClient();
   const controls = await fetchDataPrivacyControls(admin);
+  // Only read the job ledger for the tab that shows it — this page is
+  // force-dynamic and the other four tabs have no use for it.
+  const jobLedger = active === 'deletions' ? await fetchPeriodicJobLedger(admin) : null;
   const activeCount = controls.filter((c) => c.status === 'active').length;
   const retiredCount = controls.filter((c) => c.status === 'retired').length;
   const liveTotal = controls.length - retiredCount;
@@ -110,6 +124,8 @@ export default async function DataPrivacyPage({
       {active === 'controls' ? <ControlsBoard controls={controls} /> : null}
 
       {active === 'coverage' ? <CoveragePanel controls={controls} /> : null}
+
+      {active === 'deletions' && jobLedger ? <DeletionRunsPanel ledger={jobLedger} /> : null}
 
       {active === 'checklist' ? <NpcChecklist /> : null}
 

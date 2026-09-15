@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6656
+# facts: 6661
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       4888
+#   col       4893
 #   policy    910
 #   view      9
 #   func      259
@@ -93,7 +93,7 @@ tpriv	public.couple_waitlist_signups|authenticated	SIUD
 tpriv	public.couple_wedding_type_notify_signups|authenticated	SIUD
 tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
-tpriv	public.cron_job_runs|authenticated	SIUD
+tpriv	public.cron_job_runs|authenticated	S
 tpriv	public.csp_violation_reports|authenticated	S
 tpriv	public.custom_domains|authenticated	SIUD
 tpriv	public.demand_radar_rollups|authenticated	SIUD
@@ -1123,8 +1123,13 @@ col	public.creator_chapters.title	anon=SIU authenticated=SIU
 col	public.creator_chapters.updated_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.user_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.view_count	anon=SIU authenticated=SIU
-col	public.cron_job_runs.job_key	anon=- authenticated=SIU
-col	public.cron_job_runs.last_run_at	anon=- authenticated=SIU
+col	public.cron_job_runs.error	anon=- authenticated=S
+col	public.cron_job_runs.finished_at	anon=- authenticated=S
+col	public.cron_job_runs.job_key	anon=- authenticated=S
+col	public.cron_job_runs.last_run_at	anon=- authenticated=S
+col	public.cron_job_runs.ok	anon=- authenticated=S
+col	public.cron_job_runs.rows_affected	anon=- authenticated=S
+col	public.cron_job_runs.started_at	anon=- authenticated=S
 col	public.csp_violation_reports.blocked_origin	anon=- authenticated=S
 col	public.csp_violation_reports.day	anon=- authenticated=S
 col	public.csp_violation_reports.directive	anon=- authenticated=S

@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
 /**
  * Deep Search dossier retention sweep — a data-minimization TTL on
@@ -25,7 +25,7 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 /** Retain Deep Search dossiers for 180 days, then purge. */
 const DOSSIER_RETENTION_DAYS = 180;
 
-export async function runVendorDossierRetention(): Promise<{ purged: number }> {
+export async function runVendorDossierRetention(): Promise<{ purged: number; failed?: string }> {
   const admin = createAdminClient();
   const cutoffIso = new Date(
     Date.now() - DOSSIER_RETENTION_DAYS * 24 * 60 * 60 * 1000,
@@ -38,7 +38,9 @@ export async function runVendorDossierRetention(): Promise<{ purged: number }> {
     .select('id');
   if (error) {
     console.error('[vendor-dossier-retention] purge failed:', error.message);
-    return { purged: 0 };
+    // Zero is also what a healthy sweep with nothing due returns — so the
+    // failure has to ride along, or the run records a successful no-op.
+    return { purged: 0, failed: error.message };
   }
   return { purged: Array.isArray(data) ? data.length : 0 };
 }
@@ -49,11 +51,9 @@ export async function runVendorDossierRetention(): Promise<{ purged: number }> {
  * deploys. Best-effort, never throws.
  */
 export async function maybeRunVendorDossierRetention(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('vendor-dossier-retention', WEEKLY_GAP_MS)) {
-      await runVendorDossierRetention();
-    }
-  } catch {
-    /* best-effort — a missed week retries on the next eligible admin request */
-  }
+  await runClaimedJob('vendor-dossier-retention', WEEKLY_GAP_MS, async () => {
+    const { purged, failed } = await runVendorDossierRetention();
+    if (failed) throw new Error(`dossier purge failed: ${failed}`);
+    return purged;
+  });
 }

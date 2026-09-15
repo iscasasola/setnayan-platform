@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { ANON_EMAIL_DOMAIN } from '@/lib/anon-onboarding';
 import { describeUserDeleteBlocker } from '@/lib/user-delete-blockers';
 import { CLAIM_TOKEN_ROTATIONS, freshClaimToken } from '@/lib/erasure/coverage';
@@ -232,9 +232,8 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
  * Best-effort, never throws.
  */
 export async function maybeRunAnonDraftSweep(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('anon-draft-sweep', DAILY_GAP_MS)) await runAnonDraftSweep();
-  } catch {
-    /* best-effort — a missed day retries on the next eligible admin request */
-  }
+  await runClaimedJob('anon-draft-sweep', DAILY_GAP_MS, async () => {
+    const { deleted } = await runAnonDraftSweep();
+    return deleted;
+  });
 }

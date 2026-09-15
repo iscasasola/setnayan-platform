@@ -126,7 +126,11 @@ function deriveCallers(): Map<string, string[]> {
 function isSweepShaped(rel: string, code: string): boolean {
   if (rel.startsWith('lib/erasure/')) return true;
   if (/(retention|sweep|purge|-drop|drop-|expire|expiry|reap|cleanup)/i.test(rel)) return true;
-  if (/\bclaimPeriodicJob\b/.test(code)) return true;
+  // Both spellings: `runClaimedJob` became the only sanctioned way to run a
+  // periodic job on 2026-09-15 (it claims AND records the outcome), and the
+  // wrappers that used to call `claimPeriodicJob` directly now call it. Losing
+  // a file from this classification would quietly relax the pinning rule.
+  if (/\b(claimPeriodicJob|runClaimedJob)\b/.test(code)) return true;
   return false;
 }
 

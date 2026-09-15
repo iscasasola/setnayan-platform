@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { claimPeriodicJob } from '@/lib/periodic-jobs';
+import { runClaimedJob } from '@/lib/periodic-jobs';
 import { PROBES, type Probe } from './probes';
 import { isFault, type ProbeResult } from './verdict';
 
@@ -91,22 +91,19 @@ export async function runInterconnectionProbes(): Promise<ProbeResult[]> {
  * check that can break a page render is worse than no health check.
  */
 export async function maybeRunInterconnectionProbes(): Promise<void> {
-  try {
-    if (await claimPeriodicJob('interconnection-probes', PROBE_GAP_MS)) {
-      const results = await runInterconnectionProbes();
-      const faults = results.filter((r) => isFault(r.verdict));
-      if (faults.length > 0) {
-        // Deliberately console, not email: the owner chose the admin console as
-        // the place to find out. This line exists so the fault is also greppable
-        // in Vercel logs when someone is already looking at them.
-        console.warn(
-          `[interconnect] ${faults.length} fault(s): ${faults
-            .map((f) => `${f.probeKey}=${f.verdict}`)
-            .join(', ')}`,
-        );
-      }
+  await runClaimedJob('interconnection-probes', PROBE_GAP_MS, async () => {
+    const results = await runInterconnectionProbes();
+    const faults = results.filter((r) => isFault(r.verdict));
+    if (faults.length > 0) {
+      // Deliberately console, not email: the owner chose the admin console as
+      // the place to find out. This line exists so the fault is also greppable
+      // in Vercel logs when someone is already looking at them.
+      console.warn(
+        `[interconnect] ${faults.length} fault(s): ${faults
+          .map((f) => `${f.probeKey}=${f.verdict}`)
+          .join(', ')}`,
+      );
     }
-  } catch {
-    /* best-effort — a later request retries */
-  }
+    return results.length;
+  });
 }

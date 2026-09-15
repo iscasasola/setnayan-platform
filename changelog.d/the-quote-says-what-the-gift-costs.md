@@ -102,3 +102,31 @@ selection, else the template's default), and both selects become controlled so t
 resolution reads live values. `the-preview-reads-the-billed-total.test.ts` asserts the
 ARGUMENT, not the call — sabotage-verified against the original defect, against ignoring
 the template default, and against the server re-implementing the rule inline.
+
+## 2026-09-16 · fix(quote): the package read uses VENDOR_PACKAGE_SELECT, not a third hand-typed list
+
+Adding `total_price_centavos` to the thread page's two-column
+`.from('vendor_packages').select(...)` literal took it past the duplicated-rule
+guard's threshold (3 of 12 columns = 25% of `VENDOR_PACKAGE_SELECT`) and turned
+CI red. Fixed by reading the constant, which is what the guard exists to
+enforce — `scripts/dup-rule.baseline.txt`'s own header says a new line is a
+widening and that the fix is to use the definition that already exists, not to
+regenerate the baseline.
+
+🪤 **The annotation named the wrong thing.** The PR page said **"native encoder
+tests failed"** — a Rust crate this branch does not touch. In `ci.yml` every
+guard step is `continue-on-error: true` EXCEPT `Duplicated-rule guards` and the
+db-replay step; when one of those two exits 1, every later step in the job
+(Install Rust toolchain → Cache cargo → Test the native encoder) is `skipped`,
+and the fail-closed aggregator reports the skipped guard as the failure. Read
+the step list, not the annotation.
+
+⚠ **FLAGGED, NOT FIXED — the picker does not filter `is_active`.** It never has
+(`main` listed every package too), so this is not a regression. But it matters
+more now than it did: the attached package's own price is what the send path
+BILLS, so a supplier can attach a deactivated package to a live quote and the
+money follows it. Whether `is_active = false` means "not listed in the
+marketplace" or "may not be quoted" is an owner call and is not decided here.
+`is_active` is now in the row, so whoever answers it has the column in hand.
+
+SPEC IMPACT: None.

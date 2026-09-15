@@ -35,6 +35,7 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
 import { dayMonth, formatLongDate } from '@/lib/format-date';
@@ -231,7 +232,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         .from('vendor_packages')
         // The package's own price is what the send path bills — the Price field
         // is only a fallback when this is 0.
-        .select('package_id, package_name, total_price_centavos')
+        //
+        // ⚠ READ THE CONSTANT, NOT A THIRD HAND-TYPED LIST. Adding
+        // `total_price_centavos` to the old two-column literal took this read
+        // past the duplicated-rule guard's threshold and turned CI red — and
+        // the annotation it produced said "native encoder tests failed", a
+        // crate this branch does not touch. The literal was the fault. Three
+        // of these twelve columns are used below; the other nine cost one
+        // round trip on a page that already makes a dozen.
+        .select(VENDOR_PACKAGE_SELECT)
         .eq('vendor_profile_id', profile.vendor_profile_id),
     ]),
     // Returning-client flag (owner-locked 2026-06-12) — only relevant while the

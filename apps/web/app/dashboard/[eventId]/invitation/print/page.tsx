@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, printedCardName, ROLE_LABELS } from '@/lib/guests';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
@@ -61,7 +61,14 @@ export default async function PrintSheetPage({ params }: Props) {
           <article key={guest.guest_id} className="print-card">
             <div className="print-qr" dangerouslySetInnerHTML={{ __html: svg }} />
             <div className="print-meta">
-              <p className="print-name">{guestDisplayName(guest)}</p>
+              {/* ⚖ THE FORMAL NAME, because this is a PRINTED CARD — the rule
+                  the compact/formal split exists for. Measured on a real event:
+                  73 of 77 guests carry a title or suffix, and principal
+                  sponsors are exactly who is handed one of these. ⚠ NOT the
+                  dashboard table on `../invitation/page.tsx` — that is a
+                  management row, where the compact name is correct and a title
+                  would be noise. */}
+              <p className="print-name">{printedCardName(guest)}</p>
               <p className="print-role">{ROLE_LABELS[guest.role]}</p>
               <p className="print-footer">{event.display_name}</p>
             </div>

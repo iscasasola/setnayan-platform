@@ -55,6 +55,15 @@ function client(answers: Record<string, Answer>) {
         resolve({ data: answer.list ?? [], error: answer.error ?? null });
       return chain;
     },
+    // The public recap's blur gate asks the shared FaceBlock rule once per
+    // event (PAP-7, 2026-09-16) and fails CLOSED when it cannot be answered.
+    // These fixtures describe events with no FaceBlock guest; without this the
+    // veto would resolve to `failed` and every cover below would be null for a
+    // reason none of these tests is about.
+    async rpc(name: string) {
+      if (name === 'papic_event_blurs_every_capture') return { data: false, error: null };
+      return { data: null, error: { message: `unexpected rpc ${name}` } };
+    },
   };
   return { client: api as unknown as SupabaseClient, asked };
 }

@@ -70,8 +70,30 @@ const NOT_A_GUEST_READ: Record<string, string> = {
   // shared pool blur every frame and the PUBLIC EVENT PAGE does not. Inert in
   // production today (0 FaceBlock guests, measured 2026-09-09) and a change to
   // a published recap in its own right — it is not smuggled into this PR.
+  //
+  // ✅ FIXED 2026-09-16 — PR #5530 (PAP-7). The note above is KEPT rather than
+  // deleted, because it is the only written record of how long this ran and of
+  // the reasoning that left it open; a "known gap" comment that simply
+  // disappears teaches the next reader nothing. What changed: the event-wide
+  // arm was lifted out of `papic_capture_needs_blur` into
+  // `papic_event_blurs_every_capture` (migration 20271229892059) and
+  // `papic_capture_needs_blur` REDEFINED in terms of it, so the FaceBlock rule
+  // now has exactly ONE definition in the system; `consent-veto.ts` asks that
+  // function by RPC and folds its answer into `ConsentVeto.ids` — never
+  // re-implementing the clause, which the test at the bottom of this file now
+  // asserts for this gate as it already did for `papic-guest-blur-gate.ts`.
+  // The two gates are run against the same replayed schema and proved unable to
+  // disagree in `tests/db/the-recap-and-the-wall-cannot-disagree.db.test.ts`.
+  //
+  // ⛔ STILL OPEN, and deliberately not decided by that PR: the withdrawal arm
+  // reads `source_table = 'papic_photos'` only, so a GUEST CAPTURE tagging a
+  // withdrawn guest is not vetoed by it (the FaceBlock arm covers both tables);
+  // and it keeps a `deleted_at IS NULL` filter the SQL predicate does not have,
+  // so soft-deleting an opted-out guest lifts the recap's veto but not the
+  // wall's. That second one is an OWNER question, flagged in
+  // `app/dashboard/[eventId]/guests/[guestId]/actions.ts` and pinned by a test.
   'app/[slug]/_components/editorial/data.ts':
-    'the public recap; every capture it serves goes through publicKeyForCapture — see the FaceBlock gap noted above',
+    'the public recap; every capture it serves goes through publicKeyForCapture — gated for BOTH arms of ruling 1 since 2026-09-16',
   'app/[slug]/actions.ts':
     'WRITES tag tombstones (untag me / ask for a takedown); serves no image key',
   'lib/face-match.ts': 'writes auto-face tags; serves no image key',
@@ -242,7 +264,8 @@ test('the gate itself never invents a second copy of the rule', () => {
     'the gate must ask the SQL predicate production already holds',
   );
   // A TypeScript re-implementation of the two clauses is the failure mode: the
-  // public recap re-implemented the withdrawal half and has no FaceBlock arm.
+  // public recap re-implemented the withdrawal half and, until 2026-09-16, had
+  // no FaceBlock arm at all.
   assert.ok(
     !/faceblock_enabled/.test(gate),
     'the gate re-implements the FaceBlock clause instead of asking the shared predicate',
@@ -250,6 +273,37 @@ test('the gate itself never invents a second copy of the rule', () => {
   assert.ok(
     !/photo_consent/.test(gate),
     'the gate re-implements the withdrawn-consent clause instead of asking the shared predicate',
+  );
+});
+
+test("the PUBLIC RECAP's gate asks the FaceBlock rule instead of holding a copy", () => {
+  // 🔑 THE CHEAPEST OFF-SWITCH A FUTURE EDIT WOULD REACH FOR. Re-inlining
+  // `faceblock_enabled` here would look like a tidy-up — one fewer round trip —
+  // and would quietly recreate the exact hole this file named for three weeks:
+  // a second copy of the rule that drifts from the wall's. The event-wide arm
+  // has ONE definition, in SQL, and this gate must ASK it.
+  //
+  // ⚠ `photo_consent` is deliberately NOT forbidden here, unlike in the guest
+  // gate above: the withdrawal arm genuinely is implemented in TypeScript in
+  // this module, keeps a `deleted_at` filter the SQL predicate does not have,
+  // and changing that is an open owner question. Asserting its absence would be
+  // asserting a change nobody has approved.
+  const recap = stripComments(
+    readFileSync(join(WEB, 'app', '[slug]', '_components', 'editorial', 'consent-veto.ts'), 'utf8'),
+  );
+  assert.ok(
+    recap.includes("'papic_event_blurs_every_capture'"),
+    "the public recap's gate no longer asks the shared FaceBlock rule — a FaceBlock guest is unblurred on the couple's public page",
+  );
+  assert.ok(
+    !/faceblock_enabled/.test(recap),
+    "the public recap's gate re-implements the FaceBlock clause instead of asking the shared predicate",
+  );
+  // Asking is not applying. The answer has to reach the veto set, because SIX
+  // call sites read `ids` directly rather than going through the gate function.
+  assert.ok(
+    /eventWideBlur/.test(recap),
+    "the recap's gate reads the FaceBlock answer but never branches on it",
   );
 });
 

@@ -50,14 +50,21 @@ function stub(answer: (c: Call) => Reply) {
       chain.then = (resolve: (v: unknown) => unknown) => resolve(answer(call));
       return chain;
     },
-    async rpc() {
+    async rpc(name: string) {
+      // The public recap's blur gate asks the shared FaceBlock rule once per
+      // event (PAP-7, 2026-09-16) and fails CLOSED when it cannot be answered.
+      // This world is an event with NO FaceBlock guest; without an answer every
+      // page below would come back empty for a reason none of these tests is
+      // about.
+      if (name === 'papic_event_blurs_every_capture') return { data: false, error: null };
       return { data: null, error: { message: 'no rpc on a read' } };
     },
   };
   return { client: api as unknown as SupabaseClient, calls };
 }
 
-const has = (c: Call, op: string) => c.ops.some(([m]) => m === op);
+const has = (c: Call, op: string, first?: unknown) =>
+  c.ops.some(([m, a]) => m === op && (first === undefined || a[0] === first));
 
 function papicRow(n: number, over: Record<string, unknown> = {}) {
   return {
@@ -113,9 +120,21 @@ function world(opts: { status?: string; arrangement?: unknown; bakedFor?: string
     if (c.table === 'guests') return { data: [{ guest_id: 'g-out' }], error: null };
     if (c.table === 'photo_tags') return { data: [{ source_id: P(2) }], error: null };
     if (c.table === 'papic_photos') {
-      if (has(c, 'or')) {
+      // The veto's blurred-copy read, recognised by the filter the gate puts on
+      // it: since 2026-09-16 a stand-in is trusted only where a bake actually
+      // happened, so the read carries `.not('faceblock_baked_at','is',null)`
+      // rather than the old `.or(safe_display…,wall_safe…)` — which accepted
+      // `wall_safe_r2_key`, a key `wall_ingest` also stamps with the UNBLURRED
+      // original. The rows therefore carry that provenance too.
+      if (has(c, 'not', 'faceblock_baked_at')) {
         return {
-          data: (opts.bakedFor ?? []).map((id) => ({ photo_id: id, safe_display_r2_key: `safe/${id}.jpg` })),
+          data: (opts.bakedFor ?? []).map((id) => ({
+            photo_id: id,
+            photo_type: 'photo',
+            faceblock_baked_at: '2026-08-20T00:00:00Z',
+            safe_display_r2_key: `safe/${id}.jpg`,
+            wall_safe_r2_key: null,
+          })),
           error: null,
         };
       }

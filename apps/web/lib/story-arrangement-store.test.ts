@@ -52,6 +52,16 @@ function stub(answer: (c: Call) => Reply, rpc?: (name: string, args: unknown) =>
     },
     async rpc(name: string, args: unknown) {
       rpcs.push({ name, args });
+      // The public recap's blur gate asks this ONCE PER EVENT (PAP-7,
+      // 2026-09-16) and treats an unanswerable blur question as a FAILED veto —
+      // correctly, since "we do not know who must be blurred" has to withhold.
+      // Every fixture in this file describes an event with NO FaceBlock guest,
+      // so it is answered here rather than left to fall through to the generic
+      // refusal, which would silently turn all of them into fail-closed vetoes
+      // and stop them testing what they were written to test. Answered BEFORE
+      // any custom `rpc`, because the custom ones here answer a different
+      // function and ignore the name they are given.
+      if (name === 'papic_event_blurs_every_capture') return { data: false, error: null };
       return rpc ? rpc(name, args) : { data: null, error: { message: 'no rpc' } };
     },
   };
@@ -88,10 +98,22 @@ function world(opts: { vetoFails?: boolean; bakedFor?: string[]; status?: string
       return { data: [{ source_id: P(2) }, { source_id: P(4) }], error: null };
     }
     if (c.table === 'papic_photos') {
-      // The veto's blurred-copy read.
-      if (has(c, 'or')) {
+      // The veto's blurred-copy read. Recognised by the filter the gate puts on
+      // it: since 2026-09-16 a stand-in is trusted only where a bake actually
+      // happened, so the read carries `.not('faceblock_baked_at','is',null)`
+      // (it used to carry `.or(safe_display…,wall_safe…)`, which accepted
+      // `wall_safe_r2_key` — a key `wall_ingest` also stamps with the UNBLURRED
+      // original). The rows therefore have to carry that provenance too.
+      if (has(c, 'not', 'faceblock_baked_at')) {
         return {
-          data: (opts.bakedFor ?? []).map((id) => ({ photo_id: id, safe_display_r2_key: `safe/${id}.jpg` })),
+          data: (opts.bakedFor ?? []).map((id) => ({
+            photo_id: id,
+            // P(4) is the snippet in this world; a clip has no blurred form.
+            photo_type: id === P(4) ? 'clip' : 'photo',
+            faceblock_baked_at: '2026-08-20T00:00:00Z',
+            safe_display_r2_key: `safe/${id}.jpg`,
+            wall_safe_r2_key: null,
+          })),
           error: null,
         };
       }

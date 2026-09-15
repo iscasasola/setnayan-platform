@@ -56,7 +56,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-08-04 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-09-15 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -97,7 +97,10 @@ export default function PrivacyPage() {
             United States (Anthropic — Setnayan AI, vendor Deep Search, and reading
             an uploaded payment receipt), and United States
             (Google LLC, when you connect the optional Google Drive or YouTube
-            integrations) — are subject to RA 10173 § 21 and the
+            integrations, and the Gemini image model when a mood board is
+            rendered), the United States (OpenAI, for moderating editorial
+            text), and the addresses sent for map lookups (OpenStreetMap /
+            Nominatim) — are subject to RA 10173 § 21 and the
             provider&rsquo;s adequacy commitments. We do not run servers of our
             own; every location above is a third-party provider, and{' '}
             <strong>none of them is in the Philippines</strong> — no Setnayan
@@ -150,7 +153,14 @@ export default function PrivacyPage() {
               screenshot if you upload one (which we read automatically to check
               the reference you typed — see below)
             </li>
-            <li>Anonymized product analytics — page views, button clicks, funnel events (via PostHog · no personal identifiers)</li>
+            <li>
+              Product analytics — page views, button clicks, funnel events (via
+              PostHog), <strong>only if you allow analytics</strong> in the
+              cookie banner. These events are keyed to your account id, so they
+              are linked to you and are <strong>not anonymous</strong>. Decline
+              analytics and nothing is captured, from your browser or from our
+              servers.
+            </li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>
               Automatic — IP address (truncated to first 3 octets for QR scan
@@ -1647,6 +1657,32 @@ export default function PrivacyPage() {
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics)</li>
             <li>
+              OpenAI (content moderation · United States · never trained on your
+              data) — when an event editorial or a guest-written column is
+              drafted, its <strong>text</strong> is sent to the OpenAI Moderation
+              API before the couple sees it, to catch vulgarity, hate speech,
+              harassment, sexual content and violence. No photos, no guest list,
+              no payment details, and no message bodies are sent.
+            </li>
+            <li>
+              LanguageTool (spelling and grammar · public API) — the same
+              editorial text, checked for spelling and grammar. The suggestions
+              are advisory; a person decides.
+            </li>
+            <li>
+              OpenStreetMap / Nominatim (turning an address into a map pin) — a
+              venue or shop address you type is sent to look up its
+              coordinates, and a pin you drop is sent back to find its city.
+              Used so couples can be matched to suppliers by distance. Your name
+              and account are not sent with it.
+            </li>
+            <li>
+              Vimeo (video thumbnails) — if a shop puts a Vimeo link on its
+              page, that link is sent to Vimeo&rsquo;s public oEmbed endpoint to
+              fetch the poster image. Nothing else is sent, and nothing is sent
+              for shops that use YouTube or no video at all.
+            </li>
+            <li>
               Anthropic (AI features · United States · never trained on your
               data) — AI web research for the vendor Deep Search tool, and
               reading the payment receipt you upload so we can check the
@@ -1663,7 +1699,9 @@ export default function PrivacyPage() {
               and explicitly connect a Drive account via OAuth; Google&rsquo;s
               public STUN server — contacted briefly by your device when starting
               a live call or camera connection, to discover its own network
-              address)
+              address; and the Gemini image model, which receives the pictures
+              on a mood board when a couple pays to render one with
+              &ldquo;Make it real&rdquo;)
             </li>
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly

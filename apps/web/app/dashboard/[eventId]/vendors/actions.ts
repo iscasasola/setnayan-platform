@@ -1827,6 +1827,31 @@ export async function finalizeVendor(
       });
       return { status: 'error', message: lockErr.message };
     }
+
+    /**
+     * ⚖ THE GIFT PROMISE IS RECORDED HERE — owner 2026-09-16, asked which of the
+     * two lock moments freezes it: **"both. the supplier needs to pay us before
+     * this becomes true."**
+     *
+     * This is the FIRST of the two. It records what the couple was promised at
+     * the moment they committed; `vendor_agree_to_lock`'s caller CONFIRMS it and
+     * makes it immutable. Between the two the price can move — the couple keeps
+     * the better number, and the supplier's charge rides with it (see
+     * stamp_setnayan_gift_at_lock).
+     *
+     * ⚠ INSIDE the `if (lockErr)`-cleared branch and AFTER the write, so a
+     * refused lock stamps nothing. Best-effort: a stamp failure must never fail
+     * the lock, and an unstamped booking falls back to live derivation, which is
+     * exactly today's behaviour.
+     */
+    try {
+      await createAdminClient().rpc('stamp_setnayan_gift_at_lock', {
+        p_event_vendor_id: vendorId,
+        p_confirm: false,
+      });
+    } catch {
+      /* the booking stands; the gift falls back to live derivation */
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════

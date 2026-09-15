@@ -924,6 +924,25 @@ export async function vendorAgreeToLock(formData: FormData) {
     try {
       const admin = createAdminClient();
 
+      /**
+       * ⚖ THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which of
+       * the two lock moments freezes it: **"both. the supplier needs to pay us
+       * before this becomes true."**
+       *
+       * The couple's press RECORDED it; this is the moment the booking actually
+       * exists, so this CONFIRMS it and the four value columns become immutable.
+       * Delivery is unchanged: the photographs still reach the couple only when
+       * the supplier's bill is paid.
+       *
+       * Best-effort, deliberately: the booking is already made and a stamp
+       * hiccup must never roll it back. An unstamped booking falls back to live
+       * derivation, which is exactly today's behaviour.
+       */
+      await admin.rpc('stamp_setnayan_gift_at_lock', {
+        p_event_vendor_id: eventVendorId,
+        p_confirm: true,
+      });
+
       // ── THE DATE NARROWS HERE, NOT AT THE ASK (owner §6.1 · slice B) ──────
       // A couple with no wedding day yet carries CANDIDATE days; every supplier
       // they actually book removes the days that supplier cannot work, and when

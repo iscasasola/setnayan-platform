@@ -58,18 +58,31 @@ test('the website field says plainly that couples do not see it', () => {
   );
 });
 
-test('My Shop never claims the website appears on the shop page', () => {
-  // The unbounded set is "ways to phrase the promise", so this checks the two
-  // spellings that actually shipped and would ship again from the same instinct:
-  // "couples … website" in one sentence, or "shown/shows … website".
+test('My Shop never claims a link of the shop\u2019s own reaches couples', () => {
+  /*
+    ⚠ THIS KEYED ON THE WORD "website" AND A MUTATION WALKED PAST IT. Rewording
+    the field's helper to "Your own site — couples find it on your shop page"
+    made the same false promise without the word, so the filter skipped the
+    sentence and the guard passed 3 of 3.
+
+    The set of NOUNS for the thing is unbounded too — website, site, link, page,
+    URL — so key on the PROMISE: couples + a verb of seeing + anything that is a
+    door out. The one sentence legitimately pairing couples with a verb of
+    seeing is the tagline blurb, which names no door, so it passes without an
+    exception carved for it.
+  */
   const src = visibleCopy();
-  const sentences = src.split(/[.<>]/).map((t) => t.replace(/\s+/g, ' ').trim());
+  const sentences = src
+    .split(/[.<>]/)
+    .map((t) => t.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
   for (const sentence of sentences) {
-    if (!/website/i.test(sentence)) continue;
+    if (!/\bcouples\b/i.test(sentence)) continue;
+    if (!/\b(read|see|sees|find|finds|get|gets|visit|visits)\b/i.test(sentence)) continue;
     assert.doesNotMatch(
       sentence,
-      /couples\s+(read|see|find|get)\b/i,
-      `My Shop tells the shop couples see its website: "${sentence}"`,
+      /\b(website|site|link|url)\b/i,
+      `My Shop promises couples reach a door out of the app: "${sentence}"`,
     );
   }
 });

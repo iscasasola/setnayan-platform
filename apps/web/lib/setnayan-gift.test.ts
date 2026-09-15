@@ -15,7 +15,7 @@ import {
   GIFT_CAP_CREDITS,
   GIFT_SHARE_OF_FEE_PCT,
   giftLadderFrom,
-  giftQuoteLine,
+  giftQuoteCopy,
   setnayanGiftForFee,
   type GiftRung,
 } from './setnayan-gift';
@@ -149,13 +149,33 @@ test('a ladder whose price does not rise with credits is refused, not guessed', 
   assert.deepEqual(ladder, []);
 });
 
-test('SAID IN PHOTOGRAPHS — the quote line has a count and never a peso sign', () => {
-  const couple = giftQuoteLine({ credits: 1_429 }, 'couple');
-  const supplier = giftQuoteLine({ credits: 1_429 }, 'supplier');
-  for (const line of [couple, supplier]) {
-    assert.ok(line);
-    assert.match(line, /1,429 free Papic photos/);
-    assert.doesNotMatch(line, /₱|PHP|peso|credit/i);
+test('SAID IN PHOTOGRAPHS — and the COUPLE is never told pesos', () => {
+  // ⚖ Owner 2026-09-09: the couple is told photographs, never pesos. The
+  // SUPPLIER is the one paying, so their own line carries the charge — and
+  // owner 2026-09-15, asked whether the composer should show the upside alone:
+  // "show both". The old version of this test forbade pesos for BOTH
+  // audiences, which would have made that instruction unbuildable.
+  const gift = { credits: 1_429, chargeCentavos: 100_000 };
+  const couple = giftQuoteCopy(gift, 'couple', { businessName: 'Studio Vera' });
+  const supplier = giftQuoteCopy(gift, 'supplier');
+  assert.ok(couple);
+  assert.ok(supplier);
+
+  // Both headlines speak in photographs and never in money.
+  for (const c of [couple, supplier]) {
+    assert.match(c.headline, /1,429 free Papic photos/);
+    assert.doesNotMatch(c.headline, /₱|PHP|peso/i);
   }
-  assert.equal(giftQuoteLine({ credits: 0 }, 'couple'), null);
+
+  // 🔒 THE COUPLE'S WHOLE BLOCK IS MONEY-FREE — headline and detail.
+  assert.doesNotMatch(couple.detail, /₱|PHP|peso|credit/i);
+  assert.match(couple.detail, /Studio Vera/);
+
+  // 🔒 AND THE SUPPLIER IS TOLD WHAT IT COSTS — this is the "show both" half,
+  // and its absence is what made the composer one-sided.
+  assert.match(supplier.detail, /₱1,000/);
+
+  // No gift ⇒ say NOTHING. Never "0 photos", which advertises an absence.
+  assert.equal(giftQuoteCopy({ credits: 0, chargeCentavos: 0 }, 'couple'), null);
+  assert.equal(giftQuoteCopy(null, 'supplier'), null);
 });

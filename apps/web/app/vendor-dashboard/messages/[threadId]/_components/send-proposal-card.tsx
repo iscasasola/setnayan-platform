@@ -2,6 +2,11 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import {
+  previewGiftForTotal,
+  giftQuoteCopy,
+  type GiftQuoteBasis,
+} from '@/lib/setnayan-gift';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { sendProposalFromChat } from '../proposal-actions';
 
@@ -18,12 +23,29 @@ export function SendProposalCard({
   threadId,
   templates,
   packages,
+  giftBasis = null,
 }: {
   threadId: string;
   templates: Option[];
   packages: Option[];
+  /**
+   * The Setnayan gift's basis, or null when this quote carries no gift.
+   *
+   * 🔑 THIS CARD GETS IT TOO, AND THAT IS THE POINT. Every shortcut in the app
+   * — the clients action bar, the chat info rail — deep-links to
+   * `#send-proposal`, i.e. HERE; `#build-quote` (the fuller ProposalMaker) has
+   * no inbound link anywhere in the repo. A gift line mounted only there would
+   * be invisible to any supplier who followed a Quote button, which is all of
+   * them. Same derived number, same two voices.
+   */
+  giftBasis?: GiftQuoteBasis | null;
 }) {
   const [open, setOpen] = useState(false);
+  // Controlled so the gift can be re-priced as they type. The field still posts
+  // `total_php` exactly as before.
+  const [totalPhp, setTotalPhp] = useState('');
+  const gift = previewGiftForTotal(Math.round((Number(totalPhp) || 0) * 100), giftBasis);
+  const giftCopy = giftQuoteCopy(gift, 'supplier');
 
   if (templates.length === 0) {
     return (
@@ -96,6 +118,8 @@ export function SendProposalCard({
                 inputMode="numeric"
                 placeholder="e.g. 45000"
                 className={field}
+                value={totalPhp}
+                onChange={(e) => setTotalPhp(e.target.value)}
               />
             </label>
             <label className="block space-y-1">
@@ -110,6 +134,19 @@ export function SendProposalCard({
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Title (optional)</span>
             <input name="title" type="text" maxLength={160} placeholder="Auto-titled if blank" className={field} />
           </label>
+
+          {/* THE SETNAYAN GIFT — what the couple gets AND what it costs the
+              supplier, re-priced as they type (owner 2026-09-15: "show both").
+              Renders only when this booking will really be billed for it. */}
+          {giftCopy ? (
+            <div
+              data-testid="compose-setnayan-gift"
+              className="rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+            >
+              <p className="text-sm font-semibold text-mulberry-600">{giftCopy.headline}</p>
+              <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
+            </div>
+          ) : null}
 
           <p className="text-xs text-ink/55">
             The proposal appears in this chat. The couple reviews + accepts it — accepting just adds it to

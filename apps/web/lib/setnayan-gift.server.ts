@@ -10,6 +10,7 @@ import {
   type GiftCatalogRow,
   type GiftRung,
   type GiftTierRow,
+  type GiftQuoteBasis,
   type SetnayanGift,
 } from '@/lib/setnayan-gift';
 
@@ -83,4 +84,50 @@ export async function quoteSetnayanGift(
   const feeCentavos = Math.round(bookingFeePhp(args.amountCentavos / 100, schedule) * 100);
   const gift = setnayanGiftForFee(feeCentavos, ladder);
   return gift.credits > 0 ? gift : null;
+}
+
+/**
+ * THE COMPOSER'S BASIS — everything the gift needs except the amount.
+ *
+ * `quoteSetnayanGift` above answers for ONE finished total. While a supplier is
+ * still typing there is no finished total, and re-asking the server on every
+ * keystroke would be both slow and wrong (the number would lag the field it is
+ * describing). So the eligibility question — which only the database can answer
+ * — is asked ONCE here, and the arithmetic travels to the browser with it.
+ *
+ * 🔑 THE ELIGIBILITY GATE IS NOT RELAXED BY MOVING THE MATHS. Every condition
+ * `quoteSetnayanGift` applies is applied here, in the same order and with the
+ * same failure direction: the fee flag, `setnayan_gift_quote_applies` (the
+ * card's yes, a Setnayan-sourced client, outside the first five free bookings),
+ * and a readable ladder. Any doubt returns `null` and the composer then says
+ * NOTHING — never "0 photos", which would advertise an absence.
+ *
+ * ⚠ WHAT TRAVELS IS NOT SECRET. The fee schedule is owner-set and already shown
+ * to suppliers, and the ladder is the public retail catalogue. No per-couple or
+ * per-account fact crosses to the client — the one such fact, `applies`, is
+ * consumed here and leaves only as the presence or absence of this object.
+ *
+ * MUST be called with the service-role client, and only after the caller has
+ * proved the viewer is the supplier on this thread.
+ */
+export async function giftQuoteBasis(
+  admin: SupabaseClient,
+  args: { eventId: string; vendorProfileId: string },
+): Promise<GiftQuoteBasis | null> {
+  if (!isBookingFeeEnabled()) return null;
+  if (!args.eventId || !args.vendorProfileId) return null;
+
+  const { data: applies, error } = await admin.rpc('setnayan_gift_quote_applies', {
+    p_event_id: args.eventId,
+    p_vendor_profile_id: args.vendorProfileId,
+  });
+  // ⚠ Supabase RESOLVES with { error } — it does not throw.
+  if (error || applies !== 'applies') return null;
+
+  const [schedule, ladder] = await Promise.all([
+    getBookingFeeSchedule(admin),
+    fetchGiftLadder(admin),
+  ]);
+  if (!ladder || ladder.length === 0) return null;
+  return { schedule, ladder };
 }

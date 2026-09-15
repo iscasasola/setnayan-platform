@@ -31,7 +31,7 @@ import {
 } from '@/app/vendor-dashboard/proposals/actions';
 import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
-import { formatGiftPhotos } from '@/lib/setnayan-gift';
+import { giftQuoteCopy } from '@/lib/setnayan-gift';
 
 export const metadata = { title: 'Proposal' };
 
@@ -225,6 +225,9 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         })
       : null;
 
+  /** The gift block's two lines, from the ONE shared copy (see giftQuoteCopy). */
+  const giftCopy = giftQuoteCopy(gift, isVendorSide ? 'supplier' : 'couple', { businessName });
+
   /**
    * Accepting only shortlists the shop at a price (respond_vendor_proposal
    * upserts an event_vendors row, status 'shortlisted') — it does not book
@@ -358,16 +361,14 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               data-testid="quote-setnayan-gift"
               className="mt-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
             >
+              {/* ONE copy of this sentence, shared with the COMPOSER — see
+                  giftQuoteCopy. These four strings used to live here inline
+                  while lib/setnayan-gift.ts held a second, unmounted pair that
+                  the guard faced instead. */}
               <p className="text-sm font-semibold text-mulberry-600">
-                {isVendorSide
-                  ? `Includes your Setnayan gift — your couple gets ${formatGiftPhotos(gift.credits)} free Papic photos`
-                  : `Includes a Setnayan gift — you get ${formatGiftPhotos(gift.credits)} free Papic photos`}
+                {giftCopy?.headline}
               </p>
-              <p className="mt-0.5 text-xs text-ink/60">
-                {isVendorSide
-                  ? `Added to your booking fee bill: ${formatCentavos(gift.chargeCentavos)}. The photos reach your couple's Papic once that bill is paid.`
-                  : `For your celebration, from ${businessName}. They arrive in your Papic once the booking is confirmed.`}
-              </p>
+              <p className="mt-0.5 text-xs text-ink/60">{giftCopy?.detail}</p>
             </div>
           ) : null}
         </section>

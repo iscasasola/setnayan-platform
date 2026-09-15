@@ -59,6 +59,20 @@ COMMENT ON COLUMN public.cron_job_runs.error IS
 COMMENT ON TABLE public.cron_job_runs IS
   'CRON-FREE job ledger — one row per periodic job, holding the LAST run''s claim AND its outcome. Written only by claim_periodic_job()/finish_periodic_job() (service-role). See [[project_setnayan_cron_free]].';
 
+-- ── Narrow, rather than widen ───────────────────────────────────────────────
+-- A NEW COLUMN INHERITS THE TABLE'S GRANT. `authenticated` held SIUD on this
+-- table, so five outcome columns would have arrived INSERT/UPDATE-able by every
+-- signed-in visitor — including `ok` and `rows_affected`, i.e. the ability to
+-- write a false "deleted 0, all good" against an RA 10173 promise. RLS cannot
+-- save this: it is ROW-level and can never hide or protect a column value from
+-- somebody the row policy admits.
+--
+-- The write grant was dead weight anyway — both writers are SECURITY DEFINER
+-- functions, which execute as their owner and never consult the caller's table
+-- privileges. SELECT stays, because `cron_job_runs_admin_read` exists for admin
+-- observability; anon already holds nothing here (migration 20271145190664).
+REVOKE INSERT, UPDATE, DELETE ON public.cron_job_runs FROM authenticated;
+
 -- ── The claim, unchanged in semantics ───────────────────────────────────────
 -- Same INSERT … ON CONFLICT DO UPDATE, same `WHERE last_run_at < now() - gap`,
 -- same RETURNING TRUE, same signature, same grants. The ONLY addition is that a

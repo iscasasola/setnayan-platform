@@ -1759,12 +1759,12 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {allotmentSet === 'released'
-            ? 'The spare credits are open to everyone now. Credits you gave a named guest stay hers.'
+            ? 'Every limit is lifted — the whole pot is open to everyone now.'
             : allotmentSet === 'cleared'
               ? 'That guest is no longer named — they share what is left with everyone else.'
               : allotmentSet === '0'
                 ? 'Every guest draws from the same pot again, until it runs out.'
-                : 'Saved. Your guests can see their own number on their camera.'}
+                : 'Saved. Your guests can see their own limit on their camera.'}
         </p>
       ) : null}
 
@@ -1772,7 +1772,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {allotmentError === 'bad_everyone'
-            ? 'Everyone who comes gets at least one photograph, so that number starts at 1. Leave it empty to share what is left, or name a guest to give her nothing.'
+            ? 'A limit of nothing is not a limit, so that number starts at 1. Leave it empty to cap them at an equal share of what is left, or name a guest to stop her taking anything.'
             : allotmentError === 'bad_number'
             ? 'That needs to be a whole number of credits, or empty to let it work itself out.'
             : allotmentError === 'unknown_guest'

@@ -18,7 +18,8 @@
  *   • `#Word`                               → group name (case preserved, deduped)
  *   • `vip`                                 → roleHint 'vip'
  *   • `ninong` → 'principal_sponsor_ninong'; `ninang` → '..._ninang'
- *   • `sponsor`                              → roleHint 'principal_sponsor'
+ *   • `sponsor`                              → roleHint 'principal_sponsor_ninong'
+ *                                              (owner 2026-09-15; see below)
  *   • everything else                       → a name word (word[0]=first, rest=last)
  *
  * The parser is deliberately schema-DUMB: it returns `roleHint` as a GuestRole
@@ -117,8 +118,19 @@ export function parseGuestInput(
         continue;
       }
       // Split 2026-09-14: `ninong` and `ninang` name WHICH half of a principal
-      // pair the guest is, so they tag the specific role. A bare `sponsor`
-      // cannot know, and stays the unspecified `principal_sponsor`.
+      // pair the guest is, so they tag the specific role.
+      //
+      // A bare `sponsor` cannot know — guests carry no gender, and deriving it
+      // from `side` is the bug this split exists to kill (a Ninong standing on
+      // the bride's side is not a Ninang). It used to fall back to the plain
+      // `principal_sponsor`, which the owner RETIRED on 2026-09-15.
+      //
+      // Owner's call, asked directly: `sponsor` → NINONG. Not a coin flip —
+      // Ninong is first in ROLE_IMPORTANCE, first in the bulk picker and first
+      // in the roster's sections, so the shortcut agrees with every ordering in
+      // the app, and a Ninang is one dropdown away. The alternative considered
+      // and rejected was landing them as a plain Guest: that writes no wrong
+      // value but silently ignores a word the host deliberately typed.
       if (lw === 'ninong') {
         roleHint = 'principal_sponsor_ninong';
         continue;
@@ -128,7 +140,7 @@ export function parseGuestInput(
         continue;
       }
       if (SPONSOR_TOKENS.has(lw)) {
-        roleHint = 'principal_sponsor';
+        roleHint = 'principal_sponsor_ninong';
         continue;
       }
 

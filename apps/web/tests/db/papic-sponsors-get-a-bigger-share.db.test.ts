@@ -296,6 +296,7 @@ test('🚨 every guest_role weighs the same in SQL as in the sheet — walked ov
   assert.ok(labels.includes('principal_sponsor'));
 
   let sponsors = 0;
+  const earnMore: string[] = [];
   for (const label of labels) {
     const sqlAlone = await one<number>(`SELECT public.papic_share_weight($1::public.guest_role, NULL)`, [label]);
     assert.equal(sqlAlone, ROLE_MULTIPLIER[allotmentRoleOf(label, null)], `${label} as a guest's role`);
@@ -305,8 +306,41 @@ test('🚨 every guest_role weighs the same in SQL as in the sheet — walked ov
     );
     assert.equal(sqlExtra, ROLE_MULTIPLIER[allotmentRoleOf('guest', [label])], `${label} as an extra role`);
     if (sqlAlone > 1) sponsors += 1;
+    if (sqlAlone > 1) earnMore.push(label);
   }
-  assert.equal(sponsors, 5, 'exactly the five sponsor roles earn more than one share');
+
+  // ⚠ WAS `assert.equal(sponsors, 5)`, AND THAT NUMBER COULD NOT HAVE CAUGHT
+  // THE DEFECT IT LOOKED LIKE IT WAS GUARDING.
+  //
+  // When the 2026-09-14 role split missed BOTH halves of this rule, a ninong
+  // weighed 1 in SQL and 1 in the sheet — so the per-label comparisons above
+  // agreed with each other, `sponsors` stayed exactly 5, and this line stayed
+  // green while 38 principal sponsors on a live roster were paid an ordinary
+  // guest's share and were outranked by the cord and veil sponsors.
+  //
+  // 🔑 A COUNT CANNOT SAY WHICH. Asserting the SET names the vocabulary, so a
+  // role that falls out of it fails with the role's name in the message, and a
+  // new sponsor role added to the enum fails here until somebody decides what
+  // it is worth — which is what "derived from the database, not typed" was
+  // always meant to buy.
+  assert.deepEqual(
+    [...earnMore].sort(),
+    [
+      'candle_sponsor',
+      'coin_sponsor',
+      'cord_sponsor',
+      // All three principal values. The plain one is RETIRED from every picker
+      // (owner, 2026-09-15) but Postgres cannot drop an enum value, so rows on
+      // other events still hold it and it must keep its weight — offered by
+      // nothing, understood by everything.
+      'principal_sponsor',
+      'principal_sponsor_ninang',
+      'principal_sponsor_ninong',
+      'veil_sponsor',
+    ],
+    'exactly these roles earn more than one share',
+  );
+  assert.equal(sponsors, earnMore.length);
 });
 
 test('the biggest role wins — a cord sponsor who is also a principal sponsor is a principal sponsor', async () => {

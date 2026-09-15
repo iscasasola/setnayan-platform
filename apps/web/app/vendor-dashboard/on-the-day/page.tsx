@@ -583,7 +583,9 @@ export default async function VendorOnTheDayPage({
         )}
       </div>
 
-      {/* 4 · Shot list — syncs to the couple (personal, device-local for now). */}
+      {/* 4 · Shot list — personal + device-local. It does NOT reach the couple;
+          the heading must not say it does (see shot-list.tsx: "Nothing here
+          touches the server"). A synced list is a follow-up, not a rename. */}
       {kind === 'photo' ? (
         <ShotListSection eventId={todaysBooking?.eventId ?? null} eventName={coupleName} />
       ) : null}
@@ -1013,7 +1015,7 @@ function ShotListSection({
           className="font-mono text-[11px] uppercase tracking-[0.2em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
-          Shot list · syncs to the couple
+          Shot list · yours, on this device
         </h2>
         <p
           className="sn-tile mt-3 text-sm"
@@ -1027,7 +1029,7 @@ function ShotListSection({
   // localStorage-backed, offline-tolerant client component.
   return (
     <div>
-      <h2 className="sn-sec">Shot list · syncs to the couple</h2>
+      <h2 className="sn-sec">Shot list · yours, on this device</h2>
       <div className="mt-3">
         <ShotList eventId={eventId} eventName={eventName ?? 'this event'} />
       </div>

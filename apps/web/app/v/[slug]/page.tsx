@@ -16,12 +16,10 @@ import {
   SERVICE_GROUPS,
   displayServiceLabel,
   formatPhp,
-  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
-  type VendorCategory,
 } from '@/lib/vendors';
 import {
   isBookable,
@@ -69,6 +67,10 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
+import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
+import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import {
   buildVendorVenueEvents,
@@ -702,6 +704,82 @@ async function resolveServiceShowcaseMedia(
   return out;
 }
 
+/**
+ * SUP-12 · THE COVER PHOTO A SUPPLIER ALREADY UPLOADED.
+ *
+ * ── MEASURED ON THE LIVE SHOP, 2026-09-15 ──────────────────────────────────
+ * The one published shop's "Live Band" card carries a real
+ * `primary_photo_r2_key` in the database and the public page drew NO picture.
+ * Its sibling "Host / MC" has none, so the pair is the honest test: one card
+ * must gain a photo and the other must carry on without one.
+ *
+ * 🔑 NOTHING NEW IS BUILT HERE, and that is the whole row. The fallback itself
+ * shipped on 2026-09-11 inside `toServiceCard` (C2) — "no showcase photos →
+ * fall back to the card's own cover so the grid never draws a card with nothing
+ * to look at" — and it takes the cover as an ALREADY-RESOLVED display URL,
+ * because that function is pure and cannot sign a ref. Its docblock names the
+ * two callers that do not pass it and says this page is one of them. So the
+ * card was wired, the fallback was tested, and this page simply stopped one
+ * argument short.
+ *
+ * Kept as a SIBLING of `resolveServiceShowcaseMedia` rather than folded into it:
+ * that function's contract is the showcase strip, its own comment says the cover
+ * is "intentionally untouched", and `ServiceShowcaseMedia` is a shared type with
+ * other callers. Widening it here would change what they mean by showcase.
+ *
+ * Fail-soft per service, in parallel, exactly as the showcase resolver is: a dev
+ * environment with no R2 credentials, or one bad ref, costs that card its
+ * picture and never the profile.
+ */
+async function resolveServiceCoverUrls(
+  services: ReadonlyArray<VendorServiceRow>,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  await Promise.all(
+    services.map(async (s) => {
+      if (!s.primary_photo_r2_key) return;
+      try {
+        const url = await displayUrlForStoredAsset(s.primary_photo_r2_key);
+        if (url) out.set(s.vendor_service_id, url);
+      } catch {
+        // The card renders without its cover — never without the page.
+      }
+    }),
+  );
+  return out;
+}
+
+/**
+ * SUP-14 · the LIVE taxonomy's tile for each distinct card kind on this page.
+ *
+ * Same shape the inquiry action already uses — `(await getTaxonomy()).map[kind]?.tile`
+ * inside a try/catch — so a kind an admin adds tomorrow resolves with no deploy,
+ * and a taxonomy that cannot be read degrades to the branch/`misc` rungs rather
+ * than to a group key that does not exist.
+ *
+ * ONE read for the whole page, keyed by DISTINCT kind: a shop with six cards in
+ * two trades asks twice, not six times.
+ */
+async function resolveTileByCardKind(
+  services: ReadonlyArray<VendorServiceRow>,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const kinds = Array.from(
+    new Set(services.map((s) => (s.category ?? '').trim()).filter(Boolean)),
+  );
+  if (kinds.length === 0) return out;
+  try {
+    const taxonomy = await getTaxonomy();
+    for (const kind of kinds) {
+      const tile = taxonomy.map[kind]?.tile;
+      if (tile) out.set(kind, tile);
+    }
+  } catch {
+    // Empty map — the translator's later rungs still land every card.
+  }
+  return out;
+}
+
 /** faithCol (Title-Case storage key) → couple-facing label, from the single
  *  faith registry ([[lib/faith-registry.ts]]). Unknown values pass through. */
 const FAITHCOL_TO_LABEL: ReadonlyMap<string, string> = new Map(
@@ -1020,6 +1098,8 @@ export async function renderVendorBySlug({
     coveragesById,
     eventTypeVocab,
     showcaseByService,
+    coverUrlByService,
+    tileByCardKind,
   ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     fetchDiscountsByServicePublic(admin, activeServiceIds),
@@ -1027,6 +1107,8 @@ export async function renderVendorBySlug({
     // Fail-soft by contract (falls back to the hardcoded roster on error).
     getEventTypeVocab(),
     resolveServiceShowcaseMedia(activeServices),
+    resolveServiceCoverUrls(activeServices),
+    resolveTileByCardKind(activeServices),
   ]);
 
   // CARD RECORD (owner-locked 2026-07-28) — each card's compiled history:
@@ -1314,8 +1396,52 @@ export async function renderVendorBySlug({
   let existingThreadId: string | null = null;
   if (user) {
     const events = await fetchUserEvents(supabase, user.id, 'couple');
-    coupleEventId = events[0]?.event_id ?? null;
-    coupleEventDate = events[0]?.event_date ?? null;
+    /*
+      ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE A RULE PICKED ──
+      This was `events[0]`, and the couple was never asked.
+
+      ⚠ `events[0]` IS NOT ARBITRARY, and an earlier version of this comment said
+      it was. `fetchUserEvents` has no `.order()` on the QUERY, but it sorts the
+      rows in JS before returning: `is_primary` first, then soonest
+      `event_date`, dateless last. So `events[0]` is "your primary celebration,
+      otherwise the soonest one" — a real rule, just an invisible one that the
+      couple never chose and is never shown.
+
+      🔑 WHERE IT *IS* GENUINELY UNDECIDED: that sort returns 0 for a tie, and
+      `Array.prototype.sort` is stable, so tied rows keep the order the unordered
+      query happened to return. Nothing enforces a single primary — a real
+      account holding TWO events flagged `is_primary = true` was measured on
+      2026-09-08 (see `saveVendorToPicks`), and for that couple which event won
+      was arbitrary per request. Same for two celebrations on one date, or two
+      with no date.
+
+      Either way the couple is not asked, and this one line scopes the
+      existing-thread lookup, the composer, and the inquiry that eventually puts
+      this shop on somebody's list. A couple planning a wedding AND their
+      parents' anniversary could not tell, and were not told, which celebration
+      their question attached to.
+
+      `?event=` is the picker's answer (add-shop-to-event-data.ts). It is a
+      claim from a URL, so it is CHECKED — against `events` itself, the list of
+      this user's own ORGANISER memberships that was just read. That list IS the
+      authority, so the check cannot disagree with it and costs no second round
+      trip; `saveVendorToPicks` needs `userHostsEvent` for the same question only
+      because it never fetched the list. An id that is not yours, or is not real,
+      falls through to the existing behaviour rather than erroring: a mistyped
+      link must not break a shop page.
+
+      🔑 THE FALLBACK STAYS, DELIBERATELY. A couple with exactly one celebration
+      must never be made to choose, and everyone who has only one keeps today's
+      behaviour byte for byte. The picker earns its place only where the
+      invisible rule was deciding something the couple should.
+    */
+    const requestedEventId = String(search.event ?? '').trim();
+    const chosen =
+      requestedEventId && events.some((e) => e.event_id === requestedEventId)
+        ? events.find((e) => e.event_id === requestedEventId)
+        : undefined;
+    coupleEventId = chosen?.event_id ?? events[0]?.event_id ?? null;
+    coupleEventDate = chosen?.event_date ?? events[0]?.event_date ?? null;
     if (coupleEventId) {
       const threadResult = await supabase
         .from('chat_threads')
@@ -1405,6 +1531,22 @@ export async function renderVendorBySlug({
   // onboarding. Signed-out / anonymous → route through signup for a real account.
   const signedInNoEvent =
     user !== null && !(user.is_anonymous ?? false) && coupleEventId === null;
+
+  /*
+    ── D1 · THE QUESTION THE SHOP PAGE NEVER ASKED ──────────────────────────
+    Only fetched when there is an inquiry to scope. `resolveAddShopToEvent`
+    fails soft to `{ signedIn: false }`, so a bad read costs the picker and
+    never the page.
+
+    🔑 OFFERED ONLY WHEN THERE IS A REAL CHOICE — `options.length > 1`. A couple
+    with one celebration is not asked a question with one answer, and keeps
+    today's behaviour exactly. This is the whole reason the fallback above stays.
+  */
+  const shopEventPicker = showInquiryComposer ? await resolveAddShopToEvent(slug) : null;
+  const shopEventOptions =
+    shopEventPicker?.signedIn && shopEventPicker.options.length > 1
+      ? shopEventPicker.options
+      : [];
 
   // The event-type question in the anon composer (owner 2026-08-06: "for what
   // type of event? then onboarding"). Fed from the LIVE vocab so the offered
@@ -2742,6 +2884,8 @@ export async function renderVendorBySlug({
             discountsByService={discountsByService}
             servesByService={servesByService}
             showcaseByService={showcaseByService}
+            coverUrlByService={coverUrlByService}
+            tileByCardKind={tileByCardKind}
             hidePrices={hidePricesPublicly}
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
@@ -2882,6 +3026,29 @@ export async function renderVendorBySlug({
               </>
             )}
           </p>
+          {/* ⭐ D1 — WHICH CELEBRATION IS THIS FOR?
+              The page used to answer this silently: `events[0]`, which
+              `fetchUserEvents` sorts to "your primary celebration, otherwise the
+              soonest one". A real rule, and one the couple never chose and was
+              never shown — so somebody planning a wedding AND their parents'
+              anniversary could not tell which one their question attached to.
+
+              The SHIPPED picker (owner-ruled 2026-08-21), reused whole: its
+              drawer, its search, its empty sentences, its create row. Each row
+              is a link back to this page carrying `?event=`, so choosing writes
+              nothing. It renders only when there is more than one celebration to
+              choose between. */}
+          {shopEventOptions.length > 0 ? (
+            <div className="mb-3">
+              <AddToEvent
+                serviceName={displayLabel}
+                options={shopEventOptions}
+                emptyReason={null}
+                createHref="/dashboard/create-event"
+                createLabel="Start a new celebration"
+              />
+            </div>
+          ) : null}
           {showInquiryComposer && composerInitial ? (
             <InquiryComposer
               vendorProfileId={vendor.vendor_profile_id}
@@ -3230,6 +3397,8 @@ function ServicesPricingSection({
   discountsByService,
   servesByService,
   showcaseByService,
+  coverUrlByService,
+  tileByCardKind,
   hidePrices,
   coupleEventDate,
   cardRecordByService,
@@ -3246,6 +3415,14 @@ function ServicesPricingSection({
   servesByService: Map<string, string>;
   /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
   showcaseByService: Map<string, ServiceShowcaseMedia>;
+  /** SUP-12 — each card's cover, already a display URL. Empty map ⇒ every card
+   *  renders exactly as it did before, which is what the two other callers of
+   *  `toServiceCard` still do. */
+  coverUrlByService: Map<string, string>;
+  /** SUP-14 — the LIVE taxonomy's tile for each card kind, resolved server-side.
+   *  Empty ⇒ `eventVendorCategoryForCardKind` falls to its branch/`misc` rungs,
+   *  which is the same degradation the inquiry action already accepts. */
+  tileByCardKind: Map<string, string>;
   /** Council #6: vendor opted to hide public prices → strip every peso amount. */
   hidePrices: boolean;
   /** The viewing couple's event date (ISO YYYY-MM-DD), when a signed-in couple
@@ -3269,11 +3446,42 @@ function ServicesPricingSection({
   /** `?service=<public id>` — opens that card's sheet on arrival. */
   openServicePublicId: string | null;
 }) {
+  /*
+    ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
+    Measured on the live shop 2026-09-15: the one published supplier's two
+    cards both sat under a heading reading "OTHER", while the SAME page listed
+    "Services offered: Live Band · Host / MC" two sections above. The page had
+    the trade and did not use it.
+
+    🔑 THIS CODE WAS NOT MIS-FILING THEM — IT WAS FAILING SAFE. There are two
+    vocabularies here. `vendor_services.category` is plain TEXT holding a
+    coverage LEAF (`live_band`) or a tier-2 TILE id (`host_mc`);
+    `serviceGroupOf` speaks the coarse `VENDOR_CATEGORIES` (`band_dj`,
+    `host_emcee`). They overlap only by accident — measured:
+    `isCanonicalService('live_band')` is false and `serviceGroupOf('live_band')`
+    returns UNDEFINED, which is not a key any SERVICE_GROUPS entry has. So the
+    old ternary's `: 'other'` was the thing stopping both cards from
+    DISAPPEARING off the page entirely, which is why this row's own wording
+    warns about that.
+
+    🔑 AND THE TRANSLATOR ALREADY EXISTS. `eventVendorCategoryForCardKind` was
+    built on 2026-09-09 for this exact mismatch, is pure, and is asserted
+    against the live enum by a db test. Nothing new is mapped here: it reads the
+    leaf map and the branch map that already exist, and its last rung returns
+    `misc` — a real coarse category — so every card still lands somewhere. That
+    is what keeps "no card disappears" true rather than hoped for.
+
+    Measured through to the heading: live_band → band_dj → "Media &
+    entertainment", host_mc → host_emcee → the same, photographer → unchanged,
+    and anything unknown or blank → misc → "Other".
+  */
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
-    const key: ServiceGroupKey = isCanonicalService(s.category)
-      ? serviceGroupOf(s.category as VendorCategory)
-      : 'other';
+    const coarse = eventVendorCategoryForCardKind(
+      s.category,
+      tileByCardKind.get(s.category ?? '') ?? null,
+    );
+    const key: ServiceGroupKey = serviceGroupOf(coarse);
     const bucket = byGroup.get(key);
     if (bucket) bucket.push(s);
     else byGroup.set(key, [s]);
@@ -3306,6 +3514,10 @@ function ServicesPricingSection({
           cardRecordByService.get(row.vendor_service_id) ?? null,
           cardRecordRating,
           detailsEnabled,
+          // SUP-12 — the argument this call stopped one short of. `toServiceCard`
+          // only reaches for it when the card has NO showcase photos, so a card
+          // with a real gallery never loses it to the cover.
+          coverUrlByService.get(row.vendor_service_id) ?? null,
         ),
       ),
     });

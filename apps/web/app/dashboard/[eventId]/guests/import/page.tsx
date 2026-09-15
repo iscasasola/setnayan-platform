@@ -5,7 +5,7 @@ import { importGuestsCsv } from './actions';
 export const metadata = { title: 'Import guests' };
 
 const TEMPLATE_CSV = `first_name,last_name,side,group,role,household,plus_one_allowed,email,mobile,rsvp_status
-Maria,Santos,bride,family,principal_sponsor,Santos household,false,maria.santos@example.ph,+639171234567,pending
+Maria,Santos,bride,family,principal_sponsor_ninang,Santos household,false,maria.santos@example.ph,+639171234567,pending
 Juan,Reyes,groom,friends,best_man,,false,juan.reyes@example.ph,+639179876543,attending
 Anna,Cruz,bride,school,bridesmaid,,true,anna.cruz@example.ph,,pending`;
 

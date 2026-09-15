@@ -111,7 +111,60 @@ q();
   );
 }
 
-/** Sits BELOW the page content — observes the chapters and reveals them. */
+/**
+ * Sits BELOW the page content — observes the chapters and reveals them.
+ *
+ * ── 🔴 THE DEFECT THIS SHAPE EXISTS FOR, CAUGHT WITH A STACK TRACE ─────────
+ * From 2026-07-25 until 2026-09-14 this script ran ONE synchronous query and
+ * gave up if it came back empty. On the public invitation it came back empty
+ * EVERY TIME, and the page never animated — anywhere, for anyone.
+ *
+ * The page streams. React flushes Suspense content into `<div hidden id="S:…">`
+ * buffers and moves it into place afterwards with `$RS(...)`. This script sits
+ * at ~96% of the document, which is still BEFORE those moves. Measured on the
+ * live page by patching `DOMTokenList.prototype.remove` and re-serving the real
+ * HTML in a frame:
+ *
+ *     when: remove · called from: give() · readyState: "loading"
+ *     selectorMatches: 0 · markers: 1 · hiddenBuffers: 3 · armed: true
+ *     …afterwards: selectorMatches 8 · revealed 0 · flag off
+ *
+ * Zero chapters at that instant, eight a moment later. `give()` had already
+ * removed the flag — globally and permanently — so every one of the eight
+ * arrived unobserved.
+ *
+ * 🔑 THE FAIL-VISIBLE CONTRACT WAS SUPPRESSING THE FEATURE. `give()` did
+ * exactly its job — "nothing to observe, so un-hide everything" — at the one
+ * moment when finding nothing was a LIE rather than a fact. And because a
+ * given-up page and a never-built page are the same pixels, and `give()` wrote
+ * nothing anywhere, it survived seven weeks on the page every guest sees.
+ *
+ * ── WHAT CHANGED, AND WHAT DELIBERATELY DID NOT ────────────────────────────
+ * The contract is KEPT. `give()` still exists and still un-hides everything;
+ * deleting it to make the animation work would trade a cosmetic failure for a
+ * page of invisible sections, which is far worse. What changed is WHEN it is
+ * allowed to conclude the page is empty:
+ *
+ *   1. Try to attach immediately — the fast path, unchanged for a page that is
+ *      already complete (the editorial body, and any non-streaming render).
+ *   2. If nothing matches AND the document is still parsing, do NOT give up.
+ *      Wait for `DOMContentLoaded` — by then every `$RS(...)` has run and the
+ *      chapters are real children — and try again.
+ *   3. Only if the retry ALSO finds nothing is the emptiness genuine. Give up
+ *      then, and SAY SO: a give-up now writes one console line naming what its
+ *      selector saw. A silent safety net cannot be told apart from a feature
+ *      nobody built, which is the sentence this whole file just cost.
+ *
+ * ⚠ THE DEFERRED PATH CANNOT STRAND A SECTION. Between this script and the
+ * retry the flag is still set, so late chapters arrive hidden — which is the
+ * intended pre-reveal state, not a fault. The observer attaches on the very
+ * next tick and anything already in view intersects immediately. And if the
+ * retry never runs at all (a listener that never fires), the RootFlag's 2s
+ * self-heal is NOT a backstop here — `__pahinaArmed` is already true — so the
+ * retry is scheduled TWO ways, on `DOMContentLoaded` and on a 1.5s timer,
+ * whichever lands first, and whichever loses is a no-op.
+ * `the-choreography-waits-for-the-page.test.ts` pins all of it.
+ */
 export function PahinaMotionObserver() {
   return (
     <script
@@ -121,13 +174,24 @@ export function PahinaMotionObserver() {
 var r=document.documentElement;
 if(!r.classList.contains('pahina-js'))return;
 window.__pahinaArmed=true;
-var give=function(){r.classList.remove('pahina-js')};
-var n=document.querySelectorAll('.sn-editorial [data-pahina-chapters] > *');
-if(!n.length){give();return}
+var give=function(saw){try{console.warn('[pahina] scroll choreography stood down: no chapters to observe (matched '+saw+'). The page stays fully visible.')}catch(e){}r.classList.remove('pahina-js')};
+var sel='.sn-editorial [data-pahina-chapters] > *';
+var done=false;
+var attach=function(){
+if(done)return true;
+var n=document.querySelectorAll(sel);
+if(!n.length)return false;
+done=true;
 var io=new IntersectionObserver(function(es){
 for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add('pahina-in');io.unobserve(es[i].target)}}
 },{rootMargin:'0px 0px -6% 0px',threshold:0.01});
 for(var i=0;i<n.length;i++){io.observe(n[i])}
+return true};
+if(!attach()){
+var retry=function(){if(done)return;if(!attach()){give(document.querySelectorAll(sel).length)}};
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',retry,{once:true})}
+setTimeout(retry,1500);
+}
 }catch(e){try{document.documentElement.classList.remove('pahina-js')}catch(e2){}}})()`,
       }}
     />

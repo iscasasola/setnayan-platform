@@ -24,9 +24,29 @@ type Props = {
  * integration, and this modal does not pretend otherwise.
  *
  * ⚠ NO MESSAGE, NO COPY BUTTON. When `message` is null the guest has no
- * invitation link yet, and a cheerful "you're invited!" with no way in is worse
- * than nothing — the couple only learns it was empty after they have pressed
- * send. The modal says what is wrong and what to do instead.
+ * PERSONAL invitation link yet, and a cheerful "you're invited!" with no way in
+ * is worse than nothing — the couple only learns it was empty after they have
+ * pressed send.
+ *
+ * ⚠ THE COPY DELIBERATELY DOES NOT MENTION THE EVENT'S GENERAL QR, and that is
+ * a decision rather than an omission. Owner, 2026-09-16, in two parts:
+ *
+ *   ⓵ a guest can use the master code at `setnayan.com/{slug}` instead of a
+ *      personal one — it carries no token; and then
+ *   ⓶ **"if no guest list, anybody with QR can access. if with guest list
+ *      custom QR, then only QR codes for that event can access Papic."**
+ *
+ * 🔑 THE SECOND HALF IS A CONDITION ON THE FIRST, and it is the half that
+ * applies here: an event with a guest list is exactly the event this modal
+ * belongs to. Telling such a couple "just send them the general QR" would be
+ * advice that fails on their own event, which is worse than saying nothing.
+ *
+ * ⚠ NOT YET VERIFIED IN CODE — this session traced the capture gate as far as
+ * `readGuestSession` (guest_id + event_id cookie) in `api/papic/guest-capture`
+ * and did not locate the guest-list-presence rule itself. Until somebody reads
+ * that rule and can state it exactly, the copy says only what is certainly
+ * true: re-issue the QR. Do not add the general-QR sentence on the strength of
+ * this docblock.
  *
  * 🔑 MARK SENT IS A TOGGLE. It records a claim about the physical world, and
  * people mis-tap; a mark that cannot be undone teaches couples not to use it.
@@ -117,9 +137,9 @@ export function GuestInviteModal({ guestId, guestName, message, sentAt, markSent
                    point, because the alternative is a message that arrives
                    looking complete and opens nothing. */
                 <p className="rounded-xl border border-dashed border-ink/25 bg-white/60 px-4 py-6 text-sm text-ink/70">
-                  This guest doesn&rsquo;t have an invitation link yet, so there
-                  is nothing to send. Re-issue their QR on this page first, then
-                  come back.
+                  This guest doesn&rsquo;t have their <em>own</em> invitation link yet,
+                  so there&rsquo;s no personal message to copy. Re-issue their QR on
+                  this page to give them one, then come back.
                 </p>
               ) : (
                 <>

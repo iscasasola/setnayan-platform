@@ -48,7 +48,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, role_palette, landing_page_visibility',
+      'event_id, slug, display_name, event_type, role_palette, landing_page_visibility, pabuya_message',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -59,6 +59,7 @@ const fetchEvent = cache(async (slug: string) => {
     event_type: string | null;
     role_palette: unknown;
     landing_page_visibility: string | null;
+    pabuya_message: string | null;
   } | null;
 });
 
@@ -220,6 +221,24 @@ export default async function PabuyaPublicPage({
             )}
           </p>
         </div>
+
+        {/*
+          THE COUPLE'S OWN WORDS — owner 2026-09-15.
+
+          🔑 ABOVE THE METHODS, because it is the part a guest weighs before
+          deciding. The page could already say what to DO ("scan a QR"); it had
+          nowhere to say WHY, and a money page without the reason reads as a
+          request rather than a plan somebody is inviting you into.
+
+          ⚠ NULL RENDERS NOTHING AT ALL — not an empty paragraph. Every event
+          that has never touched this reads exactly as it did before the column
+          existed, which is why there is no backfill and no default sentence.
+        */}
+        {event.pabuya_message ? (
+          <p className="mx-auto mb-8 max-w-prose text-center text-[15px] leading-relaxed text-ink/75">
+            {event.pabuya_message as string}
+          </p>
+        ) : null}
 
         {cards.length > 0 ? (
           <>

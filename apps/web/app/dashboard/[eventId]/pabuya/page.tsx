@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { PabuyaManager } from './_components/pabuya-manager';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { PabuyaMessageEditor } from './_components/pabuya-message-editor';
 
 export const metadata = { title: 'Pabuya · E-Gifts' };
 
@@ -31,7 +32,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
   // membership gate; this read is RLS-safe for the couple.
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
-    .select('display_name, slug, landing_page_visibility')
+    .select('display_name, slug, landing_page_visibility, pabuya_message')
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventRowError) {
@@ -46,6 +47,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
     display_name: string | null;
     slug: string | null;
     landing_page_visibility: string | null;
+    pabuya_message: string | null;
   } | null;
 
   // The couple's full set (enabled + hidden). Each row carries a resolved
@@ -65,6 +67,11 @@ export default async function PabuyaDashboardPage({ params }: Props) {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <PageMasthead title="The digital money dance" />
+
+      {/* The couple's own sentence, above their payment details — owner
+          2026-09-15. Mounted ABOVE the manager because that is where it sits
+          on the public page; a preview that reorders the page is not one. */}
+      <PabuyaMessageEditor eventId={eventId} initialMessage={event?.pabuya_message ?? null} />
 
       <PabuyaManager
         eventId={eventId}

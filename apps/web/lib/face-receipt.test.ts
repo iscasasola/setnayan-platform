@@ -199,11 +199,11 @@ test('the deletion day is the event’s LAST day plus the constant', () => {
 
 test('the receipt prints the day only when it knows it', () => {
   const withDates = body('mode_a', 'how_long', ['2026-01-01', '2026-01-03']);
-  assert.match(withDates, /which is 5 April 2026/);
+  assert.match(withDates, /That day is 5 April 2026\./);
   const without = body('mode_a', 'how_long');
   assert.doesNotMatch(
     without,
-    /which is/,
+    /That day is/,
     'with no event dates the receipt must state the period and stop — a date it ' +
       'cannot compute is a date it must not print',
   );

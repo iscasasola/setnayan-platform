@@ -139,10 +139,11 @@ export function faceReceiptLines(input: FaceReceiptInput): FaceReceiptLine[] {
     ? `Only to find you in photos taken at this ${eventWord}, including photos other guests take on their own phones, so those photos can reach you.`
     : `So ${theOrganizer} and their team can recognise you on the guest list. No photo is matched to you by your face.`;
 
+  const removes = modeA ? 'the selfie, the vector and the record' : 'the selfie and the record';
   const howLong =
-    `${faceDataPeriodPhrase(eventWord)}` +
-    (day ? `, which is ${day}` : '') +
-    `. Once that day passes the weekly clean-up removes ${modeA ? 'the selfie, the vector and the record' : 'the selfie and the record'}.`;
+    `${faceDataPeriodPhrase(eventWord)}.` +
+    (day ? ` That day is ${day}.` : '') +
+    ` Once that day passes, the weekly clean-up removes ${removes}.`;
 
   const undo =
     `Use “Remove my photo & face data” on your ${eventWord} page and ${modeA ? 'the selfie and the vector go' : 'the selfie goes'} straight away — we keep only a note that you withdrew. ` +

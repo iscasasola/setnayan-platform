@@ -2,7 +2,7 @@
 
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
@@ -51,7 +51,13 @@ const POLL_MS = 25_000;
 export type LiveWallCaption = { text: string; author: string } | null;
 
 /** The currently-armed Papic Challenge + how many guests have answered it. */
-export type LiveWallChallenge = { missionId: string; prompt: string; answeredCount: number } | null;
+export type LiveWallChallenge = {
+  missionId: string;
+  prompt: string;
+  answeredCount: number;
+  /** Absolute instant the challenge stops being armed, or null when untimed. */
+  expiresAt: string | null;
+} | null;
 
 export function LiveWallBlock({
   slug,
@@ -388,6 +394,73 @@ function ChallengeBanner({
         {challenge.answeredCount.toLocaleString()}{' '}
         {challenge.answeredCount === 1 ? 'guest has' : 'guests have'} answered
       </p>
+      <ChallengeCountdown expiresAt={challenge.expiresAt} />
     </div>
+  );
+}
+
+/**
+ * HOW LONG IS LEFT — the third thing the venue screen owes the room, beside the
+ * prompt and the answered count.
+ *
+ * ── Why this is a client tick and not a server number ──────────────────────
+ * 🔑 A WALL IS LEFT OPEN FOR HOURS. A "minutes remaining" computed when the page
+ * was built freezes at that value, and a countdown that does not move reads as
+ * correct to anyone who glances once. So the server sends an ABSOLUTE instant
+ * and the browser does the arithmetic, every second, from the real clock.
+ *
+ * ── The three states, each distinct on the render ──────────────────────────
+ *   expiresAt = null        → an UNTIMED challenge. `duration_minutes` is
+ *                             nullable and untimed is a real, correct state.
+ *                             Renders NOTHING — not "0:00", not "—".
+ *   still running           → "12:04 left", tabular so it does not jitter.
+ *     under a minute        → the same clock in seconds; no special casing that
+ *                             could disagree with the boundary below.
+ *   past the instant        → "Time's up". It does NOT go negative, and it does
+ *                             not remove the banner: the read above decides
+ *                             whether a challenge is armed, and this must agree
+ *                             with that boundary rather than inventing a second.
+ *
+ * ⚠ THE BANNER'S "unknown" STATE IS NOT THIS COMPONENT'S BUSINESS. `measured=false`
+ * is handled by the caller and returns before this renders — a countdown must
+ * never appear beside "status unavailable", because a clock implies a fact.
+ */
+function ChallengeCountdown({ expiresAt }: { expiresAt: string | null }) {
+  const endMs = useMemo(() => {
+    if (!expiresAt) return null;
+    const ms = Date.parse(expiresAt);
+    return Number.isFinite(ms) ? ms : null;
+  }, [expiresAt]);
+
+  // Starts null so the server render and the first client render agree — a
+  // hydration mismatch here would flash the wrong time on a screen in a room.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (endMs === null) return;
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [endMs]);
+
+  if (endMs === null || nowMs === null) return null;
+
+  const leftMs = endMs - nowMs;
+  if (leftMs <= 0) {
+    return (
+      <p className="sn-gal-soft mt-1 text-xs font-medium" role="status">
+        Time&rsquo;s up
+      </p>
+    );
+  }
+
+  const totalSeconds = Math.ceil(leftMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return (
+    <p className="sn-gal-soft mt-1 text-xs tabular-nums" role="timer" aria-live="off">
+      {minutes}:{String(seconds).padStart(2, '0')} left
+    </p>
   );
 }

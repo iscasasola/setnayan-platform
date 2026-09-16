@@ -206,8 +206,8 @@ export async function GuestAllotmentsChoice({
     <div className="space-y-5">
       <p className="text-sm text-ink/65">
         {enabled
-          ? 'Each guest has their own number of credits. Name anyone you want to give more, and everyone else splits what is left.'
-          : 'Right now every guest draws from the same pot until it runs out. Turn this on to give each guest their own number.'}
+          ? 'Each guest has their own LIMIT. Name anyone you want to let take more, and everyone else shares what is left. Every credit still comes out of the one pot, first come first served — a limit caps what one guest may take; it does not hold credits back for her.'
+          : 'Right now every guest draws from the same pot until it runs out, with no limit on any one of them. Turn this on to cap how much each guest may take.'}
       </p>
 
       {/* The switch — two explicit buttons, never a flip. */}
@@ -266,9 +266,9 @@ export async function GuestAllotmentsChoice({
               </p>
             ) : null}
             <p className="text-xs text-ink/55">
-              Leave this empty and they simply share what is left — {split.perHead} credits each
-              right now. The smallest you can set is 1: everyone who comes gets at least one
-              photograph. To give one person nothing, name them below and set them to 0.
+              Leave this empty and their limit is an equal share of what is left —{' '}
+              {split.perHead} credits each right now. The smallest you can set is 1. To stop one
+              person taking anything, name them below and set them to 0.
               {sponsors.length > 0
                 ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
                 : null}
@@ -310,9 +310,9 @@ export async function GuestAllotmentsChoice({
               />
             )}
             <p className="text-xs text-ink/55">
-              The grey number is what each guest gets now — sponsors already get a bigger share.
-              Type a number to set it yourself; clear the box to go back. Whatever a named guest
-              does not use stays theirs.
+              The grey number is each guest’s limit now — sponsors already get a bigger one. Type
+              a number to set it yourself; clear the box to go back. A limit a named guest does
+              not use is not held for her: it stays in the pot and anybody may take it.
             </p>
           </div>
 
@@ -322,8 +322,8 @@ export async function GuestAllotmentsChoice({
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
             <p className="text-xs text-ink/55">
               {releasedAt
-                ? 'Already open — the spare credits are anyone’s.'
-                : 'Frees the spare credits so any guest can use them. This happens automatically late in your celebration too. Credits you gave a named guest stay hers.'}
+                ? 'Already open — every limit is lifted and the whole pot is anyone’s.'
+                : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your celebration too.'}
             </p>
             {releasedAt ? null : (
               <SubmitButton className="sn-btn-secondary">Open the rest to everyone</SubmitButton>

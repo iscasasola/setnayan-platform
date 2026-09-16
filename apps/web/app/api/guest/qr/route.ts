@@ -167,22 +167,27 @@ export async function GET() {
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
 
+  // A badge that cannot be drawn must not cost the guest their code — the
+  // compositor returns the plain QR — but it must not be invisible either, and
+  // a log line alone is not enough: the header says which picture this is.
+  let markError: unknown = null;
   const png = await renderInvitationQrPng({
     appUrl,
     slug: event.slug,
     qrToken: guest.qr_token,
     ownerSlug,
     monogram: resolveMonogram(event),
-    // A badge that cannot be drawn must not cost the guest their code — the
-    // compositor returns the plain QR — but it must not be invisible either.
-    onMonogramError: (err) =>
-      logQueryError('GuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade'),
+    onMonogramError: (err) => {
+      markError = err;
+      logQueryError('GuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade');
+    },
   });
 
   return new NextResponse(new Uint8Array(png), {
     status: 200,
     headers: {
       'Content-Type': 'image/png',
+      'X-Setnayan-Monogram': markError ? 'fallback' : 'composited',
       // The `download` attribute on the link handles the save in every browser
       // that honours it; this is what makes the file save anyway in the ones
       // that don't, and gives it a name instead of "qr".

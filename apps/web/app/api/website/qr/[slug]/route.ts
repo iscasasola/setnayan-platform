@@ -4,6 +4,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { renderEventLandingQrPng } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * GET /api/website/qr/[slug] — serves the master event QR as PNG with the
@@ -64,17 +65,31 @@ export async function GET(
   // false of the product — the downloaded file is the one that gets printed and
   // handed over. lib/qr-monogram-raster.ts draws the SAME badge as outlines and
   // composites it onto the raster; the code still decodes to the same url.
+  // 🔑 A BADGE THAT DID NOT DRAW MUST NOT LOOK LIKE ONE THAT DID. The composite
+  // falls back to the plain code on any failure — right, because the guest's
+  // scannable code is the thing that must never break — but the first cut of
+  // this route passed no error handler, so production served the bare PNG with
+  // 200 and nothing anywhere said so. The header below carries that fact onto
+  // the wire, where it can be measured without log access.
+  let markError: unknown = null;
   const png = await renderEventLandingQrPng({
     appUrl,
     slug,
     ownerSlug,
     monogram,
+    onMonogramError: (err) => {
+      markError = err;
+      logQueryError('EventLandingQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade');
+    },
   });
 
   return new NextResponse(new Uint8Array(png), {
     status: 200,
     headers: {
       'Content-Type': 'image/png',
+      // 'composited' = the couple's mark is in these pixels. 'fallback' = it is
+      // not, and why is in the logs. See the note above the render.
+      'X-Setnayan-Monogram': markError ? 'fallback' : 'composited',
       // Cache-friendly: same slug + same monogram → same PNG. 30-day public
       // CDN cache; browsers immediately revalidate on monogram change because
       // they re-derive the URL from the slug each visit.

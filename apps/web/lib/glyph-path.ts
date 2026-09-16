@@ -39,9 +39,24 @@ export const ITALIC_SHEAR = Math.tan((12 * Math.PI) / 180);
 
 /** Read + parse a TTF relative to the app root. Fonts are traced into every
  *  serverless function (next.config.ts outputFileTracingIncludes '/**'). */
+/** Read the file, or say WHICH path from WHERE. A bare ENOENT on a serverless
+ *  runtime sends the next reader to the wrong question — the file IS in the
+ *  repo and IS traced into the lambda, so the only thing worth knowing is what
+ *  that runtime's cwd made of the relative path. */
+function readFontOrExplain(abs: string, rel: string) {
+  try {
+    return readFileSync(abs);
+  } catch (err) {
+    throw new Error(
+      `glyph-path: no font at ${abs} (cwd=${process.cwd()}, asked for ${rel})`,
+      { cause: err },
+    );
+  }
+}
+
 export function loadOtFont(rel: string): OtFont {
   const abs = path.join(process.cwd(), rel);
-  const buf = readFileSync(abs);
+  const buf = readFontOrExplain(abs, rel);
   return opentype.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
 }
 

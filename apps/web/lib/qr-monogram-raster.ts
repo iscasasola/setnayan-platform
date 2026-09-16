@@ -1,8 +1,19 @@
-// NOTE: deliberately NOT 'server-only'. `sharp` is a DYNAMIC import inside the
-// function and opentype.js is pure JS, so nothing server-native leaks toward a
-// client bundle — and `tsx --test` can rasterise a REAL badge and read the
-// PIXELS, which is the only assertion worth making about this file. Mirrors
-// lib/qr-decode.ts, which is not server-only for exactly that reason.
+// NOTE: deliberately NOT 'server-only'. Nothing here is reachable from a client
+// bundle — lib/qr.ts loads this module with a dynamic import and only from a
+// server renderer — and leaving the marker off is what lets `tsx --test`
+// rasterise a REAL badge and read the PIXELS, which is the only assertion worth
+// making about this file. Mirrors lib/qr-decode.ts, not server-only for exactly
+// that reason.
+//
+// ⚠ `sharp` is imported STATICALLY here, and that is a correction, not a style
+// choice. The first cut used `(await import('sharp')).default` (copied from
+// lib/qr-decode.ts) and the mark did not reach production: every request
+// returned 200 with the bare code. A dynamic import of a native package inside
+// an already-dynamically-imported webpack chunk is one interop hop nobody had
+// verified, while `import sharp from 'sharp'` is the form lib/watermark-server.ts
+// and lib/social/card.tsx have been rendering with in production for months.
+// The module is only ever loaded behind lib/qr.ts's own dynamic import, so the
+// static import costs no other route anything.
 
 /**
  * lib/qr-monogram-raster.ts — put the couple's monogram into the SAVED QR image.
@@ -49,6 +60,7 @@
  * the plain code's.
  */
 import path from 'node:path';
+import sharp from 'sharp';
 import {
   monogramOverlaySvg,
   type MonogramConfig,
@@ -188,11 +200,16 @@ export async function compositeMonogramOntoQrPng(
   onError?: (err: unknown) => void,
 ): Promise<Buffer> {
   try {
-    const sharp = (await import('sharp')).default;
     const meta = await sharp(qrPng).metadata();
     const width = meta.width ?? 0;
     const height = meta.height ?? 0;
-    if (!width || !height || width !== height) return qrPng;
+    if (!width || !height || width !== height) {
+      // NOT a quiet `return qrPng`. Every QR this repo renders is square, so
+      // reaching here means something upstream changed — and the first version
+      // of this line returned the bare code with no error anywhere, which is
+      // indistinguishable from the composite having worked.
+      throw new Error(`qr-monogram: expected a square QR, got ${width}x${height}`);
+    }
     const badge = Buffer.from(monogramBadgeSvgDocument(width, monogram));
     const overlay = await sharp(badge).png().toBuffer();
     return await sharp(qrPng)

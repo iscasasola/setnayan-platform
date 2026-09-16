@@ -100,7 +100,9 @@ export function centeredTextPathData(opts: {
  * don't), which is the conventional Latin proportion.
  */
 export function capHeightPx(font: OtFont, fontSize: number): number {
-  const os2 = (font.tables as { os2?: { sCapHeight?: number } }).os2;
+  // `tables` is real at runtime but absent from opentype.js's shipped types, so
+  // it is reached through a narrow cast rather than an `any`.
+  const os2 = (font as unknown as { tables?: { os2?: { sCapHeight?: number } } }).tables?.os2;
   const cap = os2?.sCapHeight;
   const upm = font.unitsPerEm || 1000;
   if (typeof cap === 'number' && cap > 0) return (cap / upm) * fontSize;

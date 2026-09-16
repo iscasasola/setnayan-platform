@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { renderInvitationQrPng } from '@/lib/qr';
+import { resolveMonogram } from '@/lib/monogram';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * GET /api/guest/qr — hands the signed-in guest their OWN invitation QR as a
@@ -144,7 +146,13 @@ export async function GET() {
   // perfectly fine — a permanent-sounding refusal for a temporary condition.
   const { data: event, error: eventErr } = await admin
     .from('events')
-    .select('event_id, slug')
+    .select(
+      // The monogram columns join this read for ONE reason: the file the guest
+      // saves must carry the couple's mark, and for most of them that saved
+      // picture IS the invitation (owner decision #19, 2026-09-16). They are the
+      // same columns the couple's own Invitation page already reads.
+      'event_id, slug, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
+    )
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (eventErr) {
@@ -163,6 +171,11 @@ export async function GET() {
     slug: event.slug,
     qrToken: guest.qr_token,
     ownerSlug,
+    monogram: resolveMonogram(event),
+    // A badge that cannot be drawn must not cost the guest their code — the
+    // compositor returns the plain QR — but it must not be invisible either.
+    onMonogramError: (err) =>
+      logQueryError('GuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade'),
   });
 
   return new NextResponse(new Uint8Array(png), {

@@ -328,6 +328,56 @@ export function resolveMonogramDesign(input: {
  * The badge covers ~7×7 modules ≈ 3% of the pattern area — well under the
  * 25% coverage limit that level H (~30% redundancy) can reconstruct.
  */
+/* ──────────────────────────────────────────────────────────────────────────
+ * THE GLYPH SEAM — one geometry, two ways to draw the letters.
+ *
+ * The badge below is emitted as an SVG string, and every surface that shows it
+ * IN A BROWSER wants real `<text>`: the couple's chosen webfont resolves, the
+ * mark stays selectable, and nothing has to ship a font file.
+ *
+ * But the SAVED PNG cannot use `<text>`. Rasterising it means handing the SVG to
+ * sharp, and this repo has already recorded that **librsvg's fontconfig path is
+ * flaky on Vercel** (lib/social/card.tsx, lib/watermark-server.ts) — so a
+ * `<text>` badge can rasterise to NOTHING on a lambda while looking perfect
+ * locally, and the couple saves a blank cream disc with no error anywhere.
+ *
+ * So the geometry stays here, in ONE place, and only the letter-drawing is
+ * swappable: pass `renderText` and the caller decides how a run of type becomes
+ * markup. lib/qr-monogram-raster.ts passes one backed by opentype.js outlines
+ * from a bundled TTF. Everyone else gets the default and is unchanged.
+ *
+ * 🔑 The alternative was a second copy of the badge geometry for the PNG, and a
+ * second copy is how two surfaces start disagreeing about one couple's mark.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export type MonogramTextRun = {
+  /** RAW text — the renderer escapes it (or turns it into outlines). */
+  text: string;
+  x: number;
+  /** Interpreted per `baseline`. */
+  y: number;
+  fontSize: number;
+  fontFamily: string;
+  fontStyle: 'italic' | 'normal';
+  /** CSS length, e.g. '0.01em' or '0'. */
+  letterSpacing: string;
+  /** RAW color. */
+  fill: string;
+  /** 'central' → `y` is the visual centre (dominant-baseline="central").
+   *  'alphabetic' → `y` is the type baseline. */
+  baseline: 'central' | 'alphabetic';
+};
+
+export type MonogramTextRenderer = (run: MonogramTextRun) => string;
+
+/** The browser default: a real `<text>` element in the couple's chosen face. */
+export const defaultMonogramTextRenderer: MonogramTextRenderer = (r) =>
+  `<text x="${r.x}" y="${r.y}" text-anchor="middle"` +
+  (r.baseline === 'central' ? ' dominant-baseline="central"' : '') +
+  ` font-family="${escapeAttr(r.fontFamily)}" font-style="${r.fontStyle}"` +
+  ` letter-spacing="${escapeAttr(r.letterSpacing)}" font-weight="600"` +
+  ` font-size="${r.fontSize}" fill="${escapeAttr(r.fill)}">${escapeXml(r.text)}</text>`;
+
 /**
  * Build the inner SVG for one type-only lockup (bar · duo · script · infinity),
  * normalized to a tight viewBox. STRING twin of the React `MonogramMark`
@@ -344,39 +394,43 @@ function lockupMarkSvg(opts: {
   fontStyle: 'italic' | 'normal';
   letterSpacing: string;
   ink: string;
+  renderText: MonogramTextRenderer;
 }): { viewBox: string; inner: string } {
-  const { style, a, b, fontFamily, fontStyle, letterSpacing, ink } = opts;
-  const A = escapeXml(a);
-  const B = escapeXml(b);
-  const g =
-    `fill="${ink}" font-family="${escapeAttr(fontFamily)}" font-style="${fontStyle}" ` +
-    `letter-spacing="${escapeAttr(letterSpacing)}" font-weight="600" text-anchor="middle"`;
+  const { style, a, b, fontFamily, fontStyle, letterSpacing, ink, renderText } = opts;
+  // Every run shares the face; only text/position/size differ per glyph.
+  const T = (text: string, x: number, y: number, fontSize: number) =>
+    renderText({
+      text,
+      x,
+      y,
+      fontSize,
+      fontFamily,
+      fontStyle,
+      letterSpacing,
+      fill: ink,
+      baseline: 'alphabetic',
+    });
   if (style === 'bar') {
     return {
       viewBox: '6 14 120 70',
       inner:
-        `<text x="28" y="72" font-size="64" ${g}>${A}</text>` +
+        T(a, 28, 72, 64) +
         `<line x1="66" y1="16" x2="66" y2="42" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/>` +
         `<line x1="66" y1="66" x2="66" y2="82" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/>` +
-        `<text x="66" y="60" font-size="22" ${g}>&amp;</text>` +
-        `<text x="104" y="72" font-size="64" ${g}>${B}</text>`,
+        T('&', 66, 60, 22) +
+        T(b, 104, 72, 64),
     };
   }
   if (style === 'duo') {
     return {
       viewBox: '-4 18 110 62',
-      inner:
-        `<text x="34" y="72" font-size="66" ${g}>${A}</text>` +
-        `<text x="68" y="72" font-size="66" ${g}>${B}</text>`,
+      inner: T(a, 34, 72, 66) + T(b, 68, 72, 66),
     };
   }
   if (style === 'script') {
     return {
       viewBox: '8 6 168 90',
-      inner:
-        `<text x="42" y="78" font-size="74" ${g}>${A}</text>` +
-        `<text x="92" y="76" font-size="46" ${g}>&amp;</text>` +
-        `<text x="142" y="78" font-size="74" ${g}>${B}</text>`,
+      inner: T(a, 42, 78, 74) + T('&', 92, 76, 46) + T(b, 142, 78, 74),
     };
   }
   // infinity — gold ∞ + caps. The gradient id is fixed: every ∞ mark on a page
@@ -390,16 +444,20 @@ function lockupMarkSvg(opts: {
       `<stop offset="1" stop-color="#A88340"/></linearGradient></defs>` +
       `<path d="M100 46 C76 14 26 14 26 46 C26 78 76 78 100 46 C124 14 174 14 174 46 C174 78 124 78 100 46 Z" ` +
       `fill="none" stroke="url(#sn-mono-gold)" stroke-width="6" stroke-linecap="round"/>` +
-      `<text x="56" y="56" font-size="30" ${g}>${A}</text>` +
-      `<text x="140" y="56" font-size="30" ${g}>${B}</text>`,
+      T(a, 56, 56, 30) +
+      T(b, 140, 56, 30),
   };
 }
 
 export function monogramOverlaySvg(opts: {
   viewBoxSize: number;
   monogram: MonogramConfig;
+  /** How a run of type becomes markup. Defaults to a real `<text>` element;
+   *  raster callers pass an outline renderer — see THE GLYPH SEAM above. */
+  renderText?: MonogramTextRenderer;
 }): string {
   const { viewBoxSize, monogram } = opts;
+  const renderText = opts.renderText ?? defaultMonogramTextRenderer;
   const cx = viewBoxSize / 2;
   const cy = viewBoxSize / 2;
 
@@ -429,6 +487,7 @@ export function monogramOverlaySvg(opts: {
       fontStyle: monogram.fontStyle ?? 'italic',
       letterSpacing: monogram.letterSpacing ?? '0',
       ink: monogram.inkColor ?? monogram.color,
+      renderText,
     });
     // Square fit-box inside the circle; the wide marks letterbox within it.
     const box = circleR * 1.5;
@@ -441,10 +500,19 @@ export function monogramOverlaySvg(opts: {
     const textLen = monogram.text.length;
     const fontSize =
       textLen <= 1 ? circleR * 1.4 : textLen <= 3 ? circleR * 0.95 : textLen <= 5 ? circleR * 0.7 : circleR * 0.55;
-    const ff = monogram.fontFamily ? escapeAttr(monogram.fontFamily) : 'ui-serif, Georgia, serif';
-    const fStyle = monogram.fontStyle ?? 'italic';
-    const inkText = escapeAttr(monogram.inkColor ?? monogram.color);
-    inner = `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="${ff}" font-style="${fStyle}" font-weight="600" font-size="${fontSize}" fill="${inkText}">${escapeXml(monogram.text)}</text>`;
+    inner = renderText({
+      text: monogram.text,
+      x: cx,
+      y: cy,
+      fontSize,
+      fontFamily: monogram.fontFamily ?? 'ui-serif, Georgia, serif',
+      fontStyle: monogram.fontStyle ?? 'italic',
+      // The legacy badge carried NO letter-spacing attribute; keep it at zero
+      // so this stays the same mark it has always been.
+      letterSpacing: '0',
+      fill: monogram.inkColor ?? monogram.color,
+      baseline: 'central',
+    });
   }
 
   // Layered: rounded-rect clearance (cream) → circle (cream fill + accent ring)
@@ -473,10 +541,14 @@ function escapeAttr(str: string): string {
  * Inject the monogram overlay just before `</svg>` in a QR SVG string.
  * Returns the original string if no `</svg>` is found (defensive).
  */
-export function compositeMonogram(qrSvg: string, monogram: MonogramConfig): string {
+export function compositeMonogram(
+  qrSvg: string,
+  monogram: MonogramConfig,
+  renderText?: MonogramTextRenderer,
+): string {
   const viewBoxMatch = qrSvg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
   const size = viewBoxMatch?.[1] ? parseFloat(viewBoxMatch[1]) : 33;
-  const overlay = monogramOverlaySvg({ viewBoxSize: size, monogram });
+  const overlay = monogramOverlaySvg({ viewBoxSize: size, monogram, renderText });
   if (!qrSvg.includes('</svg>')) return qrSvg;
   return qrSvg.replace('</svg>', `${overlay}</svg>`);
 }

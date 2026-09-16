@@ -64,35 +64,67 @@ export function buildInvitationUrl(params: {
  * "Save the code" on the guest's three QR surfaces (the invitation QR card,
  * the My QR modal, the day-of hub's Me panel).
  *
- * Deliberately the SAME url + the SAME QR_OPTIONS as renderInvitationQrSvg, so
- * the picture a guest saves is the picture they were shown. Only two things
- * differ, both on purpose:
+ * Deliberately the SAME url + the SAME QR_OPTIONS + the SAME monogram badge as
+ * renderInvitationQrSvg, so the picture a guest saves is the picture they were
+ * shown. One thing differs, on purpose: it is BIGGER — 1024px survives being
+ * printed, re-shared through a messaging app that recompresses, or held up on a
+ * cracked phone at a venue door.
  *
- *   - NO MONOGRAM. The composited badge is an SVG-only operation
- *     (compositeMonogram rewrites raw SVG), and the same reasoning the branded
- *     PNG route already recorded applies here: the on-screen card carries the
- *     monogram, the saved file is the bulletproof scannable one.
- *   - BIGGER. 1024px survives being printed, re-shared through a messaging app
- *     that recompresses, or held up on a cracked phone at a venue door.
+ * ⚠ CORRECTED 2026-09-16 (owner decision #19). This docblock used to say "NO
+ * MONOGRAM … the saved file is the bulletproof scannable one", and the two
+ * other PNG routes said the same thing, all three citing the same cause:
+ * compositeMonogram rewrites raw SVG and a PNG is not SVG. That cause was real
+ * and it no longer holds — lib/qr-monogram-raster.ts rasterises the SAME badge
+ * geometry (from the SAME monogramOverlaySvg) as vector outlines and composites
+ * it with sharp, and the composited PNG still decodes to the same url (guarded
+ * in lib/the-saved-code-carries-the-mark.test.ts).
+ * 🔑 It mattered because on this platform the saved image IS the invitation:
+ * 75 of 77 guests on one live wedding have neither an email address nor a
+ * mobile number, so nothing digital reaches them.
  *
- * ⚠ NOT the branded PNG. /api/website/qr/guest/[guestId] tints the modules with
- * the couple's Mood Board palette and is gated on the paid CUSTOM_QR_GUEST
- * upgrade. This one is the plain ink-on-cream code the guest can already see
- * for free, and is gated on nothing but being that guest.
+ * `monogram` is optional and omitting it renders exactly what this function has
+ * always rendered — the plain code — so a caller that cannot resolve the
+ * couple's branding degrades to a working QR rather than an error.
+ *
+ * ⚠ NOT the branded PNG. renderBrandedInvitationQrPng tints the modules with
+ * the couple's Mood Board palette and is served by the gated
+ * /api/website/qr/guest/[guestId]. This one is the plain ink-on-cream code the
+ * guest can already see for free, and is gated on nothing but being that guest.
  */
 export async function renderInvitationQrPng(params: {
   appUrl: string;
   slug: string;
   qrToken: string;
+  monogram?: MonogramConfig;
   ownerSlug?: string | null;
   width?: number;
+  onMonogramError?: (err: unknown) => void;
 }): Promise<Buffer> {
   const url = buildInvitationUrl(params);
-  return QRCode.toBuffer(url, {
+  const png = await QRCode.toBuffer(url, {
     ...QR_OPTIONS,
     type: 'png',
     width: params.width ?? 1024,
   });
+  return withMonogram(png, params.monogram, params.onMonogramError);
+}
+
+/**
+ * The monogram half of every PNG renderer below, in ONE place.
+ *
+ * The raster compositor is loaded dynamically for the same reason lib/qr-decode
+ * loads sharp dynamically: lib/qr.ts is imported by a dozen server components
+ * that only ever want an SVG string, and none of them should pull `sharp` and a
+ * font parser into their module graph to get one.
+ */
+async function withMonogram(
+  png: Buffer,
+  monogram: MonogramConfig | undefined,
+  onError?: (err: unknown) => void,
+): Promise<Buffer> {
+  if (!monogram) return png;
+  const { compositeMonogramOntoQrPng } = await import('./qr-monogram-raster');
+  return compositeMonogramOntoQrPng(png, monogram, onError);
 }
 
 /**
@@ -125,6 +157,32 @@ export function buildEventLandingUrl(params: {
   ownerSlug?: string | null;
 }): string {
   return `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}`;
+}
+
+/**
+ * The master event QR as a PNG, with the couple's monogram in the centre —
+ * the file behind "Download QR" on the Website hub, and safe to use directly
+ * as an `<img>` source.
+ *
+ * The PNG twin of `renderEventLandingQrSvg`: same url (built by the same
+ * `buildEventLandingUrl`), same level-H code, same badge. Bigger, because this
+ * one gets printed at A4 / postcard sizes.
+ */
+export async function renderEventLandingQrPng(params: {
+  appUrl: string;
+  slug: string;
+  monogram?: MonogramConfig;
+  ownerSlug?: string | null;
+  width?: number;
+  onMonogramError?: (err: unknown) => void;
+}): Promise<Buffer> {
+  const url = buildEventLandingUrl(params);
+  const png = await QRCode.toBuffer(url, {
+    ...QR_OPTIONS,
+    type: 'png',
+    width: params.width ?? 1024,
+  });
+  return withMonogram(png, params.monogram, params.onMonogramError);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -233,4 +291,33 @@ export async function renderBrandedInvitationQrSvg(params: {
     return compositeMonogram(svg, params.monogram);
   }
   return svg;
+}
+
+/**
+ * The BRANDED per-guest QR as a PNG — palette-tinted modules + the couple's
+ * monogram in the centre. The PNG twin of `renderBrandedInvitationQrSvg`, and
+ * the file the gated /api/website/qr/guest/[guestId] serves.
+ *
+ * Built from `buildInvitationUrl` like every other invitation renderer, so the
+ * branded card a guest is handed and the branded picture the couple downloads
+ * encode the same token.
+ */
+export async function renderBrandedInvitationQrPng(params: {
+  appUrl: string;
+  slug: string;
+  qrToken: string;
+  monogram?: MonogramConfig;
+  colors: BrandedQrColors;
+  ownerSlug?: string | null;
+  width?: number;
+  onMonogramError?: (err: unknown) => void;
+}): Promise<Buffer> {
+  const url = buildInvitationUrl(params);
+  const png = await QRCode.toBuffer(url, {
+    ...QR_OPTIONS,
+    color: { dark: params.colors.dark, light: params.colors.light },
+    type: 'png',
+    width: params.width ?? 1024,
+  });
+  return withMonogram(png, params.monogram, params.onMonogramError);
 }

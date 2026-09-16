@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
-import { resolveBrandedQrColors } from '@/lib/qr';
-import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { renderBrandedInvitationQrPng, resolveBrandedQrColors } from '@/lib/qr';
+import { resolveMonogram } from '@/lib/monogram';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 
 /**
@@ -14,11 +15,15 @@ import { eventSkuActive } from '@/lib/entitlements';
  * (/dashboard/[eventId]/studio/custom-qr-guest).
  *
  * Closes the partial CUSTOM_QR_GUEST SKU (₱1,499) — the PNG carries the
- * couple's Mood Board palette color in its modules. Like the master event QR
- * endpoint (/api/website/qr/[slug]), the PNG path does NOT composite the
- * center monogram (compositeMonogram operates on raw SVG); the on-screen card
- * shows the full monogram-composited SVG, and this download is the
- * bulletproof shareable PNG.
+ * couple's Mood Board palette color in its modules AND their monogram in the
+ * centre, the same mark the on-screen card shows.
+ *
+ * ⚠ CORRECTED 2026-09-16 (owner decision #19). This docblock used to say the
+ * PNG path "does NOT composite the center monogram (compositeMonogram operates
+ * on raw SVG)" and called the bare file "the bulletproof shareable PNG". The
+ * cause was a real limitation of one function; the conclusion was wrong about
+ * the product, because the downloaded picture is the one that gets printed and
+ * handed to a guest who has no email address. See lib/qr-monogram-raster.ts.
  *
  * GATED — unlike the public master-QR endpoint, this is authenticated:
  *   1. We read the guest via the USER-scoped Supabase client, so RLS blocks
@@ -62,7 +67,9 @@ export async function GET(
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, slug, role_palette, monogram_color')
+    .select(
+      'event_id, slug, role_palette, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
+    )
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (!event) {
@@ -106,15 +113,19 @@ export async function GET(
   // (resolve self-noops OFF; no query pre-cutover). Read with admin: ownership
   // is event-level and event_members/users may be RLS-invisible to a co-host.
   const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
-  const url = `${appUrl}${publicEventPath(slug, ownerSlug)}?invite=${guest.qr_token}`;
 
-  // 1024px keeps the printed PNG crisp at postcard / table-card sizes.
-  const png = await QRCode.toBuffer(url, {
-    type: 'png',
-    width: 1024,
-    margin: 4,
-    errorCorrectionLevel: 'H',
-    color: { dark: colors.dark, light: colors.light },
+  // 1024px keeps the printed PNG crisp at postcard / table-card sizes. The url
+  // is built by buildInvitationUrl inside the renderer — this route no longer
+  // spells it, so the branded card and the branded download cannot drift apart.
+  const png = await renderBrandedInvitationQrPng({
+    appUrl,
+    slug,
+    qrToken: guest.qr_token,
+    ownerSlug,
+    colors,
+    monogram: resolveMonogram(event),
+    onMonogramError: (err) =>
+      logQueryError('BrandedGuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade'),
   });
 
   return new NextResponse(new Uint8Array(png), {

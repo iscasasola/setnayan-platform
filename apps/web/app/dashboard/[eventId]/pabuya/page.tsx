@@ -50,6 +50,32 @@ export default async function PabuyaDashboardPage({ params }: Props) {
     pabuya_message: string | null;
   } | null;
 
+  /**
+   * Did we actually READ the event, or are we about to render around a hole?
+   *
+   * ── WHY THIS BOOLEAN EXISTS (2026-09-16) ──────────────────────────────────
+   * This read is `graceful_degrade`, so a refusal leaves `event` null and the
+   * page renders anyway — and the manager then did
+   * `const isPrivate = (visibility ?? 'private') === 'private'`, turning "I
+   * could not read this" into the sentence "Your event page is private —
+   * launch it to make this live for guests." Measured against production on
+   * 2026-09-16: the owner's own event is `public`, and it was being told the
+   * opposite.
+   *
+   * 🔑 FAIL-CLOSED IS RIGHT FOR A GATE AND WRONG FOR A SENTENCE. The same
+   * `?? 'private'` literal appears on the public guest pages, where defaulting
+   * to private on a failed read HIDES the page and is correct. Here the value
+   * does not gate anything — it only tells the couple what their setting is,
+   * and a guess presented as a reading is a false statement. Three of the four
+   * sites in the tree are safe for exactly this reason (two are gates; the
+   * website editor redirects before it can render). This one was neither.
+   *
+   * ⚠ NOT `!!eventRowError` ALONE. A refusal and a zero-row answer both leave
+   * us with nothing to say; the layout already proved the event exists, so
+   * either way the honest report is "not read", not "private".
+   */
+  const eventWasRead = event !== null;
+
   // The couple's full set (enabled + hidden). Each row carries a resolved
   // presigned QR URL for the preview + the edit thumbnail.
   const methods = await fetchEgiftMethods(supabase, eventId);
@@ -80,6 +106,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
         theOrganizer={words.theOrganizer}
         slug={event?.slug ?? null}
         visibility={event?.landing_page_visibility ?? null}
+        eventWasRead={eventWasRead}
         publicRouteEnabled={isPabuyaPublicRouteEnabled()}
         initialMethods={methods.map((m) => ({
           egift_method_id: m.egift_method_id,

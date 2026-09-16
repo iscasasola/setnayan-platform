@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { parseStoredAsset } from '@/lib/uploads';
+import { pabuyaQrPath } from '@/lib/pabuya-qr-url';
 import type { EgiftMethodKind } from '@/lib/egift-kinds';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -9,7 +10,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
  *
  * Read side of the Pabuya e-gift surface. Fetches a couple's e-gift
  * destinations (event_egift_methods · migration 20270725000000) and resolves
- * each uploaded QR image's `r2://…` ref to a presigned display URL.
+ * each uploaded QR image's `r2://…` ref to a PERMANENT display URL — the
+ * `/api/pabuya/qr/<public_id>` route, never a time-limited signed one.
  *
  * Used by BOTH the couple dashboard (/dashboard/[eventId]/pabuya, user-scoped
  * client — RLS returns the couple's own rows) AND the public guest surface
@@ -34,9 +36,16 @@ export type EgiftMethodRow = {
   updated_at: string;
 };
 
-/** Render-ready view: the row + a resolved (presigned) QR image URL. */
+/** Render-ready view: the row + a resolved QR image URL. */
 export type EgiftMethodView = EgiftMethodRow & {
-  /** Presigned GET URL for the QR image, or null when none uploaded. */
+  /**
+   * PERMANENT URL for the QR image, or null when none uploaded.
+   *
+   * This used to be a 24-hour R2 presigned GET. It is now the stable
+   * `/api/pabuya/qr/<public_id>` path — a gift page is read for months, and a
+   * URL that expires renders as a broken QR on the one surface where a broken
+   * QR reads as "these payment details are wrong". See lib/pabuya-qr-url.ts.
+   */
   qrDisplayUrl: string | null;
 };
 
@@ -75,8 +84,8 @@ export function isPabuyaPublicRouteEnabled(): boolean {
 
 /**
  * Fetch a single event's e-gift methods in display order (sort_order, then
- * created_at as a stable tiebreaker), each with its QR image resolved to a
- * presigned URL.
+ * created_at as a stable tiebreaker), each with its QR image resolved to its
+ * permanent route URL.
  *
  * Fully fail-soft: any read error (e.g. the migration not yet applied on prod)
  * returns [] rather than throwing, so a couple's dashboard / the public page
@@ -100,12 +109,23 @@ export async function fetchEgiftMethods(
   if (error || !data) return [];
 
   const rows = data as unknown as EgiftMethodRow[];
-  return await Promise.all(
-    rows.map(async (row): Promise<EgiftMethodView> => {
-      const qrDisplayUrl = row.qr_r2_key
-        ? await displayUrlForStoredAsset(row.qr_r2_key).catch(() => null)
-        : null;
-      return { ...row, qrDisplayUrl };
-    }),
-  );
+  return rows.map((row): EgiftMethodView => ({ ...row, qrDisplayUrl: qrUrlFor(row) }));
+}
+
+/**
+ * The QR URL for one row.
+ *
+ * An `r2://…` ref resolves to the permanent route; a legacy external URL the
+ * couple pasted before R2 upload existed passes straight through, exactly as
+ * the old shared resolver did for it.
+ *
+ * 🔑 NO AWAIT, AND THAT IS PART OF THE FIX. The old shape signed every row on
+ * every render — an N-call round trip to R2 to produce URLs that then expired.
+ * Building a path needs neither.
+ */
+function qrUrlFor(row: EgiftMethodRow): string | null {
+  if (!row.qr_r2_key) return null;
+  const ref = parseStoredAsset(row.qr_r2_key);
+  if (!ref) return null;
+  return ref.kind === 'legacy_url' ? ref.url : pabuyaQrPath(row.public_id);
 }

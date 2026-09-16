@@ -39,3 +39,17 @@ Changed:
   composited PNG still decodes to the SAME url as the plain one.
 
 SPEC IMPACT: `DECISION_LOG.md` owner decision #19 row (2026-09-16) — recorded.
+
+## 2026-09-16 · fix(qr): the three PNG routes read the CANONICAL monogram column list
+
+`pnpm lint:dup-rule` caught what the local guard sweep could not: the routes'
+hand-typed selects reproduced 60% of `HERO_MONOGRAM_COLUMNS` and dropped the
+rest, which is the exact shape that "works" (PostgREST returns rows) while being
+quietly wrong. All three now select `HERO_MONOGRAM_COLUMNS` rather than a
+near-copy of it; 11 previously baselined duplications are gone as a result.
+
+⚠ Why the local sweep missed it: the CI step runs `pnpm --filter @setnayan/web
+lint:dup-rule`, which has no `scripts/` path in its `run:` line, so a sweep that
+greps ci.yml for `scripts/` skips it.
+
+SPEC IMPACT: None.

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { renderBrandedInvitationQrPng, resolveBrandedQrColors } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -67,9 +68,8 @@ export async function GET(
 
   const { data: event } = await supabase
     .from('events')
-    .select(
-      'event_id, slug, role_palette, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
-    )
+    // The CANONICAL monogram list — see the note in /api/guest/qr.
+    .select(`event_id, slug, role_palette, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (!event) {

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -146,13 +147,13 @@ export async function GET() {
   // perfectly fine — a permanent-sounding refusal for a temporary condition.
   const { data: event, error: eventErr } = await admin
     .from('events')
-    .select(
-      // The monogram columns join this read for ONE reason: the file the guest
-      // saves must carry the couple's mark, and for most of them that saved
-      // picture IS the invitation (owner decision #19, 2026-09-16). They are the
-      // same columns the couple's own Invitation page already reads.
-      'event_id, slug, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
-    )
+    // The monogram columns join this read for ONE reason: the file the guest
+    // saves must carry the couple's mark, and for most of them that saved
+    // picture IS the invitation (owner decision #19, 2026-09-16). Taken from the
+    // CANONICAL list, not hand-typed — a hand-typed near-copy that silently drops
+    // a column is the trap `pnpm lint:dup-rule` exists to catch, and it caught
+    // exactly that here.
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (eventErr) {

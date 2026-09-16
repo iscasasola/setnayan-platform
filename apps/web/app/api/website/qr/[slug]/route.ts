@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { renderEventLandingQrPng } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 
@@ -36,10 +37,8 @@ export async function GET(
     .from('events')
     // The design columns join the read so the PNG carries the couple's CHOSEN
     // lockup, not a generic initials badge — the same mark resolveMonogram hands
-    // every other surface.
-    .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, slug',
-    )
+    // every other surface. The CANONICAL list, never a hand-typed near-copy.
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('slug', slug)
     .maybeSingle();
 

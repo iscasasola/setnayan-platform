@@ -370,7 +370,12 @@ export type NotificationType =
     silenced six transactional types for every user) and NOT push-enabled.
     ⛔ The guest is never named — see `supplierTakedownNotice`.
   */
-  | 'guest_takedown_honored';
+  | 'guest_takedown_honored'
+  /* The shared Papic pot is empty and guests are being refused AT THE
+     CELEBRATION. Only the couple can top it up, and before this nothing
+     anywhere told them — the guest's own screen was the only place the fact
+     appeared. Emailed (EMAIL_ENABLED_TYPES), never marketing-gated. */
+  | 'papic_pool_spent';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -469,6 +474,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   samahan_story: 'New in your samahan',
   samahan_message: 'New in Usapan',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
+  papic_pool_spent: 'Guests have run out of Papic shots',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -653,6 +659,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
     honoured it. A red badge would read as an accusation.
   */
   guest_takedown_honored: 'bg-ink/15 text-ink/70',
+  // Warn, not error: nothing is broken — the pot is spent and can be refilled.
+  papic_pool_spent: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

@@ -57,6 +57,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     attire: 'neutral',
     seniority_rank: null,
     relation: null,
+    invitation_sent_at: null,
     created_at: '2026-01-01',
     ...p,
   };

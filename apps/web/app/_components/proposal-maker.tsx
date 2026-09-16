@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  previewGiftForTotal,
+  giftQuoteCopy,
+  type GiftQuoteBasis,
+} from '@/lib/setnayan-gift';
+
 import { useMemo, useState, useTransition } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -165,8 +171,20 @@ export function ProposalMaker({
   coupleCrewProvider = null,
   paymentMethods = [],
   viewerPromo = null,
+  giftBasis = null,
 }: {
   threadId: string;
+  /**
+   * The Setnayan gift's basis for THIS thread, or null when this quote will
+   * carry no gift (fee off, the card said no, not a Setnayan-sourced client, or
+   * one of the supplier's first five free bookings). Resolved once on the
+   * server by `giftQuoteBasis`; the browser re-prices it as the total changes.
+   *
+   * ⛔ NULL MEANS SAY NOTHING — never "0 photos". A count promised on a booking
+   * that will not be billed for it is the silent broken promise the owner
+   * warned about (DECISION_LOG 2026-09-09).
+   */
+  giftBasis?: GiftQuoteBasis | null;
   /**
    * `chat_threads.pax_at_inquiry` — what the couple ASKED with, and what any
    * earlier quote was written against.
@@ -326,6 +344,26 @@ export function ProposalMaker({
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
   }, [items, crew, transport, discountPhp, pax, hours, viewerPromo]);
+
+  /**
+   * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
+   *
+   * Owner 2026-09-15, asked whether the composer should show the upside alone:
+   * **"show both."** A supplier deciding what to charge could previously see
+   * neither: the photo count existed only on the SENT quote, and the charge
+   * only on the bill that arrives later.
+   *
+   * ⚠ PRICED OFF `netPayable`, NOT the subtotal — that is the figure the line
+   * items add up to and the figure `sendCustomProposalCore` re-sums to, so the
+   * preview and the bill describe the same money. `previewGiftForTotal` runs
+   * the SAME `bookingFeePhp` → `setnayanGiftForFee` pair the server and the SQL
+   * run; it is deliberately not a local estimate.
+   */
+  const gift = useMemo(
+    () => previewGiftForTotal(netPayable, giftBasis),
+    [netPayable, giftBasis],
+  );
+  const giftCopy = giftQuoteCopy(gift, 'supplier');
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
   // crew credit) so the downpayment is a % of the full contract; the credit then
@@ -880,6 +918,22 @@ export function ProposalMaker({
               <span className="font-serif text-lg text-ink tabular-nums">{formatCentavos(netPayable)}</span>
             </div>
           </>
+        ) : null}
+
+        {/* THE SETNAYAN GIFT, while the price is still being decided.
+            Sits under the total because that is the number it is derived from
+            and the number the supplier is looking at when they decide it.
+            Renders ONLY when this booking will really be billed for it —
+            `giftCopy` is null otherwise, and silence is the honest rendering of
+            "no gift" (never "0 photos"). */}
+        {giftCopy ? (
+          <div
+            data-testid="compose-setnayan-gift"
+            className="mt-3 rounded-lg border border-mulberry-600/25 bg-mulberry-600/5 px-3 py-2.5"
+          >
+            <p className="text-sm font-semibold text-mulberry-600">{giftCopy.headline}</p>
+            <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
+          </div>
         ) : null}
       </div>
 

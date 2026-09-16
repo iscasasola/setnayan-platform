@@ -33,6 +33,8 @@
  * floor((2n + d) / 2d) — the same result as Postgres `round(numeric)`.
  */
 
+import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
+
 /**
  * 40% of the booking fee — the gift's CEILING (owner 2026-09-09). A whole
  * percent, applied in integer centavos and FLOORED, so the charge can never
@@ -182,23 +184,6 @@ export function formatGiftPhotos(credits: number): string {
   return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 0 }).format(credits);
 }
 
-/**
- * The line on the QUOTE. In PHOTOGRAPHS, never pesos (owner 2026-09-09:
- * *"give your couple 1,400 photos", not "₱1,000 of credits"*). Returns null
- * when there is no gift to name — the caller then says nothing, rather than
- * promising zero.
- */
-export function giftQuoteLine(
-  gift: Pick<SetnayanGift, 'credits'>,
-  audience: 'couple' | 'supplier',
-): string | null {
-  if (!gift || !Number.isFinite(gift.credits) || gift.credits <= 0) return null;
-  const n = formatGiftPhotos(gift.credits);
-  return audience === 'couple'
-    ? `Includes a Setnayan gift — you get ${n} free Papic photos for your celebration.`
-    : `Includes your Setnayan gift — your couple gets ${n} free Papic photos.`;
-}
-
 /** ₱ + thousands, 0 decimals when whole — mirror of SQL `booking_fee_php_text`. */
 function pesoText(centavos: number): string {
   const php = Math.round(centavos) / 100;
@@ -233,4 +218,104 @@ export function setnayanGiftBillClause(
     ` ${pesoText(feeCentavos)} + your Setnayan gift for your couple: ` +
     `${photos} free Papic photos, ${pesoText(giftCentavos)}`
   );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE QUOTE BEING WRITTEN — the gift while the supplier is still typing.
+ *
+ * ⚖ Owner 2026-09-09: *"the NUMBER appears on the QUOTE, not the card … the
+ * moment a price exists — the proposal or the agreed figure — the exact photo
+ * count is known and is the strongest line on it."* Until now that number
+ * existed only on the SENT quote. A supplier deciding what to charge could not
+ * see what their own price was buying, and — the half that matters — could not
+ * see WHAT IT COST THEM.
+ *
+ * ⚖ Owner 2026-09-15, asked whether the composer should show the upside only:
+ * **"show both."** So the supplier-facing copy names the photographs AND the
+ * peso charge, because they are the one paying it (owner 2026-09-09: "the
+ * supplier is CHARGED for the gift"). The couple is still told photographs and
+ * never pesos — that rule is untouched.
+ *
+ * 🔑 WHY THE PREVIEW IS COMPUTED FROM THE SAME TWO PURE FUNCTIONS AS THE BILL.
+ * A composer that estimated its own number would be a SECOND source of truth
+ * for one fact, and the two would drift the first time a rung or the fee
+ * schedule moved — with the supplier having agreed to the wrong one. This runs
+ * `bookingFeePhp` then `setnayanGiftForFee`, byte for byte what
+ * `quoteSetnayanGift` runs on the server and what the SQL prices the bill with.
+ * `the-quote-preview-is-the-bill.test.ts` asserts the two agree across a range
+ * of totals, so an "optimisation" here fails rather than mis-sells.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Everything the gift needs EXCEPT the amount — resolved once on the server and
+ * handed to the composer so the browser can re-price as the supplier types.
+ *
+ * `null` is the honest answer to every doubt, exactly as `quoteSetnayanGift`
+ * treats it: the fee is off, the card said no, the client is not
+ * Setnayan-sourced, this is one of the first five free bookings, or a read
+ * failed. The composer then says NOTHING — never "0 photos", which would
+ * advertise an absence.
+ */
+export type GiftQuoteBasis = {
+  /** The LIVE owner-set fee schedule. Never a re-typed rate. */
+  schedule: BookingFeeSchedule;
+  /** The live credit ladder, read from the catalogue. */
+  ladder: GiftRung[];
+};
+
+/**
+ * The gift a quote of `totalCentavos` would carry, or null for "say nothing".
+ *
+ * ⚠ `totalCentavos` MUST be the figure the server will re-sum to — in
+ * ProposalMaker that is `netPayable`, the same number its line items add up to.
+ * Previewing against a subtotal would quote a gift the bill will not match.
+ */
+export function previewGiftForTotal(
+  totalCentavos: number,
+  basis: GiftQuoteBasis | null,
+): SetnayanGift | null {
+  if (!basis || !Number.isFinite(totalCentavos) || totalCentavos <= 0) return null;
+  const feeCentavos = Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100);
+  const gift = setnayanGiftForFee(feeCentavos, basis.ladder);
+  return gift.credits > 0 ? gift : null;
+}
+
+/** Both lines of the gift block, for one audience. `null` ⇒ render nothing. */
+export type GiftQuoteCopy = { headline: string; detail: string };
+
+/**
+ * THE ONE COPY OF THE GIFT SENTENCE, for every surface that shows it.
+ *
+ * 🔴 IT WAS TWO. `giftQuoteLine` shipped here with a `'supplier'` branch and was
+ * imported by NOTHING but its own test, while the sent quote page rendered its
+ * own inline strings — so the guard faced the dead copy and the live one was
+ * unguarded. Adding a third at compose time would have made it three. This
+ * replaces both; `giftQuoteLine` is gone.
+ *
+ * The supplier's `detail` carries pesos and the couple's never does — that
+ * asymmetry is the owner's ruling, not a formatting choice, so it lives in one
+ * function where it cannot be half-applied.
+ */
+export function giftQuoteCopy(
+  gift: Pick<SetnayanGift, 'credits' | 'chargeCentavos'> | null | undefined,
+  audience: 'couple' | 'supplier',
+  opts: { businessName?: string | null } = {},
+): GiftQuoteCopy | null {
+  if (!gift || !Number.isFinite(gift.credits) || gift.credits <= 0) return null;
+  const photos = formatGiftPhotos(gift.credits);
+  if (audience === 'supplier') {
+    return {
+      headline: `Includes your Setnayan gift — your couple gets ${photos} free Papic photos`,
+      detail:
+        `Added to your booking fee bill: ${pesoText(gift.chargeCentavos)}. ` +
+        `The photos reach your couple's Papic once that bill is paid.`,
+    };
+  }
+  const from = opts.businessName?.trim();
+  return {
+    headline: `Includes a Setnayan gift — you get ${photos} free Papic photos`,
+    detail: from
+      ? `For your celebration, from ${from}. They arrive in your Papic once the booking is confirmed.`
+      : `For your celebration. They arrive in your Papic once the booking is confirmed.`,
+  };
 }

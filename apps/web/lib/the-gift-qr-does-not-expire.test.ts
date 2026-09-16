@@ -113,11 +113,38 @@ test('the manager may only call a page private when the event was actually read'
 
 test('the unread state gets its own sentence, above both real readings', () => {
   const src = read(MANAGER);
-  const at = (needle: string) => src.indexOf(needle);
-  const unread = at('!eventWasRead');
-  const privateSentence = at('Your event page is private');
-  const liveSentence = at('This is what guests see on your event page');
-  assert.ok(unread > -1 && privateSentence > -1 && liveSentence > -1);
+
+  // ⚠ ANCHOR ON THE TERNARY BRANCH, NOT ON THE BARE SYMBOL. A first draft used
+  // `indexOf('!eventWasRead')`, which matched the explanatory COMMENT sitting
+  // above the expression — so it measured the prose's position and would have
+  // stayed green through a reordering of the actual branches. `: !eventWasRead`
+  // is the branch form and cannot occur in prose.
+  const BRANCH = ': !eventWasRead';
+  const occurrences = src.split(BRANCH).length - 1;
+  assert.equal(
+    occurrences,
+    1,
+    `expected exactly one "${BRANCH}" branch, found ${occurrences}`,
+  );
+
+  // ⚠ AND THE SENTENCES NEED THE SAME TREATMENT. The bare prose
+  // "This is what guests see on your event page" also appears in a COMMENT
+  // 19 lines above the expression, so matching it plainly found the comment
+  // and the ordering assertion failed against correct code. Anchor on the
+  // quoted STRING-LITERAL form, which only occurs in the ternary.
+  const PRIVATE_LIT = "? 'Your event page is private";
+  const LIVE_LIT = ": 'This is what guests see on your event page";
+  for (const [name, lit] of [
+    ['private', PRIVATE_LIT],
+    ['live', LIVE_LIT],
+  ] as const) {
+    const n = src.split(lit).length - 1;
+    assert.equal(n, 1, `expected exactly one ${name} sentence literal, found ${n}`);
+  }
+
+  const unread = src.indexOf(BRANCH);
+  const privateSentence = src.indexOf(PRIVATE_LIT);
+  const liveSentence = src.indexOf(LIVE_LIT);
   // Byte ORDER, not presence — both sentences exist either way, so only their
   // position relative to the unread branch says which one a hole falls into.
   assert.ok(

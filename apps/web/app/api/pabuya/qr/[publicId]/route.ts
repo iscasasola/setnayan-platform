@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { canViewSlugEvent } from '@/lib/slug-access';
+import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import { userHostsEvent } from '@/lib/events';
 import { parseStoredAsset } from '@/lib/uploads';
 import { r2GetBytes } from '@/lib/r2';
@@ -29,9 +30,13 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  *     `userHostsEvent`) may fetch ANY of their own methods — including a
  *     DISABLED one, because the dashboard's edit thumbnail has to render a
  *     destination the couple has hidden from guests.
- *   • Everyone else must clear BOTH `is_enabled` AND `canViewSlugEvent` — the
- *     same visibility gate /[slug]/pabuya itself applies. So this route opens
- *     exactly when that page opens, and not one case wider.
+ *   • Everyone else must clear ALL THREE of `is_enabled`, `canViewSlugEvent`
+ *     (the page is reachable) and `viewerIsRecognisedForEvent` (this
+ *     celebration knows the reader). The last one is the owner's 2026-09-15
+ *     ruling and is the binding condition: a bank QR encodes the account
+ *     number, so it is withheld from a passer-by exactly as the digits are.
+ *     This route therefore opens exactly when /[slug]/pabuya prints the QR,
+ *     and not one case wider.
  *
  * 🔑 THE `is_enabled` HALF IS THE EASY ONE TO DROP, AND IT IS LOAD-BEARING.
  * Hiding a destination is how a couple retires an account — the row keeps the
@@ -133,8 +138,30 @@ export async function GET(
     if (!method.is_enabled) {
       return new NextResponse('No QR code here.', { status: 404 });
     }
+    // The page must be reachable at all…
     if (!(await canViewSlugEvent(method.event_id, visibility))) {
       return new NextResponse('This gift page is not open.', { status: 403 });
+    }
+    /*
+      …AND the reader must be RECOGNISED by this celebration.
+
+      ⚖ OWNER 2026-09-15, twice: "gate the account number", then "gate the
+      gcash number too." A bank QR ENCODES the account those digits name, so
+      `/[slug]/pabuya` withholds `qrUrl` from an unrecognised reader for exactly
+      the same reason it withholds `handle`.
+
+      🔴 `canViewSlugEvent` ALONE WOULD HAVE RE-OPENED THAT. It answers "is this
+      page reachable", and for a `public` event it says yes to a passer-by — the
+      very reader the ruling withholds identifiers from. While the QR was a
+      presigned URL this route did not exist and the page was the only issuer;
+      making the URL permanent created a second door, and a second door asking
+      the weaker question is how a closed decision silently re-opens with every
+      existing guard still green.
+    */
+    if (!(await viewerIsRecognisedForEvent(method.event_id))) {
+      return new NextResponse('Payment details are shown to invited guests.', {
+        status: 403,
+      });
     }
   }
 

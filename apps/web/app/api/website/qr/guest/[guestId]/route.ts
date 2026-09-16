@@ -117,6 +117,7 @@ export async function GET(
   // 1024px keeps the printed PNG crisp at postcard / table-card sizes. The url
   // is built by buildInvitationUrl inside the renderer — this route no longer
   // spells it, so the branded card and the branded download cannot drift apart.
+  let markError: unknown = null;
   const png = await renderBrandedInvitationQrPng({
     appUrl,
     slug,
@@ -124,14 +125,17 @@ export async function GET(
     ownerSlug,
     colors,
     monogram: resolveMonogram(event),
-    onMonogramError: (err) =>
-      logQueryError('BrandedGuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade'),
+    onMonogramError: (err) => {
+      markError = err;
+      logQueryError('BrandedGuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade');
+    },
   });
 
   return new NextResponse(new Uint8Array(png), {
     status: 200,
     headers: {
       'Content-Type': 'image/png',
+      'X-Setnayan-Monogram': markError ? 'fallback' : 'composited',
       // Private cache only — this is a per-guest, gated asset. Re-derived each
       // visit (slug/palette/token can change), so keep the window short.
       'Cache-Control': 'private, max-age=300',

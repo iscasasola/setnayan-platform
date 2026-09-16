@@ -358,3 +358,64 @@ test('no PNG route hand-rolls its own QRCode.toBuffer', async () => {
     );
   }
 });
+
+// ── A badge that did not draw must not look like one that did ───────────────
+
+test('every PNG route reports on the WIRE whether the mark is actually there', async () => {
+  // WHY THIS EXISTS, measured: the first version of this feature merged, served,
+  // and produced the bare code in production on every request — 200, no error,
+  // no log line, and the only way to find out was to decode the served bytes and
+  // diff them against a control. The compositor's fallback is correct (a guest's
+  // scannable code must never fail for a font), but a fallback nobody can see is
+  // the failure-looks-like-success disease this repo keeps paying for.
+  for (const rel of [
+    'app/api/guest/qr/route.ts',
+    'app/api/website/qr/[slug]/route.ts',
+    'app/api/website/qr/guest/[guestId]/route.ts',
+  ]) {
+    const src = stripComments(readFileSync(path.join(process.cwd(), rel), 'utf8'));
+    assert.ok(
+      src.includes('onMonogramError'),
+      `${rel} renders the mark with no error handler — a failure there is silent`,
+    );
+    assert.ok(
+      src.includes("'X-Setnayan-Monogram'"),
+      `${rel} does not say on the wire whether the mark was composited`,
+    );
+    assert.ok(
+      /markError\s*\?\s*'fallback'\s*:\s*'composited'/.test(src),
+      `${rel}'s header does not report the actual outcome`,
+    );
+  }
+});
+
+test('the compositor never returns the bare code without saying so', async () => {
+  // The early return for a non-square input used to be a quiet `return qrPng`.
+  // Every QR this repo renders is square, so that branch could only ever fire on
+  // a real anomaly — and it reported it as success.
+  const src = stripComments(readFileSync(path.join(process.cwd(), 'lib/qr-monogram-raster.ts'), 'utf8'));
+  const at = src.indexOf('export async function compositeMonogramOntoQrPng');
+  assert.notEqual(at, -1);
+  const body = src.slice(at);
+  const returns = body.match(/return qrPng;/g) ?? [];
+  assert.equal(
+    returns.length,
+    1,
+    `compositeMonogramOntoQrPng returns the bare code ${returns.length} times — only the catch may`,
+  );
+  assert.ok(
+    /catch \(err\) \{\s*onError\?\.\(err\);\s*return qrPng;/.test(body),
+    'the one bare-code return is not the reported catch',
+  );
+});
+
+test('sharp is imported statically here — the interop hop is the bug we already paid for', async () => {
+  // `(await import('sharp')).default` inside a module that is ITSELF reached by a
+  // dynamic import is one interop hop nobody had verified on a lambda, and the
+  // whole feature shipped inert behind it. lib/watermark-server.ts and
+  // lib/social/card.tsx have rendered through a static `import sharp` in
+  // production for months; this file uses that form and must keep using it.
+  const src = stripComments(readFileSync(path.join(process.cwd(), 'lib/qr-monogram-raster.ts'), 'utf8'));
+  assert.ok(src.includes("import sharp from 'sharp'"), 'sharp is no longer imported statically');
+  assert.ok(!/await import\(\s*['"]sharp['"]\s*\)/.test(src), 'sharp went back to a dynamic import');
+});

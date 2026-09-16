@@ -11,9 +11,7 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
-import { readGuestSession } from '@/lib/guest-session';
-import { createClient } from '@/lib/supabase/server';
-import { isHostMemberType } from '../_lib/host-scope';
+import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import {
   PabuyaCardList,
   PabuyaTrustNote,
@@ -122,31 +120,22 @@ export default async function PabuyaPublicPage({
     Does this event RECOGNISE the reader? A guest who opened their personal link
     or scanned their QR carries a session for this event; a host is signed in
     and holds an `event_members` row. Anybody else — including somebody the
-    couple forwarded the link to — is a passer-by.
+    couple forwarded the link to — is a passer-by. The two arms, and the
+    `isHostMemberType`-never-`Boolean(row)` warning that goes with them, live in
+    the helper below.
 
-    ⚠ `isHostMemberType`, never `Boolean(row)`: a `guest`-typed member row once
-    waved somebody into a private site because membership was tested for
-    existence and never compared.
-  */
-  const guestSession = await readGuestSession();
-  let viewerIsRecognised = guestSession?.event_id === event.event_id;
-  if (!viewerIsRecognised) {
-    const sb = await createClient();
-    const {
-      data: { user },
-    } = await sb.auth.getUser();
-    if (user) {
-      const { data: member } = await sb
-        .from('event_members')
-        .select('member_type')
-        .eq('event_id', event.event_id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      viewerIsRecognised = isHostMemberType(
-        (member as { member_type?: string | null } | null)?.member_type,
-      );
-    }
-  }
+    🔑 THE RULE MOVED OUT OF THIS FILE ON 2026-09-16 — it did not weaken.
+     `viewerIsRecognisedForEvent` (lib/pabuya-recognition.ts) holds the same
+     two arms this block held, verbatim: a guest session for THIS event, or a
+     signed-in member whose type passes `isHostMemberType`.
+
+     It had to move because the QR stopped being a presigned URL this page
+     minted per-reader and became a permanent route
+     (`/api/pabuya/qr/[publicId]`). That gave the identifiers a SECOND door,
+     and a second door asking a weaker question would have re-opened the very
+     thing the owner closed — while this page's own guard stayed green. Both
+     doors import this one function now. */
+  const viewerIsRecognised = await viewerIsRecognisedForEvent(event.event_id);
 
   const cards: PabuyaMethodCard[] = methods.map((m) => {
     /* ⚖ EVERY method, not only the bank — owner 2026-09-15, twice: "gate the

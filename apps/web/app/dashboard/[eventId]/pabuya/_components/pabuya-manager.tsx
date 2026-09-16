@@ -68,6 +68,7 @@ export function PabuyaManager({
   coupleName,
   slug,
   visibility,
+  eventWasRead,
   publicRouteEnabled,
   initialMethods,
   qrDisplayUrls,
@@ -78,6 +79,17 @@ export function PabuyaManager({
   coupleName: string | null;
   slug: string | null;
   visibility: string | null;
+  /**
+   * Whether the event row was actually READ. False means the query was
+   * refused, so `coupleName`, `slug` and `visibility` are all absent because
+   * we could not look — NOT because they are unset.
+   *
+   * 🔒 REQUIRED, NOT OPTIONAL-WITH-A-DEFAULT. A default of `true` would let a
+   * future caller silently re-acquire the bug this prop exists to kill: the
+   * component would go back to reading "no visibility" as "private" and say so
+   * out loud. A dropped prop is a typecheck failure, and that IS the guard.
+   */
+  eventWasRead: boolean;
   publicRouteEnabled: boolean;
   initialMethods: ManagerMethod[];
   qrDisplayUrls: Record<string, string>;
@@ -203,13 +215,44 @@ export function PabuyaManager({
   }, [initialMethods, formOpen, editingId, draft, qrDisplayUrls]);
 
   const publicHref = publicRouteEnabled && slug ? `/${slug}/pabuya` : null;
-  const isPrivate = (visibility ?? 'private') === 'private';
+  /**
+   * 🔑 THREE STATES, NOT TWO. `isPrivate` may only be TRUE when we actually
+   * read the event. Before this, a refused read fell through `?? 'private'`
+   * and the couple was told their published page was private — a confident
+   * false statement produced by a failure, which is indistinguishable from the
+   * real setting and so cannot be noticed.
+   *
+   * Fail-closed is right for a GATE and wrong for a SENTENCE: nothing here
+   * gates anything, it only reports. When we did not read, we say we did not
+   * read (see `eventWasRead`'s notice below) and claim nothing either way.
+   */
+  const isPrivate = eventWasRead && (visibility ?? 'private') === 'private';
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
       {/* ── LEFT: manager ──────────────────────────────────────────────── */}
       <div className="space-y-5">
         <PabuyaTrustNote audience="couple" organizerPossessive={organizerPossessive} />
+
+        {/* 🔑 THE MEASUREMENT MUST REACH THE RENDER. The refused read was
+            already logged to Sentry with a call_site; what it never did was
+            reach the couple, who instead got a page quietly missing their
+            names and asserting the wrong privacy setting. A log line never
+            changed a pixel. */}
+        {!eventWasRead ? (
+          <p
+            role="status"
+            className="rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2 text-sm leading-relaxed text-warn-900"
+          >
+            <span className="font-semibold">
+              We couldn&rsquo;t load your event details just now.
+            </span>{' '}
+            Your gift methods below are correct and saved — but your
+            celebration&rsquo;s name and whether its page is live aren&rsquo;t
+            shown on this screen until it loads. Reload in a moment; nothing
+            here has changed.
+          </p>
+        ) : null}
 
         {error ? (
           <p
@@ -595,11 +638,17 @@ export function PabuyaManager({
               `publicRouteEnabled` was already a prop — it drives `publicHref`
               above and simply was not consulted here. */}
           <p className="mt-3 text-center text-[11px] leading-relaxed text-ink/50">
+            {/* Hardest gate first, then the honest gap, then the two real
+                readings. `!eventWasRead` sits ABOVE both of those because
+                neither of them is knowable without the row — saying either
+                one here would be inventing the answer. */}
             {!publicRouteEnabled
               ? 'This is a preview. The guest gift page isn’t switched on yet, so guests can’t open it — your set-up is saved and ready for when it is.'
-              : isPrivate
-                ? 'Your event page is private — launch it to make this live for guests.'
-                : 'This is what guests see on your event page.'}
+              : !eventWasRead
+                ? 'This is a preview. We couldn’t check whether your event page is live, so we’re not saying either way — reload to see.'
+                : isPrivate
+                  ? 'Your event page is private — launch it to make this live for guests.'
+                  : 'This is what guests see on your event page.'}
           </p>
         </div>
       </aside>

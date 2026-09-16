@@ -22,7 +22,10 @@ export type PabuyaMethodCard = {
   accountName: string | null;
   handle: string | null;
   note: string | null;
-  /** Presigned URL for the QR image, or null when none uploaded. */
+  /**
+   * Permanent URL for the QR image (`/api/pabuya/qr/<public_id>`), or null
+   * when none uploaded. No longer a presigned URL — see lib/pabuya-qr-url.ts.
+   */
   qrUrl: string | null;
 };
 
@@ -90,7 +93,10 @@ export function PabuyaCardList({
               </div>
               {m.qrUrl ? (
                 <span className="inline-flex h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-cream">
-                  {/* presigned URL → raw img (next/image would cache an expired URL) */}
+                  {/* Raw <img>: the QR is an app route, not a build-time
+                      asset, and it is already served at exactly the size we
+                      draw it — next/image would add an optimiser hop in front
+                      of a gated route for no gain. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={m.qrUrl}

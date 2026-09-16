@@ -62,17 +62,60 @@ test('🔒 EVERY payment identifier and its QR are withheld from an unrecognised
   );
 });
 
+/*
+  🔑 THE RULE MOVED ON 2026-09-16 AND THIS GUARD FOLLOWED IT — every assertion
+  below is the one that was here before, retargeted, not relaxed.
+
+  It moved because the QR stopped being a presigned URL this page minted
+  per-reader and became a permanent route (`/api/pabuya/qr/[publicId]`). That
+  is a SECOND door onto the same identifiers, and the danger of a rule written
+  inline in one page is precisely that the other door can ask a weaker question
+  while this file stays green. `lib/pabuya-recognition.ts` is now the only
+  definition and BOTH doors import it — which is also what makes it checkable
+  in one place.
+*/
+function recognitionRule(): string {
+  return stripComments(
+    readFileSync(join(process.cwd(), 'lib/pabuya-recognition.ts'), 'utf8'),
+  ).replace(/\s+/g, ' ');
+}
+
 test('recognition is a session for THIS event, or a real host', () => {
-  const src = pageBody();
+  const src = recognitionRule();
   assert.ok(src.includes('readGuestSession'), 'no guest session is read, so an invited guest cannot be recognised');
   assert.match(
     src,
-    /guestSession\?\.event_id === event\.event_id/,
+    /guestSession\?\.event_id === eventId/,
     'the session is not compared to THIS event — a session for another wedding would pass',
   );
   assert.ok(
     src.includes('isHostMemberType'),
     'host membership is not asked through isHostMemberType — existence was once mistaken for authority here',
+  );
+  // The page must actually REACH the rule; a helper nobody calls is a comment.
+  assert.match(
+    pageBody(),
+    /viewerIsRecognised = await viewerIsRecognisedForEvent\(event\.event_id\)/,
+    'the gifts page no longer asks the shared recognition rule',
+  );
+});
+
+test('🔒 the permanent QR route asks the SAME question the page asks', () => {
+  const route = stripComments(
+    readFileSync(join(process.cwd(), 'app/api/pabuya/qr/[publicId]/route.ts'), 'utf8'),
+  ).replace(/\s+/g, ' ');
+  assert.ok(
+    route.includes('viewerIsRecognisedForEvent'),
+    'the QR route does not ask for recognition — a passer-by could fetch the bank QR the page withholds',
+  );
+  assert.match(
+    route,
+    /if \(!\(await viewerIsRecognisedForEvent\([^)]*\)\)\) \{ return new NextResponse/,
+    'recognition is computed but not enforced — a value nobody branches on is not a gate',
+  );
+  assert.ok(
+    route.includes('!method.is_enabled'),
+    'a retired (hidden) destination must 404 — its row still holds the old account',
   );
 });
 

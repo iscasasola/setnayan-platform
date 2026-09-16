@@ -310,7 +310,7 @@ export async function GuestAllotmentsChoice({
               />
             )}
             <p className="text-xs text-ink/55">
-              The grey number is each guest's limit now — sponsors already get a bigger one. Type
+              The grey number is each guest’s limit now — sponsors already get a bigger one. Type
               a number to set it yourself; clear the box to go back. A limit a named guest does
               not use is not held for her: it stays in the pot and anybody may take it.
             </p>

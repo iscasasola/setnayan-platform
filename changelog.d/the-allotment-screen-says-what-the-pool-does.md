@@ -48,12 +48,24 @@ explanation entirely, which passes every banned-pattern test (7) · restore it o
 the console page (5) · restore it on the guest's camera (6) · make
 `papic_event_pool_status` read `papic_guest_spend_ceilings` (8).
 
-### ⚖ OPEN OWNER DECISION — not taken here
+### ⚖ RULED BY THE OWNER, 2026-09-16 — "ceiling."
 
-The owner has said the host *"can assign minimum shots per guest or assign
-specific credits per guest"*. **A minimum is a floor; this is a ceiling.** So
-either the build moves or the promise does. This PR only stops the screens
-answering on his behalf. Inert today — 0 rows in `papic_guest_spend_ceilings`
-and 0 events with the flag on — so nothing a couple can currently see changes.
+Asked whether the couple's numbers should reserve, he answered in one word.
+**The number is the most a guest may take. No reservation is to be built**, and
+his earlier phrasing — *"assign minimum shots per guest"* — is superseded.
+
+So this is not a holding position: the corrected sentences are the product as
+ruled. And the guard's last test changed meaning with that answer — making
+`papic_event_pool_status` withhold now **contradicts a ruling** rather than
+completing one, and its failure message says so.
+
+⚠ **The lesson is not the answer.** Three screens had already answered — the
+couple's sheet, the console's confirmations, and the guest's own phone at the
+moment she was refused — while the owner had never been asked. **A screen that
+answers an unruled question is not a placeholder; it is the product making the
+decision.**
+
+Inert today either way — 0 rows in `papic_guest_spend_ceilings`, 0 events with
+the flag on — so nothing a couple can currently see changes.
 
 SPEC IMPACT: Applied — DECISION_LOG.md row 2026-09-16.

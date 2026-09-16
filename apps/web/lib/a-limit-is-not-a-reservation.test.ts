@@ -43,11 +43,25 @@
  * That is the difference between a guard and a note. A note would freeze
  * today's weaker sentence into the product.
  *
- * ⚖ Whether the couple's numbers SHOULD reserve is an OWNER DECISION, opened
- * 2026-09-16 and not taken here. The owner has said the host "can assign
- * minimum shots per guest" — a minimum is a floor and this is a ceiling, so
- * either the build or the promise has to move. This file only stops the screen
- * claiming the answer before he gives it.
+ * ⚖ RULED 2026-09-16. Asked whether the couple's numbers should reserve, the
+ * owner answered in one word: "ceiling." The number is THE MOST a guest may
+ * take. No reservation is to be built, and his earlier phrasing — "assign
+ * minimum shots per guest" — is superseded; he meant a cap.
+ *
+ * So the sentences below are not a holding position until somebody decides.
+ * They are the product as ruled.
+ *
+ * 🔑 AND THE LAST TEST IN THIS FILE CHANGED MEANING WITH THAT RULING. It used
+ * to mean "the owner has decided — come back and fix the copy." It now means
+ * a ruling is being contradicted in code. Whoever makes the pool withhold is
+ * UNDOING a decision, not completing one, and needs a new ruling rather than a
+ * copy edit.
+ *
+ * ⚠ THE DURABLE LESSON IS NOT THE ANSWER. It is that three screens had already
+ * answered — the couple's sheet, the console's confirmations, and the guest's
+ * own phone at the moment she was refused — while the owner had never been
+ * asked. A screen that answers an unruled question is not a placeholder; it is
+ * the product making the decision.
  *
  * ── STRIPPED FIRST ──────────────────────────────────────────────────────────
  * Comments come off with the repo's one string-aware stripper before any match,
@@ -260,9 +274,10 @@ test('⚖ THE KEY: if the pool ever WITHHOLDS for named guests, come back and sa
   assert.ok(
     !body.includes('papic_guest_spend_ceilings'),
     `papic_event_pool_status (${file}) now reads papic_guest_spend_ceilings, which means a ` +
-      "named guest's credits ARE being held back for her. That is the owner decision this " +
-      'file was waiting on. The prohibitions above are now WRONG — the screen should go back ' +
-      'to saying the credits are hers, and this test should be rewritten to pin THAT. Do not ' +
-      'silence it; it fired exactly when it was supposed to.',
+      "named guest's credits are being held back for her. ⚖ THAT CONTRADICTS AN OWNER RULING: " +
+      'asked on 2026-09-16 whether a per-guest number should reserve, he answered "ceiling" — ' +
+      'the number is the most she may take, and no reservation was to be built. This is not a ' +
+      'test that has gone stale. Take a new ruling before you change this, then rewrite this ' +
+      'file to pin whatever he says. Do not silence it; it fired exactly when it was supposed to.',
   );
 });

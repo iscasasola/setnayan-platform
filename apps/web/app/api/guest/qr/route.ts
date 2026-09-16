@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { renderInvitationQrPng } from '@/lib/qr';
+import { resolveMonogram } from '@/lib/monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * GET /api/guest/qr — hands the signed-in guest their OWN invitation QR as a
@@ -144,7 +147,13 @@ export async function GET() {
   // perfectly fine — a permanent-sounding refusal for a temporary condition.
   const { data: event, error: eventErr } = await admin
     .from('events')
-    .select('event_id, slug')
+    // The monogram columns join this read for ONE reason: the file the guest
+    // saves must carry the couple's mark, and for most of them that saved
+    // picture IS the invitation (owner decision #19, 2026-09-16). Taken from the
+    // CANONICAL list, not hand-typed — a hand-typed near-copy that silently drops
+    // a column is the trap `pnpm lint:dup-rule` exists to catch, and it caught
+    // exactly that here.
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('event_id', guest.event_id)
     .maybeSingle();
   if (eventErr) {
@@ -163,6 +172,11 @@ export async function GET() {
     slug: event.slug,
     qrToken: guest.qr_token,
     ownerSlug,
+    monogram: resolveMonogram(event),
+    // A badge that cannot be drawn must not cost the guest their code — the
+    // compositor returns the plain QR — but it must not be invisible either.
+    onMonogramError: (err) =>
+      logQueryError('GuestQrPng.monogram', err, { eventId: event.event_id }, 'graceful_degrade'),
   });
 
   return new NextResponse(new Uint8Array(png), {

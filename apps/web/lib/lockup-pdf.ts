@@ -29,11 +29,10 @@
  *                     no Playfair TTF ships in-repo — see blocker note in the PR)
  *   script         → Great Vibes (lib/social/fonts/GreatVibes-Regular.ttf), upright
  */
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import opentype, { type Font as OtFont, type Path as OtPath } from 'opentype.js';
 import { LineCapStyle, rgb, type PDFPage, type RGB } from 'pdf-lib';
 import { resolveMonogramDesign, splitInitials } from '@/lib/monogram';
+import { ITALIC_SHEAR, centeredTextPathData, loadOtFont, type OtFont } from '@/lib/glyph-path';
 
 export type LockupStyle = 'bar' | 'duo' | 'script' | 'infinity';
 
@@ -42,47 +41,26 @@ const GOLD: RGB = rgb(0xa8 / 255, 0x83 / 255, 0x40 / 255); // #A88340 (∞ strok
 
 // opentype renders at this em; the glyph path coords then live in font-size px.
 // We render directly at each lockup's font-size, so no extra scaling per glyph.
-function loadFont(rel: string): OtFont {
-  const abs = path.join(process.cwd(), rel);
-  const buf = readFileSync(abs);
-  return opentype.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-}
+// The parse + the italic shear now live in lib/glyph-path.ts, shared with the
+// QR-centre raster badge so the two cannot drift.
 
 // Module-load font cache (mirrors lib/social/card.tsx). The faces are tiny TTFs.
 let _cormorant: OtFont | null = null;
 let _bodoni: OtFont | null = null;
 let _greatVibes: OtFont | null = null;
 function cormorant(): OtFont {
-  return (_cormorant ??= loadFont(path.join('assets', 'cipher-fonts', 'cormorant.ttf')));
+  return (_cormorant ??= loadOtFont(path.join('assets', 'cipher-fonts', 'cormorant.ttf')));
 }
 function bodoni(): OtFont {
-  return (_bodoni ??= loadFont(path.join('assets', 'cipher-fonts', 'bodoni-moda.ttf')));
+  return (_bodoni ??= loadOtFont(path.join('assets', 'cipher-fonts', 'bodoni-moda.ttf')));
 }
 function greatVibes(): OtFont {
-  return (_greatVibes ??= loadFont(path.join('lib', 'social', 'fonts', 'GreatVibes-Regular.ttf')));
-}
-
-/** italic shear (~12°) applied to bar/duo/infinity caps to match the web faces,
- *  which render font-style:italic on upright-bundled TTFs (satori does the same).
- *  Shear in SVG y-down space: x' = x − y·tan(θ) leans the top to the right. */
-const ITALIC_SHEAR = Math.tan((12 * Math.PI) / 180);
-
-function shearPathData(p: OtPath, shear: number, baselineY: number): string {
-  if (!shear) return p.toPathData(2);
-  // Pivot the shear at the BASELINE so the glyph only leans (like CSS italic) —
-  // not also translates. x ← x − (y − baselineY)·shear: zero shift at the
-  // baseline, top (y<baselineY) leans right. (A naive y·shear would slide the
-  // whole glyph left by baselineY·shear and break alignment with the divider/∞.)
-  for (const c of p.commands) {
-    if (typeof c.x === 'number' && typeof c.y === 'number') c.x -= (c.y - baselineY) * shear;
-    if (typeof c.x1 === 'number' && typeof c.y1 === 'number') c.x1 -= (c.y1 - baselineY) * shear;
-    if (typeof c.x2 === 'number' && typeof c.y2 === 'number') c.x2 -= (c.y2 - baselineY) * shear;
-  }
-  return p.toPathData(2);
+  return (_greatVibes ??= loadOtFont(path.join('lib', 'social', 'fonts', 'GreatVibes-Regular.ttf')));
 }
 
 /** A baseline-anchored, text-anchor=middle glyph path string in lockup-viewBox
- *  coordinates (SVG y-down, baseline at `y`). */
+ *  coordinates (SVG y-down, baseline at `y`). One glyph, so no letter-spacing:
+ *  see lib/glyph-path.ts centeredTextPathData. */
 function glyphPath(
   font: OtFont,
   ch: string,
@@ -91,9 +69,7 @@ function glyphPath(
   fontSize: number,
   shear: number,
 ): string {
-  const adv = font.getAdvanceWidth(ch, fontSize);
-  const p = font.getPath(ch, cx - adv / 2, baselineY, fontSize);
-  return shearPathData(p, shear, baselineY);
+  return centeredTextPathData({ font, text: ch, cx, baselineY, fontSize, shear });
 }
 
 export type EventLockupSource = {

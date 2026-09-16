@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
-import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { renderEventLandingQrPng } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 /**
  * GET /api/website/qr/[slug] — serves the master event QR as PNG with the
@@ -34,7 +35,10 @@ export async function GET(
   const supabase = createAdminClient();
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, monogram_text, monogram_color, slug')
+    // The design columns join the read so the PNG carries the couple's CHOSEN
+    // lockup, not a generic initials badge — the same mark resolveMonogram hands
+    // every other surface. The CANONICAL list, never a hand-typed near-copy.
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
     .eq('slug', slug)
     .maybeSingle();
 
@@ -42,11 +46,7 @@ export async function GET(
     return new NextResponse('Wedding website not found.', { status: 404 });
   }
 
-  const monogram = resolveMonogram({
-    display_name: event.display_name,
-    monogram_text: event.monogram_text,
-    monogram_color: event.monogram_color,
-  });
+  const monogram = resolveMonogram(event);
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -55,23 +55,20 @@ export async function GET(
   // below (s-maxage) means a flipped PNG lags up to a day, but the bare URL it
   // encodes keeps working (the dispatcher redirects it), so the lag is benign.
   const ownerSlug = await resolveEventOwnerSlug(supabase, event.event_id);
-  const url = publicEventUrl(appUrl, slug, ownerSlug);
 
   // Render at 1024px so the printed PNG stays crisp at A4 / postcard sizes.
-  // PNG path doesn't compose with `compositeMonogram` (which operates on
-  // raw SVG strings), so we keep a clean centered monogram out of the PNG
-  // path for now — the SVG version on /dashboard/[eventId]/website shows the
-  // host the monogram-composited preview, and the downloaded PNG is the
-  // bare-bones bulletproof shareable version.
-  const png = await QRCode.toBuffer(url, {
-    type: 'png',
-    width: 1024,
-    margin: 4,
-    errorCorrectionLevel: 'H',
-    color: {
-      dark: '#1A1A1A',
-      light: '#FAF7F2',
-    },
+  //
+  // ⚠ CORRECTED 2026-09-16 (owner decision #19). This route used to say the PNG
+  // path "doesn't compose with compositeMonogram (which operates on raw SVG
+  // strings)" and shipped a bare code. That reason was true of the function and
+  // false of the product — the downloaded file is the one that gets printed and
+  // handed over. lib/qr-monogram-raster.ts draws the SAME badge as outlines and
+  // composites it onto the raster; the code still decodes to the same url.
+  const png = await renderEventLandingQrPng({
+    appUrl,
+    slug,
+    ownerSlug,
+    monogram,
   });
 
   return new NextResponse(new Uint8Array(png), {

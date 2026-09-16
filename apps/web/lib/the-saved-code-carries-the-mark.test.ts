@@ -32,6 +32,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import sharp from 'sharp';
 import {
@@ -418,4 +419,54 @@ test('sharp is imported statically here — the interop hop is the bug we alread
   const src = stripComments(readFileSync(path.join(process.cwd(), 'lib/qr-monogram-raster.ts'), 'utf8'));
   assert.ok(src.includes("import sharp from 'sharp'"), 'sharp is no longer imported statically');
   assert.ok(!/await import\(\s*['"]sharp['"]\s*\)/.test(src), 'sharp went back to a dynamic import');
+});
+
+// ── The dependency's REAL shape, not the shape we wrote down for it ─────────
+
+test('opentype.js has NO default export — and nothing here imports one', async () => {
+  // THE BUG THIS EXISTS FOR, in production, on a merged and green release:
+  //   EventLandingQrPng.monogram — "Cannot read properties of undefined (reading 'parse')"
+  // types/opentype.js.d.ts declared `export default { parse }`. opentype.js@2's
+  // ESM build has no such thing, and that build is the one webpack picks for the
+  // server bundle. `tsx` resolves the CJS entry and synthesises a default, so
+  // every local test passed while every lambda got undefined.
+  //
+  // This asserts the DEPENDENCY, not our belief about it: it imports the exact
+  // file a bundler resolves via the package's `module` field.
+  const esm: Record<string, unknown> = await import('opentype.js/dist/opentype.mjs');
+  assert.equal(typeof esm.parse, 'function', 'opentype.js/dist/opentype.mjs no longer exports parse');
+  assert.equal(
+    esm.default,
+    undefined,
+    'opentype.js grew a default export — re-check types/opentype.js.d.ts before relying on it',
+  );
+
+  // Comments stripped first — this is a NEGATIVE assertion, and that file's own
+  // docblock has to be able to NAME the thing it is warning about.
+  const dts = stripComments(
+    readFileSync(path.join(process.cwd(), 'types/opentype.js.d.ts'), 'utf8'),
+  );
+  assert.ok(
+    !/export\s+default/.test(dts),
+    'types/opentype.js.d.ts declares a default export the runtime does not have',
+  );
+
+  // And no source file reaches for one. A hand-written ambient type is a claim
+  // about somebody else's runtime, and nothing checks it — so the import form is
+  // what gets pinned.
+  // `git grep -l` exits 1 when it finds NOTHING, which is the passing case here
+  // — execFileSync throws on a non-zero exit, so a naive call turns "clean" into
+  // a red test. Status 1 is the answer, not an error.
+  let offenders = '';
+  try {
+    offenders = execFileSync(
+      'git',
+      ['grep', '-l', '-E', "^import [A-Za-z_$][A-Za-z0-9_$]*(,| from).*'opentype\\.js'", '--', 'lib', 'app'],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    ).trim();
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status !== 1) throw err;
+  }
+  assert.equal(offenders, '', `these default-import opentype.js:\n${offenders}`);
 });

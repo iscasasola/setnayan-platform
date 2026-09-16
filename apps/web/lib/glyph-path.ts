@@ -28,7 +28,15 @@
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import opentype, { type Font as OtFont, type Path as OtPath } from 'opentype.js';
+// ⚠ THE NAMED `parse`, NEVER A DEFAULT IMPORT. opentype.js@2's ESM build
+// (dist/opentype.mjs, the one webpack picks via the `module` field) has NO
+// default export — only named ones. `import opentype from 'opentype.js'`
+// therefore yields UNDEFINED in a Next server bundle while working fine under
+// `tsx`, which resolves the CJS `main` and synthesises a default.
+// It typechecked because types/opentype.js.d.ts declared a default that does
+// not exist; that declaration is now gone. Production said it out loud:
+//   EventLandingQrPng.monogram — "Cannot read properties of undefined (reading 'parse')"
+import { parse as parseFont, type Font as OtFont, type Path as OtPath } from 'opentype.js';
 
 export type { OtFont };
 
@@ -57,7 +65,7 @@ function readFontOrExplain(abs: string, rel: string) {
 export function loadOtFont(rel: string): OtFont {
   const abs = path.join(process.cwd(), rel);
   const buf = readFontOrExplain(abs, rel);
-  return opentype.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  return parseFont(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
 }
 
 export function shearPathData(p: OtPath, shear: number, baselineY: number): string {

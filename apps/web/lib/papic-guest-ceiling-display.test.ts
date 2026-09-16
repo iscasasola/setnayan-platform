@@ -220,7 +220,30 @@ test('the remedy sentence is scoped to guest_spend_ceiling only, and stays hones
   );
   assert.ok(match?.[1], 'could not isolate the rendered remedy sentence');
   const sentence: string = match[1] as string;
-  assert.match(sentence, /they can open\s+up more at any time/, 'the one-sentence remedy copy is gone');
+  // ⚠ REWORDED 2026-09-16 and the ASSERTION MOVED WITH IT, deliberately, rather
+  // than the copy being bent back to satisfy this line. It used to read "the
+  // number the host set aside for you", and NOTHING IS SET ASIDE:
+  // `papic_event_pool_status` subtracts `papic_seat_allocations` and never reads
+  // `papic_guest_spend_ceilings`, so a named guest's number holds nothing back
+  // for her. ⚖ The owner ruled "ceiling" on 2026-09-16 — the number is the most
+  // she may take. See lib/a-limit-is-not-a-reservation.test.ts, which bans the
+  // old phrasing on all three surfaces and fires if the pool ever starts
+  // withholding.
+  // 🪤 `\s+` AT EVERY GAP, NOT JUST ONE. The sentence is JSX and Prettier wraps
+  // it wherever the line runs out — this assertion failed first time round
+  // because the wrap landed after "at", not where the previous wording broke.
+  // A copy guard that encodes today's line breaks is a guard that fails on a
+  // reformat and passes on a rewrite.
+  assert.match(
+    sentence,
+    /they\s+can\s+raise\s+it\s+at\s+any\s+time/,
+    'the one-sentence remedy copy is gone',
+  );
+  assert.doesNotMatch(
+    sentence,
+    /set aside for you/i,
+    'nothing is set aside — the number is a ceiling, not a reservation (owner ruling 2026-09-16)',
+  );
   // Must NOT promise the remedy happens, imply the shot is lost, or send her
   // to go ask the host directly.
   assert.doesNotMatch(sentence, /will (raise|open|add)/i, 'copy promises the remedy will happen');

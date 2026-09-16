@@ -69,3 +69,22 @@ Inert today either way — 0 rows in `papic_guest_spend_ceilings`, 0 events with
 the flag on — so nothing a couple can currently see changes.
 
 SPEC IMPACT: Applied — DECISION_LOG.md row 2026-09-16.
+
+## 2026-09-16 · fix(test): the remedy-sentence guard moves with the ruling, not against it
+
+`lib/papic-guest-ceiling-display.test.ts` pinned the guest camera's remedy
+sentence verbatim — *"they can open up more at any time"* — and went red when
+that sentence was corrected. **The guard was right to fire and the assertion was
+moved, not the copy bent back to satisfy it**, because the sentence it pinned sat
+directly after *"the number the host set aside for you"*, and nothing is set
+aside. It now pins the ruled wording and additionally forbids `set aside for
+you`, so the old phrasing cannot come back through this file either.
+
+🪤 **And the first attempt at that assertion failed for a reason worth keeping.**
+`/they can raise it at any time/` did not match its own sentence: the JSX wraps
+wherever the line runs out, and the wrap had landed after *"at"* rather than
+where the previous wording broke. The regex now puts `\s+` at **every** gap. **A
+copy guard that encodes today's line breaks fails on a reformat and passes on a
+rewrite** — exactly backwards.
+
+SPEC IMPACT: None.

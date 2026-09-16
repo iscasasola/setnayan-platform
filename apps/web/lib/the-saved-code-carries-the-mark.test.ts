@@ -31,7 +31,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import {
@@ -46,6 +46,7 @@ import {
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 import { monogramOverlaySvg, resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { fontFileForStack, monogramBadgeSvgDocument } from '@/lib/qr-monogram-raster';
+import { stripComments } from '@/lib/strip-comments';
 
 const P = { appUrl: 'https://x.test', slug: 'ana-at-marco', qrToken: 'tok-abc' };
 
@@ -308,4 +309,52 @@ test('the browser badge is still a real <text> element in the couple’s webfont
 
   const svg = await renderInvitationQrSvg({ ...P, monogram: monoFor('bar') });
   assert.ok(svg.includes('<text'), 'the on-screen QR lost its live monogram');
+});
+
+// ── Every route that SERVES a saved QR actually passes the mark ─────────────
+
+test('all three PNG routes pass a resolved monogram to the renderer', async () => {
+  // The lib guards above prove the compositor works. They cannot see a route
+  // that stops calling it — and a route is where this regressed for months, not
+  // the renderer. Comments are stripped first: this is a POSITIVE assertion, and
+  // every one of these files has the word "monogram" in its docblock.
+  const routes = [
+    'app/api/guest/qr/route.ts',
+    'app/api/website/qr/[slug]/route.ts',
+    'app/api/website/qr/guest/[guestId]/route.ts',
+  ];
+  for (const rel of routes) {
+    const src = stripComments(readFileSync(path.join(process.cwd(), rel), 'utf8'));
+    assert.ok(
+      src.includes('resolveMonogram('),
+      `${rel} no longer resolves the couple's monogram — the saved image lost the mark`,
+    );
+    // Slice the RENDERER CALL, not the file: "the word monogram appears
+    // somewhere" is satisfied by the const that is then never passed, which is
+    // exactly the shape this guard exists to catch.
+    const at = src.search(/render\w*QrPng\(\{/);
+    assert.notEqual(at, -1, `${rel} does not call a PNG renderer from lib/qr.ts`);
+    const call = src.slice(at, src.indexOf('});', at));
+    assert.ok(
+      /\bmonogram\b\s*[,:]/.test(call),
+      `${rel} resolves a monogram but does not hand it to the renderer`,
+    );
+  }
+});
+
+test('no PNG route hand-rolls its own QRCode.toBuffer', async () => {
+  // Two of these used to. That is how one surface keeps the mark and another
+  // loses it: the badge lives in the renderer, so a route that bypasses the
+  // renderer bypasses the badge — and nothing about it looks wrong.
+  for (const rel of [
+    'app/api/guest/qr/route.ts',
+    'app/api/website/qr/[slug]/route.ts',
+    'app/api/website/qr/guest/[guestId]/route.ts',
+  ]) {
+    const src = stripComments(readFileSync(path.join(process.cwd(), rel), 'utf8'));
+    assert.ok(
+      !src.includes('QRCode.toBuffer'),
+      `${rel} renders its own QR instead of calling lib/qr.ts — it will drift`,
+    );
+  }
 });

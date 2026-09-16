@@ -1398,7 +1398,80 @@ with **no code change** (the flow reads the flag). See `lib/anon-onboarding.ts`.
 
 ---
 
+## Point Supabase Auth at Resend — DO THIS BEFORE THE CAPTCHA SECTION BELOW
+
+**Today every password reset, sign-in link and email confirmation on the whole
+platform shares a budget of TWO EMAILS PER HOUR.** That is Supabase's built-in
+sender, which exists for development and is rate-limited accordingly. Resend is
+already configured, already paid for, and already sending the app's own mail
+(`platform_settings.resend_from_address` = `noreply@setnayan.com`, and
+`send.setnayan.com` carries the SPF and DKIM records). Supabase Auth is simply
+not pointed at it.
+
+Until it is, a stranger who forgets their password is not slow to get back in —
+they are **third in line behind two other people, for an hour**, with nothing on
+screen telling them so.
+
+> 🔑 **DO THIS BEFORE THE TURNSTILE SECTION BELOW.** Supabase captcha is global,
+> and one of the things it gates is the password-reset form. Turn the bot check
+> on first and a locked-out person meets two walls instead of one — a challenge
+> *and* a two-per-hour queue. Fix the queue first; it is independent, reversible,
+> and cannot lock anybody out.
+
+1. **Resend → API Keys.** Use the existing production key if you have it to hand,
+   or mint a new one with **Sending access**. This is the value you will paste as
+   the SMTP *password* in step 2 — treat it like a password, because it is one.
+2. **Supabase → Authentication → Emails → SMTP Settings**
+   (`/dashboard/project/njrupjnvkjkitfctetvi/auth/smtp`). Enable custom SMTP and
+   fill in:
+   - **Host** `smtp.resend.com`
+   - **Port** `587`
+   - **Username** `resend` — literally the word, not your email
+   - **Password** the Resend API key from step 1
+   - **Sender email** `noreply@setnayan.com` — must match a domain verified in
+     Resend, which `setnayan.com` is
+   - **Sender name** `Setnayan`
+
+   Save.
+
+3. ⚠ **NOW RAISE THE RATE LIMIT, OR YOU HAVE ONLY MOVED THE WALL.** Supabase's
+   own docs: *"The default rate limit for auth emails when using a custom SMTP
+   provider is 30 new users per hour."* Setting SMTP takes you from 2/hour to
+   **30/hour, not to unlimited** — and the new number is a *separate setting* that
+   does not change when you save step 2. Go to **Authentication → Rate Limits**
+   (`/dashboard/project/njrupjnvkjkitfctetvi/auth/rate-limits`) and raise the
+   email limit to something that fits a real launch day. Resend's own plan limit
+   is the only ceiling that should be binding.
+
+4. **Test it end to end, from an address that is not yours and is not internal.**
+   Ask for a password reset three times inside one hour. Before this change the
+   third one silently never arrives. Afterwards all three should land.
+   ⚠ Do **not** test with the owner account — see the `is_internal` trap; and do
+   not use the Google button, which never exercises the email path at all.
+
+🔑 **Why this is on the owner's desk and not a session's.** Step 2 is an API key
+typed into a security settings form. No Claude session should ever do that, and
+the Supabase MCP exposes no auth-configuration tool, so it is not merely
+discouraged — there is no path. Same for the Turnstile secret below.
+
+> ⚠ **WHILE YOU ARE IN THIS DASHBOARD — the project is on the FREE plan, and free
+> projects get PAUSED for inactivity.** Supabase's docs, verbatim: *"We may pause
+> applications on the Free Plan that exhibit low activity in a 7-day period"* and
+> *"Upgrade to Pro to guarantee that we won't pause your project for inactivity."*
+> Setnayan has ~13 accounts and almost no traffic — it is exactly that profile.
+> **A paused project is the entire platform offline**, and the restore is manual.
+> This is the same decision as the backups one (2026-08-10, *"let's stay free for
+> the moment"*, noted **revisit before launch**) — but the inactivity pause is the
+> half nobody costed. Free also means *"Database backups are not available for
+> download"*. Two irreplaceable weddings in December sit on this.
+
+---
+
 ## Turn on captcha for auth (Cloudflare Turnstile) — do this WITH anonymous sign-ins
+
+> ▶ **Do the SMTP section directly above FIRST.** Captcha gates the password-reset
+> form, and until Auth is pointed at Resend that form is capped at two emails an
+> hour for the whole platform.
 
 When you enabled "Allow anonymous sign-ins", Supabase warned (correctly) that the
 anonymous endpoint is now a bot-abuse target — a bot can spam it to bloat the
@@ -1419,6 +1492,24 @@ You activate it with the steps below.
 >
 > 🔑 **Do not read a checklist as proof.** This paragraph is here because the
 > sentence above it was believed for weeks and nobody re-checked it.
+>
+> ✅ **RE-VERIFIED 2026-09-16 against `origin/main`, not against this file.**
+> Taking that instruction at its word, the claim was checked again rather than
+> trusted, and it holds. `TurnstileField` is mounted on `/signup`, the sign-in
+> card, `/forgot-password`, the password re-auth in Settings, the wedding
+> onboarding shell, and both claim screens (`/papic/claim`, `/panood/cam`);
+> `challenges.cloudflare.com` is present in `script-src` **and** in the
+> **enforced** `frame-src`, not only the report-only draft; and
+> `lib/captcha-is-wired.test.ts` holds it with five tests, including
+> *"every action that READS a form token has a form that SUPPLIES one"*.
+> Production confirms the graceful-off half too: the live `/signup` bundle
+> contains no site key, no `captcha_token` field and no `challenges.cloudflare.com`,
+> so nothing renders today. **Re-measure rather than believing this line:**
+> ```sh
+> for f in $(git ls-tree -r --name-only origin/main -- apps/web); do \
+>   git show origin/main:$f 2>/dev/null | grep -q TurnstileField && echo $f; done
+> curl -s https://www.setnayan.com/signup | grep -c captcha_token   # 0 until the key is set
+> ```
 
 **IMPORTANT — Supabase captcha is GLOBAL.** Once enabled it gates login, signup,
 password re-auth, password RESET AND anonymous sign-in. So the activation ORDER

@@ -1,5 +1,6 @@
 import { Gift, Globe, Landmark, ShieldCheck, Smartphone } from 'lucide-react';
 import { egiftKindMeta, type EgiftMethodKind } from '@/lib/egift-kinds';
+import { PabuyaMethodActions } from './pabuya-method-actions';
 
 /**
  * Shared, PRESENTATIONAL Pabuya guest-facing card list.
@@ -81,15 +82,39 @@ export function PabuyaCardList({
                   <p className="mt-0.5 text-sm text-ink/70">{m.accountName}</p>
                 ) : null}
                 {m.handle ? (
-                  <p className="mt-1 break-all font-mono text-[13px] text-mulberry">
-                    {m.handle}
-                  </p>
+                  /*
+                    ⚠ THE NUMBER USED TO BE AN UNLABELLED STRING. It rendered as
+                    bare mono digits with nothing saying what they were, so it
+                    read as decoration rather than as the thing to type into a
+                    banking app. It is the FALLBACK when a scan fails, which is
+                    exactly the moment a guest is least able to guess.
+                  */
+                  <>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+                      {meta.handleLabel}
+                    </p>
+                    <p
+                      id={`egift-handle-${i}`}
+                      className="mt-0.5 select-all break-all font-mono text-[15px] font-medium text-mulberry"
+                    >
+                      {m.handle}
+                    </p>
+                  </>
                 ) : null}
                 {m.note ? (
                   <p className="mt-2 text-xs leading-relaxed text-ink/55">
                     {m.note}
                   </p>
                 ) : null}
+                {/* The only interactive part of this card, and it lives in its
+                    own 'use client' file so this component stays inert and
+                    identical between the guest page and the couple's preview. */}
+                <PabuyaMethodActions
+                  handle={m.handle}
+                  qrUrl={m.qrUrl}
+                  label={m.label || meta.defaultLabel}
+                  handleElementId={`egift-handle-${i}`}
+                />
               </div>
               {m.qrUrl ? (
                 /*

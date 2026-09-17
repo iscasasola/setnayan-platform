@@ -56,10 +56,24 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * old image. Five minutes matches the public page's own `revalidate`.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ publicId: string }> },
 ) {
   const { publicId } = await ctx.params;
+  /*
+    `?download=1` → save the file instead of rendering it inline.
+
+    🔑 THE HEADER IS THE MECHANISM, NOT THE `download` ATTRIBUTE. A guest saving
+    a QR to their photos is doing it on a phone, and on iOS Safari the HTML
+    `download` attribute is unreliable — `Content-Disposition: attachment` is
+    what actually works. Doing it server-side also means the save needs no
+    JavaScript at all, which matters at a reception on bad data.
+
+    Why saving matters enough to have a button: GCash can scan a QR FROM THE
+    GALLERY. A guest who cannot get a clean camera read of a code on somebody
+    else's screen can save it and scan the file instead.
+  */
+  const wantsDownload = new URL(req.url).searchParams.get('download') === '1';
   if (!publicId || typeof publicId !== 'string' || publicId.length > 64) {
     return new NextResponse('Invalid QR reference.', { status: 400 });
   }
@@ -193,12 +207,32 @@ export async function GET(
   const safeType =
     contentType && contentType.startsWith('image/') ? contentType : 'image/png';
 
+  /*
+    The saved filename. Derived from the method's own label so a guest with
+    three saved QRs can tell them apart in their camera roll.
+
+    ⚠ SANITISED, NOT TRUSTED. `label` is couple-authored text and lands in a
+    header — a raw quote or newline there is header injection, and a slash
+    makes the browser write outside the download folder. Reduce to a
+    conservative alphabet, then fall back to a constant if nothing survives.
+  */
+  const extension = safeType === 'image/jpeg' ? 'jpg' : safeType.slice('image/'.length) || 'png';
+  const slug =
+    (method.label ?? '')
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'gift';
+  const filename = `${slug}-qr.${extension.replace(/[^a-z0-9]/gi, '') || 'png'}`;
+
   return new NextResponse(new Uint8Array(bytes), {
     status: 200,
     headers: {
       'Content-Type': safeType,
       'Cache-Control': 'private, max-age=300',
-      'Content-Disposition': 'inline',
+      'Content-Disposition': wantsDownload
+        ? `attachment; filename="${filename}"`
+        : 'inline',
       'X-Content-Type-Options': 'nosniff',
     },
   });

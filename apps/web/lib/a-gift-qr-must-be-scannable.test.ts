@@ -227,6 +227,83 @@ test('⚠ the shared gift card stays presentational — no client bundle', () =>
   assert.ok(!/onClick=/.test(src), 'an event handler appeared in a shared presentational card');
 });
 
+// ── The two things a guest actually does: copy the number, save the QR. ────
+
+const CARD = 'app/_components/pabuya/pabuya-card-list.tsx';
+const ACTIONS = 'app/_components/pabuya/pabuya-method-actions.tsx';
+const readWeb = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
+
+test('the account number is LABELLED — it is the fallback when a scan fails', () => {
+  const src = readWeb(CARD);
+  // It rendered as bare mono digits with nothing saying what they were.
+  // `handleLabel` is per-rail ("Account number", "GCash number", …).
+  assert.match(
+    src,
+    /\{meta\.handleLabel\}/,
+    'the handle is unlabelled again — a bare number reads as decoration, not as the thing to type',
+  );
+});
+
+test('the card wires the copy + save controls, and stays inert itself', () => {
+  const src = readWeb(CARD);
+  assert.match(src, /<PabuyaMethodActions\b/, 'the actions control is not mounted');
+  assert.match(src, /handle=\{m\.handle\}/, 'copy has nothing to copy');
+  assert.match(src, /qrUrl=\{m\.qrUrl\}/, 'save has nothing to save');
+  // The whole point of putting them in a child: this file ships no JS.
+  assert.ok(!/^\s*['"]use client['"]/m.test(src), 'the shared card became a client component');
+  assert.ok(!/onClick=/.test(src), 'a handler leaked into the shared card');
+});
+
+test('the actions control is a client component with BOTH controls', () => {
+  const src = readWeb(ACTIONS);
+  assert.match(src, /^['"]use client['"]/m, 'clipboard needs a client component');
+  assert.match(src, /navigator\.clipboard/, 'no copy-to-clipboard');
+  assert.match(src, /download=1/, 'the save link does not ask the route for an attachment');
+});
+
+test('🔑 a FAILED copy must not report success', () => {
+  const src = readWeb(ACTIONS);
+  const fn = src.slice(src.indexOf('async function copy'), src.indexOf('if (!handle && !qrUrl)'));
+  assert.ok(fn.length > 0, 'copy() is gone — re-point this guard');
+  const catchBlock = fn.slice(fn.indexOf('} catch'));
+  assert.ok(catchBlock.length > 0, 'copy() has no catch — a rejected clipboard throws into the void');
+  /*
+    `navigator.clipboard` is undefined on an insecure origin and throws when
+    the document is unfocused or permission is refused. Setting 'copied' in the
+    catch is the exact disease this repo keeps finding: a failure rendered
+    identically to success. The catch must land on a DIFFERENT state.
+  */
+  assert.ok(
+    !/setState\('copied'\)/.test(catchBlock),
+    'the failure path reports "Copied" — a failure that renders as success',
+  );
+  assert.match(catchBlock, /setState\('manual'\)/, 'the failure path says nothing to the guest');
+});
+
+test('the route serves a download on request, with a sanitised filename', () => {
+  const src = readWeb('app/api/pabuya/qr/[publicId]/route.ts');
+  assert.match(src, /searchParams\.get\('download'\) === '1'/, 'no download mode');
+  assert.match(
+    src,
+    /wantsDownload[\s\S]{0,120}attachment; filename=/,
+    'download mode does not set Content-Disposition: attachment',
+  );
+  /*
+    ⚠ `label` is COUPLE-AUTHORED TEXT going into an HTTP header. A raw quote or
+    newline there is header injection; a slash escapes the download folder.
+    Assert the value is reduced to a conservative alphabet before it is used.
+  */
+  assert.match(
+    src,
+    /replace\(\/\[\^A-Za-z0-9\]\+\/g/,
+    'the filename is built from unsanitised couple-authored text',
+  );
+  assert.ok(
+    !/filename="\$\{method\.label/.test(src),
+    'the raw label is interpolated straight into the Content-Disposition header',
+  );
+});
+
 test('the decoder is SHARED, not re-implemented for this surface', () => {
   const src = readFileSync(join(process.cwd(), 'lib/pabuya-qr-check.server.ts'), 'utf8');
   assert.ok(src.includes("from '@/lib/qr-decode'"), 'a third decoder copy appeared');

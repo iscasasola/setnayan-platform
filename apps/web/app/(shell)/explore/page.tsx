@@ -119,6 +119,10 @@ import {
 import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
 import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
 import { searchReads, type ReadHit } from '@/lib/site-search';
+import {
+  resolveExploreScope,
+  browseAllVendorsHref,
+} from '@/lib/explore-event-type-scope';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -1213,6 +1217,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
+  // The RAW parameter, before the vocab narrowing below nulls anything it does
+  // not recognise — `all` is deliberately not a vocab key, so the resolver has
+  // to see the parameter as it arrived.
+  const rawEventTypeParam = (raw.event_type ?? '').trim().toLowerCase();
   const eventTypeVocab = await getEventTypeVocab();
   const eventTypeKeys = new Set(eventTypeVocab.map((t) => t.key));
   const eventTypeLabel = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
@@ -1363,14 +1371,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // wedding, so auto-applying would be a no-op visually). Users who want
   // to browse all vendors can clear the filter via the empty-state CTA
   // (PR #184's "Browse all vendors" link drops the event_type from the URL).
-  if (!filters.eventType && coupleEventType && coupleEventType !== 'wedding') {
-    const knownEventType = eventTypeKeys.has(coupleEventType)
-      ? (coupleEventType as EventTypeFilter)
-      : null;
-    if (knownEventType) {
-      filters = { ...filters, eventType: knownEventType };
-    }
-  }
+  //
+  // 🔴 REWRITTEN 2026-09-18. This block used to fire on `!filters.eventType`,
+  // and the empty state's escape — "Or browse all vendors instead" — worked by
+  // DROPPING event_type from the URL, which is exactly the condition that
+  // re-applied it. Following the only way out reproduced the identical empty
+  // page, forever. The comment above claimed dropping the parameter was the
+  // solution; it was the mechanism.
+  //
+  // "No filter" and "I asked for everything" are now different states:
+  // `?event_type=all` beats the auto-apply. See lib/explore-event-type-scope.ts.
+  const scope = resolveExploreScope(
+    rawEventTypeParam,
+    coupleEventType,
+    eventTypeKeys,
+  );
+  filters = { ...filters, eventType: scope.eventType };
 
   // Religion-default-on (2026-05-20) → default-OFF (Task #42, 2026-05-22):
   // pre-pilot vendor inventory has sparse ceremony+venue cross-compat data,
@@ -4038,7 +4054,7 @@ function EmptyState({
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
-          href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
+          href={browseAllVendorsHref(filters.focusedMode)}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
           Or browse all vendors instead →

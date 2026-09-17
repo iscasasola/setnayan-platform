@@ -35,6 +35,13 @@ export type ChannelSettings = {
   bdo_enabled?: boolean | null;
   gcash_number?: string | null;
   bdo_account_number?: string | null;
+  // 🔑 A QR IS SOMETHING TO PAY TO. These were missing, and their absence is
+  // why three payment surfaces could not use this function: they show a rail
+  // that has a QR and no typed number, so delegating here would have hidden a
+  // payable rail. Widening the ONE rule is the fix; a second "is it open?"
+  // helper alongside it would be the disease this module exists to prevent.
+  gcash_qr_url?: string | null;
+  bdo_qr_url?: string | null;
 };
 
 /**
@@ -51,13 +58,35 @@ export type ChannelSettings = {
  */
 export function openChannels(settings: ChannelSettings): PayChannel[] {
   const open: PayChannel[] = [];
-  if (settings.gcash_enabled !== false && settings.gcash_number?.trim()) {
+  if (
+    settings.gcash_enabled !== false &&
+    (settings.gcash_number?.trim() || settings.gcash_qr_url?.trim())
+  ) {
     open.push('gcash');
   }
-  if (settings.bdo_enabled !== false && settings.bdo_account_number?.trim()) {
+  if (
+    settings.bdo_enabled !== false &&
+    (settings.bdo_account_number?.trim() || settings.bdo_qr_url?.trim())
+  ) {
     open.push('bdo');
   }
   return open;
+}
+
+/**
+ * Is ONE rail open? The same decision as `openChannels`, asked per rail,
+ * because a payment page renders the two panels independently.
+ *
+ * ⚠ Exists so a render site never re-spells the rule. Every `settings.X_number
+ * || settings.X_qr_url` in a template is a second copy of this function that
+ * has silently dropped the switch — which is exactly what three pages were
+ * doing when this was written.
+ */
+export function isChannelOpen(
+  settings: ChannelSettings,
+  channel: PayChannel,
+): boolean {
+  return openChannels(settings).includes(channel);
 }
 
 /**

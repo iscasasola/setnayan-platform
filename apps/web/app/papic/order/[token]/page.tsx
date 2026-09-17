@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { isChannelOpen } from '@/lib/payment-channels';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings, hasMerchantPaymentInfo } from '@/lib/platform-settings';
@@ -181,7 +182,7 @@ export default async function PapicGuestOrderPage({
 
         {hasMerchantPaymentInfo(settings) ? (
           <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
-            {settings.bdo_account_number || settings.bdo_qr_url ? (
+            {isChannelOpen(settings, 'bdo') ? (
               <div className="sn-row space-y-2 p-4">
                 <p className="sn-eye">BDO bank transfer</p>
                 {settings.bdo_account_name ? (
@@ -208,7 +209,7 @@ export default async function PapicGuestOrderPage({
               </div>
             ) : null}
 
-            {settings.gcash_number || settings.gcash_qr_url ? (
+            {isChannelOpen(settings, 'gcash') ? (
               <div className="sn-row space-y-2 p-4">
                 <p className="sn-eye">GCash</p>
                 {settings.gcash_account_name ? (

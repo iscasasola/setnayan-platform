@@ -17,6 +17,7 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { resolveRoleSet } from '@/lib/role-sets';
+import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
 import {
   quickAddGuest,
   quickCreateGroup,
@@ -91,9 +92,16 @@ export function QuickAddSheet({
   const router = useRouter();
   // Per-event-type offered roles (iteration 0053 P2). resolveRoleSet is a pure
   // client-safe lookup; the parent passes the event's roleSetKey string.
-  const offeredRoles = resolveRoleSet(roleSetKey).offeredRoles;
+  const roleSet = resolveRoleSet(roleSetKey);
+  const offeredRoles = roleSet.offeredRoles;
+  /* Sides are a wedding idea. The role set already in hand names the side
+     principals, so a birthday, a wake, a corporate event or a Simple Event is
+     never asked — and the seed is the same value the sideless write path has
+     always used, not 'bride'. Same decision as the full form
+     (lib/guest-side-question.ts); one helper, so the two cannot drift. */
+  const hasSides = eventHasSides(roleSet);
   const [open, setOpen] = useState(false);
-  const [side, setSide] = useState<GuestSide>('bride');
+  const [side, setSide] = useState<GuestSide>(hasSides ? 'bride' : SIDELESS_SIDE);
   const [role, setRole] = useState<GuestRole>('guest');
   const [groupId, setGroupId] = useState<string>('');
   // groups created during this session, surfaced in the picker right away
@@ -392,8 +400,12 @@ export function QuickAddSheet({
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
               {/* sticky context — Side · Role · Group are picked once and
                   stay locked across rapid adds until you change them */}
-              <div className="grid grid-cols-4 gap-2">
-                {/* side (1 col) — the control border carries the team colour */}
+              <div className={`grid gap-2 ${hasSides ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                {/* side (1 col) — the control border carries the team colour.
+                    Absent entirely on an event whose role set has no side
+                    principals; the grid drops to 3 columns so Role and Group
+                    keep their widths instead of stretching over the gap. */}
+                {hasSides ? (
                 <label className="col-span-1 block space-y-1">
                   <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
                     Side
@@ -411,6 +423,7 @@ export function QuickAddSheet({
                     ))}
                   </select>
                 </label>
+                ) : null}
 
                 {/* role (2 cols — the long labels need the room) */}
                 <label className="col-span-2 block space-y-1">

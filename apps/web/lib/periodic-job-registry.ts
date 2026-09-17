@@ -244,6 +244,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 🔴 ADDED 2026-09-18. The worker has existed since iteration 0011 as a
+    // cron route with `TODO(0011): wire the actual cron schedule` on it — a
+    // schedule that was never coming, because this repo has no scheduler by
+    // design. Measured that day: five live Google grants (a couple's YouTube
+    // and Drive, all three Live Studio pool channels) with every access token
+    // expired, two of them since July, and every refresh token still plaintext
+    // because this sweep is the only writer that seals one.
+    key: 'oauth-refresh',
+    kind: 'operational',
+    gapMs: 60 * 60 * 1000,
+    what: 'Renewal of the Google connections (YouTube, Drive, Live Studio)',
+    reportsCount: true,
+  },
+  {
     key: 'photo-delivery-drain',
     kind: 'operational',
     gapMs: 10 * 60 * 1000,

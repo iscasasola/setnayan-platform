@@ -57,6 +57,13 @@ const JOBS = [
     what: 'anniversary digests, renewal reminders and the Papic full-res drop warning',
   },
   {
+    fn: 'maybeRunOAuthRefresh',
+    what:
+      'the Google connection refresh — five live grants had EXPIRED access ' +
+      'tokens because its only runner was a cron route this repo never ' +
+      'schedules, and it is also the only writer that seals a token',
+  },
+  {
     fn: 'maybeRunInterconnectionProbes',
     what: 'the interconnection probes',
   },

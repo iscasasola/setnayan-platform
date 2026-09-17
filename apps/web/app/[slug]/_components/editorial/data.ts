@@ -838,6 +838,14 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   }
 
   // 1. The event (required). Without it there's no page.
+  //
+  // ⚠ `photo_wall_photos` IS STILL SELECTED AND IS NOW READ BY NOBODY. The recap's
+  // photo wall used to come from it; it now reads the live feed through
+  // `getWallSnapshot` (§ 6c below explains why). The column is kept in the select
+  // only so this pair of reads stays byte-identical to the fallback beneath it —
+  // it feeds nothing, and a reader who finds it here should not conclude otherwise.
+  // Whether the column itself is retired is a migration-sized decision, not this
+  // resolver's.
   let event: Record<string, unknown> | null = null;
   try {
     const { data, error } = await admin

@@ -103,3 +103,51 @@ test('the OAuth callback forwards the refusal instead of swallowing it', () => {
     'The callback reads the refusal but never passes it on.',
   );
 });
+
+/* ── THE PARAGRAPH THAT REACHED A CUSTOMER (2026-09-18) ──────────────────── */
+// Verbatim from production:
+//   curl -sD - "https://www.setnayan.com/auth/callback?code=probe&next=%2Freset-password"
+const SDK_PARAGRAPH =
+  'PKCE code verifier not found in storage. This can happen if the auth flow ' +
+  'was initiated in a different browser or device, or if the storage was ' +
+  'cleared. For SSR frameworks (Next.js, SvelteKit, etc.), use @supabase/ssr ' +
+  'on both the server and client to store the code verifier in cookies.';
+
+test('the SDK paragraph never reaches the sign-in card', () => {
+  const out = humanAuthError(SDK_PARAGRAPH);
+  assert.ok(out, 'silence is worse than a generic line');
+  assert.doesNotMatch(out, /@supabase|SvelteKit|code verifier|SSR/i,
+    'the raw SDK prose was shown to a person — this is the reported bug');
+  // And it says the ACTIONABLE thing, not just the generic fallback: an
+  // expired link has one fix and the sentence should name it.
+  assert.match(out, /new one/i);
+});
+
+test('developer prose is refused by SHAPE, not by its wording', () => {
+  // Each of these is grammatical English — the old gate passed all of them —
+  // and each is addressed to whoever can edit the code, not to the customer.
+  const reworded = [
+    'Install @supabase/ssr and try again.',
+    'The call to exchangeCodeForSession did not return a session.',
+    'Check that getUser() is awaited before the redirect.',
+  ];
+  for (const s of reworded) {
+    assert.equal(isHumanReadable(s), false, `leaked developer prose: ${s}`);
+  }
+  // A long paragraph is documentation, whatever it says.
+  assert.equal(isHumanReadable('We could not sign you in. '.repeat(12)), false);
+});
+
+test('the new shape tests do not convict an ordinary refusal', () => {
+  // The floor that fails the mistake this rule could itself make. Every
+  // sentence the module already promises to pass must still pass.
+  const innocent = [
+    'That email and password do not match. Check both and try again.',
+    'Password should be at least 6 characters.',
+    'Your account is locked. Contact support.',
+    GENERIC_SIGN_IN_ERROR,
+  ];
+  for (const s of innocent) {
+    assert.equal(isHumanReadable(s), true, `convicted an innocent message: ${s}`);
+  }
+});

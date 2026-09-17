@@ -68,6 +68,19 @@ const KNOWN: ReadonlyArray<readonly [RegExp, string]> = [
     /captcha/i,
     'The security check did not pass. Reload the page and try again.',
   ],
+  // 🔴 THE ONE THAT REACHED A CUSTOMER. Until 2026-09-18 password recovery was
+  // a PKCE flow, so a link opened on a different device came back here with a
+  // Supabase SDK PARAGRAPH — "…use @supabase/ssr on both the server and client
+  // to store the code verifier in cookies" — and the sign-in card printed it,
+  // because it is well-formed English and `isHumanReadable` only ever asked
+  // whether a string READS like a sentence, never whom it is addressed to.
+  // The flow is fixed (app/auth/confirm). This stays because old links in old
+  // inboxes still arrive, and because the next SDK paragraph will be a
+  // different one.
+  [
+    /code verifier|pkce|otp[_ ]expired|token has expired|invalid or has expired|expired or is invalid/i,
+    'That link has expired or was already used. Request a new one and open it from the email.',
+  ],
 ];
 
 /**
@@ -87,6 +100,22 @@ export function isHumanReadable(raw: string): boolean {
   if (!/\p{L}/u.test(s)) return false;
   // A bare machine token: one word, no spaces, snake/kebab/dotted.
   if (!/\s/.test(s) && /[_.]|-{1}/.test(s)) return false;
+  // 🔑 READING LIKE A SENTENCE IS NOT THE SAME AS BEING ADDRESSED TO A PERSON.
+  // The three tests below are still about SHAPE, not a deny-list of phrasings —
+  // a deny-list is a bill you keep paying and the next SDK paragraph will be
+  // worded differently. What they measure is who the text is FOR:
+  //
+  //   - a package specifier (`@supabase/ssr`, `next/navigation`) is an
+  //     instruction to whoever can edit the code, and the person staring at a
+  //     sign-in card is not that person;
+  //   - so is an identifier written in code (`exchangeCodeForSession`,
+  //     `getUser()`);
+  //   - and a customer-facing refusal is a sentence or two. Past ~200
+  //     characters it is documentation. The paragraph that reached the card was
+  //     246.
+  if (/@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*/i.test(s)) return false;
+  if (/\b[a-z][a-zA-Z0-9]*[a-z0-9][A-Z][a-zA-Z0-9]*\b|\w\(\)/.test(s)) return false;
+  if (s.length > 200) return false;
   return true;
 }
 

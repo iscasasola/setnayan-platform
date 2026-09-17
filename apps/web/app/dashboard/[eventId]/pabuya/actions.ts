@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
 import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 
 /**
@@ -150,6 +151,47 @@ export async function saveEgiftMethod(
       };
     }
     qrR2Key = qrRaw;
+  }
+
+  /*
+    Is this image actually a payment QR? (2026-09-16)
+
+    Until now any image could be saved as a gift QR. The owner's own event
+    carried a phone photo as its `bank` QR, and that failure only shows up at
+    the wedding, when a guest's GCash says "invalid QR" in front of them. The
+    upload is the last moment anybody can still fix it.
+
+    ⚠ ONLY A NEWLY ATTACHED OR CHANGED IMAGE IS CHECKED, and that is
+    load-bearing rather than an optimisation. Checking on every save would trap
+    every row that already holds a bad image: the couple could no longer fix the
+    LABEL or the ACCOUNT NUMBER on that method without first producing a valid
+    QR — and the account number is the part a guest can actually use. A rule
+    that blocks the repair of the thing it is complaining about is worse than
+    the thing. It also spares an R2 fetch on every unrelated edit.
+
+    The verdict itself (which rails are held to QR Ph, and what each outcome
+    means) lives in the pure lib/pabuya-qr-verdict.ts; this call site only
+    decides WHEN to ask.
+  */
+  if (qrR2Key) {
+    let previousRef: string | null = null;
+    if (editingId.length > 0) {
+      const { data: prior } = await supabase
+        .from('event_egift_methods')
+        .select('qr_r2_key')
+        .eq('egift_method_id', editingId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      previousRef =
+        (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
+    }
+    if (qrR2Key !== previousRef) {
+      const verdict = await checkPabuyaQrImage({
+        kind: methodKind,
+        r2Ref: qrR2Key,
+      });
+      if (!verdict.ok) return verdict;
+    }
   }
 
   if (editingId.length > 0) {

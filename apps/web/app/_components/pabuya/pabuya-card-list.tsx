@@ -1,5 +1,6 @@
 import { Gift, Globe, Landmark, ShieldCheck, Smartphone } from 'lucide-react';
 import { egiftKindMeta, type EgiftMethodKind } from '@/lib/egift-kinds';
+import { PabuyaMethodActions } from './pabuya-method-actions';
 
 /**
  * Shared, PRESENTATIONAL Pabuya guest-facing card list.
@@ -81,21 +82,72 @@ export function PabuyaCardList({
                   <p className="mt-0.5 text-sm text-ink/70">{m.accountName}</p>
                 ) : null}
                 {m.handle ? (
-                  <p className="mt-1 break-all font-mono text-[13px] text-mulberry">
-                    {m.handle}
-                  </p>
+                  /*
+                    ⚠ THE NUMBER USED TO BE AN UNLABELLED STRING. It rendered as
+                    bare mono digits with nothing saying what they were, so it
+                    read as decoration rather than as the thing to type into a
+                    banking app. It is the FALLBACK when a scan fails, which is
+                    exactly the moment a guest is least able to guess.
+                  */
+                  <>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+                      {meta.handleLabel}
+                    </p>
+                    <p
+                      id={`egift-handle-${i}`}
+                      className="mt-0.5 select-all break-all font-mono text-[15px] font-medium text-mulberry"
+                    >
+                      {m.handle}
+                    </p>
+                  </>
                 ) : null}
                 {m.note ? (
                   <p className="mt-2 text-xs leading-relaxed text-ink/55">
                     {m.note}
                   </p>
                 ) : null}
+                {/* The only interactive part of this card, and it lives in its
+                    own 'use client' file so this component stays inert and
+                    identical between the guest page and the couple's preview. */}
+                <PabuyaMethodActions
+                  handle={m.handle}
+                  qrUrl={m.qrUrl}
+                  label={m.label || meta.defaultLabel}
+                  handleElementId={`egift-handle-${i}`}
+                />
               </div>
               {m.qrUrl ? (
-                <span className="inline-flex h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                /*
+                  ── A QR A GUEST CAN ACTUALLY SCAN (2026-09-16) ──────────────
+                  This was an 80×80 `<span>`. A couple does not upload bare QR
+                  modules — they upload what their banking app gives them, which
+                  is a screenshot wrapped in a logo, their name, a masked
+                  account number and a footnote. The code itself is perhaps a
+                  third of that image, so 80px of card became ~25px of real QR:
+                  unscannable, and the owner reported it as the QR simply not
+                  being visible.
+
+                  🔑 A GUEST SCANS THIS FROM A SECOND PHONE, so the two things
+                  that matter are SIZE and a way to get it FULL-SCREEN. It is
+                  now an `<a>` to the image itself — tap to fill the screen,
+                  long-press to save to the gallery, which is also how you feed
+                  it to GCash's scanner ("scan from gallery").
+
+                  ⚠ A plain `<a>`, deliberately — no `onClick`, no client
+                  bundle. This component is shared by the SERVER-rendered guest
+                  page and the couple's CLIENT dashboard preview, and its
+                  docblock keeps it presentational so those two cannot drift. A
+                  link needs no JavaScript and works identically in both.
+                */
+                <a
+                  href={m.qrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open the ${m.label || meta.defaultLabel} QR code full size`}
+                  className="inline-flex h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36"
+                >
                   {/* Raw <img>: the QR is an app route, not a build-time
-                      asset, and it is already served at exactly the size we
-                      draw it — next/image would add an optimiser hop in front
+                      asset, and next/image would add an optimiser hop in front
                       of a gated route for no gain. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -103,7 +155,7 @@ export function PabuyaCardList({
                     alt={`${m.label || meta.defaultLabel} QR code`}
                     className="h-full w-full object-contain"
                   />
-                </span>
+                </a>
               ) : null}
             </div>
           </li>

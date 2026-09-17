@@ -136,8 +136,18 @@
   align-items: center;
   gap: 5px;
 }
+/* ST-7 · the same wash, the same failure. `.mini` is 12px/600 — normal text —
+   at 4.61:1 on cream, dropping to 4.04:1 once its own hover tint darkens the
+   ground beneath it. Hovering made the label LESS readable.
+
+   The tint stays here: a button needs its hover affordance and, unlike a
+   selection, has no outline doing that work. Instead the label deepens to the
+   palette's AA-rated `--color-mulberry-700` #9D3F1E, which reads 5.63:1 on that
+   tint. An existing token, chosen because it is already rated — not a new
+   colour invented for this row. */
 .mini:hover {
   background: var(--act-soft);
+  color: rgb(var(--color-mulberry-700));
 }
 .mini:focus-visible {
   outline: 2px solid var(--act);
@@ -553,8 +563,32 @@
   padding: 2px 10px;
   border-radius: var(--m-r-md);
 }
+/* ST-7 · SELECTED WORDS KEEP THEIR CONTRAST.
+   This laid `--act-soft` (mulberry at 10%) BEHIND the words, and a host may
+   colour their words ink · terracotta · blue · gold (WORD_COLORS). Measured
+   against cream, 19px/400 serif = normal text, AA needs 4.5:1:
+
+       ink        13.82 -> 12.12  pass      blue  8.22 -> 7.21  pass
+       terracotta  4.61 ->  4.04  FAIL      gold  4.79 -> 4.20  FAIL
+
+   The wash costs every colour about 12% of its contrast. Ink and blue can
+   afford it; terracotta and gold were already just above the line — so
+   SELECTING text made it harder to read. The highlight meant to show what you
+   picked was the thing obscuring it.
+
+   🔑 THE FIX IS THE SIBLING RULE, NOT A NEW COLOUR. `.obj.ph.sel` — a selected
+   PHOTO — already draws the outline and NO background. Text was the odd one
+   out. Dropping the wash makes the two selections identical, keeps the 2px
+   outline that was always the real signal, and leaves every word in exactly the
+   colour the host chose.
+
+   ⚠ BOTH ALTERNATIVES WERE MEASURED AND REFUSED:
+   · lightening the wash — terracotta still fails at 4% opacity (4.37), by which
+     point the tint is invisible anyway;
+   · darkening gold — no gold in the palette clears 4.5 on the tint;
+     `--color-terracotta-700` #8C6932 reaches only 4.26, so it would have needed
+     a colour that does not exist, which is the owner's call, not this row's. */
 .obj.tx.sel {
-  background: var(--act-soft);
   outline: 2px solid var(--act);
   outline-offset: 2px;
 }

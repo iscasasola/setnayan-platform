@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import {
   vendorPaysSetnayan,
   VENDOR_PAYS_SETNAYAN_SKUS,
@@ -122,11 +123,7 @@ test('a new supplier SKU cannot be added without classifying its direction', () 
 });
 
 test('the payout scheduler actually consults it', () => {
-  const src = readFileSync(join(WEB, 'app/admin/payments/actions.ts'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-    .join('\n');
+  const src = stripComments(readFileSync(join(WEB, 'app/admin/payments/actions.ts'), 'utf8'));
   assert.match(
     src,
     /if \(vendorPaysSetnayan\(row\.service_key\)[^)]*\|\|[^)]*!row\.event_id/,

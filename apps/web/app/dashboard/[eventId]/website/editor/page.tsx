@@ -6,7 +6,7 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
-import { EditorShell, type RailGroup } from './_components/editor-shell';
+import { EditorShell, done, todo, type RailGroup } from './_components/editor-shell';
 import { TextPanel } from './_components/text-panel';
 import {
   invitationWordsDraft,
@@ -281,14 +281,23 @@ export default async function WebsiteEditorPage({
           label: 'Website address',
           blurb: 'Your one link, on every QR and invite.',
           href: `${w}/editor`,
-          status: slug ?? 'Not set',
+          status: slug ? done(slug) : todo('Not set'),
         },
         {
           key: 'visibility',
           label: 'Who can view',
           blurb: 'Private while you build, public when you launch.',
           href: `${w}/privacy`,
-          status: visibility === 'private' ? 'Private' : visibility === 'public' ? 'Public' : 'Unlisted',
+          /* 🔑 `Private` IS THE ROW THIS FIX EXISTS FOR. It used to carry the
+             success chip — the same green as a published site — to a couple
+             whose wedding page nobody at all could open. `Unlisted` stays green:
+             a link-only site is a deliberate, working choice, not an empty one. */
+          status:
+            visibility === 'private'
+              ? todo('Private')
+              : visibility === 'public'
+                ? done('Public')
+                : done('Unlisted'),
           panel: (
             <VisibilityPanel
               action={updateLandingPageVisibility}
@@ -302,7 +311,7 @@ export default async function WebsiteEditorPage({
           label: 'Open browsing',
           blurb: 'Let guests browse every page from day one.',
           href: `${w}/widgets`,
-          status: event.website_open_browse === true ? 'On' : 'Off',
+          status: event.website_open_browse === true ? done('On') : todo('Off'),
           panel: (
             <OpenBrowsePanel
               action={setOpenBrowse}
@@ -316,7 +325,7 @@ export default async function WebsiteEditorPage({
           label: 'Invitation backdrop',
           blurb: 'A scene that moves behind your invitation as guests scroll.',
           href: `${w}/widgets`,
-          status: rsvpBackdrop ? SPATIAL_THEMES[rsvpBackdrop.theme].label : 'Off',
+          status: rsvpBackdrop ? done(SPATIAL_THEMES[rsvpBackdrop.theme].label) : todo('Off'),
           panel: (
             <RsvpBackdropPanel
               saveAction={saveRsvpBackdrop}
@@ -382,7 +391,7 @@ export default async function WebsiteEditorPage({
           blurb: 'The photo and names at the top.',
           href: `${w}/hero-photo`,
           anchor: 'home',
-          status: heroRef ? 'Photo set' : 'Not set',
+          status: heroRef ? done('Photo set') : todo('Not set'),
           panel: (
             <HeroPhotoPanel
               action={uploadHeroPhoto}
@@ -398,7 +407,7 @@ export default async function WebsiteEditorPage({
           blurb: 'How you met, the proposal, the milestones.',
           href: `${w}/our-story`,
           anchor: 'story',
-          status: event.love_story ? 'Written' : 'Not set',
+          status: event.love_story ? done('Written') : todo('Not set'),
           panel: (
             <StoryPanel
               action={updateOurStory.bind(null, eventId)}
@@ -413,7 +422,10 @@ export default async function WebsiteEditorPage({
           blurb: 'Date, venue, run-of-show.',
           href: `${w}/widgets`,
           anchor: 'details',
-          status: scheduleBlocks.length > 0 ? `${scheduleBlocks.length} public` : 'No schedule',
+          status:
+            scheduleBlocks.length > 0
+              ? done(`${scheduleBlocks.length} public`)
+              : todo('No schedule'),
           panel: (
             <SchedulePeekPanel
               eventId={eventId}
@@ -432,7 +444,11 @@ export default async function WebsiteEditorPage({
           anchor: 'gallery',
           pro: true,
           locked: galleryLocked,
-          status: galleryLocked ? undefined : `${galleryRefs.length} photo${galleryRefs.length === 1 ? '' : 's'}`,
+          status: galleryLocked
+            ? undefined
+            : galleryRefs.length > 0
+              ? done(`${galleryRefs.length} photo${galleryRefs.length === 1 ? '' : 's'}`)
+              : todo('0 photos'),
           panel: galleryLocked ? (
             lockPanel('Photos you add')
           ) : (
@@ -474,7 +490,7 @@ export default async function WebsiteEditorPage({
           blurb: 'A note to your guests.',
           href: `${w}/special-message`,
           anchor: 'details',
-          status: event.special_message ? 'Written' : 'Not set',
+          status: event.special_message ? done('Written') : todo('Not set'),
           // Inline panel (PR-3) — posts to the SAME action the sub-page uses.
           panel: (
             <TextPanel
@@ -522,7 +538,7 @@ export default async function WebsiteEditorPage({
           blurb: 'Gifts, registry, or a kind no-gift note.',
           href: `${w}/what-to-bring`,
           anchor: 'details',
-          status: event.what_to_bring ? 'Written' : 'Not set',
+          status: event.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
               action={updateWhatToBring.bind(null, eventId)}
@@ -541,7 +557,10 @@ export default async function WebsiteEditorPage({
           label: 'Show, hide & reorder',
           blurb: 'What appears on your site, and in what order.',
           href: `${w}/widgets`,
-          status: `${sectionRows.filter((r) => r.is_visible).length} showing`,
+          status: (() => {
+            const showing = sectionRows.filter((r) => r.is_visible).length;
+            return showing > 0 ? done(`${showing} showing`) : todo('0 showing');
+          })(),
           panel: (
             <SectionsPanel
               eventId={eventId}
@@ -568,7 +587,7 @@ export default async function WebsiteEditorPage({
           // The film itself is free; its Cinematic Reveal + video beats are Pro
           // (already gated in the STD studio via STD_PREMIUM_OPENINGS →
           // COUPLE_WEBSITE_PRO), so we only hint here — never block the row.
-          status: ownsPro ? 'Pro beats on' : undefined,
+          status: ownsPro ? done('Pro beats on') : undefined,
           panel: (
             <StdPanel
               eventId={eventId}

@@ -33,12 +33,59 @@ import {
  *   section tapped in preview → {t:'edit'} → the matching rail row activates
  */
 
+/**
+ * WHAT A RAIL ROW'S CHIP SAYS, AND WHETHER IT REPORTS SOMETHING DONE.
+ *
+ * ── THE DEFECT THIS TYPE EXISTS TO END ─────────────────────────────────────
+ * `status` was a bare string, and the chip picked its colour by comparing that
+ * string to a DENYLIST of three literals — grey for exactly 'Not set', 'Off'
+ * and 'Hidden', success-green for everything else. So four statuses meaning
+ * "there is nothing here" were painted as achievements:
+ *
+ *     Private      → nobody at all can view the site
+ *     No schedule  → no schedule blocks are public
+ *     0 photos     → the gallery is empty
+ *     0 showing    → no sections are showing
+ *
+ * The worst is the first: a couple whose wedding site NOBODY can open was shown
+ * the same green chip as a couple who had published theirs.
+ *
+ * 🔑 AND THE DENYLIST IS THE DEFECT, NOT THE FOUR STRINGS. Adding them to the
+ * list leaves the machine that produced them running: every future empty-state
+ * wording is success-green by default, and the fifth arrives silently. The rule
+ * is inverted here instead — a row SAYS whether it is filled, and the colour
+ * follows the claim rather than the spelling.
+ *
+ * ⚠ REQUIRED, NOT DEFAULTED, ON PURPOSE. A default would have to guess, and both
+ * guesses are wrong: defaulting to filled recreates this defect exactly, while
+ * defaulting to empty would grey every finished row until somebody noticed.
+ * Making it part of the type means a new row cannot COMPILE without answering,
+ * which is the only version of this that cannot rot.
+ */
+export type RowStatus = {
+  /** The words in the chip. */
+  label: string;
+  /** TRUE only when this row reports something the couple has actually done. */
+  filled: boolean;
+};
+
+/** A row that reports something done — the green chip. */
+export function done(label: string): RowStatus {
+  return { label, filled: true };
+}
+
+/** A row with nothing in it yet — the quiet chip. Say this whenever the words
+ *  mean "empty", "off", "private" or "none", however they are phrased. */
+export function todo(label: string): RowStatus {
+  return { label, filled: false };
+}
+
 export type RailRow = {
   key: string;
   label: string;
   blurb?: string;
   href: string;
-  status?: string;
+  status?: RowStatus;
   /** Which preview section this row points at (EditorBridge SECTION_IDS key). */
   anchor?: string;
   /** Website Pro item — gold tag; `locked` adds the lock affordance. */
@@ -331,14 +378,12 @@ export function EditorShell({
                       ) : row.status ? (
                         <span
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${
-                            row.status === 'Not set' ||
-                            row.status === 'Off' ||
-                            row.status === 'Hidden'
-                              ? 'bg-ink/5 text-ink/55'
-                              : 'bg-success-100 text-success-800'
+                            row.status.filled
+                              ? 'bg-success-100 text-success-800'
+                              : 'bg-ink/5 text-ink/55'
                           }`}
                         >
-                          {row.status}
+                          {row.status.label}
                         </span>
                       ) : null}
                     </>

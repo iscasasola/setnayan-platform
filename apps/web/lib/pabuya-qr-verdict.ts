@@ -6,10 +6,25 @@ import type { EgiftMethodKind } from '@/lib/egift-kinds';
  *
  * ── THE PROBLEM ────────────────────────────────────────────────────────────
  * A couple could upload ANY image as their e-gift QR. Nothing checked that it
- * decoded, let alone that it was a QR Ph code. Measured on the owner's own
- * event 2026-09-16: a `bank` method carrying `IMG_4424.jpg` — a phone photo —
- * and the failure surfaces at the WEDDING, when a guest's GCash says "invalid
- * QR" in front of them. The upload is the only moment anybody can still fix it.
+ * decoded, let alone that it was a QR Ph code — so the first proof that an
+ * upload was unusable would be a guest's GCash saying "invalid QR" at the
+ * wedding. The upload is the only moment anybody can still fix it.
+ *
+ * ⚠ CORRECTION 2026-09-17 — THE EXAMPLE THIS DOCBLOCK CITED WAS FALSE, and it
+ * was written by the same session that later disproved it. It said the owner's
+ * own event carried `IMG_4424.jpg`, "a phone photo", as if that file were the
+ * defect. It is a phone screenshot of a bank app, and it is a **perfectly valid
+ * QR Ph code**: decoded with this repo's own tools it passes `verifyCrc` and
+ * `isQrPhPayload`, carries `com.p2pqrpay` · `BNORPHMMXXX` · a 12-digit account
+ * matching the row's stored handle, tag 53 = 608, tag 01 = 11 (static, correct
+ * for a gift). The owner's "invalid QR" in GCash came from scanning a LINK QR
+ * that had been generated for him by mistake — not from his own code.
+ *
+ * 🔑 THE FEATURE IS STILL RIGHT; THE STORY WAS NOT. Nothing validated uploads,
+ * and that gap is real whether or not this particular file exercised it. But a
+ * docblock that invents a victim is the same disease as a comment that states
+ * an unmeasured fact — and this one sat in the file whose entire subject is
+ * refusing to trust an image without decoding it.
  *
  * ── WHY THE VERDICT IS PURE AND THE DECODING IS NOT ────────────────────────
  * 🔑 Reading pixels needs `sharp` + `jsqr` and therefore a server module, and a

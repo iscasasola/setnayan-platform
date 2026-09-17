@@ -121,7 +121,21 @@ test('the join door RESOLVES its words — every sentence, EXECUTED not counted'
   const SENTINEL = 'THE-BEREAVED-FAMILY';
   let named = 0;
   for (const key of JOIN_DOOR_ERROR_KEYS) {
+    // `joinDoorRefusalMessage` is typed `string | null` because it also serves
+    // the null/unknown-key case from join-flow.tsx. Every key in
+    // JOIN_DOOR_ERROR_KEYS resolves, so a null here is itself a defect worth
+    // failing on rather than narrowing away.
     const sentence = joinDoorRefusalMessage(key, { theOrganizer: SENTINEL });
+    // `joinDoorRefusalMessage` is typed `string | null` because it also serves
+    // the null/unknown-key case from join-flow.tsx. Every key in
+    // JOIN_DOOR_ERROR_KEYS resolves, so a null here IS a defect — fail on it
+    // rather than narrowing it away. `assert.fail` returns `never`, which
+    // narrows the rest of the loop without a cast.
+    if (sentence === null) {
+      assert.fail(
+        `the "${key}" refusal resolved to null — every declared key must have a sentence`,
+      );
+    }
     // The claim is NOT "every sentence names the host" — two of them correctly
     // do not ("Please pick a valid role.", "You're already on this event's
     // guest list."). It is that NO sentence names a host the event may not

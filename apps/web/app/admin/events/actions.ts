@@ -9,6 +9,10 @@ import {
   collectEventMediaRefs,
   sweepEventMedia,
 } from '@/lib/event-media-sweep';
+import {
+  buildEventDeleteAuditRow,
+  type EventDeleteSnapshot,
+} from '@/lib/admin-event-delete-audit';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 async function requireAdmin() {
@@ -42,13 +46,29 @@ async function requireAdmin() {
  * and proceed knowingly.
  */
 export async function deleteEvent(formData: FormData) {
-  await requireAdmin();
+  const { adminUserId } = await requireAdmin();
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid event_id');
   }
 
   const admin = createAdminClient();
+
+  /*
+    📓 WHO REMOVED IT, AND WHAT WAS IN IT — COLLECTED BEFORE, WRITTEN AFTER.
+
+    `admin_audit_log` has recorded admin actions since June (23 distinct action
+    values in prod, append-only by database trigger). The most destructive
+    action in the console was not one of them: this function ran, a celebration
+    ceased to exist, and nothing anywhere said it had happened or who did it.
+
+    The snapshot has to be taken HERE, for the same reason the media refs are —
+    afterwards there is nothing left to name it. The guest and vendor counts
+    come back as NULL rather than 0 when they cannot be read, because "we could
+    not check" and "there were none" are different sentences and only one of
+    them is true.
+  */
+  const snapshot = await snapshotEventForAudit(admin, eventId);
 
   // 🔒 THE ADDRESS IS HELD BY THE DATABASE, NOT HERE.
   //
@@ -82,8 +102,10 @@ export async function deleteEvent(formData: FormData) {
   const { error } = await admin.from('events').delete().eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  let media = { collected: mediaRefs?.length ?? 0, swept: 0, failed: 0 };
   if (mediaRefs && mediaRefs.length > 0) {
     const swept = await sweepEventMedia(mediaRefs);
+    media = { collected: mediaRefs.length, swept: swept.deleted, failed: swept.failed };
     if (swept.failed > 0) {
       console.error(
         `[admin-delete-event] ${swept.failed} of ${mediaRefs.length} files could not be removed`,
@@ -91,7 +113,90 @@ export async function deleteEvent(formData: FormData) {
     }
   }
 
+  /*
+    Written AFTER the delete has actually succeeded, so a refused delete can
+    never leave a record of a wipe that did not happen. The cost of that order
+    is the opposite risk — the row is gone and the audit insert fails — so that
+    failure is shouted rather than swallowed: Sentry is live in production and
+    captures a server-side console.error, which makes an unlogged deletion
+    visible somewhere even when its own log could not be written.
+
+    Non-fatal by the same contract as lib/admin-data-access.ts: the celebration
+    is already gone by this point, and turning a completed removal into a red
+    error screen would tell the admin the opposite of what happened.
+  */
+  try {
+    const { error: auditError } = await admin
+      .from('admin_audit_log')
+      .insert(
+        buildEventDeleteAuditRow({ eventId, adminUserId, snapshot, media }),
+      );
+    if (auditError) {
+      console.error(
+        `[admin-delete-event] AUDIT WRITE FAILED for ${eventId} — the celebration is deleted and unrecorded: ${auditError.message}`,
+      );
+    }
+  } catch (e) {
+    console.error(
+      `[admin-delete-event] AUDIT WRITE THREW for ${eventId} — the celebration is deleted and unrecorded:`,
+      e,
+    );
+  }
+
   revalidatePath('/admin/events');
+}
+
+/**
+ * Read the few facts worth keeping about a celebration before it stops
+ * existing. Never throws and never blocks the deletion: an unreadable count
+ * comes back as null, which the audit row carries as "could not establish"
+ * rather than as zero.
+ */
+async function snapshotEventForAudit(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<EventDeleteSnapshot | null> {
+  try {
+    const { data: row, error } = await admin
+      .from('events')
+      .select('public_id, display_name, event_date, event_type, slug, archived, created_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error || !row) {
+      if (error) logQueryError('snapshotEventForAudit', error);
+      return null;
+    }
+
+    // Two explicit queries rather than one helper over a union of table names:
+    // supabase-js resolves its row types from the literal passed to .from(),
+    // and a union widens them into an error that only shows up in CI.
+    const guests = await admin
+      .from('guests')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+    if (guests.error) logQueryError('snapshotEventForAudit:guests', guests.error);
+
+    const vendors = await admin
+      .from('event_vendors')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+    if (vendors.error) logQueryError('snapshotEventForAudit:event_vendors', vendors.error);
+
+    return {
+      public_id: row.public_id ?? null,
+      display_name: row.display_name ?? null,
+      event_date: row.event_date ?? null,
+      event_type: row.event_type ?? null,
+      slug: row.slug ?? null,
+      archived: row.archived ?? null,
+      created_at: row.created_at ?? null,
+      guest_count: guests.error ? null : (guests.count ?? null),
+      vendor_count: vendors.error ? null : (vendors.count ?? null),
+    };
+  } catch (e) {
+    console.error('[admin-delete-event] snapshot threw (non-fatal):', e);
+    return null;
+  }
 }
 
 /**

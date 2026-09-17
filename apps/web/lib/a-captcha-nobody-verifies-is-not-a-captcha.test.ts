@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { turnstileVerdict, type TurnstileOutcome } from './turnstile-verdict';
+import { stripComments } from './strip-comments';
 
 /**
  * The property: once the owner sets a secret, ONLY an explicit success gets
@@ -81,11 +82,7 @@ test('configured:false is reachable ONLY from no_secret', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-    .join('\n');
+  stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('the server verifier decides nothing itself — it delegates', () => {
   const src = code('lib/turnstile-verify.ts');

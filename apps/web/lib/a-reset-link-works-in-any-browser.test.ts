@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import {
   CONFIRM_OTP_TYPES,
   parseConfirmOtpType,
@@ -86,11 +87,7 @@ test('a next that carries its own query survives intact', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-    .join('\n');
+  stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('the confirm route verifies the token instead of exchanging a code', () => {
   const route = code('app/auth/confirm/route.ts');

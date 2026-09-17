@@ -1,4 +1,9 @@
-import { parseClientRef, pabuyaQrPolicy, type ClientRefPolicy } from '@/lib/r2-client-ref';
+import {
+  parseClientRef,
+  pabuyaQrPolicy,
+  pabuyaQrLegacyPolicy,
+  type ClientRefPolicy,
+} from '@/lib/r2-client-ref';
 import type { R2BucketName } from '@/lib/r2';
 
 /**
@@ -39,13 +44,23 @@ import type { R2BucketName } from '@/lib/r2';
  * migrated; objects uploaded after it live in the private bucket. Both are
  * legitimate during the transition, and neither is "any bucket".
  *
- * `pabuyaQrPolicy(eventId)` omits `bucket` and therefore means the PUBLIC media
- * bucket (see `ClientRefPolicy`). When the private home lands, add its policy
- * here; when the migration's count reads zero, delete the public one. That is
- * the whole transition, in one list, in one file.
+ * `pabuyaQrPolicy` is the PRIVATE home (thread-files · `pabuya-qr/<id>/`) and
+ * is the only thing the WRITE side accepts; `pabuyaQrLegacyPolicy` is the old
+ * PUBLIC one (media · `events/<id>/pabuya/`), read-only, kept until the
+ * migration count reads zero and then deleted along with its entry below. That
+ * is the whole transition, in one list, in one file.
  */
 export function pabuyaQrAcceptedPolicies(eventId: string): ClientRefPolicy[] {
-  return [pabuyaQrPolicy(eventId)];
+  return [
+    // The home new uploads land in: private bucket, own root prefix.
+    pabuyaQrPolicy(eventId),
+    // ⚠ TEMPORARY. Objects written before 2026-09-17 sit in the PUBLIC bucket
+    // under `events/<id>/pabuya/`. They keep serving until the migration moves
+    // them; delete this entry, and `pabuyaQrLegacyPolicy`, once its count reads
+    // zero. Read-only by construction — the WRITE side accepts only the policy
+    // above, so nothing new can choose the old home.
+    pabuyaQrLegacyPolicy(eventId),
+  ];
 }
 
 /**

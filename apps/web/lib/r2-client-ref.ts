@@ -354,7 +354,47 @@ export function eventMediaPolicy(eventId: string): ClientRefPolicy {
 }
 
 /** Pabuya / e-gift QR images the couple uploads for their guests. */
+/**
+ * Where a NEW Pabuya gift QR may be written: the private bucket, under its own
+ * ROOT prefix.
+ *
+ * ⚖ TWO CHANGES, ONE RULING. DECISION_LOG 2026-07-30 moved off-platform vendor
+ * payment receipts out of the public bucket and paired that with a
+ * `bucketForPrefix` rule "so a future server-side writer that routes by prefix
+ * cannot land these in the public bucket by omission. That omission is exactly
+ * how they got there." A gift QR is the same class — an image encoding a bank
+ * account number — so it gets the same treatment, not half of it.
+ *
+ * 🔑 THE ROOT PREFIX IS WHAT MAKES THE SECOND HALF POSSIBLE. `bucketForPrefix`
+ * matches on `startsWith`, so a key shaped `events/<uuid>/pabuya/…` — where the
+ * meaningful segment sits in the MIDDLE, behind an unpredictable id — can never
+ * have a rule written for it. `pabuya-qr/<eventId>/` can. Keeping the old shape
+ * would have been "moved the bucket" while quietly dropping the defence the
+ * ruling actually asked for.
+ *
+ * ⚠ It also leaves `eventMediaPolicy`'s superset. That policy admits all of
+ * `events/<id>/` in the PUBLIC bucket, so while gift QRs lived there a host
+ * could post their own QR key into a site-chrome field and have the wedding
+ * site serve it to a passer-by, with no recognition gate. Out of that namespace,
+ * that is simply not expressible.
+ */
 export function pabuyaQrPolicy(eventId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`pabuya-qr/${eventId}/`],
+  };
+}
+
+/**
+ * Where gift QRs used to live: the PUBLIC media bucket, under the event folder.
+ *
+ * ⚠ READ-ONLY, AND TEMPORARY. Nothing may WRITE here any more — `pabuyaQrPolicy`
+ * above is the only acceptance for a new upload, so the browser cannot choose
+ * the old home. This exists so objects not yet migrated keep serving, and so the
+ * cleanup path can still delete them. Delete this function, and its entry in
+ * `pabuyaQrAcceptedPolicies`, once the migration count reads zero.
+ */
+export function pabuyaQrLegacyPolicy(eventId: string): ClientRefPolicy {
   return { prefixes: [`events/${eventId}/pabuya/`] };
 }
 
@@ -470,7 +510,10 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // couple attached to a vendor payment was refused with a 400 at
   // app/api/upload/route.ts. Add a root here when a new uploader is written,
   // or the upload is rejected and only the widget shows it.
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof'])],
+  // `pabuya-qr` added 2026-09-17 — the couple's gift QR moved out of the public
+  // bucket. Its own ROOT rather than `events/…` so bucketForPrefix can carry a
+  // defence-in-depth rule for it (see pabuyaQrPolicy).
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.

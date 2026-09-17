@@ -315,7 +315,7 @@ test('a gift QR is planned for deletion with the event', () => {
       { qr_r2_key: `r2://setnayan-media/events/${eventId}/pabuya/a-IMG.jpg` },
       // Mid-migration: the private bucket must be reached too, or the sweep
       // silently stops deleting whichever half it does not name.
-      { qr_r2_key: `r2://setnayan-thread-files/events/${eventId}/pabuya/b-IMG.jpg` },
+      { qr_r2_key: `r2://setnayan-thread-files/pabuya-qr/${eventId}/b-IMG.jpg` },
       { qr_r2_key: null },
     ],
   });

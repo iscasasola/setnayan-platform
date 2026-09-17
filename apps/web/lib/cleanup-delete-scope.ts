@@ -235,8 +235,10 @@ export function pabuyaQrScope(eventId: unknown): CleanupScope {
   const e = safeId(eventId);
   if (!e) return emptyScope('events');
   return mintScope(`events:${e}`, [
+    // The old home — public bucket, event folder. Still swept until migrated.
     { bucket: MEDIA, prefixes: [`events/${e}/pabuya/`] },
-    { bucket: THREAD_FILES, prefixes: [`events/${e}/pabuya/`] },
+    // The new home — private bucket, own root prefix.
+    { bucket: THREAD_FILES, prefixes: [`pabuya-qr/${e}/`] },
   ]);
 }
 

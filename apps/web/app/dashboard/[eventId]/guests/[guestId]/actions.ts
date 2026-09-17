@@ -24,12 +24,14 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
-const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
+// SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
+// owns which sides are valid, and for which event types.
 const GROUP_VALUES: GuestGroupCategory[] = [
   'family',
   'friends',
@@ -187,9 +189,16 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   if (!first_name || !last_name) {
     return redirect(`${backTo}?error=missing_name`);
   }
-  if (!SIDE_VALUES.includes(side)) {
-    return redirect(`${backTo}?error=missing_side`);
+  // 🔑 THE FORM AND THE ACTION MUST ANSWER THIS THE SAME WAY. The Side control
+  // is absent on an event whose role set names no side principals, so an action
+  // that still REQUIRED one would refuse a save the screen had no way to
+  // satisfy — a hidden field and a silent refusal, which is worse than asking.
+  // Same helper as the form, so the two cannot drift.
+  const sideResult = resolveSubmittedSide(await resolveRoleSetForEvent(eventId), side);
+  if (!sideResult.ok) {
+    return redirect(`${backTo}?error=${sideResult.error}`);
   }
+  const resolvedSide = sideResult.side;
   if (!GROUP_VALUES.includes(group_category)) {
     return redirect(`${backTo}?error=missing_group`);
   }
@@ -268,7 +277,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       middle_name,
       name_suffix,
       display_name,
-      side,
+      side: resolvedSide,
       group_category,
       role,
       attire,

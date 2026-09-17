@@ -16,6 +16,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { eventHasSides } from '@/lib/guest-side-question';
 import {
   fetchGuestById,
   fetchSingletonRoleHolders,
@@ -167,6 +168,10 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // event creation, never (re)assigned from the guest list.
   const isCouple = guest.role === 'bride' || guest.role === 'groom';
   const roleSet = await resolveRoleSetForEvent(eventId);
+  // Sides are a wedding idea — the role set names the side principals.
+  // Same helper as /guests/new and the quick-add sheet, so the four
+  // surfaces that can ask this question cannot answer it differently.
+  const hasSides = eventHasSides(roleSet);
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
@@ -418,13 +423,15 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             InvitedToChips client island (PR #433 lock). */}
         <Section title="Categorization">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Select
-              id="side"
-              label="Side *"
-              required
-              defaultValue={guest.side}
-              options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
-            />
+            {hasSides ? (
+              <Select
+                id="side"
+                label="Side *"
+                required
+                defaultValue={guest.side}
+                options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
+              />
+            ) : null}
             <Select
               id="group_category"
               label="Group *"

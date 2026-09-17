@@ -96,24 +96,55 @@ test('the join door hardcodes no wedding noun, in EITHER arm', () => {
   );
 });
 
-test('the join door RESOLVES its words, once, for all eight sentences', () => {
+test('the join door RESOLVES its words — every sentence, EXECUTED not counted', async () => {
   const src = strip(read(JOIN_DOOR));
   assert.ok(
     count(src, 'eventWordsForEvent(eventId)') >= 1,
     'join-flow.tsx must resolve the event words. It is already an async server ' +
       'component holding the event id, so this needs no prop and no call-site change.',
   );
-  // The eight sites: 4 refusal sentences + 4 rendered strings (2 per arm).
-  // ⚖ WAS NINE until 2026-09-10, and the drop is two DELETIONS, not a revert:
-  // "{TheOrganizer} can refine it later." sat under the role picker in BOTH arms
-  // and left with it (the owner-locked 2026-06-25 addendum, built that day), and
-  // the accountless arm gained "Tell us your name so {theOrganizer} can find
-  // you". The claim itself — no hardcoded noun — is held by the test above;
-  // mutation-checked that reverting any one sentence still turns this red.
+
+  // ⚖ REWRITTEN 2026-09-17. This used to require >= 8 `w.theOrganizer` sites in
+  // THIS FILE. The four refusal sentences then moved into a pure module
+  // (lib/join-door-refusal-copy.ts) so a private event could stop borrowing the
+  // dead-link sentence — and the count fell to 4 while the claim stayed true.
+  //
+  // 🔑 A COUNT IN ONE FILE WAS ONLY EVER A PROXY FOR "no sentence hardcodes the
+  // noun". Now that the sentences live somewhere pure, the claim can be
+  // EXECUTED instead of proxied: every refusal sentence is rendered with a
+  // sentinel organiser and must carry it. That survives the sentences moving
+  // again, and it catches a hardcode the count never could — a NEW sentence
+  // that says "the couple" in a file the count does not read.
+  const { JOIN_DOOR_ERROR_KEYS, joinDoorRefusalMessage } = await import(
+    '@/lib/join-door-refusal-copy'
+  );
+  const SENTINEL = 'THE-BEREAVED-FAMILY';
+  let named = 0;
+  for (const key of JOIN_DOOR_ERROR_KEYS) {
+    const sentence = joinDoorRefusalMessage(key, { theOrganizer: SENTINEL });
+    // The claim is NOT "every sentence names the host" — two of them correctly
+    // do not ("Please pick a valid role.", "You're already on this event's
+    // guest list."). It is that NO sentence names a host the event may not
+    // have. A wake has no couple, no bride and no groom.
+    assert.ok(
+      !/\b(couple|bride|groom)\b/i.test(sentence),
+      `the "${key}" refusal hardcodes a wedding noun: ${JSON.stringify(sentence)}`,
+    );
+    if (sentence.includes(SENTINEL)) named += 1;
+  }
+  // ...and the ones that DO name the host must resolve it, not spell it. If
+  // this drops, a sentence has been reverted to a hardcoded word — which is the
+  // exact regression the old count existed to catch.
+  assert.ok(
+    named >= 5,
+    `expected at least 5 refusal sentences to resolve the organiser noun, found ${named}`,
+  );
+
+  // The rendered strings still live in the door itself (2 per arm).
   const uses = count(src, 'w.theOrganizer') + count(src, 'w.TheOrganizer');
   assert.ok(
-    uses >= 8,
-    `expected at least 8 resolved-noun sites in the join door, found ${uses} — ` +
+    uses >= 4,
+    `expected at least 4 resolved-noun sites rendered in the join door, found ${uses} — ` +
       'a sentence has been reverted to a hardcoded word',
   );
 });

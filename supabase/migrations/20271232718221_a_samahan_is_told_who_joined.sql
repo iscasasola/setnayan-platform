@@ -1,0 +1,42 @@
+-- a_samahan_is_told_who_joined
+-- ============================================================================
+-- THE SAMAHAN NOTICE MACHINE WAS FINISHED EXCEPT FOR ONE CASE.
+--
+-- `lib/samahan-notify.ts` ships the whole apparatus — a service-role roster
+-- fan-out, a collapse window reasoned from the group's own one-story-per-hour
+-- limit, pure recipient rules split into `samahan-notice-rules.ts` so they can
+-- be exercised without a database, and a documented fail-toward-ringing posture
+-- on the collapse read. Everything a person would check before concluding the
+-- feature is done. And the kind enum was:
+--
+--     NOTICE_TYPE = { story: 'samahan_story', message: 'samahan_message' }
+--
+-- Two kinds. A group was told what was POSTED and never who ARRIVED — somebody
+-- redeems the standing invite link, lands in the space, and nobody already
+-- there learns a new person is among them.
+--
+-- 🔑 THIS IS NOT A MISSING MECHANISM, IT IS A MISSING CASE, AND THAT IS WHY IT
+-- SURVIVED. A search for "does the samahan notify?" finds a complete, careful
+-- module and answers yes. Nothing renders wrongly, so there is no false branch
+-- to catch — the notice simply is not among the ones that exist. Only asking
+-- what a shipped capability ships FOR finds this class.
+--
+-- ⚠ ITS OWN FILE, NO BEGIN/COMMIT, NOTHING ELSE IN IT — a newly added enum
+-- value may not be USED in the transaction that adds it (see 20271142676882,
+-- and 20271168385546 which added three values for the same reason). Idempotent,
+-- so re-running is safe.
+--
+-- 🔑 AND THE VALUE MUST LAND IN THE DATABASE, NOT ONLY IN THE UNION. An INSERT
+-- naming an enum label Postgres has never heard of is REFUSED, not thrown:
+-- `emitNotification` console.errors it by design so the action it follows still
+-- completes, CI stays green, and the only symptom is a person who is never
+-- told. `lib/every-notice-type-exists-in-the-database.test.ts` exists because
+-- three values had already drifted that way across four live emit sites, and it
+-- derives BOTH sides from the code rather than from a hand-written list — so
+-- this line is what keeps that guard green, not a convenience.
+--
+-- Same allowlist posture as its two siblings (notification-emit.ts): the in-app
+-- tray rings, no email and no push, until the owner has ruled on quiet hours.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'samahan_join';

@@ -359,6 +359,14 @@ export type NotificationType =
   | 'samahan_story'
   | 'samahan_message'
   /*
+    DAY-21 · the group was told what was POSTED and never who ARRIVED. The
+    fan-out, the collapse window and the pure recipient rules all shipped with
+    the two above; joining was simply not one of the kinds, so a member reading
+    `samahan-notify.ts` came away certain the feature was finished. Same
+    allowlist posture as its two siblings: the tray rings, the phone does not.
+  */
+  | 'samahan_join'
+  /*
     TD-1 · a guest's takedown reached the SUPPLIER's copy (owner ruling
     2026-09-14: "no. we will honour the guest."). Recipient is the SUPPLIER,
     who otherwise loses a tile out of "What you've shot" or their portfolio
@@ -473,6 +481,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   connection_confirmed: 'Connection confirmed',
   samahan_story: 'New in your samahan',
   samahan_message: 'New in Usapan',
+  samahan_join: 'Someone joined your samahan',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
   papic_pool_spent: 'Guests have run out of Papic shots',
 };
@@ -653,6 +662,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // Informational / social → sky, the same register as chat_message.
   samahan_story: 'bg-sky-100 text-sky-800',
   samahan_message: 'bg-sky-100 text-sky-800',
+  samahan_join: 'bg-sky-100 text-sky-800',
   /*
     Neutral, not danger and not success. Nothing has gone wrong for the
     supplier and nothing is owed by them — a person exercised a right and we

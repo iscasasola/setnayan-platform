@@ -61,6 +61,14 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // a future server-side writer that routes by prefix cannot land these in the
   // public bucket by omission. That omission is exactly how they got there.
   if (normalized.startsWith('payment-proof/')) return 'threadFiles';
+  // The couple's Pabuya gift QR (2026-09-17). Same class as the receipts above
+  // and worse in one way: a QR Ph code ENCODES the bank account number, so the
+  // image is the identifier rather than a picture of one. The client names the
+  // bucket explicitly, so this is defence-in-depth — it makes the PREFIX alone
+  // sufficient. These objects previously lived under `events/<id>/pabuya/`,
+  // where no startsWith rule could reach them because the meaningful segment
+  // sat behind an unpredictable id; the root prefix exists so this line can.
+  if (normalized.startsWith('pabuya-qr/')) return 'threadFiles';
   // Mood Board "Make it real" renders (MB8). PRIVATE: a render is the couple's
   // own creation and is theirs alone until an admin FEATURES it, which is
   // itself gated on their explicit share consent. The public `media` bucket

@@ -209,6 +209,7 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   'app/dashboard/[eventId]/paperwork/page.tsx': 1, // vendor-contracts → event_paperwork.document_r2_key
   'app/vendor-dashboard/shop/_components/verify-pairs.tsx': 1, // vendor-verification → doc_uploads
   'app/vendor-dashboard/shop/_components/docs-body.tsx': 2, // vendor-verification → doc_uploads
+  'app/dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {

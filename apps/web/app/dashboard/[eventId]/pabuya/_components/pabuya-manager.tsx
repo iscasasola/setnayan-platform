@@ -508,8 +508,8 @@ export function PabuyaManager({
               {/* QR upload */}
               <div>
                 <FileUpload
-                  bucket="media"
-                  pathPrefix={`events/${eventId}/pabuya`}
+                  bucket="thread-files"
+                  pathPrefix={`pabuya-qr/${eventId}`}
                   label="QR code image (optional)"
                   help="Upload the QR from your GCash / Maya / bank app so guests can scan to send."
                   acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}

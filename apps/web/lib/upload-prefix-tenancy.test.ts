@@ -61,6 +61,12 @@ const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'us
   'force-majeure': 'event',
   handovers: 'event',
   inspiration: 'event',
+  // The couple's Pabuya gift QR (2026-09-17). `pabuya-qr/<eventId>/…` — an
+  // EVENT id, so the resolver's default is right and no route arm is needed.
+  // Its own root rather than `events/<id>/pabuya/` so `bucketForPrefix` can
+  // carry a defence-in-depth rule for it; a middle segment behind an
+  // unpredictable id is unreachable by a startsWith rule.
+  'pabuya-qr': 'event',
   paperwork: 'event',
   'payment-proof': 'event',
   'payment-screenshots': 'event',

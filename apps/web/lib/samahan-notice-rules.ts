@@ -7,14 +7,25 @@ import type { NotificationType } from '@/lib/notifications';
 // by a unit test. The decisions worth proving without a database live here,
 // pure, where they can be exercised directly — see samahan-notice-rules.test.ts.
 
-export type SamahanNoticeKind = 'story' | 'message';
+export type SamahanNoticeKind = 'story' | 'message' | 'join';
 
 export const NOTICE_TYPE: Record<SamahanNoticeKind, NotificationType> = {
   story: 'samahan_story',
   message: 'samahan_message',
+  join: 'samahan_join',
 };
 
-/** Where the notice points — also the collapse key, so both must agree. */
+/**
+ * Where the notice points — also the collapse key, so both must agree.
+ *
+ * 🔑 `join` SHARES THE SAMAHAN PAGE WITH `story`, AND THAT IS SAFE ONLY BECAUSE
+ * THE COLLAPSE READ FILTERS ON `type` AS WELL AS THIS URL. If it ever narrowed
+ * to the URL alone, a standing story notice would silence a join and vice
+ * versa — two different facts collapsing into one. The `.eq('type', type)` in
+ * `samahan-notify.ts` is what keeps them apart; do not remove it on the grounds
+ * that the URL "already identifies the samahan", because identifying the
+ * samahan is not the job it is doing.
+ */
 export function samahanNoticeUrl(communityId: string, kind: SamahanNoticeKind): string {
   return kind === 'message'
     ? `/dashboard/samahan/${communityId}?tab=usapan`
@@ -85,13 +96,34 @@ export function samahanNoticeCopy(
 ): { title: string; body: string } {
   const who = actorName.trim() || 'Someone';
   const where = communityName.trim() || 'your samahan';
-  return kind === 'story'
-    ? {
-        title: `${who} added to ${where}`,
-        body: 'Their clip is there for the next 24 hours.',
-      }
-    : {
-        title: `${who} wrote in ${where}`,
-        body: 'Open Usapan to read it.',
-      };
+  if (kind === 'story') {
+    return {
+      title: `${who} added to ${where}`,
+      body: 'Their clip is there for the next 24 hours.',
+    };
+  }
+  if (kind === 'join') {
+    /*
+     * ⚠ THE BODY IS WHAT MAKES THIS HONEST UNDER COLLAPSE, AND IT IS NOT
+     * DECORATION. Two people joining inside the window produces ONE notice —
+     * the second is skipped by `selectSamahanRecipients`, exactly as a second
+     * chat message is. For a message that costs nothing: the payload is "there
+     * is something to read", and the thread holds the words. For a join the
+     * payload is WHO, and a title naming one person while a second joined
+     * quietly would be a notice that is true and still leaves you wrong.
+     *
+     * So the title names the person it can vouch for and the body sends you to
+     * the list, which is complete by construction. Same reasoning as this
+     * feature's no-message-preview rule: never copy into a notification a fact
+     * the notification cannot keep true.
+     */
+    return {
+      title: `${who} joined ${where}`,
+      body: 'See everyone in the samahan.',
+    };
+  }
+  return {
+    title: `${who} wrote in ${where}`,
+    body: 'Open Usapan to read it.',
+  };
 }

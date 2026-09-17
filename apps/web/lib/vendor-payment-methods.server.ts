@@ -2,14 +2,17 @@
  * Server-only companion to lib/vendor-payment-methods.ts.
  *
  * Holds the couple-facing fetch, which presigns R2 display URLs for QR images
- * (displayUrlForStoredAsset → AWS SDK). Importing this module from a client
+ * (presigned display URLs → AWS SDK). Importing this module from a client
  * component is a build error by design — keep it server-side only.
  */
 import 'server-only';
+import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
+import { r2GetBytes } from '@/lib/r2';
+import { parseClientRef, vendorPaymentQrPolicy, vendorPaymentQrLegacyPolicy } from '@/lib/r2-client-ref';
+import { vendorPaymentQrDisplayUrl } from '@/lib/vendor-payment-qr-url.server';
 import jsQR from 'jsqr';
 import sharp from 'sharp';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   isVendorProActive,
   type CoupleFacingMethod,
@@ -85,7 +88,9 @@ export async function fetchPublishedMethodsForCouple(opts: {
       note: m.note,
       is_primary: m.is_primary,
       qr_display_url:
-        m.method_type === 'qr' ? await displayUrlForStoredAsset(m.qr_r2_key) : null,
+        m.method_type === 'qr'
+          ? await vendorPaymentQrDisplayUrl(m.qr_r2_key, m.vendor_profile_id)
+          : null,
     });
   }
   return out;
@@ -157,7 +162,9 @@ export async function fetchProposalPaymentMethods(opts: {
         note: m.note,
         is_primary: m.is_primary,
         qr_display_url:
-          m.method_type === 'qr' ? await displayUrlForStoredAsset(m.qr_r2_key) : null,
+          m.method_type === 'qr'
+          ? await vendorPaymentQrDisplayUrl(m.qr_r2_key, m.vendor_profile_id)
+          : null,
       });
     }
     return out;
@@ -167,31 +174,51 @@ export async function fetchProposalPaymentMethods(opts: {
 }
 
 /**
- * Decode what an uploaded QR image ACTUALLY encodes — server-side, so the
- * stored `decoded_destination` is Setnayan-verified (anti-swap), not the
- * vendor's typed claim. Fetches the image from R2, rasterises to RGBA via
- * sharp, runs jsQR. Best-effort: returns null on an unreadable image and never
- * throws (callers fall back to the vendor-declared value + admin review).
+ * Decode a supplier's uploaded payment QR to its destination string.
+ *
+ * ⚠ REWRITTEN 2026-09-17. It used to `displayUrlForStoredAsset(...)` and then
+ * `fetch()` that URL — i.e. mint a signed public URL for our own object so our
+ * own process could download it back over HTTP. `lib/r2.ts` warns about exactly
+ * that: "handing one a 24-hour public URL so that our own process can fetch it
+ * back creates an exposure that never had to exist." It also only ever worked
+ * against the PUBLIC bucket, so it would have returned null — silently — the
+ * moment supplier QRs moved to the private one, taking the anti-swap
+ * verification with it.
+ *
+ * Now: read the bytes server-side and decode them with the SHARED two-scale
+ * decoder, the same one the couples' upload check uses. No URL, no round trip,
+ * no bucket assumption.
+ *
+ * ⚠ THE REF IS CHECKED, NOT TRUSTED. `qr_r2_key` is a column a supplier can
+ * write, so the ref must satisfy this supplier's own policy before we fetch
+ * anything — otherwise a supplier could name another bucket's object and have
+ * the platform read it back for them.
  */
-export async function decodeQrFromR2(r2Ref: string): Promise<string | null> {
+export async function decodeQrFromR2(
+  r2Ref: string,
+  vendorProfileId: string,
+): Promise<string | null> {
   try {
-    const url = await displayUrlForStoredAsset(r2Ref);
-    if (!url) return null;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const input = Buffer.from(await res.arrayBuffer());
-    const { data, info } = await sharp(input)
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const result = jsQR(
-      new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
-      info.width,
-      info.height,
-    );
-    const text = result?.data?.trim();
+    /*
+      ⚠ THE REF IS CHECKED BEFORE ANYTHING IS FETCHED. `qr_r2_key` is a column a
+      supplier can write; without this a supplier could name another bucket's
+      object and have the platform read it back for them.
+
+      ⚠ `vendorProfileId` IS REQUIRED, not optional. An optional id with a
+      permissive fallback is how a caller silently skips the check — the caller
+      always has it (payment-options/actions.ts holds it from requireVendor).
+    */
+    const allowed =
+      parseClientRef(r2Ref, vendorPaymentQrPolicy(vendorProfileId)) ??
+      parseClientRef(r2Ref, vendorPaymentQrLegacyPolicy(vendorProfileId));
+    if (!allowed) return null;
+
+    const { bytes } = await r2GetBytes({ bucket: allowed.bucket, key: allowed.key });
+    const text = await decodeQrPayloadFromImage(bytes);
     return text && text.length > 0 ? text.slice(0, 256) : null;
   } catch {
     return null;
   }
 }
+
+

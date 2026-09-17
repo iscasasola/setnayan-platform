@@ -184,8 +184,8 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
               <span className="ml-1 text-terracotta-700">*</span>
             </span>
             <FileUpload
-              bucket="media"
-              pathPrefix={`vendors/${vendorProfileId}/payment-qr`}
+              bucket="thread-files"
+              pathPrefix={`vendor-payment-qr/${vendorProfileId}`}
               name="qr_r2_key"
               maxSizeMB={2}
               acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}

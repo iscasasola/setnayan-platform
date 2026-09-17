@@ -75,6 +75,8 @@ const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'us
   chat: 'thread',
   payments: 'order',
   vendors: 'vendor',
+  // A supplier's payment QR (2026-09-17) — its own root, still a vendor id.
+  'vendor-payment-qr': 'vendor',
   'profile-photo': 'user',
   samahan: 'community',
   // No UUID in the prefix at all, so this module says nothing about them.

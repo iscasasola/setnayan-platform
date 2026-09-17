@@ -128,7 +128,10 @@ const ORDER_ROOTS = new Set(['payments']);
  * falsified by every new prefix, without a line of this file changing. A
  * fall-through default is a claim about callers that do not exist yet.
  */
-const VENDOR_ROOTS = new Set(['vendors']);
+// `vendor-payment-qr` added 2026-09-17: a supplier's payment QR moved to its own
+// private root. The id is a VENDOR id — without this the resolver falls to its
+// event default and /api/upload refuses every upload with a 403.
+const VENDOR_ROOTS = new Set(['vendors', 'vendor-payment-qr']);
 
 /**
  * ── AND THE THIRD ONE, FOUND BY SWEEPING INSTEAD OF STOPPING ────────────────

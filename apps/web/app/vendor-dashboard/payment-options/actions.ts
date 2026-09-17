@@ -94,7 +94,7 @@ export async function addPaymentMethod(formData: FormData) {
     // Server-side decode (anti-swap): store what the QR ACTUALLY encodes, not
     // what the vendor typed. If the image can't be read, keep the vendor's note
     // as a fallback and route the method to admin review.
-    const decoded = await decodeQrFromR2(qrRef);
+    const decoded = await decodeQrFromR2(qrRef, vendorProfileId);
     if (decoded) {
       row.decoded_destination = decoded;
       autoApprove = true;

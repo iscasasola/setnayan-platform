@@ -137,14 +137,14 @@
   gap: 5px;
 }
 /* ST-7 · the same wash, the same failure. `.mini` is 12px/600 — normal text —
-   at 4.61:1 on cream, dropping to 4.04:1 once its own hover tint darkens the
-   ground beneath it. Hovering made the label LESS readable.
+   at 4.76:1 on the panel it sits in, dropping to 4.15:1 once its own hover tint
+   darkens the ground beneath it. Hovering made the label LESS readable.
 
    The tint stays here: a button needs its hover affordance and, unlike a
-   selection, has no outline doing that work. Instead the label deepens to the
-   palette's AA-rated `--color-mulberry-700` #9D3F1E, which reads 5.63:1 on that
-   tint. An existing token, chosen because it is already rated — not a new
-   colour invented for this row. */
+   selection, has no outline doing that work. Instead the label deepens to
+   `--color-mulberry-700` #9D3F1E, which reads 5.79:1 on that tint. An existing
+   palette token, chosen because it is already the CTA's deepest rated step —
+   not a new colour invented for this row. */
 .mini:hover {
   background: var(--act-soft);
   color: rgb(var(--color-mulberry-700));
@@ -564,14 +564,17 @@
   border-radius: var(--m-r-md);
 }
 /* ST-7 · SELECTED WORDS KEEP THEIR CONTRAST.
-   This laid `--act-soft` (mulberry at 10%) BEHIND the words, and a host may
-   colour their words ink · terracotta · blue · gold (WORD_COLORS). Measured
-   against cream, 19px/400 serif = normal text, AA needs 4.5:1:
+   This laid `--act-soft` (the action colour at 10%) BEHIND the words, and a
+   host may colour their words ink · terracotta · blue · gold (WORD_INK below /
+   WORD_COLORS in `lib/story-arrangement.ts`). 19px/400 serif is NORMAL text, so
+   AA is 4.5:1 — measured on the page the words sit on (`.canvas` = `--paper` =
+   `--color-cream`, which has been WHITE since 2026-08-20; the token kept its
+   name, not its value), and again on that page under the 10% wash (#f9ede9):
 
-       ink        13.82 -> 12.12  pass      blue  8.22 -> 7.21  pass
-       terracotta  4.61 ->  4.04  FAIL      gold  4.79 -> 4.20  FAIL
+       ink        14.28 -> 12.46  pass      blue  8.50 -> 7.41  pass
+       terracotta  4.76 ->  4.15  FAIL      gold  4.95 -> 4.32  FAIL
 
-   The wash costs every colour about 12% of its contrast. Ink and blue can
+   The wash costs every colour about an eighth of its contrast. Ink and blue can
    afford it; terracotta and gold were already just above the line — so
    SELECTING text made it harder to read. The highlight meant to show what you
    picked was the thing obscuring it.
@@ -583,11 +586,17 @@
    colour the host chose.
 
    ⚠ BOTH ALTERNATIVES WERE MEASURED AND REFUSED:
-   · lightening the wash — terracotta still fails at 4% opacity (4.37), by which
-     point the tint is invisible anyway;
-   · darkening gold — no gold in the palette clears 4.5 on the tint;
-     `--color-terracotta-700` #8C6932 reaches only 4.26, so it would have needed
-     a colour that does not exist, which is the owner's call, not this row's. */
+   · lightening the wash — terracotta is still under at 5% (4.45) and only
+     clears at 4%, by 0.02 (4.52), where the wash is #fdf8f6: two levels off the
+     white it sits on, and no longer a visible selection at all;
+   · darkening the gold — `--color-terracotta-700` #8C6932, the deepest gold the
+     palette actually has, reaches only 4.38 on the wash. Clearing the bar would
+     need a colour that does not exist yet, which is the owner's call and not
+     this row's.
+
+   Held by `../selected-words-keep-their-contrast.test.ts`, which RESOLVES these
+   colours and re-does this arithmetic — so a wash reintroduced at any opacity,
+   under any spelling, fails there rather than in front of a host. */
 .obj.tx.sel {
   outline: 2px solid var(--act);
   outline-offset: 2px;

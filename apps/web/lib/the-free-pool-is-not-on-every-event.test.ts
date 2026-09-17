@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
+import { stripComments } from './strip-comments';
 
 /**
  * The property: no surface anywhere may say the free CREDIT POOL comes with
@@ -59,11 +60,7 @@ test('no live copy says the free credit POOL comes with every event', () => {
   for (const file of sources(join(WEB, 'app')).concat(sources(join(WEB, 'lib')))) {
     // Comments are not copy — but a stale one misleads the next session, so
     // they are corrected by hand, not policed here. Strip, then look.
-    const code = readFileSync(file, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .split('\n')
-      .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-      .join('\n');
+    const code = stripComments(readFileSync(file, 'utf8'));
     for (const re of near) {
       const m = re.exec(code);
       if (m) offenders.push(`${relative(WEB, file)} — "${m[0].replace(/\s+/g, ' ').slice(0, 90)}"`);

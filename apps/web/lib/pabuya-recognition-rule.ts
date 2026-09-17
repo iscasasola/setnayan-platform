@@ -34,15 +34,28 @@ export type RecognitionFacts = {
   eventId: string;
   /** `event_members.member_type` for the signed-in user, or null (no user, no row). */
   memberType: string | null;
+  /**
+   * Does the platform already consider this user a HOST of this event?
+   *
+   * ⚠ NOT a `Boolean(row)`. This is the answer from `userHostsEvent` — the
+   * shared definition the dashboard and the QR route already use, which
+   * requires an `event_members` couple row OR an `event_moderators` row that is
+   * ACCEPTED, not removed, and in a primary host role. Passing that decision in
+   * rather than re-deriving it here is what keeps the two doors agreeing.
+   */
+  hostsEvent: boolean;
 };
 
 /**
  * TRUE when this celebration recognises the reader.
  *
- * Two arms, and only two:
+ * THREE arms (the third added 2026-09-17 by owner ruling):
  *   · a guest session for THIS event — she opened her own invitation link or
  *     scanned her QR on this device; or
- *   · a signed-in member whose type is a HOST type.
+ *   · a signed-in member whose `event_members` type is a HOST type
+ *     (couple · coordinator); or
+ *   · a user the platform already calls a host of this event — which is how an
+ *     accepted MODERATOR is recognised on their own celebration.
  *
  * ⚠ Somebody the couple forwarded the link to is a PASSER-BY, deliberately.
  * Holding the link is how a relative abroad reaches the page at all; it is not
@@ -54,5 +67,24 @@ export function viewerIsRecognised(facts: RecognitionFacts): boolean {
   if (facts.guestSessionEventId !== null && facts.guestSessionEventId === facts.eventId) {
     return true;
   }
-  return isHostMemberType(facts.memberType);
+  // An `event_members` host row: couple or coordinator.
+  if (isHostMemberType(facts.memberType)) return true;
+  /*
+    ⚖ OWNER RULING 2026-09-17 — AN ACCEPTED MODERATOR IS A CO-HOST AND IS
+    RECOGNISED ON THEIR OWN CELEBRATION.
+
+    Two definitions of "host" had diverged: the dashboard and the QR route
+    called an accepted moderator a host (`userHostsEvent`), while this rule saw
+    only `event_members`. A co-host invited that way therefore opened their own
+    event's gift page and was told "payment details are shown to invited
+    guests" — the product contradicting itself about who they are.
+
+    🔑 THIS IS NOT A WIDENING TO STRANGERS. It admits exactly the people the
+    platform already treats as hosts, and it CONVERGES the two doors rather
+    than adding a third answer. Asked before acting, because it is still a
+    disclosure change: measured 2026-09-17, 6 accepted moderators, 0 of them
+    without a host member row — so nobody was affected yet and this is the
+    cheapest possible moment to agree the rule.
+  */
+  return facts.hostsEvent;
 }

@@ -2,6 +2,8 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { viewerIsRecognised } from '@/lib/pabuya-recognition-rule';
+import { userHostsEvent } from '@/lib/events';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * apps/web/lib/pabuya-recognition.ts (server-only)
@@ -63,6 +65,7 @@ export async function viewerIsRecognisedForEvent(eventId: string): Promise<boole
   const guestSession = await readGuestSession();
 
   let memberType: string | null = null;
+  let hostsEvent = false;
   const sb = await createClient();
   const {
     data: { user },
@@ -76,11 +79,34 @@ export async function viewerIsRecognisedForEvent(eventId: string): Promise<boole
       .maybeSingle();
     memberType =
       (member as { member_type?: string | null } | null)?.member_type ?? null;
+
+    /*
+      ⚖ 2026-09-17 — the THIRD arm, and the reason it is `userHostsEvent` rather
+      than a second hand-rolled query: that function is the platform's single
+      definition of "hosts this event" (event_members couple, OR an accepted,
+      non-removed event_moderators row in a primary host role), and the QR route
+      already asks it. Asking the SAME function is what converges the two doors
+      instead of adding a third answer that can drift from both.
+
+      ⚠ Admin client on purpose: membership is an EVENT-level fact and a
+      co-host's own RLS view of event_moderators can be narrower than the truth.
+      Authorization is the comparison below, not the client that ran it.
+
+      ⚠ Fail-CLOSED. A throw here must never recognise a reader — recognition
+      is what discloses a bank account number, so the stricter answer is the
+      safe one and `hostsEvent` stays false.
+    */
+    try {
+      hostsEvent = await userHostsEvent(createAdminClient(), user.id, eventId);
+    } catch {
+      hostsEvent = false;
+    }
   }
 
   return viewerIsRecognised({
     guestSessionEventId: guestSession?.event_id ?? null,
     eventId,
     memberType,
+    hostsEvent,
   });
 }

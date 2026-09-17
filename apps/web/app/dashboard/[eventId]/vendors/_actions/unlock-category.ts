@@ -31,6 +31,8 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -63,10 +65,11 @@ export type UnlockCategoryResult =
   | { status: 'invalid_group' }
   | { status: 'error'; message: string };
 
-const INQUIRY_BODY =
-  "Hi! We're planning our wedding and would love to hear about your " +
-  'availability and packages for our date. Could you share your rates and ' +
-  "what's included?";
+/* The opening now comes from the event's PROFILE — see
+   lib/supplier-inquiry-opening.ts. It was one hard-coded sentence sent for every
+   celebration type, so a family arranging a WAKE introduced themselves to a
+   supplier by saying they were planning a wedding and would love to hear about
+   packages. Two files carried it byte-identically; both now ask the profile. */
 
 /** Group → canonical services (tightest-first), mirroring category-search.ts. */
 function canonicalsForGroup(groupId: string): string[] {
@@ -267,7 +270,10 @@ export async function unlockCategoryWithInquiry(input: {
         }
         const msg = new FormData();
         msg.set('thread_id', thread.thread_id);
-        msg.set('body', INQUIRY_BODY);
+        msg.set(
+          'body',
+          supplierInquiryBody(await resolveProfileByEvent(eventId)),
+        );
         // sendChatMessage posts as 'couple' + fires vendor_inquiry_received on
         // the first message. No return_to → it returns without redirecting.
         await sendChatMessage(msg);

@@ -24,6 +24,8 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -56,16 +58,18 @@ import {
   eventVendorCategoryKeyForCardKind,
 } from '@/lib/event-vendor-category';
 
-const INQUIRY_BODY =
-  "Hi! We're planning our wedding and would love to hear about your " +
-  'availability and packages for our date. Could you share your rates and ' +
-  "what's included?";
+/* The opening now comes from the event's PROFILE — see
+   lib/supplier-inquiry-opening.ts. It was one hard-coded sentence sent for every
+   celebration type, so a family arranging a WAKE introduced themselves to a
+   supplier by saying they were planning a wedding and would love to hear about
+   packages. Two files carried it byte-identically; both now ask the profile. */
 
 /**
  * Lead-in for a package build appended to a thread that ALREADY has messages.
- * A brand-new thread opens with INQUIRY_BODY and carries the build inside that
- * first message; a resumed one gets this instead, because "Hi! We're planning
- * our wedding" reads as a stranger on a conversation already in progress.
+ * A brand-new thread opens with the profile's own inquiry opening
+ * (lib/supplier-inquiry-opening.ts) and carries the build inside that first
+ * message; a resumed one gets this instead, because an introduction reads as a
+ * stranger on a conversation already in progress.
  */
 const PACKAGE_ASK_BODY =
   'We put together a version of your package — could you take a look and let ' +
@@ -475,7 +479,7 @@ export async function startServiceInquiry(input: {
     const delivery = await postThreadMessage(
       supabase,
       threadId,
-      `${INQUIRY_BODY}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+      `${supplierInquiryBody(await resolveProfileByEvent(eventId))}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
     );
     // Reported only when the build was inside that message; otherwise the note
     // stays best-effort exactly as it has always been.

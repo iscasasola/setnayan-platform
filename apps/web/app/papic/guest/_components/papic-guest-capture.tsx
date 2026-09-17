@@ -164,7 +164,7 @@ type Props = {
    *
    * 🔴 REQUIRED, and it replaces the old `guestUnlimited`. The database lifts
    * the platform ceiling for an active "Unlock all of Papic" **or** for any
-   * celebration with a shared pot — every celebration arms the free 50-shot
+   * celebration with a shared pot — the FIRST celebration on an account arms the free 50-shot
    * pot on render, so THAT half is false almost everywhere — but the couple's
    * own ceiling, when set, overrides both: a bought Unlock pass is not
    * permission to walk through a limit the couple put on one guest. `total`

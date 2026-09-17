@@ -15,6 +15,7 @@ import {
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { eventHasSides } from '@/lib/guest-side-question';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -85,6 +86,12 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
     );
   }
   const showTeaCeremony = isChineseWedding(ceremonyRow);
+  // Sides are a wedding idea (Bride's side / Groom's side). The role set is
+  // what knows — it names the side principals — so a birthday, a wake, a
+  // corporate event or a Simple Event is never asked. See
+  // lib/guest-side-question.ts; the server action stores 'both' for them, the
+  // same value /guests/quick has always written.
+  const hasSides = eventHasSides(roleSet);
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
@@ -116,7 +123,9 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Add a guest</h1>
         <p className="text-sm text-ink/60">
-          First and last name + side + group are required. Everything else is optional.
+          {hasSides
+            ? 'First and last name + side + group are required. Everything else is optional.'
+            : 'First and last name + group are required. Everything else is optional.'}
         </p>
       </header>
 
@@ -133,12 +142,14 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         <GuestNameFields eventId={eventId} pool={namePool} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select
-            id="side"
-            label="Side *"
-            required
-            options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
-          />
+          {hasSides ? (
+            <Select
+              id="side"
+              label="Side *"
+              required
+              options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
+            />
+          ) : null}
           <Select
             id="group_category"
             label="Group *"
@@ -152,7 +163,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
 
         <Select
           id="role"
-          label="Role in wedding"
+          label={hasSides ? 'Role in wedding' : 'Role'}
           defaultValue="guest"
           options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
         />

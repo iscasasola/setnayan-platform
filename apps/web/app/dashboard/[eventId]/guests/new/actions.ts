@@ -20,9 +20,11 @@ import {
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { resolveSubmittedSide } from '@/lib/guest-side-question';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
-const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
+// The SIDE list + the "is a side meaningful here?" decision live in
+// lib/guest-side-question.ts, which is pure and test-executed.
 const GROUP_VALUES: GuestGroupCategory[] = [
   'family',
   'friends',
@@ -74,7 +76,7 @@ export async function createGuest(eventId: string, formData: FormData) {
   const name_prefix = normalizeGuestName(clean(formData.get('name_prefix'))) || null;
   const middle_name = normalizeGuestName(clean(formData.get('middle_name'))) || null;
   const name_suffix = normalizeGuestName(clean(formData.get('name_suffix'))) || null;
-  const side = clean(formData.get('side')) as GuestSide;
+  const submittedSide = clean(formData.get('side'));
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
   const role = (clean(formData.get('role')) || 'guest') as GuestRole;
   const email = clean(formData.get('email')) || null;
@@ -110,13 +112,18 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (!first_name || !last_name) {
     return redirect(`/dashboard/${eventId}/guests/new?error=missing_name`);
   }
-  if (!SIDE_VALUES.includes(side)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=missing_side`);
-  }
   if (!GROUP_VALUES.includes(group_category)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=missing_group`);
   }
   const roleSet = await resolveRoleSetForEvent(eventId);
+  // Sides are a wedding idea. On an event type whose role set names no side
+  // principals the form never asked, so store what quick-add stores instead of
+  // refusing with "Pick a side first." A wedding is unchanged: still required.
+  const sideResult = resolveSubmittedSide(roleSet, submittedSide);
+  if (!sideResult.ok) {
+    return redirect(`/dashboard/${eventId}/guests/new?error=${sideResult.error}`);
+  }
+  const side: GuestSide = sideResult.side;
   if (!roleSet.offeredRoles.includes(role)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
   }

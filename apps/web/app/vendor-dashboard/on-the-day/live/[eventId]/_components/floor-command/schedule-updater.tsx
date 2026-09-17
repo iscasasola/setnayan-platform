@@ -30,9 +30,25 @@ type Props = {
   action: AdvanceAction;
   remaining: number;
   driftMinutes: number | null;
+  /**
+   * DAY-8 · say whose schedule this is, to somebody it is not.
+   *
+   * ⚠ DEFAULTS FALSE SO THE COORDINATOR'S SURFACE RENDERS BYTE-IDENTICALLY.
+   * Running the programme IS the coordinator's job — they do not need telling
+   * that the night belongs to the couple. The host/MC is a different case: the
+   * couple lent him one area out of a grid, he can hand it back, and a control
+   * that appears with no explanation reads as "this is mine now".
+   */
+  onLoan?: boolean;
 };
 
-export function ScheduleUpdater({ eventId, action, remaining, driftMinutes }: Props) {
+export function ScheduleUpdater({
+  eventId,
+  action,
+  remaining,
+  driftMinutes,
+  onLoan = false,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -74,6 +90,16 @@ export function ScheduleUpdater({ eventId, action, remaining, driftMinutes }: Pr
           {drift ? ` · ${drift}` : ''}
         </span>
       </div>
+
+      {/* The loan, in one sentence, ABOVE the controls rather than under them —
+          it is the frame for everything below it, not a footnote to be found
+          after the schedule has already been moved. */}
+      {onLoan ? (
+        <p className="text-xs leading-snug text-ink/55">
+          This is the couple&rsquo;s running order, shared with you for tonight. Anything you
+          move here moves it for everyone.
+        </p>
+      ) : null}
 
       {action.kind === 'empty' ? (
         <p className="text-sm text-ink/55">

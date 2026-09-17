@@ -32,7 +32,8 @@
  * classification does.
  *
  * ── WHAT THIS GUARD DOES ───────────────────────────────────────────────────────
- * Walks `apps/web` with `readdirSync` and fails if any source file carries a raw NUL.
+ * Walks the REPOSITORY ROOT with `readdirSync` and fails if any source file carries a
+ * raw NUL - changelog fragments, migrations and workflows included.
  *
  * ⚠ DELIBERATELY NOT `grep`. A grep-based version of this test could never fail: the
  * tool cannot see the files it is looking for. That is the joke at the centre of this
@@ -51,11 +52,37 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const WEB = join(HERE, '..');
+/*
+ * THE REPOSITORY ROOT, NOT `apps/web`, AND THE FIRST VERSION OF THIS GUARD GOT IT
+ * WRONG IN THE MOST INSTRUCTIVE WAY AVAILABLE.
+ *
+ * It walked `apps/web` only. The PR that introduced it added a raw NUL to its own
+ * `changelog.d/` fragment - at the repo root, outside the walk - and the guard went
+ * GREEN on a branch that shipped exactly the thing it exists to forbid. It could not
+ * see its own PR.
+ *
+ * Also outside `apps/web`: `supabase/migrations/`, root `scripts/`, every `.github`
+ * workflow, and every changelog fragment. A guard against invisible files must not
+ * have a blind spot of its own.
+ */
+// lib -> apps/web -> apps -> the repository root. THREE levels: the first attempt
+// used two, which lands back on `apps/web` and walked 5,982 files instead of the
+// whole tree - a widening that looked done and changed nothing.
+const ROOT = join(HERE, '..', '..', '..');
 
 /** Text we author. Anything else may legitimately be binary. */
 const SOURCE = /\.(?:tsx?|jsx?|mjs|cjs|css|scss|json|md|sql|ya?ml|txt|svg|html)$/;
-const SKIP = new Set(['node_modules', '.next', '.turbo', '.git', 'coverage', 'playwright-report']);
+const SKIP = new Set([
+  'node_modules',
+  '.next',
+  '.turbo',
+  '.git',
+  'coverage',
+  'playwright-report',
+  'dist',
+  'build',
+  'target',
+]);
 
 function sourceFiles(): string[] {
   const out: string[] = [];
@@ -67,11 +94,11 @@ function sourceFiles(): string[] {
       else if (SOURCE.test(e.name)) out.push(full);
     }
   };
-  walk(WEB);
+  walk(ROOT);
   return out;
 }
 
-test('no source file under apps/web carries a raw NUL byte', () => {
+test('no source file in the repository carries a raw NUL byte', () => {
   const files = sourceFiles();
   console.log(`  source files walked: ${files.length}`);
   /*
@@ -79,7 +106,18 @@ test('no source file under apps/web carries a raw NUL byte', () => {
    * perfectly clean sweep — 0 of 0 — which is the same shape of false green this
    * guard exists to end.
    */
-  assert.ok(files.length > 3000, `floor: expected 3000+ source files, walked ${files.length}`);
+  /*
+   * THE FLOOR IS SET ABOVE WHAT `apps/web` ALONE CONTAINS (5,982), NOT ABOVE ZERO.
+   * A floor of 3,000 was the first version, and it would have passed silently when
+   * the root was accidentally two levels up instead of three - a widening that
+   * looked done, walked the same subtree, and changed nothing. A floor only earns
+   * its place if it fails the mistake actually made.
+   */
+  assert.ok(
+    files.length > 8000,
+    `floor: expected 8000+ source files across the repo, walked ${files.length} - ` +
+      'that is roughly `apps/web` alone, so ROOT is pointing at the wrong level',
+  );
 
   const hiding: string[] = [];
   for (const f of files) {
@@ -87,7 +125,7 @@ test('no source file under apps/web carries a raw NUL byte', () => {
     const at = buf.indexOf(0);
     if (at >= 0) {
       const line = buf.subarray(0, at).toString('utf8').split('\n').length;
-      hiding.push(`${f.slice(WEB.length + 1)}:${line}`);
+      hiding.push(`${f.slice(ROOT.length + 1)}:${line}`);
     }
   }
   console.log(`  files invisible to a bare grep: ${hiding.length}`);

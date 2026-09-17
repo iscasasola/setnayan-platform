@@ -119,6 +119,46 @@ test('🔒 the permanent QR route asks the SAME question the page asks', () => {
   );
 });
 
+test('🔒 the EVENT HUB names rails only — never an identifier, never couple text', () => {
+  /*
+    The hub's gifts doorway gained a footline naming WHICH wallets are accepted
+    ("GCASH · BANK TRANSFER"). That is a second surface describing the same
+    methods, so it needs its own ceiling — the gifts page's gate does not reach
+    here, and the hub deliberately does not branch on who is reading.
+
+    ⚖ What is allowed: the CLOSED vocabulary from egift-kinds.ts, keyed by the
+    CHECK-constrained `method_kind`. There is no value in it a couple can author.
+    ⚖ What is not: `handle`, `account_name`, `qrDisplayUrl`, `qr_r2_key`, and the
+    couple's own free-text `label` — author-controlled, so it could carry the
+    number the ruling withholds.
+  */
+  const hub = stripComments(
+    readFileSync(join(process.cwd(), 'app/[slug]/hub/page.tsx'), 'utf8'),
+  );
+
+  assert.match(
+    hub,
+    /egiftKindMeta\(m\.method_kind\)\.defaultLabel/,
+    'the hub no longer derives its rail names from the closed vocabulary',
+  );
+
+  for (const banned of ['.handle', '.account_name', '.qrDisplayUrl', '.qr_r2_key']) {
+    assert.ok(
+      !hub.includes(banned),
+      `the hub now reads ${banned} off an e-gift row — that is an identifier on a second surface`,
+    );
+  }
+  // The couple's own label, read off an egift row, is the subtle one.
+  assert.ok(
+    !/\bm\.label\b/.test(hub),
+    'the hub prints the couple-authored label — author-controlled text, so it can carry anything',
+  );
+  assert.ok(
+    !hub.includes('<PabuyaCardList'),
+    'the full gift card was mounted on the hub — that is the gifts page, re-drawn',
+  );
+});
+
 test('🔑 the page says something is withheld, so a gate cannot read as a bug', () => {
   const src = pageBody();
   assert.ok(src.includes('identifiersWithheld'), 'nothing tracks whether anything was withheld');

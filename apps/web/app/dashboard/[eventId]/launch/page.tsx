@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -552,6 +553,28 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     env flag AND the DPO control — under the hub's own comment "no dead door".
     A door shown for a feature that is off is worse than no door.
   */
+  /*
+    The E-Gifts door's OWN gate, REPRODUCED and not re-decided.
+
+    There is exactly one other dashboard door to the same page — the Studio tile
+    — and it gates on `surfaceEnabled(profile, 'website')` (studio/page.tsx
+    `websiteOn`). Same helper, same fallback, same spelling. `resolveProfileByEvent`
+    is cache()d, so this is not a second read.
+
+    ⚠ ITS OWN `await`, DELIBERATELY OUTSIDE THE `Promise.all([…])` ABOVE — that
+    array carries a source guard which walks back from a call to find its
+    condition and stops at the enclosing `(`. Adding a gated entry inside it
+    would hide the gate from the guard, which is the exact trap the comment
+    above `guestReadPromise` already documents.
+
+    ⚖ NOT gated on `PABUYA_PUBLIC_ROUTE_ENABLED`, and NOT on having a method
+    already: this is the SET-UP page. Its own three-state preview explains a
+    dark flag, and the whole reason to show the door is so the couple can add
+    their first destination. A door that appears only once you no longer need it
+    is not a door.
+  */
+  const websiteOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
+
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
     { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/story` },
@@ -563,6 +586,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       : []),
     { key: 'guests', label: 'Guests and replies', hint: 'Names, invites, who is coming', href: `${base}/guests` },
     { key: 'schedule', label: 'The running order', hint: 'What happens, and when', href: `${base}/schedule` },
+    /*
+      E-Gifts. The couple's gift page was reachable from the customer nav and
+      from the Studio tile, but NOT from the Event Hub Controller — the surface
+      whose whole job is to list the rooms of their event. `label` is spelled
+      exactly as the Studio tile spells it, so one page does not answer to two
+      names on the couple's own side.
+    */
+    ...(websiteOn
+      ? [{ key: 'pabuya', label: 'E-Gifts', hint: 'Your own GCash, Maya or bank account', href: `${base}/pabuya` }]
+      : []),
   ];
 
   const phaseTitle =

@@ -79,6 +79,7 @@ import { WatchLiveBlock } from '../_components/watch-live-block';
 import { HubShell } from '../_components/hub/hub-shell';
 import { eventSeatingPublished } from '@/lib/seat-pass';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { egiftKindMeta } from '@/lib/egift-kinds';
 import { resolveGuestDoorways } from '../_lib/site-nav';
 
 type Props = {
@@ -484,9 +485,36 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     ? await eventSeatingPublished(admin, event.event_id)
     : false;
   const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
-  const enabledEgiftCount = pabuyaRouteEnabled
-    ? (await fetchEgiftMethods(admin, event.event_id, { enabledOnly: true })).length
-    : 0;
+  // ⚠ SAME CALL, SAME READER, SAME FILTER — `finished-pages-need-doorways.test.ts`
+  // pins this exact spelling, including `{ enabledOnly: true }`. Only the
+  // binding changed: the rows are kept so the doorway can name the RAILS.
+  const enabledEgiftMethods = pabuyaRouteEnabled
+    ? await fetchEgiftMethods(admin, event.event_id, { enabledOnly: true })
+    : [];
+  const enabledEgiftCount = enabledEgiftMethods.length;
+  /*
+    WHICH rails wait behind the door — and nothing else.
+
+    ⚖ Owner 2026-09-15, twice: "gate the account number", then "gate the gcash
+    number too." An unrecognised reader may learn THAT a wallet is accepted and
+    WHICH one; never the handle, never the QR, never the couple's own free-text
+    label (author-controlled, so it could carry the very number the ruling hides).
+
+    🔑 A CLOSED VOCABULARY IS THE WHOLE SAFETY ARGUMENT. These strings come from
+    `egiftKindMeta().defaultLabel` — 'GCash' · 'Maya' · 'Bank transfer' ·
+    'PayPal' — keyed by the CHECK-constrained `method_kind` column. No row data
+    reaches the JSX, so there is no value here a couple could author.
+    `other` names nothing useful to a guest and is dropped.
+
+    No solemn arm: "GCash" is the same word at a wake.
+  */
+  const pabuyaRails = Array.from(
+    new Set(
+      enabledEgiftMethods
+        .filter((m) => m.method_kind !== 'other')
+        .map((m) => egiftKindMeta(m.method_kind).defaultLabel),
+    ),
+  );
   // 🚨 THE MONEY-GIFT PAGE DOES NOT ASK THE VISIBILITY QUESTION THIS HUB ASKED.
   // The gate above ran `canViewSlugEvent(effectiveVisibility)`, which reports
   // 'public' the instant a SCHEDULED launch falls due — before anything has
@@ -702,6 +730,18 @@ export default async function EventHubPage({ params, searchParams }: Props) {
                 ? <>A gift of sympathy — straight to {words.theOrganizer}.</>
                 : <>The digital money dance — straight to {words.theOrganizer}.</>}
             </span>
+            {/* DELTA · which rails wait behind the door. Names only, from the
+                closed vocabulary in egift-kinds.ts — never the couple's own
+                label, never a handle, never a QR. Renders NOTHING when there is
+                nothing to name, so the card is then byte-identical to before.
+                No `truncate`: four rails wrapping to a second line on a 360px
+                phone is correct, and clipping one would misstate which wallets
+                are accepted. */}
+            {pabuyaRails.length > 0 ? (
+              <span className="mt-2 block font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
+                {pabuyaRails.join(' · ')}
+              </span>
+            ) : null}
           </span>
           <span aria-hidden className="text-ink/40">
             →

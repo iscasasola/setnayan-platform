@@ -31,6 +31,7 @@ import {
   filterPublicSafeRows,
 } from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
+import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl, isYouTubeVideoId } from '@/lib/panood-watch';
 import { filmsFromRows, type EventFilm, type EventFilmRow } from '@/lib/event-films';
@@ -837,6 +838,14 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   }
 
   // 1. The event (required). Without it there's no page.
+  //
+  // ⚠ `photo_wall_photos` IS STILL SELECTED AND IS NOW READ BY NOBODY. The recap's
+  // photo wall used to come from it; it now reads the live feed through
+  // `getWallSnapshot` (§ 6c below explains why). The column is kept in the select
+  // only so this pair of reads stays byte-identical to the fallback beneath it —
+  // it feeds nothing, and a reader who finds it here should not conclude otherwise.
+  // Whether the column itself is retired is a migration-sized decision, not this
+  // resolver's.
   let event: Record<string, unknown> | null = null;
   try {
     const { data, error } = await admin
@@ -1546,27 +1555,60 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     galleryCaptures.push({ url, atMs: Number.isFinite(t) ? t : null });
   }
 
-  // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
-  // only when the couple availed the LIVE_WALL SKU. Same resolver as the
-  // gallery. Best-effort: a missing activation table just hides the section.
-  const wallRefs = Array.isArray((event as Record<string, unknown>).photo_wall_photos)
-    ? ((event as Record<string, unknown>).photo_wall_photos as unknown[]).filter(
-        (r): r is string => typeof r === 'string' && r.trim().length > 0,
-      )
-    : [];
-  const photoWallPhotos = (
-    await Promise.all(wallRefs.map((ref) => displayUrlForStoredAsset(ref)))
-  ).filter((u): u is string => Boolean(u));
+  /*
+   * 6c. Live Photo Wall — the day's candid photos, on the recap.
+   *
+   * ── 🔴 THIS SECTION COULD NEVER RENDER, AND THE REASON IS WORTH KEEPING ────
+   * It read `events.photo_wall_photos`, a `jsonb` column with **no writer
+   * anywhere in the application**. Every occurrence in the tree was a read, a
+   * column-grant list, a media sweep, a migration or a comment. It defaults to
+   * `'[]'::jsonb`, so `photoWallPhotos.length > 0` was permanently false and the
+   * block was dark for every couple who had ever paid for LIVE_WALL.
+   *
+   * 🔑 AND THE OBVIOUS FIX WAS THE WRONG ONE. An absent writer reads as "somebody
+   * forgot to build the writer" — but the capability was two files away under a
+   * different noun. `getWallSnapshot` is the SAME screened feed the venue
+   * projector and the guest page's day-of wall already render, gated by
+   * `wall_visible_photos` (moderation + the guest's own takedowns). Writing a
+   * second store for "the day's candid photos" would have manufactured a rival
+   * source of truth for one fact, and the two would disagree the first time
+   * either was fixed. Point at the feed; never feed the dead column.
+   *
+   * ── 🔒 THE GATE IS `guestWallMirrorActive`, NOT A BARE LIVE_WALL CHECK ────
+   * This block first shipped asking the SKU-ownership helper about LIVE_WALL —
+   * owning the wall. That is only the PERMISSIVE HALF of the question, and
+   * `live-wall-guest-mirror.test.ts` names it as exactly the bug: owning the
+   * wall and agreeing to put your guests' photographs on a public recap page
+   * are two different decisions, and this surface only ever asked the first.
+   * A couple who had switched the guest mirror OFF would have had the recap
+   * publish the wall anyway.
+   *
+   * `guestWallMirrorActive` asks both halves — it already checks that the wall
+   * is available for this event, so it SUBSUMES the ownership check rather than
+   * sitting beside it. Two gates for one fact is how the halves drift apart.
+   * The couple's choice fails CLOSED; the availability read inside the helper
+   * keeps its own documented fail-open behaviour, which is its call to make.
+   *
+   * ⚠ A REFUSED FEED HIDES THE SECTION; IT NEVER DRAWS AN EMPTY WALL. Rendering
+   * the caption strip over zero tiles would tell a couple their photographers
+   * captured nothing. A missing recap section is a gap, which is recoverable by
+   * reloading; a wall claiming the day was empty is not.
+   */
+  let photoWallPhotos: string[] = [];
   let photoWallActive = false;
-  if (photoWallPhotos.length > 0) {
+  try {
+    photoWallActive = await guestWallMirrorActive(admin, eventId);
+  } catch {
+    photoWallActive = false;
+  }
+  if (photoWallActive) {
     try {
-      // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
-      // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's editorial
-      // photo-wall section surfaces too. The old event_software_activations_v2
-      // read had no payment-path writer.
-      photoWallActive = await eventSkuActive(admin, eventId, 'LIVE_WALL');
+      // 24 is what `LivePhotoWall` draws; slicing here keeps the presigning to
+      // the tiles that are actually rendered, as the day-of caller does.
+      const snap = await getWallSnapshot(eventId, null, { limit: 24 });
+      photoWallPhotos = snap.tiles.map((t) => t.url).filter((u) => Boolean(u));
     } catch {
-      photoWallActive = false;
+      photoWallPhotos = [];
     }
   }
 

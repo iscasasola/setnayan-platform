@@ -100,6 +100,12 @@ const GUEST_WALL_SURFACES = [
   'app/[slug]/_lib/loaders.ts', // the wedding page (identified + anonymous)
   'app/[slug]/hub/page.tsx', // the guest hub
   'app/[slug]/live-wall/route.ts', // the 25s freshness feed
+  // The editorial RECAP block. Added when it stopped reading the dead
+  // `events.photo_wall_photos` column and started reading the real feed — at
+  // which point it became a guest wall surface and inherited this gate. It
+  // arrived asking only `eventSkuActive(LIVE_WALL)`; this file is what caught
+  // that, which is the whole reason the list is derived rather than hand-kept.
+  'app/[slug]/_components/editorial/data.ts',
 ];
 
 /**

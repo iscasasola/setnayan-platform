@@ -40,6 +40,10 @@ import {
   enqueuePapicSeatCapture,
   isPapicTerminalError,
 } from '@/lib/offline/service-handlers/papic-drain';
+import {
+  isPapicWindowRefusalCode,
+  papicSeatCaptureWindowRefusalMessage,
+} from '@/lib/papic-seat-capture-refusal-copy';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import {
   arrivalTally,
@@ -405,6 +409,11 @@ export function PapicSeatCapture({
   */
   const [dailyBudget, setDailyBudget] = useState(false);
   const hasOwnCameraRef = useRef<boolean | null>(null);
+  /** The seat's own `valid_from` ('YYYY-MM-DD'), echoed by the presign 403 on
+   *  a `capture_not_started` refusal — carried here so the later catch block
+   *  can say WHEN the camera opens, not just that it's shut. See
+   *  lib/papic-seat-capture-refusal-copy.ts. */
+  const windowStartsAtRef = useRef<string | null>(null);
   /*
     PAP-13 · SESSION COUNTERS, NOT THE ROLL. Credits are spent when a capture
     ARRIVES (the reserve runs server-side at presign + record; a shot in the
@@ -489,11 +498,18 @@ export function PapicSeatCapture({
         let code: string | undefined;
         let reason: string | undefined;
         let presignDailyBudget: boolean | undefined;
+        let windowStartsAt: string | null | undefined;
         try {
-          ({ code, reason, dailyBudget: presignDailyBudget } = (await presignRes.json()) as {
+          ({
+            code,
+            reason,
+            dailyBudget: presignDailyBudget,
+            windowStartsAt,
+          } = (await presignRes.json()) as {
             code?: string;
             reason?: string;
             dailyBudget?: boolean;
+            windowStartsAt?: string | null;
           });
         } catch {
           // non-JSON body — fall through to the generic presign error
@@ -516,6 +532,7 @@ export function PapicSeatCapture({
         // durable offline queue, the counter still incremented, and the
         // photographer was shown nothing. They believed the photo was taken.
         if (code === 'capture_not_started' || code === 'capture_window_closed') {
+          windowStartsAtRef.current = windowStartsAt ?? null;
           throw new Error(code);
         }
         throw new Error('presign');
@@ -857,6 +874,24 @@ export function PapicSeatCapture({
         // A terminal server rejection (revoked seat, window closed, …) can never
         // succeed on retry — surface it and roll the optimistic count back.
         if (isPapicTerminalError(code)) {
+          // 🛑 B1(a) — a capture-window refusal is NOT a failed upload. The
+          // generic "tap it in the roll to retry" sentence told the
+          // photographer to retry a shot that can never land no matter how
+          // many times they tap: the camera isn't open yet, or is done for
+          // the event. Give those two codes their own sentence — every other
+          // terminal rejection keeps the existing manual-retry copy.
+          if (isPapicWindowRefusalCode(code)) {
+            patchShot(shot.id, { status: 'failed' });
+            rollbackCount(shot.kind);
+            setSaveError(
+              papicSeatCaptureWindowRefusalMessage(
+                code,
+                shot.kind,
+                windowStartsAtRef.current,
+              ),
+            );
+            return;
+          }
           failManualRetry();
           return;
         }

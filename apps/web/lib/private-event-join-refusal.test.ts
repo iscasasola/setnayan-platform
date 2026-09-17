@@ -55,9 +55,31 @@ test('the join ACTION refuses too — both write paths, not just the page', () =
   const src = read('app/join/[eventId]/actions.ts');
   const guards = src.match(/PRIVATE EVENTS REFUSE SELF-JOIN/g) ?? [];
   assert.equal(guards.length, 2, 'both self-join write paths must be guarded');
-  assert.match(src, /resolveEffectiveVisibility\(visRow\) === 'private'/);
-  // Fail closed: a missing event row refuses rather than falling through.
-  assert.match(src, /!visRow \|\| resolveEffectiveVisibility/);
+  // ⚖ ASSERT THE PROPERTY, NOT THE PHRASING (rewritten 2026-09-17). This used
+  // to pin `/!visRow \|\| resolveEffectiveVisibility/` — the two cases as ONE
+  // boolean. They were deliberately split so a private event and a dead token
+  // could stop sharing an error code (a guest who scanned a good poster was
+  // told "This link isn't valid"). The combined spelling is gone; the property
+  // it protected is not, so the property is what is checked now.
+  //
+  // Both write paths must, independently:
+  //   1. refuse a private event, and
+  //   2. FAIL CLOSED on a row they could not read.
+  const refusesPrivate = src.match(
+    /resolveEffectiveVisibility\(visRow\) === 'private'/g,
+  ) ?? [];
+  assert.equal(
+    refusesPrivate.length,
+    2,
+    'both self-join write paths must refuse a private event',
+  );
+  const failsClosed = src.match(/if \(!visRow\)/g) ?? [];
+  assert.equal(
+    failsClosed.length,
+    2,
+    'both write paths must refuse an unreadable event row rather than falling ' +
+      'through — an absent row is not permission',
+  );
 });
 
 test('both layers use the SAME resolver, so they cannot drift apart', () => {

@@ -322,3 +322,18 @@ export function formatWindowSummary(
   const span = !e || e === s ? fmt(s) : `${fmt(s)} – ${fmt(e)}`;
   return `${span} · ${days} day${days === 1 ? '' : 's'}`;
 }
+
+/**
+ * A single Manila calendar date as a short human string, e.g. "Sep 19" — for
+ * a refusal sentence that names WHEN a camera opens, not just THAT it's shut.
+ * null on an empty/unparseable input (the caller falls back to date-less copy).
+ */
+export function formatManilaDate(value: string | null | undefined): string | null {
+  const d = manilaDate(value);
+  if (!d) return null;
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(`${d}T12:00:00${PAPIC_TZ_OFFSET}`));
+}

@@ -329,8 +329,18 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     .eq('event_id', eventId)
     .maybeSingle();
 
-  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
+  // 🛑 B1(b) — a private event is a DIFFERENT refusal from a dead token, and
+  // must not share its error code. `error=invalid_token` here told a guest
+  // holding a perfectly valid token that their link had died; the real
+  // problem is the event's own visibility, which only the host can change.
+  // See lib/join-door-refusal-copy.ts for the sentence this code renders.
+  // `!visRow` (event gone / unreadable) is a genuinely different case — the
+  // token really doesn't resolve to anything — so THAT keeps `invalid_token`.
+  if (!visRow) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+  if (resolveEffectiveVisibility(visRow) === 'private') {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=event_is_private`);
   }
 
   // 2. Auth check.
@@ -546,8 +556,15 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     .eq('event_id', eventId)
     .maybeSingle();
 
-  if (!visRow || resolveEffectiveVisibility(visRow) === 'private') {
+  // 🛑 B1(b) — same split as joinEventAction above: an unreadable event keeps
+  // `invalid_token` (the token really doesn't resolve), but a private event
+  // gets its own code and its own sentence rather than being told its token
+  // died. See lib/join-door-refusal-copy.ts.
+  if (!visRow) {
     return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=invalid_token`);
+  }
+  if (resolveEffectiveVisibility(visRow) === 'private') {
+    return redirect(`/join/${eventId}?token=${encodeURIComponent(token)}&error=event_is_private`);
   }
 
   // 2. The accountless guest lands on the public `/[slug]` page to RSVP — so it

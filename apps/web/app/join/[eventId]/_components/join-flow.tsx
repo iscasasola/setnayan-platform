@@ -9,31 +9,24 @@ import { JoinShell } from './join-shell';
 import type { DoorSkin } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { FormFlash } from '@/app/_components/forms/form-flash';
-import { eventWordsForEvent, type EventWords } from '@/app/[slug]/_lib/event-words';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { arrivalSteps, inviteReplyPath } from '@/lib/invite-arrival';
+import { joinDoorRefusalMessage } from '@/lib/join-door-refusal-copy';
 
-/**
- * The refusal sentences, resolved from the event's OWN word for whoever is
- * throwing it.
- *
- * 🔴 THESE WERE A MODULE CONSTANT SAYING "the couple" ON EVERY EVENT TYPE, and
- * this door is where a guest scanning a QR lands — including at a wake. A
- * wedding reads byte-identically (`organizerNoun` is `'couple'`), which is the
- * safety property `event-words.ts` exists to hold.
- *
- * 🔒 NO DEFAULT, NO 'host' FALLBACK. A funeral's word is `family`; "host" is
- * wrong for the one event type this work exists for.
- */
-function roleErrors(w: EventWords): Record<string, string> {
-  return {
-    invalid_token: `This invite link is no longer valid. Ask ${w.theOrganizer} to send you a fresh one.`,
-    invalid_role: 'Please pick a valid role.',
-    missing_name: `Please enter your name so ${w.theOrganizer} can find you on their list.`,
-    already_member: "You're already on this event's guest list.",
-    join_closed: `This event has reached its sign-up limit. Please ask ${w.theOrganizer} to add you.`,
-    join_failed: `Something went wrong adding you. Please try again, or ask ${w.theOrganizer}.`,
-  };
-}
+/*
+  🔴 THESE WERE A MODULE CONSTANT SAYING "the couple" ON EVERY EVENT TYPE, and
+  this door is where a guest scanning a QR lands — including at a wake. A
+  wedding reads byte-identically (`organizerNoun` is `'couple'`), which is the
+  safety property `event-words.ts` exists to hold.
+
+  🔒 NO DEFAULT, NO 'host' FALLBACK. A funeral's word is `family`; "host" is
+  wrong for the one event type this work exists for.
+
+  🛑 B1(b) — the refusal-reason → sentence mapping now lives in
+  lib/join-door-refusal-copy.ts, so a private event and an actually-dead token
+  can never be collapsed back onto the same `invalid_token` sentence. See that
+  file for the property it asserts.
+*/
 
 export type JoinFlowEvent = {
   event_id: string;
@@ -98,7 +91,7 @@ export async function JoinFlow({
   // 🔑 A RESOLVER THAT IS CALLED IS NOT A RESOLVER THAT CAN ANSWER — the guard
   // written for this counted the CALL, and the call was there the whole time.
   const w = await eventWordsForEvent(eventId);
-  const errorMessage = errorKey ? (roleErrors(w)[errorKey] ?? errorKey) : null;
+  const errorMessage = joinDoorRefusalMessage(errorKey, w);
   const loginHref = `/login?next=${encodeURIComponent(returnPath)}`;
   const signupHref = `/signup?next=${encodeURIComponent(returnPath)}`;
 

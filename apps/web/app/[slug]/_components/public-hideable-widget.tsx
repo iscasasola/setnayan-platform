@@ -57,7 +57,10 @@ export function PublicHideableWidget({
       // itself client-side, but this server gate holds even outside the
       // words provider.
       return event.event_date && !words.solemn ? (
-        <CountdownWidget targetIso={event.event_date} />
+        <CountdownWidget
+          targetIso={event.event_date}
+          timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+        />
       ) : null;
 
     case 'schedule':

@@ -508,6 +508,22 @@ export default async function PapicModerationPage({
             {seatRows.map((r) => {
               const photoId = r.photo_id as string;
               const hidden = Boolean(r.hidden_at);
+              // 🔴 THIS LINE WAS MISSING. `reportedSet` is built from every
+              // `user_reports` row for this event and was then consulted in
+              // exactly ONE place — against a capture id, a few hundred lines
+              // up. A report filed against a photo from a CAMERA SEAT was read
+              // out of the database on every page load and matched against a
+              // list it could never appear in.
+              //
+              // Measured on production 2026-09-18: the one real report targets
+              // a `papic_photos` row, and its event holds 10 photos and ZERO
+              // guest captures — so on that celebration the badge had nothing
+              // it could ever mark. A guest asked for their likeness to come
+              // down and the couple who own the photograph were shown nothing.
+              //
+              // 🔑 The repo's signature disease: the measurement was taken, and
+              // it never reached the render.
+              const isReported = reportedSet.has(photoId);
               const url = seatThumbUrl.get(photoId) ?? null;
               const isClip = (r.photo_type as string | null) === 'clip';
               return (
@@ -531,6 +547,13 @@ export default async function PapicModerationPage({
                     {hidden && (
                       <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2 py-0.5 text-[10px] font-medium text-cream">
                         <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} /> Hidden
+                      </span>
+                    )}
+                    {/* Same badge the guest-capture grid already draws — the
+                        marker was never the missing half, the lookup was. */}
+                    {isReported && (
+                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-warn-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                        <Flag aria-hidden className="h-3 w-3" strokeWidth={2} /> Reported
                       </span>
                     )}
                   </div>

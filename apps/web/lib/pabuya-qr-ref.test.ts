@@ -23,7 +23,9 @@ import { stripComments } from '@/lib/strip-comments';
 
 const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
 const OTHER = '11111111-2222-3333-4444-555555555555';
-const OK = `r2://setnayan-media/events/${EVENT}/pabuya/b4797491-IMG_4424.jpg`;
+/* The live row's actual ref, read from production after the move completed on
+   2026-09-17. It was `r2://setnayan-media/events/<id>/pabuya/…` until then. */
+const OK = `r2://setnayan-thread-files/pabuya-qr/${EVENT}/61c65032-IMG_4424.jpg`;
 
 let cases = 0;
 const check = (label: string, fn: () => void) => { cases++; fn(); void label; };
@@ -31,28 +33,31 @@ const check = (label: string, fn: () => void) => { cases++; fn(); void label; };
 test('the real production ref resolves', () => {
   const ref = resolvePabuyaQrRef(OK, EVENT);
   assert.ok(ref, 'the one live row stopped resolving — this would blank a real gift page');
-  assert.equal(ref.bucket, 'setnayan-media');
-  assert.equal(ref.key, `events/${EVENT}/pabuya/b4797491-IMG_4424.jpg`);
+  assert.equal(ref.bucket, 'setnayan-thread-files');
+  assert.equal(ref.key, `pabuya-qr/${EVENT}/61c65032-IMG_4424.jpg`);
 });
 
 test('🔒 another EVENT’s object is refused, even in the right bucket', () => {
   assert.equal(
-    resolvePabuyaQrRef(`r2://setnayan-media/events/${OTHER}/pabuya/x.png`, EVENT),
+    resolvePabuyaQrRef(`r2://setnayan-thread-files/pabuya-qr/${OTHER}/x.png`, EVENT),
     null,
     'a host could serve another celebration’s gift QR by writing its key into their own row',
   );
 });
 
 test('🔒 another BUCKET is refused — this is the cross-bucket read', () => {
+  /* ⚠ `setnayan-media` IS ON THIS LIST NOW, and thread-files is not. The
+     legitimate home flipped on 2026-09-17 and the legacy read path was deleted
+     once its count read zero — so the PUBLIC bucket is now the refused one. */
   for (const bucket of [
-    'setnayan-thread-files',
+    'setnayan-media',
     'setnayan-vendor-contracts',
     'setnayan-vendor-verification',
     'setnayan-samples',
   ]) {
     check(bucket, () =>
       assert.equal(
-        resolvePabuyaQrRef(`r2://${bucket}/events/${EVENT}/pabuya/x.png`, EVENT),
+        resolvePabuyaQrRef(`r2://${bucket}/pabuya-qr/${EVENT}/x.png`, EVENT),
         null,
         `${bucket} was served through the gift route — admin credentials, arbitrary object`,
       ),
@@ -63,14 +68,19 @@ test('🔒 another BUCKET is refused — this is the cross-bucket read', () => {
 test('🔒 another PREFIX in the right bucket and event is refused', () => {
   for (const key of [
     `events/${EVENT}/disputes/evidence.png`,
-    `events/${EVENT}/site/hero.jpg`,
     `payment-proof/${EVENT}/receipt.png`,
-    `events/${EVENT}/pabuya`, // the bare prefix, no object name
-    `events/${EVENT}/pabuya/`,
+    /* A real SIBLING prefix inside the SAME private bucket — chat attachments
+       live at `chat/<thread>/`. Restored after an edit dropped the
+       same-bucket-different-prefix case; the count floor caught it, and
+       lowering the floor would have been fixing the guard by deleting its
+       coverage. */
+    `chat/${OTHER}/attachment.png`,
+    `pabuya-qr/${EVENT}`, // the bare prefix, no object name
+    `pabuya-qr/${EVENT}/`,
   ]) {
     check(key, () =>
       assert.equal(
-        resolvePabuyaQrRef(`r2://setnayan-media/${key}`, EVENT),
+        resolvePabuyaQrRef(`r2://setnayan-thread-files/${key}`, EVENT),
         null,
         `${key} resolved — the prefix check is not holding`,
       ),
@@ -84,7 +94,7 @@ test('🔒 a non-r2 value is refused — no open redirect, no SSRF', () => {
     'http://169.254.169.254/latest/meta-data/',
     '//evil.example/x.png',
     'r2://',
-    'r2://setnayan-media/',
+    'r2://setnayan-thread-files/',
     '',
   ]) {
     check(v, () =>
@@ -100,9 +110,9 @@ test('🔒 a non-r2 value is refused — no open redirect, no SSRF', () => {
 });
 
 test('🔒 a literal ".." segment cannot climb out of the event’s own folder', () => {
-  const key = `events/${EVENT}/pabuya/../../${OTHER}/pabuya/x.png`;
+  const key = `pabuya-qr/${EVENT}/../../${OTHER}/x.png`;
   check(key, () =>
-    assert.equal(resolvePabuyaQrRef(`r2://setnayan-media/${key}`, EVENT), null, key),
+    assert.equal(resolvePabuyaQrRef(`r2://setnayan-thread-files/${key}`, EVENT), null, key),
   );
 });
 
@@ -122,13 +132,13 @@ test('a percent-encoded ".." is NOT a traversal — and pinning why', () => {
     consumer that normalises could differ — that is the real case.
   */
   const ref = resolvePabuyaQrRef(
-    `r2://setnayan-media/events/${EVENT}/pabuya/..%2Fx.png`,
+    `r2://setnayan-thread-files/pabuya-qr/${EVENT}/..%2Fx.png`,
     EVENT,
   );
   cases++;
   assert.ok(ref, 'an opaque key was refused as if it were a path');
   assert.ok(
-    ref.key.startsWith(`events/${EVENT}/pabuya/`),
+    ref.key.startsWith(`pabuya-qr/${EVENT}/`),
     'the resolved key left this event’s own prefix — THAT would be the bug',
   );
 });

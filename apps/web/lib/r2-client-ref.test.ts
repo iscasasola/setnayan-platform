@@ -275,7 +275,7 @@ test('legit · every real uploader prefix is accepted by its own policy', () => 
     // add-payment-method.tsx
     // Moved 2026-09-17 to a PRIVATE bucket under its own root — see
     // vendorPaymentQrPolicy. The old `vendors/<id>/payment-qr/` shape is now
-    // read-only via vendorPaymentQrLegacyPolicy and is asserted separately in
+    // gone entirely as of 2026-09-17 (count read zero); asserted in
     // lib/a-supplier-qr-is-not-public.test.ts.
     [
       `vendor-payment-qr/${VENDOR_A}/uuid-qr.png`,

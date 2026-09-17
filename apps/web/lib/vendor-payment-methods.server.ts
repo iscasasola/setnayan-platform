@@ -8,7 +8,7 @@
 import 'server-only';
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 import { r2GetBytes } from '@/lib/r2';
-import { parseClientRef, vendorPaymentQrPolicy, vendorPaymentQrLegacyPolicy } from '@/lib/r2-client-ref';
+import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 import { vendorPaymentQrDisplayUrl } from '@/lib/vendor-payment-qr-url.server';
 import jsQR from 'jsqr';
 import sharp from 'sharp';
@@ -208,9 +208,9 @@ export async function decodeQrFromR2(
       permissive fallback is how a caller silently skips the check — the caller
       always has it (payment-options/actions.ts holds it from requireVendor).
     */
-    const allowed =
-      parseClientRef(r2Ref, vendorPaymentQrPolicy(vendorProfileId)) ??
-      parseClientRef(r2Ref, vendorPaymentQrLegacyPolicy(vendorProfileId));
+    // One home since 2026-09-17; the legacy public arm went with the others
+    // once `vendor_payment_methods` was confirmed to hold zero rows.
+    const allowed = parseClientRef(r2Ref, vendorPaymentQrPolicy(vendorProfileId));
     if (!allowed) return null;
 
     const { bytes } = await r2GetBytes({ bucket: allowed.bucket, key: allowed.key });

@@ -225,11 +225,19 @@ export function eventSiteMediaScope(eventId: unknown): CleanupScope {
  * deletes a payment identifier should say so by name — the breadth of a
  * site-media scope is not an argument for what it may destroy.
  *
- * ⚠ BOTH BUCKETS, and that is deliberate rather than sloppy. These objects are
- * mid-migration from the public media bucket to the private one; a scope naming
- * only one of them would silently stop deleting whichever half it missed, and a
- * sweep that quietly skips objects is the failure this whole area is about.
- * Narrow it to the private bucket alone once the migration count reads zero.
+ * ⚠ BOTH BUCKETS, AND IT STAYS THAT WAY — the migration is over and this is
+ * the one place that deliberately did NOT narrow.
+ *
+ * Every ROW now points at the private bucket (measured 2026-09-17: zero on
+ * `setnayan-media`), so the legacy READ policies were deleted. A cleanup scope
+ * is not a read path, though: nothing ever deleted a displaced gift QR until
+ * 2026-09-17, so any object a couple REPLACED before that date is still sitting
+ * in the public bucket with no row pointing at it. Those are invisible to a
+ * row-driven count and unreachable from a listing we have no credential to run.
+ *
+ * 🔑 NARROWING THIS WOULD PERMANENTLY ABANDON THEM. Naming a bucket that holds
+ * nothing costs one wasted lookup; naming one fewer than exist costs an
+ * orphaned payment identifier that no sweep can ever reach again.
  */
 export function pabuyaQrScope(eventId: unknown): CleanupScope {
   const e = safeId(eventId);

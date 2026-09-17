@@ -118,7 +118,18 @@ const WRITE_SITES: ReadonlyArray<readonly [string, string]> = [
   ['../app/api/oauth/photo-delivery/callback/route.ts', 'the couple connects photo delivery'],
   ['../app/api/oauth/youtube/callback/route.ts', 'the couple connects YouTube'],
   ['../app/api/tiktok/auth/callback/route.ts', 'the couple connects TikTok'],
-  ['../app/api/cron/oauth-refresh/route.ts', 'the overnight refresh'],
+  // ⚠ MOVED 2026-09-18, not removed. The refresh body left
+  // `app/api/cron/oauth-refresh/route.ts` for `lib/oauth-refresh-sweep.ts` so
+  // it could run as a registered periodic job — that route was waiting for a
+  // cron schedule this repo has no scheduler to provide, and five live Google
+  // grants sat with expired access tokens as a result. The route still exists
+  // and still guards its secret; it just delegates. This entry follows the
+  // SEALING, which is what the test is about.
+  //
+  // 🔑 This list asserts by FILE PATH, so moving a symbol turns it red — which
+  // is the guard working. The fix is to point it at the new home, never to
+  // drop the row.
+  ['oauth-refresh-sweep.ts', 'the Google grant refresh sweep'],
   ['live-studio-channel-grants.ts', 'a Live Studio pool channel'],
   ['drive-copy.ts', 'a Drive access-token refresh'],
   ['photo-delivery-release.ts', 'a photo-delivery access-token refresh'],

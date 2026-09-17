@@ -169,7 +169,7 @@ test('the video and poster roles cannot collide on one key', () => {
 });
 
 test('a hostile eventId, nonce or fingerprint yields NO key rather than a sanitised one', () => {
-  for (const bad of ['../..', 'a/b', '', 'a b', 'a b', 'x/../../y']) {
+  for (const bad of ['../..', 'a/b', '', 'a b', 'a\u0000b', 'x/../../y']) {
     assert.equal(
       sealTargetKey({ eventId: EVENT, role: 'video', fingerprint: FP, nonce: bad }),
       null,

@@ -1910,7 +1910,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     const byDay = new Map<string, RawTimelineItem[]>();
     const dayOrder: string[] = [];
     for (const it of rawTimeline) {
-      const day = manilaDayOf(it.tsRaw) ?? ' untimed'; // untimed sinks last, own group
+      const day = manilaDayOf(it.tsRaw) ?? '\u0000untimed'; // untimed sinks last, own group
       let group = byDay.get(day);
       if (!group) {
         group = [];

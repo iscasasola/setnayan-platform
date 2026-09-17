@@ -17,6 +17,7 @@ import {
 } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
+import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -1719,6 +1720,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Fail-soft: [] on error (the visibility gate still stands).
   const fraudFrozenIds = await fetchFraudFrozenVendorIds(admin);
 
+  // B2 (2026-09-17) — a shop with zero active, inquirable services is not a
+  // bookable card. `vendor_market_stats` says what a shop CLAIMS to sell;
+  // this is whether it has anything left to inquire about. See
+  // lib/vendor-inquirable-gate.ts for the measured defect this closes —
+  // `?event_type=simple_event` returned exactly one shop with 0 active
+  // services and no way to message it.
+  const inquirableVendorIds = await fetchVendorIdsWithActiveService(admin);
+
   // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
   // ONCE per request; it constrains both the main grid query and the broadened
   // empty-state count below. `filters.faithFilter` is the page-local TitleCase
@@ -1811,6 +1820,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       `(${fraudFrozenIds.join(',')})`,
     );
   }
+
+  // B2 — never list a shop with no active service. `.in(col, [])` already
+  // yields zero rows (same explicit-empty-list shape the off-season block
+  // below uses), so an empty inquirable set correctly empties the grid
+  // instead of falling through to "no filter applied."
+  query = query.in('vendor_profile_id', inquirableVendorIds);
 
   if (filters.q.length > 0) {
     // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
@@ -2066,6 +2081,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         `(${demoVendorIds.join(',')})`,
       );
     }
+    // B2 — mirror the main query's inquirable-service gate so "Show all" never
+    // advertises inventory it cannot actually deliver a message to.
+    broadened = broadened.in('vendor_profile_id', inquirableVendorIds);
     if (filters.q.length > 0) {
       // Same multi-field search as the main query so the broadened-count
       // empty-state framing stays consistent with what the search matched.

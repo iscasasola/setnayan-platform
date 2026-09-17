@@ -12,10 +12,16 @@ import { EGIFT_METHOD_KINDS, type EgiftMethodKind } from '@/lib/egift-kinds';
  * A GIFT QR MUST BE SCANNABLE — or the couple must be told at upload, not at
  * the wedding.
  *
- * Measured on the owner's own event, 2026-09-16: a `bank` e-gift method whose
- * QR was `IMG_4424.jpg`, a phone photo. Nothing had ever checked that an
- * uploaded gift QR decodes, let alone that it is QR Ph. The owner found out by
- * scanning a code in GCash and being told it was invalid.
+ * Nothing had ever checked that an uploaded gift QR decodes, let alone that it
+ * is QR Ph — so an unusable upload would first be discovered by a guest at the
+ * reception.
+ *
+ * ⚠ CORRECTED 2026-09-17. This said the owner "found out by scanning a code in
+ * GCash and being told it was invalid", implying his own upload was broken. It
+ * was not: `IMG_4424.jpg` decodes to a valid QR Ph payload (CRC ok, currency
+ * 608, BDO's `BNORPHMMXXX`, static). What GCash rejected was a LINK QR
+ * generated for him by mistake. The gap this suite covers is real; the incident
+ * it cited was a different one.
  *
  * 🔑 THIS SUITE EXECUTES THE REAL CHAIN. It generates actual QR images, decodes
  * them through the SAME shared decoder the server action uses, and asserts the

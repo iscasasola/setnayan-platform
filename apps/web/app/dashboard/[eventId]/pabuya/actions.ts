@@ -163,10 +163,13 @@ export async function saveEgiftMethod(
   /*
     Is this image actually a payment QR? (2026-09-16)
 
-    Until now any image could be saved as a gift QR. The owner's own event
-    carried a phone photo as its `bank` QR, and that failure only shows up at
-    the wedding, when a guest's GCash says "invalid QR" in front of them. The
-    upload is the last moment anybody can still fix it.
+    Until now any image could be saved as a gift QR — no decode, no QR Ph check
+    — so an unusable upload would first be discovered by a guest at the
+    reception. The upload is the last moment anybody can still fix it.
+
+    ⚠ An earlier version of this comment cited the owner's own `IMG_4424.jpg` as
+    the failing example. That was wrong: it is a valid QR Ph code. Corrected
+    2026-09-17; see lib/pabuya-qr-verdict.ts.
 
     ⚠ ONLY A NEWLY ATTACHED OR CHANGED IMAGE IS CHECKED, and that is
     load-bearing rather than an optimisation. Checking on every save would trap

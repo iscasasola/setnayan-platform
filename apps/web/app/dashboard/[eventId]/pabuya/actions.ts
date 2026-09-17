@@ -7,6 +7,7 @@ import { isEgiftMethodKind } from '@/lib/egift-kinds';
 import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
 import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
+import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 
 /**
@@ -200,13 +201,44 @@ export async function saveEgiftMethod(
       (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
   }
 
+  /* The couple's OWN uploaded file, before any redraw. Kept so it can be
+     retired once the row points at the redrawn copy instead. */
+  let rawUploadRef: string | null = null;
+
   if (qrR2Key) {
     if (qrR2Key !== previousRef) {
-      const verdict = await checkPabuyaQrImage({
+      const inspection = await checkPabuyaQrImage({
         kind: methodKind,
         r2Ref: qrR2Key,
       });
-      if (!verdict.ok) return verdict;
+      if (!inspection.verdict.ok) return inspection.verdict;
+
+      /*
+        ── WE REDRAW THE CODE (2026-09-17) ───────────────────────────────────
+        A couple uploads what their banking app gives them: a screenshot wrapped
+        in the bank's logo, their name, a masked account number and a footnote,
+        sometimes photographed off a second screen. Measured: a 1194×1565 JPEG
+        whose actual code was about a third of the frame, so the card's QR slot
+        held ~25px of real modules. Unscannable, through no fault of theirs.
+
+        🔑 THE PAYLOAD IS THE VALUABLE PART. The check above already decoded and
+        validated it, so we hold the couple's payment instruction — merchant id,
+        BIC, account, currency, CRC. Everything else in their screenshot is
+        packaging. We redraw from that payload and store THAT.
+
+        ⚠ Nothing is invented: this re-encodes an instruction the couple proved
+        they hold by uploading it. And the redraw is decoded again and compared
+        byte for byte before use — a mismatch keeps their original, because an
+        image that merely looks like a QR is not evidence it says the same thing.
+      */
+      const redrawn = await storeRedrawnPabuyaQr({
+        payload: inspection.payload,
+        eventId,
+      });
+      if (redrawn) {
+        rawUploadRef = qrR2Key;
+        qrR2Key = redrawn;
+      }
     }
   }
 
@@ -241,6 +273,15 @@ export async function saveEgiftMethod(
       nextKey: qrR2Key,
       eventId,
     });
+    /* ⚠ THE REDRAW CREATES A SECOND DISPLACED OBJECT. The couple's own upload is
+       superseded by the redrawn copy the row points at, and it is a payment
+       identifier like any other — a bank screenshot carrying their name and a
+       masked account. Retire it on the same terms. */
+    await deleteDisplacedPabuyaQr({
+      previousKey: rawUploadRef,
+      nextKey: qrR2Key,
+      eventId,
+    });
   } else {
     // Append at the end: read the current max sort_order for this event.
     const { data: maxRow } = await supabase
@@ -271,6 +312,13 @@ export async function saveEgiftMethod(
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
     // An insert refused by RLS WITH CHECK returns no row and no error here.
     if (!inserted || inserted.length === 0) return { ok: false, error: GENERIC_WRITE_ERROR };
+    /* A FIRST upload that was redrawn leaves the couple's own file behind too —
+       the insert path displaces an object just as the edit path does. */
+    await deleteDisplacedPabuyaQr({
+      previousKey: rawUploadRef,
+      nextKey: qrR2Key,
+      eventId,
+    });
   }
 
   await revalidateSurfaces(eventId);

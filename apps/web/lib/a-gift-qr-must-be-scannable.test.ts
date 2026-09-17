@@ -172,8 +172,15 @@ test('the save action checks a newly attached QR, and only a changed one', () =>
   // And a refusal must actually stop the write.
   assert.match(
     src,
-    /if \(!verdict\.ok\) return verdict;/,
-    'the verdict is computed but not enforced',
+    /*
+      ⚠ THE PROPERTY, NOT THE SPELLING. This pinned the literal
+      `if (!verdict.ok) return verdict;` and went red the moment the checker
+      started returning `{ verdict, payload }` so the payload could feed the
+      redraw — a correct change failing a guard that had memorised one phrasing.
+      What must hold is that a NOT-OK verdict RETURNS, whatever it is called.
+    */
+    /if \s*\(!\s*\w+(?:\.\w+)*\.ok\s*\)\s*return\s+\w+(?:\.\w+)*;/,
+    'a failed verdict no longer stops the write — the image would be saved anyway',
   );
 });
 

@@ -22,19 +22,36 @@ import type { EgiftMethodKind } from '@/lib/egift-kinds';
  * change to a pure, executable module rather than to a `server-only` one a
  * test can only grep.
  */
+/**
+ * The verdict, PLUS the payload the image carried.
+ *
+ * 🔑 THE PAYLOAD IS RETURNED BECAUSE THE DECODE ALREADY HAPPENED. Validating
+ * the upload requires reading the code; throwing that reading away and then
+ * asking a second time — to redraw it — would be two fetches, two decodes, and
+ * two chances for the two answers to differ. One read, one answer.
+ */
+export type PabuyaQrInspection = {
+  verdict: PabuyaQrVerdict;
+  /** The decoded QR Ph payload, or null when the image carried none. */
+  payload: string | null;
+};
+
 export async function checkPabuyaQrImage(args: {
   kind: EgiftMethodKind;
   r2Ref: string;
-}): Promise<PabuyaQrVerdict> {
+}): Promise<PabuyaQrInspection> {
   // Skip the network entirely on a rail we do not hold to QR Ph. The verdict
   // would return ok for these anyway; not fetching is the same answer, faster.
-  if (!railExpectsQrPh(args.kind)) return { ok: true };
+  if (!railExpectsQrPh(args.kind)) return { verdict: { ok: true }, payload: null };
 
   const ref = parseStoredAsset(args.r2Ref);
   // A legacy external URL is not ours to fetch (SSRF surface, and it predates
   // uploads entirely). `decoderRan: false` is the honest input: we did not look.
   if (!ref || ref.kind !== 'r2') {
-    return pabuyaQrVerdict({ kind: args.kind, decoded: null, decoderRan: false });
+    return {
+      verdict: pabuyaQrVerdict({ kind: args.kind, decoded: null, decoderRan: false }),
+      payload: null,
+    };
   }
 
   let decoded: string | null = null;
@@ -50,5 +67,8 @@ export async function checkPabuyaQrImage(args: {
     decoderRan = false;
   }
 
-  return pabuyaQrVerdict({ kind: args.kind, decoded, decoderRan });
+  return {
+    verdict: pabuyaQrVerdict({ kind: args.kind, decoded, decoderRan }),
+    payload: decoded,
+  };
 }

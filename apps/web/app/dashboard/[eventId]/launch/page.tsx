@@ -575,6 +575,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   */
   const websiteOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
 
+  /*
+    B4 — the footnote's own budget link, gated on the SAME check the
+    destination performs (budget/page.tsx: `if (!surfaceEnabled(profile,
+    'budget')) redirect(...)`). Without this the footnote offers a link that
+    immediately bounces back here — a circular door. `resolveProfileByEvent`
+    is cache()d, so this is not a second read.
+  */
+  const budgetOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'budget');
+
   const setOnce: Array<{ key: string; label: string; hint: string; href: string }> = [
     { key: 'editor', label: 'The page itself', hint: 'Copy, photos, colours, music', href: `${base}/website/editor` },
     { key: 'story', label: 'The story', hint: 'Chapters, guest columns, the album', href: `${base}/story` },
@@ -867,10 +876,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       {/* ══ S7 · THE BOUNDARY, DRAWN RATHER THAN IMPLIED (§ 5.1 rule 6) ══
           So the couple never hunts this page for something that was never here. */}
       <p className="mt-8 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/50">
-        Booking suppliers lives in the <Link href="/marketplace" className="underline underline-offset-2">Merkado</Link>,
-        and what you have spent lives in your{' '}
-        <Link href={`${base}/budget`} className="underline underline-offset-2">budget</Link>. Neither is here on
-        purpose — this page is your public address and the things that run on it.
+        Booking suppliers lives in the <Link href="/marketplace" className="underline underline-offset-2">Merkado</Link>
+        {budgetOn ? (
+          <>
+            , and what you have spent lives in your{' '}
+            <Link href={`${base}/budget`} className="underline underline-offset-2">budget</Link>. Neither is here on
+            purpose — this page is your public address and the things that run on it.
+          </>
+        ) : (
+          <>. That is not here on purpose — this page is your public address and the things that run on it.</>
+        )}
       </p>
     </div>
   );

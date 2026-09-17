@@ -34,7 +34,7 @@ import {
   planCleanupDelete,
   type CleanupScope,
   type PlannedDelete,
-} from '@/lib/cleanup-delete-scope';
+  pabuyaQrScope,} from '@/lib/cleanup-delete-scope';
 
 /**
  * Every R2 key a papic capture can carry. TEN per row, not one — the original
@@ -116,6 +116,14 @@ const EVENT_KEY_COLUMNS = [
 const EVENT_JSON_COLUMNS = ['our_photos', 'photo_wall_photos'] as const;
 
 /**
+ * Pabuya gift-QR objects. ONE column, and it was missing entirely: "Remove for
+ * good" deleted the celebration and left every couple's payment QR — an image
+ * encoding their bank account number — as a live object. `/privacy` promises
+ * these are "deleted with your event".
+ */
+const EGIFT_KEY_COLUMNS = ['qr_r2_key'] as const;
+
+/**
  * The four key sets, exported ONLY as one object for the I/O half's selects and
  * the tests. Deliberately NOT exported under a `*_COLUMNS` name: those are
  * lists of keys a DELETE must reach, not a canonical read shape — a gallery
@@ -130,6 +138,7 @@ export const EVENT_MEDIA_KEY_SETS = {
   vendorCapture: VENDOR_CAPTURE_KEY_COLUMNS,
   event: EVENT_KEY_COLUMNS,
   eventJson: EVENT_JSON_COLUMNS,
+  egift: EGIFT_KEY_COLUMNS,
 } as const;
 
 export type EventMediaRows = {
@@ -139,6 +148,8 @@ export type EventMediaRows = {
   guestCaptures: readonly Record<string, unknown>[];
   captures: readonly Record<string, unknown>[];
   event: Record<string, unknown> | null;
+  /** `event_egift_methods` rows for this celebration, each carrying qr_r2_key. */
+  egiftMethods: readonly Record<string, unknown>[];
 };
 
 export type EventMediaPlan = {
@@ -202,6 +213,14 @@ export function planEventMediaDeletes(rows: EventMediaRows): EventMediaPlan {
   for (const row of rows.captures) {
     const scope = papicVendorCaptureScope(row.vendor_profile_id, rows.eventId);
     for (const col of VENDOR_CAPTURE_KEY_COLUMNS) consider(row[col], scope);
+  }
+
+  /* Gift QRs. Their own scope, narrower than the site-media one and naming
+     both buckets while the objects are mid-migration — a scope that named one
+     bucket would silently stop deleting the other half. */
+  const giftScope = pabuyaQrScope(rows.eventId);
+  for (const row of rows.egiftMethods) {
+    for (const col of EGIFT_KEY_COLUMNS) consider(row[col], giftScope);
   }
 
   if (rows.event) {

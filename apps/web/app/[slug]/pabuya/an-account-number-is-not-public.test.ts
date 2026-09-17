@@ -75,8 +75,17 @@ test('🔒 EVERY payment identifier and its QR are withheld from an unrecognised
   in one place.
 */
 function recognitionRule(): string {
+  /* 🔑 THE RULE MOVED AGAIN ON 2026-09-17, AND THIS GUARD FOLLOWED IT — for the
+     reason this guard exists. `pabuya-recognition.ts` is `server-only`, so
+     everything here could only ever be a regex over its prose; the DECISION now
+     lives in the pure `pabuya-recognition-rule.ts`, where
+     `pabuya-recognition-rule.test.ts` EXECUTES 15 combinations of it. Both
+     files are read: the rule for its content, the server module for the fact
+     that it still gathers the facts and decides nothing. */
   return stripComments(
-    readFileSync(join(process.cwd(), 'lib/pabuya-recognition.ts'), 'utf8'),
+    readFileSync(join(process.cwd(), 'lib/pabuya-recognition-rule.ts'), 'utf8') +
+      '\n' +
+      readFileSync(join(process.cwd(), 'lib/pabuya-recognition.ts'), 'utf8'),
   ).replace(/\s+/g, ' ');
 }
 
@@ -85,7 +94,7 @@ test('recognition is a session for THIS event, or a real host', () => {
   assert.ok(src.includes('readGuestSession'), 'no guest session is read, so an invited guest cannot be recognised');
   assert.match(
     src,
-    /guestSession\?\.event_id === eventId/,
+    /facts\.guestSessionEventId === facts\.eventId/,
     'the session is not compared to THIS event — a session for another wedding would pass',
   );
   assert.ok(

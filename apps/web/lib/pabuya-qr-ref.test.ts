@@ -185,14 +185,39 @@ test('every e-gift write counts its rows before reporting success', () => {
     deleted), so `!error` alone renders "saved" over a write that changed
     nothing. Each mutating call must come back with rows and count them.
   */
-  const selects = (src.match(/\.select\('egift_method_id'\)/g) ?? []).length;
-  assert.equal(
-    selects,
-    6,
-    `expected all 6 mutating calls to return rows, found ${selects} — a write went back to trusting !error`,
+  /*
+    ⚠ COUNTED PER MUTATING VERB, inside each statement — and it took two wrong
+    counts to get here, both recorded because the method matters more than the
+    number. Counting `.select('egift_method_id…')` across the file caught
+    `moveEgiftMethod`'s READ of `egift_method_id, sort_order` as a write.
+    Counting STATEMENTS then under-counted, because the reorder's two updates
+    live in ONE `Promise.all([...])` and therefore in one `;`-delimited
+    statement.
+
+    So: for every statement that mutates this table, the number of `.select(`
+    calls must equal the number of mutating verbs in it. A write that stops
+    returning rows is caught wherever it sits.
+  */
+  const statements = src.split(';');
+  let verbs = 0;
+  for (const st of statements) {
+    if (!st.includes("from('event_egift_methods')")) continue;
+    const mutations = (st.match(/\.update\(|\.insert\(|\.delete\(\)/g) ?? []).length;
+    if (mutations === 0) continue;
+    verbs += mutations;
+    const selects = (st.match(/\.select\(/g) ?? []).length;
+    assert.equal(
+      selects,
+      mutations,
+      `${mutations} mutation(s) but ${selects} select(s) — a write trusts !error:\n${st.trim().slice(0, 200)}`,
+    );
+  }
+  assert.equal(verbs, 6, `expected 6 mutating calls on event_egift_methods, found ${verbs}`);
+  assert.match(
+    src,
+    /\.delete\(\)[\s\S]{0,200}\.select\('egift_method_id, qr_r2_key'\)/,
+    'the delete no longer returns the key, so the displaced object cannot be retired',
   );
-  const counts = (src.match(/length === 0|\?\.length/g) ?? []).length;
-  assert.ok(counts >= 5, `rows returned but not counted (${counts} count checks)`);
   assert.match(src, /STALE_ROW_ERROR/, 'no distinct message for "matched no row"');
 });
 

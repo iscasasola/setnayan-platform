@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
 import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
+import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 
 /**
@@ -179,18 +180,27 @@ export async function saveEgiftMethod(
     means) lives in the pure lib/pabuya-qr-verdict.ts; this call site only
     decides WHEN to ask.
   */
+  /* The key this row pointed at BEFORE this save, read once.
+     Two consumers, and it must be in scope for both:
+       · the QR Ph check below, which only runs on a CHANGED image;
+       · the displaced-object delete after the write.
+     ⚠ It is read for every edit, not only when a new image is attached —
+     otherwise a couple REMOVING their QR (qrR2Key === null) would never have
+     the abandoned object deleted, which is the case most likely to matter:
+     they are retiring that account. */
+  let previousRef: string | null = null;
+  if (editingId.length > 0) {
+    const { data: prior } = await supabase
+      .from('event_egift_methods')
+      .select('qr_r2_key')
+      .eq('egift_method_id', editingId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    previousRef =
+      (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
+  }
+
   if (qrR2Key) {
-    let previousRef: string | null = null;
-    if (editingId.length > 0) {
-      const { data: prior } = await supabase
-        .from('event_egift_methods')
-        .select('qr_r2_key')
-        .eq('egift_method_id', editingId)
-        .eq('event_id', eventId)
-        .maybeSingle();
-      previousRef =
-        (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
-    }
     if (qrR2Key !== previousRef) {
       const verdict = await checkPabuyaQrImage({
         kind: methodKind,
@@ -221,6 +231,16 @@ export async function saveEgiftMethod(
       .select('egift_method_id');
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
     if (!updated || updated.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+    /* The row now points somewhere else — retire the image it left behind.
+       AFTER the write, and only once a row is confirmed to have moved: deleting
+       first would destroy a live QR whenever the write then matched nothing.
+       `previousRef` was captured before the write; the helper refuses an
+       unchanged key and any key that is not this event's own object. */
+    await deleteDisplacedPabuyaQr({
+      previousKey: previousRef,
+      nextKey: qrR2Key,
+      eventId,
+    });
   } else {
     // Append at the end: read the current max sort_order for this event.
     const { data: maxRow } = await supabase
@@ -276,16 +296,30 @@ export async function deleteEgiftMethod(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  /* `.select()` returns the DELETED row, which is the only way to learn the key
+     after the fact — reading it first would race a concurrent edit and could
+     delete an object the row no longer owns. */
   const { data: removed, error } = await supabase
     .from('event_egift_methods')
     .delete()
     .eq('egift_method_id', id)
     .eq('event_id', eventId)
-    .select('egift_method_id');
+    .select('egift_method_id, qr_r2_key');
   if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
   // 🔑 A delete that removed nothing must not report "removed" — the couple
   // would believe their account details are gone when the row still stands.
   if (!removed || removed.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+
+  /* 🔑 THE ROW IS NOT THE DETAILS. Until now "Remove" deleted the row and left
+     the QR — an image encoding the couple's account number — as a live object.
+     `/privacy` promises the opposite in writing. */
+  for (const row of removed as { qr_r2_key?: string | null }[]) {
+    await deleteDisplacedPabuyaQr({
+      previousKey: row.qr_r2_key ?? null,
+      nextKey: null,
+      eventId,
+    });
+  }
 
   await revalidateSurfaces(eventId);
   return { ok: true };

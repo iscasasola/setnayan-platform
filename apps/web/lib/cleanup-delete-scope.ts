@@ -217,6 +217,29 @@ export function eventSiteMediaScope(eventId: unknown): CleanupScope {
 }
 
 /** A guest's enrolled selfie — both writers gate it with `guestSelfiePolicy`. */
+/**
+ * A celebration's Pabuya gift-QR objects.
+ *
+ * ⚠ NARROWER THAN `eventSiteMediaScope` ON PURPOSE. That scope admits the whole
+ * `events/<id>/` folder and would technically cover these, but a sweep that
+ * deletes a payment identifier should say so by name — the breadth of a
+ * site-media scope is not an argument for what it may destroy.
+ *
+ * ⚠ BOTH BUCKETS, and that is deliberate rather than sloppy. These objects are
+ * mid-migration from the public media bucket to the private one; a scope naming
+ * only one of them would silently stop deleting whichever half it missed, and a
+ * sweep that quietly skips objects is the failure this whole area is about.
+ * Narrow it to the private bucket alone once the migration count reads zero.
+ */
+export function pabuyaQrScope(eventId: unknown): CleanupScope {
+  const e = safeId(eventId);
+  if (!e) return emptyScope('events');
+  return mintScope(`events:${e}`, [
+    { bucket: MEDIA, prefixes: [`events/${e}/pabuya/`] },
+    { bucket: THREAD_FILES, prefixes: [`events/${e}/pabuya/`] },
+  ]);
+}
+
 export function guestSelfieScope(eventId: unknown, guestId: unknown): CleanupScope {
   const e = safeId(eventId);
   const g = safeId(guestId);

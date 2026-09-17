@@ -9,6 +9,7 @@ const {
   vendorCapture: VENDOR_CAPTURE_KEYS,
   event: EVENT_KEYS,
   eventJson: EVENT_JSON_KEYS,
+  egift: EGIFT_KEYS,
 } = EVENT_MEDIA_KEY_SETS;
 
 /**
@@ -96,6 +97,17 @@ export async function collectEventMediaRefs(
     .eq('event_id', eventId);
   if (captureErr) return null;
 
+  /* The couple's gift QRs. The FK cascade takes these rows with the event, so
+     their keys must be read NOW — before the row that names them is gone. This
+     read was simply absent: "Remove for good" deleted the celebration and left
+     every payment QR as a live object, while /privacy told the couple in
+     writing that they are "deleted with your event". */
+  const { data: egiftMethods, error: egiftErr } = await admin
+    .from('event_egift_methods')
+    .select(EGIFT_KEYS.join(','))
+    .eq('event_id', eventId);
+  if (egiftErr) return null;
+
   const { data: ev, error: evErr } = await admin
     .from('events')
     .select([...EVENT_KEYS, ...EVENT_JSON_KEYS].join(','))
@@ -109,6 +121,7 @@ export async function collectEventMediaRefs(
     guestCaptures: (guestCaptures ?? []) as unknown as Record<string, unknown>[],
     captures: (captures ?? []) as unknown as Record<string, unknown>[],
     event: (ev as unknown as Record<string, unknown> | null) ?? null,
+    egiftMethods: (egiftMethods ?? []) as unknown as Record<string, unknown>[],
   });
 
   // A refusal nobody can see is indistinguishable from a delete that happened.

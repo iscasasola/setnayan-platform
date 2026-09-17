@@ -165,7 +165,12 @@ export async function StageScript({
    * A grants read that failed must never cost him the program he is standing on
    * stage to run.
    */
-  const grants = await fetchMyAreaGrants(eventId).catch(() => ({}));
+  // The empty fallback is ANNOTATED, not inferred: a bare `() => ({})` widens the
+  // union to include `{}`, and `grants.schedule` then stops compiling. Naming the
+  // type keeps "unreadable grants" and "no grants" the same shape.
+  const grants: Awaited<ReturnType<typeof fetchMyAreaGrants>> = await fetchMyAreaGrants(
+    eventId,
+  ).catch(() => ({}));
   const advance = nextAdvanceAction(blocks, new Date());
   const lent = lentScheduleState(grants.schedule ?? null, advance);
 

@@ -394,6 +394,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                   ? 'This camera’s capture window hasn’t opened yet.'
                   : 'This camera’s capture window has closed.',
               code: windowState === 'not_started' ? 'capture_not_started' : 'capture_window_closed',
+              // Echoed so the client can say WHEN it opens instead of just
+              // that it hasn't — the same 'YYYY-MM-DD' this gate itself
+              // compared against, never re-derived on the client. See
+              // lib/papic-seat-capture-refusal-copy.ts.
+              windowStartsAt: vf ?? null,
             },
             { status: 403 },
           );

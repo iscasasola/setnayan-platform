@@ -385,18 +385,6 @@ export function pabuyaQrPolicy(eventId: string): ClientRefPolicy {
   };
 }
 
-/**
- * Where gift QRs used to live: the PUBLIC media bucket, under the event folder.
- *
- * ⚠ READ-ONLY, AND TEMPORARY. Nothing may WRITE here any more — `pabuyaQrPolicy`
- * above is the only acceptance for a new upload, so the browser cannot choose
- * the old home. This exists so objects not yet migrated keep serving, and so the
- * cleanup path can still delete them. Delete this function, and its entry in
- * `pabuyaQrAcceptedPolicies`, once the migration count reads zero.
- */
-export function pabuyaQrLegacyPolicy(eventId: string): ClientRefPolicy {
-  return { prefixes: [`events/${eventId}/pabuya/`] };
-}
 
 /** Seating walkthrough zone videos. */
 export function walkthroughVideoPolicy(eventId: string, zoneId: string): ClientRefPolicy {
@@ -475,18 +463,6 @@ export function vendorPaymentQrPolicy(vendorProfileId: string): ClientRefPolicy 
   };
 }
 
-/**
- * Where supplier payment QRs used to live: the PUBLIC media bucket.
- *
- * ⚠ READ-ONLY, AND EXPECTED TO BE DEAD ON ARRIVAL. `vendor_payment_methods`
- * held zero rows when the move was made, so nothing should ever match this.
- * It exists so that a row written between the measurement and the deploy still
- * renders rather than silently blanking, and so its object can still be
- * cleaned up. Delete it once a count confirms zero.
- */
-export function vendorPaymentQrLegacyPolicy(vendorProfileId: string): ClientRefPolicy {
-  return { prefixes: [`vendors/${vendorProfileId}/payment-qr/`] };
-}
 
 /**
  * Anything a vendor uploads under their OWN folder in the public media bucket —

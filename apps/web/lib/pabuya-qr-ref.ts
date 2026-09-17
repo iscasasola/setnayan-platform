@@ -1,9 +1,4 @@
-import {
-  parseClientRef,
-  pabuyaQrPolicy,
-  pabuyaQrLegacyPolicy,
-  type ClientRefPolicy,
-} from '@/lib/r2-client-ref';
+import { parseClientRef, pabuyaQrPolicy, type ClientRefPolicy } from '@/lib/r2-client-ref';
 import type { R2BucketName } from '@/lib/r2';
 
 /**
@@ -44,23 +39,22 @@ import type { R2BucketName } from '@/lib/r2';
  * migrated; objects uploaded after it live in the private bucket. Both are
  * legitimate during the transition, and neither is "any bucket".
  *
- * `pabuyaQrPolicy` is the PRIVATE home (thread-files · `pabuya-qr/<id>/`) and
- * is the only thing the WRITE side accepts; `pabuyaQrLegacyPolicy` is the old
- * PUBLIC one (media · `events/<id>/pabuya/`), read-only, kept until the
- * migration count reads zero and then deleted along with its entry below. That
- * is the whole transition, in one list, in one file.
+ * `pabuyaQrPolicy` is the private home (thread-files · `pabuya-qr/<id>/`) and
+ * is now the ONLY accepted ref. The public-bucket read path existed for objects
+ * written before the move and was deleted on 2026-09-17 once their count read
+ * zero — the transition is over.
  */
 export function pabuyaQrAcceptedPolicies(eventId: string): ClientRefPolicy[] {
-  return [
-    // The home new uploads land in: private bucket, own root prefix.
-    pabuyaQrPolicy(eventId),
-    // ⚠ TEMPORARY. Objects written before 2026-09-17 sit in the PUBLIC bucket
-    // under `events/<id>/pabuya/`. They keep serving until the migration moves
-    // them; delete this entry, and `pabuyaQrLegacyPolicy`, once its count reads
-    // zero. Read-only by construction — the WRITE side accepts only the policy
-    // above, so nothing new can choose the old home.
-    pabuyaQrLegacyPolicy(eventId),
-  ];
+  /*
+    ONE home again, as of 2026-09-17.
+
+    The public-bucket entry was removed once its count read zero — measured
+    before deleting: `event_egift_methods` rows on `setnayan-media` = 0, rows
+    anywhere but `pabuya-qr/<eventId>/` in the private bucket = 0. The WRITE
+    side has refused the old home since the move, so nothing could reappear
+    there; this list stops carrying a read path for objects that do not exist.
+  */
+  return [pabuyaQrPolicy(eventId)];
 }
 
 /**

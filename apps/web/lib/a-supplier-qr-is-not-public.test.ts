@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import {
   parseClientRef,
   vendorPaymentQrPolicy,
-  vendorPaymentQrLegacyPolicy,
   PRIVATE_R2_BUCKETS,
 } from '@/lib/r2-client-ref';
 import { bucketForPrefix } from '@/lib/bucket-routing';
@@ -92,23 +91,57 @@ test('🔒 the PUBLIC bucket is no longer an accepted write target', () => {
   }
 });
 
-test('the legacy policy still READS the old home, and only that', () => {
+test('the private home ROUND-TRIPS, and the old shape no longer does', () => {
+  /*
+    ⚠ RESTORED EXECUTED COVERAGE. Deleting the legacy policy removed the two
+    real `parseClientRef` calls this suite ran against it, and the case-count
+    floor caught the drop. Lowering the floor would have been fixing the guard
+    by deleting its coverage — so these are the equivalent assertions for the
+    world as it is now: the private home accepts, the old public shape does not.
+  */
   ck();
-  assert.ok(
-    parseClientRef(
-      `r2://setnayan-media/vendors/${VENDOR}/payment-qr/x.png`,
-      vendorPaymentQrLegacyPolicy(VENDOR),
-    ),
-    'a row written before the move would blank instead of rendering',
+  const good = parseClientRef(
+    `r2://setnayan-thread-files/vendor-payment-qr/${VENDOR}/qr.png`,
+    vendorPaymentQrPolicy(VENDOR),
   );
+  assert.deepEqual(good, {
+    bucket: 'setnayan-thread-files',
+    key: `vendor-payment-qr/${VENDOR}/qr.png`,
+  });
+
   ck();
   assert.equal(
     parseClientRef(
-      `r2://setnayan-media/vendors/${OTHER}/payment-qr/x.png`,
-      vendorPaymentQrLegacyPolicy(VENDOR),
+      `r2://setnayan-media/vendors/${VENDOR}/payment-qr/qr.png`,
+      vendorPaymentQrPolicy(VENDOR),
     ),
     null,
-    'the legacy arm reads across suppliers',
+    'the pre-move shape still resolves — the legacy home was never actually closed',
+  );
+});
+
+test('⚖ the legacy public-bucket read path is GONE — measured, then deleted', () => {
+  /*
+    The transition arm was removed on 2026-09-17, after measuring that nothing
+    could still need it:
+      event_egift_methods on setnayan-media ............ 0
+      event_egift_methods outside pabuya-qr/<eventId>/ . 0
+      vendor_payment_methods rows (any) ................ 0
+
+    A read path kept "just in case" past its own zero is not caution — it is a
+    second accepted home that nobody is checking any more, on a column a
+    supplier can write. Re-adding one needs a fresh count, not a memory.
+  */
+  const src = stripComments(
+    readFileSync(join(process.cwd(), 'lib/r2-client-ref.ts'), 'utf8'),
+  );
+  assert.ok(
+    !src.includes('vendorPaymentQrLegacyPolicy'),
+    'the supplier legacy read path is back — where is the count that justifies it?',
+  );
+  assert.ok(
+    !src.includes('pabuyaQrLegacyPolicy'),
+    'the gift legacy read path is back — where is the count that justifies it?',
   );
 });
 

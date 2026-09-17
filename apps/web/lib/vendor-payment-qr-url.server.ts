@@ -1,9 +1,6 @@
 import 'server-only';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
-import {
-  vendorPaymentQrPolicy,
-  vendorPaymentQrLegacyPolicy,
-} from '@/lib/r2-client-ref';
+import { vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 
 /**
  * lib/vendor-payment-qr-url.server.ts — ONE way to display a supplier's
@@ -47,24 +44,13 @@ export async function vendorPaymentQrDisplayUrl(
 ): Promise<string | null> {
   if (!qrR2Key || !vendorProfileId) return null;
 
-  // The private home first.
-  const fresh = await displayUrlForPrivateStoredAsset(
-    qrR2Key,
-    vendorPaymentQrPolicy(vendorProfileId),
-  );
-  if (fresh) return fresh;
-
   /*
-    ⚠ TEMPORARY, AND EXPECTED NEVER TO FIRE. `vendor_payment_methods` held ZERO
-    rows when the bucket moved, so there is nothing on the old public home to
-    serve. This arm exists only so a row written between that measurement and
-    the deploy renders instead of silently blanking — the failure mode that
-    would look like a supplier's own mistake.
-
-    Delete it, and `vendorPaymentQrLegacyPolicy`, once a count confirms zero.
+    ONE home. The legacy public-bucket arm was deleted 2026-09-17 once the count
+    read zero — `vendor_payment_methods` holds 0 rows, so nothing was ever
+    written to the old home in the first place.
   */
   return await displayUrlForPrivateStoredAsset(
     qrR2Key,
-    vendorPaymentQrLegacyPolicy(vendorProfileId),
+    vendorPaymentQrPolicy(vendorProfileId),
   );
 }

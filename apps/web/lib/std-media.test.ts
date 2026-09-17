@@ -432,7 +432,7 @@ test('D2 resolveStdMedia accepts ONLY this event’s own std-video upload', () =
   for (const bad of [
     `r2://setnayan-media/events/${EVENT}/std-video/../../other/x.mp4`,
     `r2://setnayan-media/events/${EVENT}/std-video/`,
-    `r2://setnayan-media/events/${EVENT}/std-video/x .mp4`,
+    `r2://setnayan-media/events/${EVENT}/std-video/x\u0000.mp4`,
     `r2://setnayan-media/events/${EVENT}-suffix/std-video/x.mp4`,
     'r2://setnayan-media/',
     'r2://',

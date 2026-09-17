@@ -48,11 +48,45 @@ test('the recap wall reads the live feed, gated by the paid SKU', () => {
   console.log(`  getWallSnapshot( calls in the resolver: ${calls}`);
   assert.equal(calls, 1, 'the recap wall no longer reads the live feed');
 
-  // The paid gate is untouched: LIVE_WALL still decides the section exists.
+  /*
+   * THE PAID GATE IS STILL THERE — IT MOVED ONE HOP, AND THIS ASSERTS IT ACROSS
+   * THE HOP RATHER THAN BY SPELLING.
+   *
+   * This test first demanded the literal `eventSkuActive(… 'LIVE_WALL')` in the
+   * resolver. That is the implementation, not the property — and asking only
+   * about ownership was itself the defect: `live-wall-guest-mirror.test.ts`
+   * derives the guest wall surfaces by sweeping for `getWallSnapshot(`, so
+   * pointing the recap at the feed MADE IT ONE, and every guest wall surface
+   * must gate on the couple's choice, not just their receipt. A couple who had
+   * switched the guest mirror off would have had the recap publish the wall.
+   *
+   * `guestWallMirrorActive` is strictly STRONGER: its own first half is
+   * `eventSkuActive(client, eventId, 'LIVE_WALL')`, so the purchase is still
+   * required, and it additionally requires Papic active, the couple's
+   * visibility choice, and not-archived. So the property — no wall without the
+   * purchase — is proven here in two steps: the resolver delegates, and the
+   * helper still asks. Asserting the literal in the resolver would now FORBID
+   * the correct code.
+   */
   assert.match(
     data,
+    /guestWallMirrorActive\(/,
+    'the recap wall no longer gates on the couple’s choice',
+  );
+
+  // Step two: the delegate must still require the purchase. Windowed to the
+  // helper's own body, so a LIVE_WALL check belonging to some other function in
+  // the module cannot satisfy this.
+  const wallLib = readFileSync(join(WEB, 'lib', 'live-wall.ts'), 'utf8');
+  const at = wallLib.indexOf('export async function guestWallMirrorActive');
+  assert.ok(at > 0, 'guestWallMirrorActive has moved — re-point this assertion');
+  const body = wallLib.slice(at, at + 1200);
+  console.log(`  guestWallMirrorActive body window: ${body.length} chars`);
+  assert.match(
+    body,
     /eventSkuActive\([^)]*'LIVE_WALL'\)/,
-    'the recap wall lost its LIVE_WALL gate',
+    'guestWallMirrorActive stopped requiring the LIVE_WALL purchase — the recap ' +
+      'now delegates to a gate that no longer asks, so nothing requires it',
   );
   // And the feed is only asked for once the SKU is owned — never the other way
   // round, which would presign tiles for a couple who never bought the wall.

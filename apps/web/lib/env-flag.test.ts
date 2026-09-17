@@ -90,7 +90,13 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/demo-booth-rotation.ts', ['NEXT_PUBLIC_PLAN3D_DEMO_ADS']],
   ['lib/experience-quiz.ts', ['NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED']],
   ['lib/ghost-booths.ts', ['NEXT_PUBLIC_PLAN3D_BOOTH_ADS']],
-  ['lib/guest-session.ts', ['GUEST_SESSION_TOKEN_CHECK']],
+  /* GUEST_SESSION_TOKEN_CHECK removed 2026-09-17 — the FLAG is gone, not the
+     feature. It gated the guest-QR re-validation at readGuestSession's
+     chokepoint and was never set in production, so rotating a leaked QR
+     revoked nothing and the leaked session was then shown the replacement
+     code. The check is now unconditional; there is no switch left to register.
+     Deleted rather than set, because a flag whose prod value nobody can read
+     is how it stayed dark. See lib/a-rotated-qr-revokes-the-old-session.test.ts. */
   ['lib/inquiry-gate.ts', ['NEXT_PUBLIC_INQUIRY_GATE_ENABLED', 'NEXT_PUBLIC_LEAD_TRUST_BADGE_ENABLED']],
   ['lib/integration-config.ts', ['SETNAYAN_AI_PAYWALL_ENABLED']],
   ['lib/invitation-widgets.ts', ['WEBSITE_PHASES_ENABLED']],

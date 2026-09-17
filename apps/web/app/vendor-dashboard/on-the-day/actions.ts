@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { resolveSongDeskAccess, fetchBookedTiles } from '@/lib/song-desk-gate';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
@@ -385,6 +386,21 @@ export type DayRequestsView = {
   /** Which side of the inbox this vendor is on, or null when not booked. */
   side: 'coordinator' | 'vendor' | null;
   rows: DayRequestRow[];
+  /**
+   * DAY-6 · THE THIRD STATE, AND IT IS NOT DECORATION.
+   *
+   * A refused or failed read used to resolve here as `rows: []` — byte-identical
+   * to "nothing has been raised today". That was survivable while the only
+   * consumer was `IssuesLog`, which falls back to the device-local log when
+   * anything at all goes wrong. It stops being survivable the moment this read
+   * feeds a panel on the LIVE console, where an empty list is read by a
+   * coordinator, mid-wedding, as "no open issues" — and acted on.
+   *
+   * `active` already separates gated from empty, for exactly this reason. This
+   * separates UNREADABLE from empty, which is the same distinction one layer
+   * down. Additive: a consumer that ignores it behaves exactly as before.
+   */
+  unreadable: boolean;
 };
 
 /**
@@ -402,11 +418,11 @@ export type DayRequestsView = {
  */
 export async function getDayRequestsView(eventId: string): Promise<DayRequestsView> {
   if (!(await isDataPrivacyControlActive('coordinator_requests_inbox'))) {
-    return { active: false, side: null, rows: [] };
+    return { active: false, side: null, rows: [], unreadable: false };
   }
 
   const ctx = await requireBookedVendor(eventId);
-  if ('error' in ctx) return { active: true, side: null, rows: [] };
+  if ('error' in ctx) return { active: true, side: null, rows: [], unreadable: false };
 
   const { data, error } = await ctx.supabase
     .from('event_day_requests')
@@ -417,10 +433,21 @@ export async function getDayRequestsView(eventId: string): Promise<DayRequestsVi
     .order('created_at', { ascending: false })
     .limit(200);
 
+  if (error) {
+    logQueryError(
+      'getDayRequestsView.rows',
+      error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   return {
     active: true,
     side: ctx.side,
     rows: error || !data ? [] : (data as DayRequestRow[]),
+    // Not `!data` alone: PostgREST returns null data WITH an error, and an
+    // absent-but-errorless result is a genuinely empty table.
+    unreadable: Boolean(error),
   };
 }
 

@@ -32,14 +32,14 @@ const recognised = (facts: Parameters<typeof viewerIsRecognised>[0]) => {
 
 test('a guest carrying a session for THIS event is recognised', () => {
   assert.equal(
-    recognised({ guestSessionEventId: EVENT, eventId: EVENT, memberType: null }),
+    recognised({ guestSessionEventId: EVENT, eventId: EVENT, memberType: null, hostsEvent: false }),
     true,
   );
 });
 
 test('🔒 a session for ANOTHER celebration is not', () => {
   assert.equal(
-    recognised({ guestSessionEventId: OTHER, eventId: EVENT, memberType: null }),
+    recognised({ guestSessionEventId: OTHER, eventId: EVENT, memberType: null, hostsEvent: false }),
     false,
     'a guest at one wedding could read another couple’s bank details',
   );
@@ -47,7 +47,7 @@ test('🔒 a session for ANOTHER celebration is not', () => {
 
 test('🔒 a passer-by holding the link is not recognised — deliberately', () => {
   assert.equal(
-    recognised({ guestSessionEventId: null, eventId: EVENT, memberType: null }),
+    recognised({ guestSessionEventId: null, eventId: EVENT, memberType: null, hostsEvent: false }),
     false,
     'holding the link is how a relative abroad REACHES the page; it is not how they earn the number',
   );
@@ -56,7 +56,7 @@ test('🔒 a passer-by holding the link is not recognised — deliberately', () 
 test('every host member type is recognised', () => {
   for (const t of HOST_MEMBER_TYPES) {
     assert.equal(
-      recognised({ guestSessionEventId: null, eventId: EVENT, memberType: t }),
+      recognised({ guestSessionEventId: null, eventId: EVENT, memberType: t, hostsEvent: false }),
       true,
       `${t} is a host type and was refused — a co-host would be locked out of their own page`,
     );
@@ -71,7 +71,7 @@ test('🔒 EXISTENCE IS NOT AUTHORITY — a non-host member row is refused', () 
   */
   for (const t of ['guest', 'vendor', 'viewer', 'supplier', '', 'COUPLE', 'Couple']) {
     assert.equal(
-      recognised({ guestSessionEventId: null, eventId: EVENT, memberType: t }),
+      recognised({ guestSessionEventId: null, eventId: EVENT, memberType: t, hostsEvent: false }),
       false,
       `member_type ${JSON.stringify(t)} was treated as a host`,
     );
@@ -82,7 +82,7 @@ test('🔒 a null/absent event id on the session cannot match a null event id', 
   // Defensive: if both sides were ever null, `null === null` would recognise
   // every reader on a page whose event id failed to resolve.
   assert.equal(
-    recognised({ guestSessionEventId: null, eventId: null as unknown as string, memberType: null }),
+    recognised({ guestSessionEventId: null, eventId: null as unknown as string, memberType: null, hostsEvent: false }),
     false,
     'two nulls compared equal and recognised a stranger',
   );
@@ -90,12 +90,12 @@ test('🔒 a null/absent event id on the session cannot match a null event id', 
 
 test('the two arms are independent — either alone suffices, neither is required', () => {
   assert.equal(
-    recognised({ guestSessionEventId: EVENT, eventId: EVENT, memberType: 'guest' }),
+    recognised({ guestSessionEventId: EVENT, eventId: EVENT, memberType: 'guest', hostsEvent: false }),
     true,
     'a valid guest session was overridden by a non-host member row',
   );
   assert.equal(
-    recognised({ guestSessionEventId: OTHER, eventId: EVENT, memberType: 'couple' }),
+    recognised({ guestSessionEventId: OTHER, eventId: EVENT, memberType: 'couple', hostsEvent: false }),
     true,
     'a signed-in couple was refused because they also held another event’s session',
   );
@@ -110,12 +110,86 @@ test('the server module gathers facts and decides NOTHING', () => {
     !src.includes('isHostMemberType'),
     'the decision is back inside the server-only module, where no test can execute it',
   );
-  // The raw string must be threaded through, never reduced to a boolean.
+  /*
+    The raw string must be threaded through, never reduced to a boolean.
+
+    ⚠ POSITION-INDEPENDENT. A first cut matched `memberType` immediately before
+    the closing `})`, which broke the moment a third fact (`hostsEvent`) was
+    added after it — the assertion failed against correct code because it had
+    pinned ORDER while claiming to check SHAPE.
+  */
   assert.match(
     src,
-    /memberType,?\s*\n?\s*\}\)/,
-    'memberType is not passed through — a hasRow boolean here re-creates the host-scope regression',
+    /^\s*memberType,\s*$/m,
+    'memberType is not passed through as itself — a hasRow boolean here re-creates the host-scope regression',
   );
+  assert.ok(
+    !/memberType:\s*(Boolean|!!)/.test(src),
+    'memberType was reduced to a boolean on the way in',
+  );
+  // The third arm must come from the SHARED definition, not a local re-derivation.
+  assert.match(
+    src,
+    /hostsEvent = await userHostsEvent\(/,
+    'hostsEvent is not computed by userHostsEvent — the two doors can drift again',
+  );
+});
+
+test('case count', () => {
+  console.log(`      (${ran} recognition decisions executed)`);
+  assert.ok(ran >= 15, `expected >= 15 executed decisions, ran ${ran}`);
+});
+
+test('⚖ AN ACCEPTED MODERATOR IS RECOGNISED — owner ruling 2026-09-17', () => {
+  /*
+    This test previously PINNED the divergence and refused to resolve it, because
+    converging two definitions of "host" is a disclosure change and the corpus
+    records why that is not a session's call (DECISION_LOG 2026-09-15: the wallet
+    ruling was issued separately rather than inferred). Asked; answered yes.
+
+    A co-host invited as a moderator used to open their own celebration's gift
+    page and be told "payment details are shown to invited guests" — the product
+    contradicting itself about who they are. `hostsEvent` comes from
+    `userHostsEvent`, the SAME definition the dashboard and the QR route use, so
+    this converges the doors rather than adding a third answer.
+
+    🔢 Measured before the change: 6 accepted moderators, 0 without a host member
+    row. Nobody was affected — which made it the cheapest moment to agree it.
+  */
+  assert.equal(
+    recognised({
+      guestSessionEventId: null,
+      eventId: EVENT,
+      memberType: null,
+      hostsEvent: true,
+    }),
+    true,
+    'an accepted moderator is still refused on their own event',
+  );
+  // And the arm is INDEPENDENT: it must not require a member row as well.
+  assert.equal(
+    recognised({
+      guestSessionEventId: OTHER,
+      eventId: EVENT,
+      memberType: 'guest',
+      hostsEvent: true,
+    }),
+    true,
+  );
+});
+
+test('🔒 the third arm does not open anything to a stranger', () => {
+  // hostsEvent is the platform's own host predicate, not a session flag. With
+  // it false, every non-host case must still be refused.
+  for (const memberType of [null, 'guest', 'vendor', 'viewer']) {
+    assert.equal(
+      recognised({ guestSessionEventId: null, eventId: EVENT, memberType, hostsEvent: false }),
+      false,
+      `member_type ${JSON.stringify(memberType)} was recognised with hostsEvent false`,
+    );
+  }
+  const hostTypes = [...HOST_MEMBER_TYPES].sort();
+  assert.deepEqual(hostTypes, ['coordinator', 'couple'], 'HOST_MEMBER_TYPES moved — where is the ruling?');
 });
 
 test('case count', () => {
@@ -162,7 +236,7 @@ test('⚖ TWO DEFINITIONS OF "HOST" EXIST, AND CONVERGING THEM IS AN OWNER CALL'
   // A moderator is not an event_members type at all, so recognition cannot see
   // one. Pinned as a FACT about the current rule, not as an endorsement.
   assert.equal(
-    recognised({ guestSessionEventId: null, eventId: EVENT, memberType: 'moderator' }),
+    recognised({ guestSessionEventId: null, eventId: EVENT, memberType: 'moderator', hostsEvent: false }),
     false,
     'recognition started accepting a moderator type — that is the widening that needs a ruling',
   );

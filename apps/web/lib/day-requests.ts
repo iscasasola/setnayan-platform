@@ -267,3 +267,51 @@ const STATUS_LABEL: Record<DayRequestStatus, string> = {
 export function statusLabel(status: DayRequestStatus | string): string {
   return STATUS_LABEL[status as DayRequestStatus] ?? String(status);
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   DAY-6 · WHAT THE LIVE CONSOLE'S REQUESTS PANEL SHOWS
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/** The shape `getDayRequestsView` returns, as far as this decision cares. */
+export type RequestsPanelInput = {
+  /** Is the activation control on at all? */
+  active: boolean;
+  /** Which side of the inbox this caller is on; null when not booked here. */
+  side: 'coordinator' | 'vendor' | null;
+  /** Did the read FAIL? Distinct from "there is nothing to read". */
+  unreadable: boolean;
+};
+
+/**
+ * `gated`      — the control is off; this console shows nothing about requests.
+ * `unreadable` — the read failed. SAY SO; never render an empty inbox.
+ * `unbooked`   — no side, so there is no list this caller may be shown.
+ * `inbox`      — draw the real thing, in place.
+ */
+export type RequestsPanelState = 'gated' | 'unreadable' | 'unbooked' | 'inbox';
+
+/**
+ * WHY THIS IS A FUNCTION AND NOT THREE TERNARIES IN THE JSX.
+ *
+ * The panel it drives lives on the coordinator's LIVE console, mid-wedding, and
+ * the whole row exists because reading "everything raised today" used to mean
+ * LEAVING that console through a link. Putting the list in place is only an
+ * improvement if the list is HONEST, and the dangerous case is the one that
+ * renders identically to success: a refused read resolving as zero rows, which a
+ * coordinator reads as "nothing to deal with" and acts on.
+ *
+ * 🔑 ORDER IS THE DECISION. `unreadable` is answered BEFORE `side`, because a
+ * read that failed cannot be trusted to have established which side you are on —
+ * reversing those two lines turns a failure into "you are not booked here",
+ * which is a different lie with the same empty screen.
+ *
+ * Pure and total, so every branch is named and can be exercised without a
+ * database — the server action that produces its input cannot be imported by a
+ * unit test at all.
+ */
+export function decideRequestsPanel(view: RequestsPanelInput): RequestsPanelState {
+  if (!view.active) return 'gated';
+  if (view.unreadable) return 'unreadable';
+  if (view.side === null) return 'unbooked';
+  return 'inbox';
+}

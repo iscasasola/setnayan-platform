@@ -14,6 +14,7 @@ import type { DelegateArea } from '@/lib/event-moderators';
 import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
 import { fetchMyAreaGrants, fetchMyPendingAsk } from './access-actions';
+import { decideRequestsPanel } from '@/lib/day-requests';
 import { getDayRequestsView } from '../../../actions';
 import { RequestsInbox } from '../../../_components/requests-inbox';
 import { AskAccess } from './ask-access';
@@ -67,6 +68,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
       })),
     ]);
 
+  const panel = decideRequestsPanel(requests);
   const model = buildFloorCommand({
     blocks: blocksRaw ?? [],
     grants: { seatPlan: grants.seat_plan ?? null, schedule: grants.schedule ?? null },
@@ -162,7 +164,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
             <Inbox aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />
             Requests inbox
           </h4>
-          {requests.unreadable ? (
+          {panel === 'unreadable' ? (
             /* 🔴 AN UNREADABLE LIST IS NOT AN EMPTY ONE, AND ON THIS SCREEN THE
                DIFFERENCE IS A WEDDING. Rendering the inbox here with zero rows
                would tell a coordinator, mid-celebration, that nothing has been
@@ -181,7 +183,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
                 <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               </Link>
             </>
-          ) : requests.side ? (
+          ) : panel === 'inbox' && requests.side ? (
             <>
               <RequestsInbox
                 eventId={eventId}

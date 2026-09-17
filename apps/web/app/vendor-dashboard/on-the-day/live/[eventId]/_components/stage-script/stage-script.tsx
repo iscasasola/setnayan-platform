@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EyeOff, Megaphone, Mic, Radio, ScrollText } from 'lucide-react';
+import { Clock, EyeOff, Megaphone, Mic, Radio, ScrollText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   buildStageScript,
@@ -10,8 +10,13 @@ import {
   type StageScriptModel,
 } from '@/lib/stage-script';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
+import { lentScheduleState, nextAdvanceAction, remainingBlockCount } from '@/lib/floor-command';
+import { deriveRunOfShow } from '@/lib/run-of-show';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { fetchStageNotes } from '@/lib/stage-notes';
 import { StageNotesCard } from '../stage-notes-card';
+import { fetchMyAreaGrants } from '../floor-command/access-actions';
+import { ScheduleUpdater } from '../floor-command/schedule-updater';
 
 /**
  * SCRIPT & CUES — the host / MC specialization surface (`stage_script`).
@@ -132,10 +137,58 @@ export async function StageScript({
   // and nobody else's, and grants no other access to the event.
   const stageNotes = await fetchStageNotes(supabase, eventId, vendorProfileId);
 
+  /*
+   * DAY-8 · THE SEGMENTS HE IS RUNNING, WHEN THE COUPLE HAS LENT THEM.
+   *
+   * The control already existed — `ScheduleUpdater`, mounted on the
+   * COORDINATOR's surface — and this desk read the same blocks and rendered no
+   * way to touch them. So an emcee holding `schedule: 'edit'`, a loan the couple
+   * had already granted through the delegate grid, watched his own segments run
+   * late and could do nothing. Nothing rendered wrongly; the control simply was
+   * not here, which is why neither a search for the capability nor a test over
+   * this file could find it.
+   *
+   * 🔑 THE RULE IS NOT RE-STATED HERE. `lentScheduleState` is the same function
+   * `buildFloorCommand` calls, so the two surfaces cannot drift about who may
+   * retime — and the WRITE is gated independently, server-side, by
+   * `decideMayAdvance`. This decides only whether to draw the control.
+   *
+   * 🔑 AND NOTHING IS DRAWN WHEN IT IS NOT LENT. No padlock, no greyed panel, no
+   * "ask for access" — running the programme is not this desk's job by default,
+   * and a closed panel for a thing he was never meant to hold is furniture. The
+   * coordinator's surface DOES show a reason when a panel is shut, because there
+   * it is a missing half of that person's own job. Same rule, different role.
+   * (`StageNotesCard` above makes exactly this choice for the same reason.)
+   *
+   * Best-effort, like his own lines above: `fetchMyAreaGrants` returns `{}` for
+   * an unreadable grant, which resolves to "not lent" and simply draws nothing.
+   * A grants read that failed must never cost him the program he is standing on
+   * stage to run.
+   */
+  // The empty fallback is ANNOTATED, not inferred: a bare `() => ({})` widens the
+  // union to include `{}`, and `grants.schedule` then stops compiling. Naming the
+  // type keeps "unreadable grants" and "no grants" the same shape.
+  const grants: Awaited<ReturnType<typeof fetchMyAreaGrants>> = await fetchMyAreaGrants(
+    eventId,
+  ).catch(() => ({}));
+  const advance = nextAdvanceAction(blocks, new Date());
+  const lent = lentScheduleState(grants.schedule ?? null, advance);
+
   return (
     <div className="space-y-4">
       {stageNotes.length > 0 ? (
         <StageNotesCard eventId={eventId} notes={stageNotes} />
+      ) : null}
+      {lent.state === 'ready' ? (
+        <Card icon={Clock} title="Your segments">
+          <ScheduleUpdater
+            eventId={eventId}
+            action={advance}
+            remaining={remainingBlockCount(blocks)}
+            driftMinutes={deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ).driftMinutes}
+            onLoan
+          />
+        </Card>
       ) : null}
       {model.order.map((card) =>
         card === 'cue' ? (

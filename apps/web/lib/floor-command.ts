@@ -289,6 +289,46 @@ export type FloorCommandModel = {
 };
 
 /**
+ * MAY THIS PERSON MOVE THE COUPLE'S RUNNING ORDER, AND IF NOT, WHY NOT?
+ *
+ * ── ONE RULE, TWO SURFACES (DAY-8) ─────────────────────────────────────────
+ * The running order belongs to the couple. They lend it, per area, through the
+ * delegate grid: an ACCEPTED `event_moderators` row carrying `schedule: 'edit'`.
+ * `'view'` is NOT a loan — it is permission to watch, and the difference is the
+ * whole point of the grid.
+ *
+ * This lived inline in `buildFloorCommand` and therefore existed only on the
+ * COORDINATOR's surface. The host/MC surface (`stage-script.tsx`) read the
+ * blocks and rendered no control at all, so an emcee holding `schedule: 'edit'`
+ * — a loan the couple had already granted — could watch their own segments run
+ * late and not touch them. Nothing rendered wrongly; the control simply was not
+ * there, which is why no test and no search found it.
+ *
+ * 🔑 EXTRACTED RATHER THAN COPIED, DELIBERATELY. A second surface needing the
+ * same rule is exactly when a project grows two copies of it, and the copy that
+ * drifts is always the one that stops refusing. `buildFloorCommand` now calls
+ * this, so the coordinator's behaviour is unchanged by construction and the two
+ * surfaces cannot disagree about who may retime.
+ *
+ * ⚠ THIS IS A PRESENTATION DECISION AND NOT THE AUTHORIZATION. The write is
+ * gated server-side by `decideMayAdvance` (`lib/run-of-show-advance-gate.ts`),
+ * which is the boundary; a UI that showed the control to somebody the database
+ * will refuse is a broken promise, not a security hole, and a UI that hid it
+ * from somebody the database allows is this row's defect. They must agree, and
+ * the gate is the one that decides.
+ */
+export function lentScheduleState(
+  scheduleLevel: FloorGrants['schedule'],
+  action: AdvanceAction,
+): { state: PanelState; reason: PanelReason | null } {
+  if (scheduleLevel !== 'edit') return { state: 'unavailable', reason: 'not_shared' };
+  // An empty schedule is not a broken panel — there is genuinely nothing
+  // to advance, and saying so beats a dead button.
+  if (action.kind === 'empty') return { state: 'unavailable', reason: 'no_schedule' };
+  return { state: 'ready', reason: null };
+}
+
+/**
  * Assemble what the surface renders. All four panels are computed together so
  * a single call describes the whole console — and so "why is this panel not
  * here" always has a named answer instead of an empty div.
@@ -316,13 +356,7 @@ export function buildFloorCommand(input: {
   const scheduleShared = input.grants.schedule === 'edit';
   const seatShared = input.grants.seatPlan !== null;
 
-  const schedule = !scheduleShared
-    ? { state: 'unavailable' as const, reason: 'not_shared' as const }
-    : action.kind === 'empty'
-      // An empty schedule is not a broken panel — there is genuinely nothing
-      // to advance, and saying so beats a dead button.
-      ? { state: 'unavailable' as const, reason: 'no_schedule' as const }
-      : { state: 'ready' as const, reason: null };
+  const schedule = lentScheduleState(input.grants.schedule, action);
 
   const seatPanel: { state: PanelState; reason: PanelReason | null } = !seatShared
     ? { state: 'unavailable', reason: 'not_shared' }

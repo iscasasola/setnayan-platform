@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { marketplaceTenureLine } from '@/lib/marketplace-tenure';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -383,9 +384,9 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,created_at';
   const legacySelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
   let { data, error } = await admin
     .from('vendor_profiles')
@@ -1036,6 +1037,15 @@ export async function renderVendorBySlug({
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
   // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
   // Setnayan-native tier so the card reads credible at launch.
+  /* Platform tenure. Deliberately NOT inside the `vendorExperienceEnabled()`
+     probe below: that is flag-gated, and a line hidden behind a switch whose
+     production value nobody can read is how a feature ships dark. `created_at`
+     arrives with the page's own select, so this costs no extra query. */
+  const marketplaceSince = marketplaceTenureLine(
+    (vendor as { created_at?: string | null }).created_at ?? null,
+    new Date().toISOString(),
+  );
+
   let declaredExp: { years: number | null; weddings: number | null; verified: boolean } | null = null;
   if (vendorExperienceEnabled()) {
     // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
@@ -2362,6 +2372,24 @@ export async function renderVendorBySlug({
                   <span className="text-ink/40">· self-reported</span>
                 )}
               </p>
+            ) : null}
+            {/*
+              ON THE MARKETPLACE SINCE — platform tenure, which is NOT the same claim
+              as the experience pill above it.
+
+              ⚠ THE LABEL CARRIES THE DISTINCTION. `in_business_since_year` is the
+              credential; `created_at` is only how long they have been here. A bare
+              "Since September 2026" beside "11 yrs in business" would read as a
+              founding date and actively mislead — which is why
+              lib/marketplace-tenure.ts returns a labelled sentence, not a date.
+
+              ⚠ AND IT IS NEVER HIDDEN TO FLATTER A NEW SHOP. Suppressing it would
+              make its presence a badge and its absence a tell. This page already
+              takes that position out loud: "we render the tier even for 'New to
+              Setnayan' (honest, not negative)."
+            */}
+            {marketplaceSince ? (
+              <p className="text-[11px] text-ink/55">{marketplaceSince}</p>
             ) : null}
             {/* "Featured in N stories →" — Fable E2 (spec § 3.5). A POINTER to
                 the "Featured in these stories" section further down that ALREADY

@@ -44,6 +44,7 @@ import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { haversineKm } from '@/lib/geo';
+import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -457,6 +458,18 @@ export async function fetchWizardVendorRecommendations(
     | 'screen_name'
     | 'tier_state'
   >[];
+  if (baseRows.length === 0) return [];
+
+  // B2 (2026-09-17) — a shop with zero active, inquirable services is not a
+  // recommendation. `services` (overlapped above) is what the shop CLAIMS to
+  // sell; this is whether it has anything left to book. Shared with the
+  // /explore vendor-grid via lib/vendor-inquirable-gate.ts, ALWAYS ON — every
+  // caller of this function (onboarding, the Concierge wizard, and the
+  // event's own Category Search browser) inherits the same rule with none of
+  // them able to forget it.
+  const inquirableVendorIds = await fetchVendorIdsWithActiveService(admin);
+  const inquirableSet = new Set(inquirableVendorIds);
+  baseRows = baseRows.filter((r) => inquirableSet.has(r.vendor_profile_id));
   if (baseRows.length === 0) return [];
 
   // Region scope (Hybrid · admit-unknown, exclude-known-mismatch). Effective

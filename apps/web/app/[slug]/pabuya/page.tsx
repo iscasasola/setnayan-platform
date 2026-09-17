@@ -153,7 +153,27 @@ export default async function PabuyaPublicPage({
       qrUrl: withhold ? null : m.qrDisplayUrl,
     };
   });
-  const identifiersWithheld = cards.some((c, i) => c.handle === null && methods[i]?.handle != null);
+  /*
+    Did we withhold ANYTHING? This drives the sentence that stops a gate from
+    reading as a bug.
+
+    🔴 IT USED TO ASK ABOUT THE HANDLE ONLY. A method may legitimately be
+    QR-ONLY — `saveEgiftMethod` refuses a row only when BOTH the handle and the
+    QR are absent — and for such a row `handle` is null before and after
+    withholding, so this returned false and the explaining sentence never
+    rendered. The guest saw a card with a rail name, no number, no QR and NO
+    REASON: byte-identical to a couple who filled the form in wrong. The gate
+    was working and looked like a defect, which is the exact failure the
+    sentence exists to prevent.
+
+    Now: withheld if EITHER identifier was present on the row and is absent
+    from the card.
+  */
+  const identifiersWithheld = cards.some(
+    (c, i) =>
+      (c.handle === null && methods[i]?.handle != null) ||
+      (c.qrUrl === null && methods[i]?.qrDisplayUrl != null),
+  );
 
   // This event type's word for whoever is throwing it. Wedding → 'couple', so
   // both sentences below stay byte-identical for a wedding.

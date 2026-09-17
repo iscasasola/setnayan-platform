@@ -172,3 +172,43 @@ test('case count', () => {
   console.log(`      (${cases} ref cases executed)`);
   assert.ok(cases >= 17, `expected >= 17 executed cases, ran ${cases}`);
 });
+
+// ── Step 4 + Step 5 · the writes count, and the withheld sentence sees the QR ──
+
+test('every e-gift write counts its rows before reporting success', () => {
+  const src = stripComments(
+    readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/pabuya/actions.ts'), 'utf8'),
+  );
+  /*
+    A zero-row write is success-shaped: PostgREST returns no error when a filter
+    matches nothing (RLS narrowing it out, a stale id, a row another tab
+    deleted), so `!error` alone renders "saved" over a write that changed
+    nothing. Each mutating call must come back with rows and count them.
+  */
+  const selects = (src.match(/\.select\('egift_method_id'\)/g) ?? []).length;
+  assert.equal(
+    selects,
+    6,
+    `expected all 6 mutating calls to return rows, found ${selects} — a write went back to trusting !error`,
+  );
+  const counts = (src.match(/length === 0|\?\.length/g) ?? []).length;
+  assert.ok(counts >= 5, `rows returned but not counted (${counts} count checks)`);
+  assert.match(src, /STALE_ROW_ERROR/, 'no distinct message for "matched no row"');
+});
+
+test('🔑 the withheld sentence fires for a QR-ONLY method', () => {
+  const src = stripComments(
+    readFileSync(join(process.cwd(), 'app/[slug]/pabuya/page.tsx'), 'utf8'),
+  );
+  /*
+    saveEgiftMethod refuses a row only when BOTH handle and QR are absent, so a
+    QR-only method is legal. Asking about the handle alone meant such a row
+    withheld its QR silently and the guest saw a card with no number, no QR and
+    no reason — byte-identical to a couple who filled the form in wrong.
+  */
+  assert.match(
+    src,
+    /c\.qrUrl === null && methods\[i\]\?\.qrDisplayUrl != null/,
+    'identifiersWithheld ignores a withheld QR, so a QR-only method is withheld in silence',
+  );
+});

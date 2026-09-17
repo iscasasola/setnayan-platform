@@ -177,6 +177,56 @@ test('the save action checks a newly attached QR, and only a changed one', () =>
   );
 });
 
+// ── And it has to be scannable ON THE PAGE, not just in the database. ──────
+
+test('🔑 the guest card draws the QR big enough to scan, and lets you open it full size', () => {
+  const src = readFileSync(
+    join(process.cwd(), 'app/_components/pabuya/pabuya-card-list.tsx'),
+    'utf8',
+  );
+  // Find the element that wraps the QR <img>, and read its size classes.
+  const at = src.indexOf('src={m.qrUrl}');
+  assert.ok(at > 0, 'the QR image mount is gone — re-point this guard');
+  const wrapper = src.slice(Math.max(0, at - 900), at);
+
+  const h = [...wrapper.matchAll(/\bh-(\d+)\b/g)].map((m) => Number(m[1]));
+  assert.ok(h.length > 0, 'the QR wrapper declares no height');
+  /*
+    ⚠ A FLOOR, NOT AN EXACT VALUE. It shipped at h-20 (80px) and a couple
+    uploads a banking-app SCREENSHOT — logo, name, masked account, footnote —
+    so the code itself is roughly a third of the image. 80px left ~25px of
+    real QR and the owner reported it as the QR not being visible. h-28
+    (112px) is the floor; larger is fine, which is why this asserts >= and
+    not ===.
+  */
+  assert.ok(
+    Math.min(...h) >= 28,
+    `the QR is drawn at h-${Math.min(...h)} — too small to scan (floor is h-28)`,
+  );
+
+  // Tappable: a guest scans from a SECOND phone, so they need it full-screen.
+  assert.match(
+    wrapper,
+    /<a\s[^>]*href=\{m\.qrUrl\}/s,
+    'the QR is not a link — there is no way to open it full size or save it',
+  );
+  assert.match(wrapper, /rel="noopener noreferrer"/, 'target=_blank without rel');
+});
+
+test('⚠ the shared gift card stays presentational — no client bundle', () => {
+  const src = readFileSync(
+    join(process.cwd(), 'app/_components/pabuya/pabuya-card-list.tsx'),
+    'utf8',
+  );
+  // It is rendered by BOTH the server guest page and the client dashboard
+  // preview; making it a client component is how those two start to drift.
+  assert.ok(
+    !/^\s*['"]use client['"]/m.test(src),
+    'the shared card became a client component — the preview and the guest page can now diverge',
+  );
+  assert.ok(!/onClick=/.test(src), 'an event handler appeared in a shared presentational card');
+});
+
 test('the decoder is SHARED, not re-implemented for this surface', () => {
   const src = readFileSync(join(process.cwd(), 'lib/pabuya-qr-check.server.ts'), 'utf8');
   assert.ok(src.includes("from '@/lib/qr-decode'"), 'a third decoder copy appeared');

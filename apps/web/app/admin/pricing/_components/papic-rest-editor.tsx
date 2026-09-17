@@ -52,7 +52,7 @@ export function PapicRestEditor({
       <div className="mb-4 rounded-2xl border border-success-800/25 bg-success-800/[0.05] p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold">Free credits on every event</p>
+            <p className="text-[15px] font-semibold">Free credits on a first celebration</p>
             <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-ink/60">
               Given to every celebration before anybody buys anything. The ladder above tops
               this up; it never replaces it.

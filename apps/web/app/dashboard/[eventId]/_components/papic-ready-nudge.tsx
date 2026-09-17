@@ -5,7 +5,9 @@
  * (owner picked A + B on 2026-07-30 from
  * `06_Prototypes/Papic_Home_Presence_2026-07-30.html`).
  *
- * Every event is armed at creation with a free shared pool of credits AND one free
+ * Every event is armed at creation with a shared pool AND one free camera — but the
+ * POOL IS ONLY 50 CREDITS ON AN ACCOUNT’S FIRST CELEBRATION; a repeat gets a
+ * 1-credit floor, which exists so the pool reads as metered and is NOT a perk
  * dedicated camera, and the couple was never told so anywhere on their home. This
  * is the one-time telling. It is deliberately a SIBLING of `SetDateNudge` — same
  * band geometry, same terracotta hairline, same eyebrow / title / one-line body /
@@ -84,7 +86,7 @@ export function PapicReadyNudge({ eventId }: Props) {
         </p>
         <p className="text-base font-semibold text-ink">Your free camera is ready</p>
         <p className="text-sm text-ink/65">
-          Every celebration starts with a shared pool of credits and one camera of its
+          Every celebration comes with one free camera of its own, and a shared pool of its
           own — nothing to buy. Hand it to someone you trust and the candids start
           landing in your gallery.
         </p>

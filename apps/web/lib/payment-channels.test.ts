@@ -17,6 +17,7 @@ import {
   monthStartISO,
   phDateISO,
   isPayChannel,
+  isChannelOpen,
 } from './payment-channels';
 
 const NOW = new Date('2026-08-15T10:00:00+08:00');
@@ -283,4 +284,42 @@ test('the last minute of a Manila month is still that month', () => {
   const endAug = new Date('2026-08-31T15:59:00Z'); // 2026-08-31 23:59 PHT
   assert.equal(phDateISO(endAug), '2026-08-31');
   assert.equal(inSameCalendarMonth(endAug, new Date('2026-08-01T00:00:00Z')), true);
+});
+
+/* ── A QR IS SOMETHING TO PAY TO (2026-09-18) ─────────────────────────────── */
+
+test('a rail with only a QR is open — that is how you pay it', () => {
+  // Before this, three payment pages could not delegate to openChannels: they
+  // render a rail that has a QR and no typed number, and this function would
+  // have called it closed. Widening the ONE rule was the fix.
+  assert.deepEqual(
+    openChannels({ gcash_qr_url: 'https://r2/gcash.png', bdo_account_number: '0065' }),
+    ['gcash', 'bdo'],
+  );
+});
+
+test('the switch still wins over a QR — the whole point of the switch', () => {
+  // The floor that fails the mistake the widening could itself have made:
+  // accepting a QR must not become a way around a closed rail.
+  assert.deepEqual(
+    openChannels({
+      gcash_enabled: false,
+      gcash_number: '09178807163',
+      gcash_qr_url: 'https://r2/gcash.png',
+      bdo_account_number: '006540027965',
+    }),
+    ['bdo'],
+  );
+});
+
+test('isChannelOpen answers per rail and agrees with openChannels', () => {
+  const half = { ...BOTH, gcash_enabled: false };
+  assert.equal(isChannelOpen(half, 'gcash'), false);
+  assert.equal(isChannelOpen(half, 'bdo'), true);
+  // One rule, asked two ways — they may never disagree.
+  for (const ch of ['gcash', 'bdo'] as const) {
+    for (const s of [BOTH, half, {}]) {
+      assert.equal(isChannelOpen(s, ch), openChannels(s).includes(ch));
+    }
+  }
 });

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { openChannels } from '@/lib/payment-channels';
 
 export type PlatformSettingsRow = {
   id: 1;
@@ -271,13 +272,28 @@ export async function fetchVendorValidateContacts(
   }
 }
 
+/**
+ * Is there a rail a person can actually pay through?
+ *
+ * 🔴 THIS USED TO ANSWER A DIFFERENT QUESTION — "are any account details
+ * filled in?" — and three payment pages asked it before printing the owner's
+ * GCash number and BDO account. None of them consulted `gcash_enabled` /
+ * `bdo_enabled`, so switching a rail OFF at its monthly receiving cap stopped
+ * checkout offering it and did not stop these pages handing out the number.
+ *
+ * 🔑 That is the exact hazard the kill switch was built for (owner 2026-08-01,
+ * verbatim: *"i need a button to turn off the gcash once my gcash hits the
+ * limit for that month"*). Past a personal GCash wallet's monthly receiving
+ * limit, incoming transfers **fail at the bank rather than queue** — so the
+ * person pays, nothing arrives, and the first signal is them saying so.
+ *
+ * Now it delegates to `openChannels`, the one rule checkout already runs.
+ * Configured-but-switched-off reads as CLOSED; the fail-open contract is
+ * inherited unchanged (a null/undefined flag still reads as enabled, so a
+ * transient read never takes payments down).
+ */
 export function hasMerchantPaymentInfo(s: PlatformSettingsRow): boolean {
-  return Boolean(
-    s.bdo_account_number?.trim() ||
-      s.gcash_number?.trim() ||
-      s.bdo_qr_url?.trim() ||
-      s.gcash_qr_url?.trim(),
-  );
+  return openChannels(s).length > 0;
 }
 
 /**

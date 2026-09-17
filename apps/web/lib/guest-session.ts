@@ -1,8 +1,8 @@
 import { cache } from 'react';
+import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { envFlagEnabled } from '@/lib/env-flag';
 
 const COOKIE_NAME = 'setnayan_guest_session';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30-day post-event window
@@ -11,12 +11,18 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30
  * QR-rotation session revocation (build ④ · council § 5.11). The 60-day JWT
  * embeds the guest's qr_token at mint time; without this check a session
  * minted from a LEAKED QR survives up to 60 days after the host/guest rotates
- * the token. When GUEST_SESSION_TOKEN_CHECK=true, every readGuestSession()
- * additionally verifies the embedded qr_token still matches guests.qr_token —
- * a mismatch means the token was rotated since this session was minted, and
- * the session is treated as signed out.
+ * the token. Every readGuestSession() additionally verifies the embedded
+ * qr_token still matches guests.qr_token — a mismatch means the token was
+ * rotated since this session was minted, and the session is treated as signed
+ * out.
  *
- * COST (measured shape, flag ON): exactly one primary-key SELECT on guests per
+ * ⚠ UNCONDITIONAL SINCE 2026-09-17. This was gated on GUEST_SESSION_TOKEN_CHECK,
+ * which is NOT SET in production, so the check never ran and rotation did not
+ * revoke anything — the leaked browser stayed signed in and was then shown the
+ * REPLACEMENT code. The flag was deleted rather than set: a flag whose prod
+ * value nobody can read is how this shipped dark.
+ *
+ * COST (measured shape): exactly one primary-key SELECT on guests per
  * request, memoized per (guest_id, qr_token) within the request via React
  * cache() — so a page that calls readGuestSession() many times (e.g.
  * /[slug]/page.tsx + its actions) pays for ONE query. Supabase SIN from Vercel
@@ -27,9 +33,7 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30
  * can't sign out every guest at once — the flag exists to kill leaked
  * sessions, not to add a new single point of failure.
  */
-function guestSessionTokenCheckEnabled(): boolean {
-  return envFlagEnabled(process.env.GUEST_SESSION_TOKEN_CHECK);
-}
+
 
 const sessionTokenMatchesDb = cache(
   async (guestId: string, qrToken: string): Promise<boolean> => {
@@ -41,10 +45,29 @@ const sessionTokenMatchesDb = cache(
         .eq('guest_id', guestId)
         .is('deleted_at', null)
         .maybeSingle();
-      if (error) return true; // fail OPEN on transport/DB error (see above)
-      return data?.qr_token === qrToken;
+      // ⚠ `error` is a lookup that did not COMPLETE — fail open. A completed
+      // lookup that found no row is `data === null`, which is a definitive
+      // answer and revokes. The pure rule keeps those two apart.
+      if (error) {
+        return guestSessionSurvivesTokenCheck({
+          cookieToken: qrToken,
+          dbToken: null,
+          lookupFailed: true,
+        });
+      }
+      return guestSessionSurvivesTokenCheck({
+        cookieToken: qrToken,
+        dbToken: (data?.qr_token as string | null | undefined) ?? null,
+        lookupFailed: false,
+      });
     } catch {
-      return true; // admin client unavailable (e.g. CI build) — fail open
+      // Admin client unavailable (e.g. a CI build with no service key) — the
+      // lookup never happened, so this is fail-open territory too.
+      return guestSessionSurvivesTokenCheck({
+        cookieToken: qrToken,
+        dbToken: null,
+        lookupFailed: true,
+      });
     }
   },
 );
@@ -244,12 +267,25 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
       event_id: payload.event_id,
       qr_token: payload.qr_token,
     };
-    // Flag-gated DB re-validation — the chokepoint covers EVERY consumer
-    // (24 files import this reader; validating here means none can be missed).
-    if (guestSessionTokenCheckEnabled()) {
-      const ok = await sessionTokenMatchesDb(session.guest_id, session.qr_token);
-      if (!ok) return null;
-    }
+    /*
+      DB re-validation at the chokepoint — UNCONDITIONAL since 2026-09-17.
+      Every consumer passes through here (24 files import this reader), so
+      validating once means none can be missed.
+
+      🔴 IT USED TO BE GATED ON `GUEST_SESSION_TOKEN_CHECK`, WHICH IS NOT SET IN
+      PRODUCTION. `envFlagEnabled` returns false for a non-string, so the check
+      never ran — and the consequence inverted the feature it belonged to: a
+      couple rotating a LEAKED guest QR left the leaked browser signed in, and
+      that still-valid session was then shown the REPLACEMENT code. Revoking
+      the leak handed the leak the new key.
+
+      ⚠ THE FLAG WAS DELETED RATHER THAN SET. A flag whose production value
+      nobody can read is how this shipped dark for months; setting it would
+      leave the same mechanism for the next person. Turning this off is now a
+      code change a reviewer can see.
+    */
+    const ok = await sessionTokenMatchesDb(session.guest_id, session.qr_token);
+    if (!ok) return null;
     return session;
   } catch {
     return null;

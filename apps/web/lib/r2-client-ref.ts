@@ -447,7 +447,44 @@ export function papicSeatCapturePolicy(
 }
 
 /** A vendor's payment QR image. */
+/**
+ * A supplier's payment QR. PRIVATE, under its own ROOT prefix.
+ *
+ * ⚖ OWNER RULING 2026-09-17 — the couples' disclosure rule extends to suppliers.
+ * Asked rather than inferred: DECISION_LOG 2026-09-15 records that the wallet
+ * ruling was issued separately from the bank one because "widening a disclosure
+ * rule past what was asked is how the next person inherits a decision nobody
+ * made". Done now because `vendor_payment_methods` held ZERO rows — so this is
+ * a policy change, not the migration it becomes once suppliers start uploading.
+ *
+ * 🔑 A NEW ROOT, NOT `vendors/<id>/payment-qr/`. The old shape put the
+ * meaningful segment in the MIDDLE, behind an unpredictable id, where
+ * `bucketForPrefix` (which matches `startsWith`) can never reach it — and the
+ * `vendors/` root cannot carry a rule either, because vendor VERIFICATION
+ * documents share it and belong in a different bucket. Its own root is the only
+ * shape that lets the defence-in-depth half of the 2026-07-30 ruling exist.
+ *
+ * The id is still a VENDOR id: `VENDOR_ROOTS` in lib/upload-prefix-tenancy.ts
+ * must name this root, or the resolver defaults it to an EVENT id and every
+ * upload is refused 403.
+ */
 export function vendorPaymentQrPolicy(vendorProfileId: string): ClientRefPolicy {
+  return {
+    bucket: 'setnayan-thread-files',
+    prefixes: [`vendor-payment-qr/${vendorProfileId}/`],
+  };
+}
+
+/**
+ * Where supplier payment QRs used to live: the PUBLIC media bucket.
+ *
+ * ⚠ READ-ONLY, AND EXPECTED TO BE DEAD ON ARRIVAL. `vendor_payment_methods`
+ * held zero rows when the move was made, so nothing should ever match this.
+ * It exists so that a row written between the measurement and the deploy still
+ * renders rather than silently blanking, and so its object can still be
+ * cleaned up. Delete it once a count confirms zero.
+ */
+export function vendorPaymentQrLegacyPolicy(vendorProfileId: string): ClientRefPolicy {
   return { prefixes: [`vendors/${vendorProfileId}/payment-qr/`] };
 }
 
@@ -513,7 +550,7 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // `pabuya-qr` added 2026-09-17 — the couple's gift QR moved out of the public
   // bucket. Its own ROOT rather than `events/…` so bucketForPrefix can carry a
   // defence-in-depth rule for it (see pabuyaQrPolicy).
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr'])],
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.

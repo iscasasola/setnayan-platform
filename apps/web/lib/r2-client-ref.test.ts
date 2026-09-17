@@ -251,7 +251,14 @@ test('SEC-1 · non-string and malformed input is refused, never thrown on', () =
 // ---------------------------------------------------------------------------
 
 test('legit · every real uploader prefix is accepted by its own policy', () => {
-  const cases: ReadonlyArray<readonly [string, ReturnType<typeof eventMediaPolicy>]> = [
+  /* ⚠ A THIRD COLUMN, added 2026-09-17. This table hardcoded
+     `r2://setnayan-media/…`, so it could only express PUBLIC uploaders — and
+     the moment one moved to a private bucket the row could not be written
+     truthfully at all. The bucket now defaults to the public one and is named
+     explicitly where it differs. */
+  const cases: ReadonlyArray<
+    readonly [string, ReturnType<typeof eventMediaPolicy>, string?]
+  > = [
     // std-background-picker.tsx / std-media-picker.tsx
     [`events/${EVENT_A}/std-background/uuid-photo.jpg`, stdMediaPolicy(EVENT_A)],
     [`events/${EVENT_A}/std-video/uuid-clip.mp4`, stdMediaPolicy(EVENT_A)],
@@ -266,7 +273,15 @@ test('legit · every real uploader prefix is accepted by its own policy', () => 
     // /api/guest-selfie
     [`events/${EVENT_A}/guest-selfies/${GUEST_A}/uuid.jpg`, guestSelfiePolicy(EVENT_A, GUEST_A)],
     // add-payment-method.tsx
-    [`vendors/${VENDOR_A}/payment-qr/uuid-qr.png`, vendorPaymentQrPolicy(VENDOR_A)],
+    // Moved 2026-09-17 to a PRIVATE bucket under its own root — see
+    // vendorPaymentQrPolicy. The old `vendors/<id>/payment-qr/` shape is now
+    // read-only via vendorPaymentQrLegacyPolicy and is asserted separately in
+    // lib/a-supplier-qr-is-not-public.test.ts.
+    [
+      `vendor-payment-qr/${VENDOR_A}/uuid-qr.png`,
+      vendorPaymentQrPolicy(VENDOR_A),
+      'setnayan-thread-files',
+    ],
     // editorial-media-studio.tsx — TENANTED as of SEC-1 lane #3 (was a flat
     // `editorial-vendor/` prefix that could only be contained, never owned).
     [
@@ -274,9 +289,10 @@ test('legit · every real uploader prefix is accepted by its own policy', () => 
       editorialVendorMediaPolicy(VENDOR_A, EVENT_A),
     ],
   ];
-  for (const [key, policy] of cases) {
-    const got = parseClientRef(`r2://setnayan-media/${key}`, policy);
-    assert.deepEqual(got, { bucket: PUBLIC_R2_BUCKET, key }, `must accept ${key}`);
+  for (const [key, policy, bucket] of cases) {
+    const expected = bucket ?? PUBLIC_R2_BUCKET;
+    const got = parseClientRef(`r2://${expected}/${key}`, policy);
+    assert.deepEqual(got, { bucket: expected, key }, `must accept ${expected}/${key}`);
   }
 });
 

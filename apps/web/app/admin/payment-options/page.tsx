@@ -1,7 +1,7 @@
 import Image from 'next/image';
+import { vendorPaymentQrDisplayUrl } from '@/lib/vendor-payment-qr-url.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   ALLOWED_LINK_DOMAINS,
   type CoupleFacingMethod,
@@ -83,7 +83,7 @@ export default async function AdminPaymentOptionsPage() {
       business_name: r.vendor_profiles?.business_name || 'Unnamed vendor',
       qr_display_url:
         r.method_type === 'qr'
-          ? await displayUrlForStoredAsset(r.qr_r2_key)
+          ? await vendorPaymentQrDisplayUrl(r.qr_r2_key, r.vendor_profile_id)
           : null,
     })),
   );

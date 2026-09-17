@@ -69,6 +69,11 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // where no startsWith rule could reach them because the meaningful segment
   // sat behind an unpredictable id; the root prefix exists so this line can.
   if (normalized.startsWith('pabuya-qr/')) return 'threadFiles';
+  // A SUPPLIER's payment QR (2026-09-17). Same class again: the image encodes
+  // the account it stands for. Its own root rather than `vendors/…` because
+  // that root is shared with verification documents, which belong in a
+  // different bucket — so no rule could be written there without over-claiming.
+  if (normalized.startsWith('vendor-payment-qr/')) return 'threadFiles';
   // Mood Board "Make it real" renders (MB8). PRIVATE: a render is the couple's
   // own creation and is theirs alone until an admin FEATURES it, which is
   // itself gated on their explicit share consent. The public `media` bucket

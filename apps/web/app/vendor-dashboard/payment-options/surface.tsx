@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { vendorPaymentQrDisplayUrl } from '@/lib/vendor-payment-qr-url.server';
 import {
   Landmark,
   QrCode,
@@ -19,7 +20,6 @@ import {
   type PaymentMethodType,
   type VendorPaymentMethodRow,
 } from '@/lib/vendor-payment-methods';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   deletePaymentMethod,
@@ -91,14 +91,18 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   const methods = await fetchOwnPaymentMethods(supabase, profile.vendor_profile_id);
   const isPro = await isVendorProActive(supabase, user.id);
 
-  // Pre-resolve QR thumbnails. displayUrlForStoredAsset presigns r2:// refs and
+  // Pre-resolve QR thumbnails through the shared helper, which presigns only a
+  // ref that satisfies THIS supplier's own policy and
   // passes legacy http(s) values through unchanged.
   const qrThumbnails: Record<string, string> = {};
   await Promise.all(
     methods
       .filter((m) => m.method_type === 'qr' && m.qr_r2_key)
       .map(async (m) => {
-        const url = await displayUrlForStoredAsset(m.qr_r2_key as string);
+        const url = await vendorPaymentQrDisplayUrl(
+          m.qr_r2_key as string,
+          profile.vendor_profile_id,
+        );
         if (url) qrThumbnails[m.payment_method_id] = url;
       }),
   );

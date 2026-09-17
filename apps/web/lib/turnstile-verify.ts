@@ -27,14 +27,11 @@ import 'server-only';
  * verifier is unreachable protects nobody.
  */
 
-const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+import { turnstileVerdict, type TurnstileVerdict } from '@/lib/turnstile-verdict';
 
-export type TurnstileVerdict = {
-  /** False when no secret is set — the check is switched off, not passed. */
-  configured: boolean;
-  /** May this request proceed? `true` when unconfigured (inert). */
-  ok: boolean;
-};
+export type { TurnstileVerdict };
+
+const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 const secret = () => (process.env.TURNSTILE_SECRET_KEY ?? '').trim();
 
@@ -43,13 +40,13 @@ export async function verifyTurnstileToken(
   remoteIp?: string | null,
 ): Promise<TurnstileVerdict> {
   const key = secret();
-  if (!key) return { configured: false, ok: true };
+  if (!key) return turnstileVerdict({ kind: 'no_secret' });
 
   const t = (token ?? '').trim();
   // Configured but nothing submitted → refuse. This is the fail-closed half:
   // a bot that simply omits the field must not be treated as a person whose
   // widget had not finished.
-  if (!t) return { configured: true, ok: false };
+  if (!t) return turnstileVerdict({ kind: 'no_token' });
 
   try {
     const body = new URLSearchParams({ secret: key, response: t });
@@ -60,11 +57,11 @@ export async function verifyTurnstileToken(
       body,
       cache: 'no-store',
     });
-    if (!res.ok) return { configured: true, ok: false };
+    if (!res.ok) return turnstileVerdict({ kind: 'http_error', status: res.status });
     const json = (await res.json()) as { success?: boolean };
-    return { configured: true, ok: json.success === true };
+    return turnstileVerdict({ kind: 'answered', success: json.success === true });
   } catch {
     // Network failure, DNS, timeout. Refuse — see the fail-closed note above.
-    return { configured: true, ok: false };
+    return turnstileVerdict({ kind: 'network_error' });
   }
 }

@@ -93,6 +93,21 @@ const GATED_CALLS = [
  * what happens to a real person when captcha is on. Keep it costed.
  */
 const ACCEPTED_UNWIRED: Record<string, string> = {
+  'app/auth/confirm/route.ts:verifyOtp':
+    'The landing page of an EMAILED link — a password-recovery or magic-link ' +
+    'click. There is no widget and there cannot be one: the person is arriving ' +
+    'from their inbox, not submitting a form, and the only thing they carry is ' +
+    'the single-use token GoTrue itself minted. Nothing can mint a Turnstile ' +
+    'stamp on their behalf. ' +
+    '⚠ COST, STATED HONESTLY AND NOT YET MEASURED: `verifyOtp` is on GATED_CALLS ' +
+    'defensively (added 2026-08-12 because "which calls does this app happen to ' +
+    'make" is not "which calls does captcha gate"). If GoTrue does gate /verify, ' +
+    'then the moment Supabase captcha is switched on EVERY password reset dies ' +
+    'silently at the last step — the person clicks a good link and lands on ' +
+    '/login with a refusal. If it does not gate /verify, this line costs ' +
+    'nothing. Nobody has tested it, so OWNER_ACTIONS.md step 4 now ends with ' +
+    '"open a reset link and finish it" — the one check that settles it, before ' +
+    'the switch is thrown rather than after.',
   'app/signup/actions.ts:signInWithPassword':
     'The auto-sign-in immediately AFTER a successful signUp. A Turnstile token is ' +
     'SINGLE-USE and signUp just spent this form’s one token, so there is nothing ' +
@@ -177,7 +192,13 @@ test('every captcha-gated auth call passes a captcha token', () => {
   let sites = 0;
 
   for (const file of APP_SOURCES()) {
-    const code = readFileSync(file, 'utf8');
+    // 🔴 STRIP FIRST — 2026-09-18. This read the RAW file, so a DOCBLOCK saying
+    // `supabase.auth.resetPasswordForEmail()` was counted as a call site and
+    // reported as an unwired one. The file already knew better: `withoutComments`
+    // exists a few lines up because the widget check was defeated the mirror way,
+    // by prose ABOUT a widget that was gone. Prose about a call is not a call, in
+    // either direction.
+    const code = withoutComments(readFileSync(file, 'utf8'));
     if (!code.includes('.auth.')) continue;
     const rel = relative(WEB, file);
 
@@ -208,7 +229,15 @@ test('every captcha-gated auth call passes a captcha token', () => {
       `Auth was refactored, or the method names changed. Fix the scan, do not ` +
       `delete it.`,
   );
-  for (const required of ['signUp', 'signInWithPassword', 'signInAnonymously', 'resetPasswordForEmail']) {
+  // ⚠ `resetPasswordForEmail` WAS ON THIS LIST AND WAS REMOVED 2026-09-18, with
+  // a reason rather than a deletion. The app genuinely no longer calls it: under
+  // `@supabase/ssr` it is a PKCE flow, so the emailed link could only ever be
+  // opened in the browser that asked for it — ask on a laptop, open the mail on
+  // a phone, and the reset could not complete. Recovery now mints its link with
+  // the admin API (`lib/password-recovery-link.ts`) and verifies it at
+  // `/auth/confirm`. Leaving the name here would have made this guard insist the
+  // scan was broken for as long as the app stayed correct.
+  for (const required of ['signUp', 'signInWithPassword', 'signInAnonymously']) {
     assert.ok(
       seenMethods.has(required),
       `no .auth.${required}() call found anywhere — this app definitely has one, ` +

@@ -1555,9 +1555,23 @@ minutes.
    - create a throwaway account on `/signup`
    - change a password in Settings
    - **`/forgot-password` — ask for a reset link and confirm it arrives**
+   - 🔴 **THEN OPEN THAT LINK AND ACTUALLY FINISH THE RESET — set a new password
+     and get in.** Added 2026-09-18 and it is the one step on this list that
+     could break *everyone*. Password recovery no longer runs through Supabase
+     Auth's mailer (it was a PKCE flow, so the link only worked in the browser
+     that asked for it — ask on your laptop, open the mail on your phone, and
+     the reset died). It now lands on `/auth/confirm`, which calls GoTrue's
+     `verify` endpoint. **Nobody has established whether Supabase's captcha
+     switch gates `verify`.** If it does, then from the moment you complete
+     step 3 every password reset dies silently at the last step: the person
+     clicks a perfectly good link and lands on the sign-in page refused. If it
+     does not, this costs you thirty seconds. Either way you want to know
+     *before* you throw the switch, not from a customer.
+     ⚠ **If it fails: turn captcha back OFF in step 3, and say so** — that is a
+     lockout, not an annoyance, and it is the only item here worth reverting for.
    - **open a Papic claim link on a phone and tap "Start shooting"**
 
-   Four of the five should behave normally (the challenge stays invisible for
+   Five of the six should behave normally (the challenge stays invisible for
    you). If any fails with a "captcha" error, re-check that step 2's redeploy
    finished before step 3.
 

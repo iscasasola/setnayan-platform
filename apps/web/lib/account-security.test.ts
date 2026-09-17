@@ -150,8 +150,23 @@ const readRepo = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
 
 test('forgot-password ACTUALLY calls the captcha check, before the neutral fallthrough', () => {
   const src = readRepo('app/forgot-password/actions.ts');
-  assert.match(src, /isCaptchaVerificationError/, 'the action never calls the helper');
-  const captchaAt = src.indexOf('isCaptchaVerificationError(');
+  // 🔑 THE PROPERTY IS "SOMEBODY CHECKS", NOT "THIS FUNCTION IS CALLED".
+  // Until 2026-09-18 the only possible checker was GoTrue — the action passed
+  // the token to `resetPasswordForEmail` and read the refusal back out with
+  // `isCaptchaVerificationError`. That flow is gone (it was PKCE, so the emailed
+  // link only worked in the browser that asked), and with it went the only
+  // party verifying the stamp. `verifyTurnstileToken` is the replacement, and
+  // this guard now accepts EITHER — but still exactly one of them, so a future
+  // rewrite that quietly drops both goes red rather than green.
+  const CHECKERS = ['verifyTurnstileToken(', 'isCaptchaVerificationError('] as const;
+  const present = CHECKERS.filter((c) => src.includes(c));
+  assert.ok(
+    present.length > 0,
+    'the action verifies the bot check by no mechanism at all — the <TurnstileField> ' +
+      'still renders and its answer is read by nobody, which looks MORE protected ' +
+      'than having no check',
+  );
+  const captchaAt = src.indexOf(present[0]!);
   const sentAt = src.indexOf("redirect('/forgot-password?sent=1')");
   assert.ok(captchaAt > -1 && sentAt > -1);
   assert.ok(

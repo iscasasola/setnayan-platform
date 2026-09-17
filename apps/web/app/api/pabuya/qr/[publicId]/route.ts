@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import { userHostsEvent } from '@/lib/events';
-import { parseStoredAsset } from '@/lib/uploads';
+import { resolvePabuyaQrRef } from '@/lib/pabuya-qr-ref';
 import { r2GetBytes } from '@/lib/r2';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -180,13 +180,38 @@ export async function GET(
   }
 
   // ── The bytes. ────────────────────────────────────────────────────────────
-  const ref = parseStoredAsset(method.qr_r2_key);
-  if (!ref) return new NextResponse('No QR code here.', { status: 404 });
+  /*
+    THE REF MUST BE ONE THIS EVENT COULD LEGITIMATELY HAVE WRITTEN.
 
-  // A pre-R2 row may hold an external https URL the couple pasted. Send them
-  // there rather than pretending we hold the bytes.
-  if (ref.kind === 'legacy_url') {
-    return NextResponse.redirect(ref.url, 307);
+    🔴 `parseStoredAsset` answered any known bucket and any key, and this route
+    then streamed those bytes with ADMIN credentials. The column is plain text
+    and `event_egift_methods_host_all` lets a host write their own row, so a
+    signed-up stranger could point their own gift method at another bucket's
+    object — someone's ID scan, a contract — and read it back through a route
+    that had already decided they were a host. The only thing preventing it was
+    that the legitimate value HAPPENED to be the public bucket: a coincidence,
+    not a check, and one that disappears the moment a private bucket becomes a
+    legitimate home for this very column.
+
+    It also answered `legacy_url` with a 307 to an arbitrary https URL — an open
+    redirect on setnayan.com, reachable by writing a URL into your own row. No
+    such row has ever existed: the column was born `r2://` (migration
+    20270725802892) and every writer goes through `parseClientRef`. The branch
+    served a case that never occurred, and cost an open redirect to keep.
+
+    🔑 The read side now asks the WRITE side's question, of the same column.
+  */
+  const ref = resolvePabuyaQrRef(method.qr_r2_key, method.event_id);
+  if (!ref) {
+    // NOT 404-as-“no QR”: the row HAS a key, we are refusing it. Logged so a
+    // refused ref is visible as a refusal rather than as an absent upload.
+    logQueryError(
+      'PabuyaQrRoute.refusedRef',
+      { message: 'stored qr_r2_key is not serveable for this event' },
+      { public_id: publicId, event_id: method.event_id },
+      'graceful_degrade',
+    );
+    return new NextResponse('No QR code here.', { status: 404 });
   }
 
   let bytes: Uint8Array;

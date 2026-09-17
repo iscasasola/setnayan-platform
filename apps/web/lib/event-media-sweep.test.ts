@@ -60,6 +60,7 @@ test('the sweep can only ever name the media bucket — AND only this celebratio
     guestCaptures: [],
     captures: [],
     event: { site_bg_music_r2_key: `r2://setnayan-media/events/${E2}/site-music/a.mp3` },
+    egiftMethods: [],
   });
   assert.deepEqual(p.deletes, [], 'a ref outside this celebration’s own folders was planned for deletion');
   assert.equal(p.refused, 6);
@@ -102,7 +103,9 @@ test('all TEN papic keys are collected, not just the original', () => {
       `${col} is not swept — the face-blocked copy a PUBLIC surface may show stays fetchable`,
     );
   }
-  const p = planEventMediaDeletes({ eventId: E, photos: [photo], guestCaptures: [], captures: [], event: null });
+  const p = planEventMediaDeletes({ eventId: E, photos: [photo], guestCaptures: [], captures: [], event: null,
+    egiftMethods: [],
+  });
   assert.equal(
     p.deletes.length,
     10,
@@ -132,6 +135,7 @@ test('a GUEST’s uploads are swept too — their rows cascade and their files d
     ],
     captures: [],
     event: null,
+    egiftMethods: [],
   });
   assert.deepEqual(planned(p), [
     `setnayan-media/derivatives/papic/guest/${G}/papic-1.jpg.safe-display.avif`,
@@ -153,6 +157,7 @@ test('a guest capture belonging to ANOTHER guest is refused, not swept', () => {
     ],
     captures: [],
     event: null,
+    egiftMethods: [],
   });
   assert.deepEqual(p.deletes, []);
   assert.equal(p.refused, 2);
@@ -165,6 +170,7 @@ test('a bare key with no r2:// prefix is refused, never guessed into a bucket', 
     guestCaptures: [],
     captures: [],
     event: { landing_page_hero_image_url: 'https://cdn.example.com/hero.jpg' },
+    egiftMethods: [],
   });
   assert.deepEqual(p.deletes, []);
   assert.equal(p.refused, 2);
@@ -186,6 +192,7 @@ test('the celebration’s own files ARE planned — photos, derivatives and site
       pakanta_song_r2_key: `r2://setnayan-media/events/${E}/pakanta-song/s.mp3`,
       our_photos: [`r2://setnayan-media/events/${E}/our-photos/1.jpg`, { r2_key: `r2://setnayan-media/events/${E}/our-photos/1.jpg` }],
     },
+    egiftMethods: [],
   });
   assert.deepEqual(planned(p), [
     `setnayan-media/derivatives/papic/event-${E}/seat-s/a.jpg.display.avif`,
@@ -272,6 +279,7 @@ test('a supplier’s own captures are swept too — the rows cascade, the files 
       { vendor_profile_id: V, r2_object_key: `r2://setnayan-media/papic/vendor-${V}/event-${E2}/cap-9.jpg` },
     ],
     event: null,
+    egiftMethods: [],
   });
   assert.deepEqual(planned(p), [
     `setnayan-media/papic/vendor-${V}/event-${E}/cap-1-poster.jpg`,
@@ -291,4 +299,48 @@ test('a refused capture read is not an empty one', () => {
     'A failed capture read now degrades to "no supplier files", which is a ' +
       'claim the query never earned.',
   );
+});
+
+// ── Gift QRs are deleted with the celebration (2026-09-17) ─────────────────
+
+test('a gift QR is planned for deletion with the event', () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [
+      { qr_r2_key: `r2://setnayan-media/events/${eventId}/pabuya/a-IMG.jpg` },
+      // Mid-migration: the private bucket must be reached too, or the sweep
+      // silently stops deleting whichever half it does not name.
+      { qr_r2_key: `r2://setnayan-thread-files/events/${eventId}/pabuya/b-IMG.jpg` },
+      { qr_r2_key: null },
+    ],
+  });
+  assert.equal(plan.deletes.length, 2, 'a gift QR survived "Remove for good"');
+  assert.deepEqual(
+    plan.deletes.map((d) => d.bucket).sort(),
+    ['setnayan-media', 'setnayan-thread-files'],
+    'only one bucket is swept — the other half of the migration is abandoned',
+  );
+});
+
+test("🔒 another celebration's gift QR is refused, not deleted", () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const other = '11111111-2222-3333-4444-555555555555';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [
+      { qr_r2_key: `r2://setnayan-media/events/${other}/pabuya/x.jpg` },
+      { qr_r2_key: `r2://setnayan-vendor-verification/vendors/${other}/id.jpg` },
+    ],
+  });
+  assert.equal(plan.deletes.length, 0, 'the sweep became a destruction primitive');
+  assert.equal(plan.refused, 2, 'refusals must be COUNTED, not silently dropped');
 });

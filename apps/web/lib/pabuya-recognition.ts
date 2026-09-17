@@ -1,7 +1,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
-import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
+import { viewerIsRecognised } from '@/lib/pabuya-recognition-rule';
 
 /**
  * apps/web/lib/pabuya-recognition.ts (server-only)
@@ -44,23 +44,43 @@ import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
  * how they earn the account number.
  */
 export async function viewerIsRecognisedForEvent(eventId: string): Promise<boolean> {
-  const guestSession = await readGuestSession();
-  if (guestSession?.event_id === eventId) return true;
+  /*
+    I/O ONLY. Every decision below belongs to `viewerIsRecognised`
+    (lib/pabuya-recognition-rule.ts), which is pure and is EXECUTED by its test.
 
+    🔑 THIS FUNCTION USED TO BE BOTH, AND THAT IS WHY THE RULE WAS UNGUARDED.
+    This module is `server-only`, so nothing can import it; the three tests that
+    "covered" it were `assert.match` over its own source text, and a rename
+    inside it passed all three. A rule the owner gave twice — protecting bank
+    account numbers — was held by regexes over prose. The facts are gathered
+    here; what they MEAN is decided somewhere a test can run.
+
+    ⚠ `memberType` is handed over as the raw string, never as a `hasRow`
+    boolean. host-scope.ts records the regression that shape caused once: a
+    `guest`-typed member row waved somebody into a private site because
+    membership was tested for existence and never compared.
+  */
+  const guestSession = await readGuestSession();
+
+  let memberType: string | null = null;
   const sb = await createClient();
   const {
     data: { user },
   } = await sb.auth.getUser();
-  if (!user) return false;
+  if (user) {
+    const { data: member } = await sb
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    memberType =
+      (member as { member_type?: string | null } | null)?.member_type ?? null;
+  }
 
-  const { data: member } = await sb
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  return isHostMemberType(
-    (member as { member_type?: string | null } | null)?.member_type,
-  );
+  return viewerIsRecognised({
+    guestSessionEventId: guestSession?.event_id ?? null,
+    eventId,
+    memberType,
+  });
 }

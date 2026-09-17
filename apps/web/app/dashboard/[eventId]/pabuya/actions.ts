@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
 import { pabuyaQrPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
+import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 
 /**
@@ -32,6 +33,12 @@ export type EgiftActionResult =
 
 const GENERIC_WRITE_ERROR =
   'Couldn’t save that. If it keeps happening, reach out from /help.';
+
+/* Distinct from GENERIC_WRITE_ERROR on purpose: nothing failed, the write
+   simply matched no row. "Try again" is wrong advice for that — the page the
+   couple is looking at is out of date, and reloading is the fix. */
+const STALE_ROW_ERROR =
+  'That gift method isn’t there any more — reload the page and try again.';
 
 function str(formData: FormData, key: string): string {
   const v = formData.get(key);
@@ -173,18 +180,27 @@ export async function saveEgiftMethod(
     means) lives in the pure lib/pabuya-qr-verdict.ts; this call site only
     decides WHEN to ask.
   */
+  /* The key this row pointed at BEFORE this save, read once.
+     Two consumers, and it must be in scope for both:
+       · the QR Ph check below, which only runs on a CHANGED image;
+       · the displaced-object delete after the write.
+     ⚠ It is read for every edit, not only when a new image is attached —
+     otherwise a couple REMOVING their QR (qrR2Key === null) would never have
+     the abandoned object deleted, which is the case most likely to matter:
+     they are retiring that account. */
+  let previousRef: string | null = null;
+  if (editingId.length > 0) {
+    const { data: prior } = await supabase
+      .from('event_egift_methods')
+      .select('qr_r2_key')
+      .eq('egift_method_id', editingId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    previousRef =
+      (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
+  }
+
   if (qrR2Key) {
-    let previousRef: string | null = null;
-    if (editingId.length > 0) {
-      const { data: prior } = await supabase
-        .from('event_egift_methods')
-        .select('qr_r2_key')
-        .eq('egift_method_id', editingId)
-        .eq('event_id', eventId)
-        .maybeSingle();
-      previousRef =
-        (prior as { qr_r2_key?: string | null } | null)?.qr_r2_key ?? null;
-    }
     if (qrR2Key !== previousRef) {
       const verdict = await checkPabuyaQrImage({
         kind: methodKind,
@@ -195,7 +211,12 @@ export async function saveEgiftMethod(
   }
 
   if (editingId.length > 0) {
-    const { error } = await supabase
+    /* 🔑 A ZERO-ROW WRITE IS SUCCESS-SHAPED. PostgREST returns no error when a
+       filter matches nothing — RLS narrowing the row out, a stale id, a row
+       another tab deleted — so `!error` alone renders "saved" over a write that
+       changed nothing. `.select()` makes the affected rows come back and the
+       count is the proof. Same shape as savePabuyaMessage below. */
+    const { data: updated, error } = await supabase
       .from('event_egift_methods')
       .update({
         method_kind: methodKind,
@@ -206,8 +227,20 @@ export async function saveEgiftMethod(
         note,
       })
       .eq('egift_method_id', editingId)
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .select('egift_method_id');
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
+    if (!updated || updated.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+    /* The row now points somewhere else — retire the image it left behind.
+       AFTER the write, and only once a row is confirmed to have moved: deleting
+       first would destroy a live QR whenever the write then matched nothing.
+       `previousRef` was captured before the write; the helper refuses an
+       unchanged key and any key that is not this event's own object. */
+    await deleteDisplacedPabuyaQr({
+      previousKey: previousRef,
+      nextKey: qrR2Key,
+      eventId,
+    });
   } else {
     // Append at the end: read the current max sort_order for this event.
     const { data: maxRow } = await supabase
@@ -220,19 +253,24 @@ export async function saveEgiftMethod(
     const nextSort =
       ((maxRow as { sort_order?: number } | null)?.sort_order ?? -1) + 1;
 
-    const { error } = await supabase.from('event_egift_methods').insert({
-      event_id: eventId,
-      method_kind: methodKind,
-      label,
-      account_name: accountName,
-      handle,
-      qr_r2_key: qrR2Key,
-      note,
-      is_enabled: true,
-      sort_order: nextSort,
-      created_by_user_id: user.id,
-    });
+    const { data: inserted, error } = await supabase
+      .from('event_egift_methods')
+      .insert({
+        event_id: eventId,
+        method_kind: methodKind,
+        label,
+        account_name: accountName,
+        handle,
+        qr_r2_key: qrR2Key,
+        note,
+        is_enabled: true,
+        sort_order: nextSort,
+        created_by_user_id: user.id,
+      })
+      .select('egift_method_id');
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
+    // An insert refused by RLS WITH CHECK returns no row and no error here.
+    if (!inserted || inserted.length === 0) return { ok: false, error: GENERIC_WRITE_ERROR };
   }
 
   await revalidateSurfaces(eventId);
@@ -258,12 +296,30 @@ export async function deleteEgiftMethod(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
+  /* `.select()` returns the DELETED row, which is the only way to learn the key
+     after the fact — reading it first would race a concurrent edit and could
+     delete an object the row no longer owns. */
+  const { data: removed, error } = await supabase
     .from('event_egift_methods')
     .delete()
     .eq('egift_method_id', id)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('egift_method_id, qr_r2_key');
   if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
+  // 🔑 A delete that removed nothing must not report "removed" — the couple
+  // would believe their account details are gone when the row still stands.
+  if (!removed || removed.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+
+  /* 🔑 THE ROW IS NOT THE DETAILS. Until now "Remove" deleted the row and left
+     the QR — an image encoding the couple's account number — as a live object.
+     `/privacy` promises the opposite in writing. */
+  for (const row of removed as { qr_r2_key?: string | null }[]) {
+    await deleteDisplacedPabuyaQr({
+      previousKey: row.qr_r2_key ?? null,
+      nextKey: null,
+      eventId,
+    });
+  }
 
   await revalidateSurfaces(eventId);
   return { ok: true };
@@ -289,12 +345,16 @@ export async function setEgiftMethodEnabled(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
+  const { data: toggled, error } = await supabase
     .from('event_egift_methods')
     .update({ is_enabled: enabled })
     .eq('egift_method_id', id)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('egift_method_id');
   if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
+  // Hiding a destination is how a couple retires an account. A no-op that
+  // reports success leaves it live on the guest page.
+  if (!toggled || toggled.length === 0) return { ok: false, error: STALE_ROW_ERROR };
 
   await revalidateSurfaces(eventId);
   return { ok: true };
@@ -348,14 +408,21 @@ export async function moveEgiftMethod(
       .from('event_egift_methods')
       .update({ sort_order: b.sort_order })
       .eq('egift_method_id', a.egift_method_id)
-      .eq('event_id', eventId),
+      .eq('event_id', eventId)
+      .select('egift_method_id'),
     supabase
       .from('event_egift_methods')
       .update({ sort_order: a.sort_order })
       .eq('egift_method_id', b.egift_method_id)
-      .eq('event_id', eventId),
+      .eq('event_id', eventId)
+      .select('egift_method_id'),
   ]);
   if (r1.error || r2.error) return { ok: false, error: GENERIC_WRITE_ERROR };
+  /* ⚠ A HALF-APPLIED SWAP IS THE WORST OUTCOME HERE — two rows would share one
+     sort_order and the list order becomes arbitrary. Both halves must have
+     moved a row; if either matched nothing, say so rather than showing an
+     order that is not the stored one. */
+  if (!r1.data?.length || !r2.data?.length) return { ok: false, error: STALE_ROW_ERROR };
 
   await revalidateSurfaces(eventId);
   return { ok: true };

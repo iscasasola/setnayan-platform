@@ -31,7 +31,7 @@ import {
   filterPublicSafeRows,
 } from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
-import { getWallSnapshot } from '@/lib/live-wall';
+import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl, isYouTubeVideoId } from '@/lib/panood-watch';
 import { filmsFromRows, type EventFilm, type EventFilmRow } from '@/lib/event-films';
@@ -1574,8 +1574,20 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
    * source of truth for one fact, and the two would disagree the first time
    * either was fixed. Point at the feed; never feed the dead column.
    *
-   * WHAT IS UNCHANGED: the paid gate. `eventSkuActive(…, 'LIVE_WALL')` still
-   * decides whether this section exists at all — bundle-aware, off `orders.status`.
+   * ── 🔒 THE GATE IS `guestWallMirrorActive`, NOT A BARE LIVE_WALL CHECK ────
+   * This block first shipped asking the SKU-ownership helper about LIVE_WALL —
+   * owning the wall. That is only the PERMISSIVE HALF of the question, and
+   * `live-wall-guest-mirror.test.ts` names it as exactly the bug: owning the
+   * wall and agreeing to put your guests' photographs on a public recap page
+   * are two different decisions, and this surface only ever asked the first.
+   * A couple who had switched the guest mirror OFF would have had the recap
+   * publish the wall anyway.
+   *
+   * `guestWallMirrorActive` asks both halves — it already checks that the wall
+   * is available for this event, so it SUBSUMES the ownership check rather than
+   * sitting beside it. Two gates for one fact is how the halves drift apart.
+   * The couple's choice fails CLOSED; the availability read inside the helper
+   * keeps its own documented fail-open behaviour, which is its call to make.
    *
    * ⚠ A REFUSED FEED HIDES THE SECTION; IT NEVER DRAWS AN EMPTY WALL. Rendering
    * the caption strip over zero tiles would tell a couple their photographers
@@ -1585,7 +1597,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   let photoWallPhotos: string[] = [];
   let photoWallActive = false;
   try {
-    photoWallActive = await eventSkuActive(admin, eventId, 'LIVE_WALL');
+    photoWallActive = await guestWallMirrorActive(admin, eventId);
   } catch {
     photoWallActive = false;
   }

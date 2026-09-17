@@ -37,6 +37,7 @@ import {
   releasePayoutHold,
   resolveVendorVerificationState,
 } from '@/lib/payouts';
+import { vendorPaysSetnayan } from '@/lib/vendor-pays-setnayan';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
 // row). All admin payment-state transitions append a row to public.order_ledger
@@ -750,7 +751,23 @@ async function schedulePayoutsForOrder(args: {
   // suspenders for any other vendor-pays-Setnayan SKU that joins this code path.
   const isBranchOrder =
     !!row.service_key && branchIdFromServiceKey(row.service_key) !== null;
-  if (!row.event_id || isBranchOrder) return;
+
+  // 🔴 M1 EXTENDED 2026-09-18 — THE TWO SIGNALS ABOVE BOTH MISS A PER-EVENT
+  // SUPPLIER PURCHASE. `vendor_3d_booth_event` and `vendor_papic_portfolio_pack`
+  // carry a REAL `event_id` (there is genuinely a wedding behind them) and
+  // neither is a branch key, so approving a supplier's ₱500 payment scheduled
+  // ~₱447.50 to be paid BACK to that supplier. The comment above hoped the
+  // service_key check was "belt-and-suspenders for any other
+  // vendor-pays-Setnayan SKU that joins this code path" — it only ever knew
+  // about branches.
+  //
+  // 🔑 The direction of money is a property of the SKU, not of whether a
+  // wedding is attached. It is now declared as ONE LIST in
+  // lib/vendor-pays-setnayan.ts instead of inferred from two proxies that
+  // happen to correlate. The older checks stay: this one is authoritative
+  // about the SKUs we know, and `!row.event_id` still catches an
+  // account-level order whose SKU nobody has classified yet.
+  if (vendorPaysSetnayan(row.service_key) || !row.event_id || isBranchOrder) return;
 
   const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
   if (basePhp <= 0) return;

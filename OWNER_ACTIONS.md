@@ -1529,6 +1529,25 @@ minutes.
 3. **Supabase → Authentication → Attack Protection (or Auth → Settings) → CAPTCHA.**
    Turn it **on**, provider **Turnstile (by Cloudflare)**, paste the **Secret key**
    from step 1. Save. → Enforcement is now live; the tokens from step 2 satisfy it.
+
+   ⚠ **STEP 3a — ONE FLOW NO LONGER PASSES THROUGH SUPABASE, SO SUPABASE CANNOT
+   CHECK ITS STAMP.** Add **`TURNSTILE_SECRET_KEY`** (the same Secret key from
+   step 1) to **Vercel → Environment Variables (Production)** as well, and
+   redeploy.
+
+   Why: as of 2026-09-18 `/forgot-password` mints the reset link itself and
+   mails it through Resend, because the Supabase path could only ever complete
+   in the browser that asked for it — ask on your laptop, open the mail on your
+   phone, and the reset died. That fix took the flow out of GoTrue's hands, and
+   GoTrue was the thing verifying the bot-check stamp. Without this variable the
+   widget still renders on that page and its answer is checked by nobody, which
+   looks *more* protected than having no check at all.
+
+   **Skipping 3a is safe but leaves one door unguarded.** Everything else in
+   step 3 works as written. With the variable set, that page fails closed: a
+   missing, malformed, or rejected stamp is refused, and so is a Cloudflare
+   outage. (The page also caps itself — 3 reset mails per address and 10 per IP
+   per 15 minutes — whether or not you ever do this step.)
 4. **Test before walking away** (use the test accounts in memory
    `project_setnayan_test_accounts`). Five things, not three — the last two are
    the ones that were broken:
@@ -1536,9 +1555,23 @@ minutes.
    - create a throwaway account on `/signup`
    - change a password in Settings
    - **`/forgot-password` — ask for a reset link and confirm it arrives**
+   - 🔴 **THEN OPEN THAT LINK AND ACTUALLY FINISH THE RESET — set a new password
+     and get in.** Added 2026-09-18 and it is the one step on this list that
+     could break *everyone*. Password recovery no longer runs through Supabase
+     Auth's mailer (it was a PKCE flow, so the link only worked in the browser
+     that asked for it — ask on your laptop, open the mail on your phone, and
+     the reset died). It now lands on `/auth/confirm`, which calls GoTrue's
+     `verify` endpoint. **Nobody has established whether Supabase's captcha
+     switch gates `verify`.** If it does, then from the moment you complete
+     step 3 every password reset dies silently at the last step: the person
+     clicks a perfectly good link and lands on the sign-in page refused. If it
+     does not, this costs you thirty seconds. Either way you want to know
+     *before* you throw the switch, not from a customer.
+     ⚠ **If it fails: turn captcha back OFF in step 3, and say so** — that is a
+     lockout, not an annoyance, and it is the only item here worth reverting for.
    - **open a Papic claim link on a phone and tap "Start shooting"**
 
-   Four of the five should behave normally (the challenge stays invisible for
+   Five of the six should behave normally (the challenge stays invisible for
    you). If any fails with a "captcha" error, re-check that step 2's redeploy
    finished before step 3.
 

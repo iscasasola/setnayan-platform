@@ -45,6 +45,7 @@ import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
@@ -294,6 +295,11 @@ export default async function HomePage({
   // is where the song desk broke while 8 PRs of part-level checks stayed green.
   // Verdicts land on /admin/app-performance?tab=interconnections.
   after(() => maybeRunInterconnectionProbes());
+  // 🔒 The Google connections. Five live grants sat with EXPIRED access tokens
+  // — two since July — because the only thing that renews them was a cron route
+  // nobody schedules. It is also the only writer that seals a token, which is
+  // why the September vault had encrypted zero production rows.
+  after(() => maybeRunOAuthRefresh().catch(() => {}));
 
   return (
     <>

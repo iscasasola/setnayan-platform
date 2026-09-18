@@ -127,7 +127,10 @@ async function viewerGuestIds(
     .eq('claimed_by_user_id', userId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (personRes.error) unreadable = true;
+  if (personRes.error) {
+    console.error('[supabase-error] lib/alaala-wall-data.ts · from:people.select', personRes.error);
+    unreadable = true;
+  }
   const personId = (personRes.data as { person_id: string } | null)?.person_id ?? null;
 
   if (personId && eventIds.length > 0) {

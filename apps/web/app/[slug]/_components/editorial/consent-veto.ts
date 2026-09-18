@@ -216,7 +216,13 @@ export async function loadConsentVetoedPapicIds(
           )
           .eq('event_id', eventId)
           .limit(FACEBLOCK_ENUMERATION_CEILING);
-        if (error) return { ids, safeKeyById, failed: true };
+        if (error) {
+          console.error(
+            `[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`,
+            error,
+          );
+          return { ids, safeKeyById, failed: true };
+        }
         rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
       } catch {
         return { ids, safeKeyById, failed: true };
@@ -321,7 +327,12 @@ export async function loadConsentVetoedPapicIds(
       .eq('event_id', eventId)
       .in(src.idCol, [...tagged])
       .not('faceblock_baked_at', 'is', null);
-    if (!error) {
+    if (error) {
+      console.error(
+        `[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`,
+        error,
+      );
+    } else {
       for (const r of (data ?? []) as unknown as Array<Record<string, unknown>>) {
         const id = asString(r[src.idCol]);
         const safe = trustedStandIn(r, src);

@@ -319,9 +319,9 @@ test('a closed window carries no control at all', () => {
   }
 });
 
-test('the four answers that do not work yet are not on the desk', () => {
+test('the answers that do not work yet are not on the desk', () => {
   const src = read(OVERVIEW);
-  assert.ok(ANSWERS_THAT_DO_NOT_JOIN.length >= 4, 'the withheld list shrank');
+  assert.ok(ANSWERS_THAT_DO_NOT_JOIN.length >= 2, 'the withheld list shrank');
   for (const { slug, why } of ANSWERS_THAT_DO_NOT_JOIN) {
     assert.ok(why.length > 30, `${slug} has no reason recorded`);
     assert.ok(
@@ -329,6 +329,30 @@ test('the four answers that do not work yet are not on the desk', () => {
       `'${slug}' joined the desk — ${why}`,
     );
   }
+});
+
+test('song_request stays withheld only while its cited defect is real', () => {
+  // The recorded reason is "both submit routines exist in the database with
+  // zero application callers." That is executable, not just a claim — grep
+  // every app source file (never a test, which is allowed to call the RPC
+  // directly) for a caller of either routine. The day this goes non-zero, the
+  // entry's own reason is false and `ANSWERS_THAT_DO_NOT_JOIN` must be edited,
+  // not silently left to rot (SUP-53/58 was exactly this kind of stale row).
+  const appDir = resolve(HERE, '../app');
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const hits = execSync(
+    `git grep -l "guest_submit_song_request\\|open_submit_song_request" -- ${JSON.stringify(appDir)} || true`,
+    { cwd: HERE, encoding: 'utf8' },
+  )
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((f) => !f.endsWith('.test.ts'));
+  assert.equal(
+    hits.length,
+    0,
+    `an application file now calls the song-request RPCs (${hits.join(', ')}) — song_request's reason in ANSWERS_THAT_DO_NOT_JOIN is stale, update lib/answers-desk.ts`,
+  );
 });
 
 test('every colour the desk paints with is a token that exists', () => {

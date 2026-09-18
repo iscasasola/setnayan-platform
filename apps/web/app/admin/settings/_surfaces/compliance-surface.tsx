@@ -128,7 +128,7 @@ export async function ComplianceSurface() {
       .from('guest_face_enrollments') // chat-guard-allow: count-only NPC tally (count:exact, head:true) — returns a number, reads zero face vectors
       .select('*', { count: 'exact', head: true })
       .is('revoked_at', null);
-    if (error) console.error('[supabase-error] app/admin/settings/_surfaces/compliance-surface.tsx · from:guest_face_enrollments.select', error);
+    if (error) console.error('[supabase-error] app/admin/settings/_surfaces/compliance-surface.tsx · active face-enrollment count (head:true)', error);
     return error ? null : (count ?? 0);
   };
 

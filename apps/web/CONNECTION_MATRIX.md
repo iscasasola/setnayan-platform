@@ -198,11 +198,11 @@
 
 ### Defined-but-unreferenced tables (orphaned schema — built, no UI wired) — 22 total
 Mostly *schema ahead of UI* for deferred/retired iterations, not bugs:
-- **Retired AI planner ("Setnayan AI"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`, `couple_briefs`.
+- **Retired AI planner ("Setnayan AI"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`. (`couple_briefs` dropped 2026-09-18, S37.)
 - **Deferred Supplies marketplace (0018):** `supplier_vendor_skus`, `supplier_vendor_sku_pricing`, `supplies_orders`, `supplies_order_line_items`.
-- **Vendor token-economy ahead of UI:** `vendor_bid_submissions`, `vendor_token_boosters`, `vendor_tool_bundles`.
+- **Vendor token-economy ahead of UI:** `vendor_token_boosters`, `vendor_tool_bundles`.
 - **Contract intelligence (0032):** `vendor_contract_signatures`.
-- **Other unwired:** `event_delegates`, `event_software_activations_v2` (the *target* of Action #1, currently unused), `founder_time_log`, `households` ("UI lands later"), `led_background_renders` (live route writes `led_background_configs` instead), `platform_availability`, `user_devices`, `vendor_release_history`, `vendor_screen_name_sequences` (likely SQL-function-only), `vendor_verifications` (read via view/RPC).
+- **Other unwired:** `event_delegates`, `event_software_activations_v2` (the *target* of Action #1, currently unused), `founder_time_log`, `households` ("UI lands later"), `led_background_renders` (live route writes `led_background_configs` instead), `platform_availability`, `user_devices`, `vendor_screen_name_sequences` (likely SQL-function-only), `vendor_verifications` (read via view/RPC). (`vendor_bid_submissions` and `vendor_release_history` dropped 2026-09-18, S37.)
 
 ### Possibly-orphaned API endpoint
 - **`/api/v1/reviews`** (`app/api/v1/reviews/route.ts`) — no internal caller; the review UI uses a server action. Documented intentional external/SDK endpoint (0033 foundation), not dead.

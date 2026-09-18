@@ -682,16 +682,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
   },
   // ── final batch, settled 2026-08-02 · closes the 78-table backlog ──
   {
-    table: 'vendor_release_history',
-    column: 'host_user_id',
-    why: 'The host side of a release record. Both parties are SET NULL stamps on a two-party event; the purge is subject-scoped so only the leaver’s own side is cleared.',
-  },
-  {
-    table: 'vendor_release_history',
-    column: 'vendor_user_id',
-    why: 'The vendor side of the same record. The release itself — reason, notes, snapshots — is the counterparty’s business history and stays.',
-  },
-  {
     table: 'photo_delivery_jobs',
     column: 'triggered_by_user_id',
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',

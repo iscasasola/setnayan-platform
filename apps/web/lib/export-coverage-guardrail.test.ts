@@ -205,6 +205,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // `readSchema()` unions every historical CREATE TABLE and never reads DROP
   // TABLE, so T1 still sees the table and deleting the line would report it as
   // an unclassified subject table.
+  // Same parser limit as calendar_feed_tokens below: dropped, still "seen".
+  vendor_release_history:
+    'TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — the soft-hold ' +
+    'release audit whose writers never shipped; 0 rows in prod ever. Nothing to export.',
   calendar_feed_tokens:
     'TABLE DROPPED 2026-08-22 (migration 20271157440480) with the all-events ' +
     'calendar subscription feed — owner: "block delete." There is nothing left ' +
@@ -491,7 +495,6 @@ const KNOWN_GAPS: Record<string, string> = {
   vendor_meetings: 'TODO(RA10173-backlog): meetings the subject attended.',
   vendor_member_token_wallets: 'TODO(RA10173-backlog): the subject’s vendor token balance.',
   vendor_recommendations: 'TODO(RA10173-backlog): recommendations naming the subject.',
-  vendor_release_history: 'TODO(RA10173-backlog): release actions the subject took.',
   vendor_review_appeals: 'TODO(RA10173-backlog): appeals the subject filed.',
   vendor_reviews: 'TODO(RA10173-backlog): reviews the subject wrote — clearly their own words.',
   vendor_subscriptions: 'TODO(RA10173-backlog): the subject’s vendor subscription history.',

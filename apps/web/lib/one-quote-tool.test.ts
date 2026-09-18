@@ -55,16 +55,24 @@ test('the one panel mounts BOTH composers, once each — the builder and the tem
   const page = read(THREAD_PAGE);
   const start = page.indexOf("'build-quote': (");
   assert.ok(start > 0, 'the thread page has no build-quote body');
-  const end = page.indexOf("'offer-service':", start);
-  assert.ok(end > start, 'the build-quote body has no end');
-  const node = page.slice(start, end);
+  /*
+    The window ends at the NEXT KEY of the record, whatever it is called —
+    not at a named neighbour. Sabotaged once: with the window ending at
+    'offer-service', a `"send-proposal": (…)` key slipped in between and the
+    card counted as "inside the panel" while it was in a panel of its own.
+    A slid window is the green-shaped nothing this repo keeps producing.
+  */
+  const rest = page.slice(start + 1);
+  const nextKey = rest.search(/\n\s{4}['"][a-z-]+['"]: /);
+  assert.ok(nextKey > 0, 'the build-quote body has no end');
+  const node = page.slice(start, start + 1 + nextKey);
   assert.equal(count(node, /<ProposalMaker\b/g), 1, 'the builder is not inside the one quote panel');
   assert.equal(count(node, /<SendProposalCard\b/g), 1, 'the template shortcut is not inside the one quote panel');
   // …and nowhere else on the page: a second mount is a second form and a
   // second set of anchor ids.
   assert.equal(count(page, /<ProposalMaker\b/g), 1);
   assert.equal(count(page, /<SendProposalCard\b/g), 1);
-  assert.equal(count(page, /'send-proposal':/g), 0, 'the retired panel still has a body');
+  assert.equal(count(page, /['"]send-proposal['"]:/g), 0, 'the retired panel still has a body');
 });
 
 test('nothing under app/ deep-links the retired #send-proposal; the brief’s Quote doors open the one panel', () => {

@@ -308,6 +308,7 @@ export async function fetchTrustedReviewStats(
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
   if (error || !data) return zero;
   return {
     vendor_profile_id: data.vendor_profile_id as string,
@@ -333,6 +334,7 @@ export async function fetchTrustedReviewStatsForMany(
     .from('vendor_trusted_review_stats')
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .in('vendor_profile_id', ids);
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
   if (error) return m;
   for (const row of data ?? []) {
     m.set(row.vendor_profile_id as string, {
@@ -373,6 +375,7 @@ export async function resolveBookedThroughSetnayan(
     p_event_id: eventId,
     p_vendor_profile_id: vendorProfileId,
   });
+  if (error) console.error('[supabase-error] lib/reviews.ts · rpc:review_is_booked_through_setnayan', error);
   if (error) return false;
   return data === true;
 }
@@ -396,6 +399,7 @@ export async function resolveViaVendorImport(
     p_event_id: eventId,
     p_vendor_profile_id: vendorProfileId,
   });
+  if (error) console.error('[supabase-error] lib/reviews.ts · rpc:review_via_vendor_import', error);
   if (error) return false;
   return data === true;
 }
@@ -459,6 +463,7 @@ export async function fetchOwnReviewForVendor(
     .eq('event_id', eventId)
     .eq('couple_user_id', coupleUserId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_reviews.select', error);
   if (error) return null;
   return (data ?? null) as ReviewRow | null;
 }
@@ -635,6 +640,7 @@ export async function fetchVendorCompletedEvents(
     .eq('vendor_profile_id', vendorProfileId)
     .order('completed_at', { ascending: false, nullsFirst: false })
     .limit(limit);
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_completed_events.select', error);
   if (error) return [];
   return (data ?? []) as VendorCompletedEventRow[];
 }

@@ -36,6 +36,7 @@ import { join } from 'node:path';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { APPROVAL_ACTIONS } from '../../lib/admin-approvals';
+import { stripComments } from '../../lib/strip-comments';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -62,9 +63,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 /** Strip comments — a docblock naming a type is not a write of it. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-}
+const code = stripComments;
 
 /** The object literal starting at `open` (a `{`), up to its matching `}`. */
 function objectAt(src: string, open: number): string {

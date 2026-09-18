@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6669
+# facts: 6680
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     586
-#   col       4900
-#   policy    910
+#   tpriv     587
+#   col       4908
+#   policy    912
 #   view      9
 #   func      260
 #
@@ -173,6 +173,7 @@ tpriv	public.event_seat_assignments|anon	SIUD
 tpriv	public.event_seat_assignments|authenticated	SIUD
 tpriv	public.event_seating_constraints|anon	SIUD
 tpriv	public.event_seating_constraints|authenticated	SIUD
+tpriv	public.event_shot_list_items|authenticated	SD
 tpriv	public.event_software_activations_v2|authenticated	SIUD
 tpriv	public.event_song_picks|authenticated	SIUD
 tpriv	public.event_song_requests|authenticated	SU
@@ -1771,6 +1772,14 @@ col	public.event_seating_constraints.guest_a_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.guest_b_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.kind	anon=SIU authenticated=SIU
+col	public.event_shot_list_items.captured_at	anon=- authenticated=SIU
+col	public.event_shot_list_items.created_at	anon=- authenticated=S
+col	public.event_shot_list_items.event_id	anon=- authenticated=SI
+col	public.event_shot_list_items.item_id	anon=- authenticated=S
+col	public.event_shot_list_items.label	anon=- authenticated=SIU
+col	public.event_shot_list_items.position	anon=- authenticated=SIU
+col	public.event_shot_list_items.updated_at	anon=- authenticated=S
+col	public.event_shot_list_items.vendor_profile_id	anon=- authenticated=SI
 col	public.event_software_activations_v2.created_at	anon=- authenticated=SIU
 col	public.event_software_activations_v2.event_id	anon=- authenticated=SIU
 col	public.event_software_activations_v2.id	anon=- authenticated=SIU
@@ -5787,6 +5796,8 @@ policy	public.event_seat_assignments|event_seat_assignments_moderator_read	mode=
 policy	public.event_seat_assignments|event_seat_assignments_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_seating_constraints|event_seating_constraints_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_seating_constraints|event_seating_constraints_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_shot_list_items|event_shot_list_items_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
+policy	public.event_shot_list_items|event_shot_list_items_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))
 policy	public.event_song_picks|event_song_picks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids))) check=NULL
 policy	public.event_song_picks|event_song_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=NULL
 policy	public.event_song_picks|event_song_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin())

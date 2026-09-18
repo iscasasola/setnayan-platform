@@ -31,7 +31,16 @@
  * the words would still be green on the day somebody shipped the sync and left
  * the honest heading in place, and would quietly forbid a true statement.
  *
- * 🛡 Mutation-checked: the heading was restored on ONE of the two sites and the
+ * ── DAY-10 · PROPERTY 2 FIRED, AS DESIGNED (2026-09-18) ───────────────────
+ * The sync was built: `event_shot_list_items` (migration 20271234188149),
+ * written through `../shot-list-actions.ts` and read by the couple in
+ * `dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx`.
+ * So the second test below now asserts the OPPOSITE of what it used to — the
+ * writer must exist — and the heading may speak about the couple ONLY while
+ * BOTH halves (the writer and the couple's reader) are present. Remove either
+ * half and the heading claim goes red again.
+ *
+ * 🛡 Mutation-checked (original, pre-DAY-10): the heading was restored on ONE of the two sites and the
  * count printed before and after, to prove the sabotage landed; the test went
  * RED naming that site. The `shot-list.tsx` rule was broken by adding a fake
  * `await fetch('/api/x')` and confirmed RED before being trusted.
@@ -46,9 +55,21 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONSOLE_PAGE = join(HERE, 'page.tsx');
 const SHOT_LIST = join(HERE, '_components', 'shot-list.tsx');
+const SHOT_LIST_ACTIONS = join(HERE, 'shot-list-actions.ts');
+const COUPLE_WORKSPACE = join(
+  HERE,
+  '..',
+  '..',
+  'dashboard',
+  '[eventId]',
+  'vendors',
+  '[vendorId]',
+  'workspace',
+  'page.tsx',
+);
 
 /**
- * Comments are stripped so a docblock EXPLAINING the ban does not trip it.
+ * Comments are stripped so a docblock EXPLAINING the rule does not satisfy it.
  *
  * ⚠ ONE COMMENT STRIPPER — `@/lib/strip-comments`, never a local regex. This
  * file shipped its own two-line regex version first and a blocking guard caught
@@ -60,43 +81,68 @@ function code(path: string): string {
   return stripComments(readFileSync(path, 'utf8'));
 }
 
-/**
- * Verbs that assert the list leaves the device. Deliberately narrow: the
- * console legitimately says the shot list sits "against the couple's live
- * timeline", which is true — the timeline is read, the list is not sent.
- */
-const REACHES_THE_COUPLE = /\b(syncs?|sends?|shares?|delivers?)\s+to\s+the\s+couple\b/i;
-
-test('no console heading claims the shot list reaches the couple', () => {
-  const src = code(CONSOLE_PAGE);
-  const shotListArea = src
+/** Any shot-list heading line on the console that talks about the couple. */
+function headingLinesAboutTheCouple(): string[] {
+  return code(CONSOLE_PAGE)
     .split('\n')
     .map((line, i) => ({ line, n: i + 1 }))
-    .filter(({ line }) => /shot\s*list/i.test(line) && REACHES_THE_COUPLE.test(line));
+    .filter(({ line }) => /shot\s*list/i.test(line) && /\bcouple\b/i.test(line))
+    .map(({ n, line }) => `${n}: ${line.trim()}`);
+}
 
+/** The writer half: the component calls every server writer it imports. */
+function writerHalf(): string[] {
+  const missing: string[] = [];
+  const comp = code(SHOT_LIST);
+  for (const fn of ['loadShotList', 'replaceShotList', 'addShot', 'setShotCaptured', 'removeShot']) {
+    const calls = comp.split(new RegExp(`\\b${fn}\\s*\\(`)).length - 1;
+    if (calls < 1) missing.push(`shot-list.tsx never calls ${fn}()`);
+  }
+  if (!/from\s+'\.\.\/shot-list-actions'/.test(comp)) missing.push('shot-list.tsx does not import ../shot-list-actions');
+  const actions = code(SHOT_LIST_ACTIONS);
+  if (!/^'use server';/m.test(actions)) missing.push("shot-list-actions.ts is not 'use server'");
+  const tableWrites = actions.split(/\.from\('event_shot_list_items'\)/).length - 1;
+  // load + replace(select, insert, delete) + add + toggle + remove = 7.
+  if (tableWrites < 7) missing.push(`shot-list-actions.ts touches event_shot_list_items ${tableWrites}× (floor 7)`);
+  return missing;
+}
+
+/** The reader half: the couple's workspace reads the table AND mounts the card once. */
+function readerHalf(): string[] {
+  const missing: string[] = [];
+  const ws = code(COUPLE_WORKSPACE);
+  const reads = ws.split(/\.from\('event_shot_list_items'\)/).length - 1;
+  if (reads !== 1) missing.push(`couple workspace reads event_shot_list_items ${reads}× (want 1)`);
+  const mounts = ws.split(/<ShotListCard\b/).length - 1;
+  if (mounts !== 1) missing.push(`couple workspace mounts <ShotListCard> ${mounts}× (want 1)`);
+  return missing;
+}
+
+test('the shot list reaches the server — both the writer and the couple’s reader exist', () => {
+  const missing = [...writerHalf(), ...readerHalf()];
+  console.log(`# writer+reader gaps: ${missing.length}`);
+  assert.deepEqual(missing, [], 'DAY-10: the shot list must be saved AND read by the couple');
+});
+
+test('a console heading may speak about the couple only while both halves exist', () => {
+  const claims = headingLinesAboutTheCouple();
+  console.log(`# shot-list heading lines about the couple: ${claims.length}`);
+  if (claims.length === 0) return;
+  const missing = [...writerHalf(), ...readerHalf()];
   assert.deepEqual(
-    shotListArea.map(({ n, line }) => `${n}: ${line.trim()}`),
+    missing,
     [],
-    'the shot list is localStorage-only — a heading saying it reaches the couple is a claim the code does not keep',
+    `the console heading says the couple can see the shot list (${claims.join(' | ')}) — ` +
+      'but a half of the mechanism is missing. Restore it, or take the claim out of the heading.',
   );
 });
 
-test('the shot list still has no server writer — if it gains one, revisit the heading', () => {
-  const src = code(SHOT_LIST);
-  const writers = [
-    /\bfetch\s*\(/,
-    /\bsupabase\b/i,
-    /use server/,
-    /\.(insert|upsert|update)\s*\(/,
-  ].filter((re) => re.test(src));
-
-  assert.deepEqual(
-    writers.map(String),
-    [],
-    'shot-list.tsx now reaches the server. That is a FEATURE, not a failure: build the couple-facing half, ' +
-      'then update this test and the console heading together — never the heading alone.',
-  );
-
-  // And the positive half: it is still the device-local thing the heading now describes.
-  assert.match(src, /window\.localStorage\.setItem/, 'the shot list should still persist to localStorage');
+test('the device cache is kept, and it is a cache — the component still says when it is only local', () => {
+  const comp = code(SHOT_LIST);
+  assert.match(comp, /window\.localStorage\.setItem/, 'the offline cache must stay');
+  // The three states the status line must be able to say. Anchored on the
+  // copy the supplier reads, because that sentence is the property.
+  for (const phrase of [/Saved — the couple can see/, /Not shared yet/, /Couldn’t reach Setnayan — changes are on this device only/]) {
+    assert.match(comp, phrase, `status line lost a state: ${phrase}`);
+  }
 });

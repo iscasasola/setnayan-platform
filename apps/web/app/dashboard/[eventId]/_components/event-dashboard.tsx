@@ -51,7 +51,7 @@ import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import {
   fetchScheduleBlocks,
   selectSchedulePreviewBlocks,
-  SCHEDULE_BLOCK_LABEL,
+  scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -2889,7 +2889,7 @@ export async function EventDashboard({
                         {block.label}
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {SCHEDULE_BLOCK_LABEL[block.block_type]}
+                        {scheduleBlockLabelFor(block.block_type, eventType)}
                       </span>
                     </div>
                   ))}

@@ -84,6 +84,8 @@ import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
 import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import { fallbackSeedFromPublicId } from '@/lib/wax-seal/types';
 import { LiveWallBlock } from './live-wall-block';
+import { SongRequestCard } from './song-request-card';
+import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { GuestHubCard } from './guest-hub-card';
 import { YourSeatBlock } from './your-seat-block';
@@ -340,6 +342,11 @@ type SiteBodyProps = {
    *  component takes an admin client and must not become the thing that reads a
    *  celebration's private cues with it. */
   supplierDesk?: SupplierDeskModel | null;
+  /** Whether a booked act can read song requests on this event (and whether
+   *  they have paused). Loaded only for this event's own guest in the live
+   *  window; null everywhere else, which renders no card. See
+   *  lib/guest-song-request.ts. */
+  songRequestDoor?: SongRequestDoor;
 };
 
 export async function SiteBody({
@@ -352,6 +359,7 @@ export async function SiteBody({
   dayOfPhase,
   hostCameraOpen = false,
   dayOfBroadcast = null,
+  songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
@@ -1414,6 +1422,14 @@ export async function SiteBody({
                     timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                   />
                 </>
+              ) : null}
+
+              {/* Ask the band for a song (SUP-52) — the guest's end of the song
+                  desk. Live window only, and only when a booked act can READ
+                  the requests (the inbox is paid): a card on a band-less night
+                  would say "sent" to nobody. */}
+              {songRequestCardShows({ isLive, door: songRequestDoor }) ? (
+                <SongRequestCard paused={songRequestDoor === 'paused'} />
               ) : null}
 
               {/* "Add your face" — shown across the whole pre-event window (gated in

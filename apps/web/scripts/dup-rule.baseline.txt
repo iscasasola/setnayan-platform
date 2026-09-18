@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 351
+# facts: 346
 #   shadow  20
-#   omit    331
+#   omit    326
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -167,6 +167,12 @@ omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_address
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_name
+omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	name_prefix
@@ -175,13 +181,6 @@ omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	pair_w
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
 omit	app/api/v1/vendor/profile/route.ts	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
-omit	app/api/website/qr/[slug]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	last_name
 omit	app/dashboard/[eventId]/alaala/assignments/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
@@ -237,10 +236,6 @@ omit	app/dashboard/[eventId]/guests/souvenirs/page.tsx	guests	ENTOURAGE_COLUMNS	
 omit	app/dashboard/[eventId]/guests/souvenirs/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/dashboard/[eventId]/guests/souvenirs/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/guests/souvenirs/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
-omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
-omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
-omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/dashboard/[eventId]/invitation/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_custom_svg
 omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/dashboard/[eventId]/invitation/print/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config

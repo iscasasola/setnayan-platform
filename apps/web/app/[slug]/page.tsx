@@ -24,6 +24,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
@@ -1009,6 +1010,13 @@ async function InvitationBody({
       open internet on a public event, this is the one line to change.
     */
     entourage: await loadEntourage(admin, event.event_id),
+    // Ask-the-band card (SUP-52): only this event's own guest, only live. The
+    // check asks the band's own song-desk gate, so it is not run for anybody
+    // the card could never render for.
+    songRequestDoor:
+      dayOfPhase === 'live' && session?.event_id === event.event_id
+        ? await eventSongRequestDoor(admin, event.event_id)
+        : null,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

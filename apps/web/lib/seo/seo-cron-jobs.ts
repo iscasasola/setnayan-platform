@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveTxt } from 'node:dns/promises';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
 import { gscConfigured, pullSearchConsole } from '@/lib/seo/search-console';
@@ -17,7 +18,24 @@ import { orgSameAs, siteVerification } from '@/lib/seo/org-same-as';
  */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
 
-
+/**
+ * Search Console domain ownership can be proven by a
+ * `google-site-verification=…` TXT record on setnayan.com's DNS instead of
+ * the meta-tag/env-var route — that path needs no
+ * `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` at all. Never let a DNS lookup
+ * failure fail the whole daily audit; absence here just means "fall back to
+ * the env-var check".
+ */
+async function googleDnsTxtVerified(): Promise<boolean> {
+  const host = new URL(APP_URL).hostname.replace(/^www\./, '');
+  try {
+    const records = await resolveTxt(host);
+    return records.some((chunks) => chunks.join('').startsWith('google-site-verification='));
+  } catch (e) {
+    console.error('[seo-health] google-site-verification TXT lookup failed:', e);
+    return false;
+  }
+}
 
 /** Daily SEO/GEO health audit → one seo_health_snapshots row. */
 export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number }> {
@@ -74,6 +92,7 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
     env: {
       googleSiteVerification: siteVerification().google,
       bingSiteVerification: siteVerification().bing,
+      googleDnsTxtVerified: await googleDnsTxtVerified(),
       orgSameAs: orgSameAs(),
     },
   });

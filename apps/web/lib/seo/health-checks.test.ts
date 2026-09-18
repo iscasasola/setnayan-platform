@@ -115,6 +115,17 @@ test('missing verification tokens and empty sameAs are owner-action warns', () =
   assert.ok(configured.findings.some((f) => f.check === 'Organization.sameAs' && f.status === 'ok'));
 });
 
+test('Google DNS-TXT verification counts as configured without the env var', () => {
+  const res = runSeoHealthChecks({
+    llmsText: '',
+    catalog: [],
+    env: { googleDnsTxtVerified: true, bingSiteVerification: 'b-token' },
+  });
+  const finding = res.findings.find((f) => f.check === 'verification tokens');
+  assert.equal(finding?.status, 'ok');
+  assert.ok(finding?.detail.includes('DNS-TXT'));
+});
+
 // ── Check 5 · hardcoded public price literals ──────────────────────────────
 // This is the runtime half of the two-part guard around peso figures typed into
 // marketing source. CI (lib/public-price-literals.test.ts) can only prove a

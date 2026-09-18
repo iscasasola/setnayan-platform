@@ -63,6 +63,15 @@ export type HealthCheckInput = {
   env: {
     googleSiteVerification?: string;
     bingSiteVerification?: string;
+    /**
+     * Domain ownership proven by a `google-site-verification=…` TXT record on
+     * setnayan.com's DNS, resolved by the caller (I/O — this module stays pure).
+     * Search Console accepts DNS-TXT as an alternative to the meta-tag/env-var
+     * route; ownership verified this way needs no `googleSiteVerification` env
+     * var at all, so without this flag the check nags forever for a token that
+     * will never exist even though the domain is already verified.
+     */
+    googleDnsTxtVerified?: boolean;
     /** Organization.sameAs entries currently wired (FB / LinkedIn / etc.). */
     orgSameAs?: string[];
   };
@@ -264,7 +273,9 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
 
   // --- Check 3: search-engine verification tokens ----------------------------
   const missingTokens: string[] = [];
-  if (!input.env.googleSiteVerification) missingTokens.push('Google Search Console');
+  if (!input.env.googleSiteVerification && !input.env.googleDnsTxtVerified) {
+    missingTokens.push('Google Search Console');
+  }
   if (!input.env.bingSiteVerification) missingTokens.push('Bing Webmaster');
   findings.push(
     missingTokens.length > 0
@@ -273,7 +284,11 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
           status: 'warn',
           detail: `not configured: ${missingTokens.join(' + ')} (owner: paste tokens into Vercel env)`,
         }
-      : { check: 'verification tokens', status: 'ok', detail: 'Google + Bing verification present' },
+      : {
+          check: 'verification tokens',
+          status: 'ok',
+          detail: `Google (${input.env.googleDnsTxtVerified ? 'DNS-TXT' : 'token'}) + Bing verification present`,
+        },
   );
 
   // --- Check 4: Organization.sameAs entity grounding -------------------------

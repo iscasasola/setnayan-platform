@@ -49,6 +49,7 @@ export async function saveTemplate(formData: FormData) {
     terms,
     default_package_id: packageId || null,
   });
+  if (error) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · from:vendor_proposal_templates.insert', error);
 
   revalidatePath(BACK);
   redirect(`${BACK}?notice=${error ? 'save_failed' : 'template_saved'}`);
@@ -283,6 +284,7 @@ export async function respondToProposal(formData: FormData) {
     p_response: response,
     p_coarse_category: coarseCategory,
   });
+  if (error) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · rpc:respond_vendor_proposal', error);
 
   revalidatePath(`/proposals/${publicId}`);
   redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);

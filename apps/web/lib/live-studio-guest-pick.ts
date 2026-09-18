@@ -285,6 +285,7 @@ export async function fetchGuestPickCameras(
     .eq('status', 'live')
     .order('sort_order', { ascending: true })
     .order('zone_index', { ascending: true });
+  if (zoneError) console.error('[supabase-error] lib/live-studio-guest-pick.ts · from:live_studio_roam_zones.select', zoneError);
 
   // Pre-migration / transient failure → no side cameras, never a thrown page.
   if (zoneError || !zoneData) return [];
@@ -310,6 +311,7 @@ export async function fetchGuestPickCameras(
     .select('id, camera_index, claimer_user_id, revoked_at, status, last_seen_at')
     .eq('event_id', eventId)
     .in('id', zones.map((z) => z.camera_operator_id as number));
+  if (opError) console.error('[supabase-error] lib/live-studio-guest-pick.ts · from:panood_camera_operators.select', opError);
   if (opError || !opData) return [];
 
   const seats = new Map<number, OperatorRow>();

@@ -469,6 +469,7 @@ export async function loadBookedVendorProfileIds(eventId: string): Promise<strin
       .select('linked_vendor_profile_id')
       .eq('event_id', id)
       .not('linked_vendor_profile_id', 'is', null);
+    if (error) console.error('[supabase-error] lib/creator-public.ts · from:event_vendors.select', error);
     // 🪤 A REJECTED QUERY IS NOT A THROWN ERROR — Supabase resolves with
     // { error }, so an unchecked read would make a lost grant look like
     // "this day had no suppliers", which is indistinguishable from the truth.

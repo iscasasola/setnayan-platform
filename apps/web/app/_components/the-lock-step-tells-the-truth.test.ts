@@ -66,8 +66,13 @@ test('every <ChatMessageStream> mount passes the handshake', () => {
   }
   // Anti-vacuity: a scan that finds nothing passes for free.
   assert.ok(
-    sites.length >= 4,
-    `expected at least the 4 known mounts, found ${sites.length} — did the scan break?`,
+    // Two since One Chat Box (2026-09-18): the client page and the couple's
+    // workspace no longer embed their own copy of the stream — a chat landing
+    // there goes to the thread page. Four was the count when this guard was
+    // written; the floor is only "did the scan find anything", and
+    // `lib/one-chat-box-everywhere.test.ts` pins the exact two.
+    sites.length >= 2,
+    `expected at least the 2 known mounts, found ${sites.length} — did the scan break?`,
   );
   const missing = sites.filter((s) => !/\blockHandshake=/.test(s.jsx)).map((s) => s.file);
   assert.deepEqual(
@@ -126,8 +131,10 @@ test('supplier-side callers resolve the handshake with an admin client', () => {
     }
   }
   assert.ok(
-    callers.length >= 2,
-    `expected the two supplier-side callers, found ${callers.length} — the scan broke`,
+    // One since One Chat Box (2026-09-18) — the client page's own handshake
+    // read left with its embedded chat; the thread page is the caller.
+    callers.length >= 1,
+    `expected the supplier-side caller, found ${callers.length} — the scan broke`,
   );
   const wrong = callers.filter((c) => !/admin/i.test(c.call));
   assert.deepEqual(

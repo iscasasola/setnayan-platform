@@ -74,6 +74,7 @@ async function resolveBlockEventId(
     .select('event_id')
     .eq('block_id', blockId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/run-of-show-advance.ts · from:event_schedule_blocks.select', error);
   if (error) return null;
   return ((data as { event_id?: string } | null)?.event_id as string | null) ?? null;
 }

@@ -112,6 +112,7 @@ async function countVendorCustomers(
     .from('event_vendors')
     .select('vendor_id', { count: 'exact', head: true })
     .eq('marketplace_vendor_id', vendorProfileId);
+  if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:event_vendors.select', error);
   return error || count == null ? 0 : count;
 }
 

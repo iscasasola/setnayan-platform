@@ -75,6 +75,7 @@ export async function saveAttendedVendorAction(
     { user_id: user.id, vendor_profile_id: vendorProfileId, source_event_id: eventId },
     { onConflict: 'user_id,vendor_profile_id', ignoreDuplicates: true },
   );
+  if (error) console.error('[supabase-error] app/[slug]/actions.ts · from:guest_saved_vendors.upsert', error);
 
   return redirect(`/${slug}?save=${error ? 'error' : 'ok'}`);
 }

@@ -206,6 +206,10 @@ const ROOM_SITES: ReadonlyArray<readonly [string, number]> = [
   ['app/vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx', 1],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts', 1],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts', 1],
+  // SUP-8 · the Overview's "Upcoming" list — not day-of, but the same question
+  // ("which events is this shop booked on?"), and it was the one leave-behind
+  // named as a real gap rather than a deliberate choice.
+  ['lib/vendor-overview.ts', 1],
 ];
 
 test('every day-of screen asks the room read, and none of them still asks the pool', () => {
@@ -221,7 +225,16 @@ test('every day-of screen asks the room read, and none of them still asks the po
     );
     total += calls;
   }
-  assert.equal(total, 10, 'ten day-of call sites in six files');
+  assert.equal(total, 11, 'ten day-of call sites in six files, plus the Overview’s Upcoming');
+});
+
+test('the Upcoming row id does not depend on a pool row (SUP-8)', () => {
+  // An agreed or Locked-QR booking has no poolBookingId; keyed on it, every
+  // such row would render as `up-null` and React would collapse them.
+  const src = code('lib/vendor-overview.ts');
+  assert.equal([...src.matchAll(/poolBookingId/g)].length, 0, 'the Overview still reads poolBookingId');
+  assert.match(src, /id: upcomingRowId\(b\)/);
+  assert.match(src, /return `up-\$\{b\.eventId\}-\$\{b\.bookedDate\}`/, 'the id must be the dedupe key: (event, date)');
 });
 
 test('⛔ THE PUBLIC SHOP PAGE MUST NEVER USE THE ROOM READ', () => {
@@ -252,10 +265,10 @@ test('every reader left on the pool read carries a stated reason', () => {
     'app/vendor-dashboard/proposals/surface.tsx',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
     'app/v/[slug]/page.tsx',
-    'lib/vendor-overview.ts',
     'lib/interconnect/probes.ts',
   ];
-  assert.equal(LEFT.length, 12, 'twelve readers stay on the pool read — measured, not remembered');
+  // 12 → 11: lib/vendor-overview.ts moved to the room read (SUP-8).
+  assert.equal(LEFT.length, 11, 'eleven readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
     const idx = raw.indexOf('fetchVendorPoolBookings(');

@@ -83,9 +83,12 @@ async function extractPoster(file: File): Promise<{ poster: Blob; durationS: num
 export function SamahanStories({
   communityId,
   stories,
+  unreadable = false,
 }: {
   communityId: string;
   stories: SamahanStory[];
+  /** The stories read was REFUSED — distinct from an empty day (S41b). */
+  unreadable?: boolean;
 }) {
   const router = useRouter();
   const fallbackInputRef = useRef<HTMLInputElement>(null);
@@ -486,7 +489,11 @@ export function SamahanStories({
       />
       {message ? <p className="mt-2 text-xs text-mulberry-700">{message}</p> : null}
 
-      {stories.length === 0 ? (
+      {unreadable && stories.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4 text-xs text-terracotta-700">
+          We couldn&rsquo;t load today&rsquo;s stories just now. Refresh to try again.
+        </p>
+      ) : stories.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
           Nothing yet this day. Record three seconds of whatever is in front of you.
         </p>

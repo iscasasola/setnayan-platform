@@ -872,6 +872,7 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
     p_change_order_id: changeOrderId,
   });
   const env = (data ?? {}) as { status?: string };
+  if (error) console.error('[supabase-error] clients/actions: withdraw_change_order', error, { change_order_id: changeOrderId });
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';

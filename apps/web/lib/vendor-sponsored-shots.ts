@@ -79,6 +79,7 @@ export async function fetchVendorSponsoredShots(
     .eq('papic_missions.is_active', true)
     .is('papic_guest_captures.hidden_at', null)
     .eq('papic_guest_captures.moderation_state', 'clean');
+  if (error) console.error('[supabase-error] lib/vendor-sponsored-shots.ts · from:papic_mission_completions.select', error);
 
   if (error) return { ok: false, shots: [] };
 

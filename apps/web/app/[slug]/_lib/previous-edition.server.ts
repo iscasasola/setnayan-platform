@@ -37,6 +37,7 @@ export async function loadPreviousEdition(eventId: string): Promise<PreviousEdit
       .select('previous_event_id')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (selfError) console.error('[supabase-error] app/[slug]/_lib/previous-edition.server.ts · from:events.select', selfError);
     // A refused read is not "no predecessor" — but for a read-only line both
     // resolve to the same safe answer: draw nothing.
     if (selfError || !self?.previous_event_id) return null;
@@ -46,6 +47,7 @@ export async function loadPreviousEdition(eventId: string): Promise<PreviousEdit
       .select('slug, display_name')
       .eq('event_id', self.previous_event_id)
       .maybeSingle();
+    if (prevError) console.error('[supabase-error] app/[slug]/_lib/previous-edition.server.ts · from:events.select', prevError);
     if (prevError || !prev?.slug) return null;
 
     const { data: prevStory, error: storyError } = await admin
@@ -53,6 +55,7 @@ export async function loadPreviousEdition(eventId: string): Promise<PreviousEdit
       .select('status, edition_no')
       .eq('event_id', self.previous_event_id)
       .maybeSingle();
+    if (storyError) console.error('[supabase-error] app/[slug]/_lib/previous-edition.server.ts · from:event_editorial.select', storyError);
     if (storyError || prevStory?.status !== 'published') return null;
 
     /*

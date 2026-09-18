@@ -203,7 +203,10 @@ export async function fetchDiscountsByService(
     )
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] vendor-services: vendor_service_discounts', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServiceDiscount[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
@@ -275,7 +278,10 @@ export async function fetchBracketsByService(
     .select('vendor_service_id,min_pax,max_pax,price_php,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] vendor-services: vendor_service_price_brackets', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServicePriceBracket[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
@@ -347,6 +353,7 @@ export async function fetchBoothCardItems(
     .from('event_vendors')
     .select('vendor_id,category,marketplace_vendor_id,host_inclusions')
     .in('vendor_id', eventVendorIds);
+  if (evRes.error) console.error('[supabase-error] lib/vendor-services.ts · from:event_vendors.select', evRes.error);
   if (evRes.error) return out;
   const evRows = (evRes.data ?? []) as EvRow[];
   const evById = new Map(evRows.map((r) => [r.vendor_id, r]));

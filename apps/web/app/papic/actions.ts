@@ -1,5 +1,6 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -43,6 +44,8 @@ import { papicManualUploadsClosed } from '@/lib/papic-uploads-open';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
+import { venueDoorThrottleEnabled } from '@/lib/venue-door-flag';
+import { allowVenueDoorAttempt, VENUE_DOORS, VENUE_DOOR_STATE } from '@/lib/venue-door-throttle';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { papicSeatCapturePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { captureWindowState } from '@/lib/papic-window';
@@ -123,6 +126,19 @@ export async function claimPapicSeat(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) {
     if (papicSeatAnonEnabled()) {
+      // ⚖ Venue-sized throttle, OFF until the owner rules on the seat-claim
+      // trade (lib/venue-door-flag.ts). Runs BEFORE the admin token lookup —
+      // that lookup is what an enumerating script would be spending.
+      if (venueDoorThrottleEnabled()) {
+        const venueThrottle = await allowVenueDoorAttempt(
+          VENUE_DOORS.papicSeatClaim,
+          null,
+          await headers(),
+        );
+        if (!venueThrottle.allowed) {
+          redirect(`/papic/claim/${token}?state=${VENUE_DOOR_STATE}`);
+        }
+      }
       const claimability = await seatClaimability(token);
       if (claimability === 'taken') redirect(`/papic/claim/${token}?state=taken`);
       if (claimability !== 'claimable') {

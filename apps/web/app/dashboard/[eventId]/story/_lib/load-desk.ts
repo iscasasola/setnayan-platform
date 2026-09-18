@@ -89,6 +89,7 @@ async function vetoedCaptureIds(
       .eq('source_table', 'papic_guest_captures')
       .is('removed_at', null)
       .in('guest_id', ids);
+    if (tErr) console.error('[supabase-error] app/dashboard/[eventId]/story/_lib/load-desk.ts · from:photo_tags.select', tErr);
     if (tErr) return null;
     const out = new Set<string>();
     for (const t of tags ?? []) {

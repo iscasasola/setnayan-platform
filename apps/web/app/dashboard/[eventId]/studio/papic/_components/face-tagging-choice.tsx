@@ -45,8 +45,38 @@ export async function FaceTaggingChoice({
     .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx · from:events.select', error);
 
-  if (error || !data) return null;
+  // 🔑 A REFUSED READ IS NOT "NOT AVAILABLE". Returning null here removed the
+  // couple's only switch for face tagging on an event where it may be ON — the
+  // same absence as "nothing to decline". Say we could not check (S41b).
+  if (error) {
+    const unreadable = (
+      <>We couldn&rsquo;t check this setting just now. Refresh the page to see it and change it.</>
+    );
+    if (variant === 'row') {
+      return (
+        <SettingRow
+          icon={<ScanFace aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          label="Finding people in photos"
+          value="Couldn't load"
+          sheetTitle="Finding people in photos"
+        >
+          <p className="mb-4 text-sm text-ink/65">{unreadable}</p>
+        </SettingRow>
+      );
+    }
+    return (
+      <section className="space-y-1 sn-tile p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <ScanFace aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
+          Finding people in photos
+        </h2>
+        <p className="max-w-prose text-sm text-terracotta-700">{unreadable}</p>
+      </section>
+    );
+  }
+  if (!data) return null;
 
   const row = data as {
     papic_face_mode: string | null;

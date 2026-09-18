@@ -75,6 +75,7 @@ async function leadTheStoryWith(
     .select('draft_json')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (readError) console.error('[supabase-error] app/dashboard/[eventId]/story/cover-actions.ts · from:event_editorial.select', readError);
   // A REFUSED READ IS NOT AN EMPTY DRAFT. Writing over a document we failed to
   // read would delete the host's headline, deck and every chapter override.
   if (readError) return false;

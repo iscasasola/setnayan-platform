@@ -163,10 +163,6 @@ export const ANSWERS_THAT_DO_NOT_JOIN: ReadonlyArray<{
   readonly why: string;
 }> = [
   {
-    slug: 'song_request',
-    why: 'Nobody can ask for a song: both submit routines exist in the database with zero application callers.',
-  },
-  {
     slug: 'payment_claim',
     why: 'Somebody-says-they-paid-you has no "no" — the only possible answer is yes, and it cannot be taken back. It joins once the row carries the receipt and there is a second button (owner decision).',
   },

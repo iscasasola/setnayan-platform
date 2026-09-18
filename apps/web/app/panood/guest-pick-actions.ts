@@ -42,6 +42,7 @@
  * hand-crafted a request.
  */
 
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mintTurnIceServers } from '@/lib/turn';
@@ -49,6 +50,8 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { canPublishMultiCam } from '@/lib/live-studio-publish';
 import { captchaOptions } from '@/lib/turnstile';
+import { venueDoorThrottleEnabled } from '@/lib/venue-door-flag';
+import { allowVenueDoorAttempt, VENUE_DOORS } from '@/lib/venue-door-throttle';
 
 export type GuestPickSessionResult = {
   ok: boolean;
@@ -99,6 +102,18 @@ export async function startGuestPickSession(
   } = await supabase.auth.getUser();
 
   if (!user) {
+    // ⚖ Venue-sized throttle, OFF until the owner rules (lib/venue-door-flag.ts).
+    // Keyed per EVENT and connection — the whole room taps from one venue IP, so
+    // the budget is the join door's, sized for a reception. A refusal is the same
+    // soft REFUSED as every other: the guest stays on the director's cut.
+    if (venueDoorThrottleEnabled()) {
+      const venueThrottle = await allowVenueDoorAttempt(
+        VENUE_DOORS.guestPick,
+        clean,
+        await headers(),
+      );
+      if (!venueThrottle.allowed) return REFUSED;
+    }
     const { data: anon, error } = await supabase.auth.signInAnonymously({
       // Global Supabase captcha gates anonymous sign-in. Empty → {} → no-op.
       options: captchaOptions(captchaToken),

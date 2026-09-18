@@ -136,7 +136,14 @@ export async function fetchPanoodScreens(
     .order('screen_index', { ascending: true });
 
   if (error) {
-    if (error.code === '42P01' || error.code === '42703') return [];
+    if (error.code === '42P01' || error.code === '42703') {
+      console.error(
+        '[supabase-error] lib/panood-screens.ts · from:panood_screens.select (pre-bootstrap, degraded to [])',
+        error,
+        { event_id: eventId },
+      );
+      return [];
+    }
     throw new Error(`Failed to read Panood screens: ${error.message}`);
   }
 
@@ -242,7 +249,14 @@ export async function provisionPanoodScreensAdmin(
     const { error: insertError } = await admin
       .from('panood_screens')
       .upsert(rows, { onConflict: 'event_id,screen_index', ignoreDuplicates: true });
-    if (insertError) return 0;
+    if (insertError) {
+      console.error(
+        '[supabase-error] lib/panood-screens.ts · from:panood_screens.upsert (provisionPanoodScreensAdmin)',
+        insertError,
+        { event_id: eventId },
+      );
+      return 0;
+    }
     return rows.length;
   } catch {
     return 0;

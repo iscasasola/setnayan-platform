@@ -269,6 +269,12 @@ export async function resolveMutualStoryDays(input: {
     .select('person_id,claimed_by_user_id')
     .in('claimed_by_user_id', [viewerUserId, profileUserId])
     .is('deleted_at', null);
+  if (peopleErr) {
+    // FAILS CLOSED on purpose (see docblock) — this stays []. Logged only so a
+    // refused read is traceable instead of indistinguishable from a genuine
+    // "no shared days yet".
+    console.error('[supabase-error] lib/person-life-stories.ts · from:people.select', peopleErr);
+  }
   if (peopleErr || !peopleRows) return [];
 
   const personOf = (userId: string) =>

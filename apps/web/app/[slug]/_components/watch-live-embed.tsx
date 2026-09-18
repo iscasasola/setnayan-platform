@@ -52,7 +52,10 @@ export function WatchLiveEmbed({
     // this condition is the ONLY gate on the reconnecting sentence below, so a
     // sabotage that widens it (e.g. to "state !== 'live'") would make 'ended'
     // show the reconnecting banner, which the W1 GUARD forbids.
-    if (!slug || (state !== 'live' && state !== 'reconnecting')) return;
+    // 'unknown' (the read was refused, not that nothing is happening — S41c)
+    // keeps polling exactly like 'reconnecting': a transient DB hiccup must
+    // never look like the stream permanently stopping.
+    if (!slug || (state !== 'live' && state !== 'reconnecting' && state !== 'unknown')) return;
 
     const id = setInterval(async () => {
       try {
@@ -122,6 +125,11 @@ export function WatchLiveEmbed({
       {state === 'reconnecting' ? (
         <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
           The stream is reconnecting — this link will update on its own.
+        </p>
+      ) : state === 'unknown' ? (
+        <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
+          We couldn&rsquo;t check the stream status just now — this will
+          refresh automatically.
         </p>
       ) : (
         // NOTHING HERE KNOWS WHETHER A STREAM IS RUNNING (2026-08-05, still true

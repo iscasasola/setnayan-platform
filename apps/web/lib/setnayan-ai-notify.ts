@@ -255,6 +255,14 @@ export async function sweepGuardNotifications(eventId: string): Promise<void> {
               { onConflict: 'event_id,dedupe_key', ignoreDuplicates: true },
             )
             .select('id');
+          if (claimError) {
+            logQueryError(
+              'sweepGuardNotifications (GRD-01 claim)',
+              claimError,
+              { event_id: eventId, dedupe_key: reminder.dedupeKey },
+              'graceful_degrade',
+            );
+          }
           if (claimError || !claimed || claimed.length === 0) continue; // already scheduled
           const link = `${appUrl}/dashboard/${eventId}/budget`;
           const html = renderBrandedEmail({

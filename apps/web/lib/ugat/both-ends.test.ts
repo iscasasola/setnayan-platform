@@ -198,8 +198,11 @@ test('runtimeImports: type-only shapes are not edges; mixed and re-export shapes
 });
 
 test('result-dropped-silently: the booking-fee shape fires; a recorded reason does not', () => {
+  // The RPC name is fictional on purpose: rpc-argument-names.db.test.ts scans
+  // every .rpc() literal in the tree, fixtures included, and checks the
+  // argument names against the real function's signature.
   const fires = [
-    `async function f(sb){ const { data, error } = await sb.rpc('booking_fee_open_lock_charge', { id: 1 }); if (error) return { status: 'skipped' }; return data; }`,
+    `async function f(sb){ const { data, error } = await sb.rpc('canary_booking_fee_charge', { id: 1 }); if (error) return { status: 'skipped' }; return data; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error) return null; return data; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error || !data) return []; return data; }`,
     `async function f(sb){ const res = await sb.from('orders').update({ a: 1 }).eq('id', 1); if (res.error) return; }`,
@@ -209,7 +212,7 @@ test('result-dropped-silently: the booking-fee shape fires; a recorded reason do
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); return error ? null : data; }`,
     // `{ status: 'skipped' }` and `{ ok: false }` say nothing about WHY — still dropped.
     `async function f(sb){ const { error } = await sb.from('orders').insert({ a: 1 }); if (error) return { ok: false }; }`,
-    `async function f(sb){ const { data, error } = await sb.rpc('booking_fee_open_lock_charge', { id: 1 }); if (error) return { status: 'skipped' }; return data; }`,
+    `async function f(sb){ const { data, error } = await sb.rpc('canary_booking_fee_charge', { id: 1 }); if (error) return { status: 'skipped' }; return data; }`,
   ];
   for (const s of fires) {
     assert.deepEqual(scanSource(s, 'f.ts', { silentDrops: true }).map((f) => f.kind), ['error-dropped-silently'], s);

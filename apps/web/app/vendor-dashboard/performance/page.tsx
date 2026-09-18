@@ -60,6 +60,11 @@ import { FunnelPreviewCard } from './_components/funnel-preview-card';
 import { DemandRadarCard } from '../demand/_components/demand-radar-card';
 import { FunnelBenchmarkCard } from './_components/funnel-benchmark-card';
 import {
+  PricePositionCard,
+  type PricePositionUnreadable,
+} from './_components/price-position-card';
+import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-position';
+import {
   EMPTY_FUNNEL_BENCHMARK,
   getVendorFunnelBenchmark,
 } from '@/lib/funnel-benchmark';
@@ -230,6 +235,7 @@ export default async function PerformanceHome({
     inquiriesBySourceMonth,
     inquiriesBySourceDay,
     marketRegionRow,
+    pricePosition,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -342,6 +348,17 @@ export default async function PerformanceHome({
             .then((r) => r.data),
           null,
           'market_region',
+        )
+      : Promise.resolve(null),
+    /* The Price-Position meter this section's teaser has always promised (S34).
+       The fetcher THROWS on a failed read, and safeRead turns that into
+       'unreadable' — never into 'no_data', which would tell a vendor their
+       market is empty when we simply could not read it. */
+    canMarket
+      ? safeRead<PricePositionResult | PricePositionUnreadable | null>(
+          fetchVendorPricePosition(profile),
+          { status: 'unreadable' },
+          'price_position',
         )
       : Promise.resolve(null),
   ]);
@@ -787,6 +804,8 @@ export default async function PerformanceHome({
                 <div className="mt-6">
                   <FunnelBenchmarkCard benchmark={funnelBenchmark} />
                 </div>
+                {/* null = the shop lists no category yet, so there is nothing to band on. */}
+                {pricePosition && <PricePositionCard result={pricePosition} />}
               </section>
             </Reanimate>
           ) : (

@@ -163,6 +163,11 @@ export function CancelBookingButton({
           setDialog({ kind: 'closed' });
           router.push(`/dashboard/${eventId}/disputes`);
           return;
+        case 'has_logged_payments':
+          // SUP-67: payments are logged against this supplier. The row is
+          // intact; say why and how through, rather than routing to disputes.
+          setDialog({ kind: 'error', message: result.message });
+          return;
         case 'not_signed_in':
           setDialog({
             kind: 'error',

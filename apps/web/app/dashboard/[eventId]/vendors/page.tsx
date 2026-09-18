@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
+import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -1643,6 +1644,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         supabase,
         eventId,
         nowMs: Date.now(),
+        // One headcount for the whole bench — each card compares it with the
+        // count that supplier was asked with ("Guest count changed", SUP-2).
+        livePax: await resolveLivePax(supabase, eventId),
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,

@@ -185,6 +185,23 @@ export function guestCountChip(
   return { label: r.label, basisLabel: r.basisLabel };
 }
 
+/**
+ * The CHANGE between the two counts, as one clause — "Guest count changed: 150
+ * → ~170" — or null when there is nothing to reconcile (either number missing,
+ * or the two equal).
+ *
+ * For the standing sentence (SUP-2): a supplier's quote was written against the
+ * inquiry count, so a couple comparing three caterers needs to see which one
+ * quoted a number they have since moved away from. Same tilde rule as
+ * everywhere here: the live count is an estimate, the inquiry count is not.
+ */
+export function guestCountChangeLabel(counts: GuestCounts): string | null {
+  const live = normalize(counts.live);
+  const atInquiry = normalize(counts.atInquiry);
+  if (live == null || atInquiry == null || live === atInquiry) return null;
+  return `Guest count changed: ${atInquiry} → ~${live}`;
+}
+
 function normalize(n: number | null | undefined): number | null {
   if (n == null || !Number.isFinite(n) || n <= 0) return null;
   return Math.round(n);

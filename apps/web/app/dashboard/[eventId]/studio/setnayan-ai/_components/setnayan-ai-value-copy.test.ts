@@ -224,6 +224,23 @@ test('the couples-only still is never shown to a non-couple event type', () => {
   );
 });
 
+// SUP-73: the number itself, not just the couple-noun, is baked into that
+// same JPEG — "3 couples inquired for your date" is honest only because 3 IS
+// `MIN_DEMAND_COUPLE_COUNT` (lib/compat-score.ts), the smallest number the
+// real product ever shows for this chip. Nothing can re-render a JPEG's
+// pixels from here, so this pins the source of truth: the day the floor
+// changes, this fails and names the file that needs a new screenshot.
+test('SUP-73 — the baked "3 couples inquired" still matches the real demand floor', async () => {
+  const { MIN_DEMAND_COUPLE_COUNT } = await import('@/lib/compat-score');
+  assert.equal(
+    MIN_DEMAND_COUPLE_COUNT,
+    3,
+    'MIN_DEMAND_COUPLE_COUNT moved — /add-ons/demo/stills/setnayan-ai-2.jpg bakes ' +
+      '"3 couples inquired for your date" as a literal pixel and needs a new ' +
+      'screenshot with the current floor before this can go green',
+  );
+});
+
 test('every spotlight picture is one of the three real roots', () => {
   // Mirrors `_components/marketing/spotlights-are-real.test.ts`, which scans
   // only `app/(shell)` and therefore cannot see this dashboard page.

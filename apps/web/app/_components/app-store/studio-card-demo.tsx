@@ -12,6 +12,7 @@ import {
 // list from rich-demo-slugs.ts; do NOT re-export it from here.
 import { type RichDemoSlug } from './rich-demo-slugs';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { MIN_DEMAND_COUPLE_COUNT } from '@/lib/compat-score';
 
 const MULB = 'var(--m-mulberry, #1B1A17)';
 const GOLD = '#A9834B';
@@ -811,10 +812,12 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
               2026-06-02 ruling: demand "starts at the inquiry (Stage 2), NEVER at
               search (Stage 1) … counting it as competition = manufactured scarcity
               (a fineable dark pattern)". The shipped signal is inquiry-only and
-              floored at MIN_DEMAND_COUPLE_COUNT = 3, and its one supported phrasing
-              is the measurement itself (`lib/compat-score.ts`). So 3 is the smallest
-              number this chip can honestly show, and this is the sentence it shows. */}
-          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 couples inquired for your date</span>
+              floored at MIN_DEMAND_COUPLE_COUNT, and its one supported phrasing is
+              the measurement itself (`lib/compat-score.ts`). So the floor is the
+              smallest number this chip can honestly show, and this reads the SAME
+              constant rather than a copy of its current value — a future change to
+              the floor updates this mockup instead of quietly out-honesting it. */}
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>{MIN_DEMAND_COUPLE_COUNT} couples inquired for your date</span>
         </div>
       </div>
     ),

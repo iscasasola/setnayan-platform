@@ -84,7 +84,7 @@ function everyStep(): Array<{ label: string; step: HubNextStep }> {
 }
 
 test('the sweep reaches every key the resolver can answer with', () => {
-  const keys = new Set(everyStep().map((s) => s.step.key));
+  const keys = new Set<string>(everyStep().map((s) => s.step.key));
   for (const k of ['unreadable', 'day', 'story', 'link', 'preview', 'guests', 'replies', 'ready']) {
     assert.ok(keys.has(k), `no case reaches the "${k}" step — the sweep has a hole`);
   }

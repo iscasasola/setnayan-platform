@@ -209,6 +209,7 @@ test('result-dropped-silently: the booking-fee shape fires; a recorded reason do
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); return error ? null : data; }`,
     // `{ status: 'skipped' }` and `{ ok: false }` say nothing about WHY — still dropped.
     `async function f(sb){ const { error } = await sb.from('orders').insert({ a: 1 }); if (error) return { ok: false }; }`,
+    `async function f(sb){ const { data, error } = await sb.rpc('booking_fee_open_lock_charge', { id: 1 }); if (error) return { status: 'skipped' }; return data; }`,
   ];
   for (const s of fires) {
     assert.deepEqual(scanSource(s, 'f.ts', { silentDrops: true }).map((f) => f.kind), ['error-dropped-silently'], s);
@@ -229,6 +230,7 @@ test('result-dropped-silently: the booking-fee shape fires; a recorded reason do
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error) return unreadable; return data; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error) return 'unreadable'; return data; }`,
     `async function f(sb){ const { error } = await sb.from('orders').insert({ a: 1 }); if (error) return { ok: false, reason: 'refused' }; }`,
+    `async function f(sb){ const { data, error } = await sb.from('vendor_packages').select('id'); if (error) return { status: 'unreadable' }; return data; }`,
     `async function f(sb){
        // supabase-error-ignored: a view counter — a lost increment changes nothing a person sees
        const { error } = await sb.rpc('bump_views', { id: 1 }); if (error) return;

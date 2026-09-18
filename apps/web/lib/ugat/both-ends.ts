@@ -257,7 +257,7 @@ export function findRpcOrphans(
       tier: tierOf(name),
       evidence: returnsTrigger.get(name)
         ? `RETURNS trigger and no trigger is bound to it`
-        : `no '${name}' literal in ${index.files} app files; no SQL body, policy, trigger, view, default or CHECK names it`,
+        : `no '${name}' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it`,
     });
   }
   return { findings, stats: { candidates: names.length, appCalled, sqlCalled, orphans: findings.length } };
@@ -561,7 +561,7 @@ export function findComponentOrphans(input: ComponentInput): { findings: OrphanF
       const tests = testImporters.get(c) ?? [];
       const evidence =
         imps.length === 0 && tests.length === 0
-          ? `no runtime importer among ${all.size} files`
+          ? `no runtime importer in any source file`
           : imps.length === 0
             ? `imported only by a test (${tests.join(', ')})`
             : `imported only by files no entry reaches (${imps.map((i) => i.from).slice(0, 3).join(', ')})`;

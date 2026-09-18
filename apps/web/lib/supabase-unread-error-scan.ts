@@ -215,9 +215,13 @@ function returnsFailureShape(r: ts.ReturnStatement): boolean {
   if (ts.isIdentifier(e) || ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return FAILURE_SHAPED.test(e.text);
   if (ts.isPropertyAccessExpression(e)) return FAILURE_SHAPED.test(e.getText());
   if (ts.isObjectLiteralExpression(e)) {
+    // `{ error }` / `{ reason }` carry the cause; `{ status: 'unreadable' }` names a
+    // distinct failure state. `{ ok: false }` / `{ status: 'skipped' }` say neither.
     return e.properties.some((p) => {
       const name = p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : '';
-      return /^(error|message|reason|cause|failure)$/i.test(name);
+      if (/^(error|message|reason|cause|failure)$/i.test(name)) return true;
+      const v = ts.isPropertyAssignment(p) ? p.initializer : null;
+      return !!v && (ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v) || ts.isIdentifier(v)) && FAILURE_SHAPED.test(v.text);
     });
   }
   return false;

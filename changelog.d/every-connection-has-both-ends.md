@@ -39,9 +39,9 @@ registries excluded) · 971 component candidates · 803 Next.js entries · 5,960
 | `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **35** |
 | `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **6** |
 | `component-no-mount` | 971 | 3,747 files reachable from an entry | **32** |
-| `result-dropped-silently` | 5,960 calls | — | **420** sites |
+| `result-dropped-silently` | 5,960 calls | — | **415** sites |
 
-By tier: money 89 · booking 88 · couple 207 · supplier 86 · admin 20 · unclassified 48.
+By tier: money 89 · booking 88 · couple 203 · supplier 86 · admin 19 · unclassified 48.
 
 **The money-tier top of the list, excluding drops** (the controller's next build candidates):
 - `rpc-no-caller` · `approve_vendor_token_purchase`
@@ -84,8 +84,10 @@ were found by that verification and closed before the baseline was frozen, each 
 the replay alone could not see: a policy on `realtime.messages` (PGlite has no such table, so
 it is read from the migration text); an EVENT trigger (`pg_event_trigger`); a function used
 only as another function's argument DEFAULT (`proargdefaults`, not `prosrc`); and the repo's
-honest-read sentinel (`return unreadable`), which is a distinct failure state, not a dropped
-reason. Production agreed with the replay on every checked row.
+honest-read sentinel (`return unreadable`, `return { status: 'unreadable' }`), which is a distinct
+failure state, not a dropped reason — the object form was caught by a trial merge against `main`,
+where a peer's freshly merged PR (#5626) would otherwise have turned the guard red the moment
+both landed. Production agreed with the replay on every checked row.
 
 **Sabotage-proven.** Each rule is RUN over fixtures in `lib/ugat/both-ends.test.ts` and fed
 its cheapest off-switch — a `{false ? <X/> : null}` mount, an `import type`, a bare

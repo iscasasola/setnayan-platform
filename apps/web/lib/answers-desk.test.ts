@@ -331,6 +331,19 @@ test('the answers that do not work yet are not on the desk', () => {
   }
 });
 
+test('song_request stays OFF the withheld list — its callers exist now (#5601)', () => {
+  // The list used to carry song_request with the reason "zero application
+  // callers." #5601 gave the guest-facing song request card and its API route
+  // real callers of `guest_submit_song_request`, so that reason is false and
+  // the entry must stay removed. song_request's real answer surface is the
+  // band's own song-desk inbox, not this desk — it was never meant to gain a
+  // `kind: 'song_request'` card here.
+  assert.ok(
+    !ANSWERS_THAT_DO_NOT_JOIN.some((e) => e.slug === 'song_request'),
+    'song_request re-appeared in ANSWERS_THAT_DO_NOT_JOIN, but its cited reason (zero application callers) is no longer true',
+  );
+});
+
 test('every colour the desk paints with is a token that exists', () => {
   /*
     🪤 THIS IS THE ONE THAT FOUND A LIVE DEFECT. `var(--sn-warn)` — the amber the

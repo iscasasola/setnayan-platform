@@ -144,3 +144,69 @@ test('the layout actually hands the rows to the palette', () => {
   assert.match(layout, /await fetchAdminRows\(\)/, 'the layout stopped fetching rows');
   assert.match(layout, /<AdminCommandPalette rows=\{/, 'the palette stopped receiving them');
 });
+
+// ── LAU-18: categories, folders, event types, faiths join the index ─────────
+//
+// The taxonomy Studio hides these under one page's name — a search for
+// "feast" or "civil" answered NOTHING before this, because the map indexes
+// PAGES and these are rows inside one. Fixtures below mirror the real shapes
+// `fetchAdminRows` builds (no DB in this suite), same posture as the price
+// ROWS constant above.
+
+const TAXONOMY_ROWS: RowDest[] = [
+  {
+    label: 'Feast',
+    href: '/admin/taxonomy',
+    hay: 'feast folder taxonomy',
+    hint: 'folder',
+  },
+  {
+    label: 'Catering',
+    href: '/admin/taxonomy?open=catering',
+    hay: 'catering catering category tile taxonomy',
+    hint: 'category',
+  },
+  {
+    label: 'Debut',
+    href: '/admin/taxonomy?view=vocab-event',
+    hay: 'debut debut event type taxonomy',
+    hint: 'event type',
+  },
+  {
+    label: 'Civil',
+    href: '/admin/taxonomy?view=vocab-faith',
+    hay: 'civil civil faith religion taxonomy',
+    hint: 'faith',
+  },
+];
+
+test('the reader indexes folders, categories, event types and faiths', () => {
+  const reader = readFileSync(join(WEB, 'lib/admin-map/admin-row-index.ts'), 'utf8');
+  assert.match(reader, /getTaxonomy\(\)/, 'the reader stopped reading the taxonomy folders/tiles');
+  assert.match(reader, /from\('event_type_vocab'\)/, 'the reader stopped reading event types');
+  assert.match(reader, /from\('faith_vocab'\)/, 'the reader stopped reading faiths');
+});
+
+test('a category is findable by its own name and lands on its taxonomy node', () => {
+  const hits = rank('catering', TAXONOMY_ROWS);
+  assert.equal(hits[0]!.label, 'Catering');
+  assert.match(hits[0]!.href, /^\/admin\/taxonomy\?open=/);
+});
+
+test('an event type is findable and lands on the event-type vocabulary', () => {
+  const hits = rank('debut', TAXONOMY_ROWS);
+  assert.equal(hits[0]!.label, 'Debut');
+  assert.equal(hits[0]!.href, '/admin/taxonomy?view=vocab-event');
+});
+
+test('a faith is findable and lands on the faith vocabulary', () => {
+  const hits = rank('civil', TAXONOMY_ROWS);
+  assert.equal(hits[0]!.label, 'Civil');
+  assert.equal(hits[0]!.href, '/admin/taxonomy?view=vocab-faith');
+});
+
+test('a folder with no category yet still opens the Studio, not a dead link', () => {
+  const dests = buildDestinations(TAXONOMY_ROWS);
+  const folder = dests.find((d) => d.label === 'Feast');
+  assert.equal(folder?.href, '/admin/taxonomy');
+});

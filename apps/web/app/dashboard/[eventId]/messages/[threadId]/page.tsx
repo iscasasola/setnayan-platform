@@ -411,8 +411,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     ~40px note, a 44px switch and a ~60px composer, and TWO floors stand under
     the conversation — the list's own `min-h-[14rem]`, and `min-h-[27rem]` on
     this row, so on a 320px phone the row outgrows the viewport and the PAGE
-    scrolls rather than the frame clipping its own composer. Measured: 320 →
-    230px of conversation, 360 → 246px, 390 → 450px.
+    scrolls rather than the frame clipping its own composer. Measured with a quote in the thread (the real
+    frame components, the repo's Tailwind, a real browser): 320 → 224px of
+    conversation (the list's floor; the page scrolls 56px), 360 → 224px,
+    390 → 391px, 1440 → 453px — against 32px at every width before #5584.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
   const composerOpen =

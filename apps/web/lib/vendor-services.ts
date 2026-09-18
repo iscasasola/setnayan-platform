@@ -347,6 +347,7 @@ export async function fetchBoothCardItems(
     .from('event_vendors')
     .select('vendor_id,category,marketplace_vendor_id,host_inclusions')
     .in('vendor_id', eventVendorIds);
+  if (evRes.error) console.error('[supabase-error] lib/vendor-services.ts · from:event_vendors.select', evRes.error);
   if (evRes.error) return out;
   const evRows = (evRes.data ?? []) as EvRow[];
   const evById = new Map(evRows.map((r) => [r.vendor_id, r]));

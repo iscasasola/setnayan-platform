@@ -1285,6 +1285,7 @@ async function fetchDisputedHandovers(
       .eq('vendor_profile_id', vendorProfileId)
       .eq('status', 'disputed')
       .order('delivered_at', { ascending: false });
+    if (error) console.error('[supabase-error] lib/vendor-overview.ts · from:booking_handovers.select', error);
     if (error) return [];
     return ((data ?? []) as Array<{
       handover_id: string;

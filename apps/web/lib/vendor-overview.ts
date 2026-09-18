@@ -1068,10 +1068,13 @@ async function fetchLockRequests(
 // --- The four answers the desk gained (all vendor's-own-session reads) -------
 
 /*
-  ⛔ WHAT IS DELIBERATELY NOT HERE. Four kinds of answer a supplier is asked for
+  ⛔ WHAT IS DELIBERATELY NOT HERE. Some kinds of answer a supplier is asked for
   elsewhere in this product do NOT join this desk, because the answer does not
-  work yet — the waitlist pick, a paid crew shift, a guest's song request, and
-  "somebody says they paid you". `ANSWERS_THAT_DO_NOT_JOIN` in
+  work yet — the waitlist pick, a paid crew shift, and "somebody says they paid
+  you". A guest's song request used to be on this list too, until #5601 gave it
+  a real answer surface of its own (the band's song-desk inbox on
+  `on-the-day/live/[eventId]`) — that is not this desk, so it never joined here
+  either. `ANSWERS_THAT_DO_NOT_JOIN` in
   `lib/answers-desk.ts` carries the reason on each, in one copy, and the guard
   reads that list rather than a hand-typed one. A row would be a door onto
   nothing: the supplier presses, something says it worked, and nobody is helped.

@@ -36,6 +36,10 @@ in a policy, a trigger, a view or another function body.
   and back-filled so the guards could see it; once seen, nothing called it. The
   anon-RPC baseline had carried "proposed for DROP" since 2026-08-06. The
   prod-only table `event_service_deliveries` is untouched (no migration owns it).
+  The switch only those three read, `vendor_services.per_guest_delivery`
+  ("no shipped surface sets" it; 0 of 2 prod rows), is dropped with them —
+  the gates-have-handles guard had, correctly, just flagged it as a gate with no
+  handle, and a baseline excuse would have kept it on purpose.
 
 **Guards that moved with the schema:** exposure-surface baseline and
 `user-fk-behaviour.generated.txt` regenerated; six stale anon-RPC baseline lines

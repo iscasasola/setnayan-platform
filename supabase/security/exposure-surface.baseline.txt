@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6622
+# facts: 6621
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     582
-#   col       4871
+#   col       4870
 #   policy    902
 #   view      9
 #   func      254
@@ -5223,7 +5223,6 @@ col	public.vendor_services.last_minute_surcharge_pct	anon=SIU authenticated=SIU
 col	public.vendor_services.min_hours	anon=SIU authenticated=SIU
 col	public.vendor_services.min_pax	anon=SIU authenticated=SIU
 col	public.vendor_services.package_inclusions	anon=SIU authenticated=SIU
-col	public.vendor_services.per_guest_delivery	anon=SIU authenticated=SIU
 col	public.vendor_services.per_pax_price_php	anon=SIU authenticated=SIU
 col	public.vendor_services.pricing_basis	anon=SIU authenticated=SIU
 col	public.vendor_services.primary_photo_r2_key	anon=SIU authenticated=SIU

@@ -90,6 +90,7 @@ export async function fetchClaimedCameraForUser(
       .select('camera_index, label, event_id, status, claimer_user_id, revoked_at')
       .eq('claim_qr_token', token)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/panood-camera-seats.ts · from:panood_camera_operators.select', error);
     if (error || !data) return null;
     if (data.revoked_at || data.status === 'revoked') return null;
     if (data.claimer_user_id !== userId) return null;
@@ -132,6 +133,7 @@ export async function provisionPanoodCamerasAdmin(
       .from('panood_camera_operators')
       .select('camera_index')
       .eq('event_id', eventId);
+    if (readError) console.error('[supabase-error] lib/panood-camera-seats.ts · from:panood_camera_operators.select', readError);
     // Missing/legacy table (42P01) or column (42703) → a pre-bootstrap DB; the
     // couple can still self-serve once migrated. Don't throw.
     if (readError) return 0;
@@ -154,6 +156,7 @@ export async function provisionPanoodCamerasAdmin(
     const { error: insertError } = await admin
       .from('panood_camera_operators')
       .upsert(rows, { onConflict: 'event_id,camera_index', ignoreDuplicates: true });
+    if (insertError) console.error('[supabase-error] lib/panood-camera-seats.ts · from:panood_camera_operators.upsert', insertError);
     if (insertError) return 0;
     return rows.length;
   } catch {
@@ -215,5 +218,6 @@ export async function reissuePanoodCameraToken(
     })
     .eq('id', cameraId)
     .eq('event_id', eventId);
+  if (error) console.error('[supabase-error] lib/panood-camera-seats.ts · from:panood_camera_operators.update', error);
   return error ? null : token;
 }

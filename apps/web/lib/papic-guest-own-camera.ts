@@ -85,6 +85,7 @@ export async function resolveGuestOwnCamera(
     const { data: ded, error: dedErr } = await admin.rpc('papic_seat_dedicated_points', {
       p_seat_id: seatId,
     });
+    if (dedErr) console.error('[supabase-error] lib/papic-guest-own-camera.ts · rpc:papic_seat_dedicated_points', dedErr);
     if (dedErr) return null;
     const n = Number(ded);
     return { seatId, dedicated: Number.isFinite(n) && n > 0 ? n : 0 };

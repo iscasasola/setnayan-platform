@@ -7,6 +7,7 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { papicSeatAnonEnabled } from '@/lib/papic-seats';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
+import { VENUE_DOOR_STATE, VENUE_DOOR_THROTTLED_MESSAGE } from '@/lib/venue-door-throttle';
 
 // Papic · seat claim (public)
 //
@@ -76,6 +77,11 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // challenge) come back and one more tap works.
   const botCheckRefused = state === 'verify';
 
+  // ⏳ VENUE THROTTLE — the link is FINE here too, so this also falls through to
+  // the claim form rather than the terminal branch. Only reachable while the
+  // (default-OFF) venue-door throttle is on; see lib/venue-door-throttle.ts.
+  const venueThrottled = state === VENUE_DOOR_STATE;
+
   // Invalid / expired / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
@@ -125,6 +131,9 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
           usually just a tap that landed a second too early. Your link is fine. Give it one
           more go.
         </DoorNotice>
+      ) : null}
+      {venueThrottled ? (
+        <DoorNotice kind="alert">{VENUE_DOOR_THROTTLED_MESSAGE}</DoorNotice>
       ) : null}
       <form action={claimPapicSeat}>
         <input type="hidden" name="token" value={token} />

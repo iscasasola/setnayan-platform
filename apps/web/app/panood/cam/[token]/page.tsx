@@ -6,6 +6,7 @@ import { claimPanoodCamera } from '@/app/panood/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
+import { VENUE_DOOR_STATE, VENUE_DOOR_THROTTLED_MESSAGE } from '@/lib/venue-door-throttle';
 import {
   panoodCameraAnonEnabled,
   panoodStreamingEnabled,
@@ -110,6 +111,11 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   // all that happened is a tap landing before the check finished.
   const botCheckRefused = state === 'verify';
 
+  // ⏳ VENUE THROTTLE — the link is FINE here too, so this also falls through to
+  // the claim form rather than the terminal branch. Only reachable while the
+  // (default-OFF) venue-door throttle is on; see lib/venue-door-throttle.ts.
+  const venueThrottled = state === VENUE_DOOR_STATE;
+
   // Invalid / expired / revoked / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
@@ -159,6 +165,9 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
           usually just a tap that landed a second too early. Your link is fine. Give it one
           more go.
         </DoorNotice>
+      ) : null}
+      {venueThrottled ? (
+        <DoorNotice kind="alert">{VENUE_DOOR_THROTTLED_MESSAGE}</DoorNotice>
       ) : null}
       <form action={claimPanoodCamera}>
         <input type="hidden" name="token" value={token} />

@@ -31,6 +31,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Corpus: 0012_papic/Papic_Pricing_Lock_2026-07-20.md § 2.3 + § 11.
  */
 
+import { dropRetiredPapicTiers } from '@/lib/papic-retired-service-codes';
+
 export type PapicPassTier = {
   serviceCode: string;
   points: number;
@@ -56,7 +58,7 @@ export type PapicPassTier = {
  * Fallbacks — used ONLY when papic_pass_tiers is unreadable (pre-migration).
  * Owner-set 2026-07-20; the DB is the source of truth.
  */
-const FALLBACK_TIERS: readonly PapicPassTier[] = Object.freeze([
+export const FALLBACK_TIERS: readonly PapicPassTier[] = Object.freeze([
   { serviceCode: 'PAPIC_GUEST', points: 3_000, isTopup: false, sortOrder: 10 },
   { serviceCode: 'PAPIC_GUEST_6K', points: 6_000, isTopup: false, sortOrder: 20 },
   { serviceCode: 'PAPIC_GUEST_10K', points: 10_000, isTopup: false, sortOrder: 30 },
@@ -79,7 +81,11 @@ function normalise(rows: readonly TierRow[]): PapicPassTier[] {
       sortOrder: Number.isFinite(r.sort_order) ? (r.sort_order as number) : 0,
     }))
     .filter((t) => t.serviceCode.length > 0 && t.points > 0)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    // Papic is CREDITS. A retired seat / per-camera-per-day model may never
+    // become a tier again, whatever `platform_retail_catalog_v2` says — an
+    // admin toggle must not be able to resurrect a product on its own.
+    .filter((t) => dropRetiredPapicTiers([t]).length === 1);
 }
 
 /** Every active tier, cheapest first. Falls back rather than throwing. */
@@ -92,11 +98,16 @@ export async function fetchPapicPassTiers(
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
+  // 🔴 BOTH EXITS ARE FILTERED, NOT JUST THE NORMALISED ONE. This function can
+  // return WITHOUT passing through `normalise` — on a DB error, on an empty
+  // table, and on a normalise that filtered everything away. A retired model
+  // sitting in FALLBACK_TIERS would walk straight out of those exits. One
+  // guarded exit and one unguarded exit is the same as none.
   if (error || !Array.isArray(data) || data.length === 0) {
-    return [...FALLBACK_TIERS];
+    return dropRetiredPapicTiers(FALLBACK_TIERS);
   }
   const tiers = normalise(data as TierRow[]);
-  return tiers.length > 0 ? tiers : [...FALLBACK_TIERS];
+  return tiers.length > 0 ? tiers : dropRetiredPapicTiers(FALLBACK_TIERS);
 }
 
 /**

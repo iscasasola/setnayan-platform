@@ -167,6 +167,7 @@ export default async function VendorDashboardLayout({
         .select('thread_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vp.vendor_profile_id)
         .eq('inquiry_status', 'pending');
+      if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
       return error ? 0 : count ?? 0;
     })
     .catch(() => 0);

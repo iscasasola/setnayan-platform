@@ -2523,6 +2523,7 @@ async function sweepRipeReviewRequests(
         .eq('vendor_id', v.vendor_id)
         .in('status', ['contracted', 'deposit_paid'])
         .select('vendor_id');
+      if (updErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/page.tsx · from:event_vendors.update', updErr);
       if (updErr || !updated || updated.length === 0) continue;
       await emitNotification({
         userId: coupleUserId,

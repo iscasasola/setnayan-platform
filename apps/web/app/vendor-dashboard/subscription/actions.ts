@@ -32,6 +32,7 @@ import { orderRowFor } from '@/lib/order-mint-identity';
 import { vendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { notifyAdminsSubscriptionPending } from '@/lib/subscription-purchase-notify';
 import { termTooShortMessage } from '@/lib/vendor-plan-change-words';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 const ERR = (msg: string) =>
   redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
@@ -190,8 +191,16 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
             },
           ),
         );
-      if (!orderError) payPath = '/pay/' + encodeURIComponent(ref);
-    } catch {
+      if (orderError) {
+        // The shop still gets the plan screen's own instructions, but a plan
+        // purchase with NO order is one reconciliation cannot match — leave
+        // the reason where the next person debugging a "missing" bill looks.
+        logQueryError('subscription/actions: plan order insert', orderError, { purchase_id: purchaseId, reference: ref }, 'will_throw');
+      } else {
+        payPath = '/pay/' + encodeURIComponent(ref);
+      }
+    } catch (err) {
+      logQueryError('subscription/actions: plan order insert threw', err, { purchase_id: purchaseId });
       /* keep payPath null — see above */
     }
   }

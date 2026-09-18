@@ -118,7 +118,13 @@ export async function fetchPayableByReference(
   // An RLS refusal and a genuine miss are the SAME value here (null), and both
   // must read as "not found" — see the header. An `error` is also not a reason
   // to guess: never invent a payable.
-  if (error || !data) return null;
+  if (error) {
+    // Still "not found" to the visitor (see the header) — but a refusal is a
+    // different fact from a miss, and only the log can tell them apart.
+    console.error('[supabase-error] payable-by-reference: order by reference', error);
+    return null;
+  }
+  if (!data) return null;
 
   const order = data as OrderRow;
   const isVendorPlan =

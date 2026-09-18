@@ -511,6 +511,7 @@ export async function fetchWallArmedChallenge(
     .eq('event_id', eventId)
     .eq('mission_id', mission.mission_id)
     .not('capture_id', 'is', null);
+  if (cErr) console.error('[supabase-error] lib/live-wall.ts · from:papic_mission_completions.select', cErr);
 
   if (cErr) return { measured: false, challenge: null };
 

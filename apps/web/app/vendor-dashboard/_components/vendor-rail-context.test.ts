@@ -402,6 +402,8 @@ test('all five cron-free sweeps still ride on this layout', () => {
     // production is pre-launch-quiet: an admin-only mount would hang a
     // supplier's deadline on somebody opening /admin.
     'maybeRunLockRequestExpiry',
+    // S40. Same dual-mount reasoning as the lock-request nudge directly above.
+    'maybeRunDeletionRequestNudge',
     /*
       "Your credit is about to expire" (owner 2026-08-28). Registered here the
       moment it was added, because this list is the only thing standing between
@@ -422,7 +424,7 @@ test('all five cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    6,
+    7,
     'the count of post-response jobs changed',
   );
 });

@@ -63,6 +63,7 @@ export async function fetchVendorAcceptProvenance(
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/vendor-papic-grants.ts · from:vendor_event_unlocks.select', error);
     if (error || !unlock) return EMPTY_PROVENANCE;
 
     const row = unlock as { comp_reason: string | null };

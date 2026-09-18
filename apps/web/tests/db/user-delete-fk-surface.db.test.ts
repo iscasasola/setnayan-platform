@@ -132,8 +132,10 @@ test('META · public.users is in scope too, and cascades from auth.users', async
 test('the 17 fixed on 2026-08-01 no longer refuse a user delete', async () => {
   // Named individually rather than left to the baseline: each was a real
   // blocker, and a regression here is "this specific one reopened".
+  // 'bespoke_monogram_generations.created_by' — REMOVED (S40, migration
+  // 20271233873951): the table itself is dropped, so the constraint this
+  // line pinned no longer exists to regress.
   const fixed = [
-    'bespoke_monogram_generations.created_by',
     'budget_allocation_decisions.recorded_by',
     'budget_builds.created_by',
     'event_build_picks.picked_by',
@@ -218,7 +220,8 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
     'concierge_abuse_flags.flagged_user_id': 'c',
     'discount_code_redemptions.couple_user_id': 'c',
     'event_delegates.delegate_user_id': 'c',
-    'founder_time_log.user_id': 'c',
+    // 'founder_time_log.user_id': 'c' — REMOVED (S40, migration
+    // 20271233873951): the table is dropped, nothing left to CASCADE.
   };
 
   const { rows } = await db.query<{ k: string; d: string }>(`
@@ -394,11 +397,8 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
      VALUES ($1, $2, 'planner', $3)`,
     [eventId, leaver, other],
   );
-  const { rows: ft } = await db.query<{ log_id: string }>(
-    `INSERT INTO public.founder_time_log (user_id, week_starting, primary_function, primary_pct)
-     VALUES ($1, DATE '2026-08-03', 'engineering', 100) RETURNING log_id`,
-    [leaver],
-  );
+  // founder_time_log insert REMOVED (S40, migration 20271233873951): the
+  // table is dropped -- nothing left to seed or assert against.
 
   // ── THE DELETE ────────────────────────────────────────────────────────────
   // Before this migration this line threw a foreign-key violation, which is the
@@ -460,7 +460,6 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
 
   // 3 · SUBJECT rows are gone.
   const gone: Array<[string, string, string]> = [
-    ['founder_time_log', 'log_id', ft[0]!.log_id],
     ['concierge_abuse_flags', 'flag_id', fl2[0]!.flag_id],
   ];
   for (const [table, pk, value] of gone) {

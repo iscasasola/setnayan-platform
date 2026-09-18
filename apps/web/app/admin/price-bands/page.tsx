@@ -22,5 +22,7 @@ export default async function Redirect({ searchParams }: Props) {
   out.set('tab', 'price-bands');
   const recomputed = first(search.recomputed);
   if (recomputed !== undefined) out.set('recomputed', recomputed);
+  const funnelRecomputed = first(search.funnelRecomputed);
+  if (funnelRecomputed !== undefined) out.set('funnelRecomputed', funnelRecomputed);
   redirect(`/admin/pricing?${out.toString()}`);
 }

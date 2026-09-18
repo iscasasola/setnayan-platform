@@ -20,6 +20,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { VENDOR_CATEGORIES } from '../../lib/vendors';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -183,4 +184,38 @@ test('SABOTAGE: with the trigger dropped, the unknown kind goes through (so the 
   }
   const msg = await refusal(() => insertCard(UNKNOWN));
   assert.ok(msg, 'the rollback did not restore the trigger');
+});
+
+// ── EVERY KIND THE APP CAN WRITE IS ACCEPTED ────────────────────────────────
+// `parseCategory()` in app/vendor-dashboard/services/actions.ts is the only
+// gate in front of every app write of `vendor_services.category` (the create
+// insert and `save_vendor_service`). It accepts exactly two things: a legacy
+// `VENDOR_CATEGORIES` key, or a live coverage leaf. Leaves are read from
+// `canonical_service_taxonomy`, which the trigger also reads live. The legacy
+// half is a list IN CODE, so it is the half that can drift from the database.
+// This walks that list (imported, never re-typed) and requires every key to be
+// stored. A key added to the code with no matching vocabulary row turns this
+// red before the database refuses a real supplier's save.
+test('every VENDOR_CATEGORIES key the app accepts is accepted by the database', async () => {
+  assert.ok(VENDOR_CATEGORIES.length >= 40, `VENDOR_CATEGORIES has ${VENDOR_CATEGORIES.length} keys`);
+  const refused: string[] = [];
+  await db.query('BEGIN');
+  try {
+    for (const key of VENDOR_CATEGORIES) {
+      const msg = await refusal(async () => {
+        await db.query('SAVEPOINT k');
+        try {
+          await insertCard(key);
+          await db.query('RELEASE SAVEPOINT k');
+        } catch (e) {
+          await db.query('ROLLBACK TO SAVEPOINT k');
+          throw e;
+        }
+      });
+      if (msg) refused.push(`${key}: ${msg}`);
+    }
+  } finally {
+    await db.query('ROLLBACK');
+  }
+  assert.deepEqual(refused, [], `the database refuses kinds the app writes:\n${refused.join('\n')}`);
 });

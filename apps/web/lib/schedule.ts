@@ -54,6 +54,25 @@ export const SCHEDULE_BLOCK_LABEL: Record<ScheduleBlockType, string> = {
   tour: 'Tour / activity',
 };
 
+/**
+ * The block-type label a PERSON sees, for this event's type (AREA-COUPLE,
+ * 2026-09-19). Every non-wedding run-of-show seed (`lib/schedule-run-of-show.ts`)
+ * files "Guest arrival" under `pre_ceremony`, so a Movie Night's public
+ * programme read "PRE-CEREMONY · Guest arrival" — measured live on
+ * setnayan.com/movie-night. There is no ceremony at a birthday. For a
+ * non-wedding the type reads "Arrival"; a wedding (and a null/legacy type,
+ * which `eventNoun` treats as a wedding) is byte-identical to
+ * `SCHEDULE_BLOCK_LABEL`. The stored `block_type` is untouched.
+ */
+export function scheduleBlockLabelFor(
+  type: ScheduleBlockType,
+  eventType: string | null | undefined,
+): string {
+  const isWedding = !eventType || eventType === 'wedding';
+  if (!isWedding && type === 'pre_ceremony') return 'Arrival';
+  return SCHEDULE_BLOCK_LABEL[type];
+}
+
 export type ScheduleBlockRow = {
   block_id: string;
   public_id: string;

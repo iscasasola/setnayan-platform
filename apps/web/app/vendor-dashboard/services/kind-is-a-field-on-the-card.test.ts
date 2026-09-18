@@ -85,7 +85,7 @@ test('every per-kind editor reads the chosen kind', () => {
   for (const [what, re] of [
     ['the pricing basis', /<PricingBasisEditor\s+idPrefix="canvas"\s+category=\{category\}/],
     ["what's included", /<IncludedFlags\s+idPrefix="canvas"\s+category=\{category\}/],
-    ['the customization list', /<CustomizationStep categoryValue=\{category\}/],
+    ['the customization list', /<CustomizationStep\s+categoryValue=\{category\}/],
   ] as const) {
     assert.match(src, re, `${what} stopped following the chosen kind`);
   }

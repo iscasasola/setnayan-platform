@@ -191,7 +191,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
       {search.done === 'approved_deferred' && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Payment confirmed. This is a downgrade, so nothing changes yet — the
-          new plan starts when the vendor's current plan runs out.
+          new plan starts when the vendor&rsquo;s current plan runs out.
         </div>
       )}
       {search.done === 'rejected' && (

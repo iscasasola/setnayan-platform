@@ -188,6 +188,62 @@ test('🔑 9 · every rung produces a sentence a person could read', () => {
   }
 });
 
+// ── 1b · the facts beside the rung (SUP-2 · CPL-1, 2026-09-19) ────────────
+
+test('🔑 9b · a paid deposit, a confirmed meeting and a moved headcount are said', () => {
+  // The line the register asked for: the rung plus what has HAPPENED.
+  assert.equal(
+    say({
+      stage: 'booked',
+      lastSpeaker: 'vendor',
+      lastSaidAtMs: NOW - DAY,
+      depositPaid: true,
+      meeting: { atMs: NOW + DAY + 3_600_000 },
+      guestCounts: { atInquiry: 150, live: 170 },
+    }),
+    'Booked · Replied yesterday · Deposit paid · Meeting confirmed for tomorrow · Guest count changed: 150 → ~170',
+  );
+  // "waiting on you" stays beside the number it is about.
+  assert.equal(
+    say({ stage: 'quoted', quotedAmountPhp: 95_000, lastSpeaker: 'vendor', guestCounts: { atInquiry: 150, live: 170 } }),
+    'Quoted ₱95,000 · waiting on you · Guest count changed: 150 → ~170',
+  );
+  // A booked rung with nobody talking still says the facts.
+  assert.equal(say({ stage: 'booked', lastSpeaker: null, lastSaidAtMs: null, depositPaid: true }), 'Booked · Deposit paid');
+  // And a floor rung with only a fact is not an empty line.
+  assert.equal(
+    say({ lastSpeaker: null, lastSaidAtMs: null, meeting: { atMs: null } }),
+    'Meeting confirmed',
+  );
+});
+
+test('🔑 9c · each fact is said only when it is true', () => {
+  // Same headcount, or one missing ⇒ nothing to reconcile.
+  assert.equal(say({ guestCounts: { atInquiry: 150, live: 150 } }), 'No reply · 3 days');
+  assert.equal(say({ guestCounts: { atInquiry: null, live: 170 } }), 'No reply · 3 days');
+  assert.equal(say({ guestCounts: { atInquiry: 150, live: null } }), 'No reply · 3 days');
+  // A meeting already behind the couple is not news.
+  assert.equal(say({ meeting: { atMs: NOW - 2 * DAY } }), 'No reply · 3 days');
+  assert.equal(say({ meeting: { atMs: NOW } }), 'No reply · 3 days · Meeting confirmed for today');
+  assert.equal(say({ meeting: { atMs: NOW + 5 * DAY } }), 'No reply · 3 days · Meeting confirmed in 5 days');
+  // Absent facts say nothing — a caller that did not read them is not told "no".
+  assert.equal(say({ depositPaid: false, meeting: null }), 'No reply · 3 days');
+  // ⚠ A closed conversation gets none of them: "Cancelled · Meeting confirmed
+  // for tomorrow" is a meeting nobody should drive to.
+  for (const stage of ['completed', 'cancelled'] as const) {
+    assert.equal(
+      say({ stage, depositPaid: true, meeting: { atMs: NOW + DAY }, guestCounts: { atInquiry: 100, live: 200 } }),
+      THREAD_STAGE_LABEL[stage],
+      stage,
+    );
+  }
+  // The facts are subject-neutral: the supplier reads the same clauses.
+  const supplier = buildSupplierStanding(
+    facts({ viewer: 'vendor', stage: 'booked', depositPaid: true, guestCounts: { atInquiry: 150, live: 170 } }),
+  );
+  assert.ok(supplier && standingSentence(supplier).endsWith('Deposit paid · Guest count changed: 150 → ~170'));
+});
+
 // ── 2 · the roll-up is the same derivation, counted ─────────────────────────
 
 test('🔑 10 · the roll-up can only count replies a card is showing', () => {

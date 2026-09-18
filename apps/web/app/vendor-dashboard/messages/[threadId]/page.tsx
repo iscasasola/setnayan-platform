@@ -92,6 +92,7 @@ import {
   buildVendorConversationRows,
   initialsFor,
   isDateTagWorthShowing,
+  readStandingExtras,
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
@@ -780,6 +781,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * The rung is `railStage`, the one the header pill already shows, so the
    * pill and this line cannot contradict each other.
    */
+  // The facts beside the rung (SUP-2) — the SAME reader the couple's bench and
+  // thread page use. `paxAdmin` because a supplier cannot read `event_vendors`
+  // through their own session (see PR-H above); narrowed to this event × THIS
+  // shop's own profile, the pair the ownership check already proved.
+  const standingNowMs = Date.now();
+  const standingExtras = (
+    await readStandingExtras(paxAdmin, thread.event_id, [profile.vendor_profile_id], standingNowMs)
+  ).get(profile.vendor_profile_id);
+
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     viewer: 'vendor',
@@ -795,7 +805,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             ? 'couple'
             : null,
     lastSaidAtMs: lastThreadMessage ? Date.parse(lastThreadMessage.created_at) || null : null,
-    nowMs: Date.now(),
+    nowMs: standingNowMs,
+    depositPaid: standingExtras?.depositPaid ?? false,
+    meeting: standingExtras?.meeting ?? null,
+    // THE ONE guestCounts object this page reads its headcounts from.
+    guestCounts,
   });
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and

@@ -1,6 +1,7 @@
 'use client';
 
 import { STALE_RELOAD_KEY } from '@/lib/stale-bundle';
+import { STYLESHEET_FAILURE_KEY } from '@/lib/stylesheet-recovery';
 
 // Lazy-loads Sentry's browser SDK after the page has become interactive.
 //
@@ -178,6 +179,22 @@ export function DeferredObservability() {
             // already visible in the terminal / browser console.
             enabled: process.env.NODE_ENV === 'production',
           });
+          // A stylesheet failed on an earlier load and the page reloaded
+          // (lib/stylesheet-recovery.ts). Nothing on the server can see that —
+          // Vercel's logs carry no CDN static requests — so this report is the
+          // only measurement of WHY it happens. Sent once, then cleared.
+          try {
+            const failure = window.sessionStorage.getItem(STYLESHEET_FAILURE_KEY);
+            if (failure) {
+              window.sessionStorage.removeItem(STYLESHEET_FAILURE_KEY);
+              Sentry.captureMessage('A stylesheet failed to load; the page reloaded once', {
+                level: 'warning',
+                extra: { failure },
+              });
+            }
+          } catch {
+            // Storage disabled: there is nothing recorded to send.
+          }
         })
         .catch(() => {
           // Sentry chunk failed to load (offline, blocked, etc.). Drop

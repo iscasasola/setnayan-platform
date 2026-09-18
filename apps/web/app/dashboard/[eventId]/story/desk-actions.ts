@@ -132,6 +132,7 @@ async function heldBackNow(
     .select('capture_id, hidden_at, consent_to_public, moderation_state')
     .eq('capture_id', captureId)
     .maybeSingle();
+  if (cErr) console.error('[supabase-error] app/dashboard/[eventId]/story/desk-actions.ts · from:papic_guest_captures.select', cErr);
   if (cErr) return true;
 
   // The veto, for THIS capture only.
@@ -144,6 +145,7 @@ async function heldBackNow(
       .eq('source_table', 'papic_guest_captures')
       .eq('source_id', captureId)
       .is('removed_at', null);
+    if (tErr) console.error('[supabase-error] app/dashboard/[eventId]/story/desk-actions.ts · from:photo_tags.select', tErr);
     if (tErr) vetoed = true;
     else
       vetoed = (tags ?? []).some((t) => {

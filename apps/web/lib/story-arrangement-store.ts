@@ -109,6 +109,7 @@ export async function loadRunOfShowMoments(
       .neq('visibility', 'coordinator_only')
       .order('start_at', { ascending: true })
       .order('sort_order', { ascending: true });
+    if (error) console.error('[supabase-error] lib/story-arrangement-store.ts · from:event_schedule_blocks.select', error);
     if (error) return { moments: [], failed: true };
     const moments: RunOfShowMoment[] = [];
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {

@@ -23,7 +23,7 @@
 //      + uploads it to R2. The text-only path is untouched — send with no file
 //      behaves exactly as before.
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Paperclip, Send, X } from 'lucide-react';
 import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -40,6 +40,19 @@ import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 type Props = {
   threadId: string;
   sendAction: (formData: FormData) => Promise<void>;
+  /**
+   * Icons that sit on the composer row between the message box and Send —
+   * One Chat Box (2026-09-18): attach · message · 🧾 deal · 📞 call · send.
+   * They must be `type="button"` controls (they are inside this form) and they
+   * must NOT be forms: a nested form is invalid HTML and
+   * `scripts/lint-nested-forms.mjs` fails the build on one.
+   *
+   * ⚖ THEY STEP ASIDE WHILE A MESSAGE IS BEING WRITTEN. At 320px the row is
+   * at its ceiling — four 44px controls leave the box ~60px — so, as Messenger
+   * does, the icons hide once there is a draft and the box takes their room.
+   * They return the moment the box is empty again.
+   */
+  accessories?: ReactNode;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -48,7 +61,8 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction }: Props) {
+export function ChatSendForm({ threadId, sendAction, accessories }: Props) {
+  const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -147,6 +161,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
         if (textareaRef.current) {
           textareaRef.current.value = '';
         }
+        setHasDraft(false);
         clearFile();
         window.dispatchEvent(
           new CustomEvent('chat-stream:sent', { detail: { threadId } }),
@@ -230,7 +245,8 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
           maxLength={4000}
           placeholder="Type a message…"
           className="input-field min-h-[60px] flex-1 py-2"
-          onInput={() => {
+          onInput={(e) => {
+            setHasDraft(e.currentTarget.value.trim().length > 0);
             if (blockError) setBlockError(null);
             window.dispatchEvent(
               new CustomEvent('chat-stream:input', { detail: { threadId } }),
@@ -261,6 +277,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
             e.currentTarget.form?.requestSubmit();
           }}
         />
+        {accessories && !hasDraft ? accessories : null}
         <SubmitButton
           aria-label="Send"
           pendingLabel=""

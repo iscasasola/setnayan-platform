@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5a29bda2f",
+  "generatedFromRef": "2c3b0ddba",
   "routeCount": 428,
-  "destinations": 918,
+  "destinations": 919,
   "actions": 639,
-  "blocks": 4463,
+  "blocks": 4468,
   "routes": {
     "/": {
       "files": [
@@ -5882,6 +5882,7 @@
         "withdrawInquiry"
       ],
       "blocks": [
+        "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
@@ -5890,9 +5891,12 @@
         "Link",
         "NegotiationComposerMenu",
         "ReadRefusedNotice",
+        "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
-        "ThreadInterestChips"
+        "ThreadInterestChips",
+        "ThreadToolHashReveal",
+        "ThreadToolPanel"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -9627,6 +9631,7 @@
         "/vendor-dashboard/customers",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
+        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
@@ -10427,7 +10432,6 @@
       "files": [
         "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
         "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
-        "vendor-dashboard/messages/[threadId]/_components/reveal-thread-tool.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
@@ -10460,6 +10464,7 @@
         "sendProposalFromChat"
       ],
       "blocks": [
+        "ChatBox",
         "ChatInfoRailColumn",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
@@ -10467,8 +10472,6 @@
         "ChatSendForm",
         "ChatThreadMenu",
         "ConversationColumn",
-        "HTMLDetailsElement",
-        "HTMLElement",
         "Icon",
         "InquiryOutcomeCapture",
         "Link",
@@ -10485,6 +10488,7 @@
         "RailAction",
         "RailBody",
         "Resolved",
+        "RevealToolButton",
         "SendProposalCard",
         "Sheet",
         "ShutTool",
@@ -10494,6 +10498,7 @@
         "ThreadCallLauncher",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
+        "ThreadToolPanel",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"

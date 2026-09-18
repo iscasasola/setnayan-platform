@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -76,7 +76,12 @@ import {
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
-import { ThreadToolHashReveal } from './_components/reveal-thread-tool';
+import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
+import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
+import { affordancePanelId } from '@/lib/chat-box-tools';
+import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
@@ -138,6 +143,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const noticeKey = sp?.notice;
   // Read on the server so a Decisions link paints Decisions, not the chat.
   const initialView = parseThreadView(sp?.view);
+  // `?compose=deal` — the Counter-offer link on a quote card. It opens the
+  // deal panel on the server (`<details open>`) AND seeds the builder; until
+  // 2026-09-18 only the builder was seeded, inside a closed panel, so the link
+  // landed on a page that looked unchanged.
+  const composeMode = sp?.compose === 'deal' ? 'deal' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   const supabase = await createClient();
   const {
@@ -605,7 +615,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     ),
     'deal-or-meeting': (
         <NegotiationComposerMenu
-          initialMode={sp?.compose === 'deal' ? 'deal' : null}
+          embedded
+          initialMode={composeMode}
           threadId={threadId}
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
@@ -628,26 +639,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      way to put it away again. The components still mount ONCE, here, which is
      what keeps the rail cheap and every anchor id unique. */
   const vendorTools = toolsMounted ? (
-      <div className="flex flex-col gap-2 empty:hidden">
+      <div>
         {VENDOR_THREAD_PANELS.map((t) => (
-          <details
+          <ThreadToolPanel
             key={t.id}
             id={t.id}
-            data-thread-tool
-            className="group scroll-mt-24 rounded-xl border border-mulberry/25 bg-cream [&:not([open])]:hidden"
+            label={t.label}
+            hint={t.hint}
+            open={t.id === affordancePanelId('deal') && composeMode === 'deal'}
           >
-            <summary className="flex cursor-pointer items-center gap-2 border-b border-ink/10 px-4 py-2.5 text-sm font-semibold text-ink marker:content-none">
-              <span>{t.label}</span>
-              <span className="truncate font-normal text-ink/45">{t.hint}</span>
-              {/* The way OUT. A panel that can only be opened is a panel that
-                  never goes away — and the six of them stacked is what this
-                  change exists to undo. */}
-              <span className="ml-auto shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-xs font-medium text-ink/55 group-hover:border-ink/30">
-                Close
-              </span>
-            </summary>
-            <div className="p-3">{toolNodes[t.id]}</div>
-          </details>
+            {toolNodes[t.id]}
+          </ThreadToolPanel>
         ))}
       </div>
     ) : null;
@@ -970,8 +972,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      window, so on most days it renders nothing at all. */
   const showDayPrep = railStage === 'booked' && Boolean(event?.event_date);
 
+  /*
+    ── ONE CHAT BOX (owner-approved layout, 2026-09-18) ─────────────────────
+    One bordered frame (`ChatBox`): header · one-line privacy notice · the
+    cards that must stay in sight (a logged payment to confirm) · Chat /
+    Decisions / Files · the conversation · the composer row with the deal and
+    call icons on it · and, below, the nine closed tool panels. The couple's
+    page is the same frame, so the two sides read as one product.
+
+    The row is a FIXED height, which is what keeps a long thread scrolling
+    inside its own box with the composer pinned under it, and `min-h-[27rem]`
+    is its floor: on a 320px phone the row outgrows the viewport and the page
+    scrolls, rather than the frame clipping its own composer. The middle column
+    scrolls ITSELF (`min-h-0 overflow-y-auto`) so an open tool — "Build a
+    quote" is taller than a laptop screen — pushes the conversation down to
+    its floor instead of flattening it; the panel body scrolls inside the
+    panel past 55dvh.
+  */
+  const blocked = blockState.blockedByMe || blockState.blockedByThem;
+  const dealOpen = toolsMounted && chatNegotiationEnabled();
+
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
+    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
       {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
           xl, where there is room for all three without squeezing the middle —
           the whole point was to give the conversation back its space. */}
@@ -981,82 +1003,91 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         side="vendor"
         hrefBase="/vendor-dashboard/messages"
       />
-      {/* ⚠ AN OPEN TOOL MUST NOT BURY THE CONVERSATION (owner 2026-09-11).
-          The row above is a FIXED height, which is what keeps a long thread
-          scrolling inside its own box with the composer pinned under it. An
-          open tool (`vendorTools` — "Build a quote" is taller than a laptop
-          screen) used to squeeze the stream to zero: the composer landed on
-          the All/Decisions/Files tabs and the rest ran past the side columns'
-          backgrounds. Now this column scrolls ITSELF (`min-h-0` lets it be
-          held to the row, `overflow-y-auto` scrolls it) and the stream keeps a
-          floor (the wrapper below), so an open tool pushes the conversation
-          down instead of flattening it.
-          🔑 NOT `min-h` on the row: that fixes the tool case but lets a long
-          conversation grow the whole page, dropping the composer below the
-          fold on every busy thread. */}
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
-      <header className="flex items-center justify-between gap-3 sn-row p-4">
-        <div className="min-w-0 space-y-0.5">
-          <Link
-            href="/vendor-dashboard/messages"
-            className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
-          >
-            ‹ Messages
-          </Link>
-          <p className="truncate text-base font-semibold text-ink">
-            {headerLabel}
-            {founderInquiry ? (
-              <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                {FOUNDER_BADGE_LABEL}
+      {/* A deep link from the client brief (Quote / Call / Log payment) and the
+          rail's own launchers both land on an id inside a CLOSED disclosure.
+          This opens it; without it those four controls scroll to a collapsed
+          strip and read as doing nothing. */}
+      <ThreadToolHashReveal />
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <ChatBox
+          header={
+            <>
+              <Link
+                href="/vendor-dashboard/messages"
+                aria-label="Back to Messages"
+                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
+              >
+                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </Link>
+              <span
+                aria-hidden
+                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
+              >
+                {railInitials}
               </span>
-            ) : null}
-          </p>
-          {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
-              vendor; NULL resolves to "Website Inquiry". The returning flag is
-              a COMPANION chip: it combines with any origin, never replaces it. */}
-          <p className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
-              {sourceChipLabel}
-            </span>
-            {thread.is_returning ? (
-              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                {RETURNING_CUSTOMER_LABEL}
-              </span>
-            ) : null}
-          </p>
-          {event?.event_date ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              {/* "December 18, 2026", not the raw ISO key. A supplier deciding
-                  whether they are free that day should not be reading a
-                  database value (owner 2026-09-08). */}
-              {formatLongDate(event.event_date)}
-            </p>
-          ) : null}
-          {/* Live pax — recomputed fresh on view (Phase 5); the count the couple
-              is planning for, and the count at first inquiry once it grows. */}
-          {guestCountLine(guestCounts) ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
-              {/* ⚠ THE OLD LINE ONLY NAMED THE INQUIRY COUNT WHEN IT WAS
-                  SMALLER (`pax_at_inquiry < headerPax`). A couple who SHRANK
-                  their guest list therefore saw the second number vanish — the
-                  direction that costs a supplier money, silently. The helper
-                  names it whenever the two differ, either way. */}
-              Planning for {guestCountLine(guestCounts)}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {/* Mobile: opens the customer info rail as a sheet. Desktop shows the
-              rail as a docked column instead (see below). */}
-          <ChatInfoRailTrigger {...railProps} />
-          <ChatThreadMenu
-            threadId={threadId}
-            returnTo={`/vendor-dashboard/messages/${threadId}`}
-            blockedByMe={blockState.blockedByMe}
-          />
-        </div>
-      </header>
-
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">
+                  {headerLabel}
+                  {founderInquiry ? (
+                    <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                      {FOUNDER_BADGE_LABEL}
+                    </span>
+                  ) : null}
+                </p>
+                {/* ONE muted line: what they asked about · the date, as a date
+                    ("December 18, 2026", never the raw ISO key — owner
+                    2026-09-08) · the live count, naming the inquiry count
+                    whenever the two differ, either way. */}
+                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+                  <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
+                  {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
+                  {guestCountLine(guestCounts) ? (
+                    <span className="text-terracotta-700">
+                      Planning for {guestCountLine(guestCounts)}
+                    </span>
+                  ) : null}
+                </p>
+                {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
+                    vendor; NULL resolves to "Website Inquiry". The returning
+                    flag is a COMPANION chip: it combines with any origin, never
+                    replaces it. */}
+                <p className="mt-0.5 flex flex-wrap items-center gap-1">
+                  <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+                    {sourceChipLabel}
+                  </span>
+                  {thread.is_returning ? (
+                    <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                      {RETURNING_CUSTOMER_LABEL}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {/* Mobile: opens the customer info rail as a sheet. Desktop
+                    shows the rail as a docked column instead (see below). */}
+                <ChatInfoRailTrigger {...railProps} />
+                <ChatThreadMenu
+                  threadId={threadId}
+                  returnTo={`/vendor-dashboard/messages/${threadId}`}
+                  blockedByMe={blockState.blockedByMe}
+                  // The one destination that is a PAGE, not a tool, lives
+                  // behind ⋮ (the rail's dark button offers it too).
+                  links={[
+                    { href: `/vendor-dashboard/clients/${thread.event_id}`, label: 'Full customer profile' },
+                  ]}
+                />
+              </div>
+            </>
+          }
+          notice={<ChatPrivacyNotice inBox />}
+          pinned={
+            /* The cards that must stay in sight. Empty for most threads, and
+               then it takes no space at all (`empty:hidden`). The band carries
+               the `pending-payments` id the rail's "Log payment" reveals. */
+            <div
+              id="pending-payments"
+              className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-ink/10 px-3 py-2 empty:hidden sm:px-4"
+            >
       {showDayPrep ? (
         <VendorEventDayPrepCta
           threadId={threadId}
@@ -1170,10 +1201,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         );
       })}
 
-      {/* Scroll anchor for the rail's "Log payment" quick action — lands on the
-          couple-logged-payment confirm cards (rendered below when any exist). */}
-      <div id="pending-payments" className="scroll-mt-24" aria-hidden />
-
       {/* Pending payment confirms + per-booking plan progress — moved into a
           live client component so the vendor's payment cards update in real
           time (Realtime on the couple-RLS payment tables, gated by the
@@ -1186,65 +1213,38 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         initialPlans={planProgress}
       />
 
-      <ChatPrivacyNotice />
-
-      <ThreadInterestChips supabase={supabase} threadId={threadId} />
-
-      {/* A deep link from the client brief (Quote / Call / Log payment) and the
-          rail's own launchers both land on an id inside a CLOSED disclosure.
-          This opens it; without it those four controls scroll to a collapsed
-          strip and read as doing nothing. */}
-      <ThreadToolHashReveal />
-
-      {vendorTools}
-
-      {/* The stream's floor: it fills whatever the column has left, but never
-          less than this, so an open tool cannot flatten it (see the section). */}
-      <div className="flex min-h-[20rem] flex-1 flex-col">
-        <ChatMessageStream
-          counterHref={`?compose=deal`}
-          threadId={threadId}
-          initialMessages={initialMessages}
-          currentUserId={user.id}
-          viewerRole="vendor"
-          counterpartyLabel={coupleLabel}
-          eventDate={event?.event_date ?? null}
-          standing={threadStanding}
-          decisionPayments={decisionPayments}
-          decisionGuestCounts={decisionGuestCounts}
-          initialView={initialView}
-          // The SAME three actions this page's own sections post to — the
-          // payment-confirm row and the guest-count surcharge card below. One
-          // way to answer each request; Decisions is a second door to it.
-          supplierReplyActions={{
-            confirmPayment: confirmVendorPayment,
-            refusePayment: refuseVendorPayment,
-            applySurcharge: acceptPaxSurcharge,
-            holdPrice: declinePaxSurcharge,
-          }}
-          lockHandshake={lockHandshake}
-        />
-      </div>
-
-      {blockState.blockedByMe || blockState.blockedByThem ? (
-        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
-          {blockState.blockedByMe
-            ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
-            : 'You can no longer message in this conversation.'}
-        </div>
-      ) : thread.inquiry_status === 'accepted' ? (
-        <div className="space-y-3">
-          {proposalNotice ? (
-            <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
-              {proposalNotice}
-            </p>
-          ) : null}
-          {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX. The six
-              panels that used to sit here are `vendorTools`, above the stream
-              and closed, opened from the rail's tool list. */}
-          <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
-        </div>
-      ) : thread.inquiry_status === 'pending' ? (
+            </div>
+          }
+          composer={
+            blocked ? (
+              <div className="px-2 py-1 text-sm text-ink/70">
+                {blockState.blockedByMe
+                  ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+                  : 'You can no longer message in this conversation.'}
+              </div>
+            ) : thread.inquiry_status === 'accepted' ? (
+              <div className="space-y-1.5">
+                {proposalNotice ? (
+                  <p className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+                    {proposalNotice}
+                  </p>
+                ) : null}
+                {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
+                    attach · message · 🧾 deal · 📞 call · send; the two icons
+                    open panels in the tray below, the seven other tools open
+                    from the rail. Neither icon dials or sends. */}
+                <ChatSendForm
+                  threadId={threadId}
+                  sendAction={sendChatMessage}
+                  accessories={
+                    <>
+                      {dealOpen ? <RevealToolButton affordance="deal" /> : null}
+                      <RevealToolButton affordance="call" label={`Call ${coupleLabel}`} />
+                    </>
+                  }
+                />
+              </div>
+                  ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
             <span className="font-semibold">New inquiry.</span> Accept to reply,
@@ -1401,7 +1401,35 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               roll-up reflects it. */}
           {outcomeCapture}
         </div>
-      )}
+            )
+          }
+          tray={vendorTools}
+        >
+          <ChatMessageStream
+            flush
+            counterHref={`?compose=deal`}
+            threadId={threadId}
+            initialMessages={initialMessages}
+            currentUserId={user.id}
+            viewerRole="vendor"
+            counterpartyLabel={coupleLabel}
+            eventDate={event?.event_date ?? null}
+            standing={threadStanding}
+            decisionPayments={decisionPayments}
+            decisionGuestCounts={decisionGuestCounts}
+            initialView={initialView}
+            // The SAME three actions this page's own sections post to — the
+            // payment-confirm row and the guest-count surcharge card above. One
+            // way to answer each request; Decisions is a second door to it.
+            supplierReplyActions={{
+              confirmPayment: confirmVendorPayment,
+              refusePayment: refuseVendorPayment,
+              applySurcharge: acceptPaxSurcharge,
+              holdPrice: declinePaxSurcharge,
+            }}
+            lockHandshake={lockHandshake}
+          />
+        </ChatBox>
       </section>
 
       {/* Customer info rail — docked column on lg+ (mobile uses the header

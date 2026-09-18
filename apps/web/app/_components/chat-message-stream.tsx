@@ -158,6 +158,15 @@ type Props = {
    * with no negotiation composer wants.
    */
   counterHref?: string;
+  /**
+   * Inside the chat box (One Chat Box, 2026-09-18) the frame draws the border,
+   * so the three scrollers drop their own card chrome — a box in a box is the
+   * old wall one row shorter. The other mounts (client brief, workspace) keep
+   * the card look. Layout classes are untouched either way: the floor and the
+   * scroll region are the property `a-quote-card-does-not-crush-the-
+   * conversation.test.ts` counts, and they must read the same in both modes.
+   */
+  flush?: boolean;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -177,6 +186,7 @@ export function ChatMessageStream({
   initialView = 'all',
   supplierReplyActions,
   counterHref,
+  flush = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -834,6 +844,10 @@ export function ChatMessageStream({
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  // See the `flush` prop. One string, three scrollers, so the card chrome can
+  // never be dropped from one view and kept on another.
+  const scrollerChrome = flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4';
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/*
@@ -850,7 +864,7 @@ export function ChatMessageStream({
       />
 
       {view === 'decisions' ? (
-        <div className="min-h-[14rem] flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
+        <div className={`min-h-[14rem] flex-1 overflow-y-auto ${scrollerChrome}`}>
           <DecisionsPanel
             entries={decisions}
             standing={standing}
@@ -877,7 +891,7 @@ export function ChatMessageStream({
           />
         </div>
       ) : view === 'files' ? (
-        <div className="flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
+        <div className={`flex-1 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
       ) : (
@@ -908,7 +922,7 @@ export function ChatMessageStream({
         everything, the page scrolls instead of crushing the conversation to
         nothing.
       */
-      className="min-h-[14rem] flex-1 space-y-2 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4"
+      className={`min-h-[14rem] flex-1 space-y-2 overflow-y-auto ${scrollerChrome}`}
       aria-live="polite"
       aria-relevant="additions"
     >

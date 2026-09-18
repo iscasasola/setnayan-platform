@@ -31,6 +31,15 @@ import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ChevronLeft } from 'lucide-react';
+import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
+import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
+import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
+import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { formatLongDate } from '@/lib/format-date';
+import { initialsFor } from '@/lib/conversation-list';
 
 export const metadata = { title: 'Thread' };
 
@@ -381,15 +390,76 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   });
 
   /*
-    🔴 `min-h`, not a fixed `h`. The column used to be exactly
-    `h-[calc(100dvh-12rem)]`, so once the quote card appeared the message list
-    was crushed to 32px of visible height against 498px of content — and on
-    desktop it clipped a card mid-sentence. The column now GROWS when its
-    contents need more room and the page scrolls, rather than the conversation
-    disappearing. See chat-message-stream.tsx for the floor on the list itself.
+    ── ONE CHAT BOX (owner-approved layout, 2026-09-18) ─────────────────────
+    Seven separate cards used to stack down this column — header tile, safety
+    panel, pinned quote, "Inquiring about" row, the conversation, the call row,
+    the "+ Deal or meeting" pill, then the composer — and the conversation got
+    whatever the others left: measured on production at 32px of visible height
+    against 498px of content on a 390px phone.
+
+    Now there is ONE bordered frame (`ChatBox`): header · one-line safety note
+    · Chat / Decisions / Files · the conversation (the only thing that scrolls)
+    · the composer row with the deal and call icons on it · and, below, the two
+    closed tool panels those icons open. Every component that rendered before
+    still renders here — as a slot of the frame, not a card of its own.
+
+    🔴 THE COLUMN IS BOUNDED AGAIN, AND THIS TIME THAT IS SAFE. `h-[calc(100dvh
+    -12rem)]` is what pins the composer and lets the conversation scroll inside
+    the frame (the thing the page-scrolling `min-h` column could not do: the
+    list's own scroll-to-bottom scrolled nothing). It could crush the list when
+    six siblings shared the height; now the siblings are a ~60px header, a
+    ~40px note, a 44px switch and a ~60px composer, and TWO floors stand under
+    the conversation — the list's own `min-h-[14rem]`, and `min-h-[27rem]` on
+    this row, so on a 320px phone the row outgrows the viewport and the PAGE
+    scrolls rather than the frame clipping its own composer. Measured with a quote in the thread (the real
+    frame components, the repo's Tailwind, a real browser): 320 → 224px of
+    conversation (the list's floor; the page scrolls 56px), 360 → 224px,
+    390 → 391px, 1440 → 453px — against 32px at every width before #5584.
   */
+  const blocked = blockState.blockedByMe || blockState.blockedByThem;
+  const composerOpen =
+    !blocked &&
+    (thread.inquiry_status === 'accepted' ||
+      (thread.inquiry_status === 'pending' && canFollowUpWhilePending));
+  // Which of the two tools this box carries. Neither is mounted when it would
+  // open onto nothing: the call launcher renders null for a couple whose
+  // supplier's plan has calling locked, and the deal menu renders null while
+  // the negotiation flag is off — an icon that opens an empty panel is worse
+  // than no icon.
+  const callsOpen = !blocked && thread.inquiry_status === 'accepted' && callsEnabled;
+  const dealOpen = composerOpen && chatNegotiationEnabled();
+  const openPanelIds = new Set<string>(
+    [callsOpen ? affordancePanelId('call') : null, dealOpen ? affordancePanelId('deal') : null].filter(
+      (id): id is string => id !== null,
+    ),
+  );
+  const couplePanels = COUPLE_THREAD_PANELS.filter((p) => openPanelIds.has(p.id));
+  const toolNodes: Record<string, React.ReactNode> = {
+    // Free 1:1 voice/video call — accepted threads only (PR 10). The ids the
+    // composer's 📞 reveals (`thread-call-voice`) exist because of the prefix.
+    'thread-call': (
+      <ThreadCallLauncher
+        threadId={threadId}
+        currentUserId={user.id}
+        counterpartyLabel={vendorLabel}
+        callsEnabled={callsEnabled}
+        viewerRole="couple"
+        buttonIdPrefix="thread-call"
+      />
+    ),
+    'deal-or-meeting': (
+      <NegotiationComposerMenu
+        embedded
+        initialMode={composeMode}
+        threadId={threadId}
+        returnPath={`/dashboard/${eventId}/messages/${threadId}`}
+        eventDate={eventDate}
+      />
+    ),
+  };
+
   return (
-    <div className="flex min-h-[calc(100dvh-12rem)] gap-4">
+    <div className="flex h-[calc(100dvh-12rem)] min-h-[27rem] gap-4">
       {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
           xl, where there is room for it without squeezing the conversation —
           giving the conversation back its space was the whole point. */}
@@ -402,157 +472,177 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         backHref={`/dashboard/${eventId}/vendors`}
         backLabel="‹ Bench"
       />
-    <section className="flex min-w-0 flex-1 flex-col gap-4">
-      <header className="sn-tile flex items-center justify-between gap-3 p-4">
-        <div className="min-w-0 space-y-0.5">
-          <Link
-            href={`/dashboard/${eventId}/messages`}
-            className="sn-eye hover:text-terracotta"
-          >
-            ‹ Messages
-          </Link>
-          <p className="truncate text-base font-semibold text-ink">{vendorLabel}</p>
-          {vendor?.tagline ? (
-            <p className="truncate text-xs text-ink/60">{vendor.tagline}</p>
-          ) : null}
-          {/* The pax this vendor is quoting against (Adaptive Pax Pricing) —
-              fresh on view (Phase 5); so the couple sees what the vendor sees. */}
-          {headerPax ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta">
-              Planning for ~{headerPax} guests
-              {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
-                ? ` · was ${thread.pax_at_inquiry} at inquiry`
-                : ''}
-            </p>
-          ) : null}
-        </div>
-        <ChatThreadMenu
-          threadId={threadId}
-          returnTo={`/dashboard/${eventId}/messages/${threadId}`}
-          blockedByMe={blockState.blockedByMe}
-        />
-      </header>
-
-      <ChatSafetyBanner />
-
-      {/*
-        🔴 THE PINNED QUOTE CARD IS GONE — owner, 2026-09-18: "i think it is
-        better to place the quotation inside the chat box."
-
-        It rendered the live quote ABOVE the conversation, and this column is a
-        fixed height, so the card's height came straight out of the message
-        list. Measured on production with one quote present: the list had
-        clientHeight 32px against scrollHeight 498px on a phone, and on desktop
-        it clipped a card mid-sentence. The quote was also duplicated — the same
-        proposal already renders as a card inside the stream.
-
-        The stream's card now carries the line items and a Counter-offer action,
-        and two jump pills (📄 Jump to the quote · ↓ Latest messages) sit OVER
-        the scroller so finding it costs no layout height. A negotiation reads
-        as quote → counter → counter-back; the quote belongs in that order.
-
-        `ThreadQuotationsCard` still exists and is still exported — nothing was
-        deleted, only unmounted here. Its removal is recorded in
-        scripts/port-control-baseline.json, which exists to stop exactly this
-        kind of change happening silently.
-      */}
-
-      <ThreadInterestChips supabase={supabase} threadId={threadId} />
-
-      <ChatMessageStream
-        counterHref={`?compose=deal`}
-        threadId={threadId}
-        initialMessages={initialMessages}
-        currentUserId={user.id}
-        viewerRole="couple"
-        counterpartyLabel={vendorLabel}
-        eventDate={eventDate}
-        standing={threadStanding}
-        decisionPayments={decisionPayments}
-        initialView={initialView}
-        lockHandshake={lockHandshake}
-      />
-
-      {blockState.blockedByMe || blockState.blockedByThem ? (
-        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
-          {blockState.blockedByMe
-            ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
-            : 'You can no longer message in this conversation.'}
-        </div>
-      ) : thread.inquiry_status === 'accepted' ||
-      (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
-        <div className="space-y-2">
-          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
-          {thread.inquiry_status === 'accepted' ? (
-            <ThreadCallLauncher
-              threadId={threadId}
-              currentUserId={user.id}
-              counterpartyLabel={vendorLabel}
-              callsEnabled={callsEnabled}
-              viewerRole="couple"
-            />
-          ) : null}
-          {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
-            <p className="text-xs text-ink/55">
-              You can send one follow-up while you wait for {vendorLabel} to
-              accept.
-            </p>
-          ) : null}
-          <NegotiationComposerMenu
-            initialMode={composeMode}
-            threadId={threadId}
-            returnPath={`/dashboard/${eventId}/messages/${threadId}`}
-            eventDate={eventDate}
-          />
-          <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
-        </div>
-      ) : thread.inquiry_status === 'pending' ? (
-        <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-          <p className="text-sm text-ink">
-            <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}
-            {vendorLabel} to accept before your chat opens. We&rsquo;ll notify you
-            the moment they reply.
-          </p>
-          <form action={withdrawInquiry}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="thread_id" value={threadId} />
-            <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
-          </form>
-        </div>
-      ) : (
-        <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
-          <p className="text-sm text-ink">
-            {declineReason ? (
-              <>
-                {vendorLabel} declined this inquiry.{' '}
-                <span className="font-semibold">Why:</span> &ldquo;{declineReason}
-                &rdquo; Browse similar vendors to keep your options open.
-              </>
+      {/* Honours `#deal-or-meeting` / `#thread-call` on arrival and on change. */}
+      <ThreadToolHashReveal />
+      {/* The column scrolls ITSELF when the frame outgrows it (a tool open on a
+          short phone) — the frame never clips its own composer. */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <ChatBox
+          header={
+            <>
+              <Link
+                href={`/dashboard/${eventId}/messages`}
+                aria-label="Back to Messages"
+                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
+              >
+                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </Link>
+              {/* Initials, never the logo — a logo is exactly as identifying as
+                  the name it stands for, and the name here is already the
+                  reveal-safe one. */}
+              <span
+                aria-hidden
+                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
+              >
+                {initialsFor(vendorLabel)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{vendorLabel}</p>
+                {/* ONE muted line: what they asked about · the date · the count
+                    this vendor is quoting against (Adaptive Pax Pricing, fresh
+                    on view — the couple sees what the vendor sees). */}
+                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+                  <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
+                  {eventDate ? <span>{formatLongDate(eventDate)}</span> : null}
+                  {headerPax ? (
+                    <span className="text-terracotta">
+                      ~{headerPax} guests
+                      {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
+                        ? ` · was ${thread.pax_at_inquiry} at inquiry`
+                        : ''}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <ChatThreadMenu
+                threadId={threadId}
+                returnTo={`/dashboard/${eventId}/messages/${threadId}`}
+                blockedByMe={blockState.blockedByMe}
+              />
+            </>
+          }
+          notice={<ChatSafetyBanner inBox />}
+          composer={
+            blocked ? (
+              <div className="px-2 py-1 text-sm text-ink/70">
+                {blockState.blockedByMe
+                  ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+                  : 'You can no longer message in this conversation.'}
+              </div>
+            ) : composerOpen ? (
+              <div className="space-y-1.5">
+                {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
+                  <p className="px-1 text-xs text-ink/55">
+                    You can send one follow-up while you wait for {vendorLabel} to
+                    accept.
+                  </p>
+                ) : null}
+                {/* attach · message · 🧾 deal · 📞 call · send. The two icons
+                    open the panels in the tray below; neither dials or sends. */}
+                <ChatSendForm
+                  threadId={threadId}
+                  sendAction={sendChatMessage}
+                  accessories={
+                    <>
+                      {dealOpen ? <RevealToolButton affordance="deal" /> : null}
+                      {callsOpen ? (
+                        <RevealToolButton affordance="call" label={`Call ${vendorLabel}`} />
+                      ) : null}
+                    </>
+                  }
+                />
+              </div>
+            ) : thread.inquiry_status === 'pending' ? (
+              <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+                <p className="text-sm text-ink">
+                  <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}
+                  {vendorLabel} to accept before your chat opens. We&rsquo;ll notify you
+                  the moment they reply.
+                </p>
+                <form action={withdrawInquiry}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="thread_id" value={threadId} />
+                  <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
+                </form>
+              </div>
             ) : (
-              <>
-                {vendorLabel} isn&rsquo;t available for your date. Browse similar
-                vendors to keep your options open.
-              </>
-            )}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={similarVendorsHref}
-              className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-            >
-              See similar vendors
-            </Link>
-            <form action={withdrawInquiry}>
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="thread_id" value={threadId} />
-              <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
-                Withdraw inquiry
-              </SubmitButton>
-            </form>
-          </div>
-        </div>
-      )}
-    </section>
+              <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+                <p className="text-sm text-ink">
+                  {declineReason ? (
+                    <>
+                      {vendorLabel} declined this inquiry.{' '}
+                      <span className="font-semibold">Why:</span> &ldquo;{declineReason}
+                      &rdquo; Browse similar vendors to keep your options open.
+                    </>
+                  ) : (
+                    <>
+                      {vendorLabel} isn&rsquo;t available for your date. Browse similar
+                      vendors to keep your options open.
+                    </>
+                  )}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={similarVendorsHref}
+                    className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                  >
+                    See similar vendors
+                  </Link>
+                  <form action={withdrawInquiry}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="thread_id" value={threadId} />
+                    <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
+                      Withdraw inquiry
+                    </SubmitButton>
+                  </form>
+                </div>
+              </div>
+            )
+          }
+          tray={
+            couplePanels.length > 0 ? (
+              <div>
+                {couplePanels.map((t) => (
+                  <ThreadToolPanel
+                    key={t.id}
+                    id={t.id}
+                    label={t.label}
+                    hint={t.hint}
+                    // `?compose=deal` (the Counter-offer link on a quote card)
+                    // paints the amendment builder open, on the server.
+                    open={t.id === affordancePanelId('deal') && composeMode === 'deal'}
+                  >
+                    {toolNodes[t.id]}
+                  </ThreadToolPanel>
+                ))}
+              </div>
+            ) : null
+          }
+        >
+          {/*
+            The quote lives HERE, in the conversation (owner, 2026-09-18: "i
+            think it is better to place the quotation inside the chat box"),
+            with its line items, Review & accept and Counter-offer; the two jump
+            pills sit OVER the scroller and cost no height. `ThreadQuotationsCard`
+            still exists and is still exported — unmounted, recorded in
+            scripts/port-control-baseline.json.
+          */}
+          <ChatMessageStream
+            flush
+            counterHref={`?compose=deal`}
+            threadId={threadId}
+            initialMessages={initialMessages}
+            currentUserId={user.id}
+            viewerRole="couple"
+            counterpartyLabel={vendorLabel}
+            eventDate={eventDate}
+            standing={threadStanding}
+            decisionPayments={decisionPayments}
+            initialView={initialView}
+            lockHandshake={lockHandshake}
+          />
+        </ChatBox>
+      </section>
     </div>
   );
 }

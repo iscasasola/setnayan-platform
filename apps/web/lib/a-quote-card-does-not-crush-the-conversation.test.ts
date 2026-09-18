@@ -53,14 +53,43 @@ test('the conversation has a floor it cannot be squeezed below', () => {
   assert.match(ol, /min-h-\[\d+rem\]/, 'the CONVERSATION list lost its floor');
 });
 
-test('the column grows rather than clipping', () => {
-  const s = read(COUPLE);
-  assert.match(s, /min-h-\[calc\(100dvh-12rem\)\]/, 'the thread column lost its min-h');
-  assert.doesNotMatch(
-    s,
-    /className="flex h-\[calc\(100dvh-12rem\)\] gap-4"/,
-    'the column is a fixed height again — the exact shape that crushed the list',
-  );
+test('the column cannot clip its own composer', () => {
+  /*
+    ── EVOLVED 2026-09-18 (One Chat Box) ─────────────────────────────────────
+    The first version of this test demanded `min-h-[calc(100dvh-12rem)]` on the
+    couple's column: growing was the only way to guarantee nothing got crushed
+    while six siblings shared the height. A page-scrolling column has a cost
+    the same day showed: the list is never height-bounded, so its own
+    scroll-to-bottom scrolls nothing and a long thread opens at the TOP.
+
+    Both pages now bound the row again — that is what pins the composer and
+    lets the conversation scroll inside the frame — and the property moves to
+    where it is actually enforced: the row carries a `min-h-[Nrem]` FLOOR on
+    the same className as its height, so on a phone shorter than the floor the
+    row outgrows the viewport and the page scrolls, rather than the frame
+    clipping. The list's own `min-h-[14rem]` (tested above) is the second
+    floor. The bare fixed shape — a height with no floor — stays forbidden.
+  */
+  for (const [rel, name] of [[COUPLE, 'couple'], [VENDOR, 'supplier']] as const) {
+    const s = read(rel);
+    // COUNT the row: exactly one className carries the height AND a rem floor.
+    const bounded = s.match(/className="[^"]*\bh-\[calc\(100dvh-12rem\)\][^"]*\bmin-h-\[\d+rem\][^"]*"/g) ?? [];
+    assert.equal(
+      bounded.length,
+      1,
+      `${name}: expected exactly one row bounded to the viewport WITH a rem floor; found ${bounded.length}`,
+    );
+    const floorRem = Number(/\bmin-h-\[(\d+)rem\]/.exec(bounded[0]!)![1]);
+    assert.ok(
+      floorRem >= 26,
+      `${name}: the floor is ${floorRem}rem — below header + note + switch + composer + the list's 14rem`,
+    );
+    assert.doesNotMatch(
+      s,
+      /className="[^"]*\bh-\[calc\(100dvh-12rem\)\](?![^"]*min-h-\[)[^"]*"/,
+      `${name}: a fixed-height row with no floor — the exact shape that crushed the list`,
+    );
+  }
 });
 
 test('the quote is NOT duplicated above the conversation', () => {

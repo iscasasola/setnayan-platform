@@ -25,6 +25,7 @@ export function NegotiationComposerMenu({
   returnPath,
   eventDate,
   initialMode = null,
+  embedded = false,
 }: {
   threadId: string;
   returnPath: string;
@@ -36,15 +37,22 @@ export function NegotiationComposerMenu({
    * and named after neither countering nor quoting.
    */
   initialMode?: 'deal' | 'meeting' | null;
+  /**
+   * Mounted inside a tool panel the page already opened (One Chat Box,
+   * 2026-09-18). The panel's own header names it and carries Close, so the
+   * "+ Deal or meeting" pill would be a second door inside the first: the two
+   * choices show at once, and Cancel returns to them rather than to nothing.
+   */
+  embedded?: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode, setMode] = useState<Mode>(initialMode ?? (embedded ? 'menu' : null));
   const [kind, setKind] = useState<AppointmentKind>('video');
 
   if (!chatNegotiationEnabled()) return null;
 
   const minDate = todayIsoLocal();
   const maxDate = dayBeforeEventIso(eventDate);
-  const close = () => setMode(null);
+  const close = () => setMode(embedded ? 'menu' : null);
 
   if (mode === null) {
     return (
@@ -75,14 +83,16 @@ export function NegotiationComposerMenu({
         >
           📅 Request a meeting
         </button>
-        <button
-          type="button"
-          onClick={close}
-          aria-label="Close"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/40 hover:bg-ink/[0.06] hover:text-ink"
-        >
-          <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-        </button>
+        {embedded ? null : (
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink/40 hover:bg-ink/[0.06] hover:text-ink"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+          </button>
+        )}
       </div>
     );
   }

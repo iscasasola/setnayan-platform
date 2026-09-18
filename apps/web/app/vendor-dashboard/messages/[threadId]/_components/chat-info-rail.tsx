@@ -24,7 +24,7 @@ import {
   type VendorThreadLinkTool,
   type VendorThreadToolIcon,
 } from '@/lib/vendor-thread-tools';
-import { revealThreadTool } from './reveal-thread-tool';
+import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the

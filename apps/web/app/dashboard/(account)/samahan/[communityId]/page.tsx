@@ -121,7 +121,7 @@ export default async function SamahanSpacePage({
       : Promise.resolve(null),
     tab === 'overview'
       ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
-      : Promise.resolve([] as SamahanStory[]),
+      : Promise.resolve([] as SamahanStory[] | null),
     tab === 'usapan'
       ? fetchSamahanMessages(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanMessage[]),
@@ -240,7 +240,8 @@ export default async function SamahanSpacePage({
           inviteToken={inviteToken}
           isOrganizer={isOrganizer}
           memberCount={community.member_count}
-          stories={stories}
+          stories={stories ?? []}
+          storiesUnreadable={stories === null}
         />
       ) : tab === 'usapan' ? (
         <UsapanTab communityId={community.community_id} messages={messages} />
@@ -271,6 +272,7 @@ function OverviewTab({
   isOrganizer,
   memberCount,
   stories,
+  storiesUnreadable,
 }: {
   base: string;
   communityId: string;
@@ -280,6 +282,8 @@ function OverviewTab({
   isOrganizer: boolean;
   memberCount: number;
   stories: SamahanStory[];
+  /** The stories read was REFUSED — the strip must not say "Nothing yet" (S41b). */
+  storiesUnreadable: boolean;
 }) {
   // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
   // so a preview deploy handed testers a PRODUCTION invite link.
@@ -289,7 +293,7 @@ function OverviewTab({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        <SamahanStories communityId={communityId} stories={stories} />
+        <SamahanStories communityId={communityId} stories={stories} unreadable={storiesUnreadable} />
       </div>
       <div className="rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
         {description ? (

@@ -85,11 +85,12 @@ type SeatClaimStatus =
  * paparazzi_seats under RLS. Returns only a verdict (never seat data), and is
  * used solely to decide whether to mint a login-free anonymous session, so an
  * invalid/taken/reissued (or bot-prefetched) link never leaks an orphan anon
- * identity. Graceful-degrade: a missing/legacy table reads as 'invalid'.
+ * identity. A REFUSED read is 'unreadable' — never 'invalid', which tells a
+ * crew member holding a perfectly good link that it "isn't active" (S41b).
  */
 async function seatClaimability(
   token: string,
-): Promise<'claimable' | 'taken' | 'invalid'> {
+): Promise<'claimable' | 'taken' | 'invalid' | 'unreadable'> {
   try {
     const admin = createAdminClient();
     const { data: seat, error } = await admin
@@ -97,12 +98,16 @@ async function seatClaimability(
       .select('claimer_user_id, revoked_at')
       .eq('claim_qr_token', token)
       .maybeSingle();
-    if (error || !seat) return 'invalid';
+    if (error) {
+      console.error('[supabase-error] app/papic/actions.ts · from:paparazzi_seats.select', error);
+      return 'unreadable';
+    }
+    if (!seat) return 'invalid';
     if (seat.revoked_at) return 'invalid';
     if (seat.claimer_user_id) return 'taken';
     return 'claimable';
   } catch {
-    return 'invalid';
+    return 'unreadable';
   }
 }
 
@@ -141,6 +146,8 @@ export async function claimPapicSeat(formData: FormData) {
       }
       const claimability = await seatClaimability(token);
       if (claimability === 'taken') redirect(`/papic/claim/${token}?state=taken`);
+      // A refused read is not a dead link — back to the form, retryable (S41b).
+      if (claimability === 'unreadable') redirect(`/papic/claim/${token}?state=unreadable`);
       if (claimability !== 'claimable') {
         redirect(`/papic/claim/${token}?state=invalid`);
       }

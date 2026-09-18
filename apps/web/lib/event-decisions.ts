@@ -54,6 +54,7 @@ export async function fetchEventUnreadCounts(
     const { data, error } = await supabase.rpc(
       'unread_message_threads_by_event',
     );
+    if (error) console.error('[supabase-error] lib/event-decisions.ts · rpc:unread_message_threads_by_event', error);
     if (error) return out;
     for (const row of (data ?? []) as Array<{
       event_id: string | null;
@@ -143,6 +144,7 @@ export async function fetchVendorUnreadCounts(
     const { data, error } = await supabase.rpc(
       'unread_message_threads_by_vendor',
     );
+    if (error) console.error('[supabase-error] lib/event-decisions.ts · rpc:unread_message_threads_by_vendor', error);
     if (error) return out;
     for (const row of (data ?? []) as Array<{
       vendor_profile_id: string | null;

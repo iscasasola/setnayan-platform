@@ -537,6 +537,7 @@ async function eventsApproachingTheirClock(
       p_retention_days: Math.max(0, retentionDaysMinusLead),
       p_post_event_days: Math.max(0, FULL_RES_POST_EVENT_GRACE_DAYS - WARN_LEAD_DAYS),
     });
+    if (error) console.error('[supabase-error] lib/daily-email-jobs.ts · rpc:papic_events_past_fullres_clock', error);
     if (error || !Array.isArray(data)) return null;
     return data
       .map((r) => String((r as { event_id?: unknown }).event_id ?? ''))

@@ -223,6 +223,7 @@ export async function loadFeaturedChaptersResult(
       .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
       .order('showcase_featured_at', { ascending: false })
       .limit(limit);
+    if (error) console.error('[supabase-error] lib/storytellers.ts · from:creator_chapters.select', error);
     // A REJECTED QUERY IS NOT A THROWN ERROR — this is the branch a phantom
     // column or a missing grant takes, silently. incl. 42703 pre-migration.
     if (error) return { items: [], ok: false };
@@ -355,6 +356,7 @@ export async function loadFeaturedChaptersCreditingVendor(vendorKeys: {
       .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
       .order('showcase_featured_at', { ascending: false })
       .limit(100);
+    if (error) console.error('[supabase-error] lib/storytellers.ts · from:creator_chapters.select', error);
     if (error) return [];
     const rows = (data ?? []) as (ChapterRow & { substrate: unknown })[];
     const credited = rows.filter((r) => {

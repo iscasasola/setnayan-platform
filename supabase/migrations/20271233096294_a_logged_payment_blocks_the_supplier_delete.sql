@@ -37,6 +37,10 @@
 --     `the_money_outlives_the_event` already decided what happens to that money
 --     (a marketplace booking keeps it with `event_id` nulled; a typed-in name
 --     takes it along); this must not reopen that.
+--     ⚠ Measured in the replay: when that cascade reaches this row the payment
+--     is ALREADY gone, so the clause is never the deciding one there. It is a
+--     defence for a cascade order the replay does not produce. Unproven, and
+--     labelled as such rather than tested with a fixture that cannot fail.
 --   · a row whose `event_id` is already NULL — a booking preserved after its
 --     celebration was deleted. That is the supplier's record, governed by the
 --     preservation slices, not by a couple's delete.

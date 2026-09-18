@@ -211,7 +211,15 @@ test('deleting the whole celebration is not blocked by a recorded payment', asyn
   /* The guard must not resurrect the bug `the_money_outlives_the_event` fixed:
      a couple who deletes their event takes a typed-in supplier and its payment
      with it (there is no supplier record to keep). The cascade from `events`
-     must pass through. */
+     must pass through.
+
+     ⚠ WHAT THIS DOES NOT PROVE: the trigger's "event still exists" clause.
+     Probed in this replay: by the time the celebration's cascade reaches the
+     supplier row, its payment is ALREADY gone (and so is the event), so the
+     clause is never the deciding one. Deleting it stayed green, and so did a
+     variant that re-created the payment log's FK to flip the trigger order.
+     The clause is kept as a defence for a cascade order this replay cannot
+     produce. This test pins only the outcome: the celebration still deletes. */
   const { couple, eventId } = await newCouple();
   const vendorId = await recordCostWithSupplier(couple, eventId, 3000);
 

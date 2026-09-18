@@ -19,6 +19,6 @@ payment on the Budget page if it was a mistake, then remove the supplier.
 cancel dialog shows. It is not routed to disputes.
 
 Proved by `tests/db/a-logged-payment-outlives-the-supplier-delete.db.test.ts`
-(red on main, 2 of 5; sabotage-checked).
+(red on main: 2 of 5. Rewriting the trigger into the old status-list shape turns the same 2 red. The event-still-exists clause is defensive and unproven: the replay cannot produce the cascade order it guards against.)
 
 SPEC IMPACT: None. This restores what the delete guard was always meant to do.

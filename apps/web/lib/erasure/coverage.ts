@@ -628,11 +628,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'to_user_id',
     why: 'The incoming steward, same shape as from_user_id. Nulling one side never touches the other.',
   },
-  {
-    table: 'vendor_meetings',
-    column: 'created_by_user_id',
-    why: 'Who booked the meeting. The meeting is a two-party record read by the vendor; the booker’s identity goes and the slot stays.',
-  },
 
   // ── batch 5, settled 2026-08-02 · mostly STAFF stamps on platform content ──
   {
@@ -705,11 +700,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'site_widgets',
     column: 'updated_by_admin_id',
     why: 'Staff stamp on a homepage widget slug.',
-  },
-  {
-    table: 'vendor_self_comp_caps',
-    column: 'raised_by_admin',
-    why: 'Which admin raised a store’s quarterly comp ceiling. The cap belongs to the store.',
   },
   {
     table: 'vendor_recommendations',

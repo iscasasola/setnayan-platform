@@ -510,9 +510,12 @@ test('the supplier written-off count stays closed to BOTH principals', async () 
  * the same five-gate scan that already picked them once.
  */
 test('anon KEEPS the grants that a security_invoker view reads on its behalf', async () => {
+  // `vendor_tool_bundles` → `vendor_active_tools` was the second pair here. Both
+  // were DROPPED 2026-09-18 (S39, migration 20271234122426): the V1 tool SKUs
+  // they recorded were retired and no page read the view. The test below proves
+  // they are gone, so this pair cannot quietly come back as a grant-less table.
   const viewBacked: [string, string][] = [
     ['vendor_ad_subscriptions', 'vendor_active_ads → vendor_market_stats (the public marketplace listing)'],
-    ['vendor_tool_bundles', 'vendor_active_tools'],
   ];
   for (const [table, chain] of viewBacked) {
     const { rows } = await db.query<{ ok: boolean }>(
@@ -529,6 +532,21 @@ test('anon KEEPS the grants that a security_invoker view reads on its behalf', a
         `to revoke and is wrong.`,
     );
   }
+});
+
+test('the retired V1 tool entitlement is gone — table AND the view that read it', async () => {
+  const { rows } = await db.query<{ relname: string }>(
+    `SELECT c.relname FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+      WHERE c.relname IN ('vendor_tool_bundles', 'vendor_active_tools')`,
+  );
+  assert.deepEqual(
+    rows.map((r) => r.relname),
+    [],
+    'vendor_tool_bundles / vendor_active_tools exist again. They were removed from the ' +
+      'view-backed list above because they were dropped; if one is back, it needs its anon ' +
+      'grant decision made again, not inherited silently.',
+  );
 });
 
 test('the PUBLIC supplier figures are untouched — this must not break a shop page', async () => {

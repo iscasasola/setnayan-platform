@@ -250,6 +250,15 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // prune them all at once and is deliberately NOT bundled into this change.
   homepage_hero_config:
     'Table DROPPED 2026-08-06 — the retired sign-in hero config; nothing left to erase.',
+  // ⚠ TABLES DROPPED 2026-09-18 (migration 20271234122426, S39) — no writer
+  // ever shipped for either, 0 rows in prod. Their SET NULL purge rules were
+  // removed from coverage.ts in the same change (a rule against a dropped table
+  // records an erasure FAILURE on every request). Listed only because the
+  // migration parser cannot see a DROP — same reason as the entries above.
+  vendor_meetings:
+    'Table DROPPED 2026-09-18 — ad-hoc meetings table nothing wrote; appointments replaced it. Nothing left to erase.',
+  vendor_self_comp_caps:
+    'Table DROPPED 2026-09-18 — per-store comp-cap override nothing wrote; the cap is a fixed 12. Nothing left to erase.',
   // ⚠ TABLE DROPPED 2026-08-22 (migration 20271157440480) with the all-events
   // calendar subscription — owner: "block delete." Its executable purge rule
   // was REMOVED from OWN_ROW_DELETES in coverage.ts at the same time (a DELETE

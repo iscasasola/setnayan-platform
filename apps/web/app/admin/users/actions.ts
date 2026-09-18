@@ -177,9 +177,10 @@ export async function forceSignOutUser(formData: FormData) {
  *
  * ⚠ THE FOREIGN-KEY REASON FOR NOT DELETING IS GONE AS OF 2026-08-02, AND THIS
  * FUNCTION STILL DOES NOT DELETE — on purpose. Two sweeps gave all 48 refusing
- * FKs a written verdict, and exactly three still refuse (order_refunds,
- * supplies_orders, vendor_contract_signatures — see
- * tests/db/user-delete-refusing-fks.baseline.txt). So a hard delete would now
+ * FKs a written verdict, and exactly two still refuse (order_refunds,
+ * supplies_orders — see tests/db/user-delete-refusing-fks.baseline.txt;
+ * vendor_contract_signatures was the third until its table was DROPPED on
+ * 2026-09-18). So a hard delete would now
  * succeed for most accounts. It is still the wrong operation: erasure's
  * obligation is to destroy the PERSONAL data, not the business records, and
  * anonymize-and-retain does exactly that while a DELETE would take the

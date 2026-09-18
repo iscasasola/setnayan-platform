@@ -41,7 +41,7 @@
 | Signup form | `app/signup/actions.ts:41` | `auth.signUp` + auto-confirm + `users.public_summary_consent_at` | `?error=missing/password_too_short/blacklisted` | Operational | 3 side-effects via `Promise.allSettled`; consent write polls for trigger row |
 | OAuth Google/Facebook | `app/auth/oauth-actions.ts:46` | `auth.signInWithOAuth` → provider | "not configured" redirect if no URL | Operational | Shared across login/signup/onboarding step 11 |
 | OAuth callback | `app/auth/callback/route.ts:5` | `auth.exchangeCodeForSession` | `safeNext()` open-redirect guard | Operational | — |
-| Waitlist join | `app/waitlist/actions.ts:18` | `couple_waitlist_signups` upsert | `?error=missing_email/invalid_email/server` | Operational | Idempotent by email |
+| Waitlist join | _(retired)_ | `couple_waitlist_signups` **DROPPED 2026-09-18** (migration `20271234094457`) | — | Retired | Setnayan went live for couples 2026-07-24; `/waitlist` is a "start now" landing with no form |
 | Join-event role picker | `app/join/[eventId]/actions.ts:29` | `guests` insert/link + `event_members` insert | `?error=invalid_role/invalid_token` | Operational | Matches guest by email or creates placeholder |
 | Host accept invite | `app/host/accept/[token]/actions.ts:25` | `event_moderators` update (accept, token→null) | terminal-state guards; `?error=accept_failed` | Operational | Single-use token |
 | Host decline invite | `app/host/accept/[token]/actions.ts:108` | `event_moderators` update (removed_at) | always `?declined=1` | **Risk** | Update `error` not captured — if it fails, link stays live but user told "declined" (cosmetic) |
@@ -201,7 +201,7 @@ Mostly *schema ahead of UI* for deferred/retired iterations, not bugs:
 - **Retired AI planner ("Setnayan AI"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`. (`couple_briefs` dropped 2026-09-18, S37.)
 - **Deferred Supplies marketplace (0018):** `supplier_vendor_skus`, `supplier_vendor_sku_pricing`, `supplies_orders`, `supplies_order_line_items`.
 - **Vendor token-economy ahead of UI:** `vendor_token_boosters`, `vendor_tool_bundles`.
-- **Contract intelligence (0032):** `vendor_contract_signatures`.
+- **Contract intelligence (0032):** `vendor_contract_signatures` — **DROPPED 2026-09-18** (migration `20271234094457`); contracts are upload-only by owner lock.
 - **Other unwired:** `event_delegates`, `event_software_activations_v2` (the *target* of Action #1, currently unused), `founder_time_log`, `households` ("UI lands later"), `led_background_renders` (live route writes `led_background_configs` instead), `platform_availability`, `user_devices`, `vendor_screen_name_sequences` (likely SQL-function-only), `vendor_verifications` (read via view/RPC). (`vendor_bid_submissions` and `vendor_release_history` dropped 2026-09-18, S37.)
 
 ### Possibly-orphaned API endpoint

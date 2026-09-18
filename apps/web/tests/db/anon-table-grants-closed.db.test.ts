@@ -121,7 +121,11 @@ const CLOSED_IN_BATCH_2 = [
   'supplier_vendor_skus',
   'supplies_orders',
   'vendor_2307_filings',
-  'vendor_contract_signatures',
+  // 'vendor_contract_signatures' was closed in this batch and DROPPED on
+  // 2026-09-18 (migration 20271234094457 — contracts are upload-only by owner
+  // lock, 0 rows ever). The META test below asserts every name exists in the
+  // replay, so a dropped table cannot stay listed; the batch floor moves 17→16
+  // for that one reason and no other.
   'vendor_member_token_wallets',
   'vendor_release_history',
 ];
@@ -381,7 +385,8 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 1's list has shrunk to ${CLOSED_IN_BATCH_1.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED_IN_BATCH_2.length >= 17,
+    // 17 until 2026-09-18; vendor_contract_signatures was DROPPED (see the list).
+    CLOSED_IN_BATCH_2.length >= 16,
     `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
   );
   assert.ok(

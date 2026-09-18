@@ -1325,9 +1325,10 @@ export type EraseResult = {
  * with its birth data + chat already erased (an inconsistent, unrecoverable state).
  *
  * ⚠ PAST TENSE ON PURPOSE (2026-08-02). Those foreign keys have since been swept
- * — 48 of them decided across two migrations, and exactly THREE still refuse, all
- * deliberately (order_refunds · supplies_orders · vendor_contract_signatures; see
- * tests/db/user-delete-refusing-fks.baseline.txt). A hard delete would therefore
+ * — 48 of them decided across two migrations, and exactly TWO still refuse, both
+ * deliberately (order_refunds · supplies_orders; see
+ * tests/db/user-delete-refusing-fks.baseline.txt — vendor_contract_signatures was
+ * the third until its table was DROPPED on 2026-09-18). A hard delete would therefore
  * succeed today for most accounts, and that does NOT make it the right call. The
  * FK situation was only ever the reason the old code CRASHED; the reason this
  * function anonymizes instead is the one in "Legal posture" below — erase the

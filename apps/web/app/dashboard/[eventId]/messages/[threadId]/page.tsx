@@ -650,9 +650,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             The quote lives HERE, in the conversation (owner, 2026-09-18: "i
             think it is better to place the quotation inside the chat box"),
             with its line items, Review & accept and Counter-offer; the two jump
-            pills sit OVER the scroller and cost no height. `ThreadQuotationsCard`
-            still exists and is still exported — unmounted, recorded in
-            scripts/port-control-baseline.json.
+            pills sit OVER the scroller and cost no height. The pinned
+            `ThreadQuotationsCard` that used to sit above the stream was deleted
+            on 2026-09-18 (S36) — unmounted since #5584, an orphan in the
+            both-ends baseline; lib/a-quote-card-does-not-crush-the-conversation
+            still asserts it is never mounted again.
           */}
           <ChatMessageStream
             flush

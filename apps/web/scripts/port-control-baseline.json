@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2c3b0ddba",
+  "generatedFromRef": "29f644dec",
   "routeCount": 428,
-  "destinations": 919,
-  "actions": 639,
-  "blocks": 4468,
+  "destinations": 918,
+  "actions": 640,
+  "blocks": 4484,
   "routes": {
     "/": {
       "files": [
@@ -777,6 +777,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
+        "[slug]/_components/song-request-card.tsx",
         "[slug]/_components/special-message-widget.tsx",
         "[slug]/_components/spotlight-card.tsx",
         "[slug]/_components/std-background-layer.tsx",
@@ -1057,6 +1058,7 @@
         "SheetEntry",
         "SiteBody",
         "SiteMenuBar",
+        "SongRequestCard",
         "SpatialBackdrop",
         "SpecialMessageWidget",
         "SpotlightCard",
@@ -1476,6 +1478,7 @@
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/record-search.ts",
         "admin/_components/what-you-change.tsx",
+        "admin/_email-delivery-strip.tsx",
         "admin/_overview-tile.tsx",
         "admin/error.tsx",
         "admin/layout.tsx",
@@ -1597,6 +1600,7 @@
         "BottomNav",
         "CountUp",
         "EditingIsOnTheComputer",
+        "EmailDeliveryStrip",
         "EmptyState",
         "ErrorState",
         "GuidedTour",
@@ -1614,6 +1618,7 @@
         "Row",
         "Screen",
         "Sk",
+        "Suspense",
         "Tile",
         "UnreadBellBadge",
         "WhatYouChange"
@@ -3222,6 +3227,7 @@
     "/admin/settings": {
       "files": [
         "admin/settings/_components/brand-icon-form.tsx",
+        "admin/settings/_components/email-delivery-section.tsx",
         "admin/settings/_components/loader-appearance-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
@@ -3259,6 +3265,7 @@
         "ComplianceSurface",
         "CountCard",
         "DemoModeSurface",
+        "EmailDeliverySection",
         "Field",
         "File",
         "FireResult",
@@ -5868,15 +5875,13 @@
     },
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
-        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/proposals/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "withdrawInquiry"
@@ -5890,7 +5895,6 @@
         "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
-        "ReadRefusedNotice",
         "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
@@ -7689,6 +7693,7 @@
         "DeadlineChip",
         "DeleteManualVendorResult",
         "DependencyNudge",
+        "DepositLine",
         "DialogState",
         "DigitalServicesRail",
         "DownpaymentModal",
@@ -7891,6 +7896,7 @@
         "ThreadCallLauncherLazy",
         "ThreadInterestChips",
         "TrustedCircleBadge",
+        "VendorDirectPay",
         "VendorItemizationCard",
         "VendorMarketplaceInfo",
         "VendorPackageItemRow",
@@ -9596,6 +9602,8 @@
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
+        "vendor-dashboard/_components/payments-paused-note.tsx",
+        "vendor-dashboard/_components/payout-method-nudge.tsx",
         "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/qr-card.tsx",
@@ -9705,6 +9713,8 @@
         "NotConnected",
         "OngoingTasks",
         "PageMasthead",
+        "PaymentsPausedNote",
+        "PayoutMethodNudge",
         "Pips",
         "ProgressRing",
         "PromoFreeWindowBannerVendor",
@@ -10010,6 +10020,8 @@
         "LockRow",
         "OverviewTab",
         "PaymentAsksPanel",
+        "PaymentsPausedNote",
+        "PayoutMethodNudge",
         "PipelinePressureLine",
         "PipelineStrip",
         "QuoteTab",
@@ -10259,6 +10271,7 @@
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
+        "PaymentsPausedNote",
         "Section",
         "SubmitButton",
         "VendorDeepSearchActionState"
@@ -10687,6 +10700,7 @@
         "MediaStream",
         "MyLine",
         "PauseToggle",
+        "PaymentsPausedNote",
         "PickRow",
         "PlaylistSlotType",
         "PortfolioImportForm",
@@ -10823,6 +10837,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
+        "routes.vendor.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],
@@ -10831,6 +10846,8 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "Link",
+        "LockedState",
         "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"
@@ -11411,6 +11428,7 @@
         "PageMasthead",
         "PapicChallengeCard",
         "PayBox",
+        "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",
         "PositionHeadline",
@@ -11442,6 +11460,8 @@
         "K",
         "Link",
         "PageMasthead",
+        "PayChannel",
+        "PaymentsPausedNote",
         "StepperControl",
         "ToggleControl"
       ]

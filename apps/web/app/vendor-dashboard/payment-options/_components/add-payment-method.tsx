@@ -22,7 +22,10 @@
  */
 
 import { useState } from 'react';
-import { Plus, Landmark, QrCode, Link2, Lock, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Landmark, QrCode, Link2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { LockedState } from '@/app/_components/states/locked-state';
+import { routes } from '@/lib/routes';
 import {
   PAYMENT_PROVIDERS,
   classifyPaymentLink,
@@ -213,18 +216,24 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
 
       {type === 'link' ? (
         !isPro ? (
-          <div className="flex items-start gap-3 rounded-xl border border-ink/15 bg-ink/[0.03] p-4">
-            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.75} />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-ink">
-                Payment links are a Pro &amp; Enterprise feature
-              </p>
-              <p className="text-xs text-ink/55">
-                Upgrade your plan to add Maya, PayPal, or Stripe checkout links. Bank, e-wallet, and
-                QR options are free on every plan.
-              </p>
-            </div>
-          </div>
+          // State 04 · LOCKED — the six-state system's gold entitlement frame
+          // (app/_components/states), mounted here for the first time (S36,
+          // 2026-09-18). Same words as the grey box it replaces, plus the one
+          // thing that box lacked: the single step that unlocks it. No price is
+          // written here — the plans page reads the live catalog.
+          <LockedState
+            tierLabel="Pro & Enterprise"
+            title="Payment links are a Pro & Enterprise feature"
+            blurb="Upgrade your plan to add Maya, PayPal, or Stripe checkout links. Bank, e-wallet, and QR options are free on every plan."
+            action={
+              <Link
+                href={routes.vendor.subscription()}
+                className="button-primary inline-flex min-h-[40px] items-center justify-center px-5 text-sm font-semibold"
+              >
+                See plans
+              </Link>
+            }
+          />
         ) : (
           <label htmlFor="link_url" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">

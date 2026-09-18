@@ -81,8 +81,11 @@ export type NotificationType =
   | 'inquiry_no_response'
   | 'photo_delivery_complete'
   | 'photo_delivery_failed'
-  | 'vendor_token_purchase_pending'
-  | 'vendor_tokens_credited'
+  // 'vendor_token_purchase_pending' / 'vendor_tokens_credited' were the token
+  // wallet's notice types (RETIRED 2026-05-11). Removed from the union
+  // 2026-09-18 — no app file ever passed either as a type. The Postgres enum
+  // still carries both values (2 historical rows use the first); an enum
+  // value can't be cheaply dropped, so it is left as inert history.
   // Added 2026-06-10. Invite/Join v2 (2026-06-25) repurposed it: fired
   // (couple-recipient) from app/join/[eventId]/actions.ts (notifyCoupleUnlisted)
   // when an optimistically-admitted joiner didn't match the list and lands in the
@@ -415,8 +418,6 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_no_response: 'Vendor hasn’t replied',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
-  vendor_token_purchase_pending: 'Token purchase awaiting payment',
-  vendor_tokens_credited: 'Tokens credited',
   guest_claim_pending: 'Guest request to confirm',
   security_alert: 'Security alert',
   kwento_flagged: 'Guest story to review',
@@ -520,10 +521,6 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   inquiry_no_response: 'bg-warn-100 text-warn-900',
   photo_delivery_complete: 'bg-success-100 text-success-800',
   photo_delivery_failed: 'bg-danger-100 text-danger-800',
-  // Pending purchase = admin action needed → amber (matches resubmit/awaiting).
-  vendor_token_purchase_pending: 'bg-warn-100 text-warn-900',
-  // Tokens credited = positive money-in confirmation → emerald (matches order_paid).
-  vendor_tokens_credited: 'bg-success-200 text-success-900',
   // Guest request awaiting the couple's confirmation = action needed → amber.
   guest_claim_pending: 'bg-warn-100 text-warn-900',
   // Security alert = the alarm register — rose, matching payment_rejected /

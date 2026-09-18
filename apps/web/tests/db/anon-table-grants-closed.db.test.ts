@@ -77,13 +77,15 @@ const CLOSED_IN_BATCH_1 = [
   'guest_qr_rotations',
   'papic_mission_completions',
   'seo_suggestions',
-  'supplies_order_line_items',
   'token_grants_log',
   'token_rewards_log',
   'vendor_bid_submissions',
   'vendor_guest_deliveries',
   'vendor_screen_name_sequences',
-  'vendor_token_boosters',
+  // 'supplies_order_line_items' and 'vendor_token_boosters' DROPPED 2026-09-18
+  // (migration 20271234329420_drop_retired_token_wallet_supplies_vertical) —
+  // a dropped table can't be named here at all, `has_table_privilege` throws
+  // rather than returning false on a missing relation (see the META test).
 ];
 
 /**
@@ -117,13 +119,14 @@ const CLOSED_IN_BATCH_2 = [
   'rate_limit_hits',
   'render_jobs',
   'seating_editor_locks',
-  'supplier_vendor_sku_pricing',
-  'supplier_vendor_skus',
-  'supplies_orders',
   'vendor_2307_filings',
   'vendor_contract_signatures',
   'vendor_member_token_wallets',
   'vendor_release_history',
+  // 'supplier_vendor_sku_pricing', 'supplier_vendor_skus' and 'supplies_orders'
+  // DROPPED 2026-09-18 (migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical) — see the note
+  // on CLOSED_IN_BATCH_1 above.
 ];
 
 /**
@@ -362,12 +365,18 @@ test('META · the replay has the anon role and these tables, so a pass means som
   // 2's seventeen entries outright would have passed the anti-vacuity check
   // while silently un-guarding all of them. Each batch also has its own floor,
   // so emptying either one is caught rather than absorbed by the other.
+  //
+  // Floors for batches 1 and 2 lowered 2026-09-18 (14→12, 17→14): 'supplies_
+  // order_line_items' + 'vendor_token_boosters' (batch 1) and 'supplier_
+  // vendor_sku_pricing' + 'supplier_vendor_skus' + 'supplies_orders' (batch 2)
+  // were DROPPED, not un-guarded — see migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical.
   assert.ok(
-    CLOSED_IN_BATCH_1.length >= 14,
+    CLOSED_IN_BATCH_1.length >= 12,
     `batch 1's list has shrunk to ${CLOSED_IN_BATCH_1.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED_IN_BATCH_2.length >= 17,
+    CLOSED_IN_BATCH_2.length >= 14,
     `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
   );
   assert.ok(
@@ -387,7 +396,7 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 7's list has shrunk to ${CLOSED_IN_BATCH_7.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 95,
+    CLOSED.length >= 90,
     `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 

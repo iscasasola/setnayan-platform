@@ -231,6 +231,11 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
   patiktok_music_tracks: 'A music track title.',
   service_catalog: 'The display name of a purchasable service.',
   setnayan_pay_methods: 'The display name of a payment rail ("GCash"), not a person.',
+  // TABLE DROPPED 2026-09-18 (migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical, the retired
+  // Supplies vertical). The entry STAYS for the same reason `people` etc. do
+  // in export-coverage-guardrail.test.ts: the scan unions every historical
+  // CREATE TABLE and does not read DROP TABLE, so this table is still "seen".
   supplier_vendor_skus: 'The display name of a supplier SKU.',
   vendor_event_sets: 'The name of a vendor-authored set of event offerings.',
   venue_directory: 'The name of a venue (a place).',

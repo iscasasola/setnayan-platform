@@ -188,8 +188,9 @@ function enclosingCall(src: string, at: number): string | null {
       }
       if (c !== '(') continue; // an object literal / array / block: keep looking outward
       const before = src.slice(0, i).match(/([A-Za-z_$][\w$]*)\s*(?:<[^()]*>)?\s*$/);
-      if (before && !['if', 'while', 'for', 'switch', 'return', 'typeof', 'await'].includes(before[1])) {
-        return before[1];
+      const name = before?.[1];
+      if (name && !['if', 'while', 'for', 'switch', 'return', 'typeof', 'await'].includes(name)) {
+        return name;
       }
       // a grouping paren `(v.deposit_paid_php as number)` — keep looking outward
     }

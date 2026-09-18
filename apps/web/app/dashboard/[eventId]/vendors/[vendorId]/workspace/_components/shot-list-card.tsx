@@ -50,7 +50,7 @@ export function ShotListCard({
     return (
       <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
         <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} /> Shot list
+          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
         </h2>
         <p className="mt-2 text-sm text-warn-800">
           We couldn’t load {vendorName}’s shot list just now. Refresh to try again — this is not the
@@ -68,7 +68,7 @@ export function ShotListCard({
     return (
       <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
         <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} /> Shot list
+          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
         </h2>
         <p className="mt-2 text-sm text-ink/60">
           {vendorName} hasn’t shared a shot list yet. When they save one from their day-of console,
@@ -83,7 +83,7 @@ export function ShotListCard({
     <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} /> Shot list
+          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
         </h2>
         <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           {captured}/{rows.length} captured

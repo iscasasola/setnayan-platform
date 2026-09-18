@@ -24,7 +24,17 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { formatStarRating } from '@/lib/reviews';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+  type TrustedReviewStatsRow,
+} from '@/lib/reviews';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  cardRecordRatingFromTrusted,
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
@@ -1611,6 +1621,46 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     A failure costs a picture, never the grid — the card falls back to the
     initials tile, which is a real design state, not an error state.
   */
+  /*
+    ═ SUP-41 · THE CARD'S RECORD COMES WITH IT, AND SO DOES THE SHOP'S PRICE CHOICE ═
+    The shop's own page (`app/v/[slug]`) grows each card its record — booked
+    count, event-type mix, anonymized ledger, medals — and this grid drew the
+    SAME `ServiceCardView` with the record hard-wired to null, so a card with a
+    real history looked brand new on the marketplace and veteran one click
+    later. Same batched RPC, same flag, same shop-rating rule
+    (`cardRecordRatingFromTrusted`) as the shop page, so the two cannot disagree.
+
+    It also passed `hidePrices: false` for every card. A shop that ticked "hide
+    my prices publicly" had them hidden on its own page and on the vendor grid
+    (`hidingPrices` below) — and printed on this grid. Same batch reader,
+    same fail-open default.
+
+    Each read fails soft to "nothing extra", never to an empty grid: a missing
+    record renders the card as it rendered yesterday.
+  */
+  const serviceCardShopIds = serviceCards
+    ? [...new Set(serviceCards.map((c) => c.vendorProfileId))]
+    : [];
+  const [serviceCardRecords, serviceCardShopStats, serviceCardHidingPrices] = serviceCards
+    ? await Promise.all([
+        cardRecordEnabled()
+          ? fetchServiceCardRecords(
+              admin,
+              serviceCards.map((c) => c.row.vendor_service_id),
+            ).catch(() => new Map<string, CompiledCardRecord>())
+          : Promise.resolve(new Map<string, CompiledCardRecord>()),
+        cardRecordEnabled()
+          ? fetchTrustedReviewStatsForMany(admin, serviceCardShopIds).catch(
+              () => new Map<string, TrustedReviewStatsRow>(),
+            )
+          : Promise.resolve(new Map<string, TrustedReviewStatsRow>()),
+        fetchVendorsHidingPricesPublicly(admin, serviceCardShopIds),
+      ])
+    : [
+        new Map<string, CompiledCardRecord>(),
+        new Map<string, TrustedReviewStatsRow>(),
+        new Set<string>(),
+      ];
   const serviceCardLogoUrls = new Map<string, string | null>();
   if (serviceCards) {
     const byShop = new Map<string, string | null>();
@@ -3593,11 +3643,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     undefined,
                     undefined,
                     undefined,
-                    false,
+                    serviceCardHidingPrices.has(c.vendorProfileId),
                     null,
                     new Date(),
-                    null,
-                    null,
+                    serviceCardRecords.get(c.row.vendor_service_id) ?? null,
+                    cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
                     false,
                     serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
                   )}

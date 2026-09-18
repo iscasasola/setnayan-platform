@@ -50,6 +50,7 @@ export async function loadBackCover(args: {
       .select('draft_json')
       .eq('event_id', args.eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_lib/back-cover.server.ts · from:event_editorial.select', error);
     // A REFUSED READ IS NOT AN EMPTY DRAFT — but for a read-only surface both
     // resolve to the same safe answer: draw nothing.
     if (error || !row) return null;

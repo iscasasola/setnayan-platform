@@ -169,6 +169,7 @@ export async function loadSupplierDesk(
       'get_vendor_event_brief',
       { p_event_id: capability.vendorEventId },
     );
+    if (briefError) console.error('[supabase-error] app/[slug]/_lib/supplier-desk.server.ts · rpc:get_vendor_event_brief', briefError);
     if (briefError || !briefData) return null;
     const brief = briefData as Brief;
     // Only an agreed booking earns the venue and the running order. The RPC

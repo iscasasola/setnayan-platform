@@ -81,13 +81,21 @@ export async function approveSubscription(formData: FormData): Promise<void> {
 
   // Notify the vendor only on a NEW activation ({paid:true}); a re-confirm of an
   // already-paid order ({already:true}) shouldn't re-ping them. Fail-soft.
-  const result = (data ?? {}) as { paid?: boolean; already?: boolean };
+  const result = (data ?? {}) as { paid?: boolean; already?: boolean; deferred?: boolean };
   if (result.paid) {
     await notifyVendorSubscriptionActivated(id as string);
   }
 
   revalidatePath('/admin/subscriptions');
-  redirect('/admin/subscriptions?done=approved');
+  // A downgrade never activates today (`_apply_subscription_credit`'s
+  // `deferred: true` branch) — it only schedules the plan for when the
+  // vendor's current term ends. The confirm banner has to say that, not
+  // "activated", or the admin is told something happened that didn't.
+  redirect(
+    result.deferred
+      ? '/admin/subscriptions?done=approved_deferred'
+      : '/admin/subscriptions?done=approved',
+  );
 }
 
 export async function rejectSubscription(formData: FormData): Promise<void> {

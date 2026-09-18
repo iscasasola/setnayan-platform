@@ -83,7 +83,9 @@ export type ManpowerGigRow = {
 //   d. Revalidate vendor + host paths.
 //
 // No token is consumed — accepting is free (see the FREE-TO-ACCEPT note at the
-// top of this file). handshake_tokens_consumed stays at its 0 default.
+// top of this file). handshake_tokens_consumed is written as 0 by
+// postManpowerGig's INSERT (SUP-54 — the column's own default used to be 2,
+// a pre-retirement leftover the insert silently inherited).
 
 export type AcceptManpowerResult =
   | { status: 'ok'; gig: ManpowerGigRow }
@@ -360,6 +362,11 @@ export async function postManpowerGig(formData: FormData): Promise<void> {
     gig_label: gigLabel.trim().slice(0, 200),
     cash_amount_php_centavos: cashAmountPhpCentavos,
     notes,
+    // SUP-54: written explicitly, not left to the column default. The
+    // default was 2 (a leftover from the pre-retirement token economy) until
+    // migration 20271233392742 corrected it to 0 — sending it here as well
+    // means this insert is honest even against an un-migrated database.
+    handshake_tokens_consumed: 0,
   });
 
   if (insertError) {

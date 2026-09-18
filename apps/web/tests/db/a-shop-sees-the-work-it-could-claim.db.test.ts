@@ -119,6 +119,22 @@ test('a host posts an open shift on their own celebration', async () => {
   assert.equal(await tryPost(w, w.host), 1);
 });
 
+// SUP-54: the column DEFAULTed to 2 until migration 20271233392742 — a
+// leftover from the pre-retirement token economy that `acceptManpowerGig`'s
+// own comment already claimed was 0. A row inserted with no explicit value
+// (exactly what `tryPost`'s bare INSERT does) proves which one is now true.
+test('handshake_tokens_consumed defaults to 0 (SUP-54 — the free-to-accept model, not the retired 2-token one)', async () => {
+  const w = await seed('handshake-default');
+  await asUser(w.host);
+  const { rows } = await db.query<{ handshake_tokens_consumed: number }>(
+    `INSERT INTO public.manpower_gigs (event_id, posted_by_user_id, gig_label, cash_amount_php_centavos)
+     VALUES ($1,$2,'Second shooter',1500000)
+     RETURNING handshake_tokens_consumed`,
+    [w.eventId, w.host]);
+  await reset();
+  assert.equal(rows[0]!.handshake_tokens_consumed, 0);
+});
+
 test('a stranger cannot post one on somebody else’s celebration', async () => {
   const w = await seed('post-stranger');
   assert.equal(await tryPost(w, w.shopOwner), 0);

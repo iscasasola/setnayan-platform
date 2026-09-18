@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { eventNoun } from '@/lib/event-noun';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, ArrowRight, Send, LayoutGrid } from 'lucide-react';
@@ -6,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
+import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
@@ -257,6 +258,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
   // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
   const guestRoleSetKey = await resolveRoleSetKeyForEvent(eventId);
+  // The mind map's root reads "Your wedding" when no bride+groom are on the
+  // list — which is EVERY debut or birthday. Same cached profile read as above.
+  const eventWord = eventNoun((await resolveProfileByEvent(eventId)).eventType);
   // Ceremony-aware View-sidebar filters: muslim weddings get the Nikah-principals
   // filter and not the Catholic sponsor/bearer ones, and vice-versa.
   const viewFilters = viewFiltersFor(guestRoleSetKey);
@@ -1041,6 +1045,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           }))}
           groups={groups}
           groupMemberships={groupMemberships}
+          eventWord={eventWord}
         />
       ) : (
       /* Roster-as-hero — full-width (Living Roster P0). The left facet rail is

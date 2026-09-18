@@ -256,6 +256,7 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
         .not('output_object_key', 'is', null)
         .order('completed_at', { ascending: false })
         .limit(6);
+      if (error) console.error('[supabase-error] lib/auto-recap.ts · from:patiktok_render_jobs.select', error);
       if (!error && data) {
         const rows = data as {
           output_bucket?: string | null;
@@ -295,6 +296,7 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
         .select('panood_watch_url')
         .eq('event_id', eventId)
         .maybeSingle();
+      if (error) console.error('[supabase-error] lib/auto-recap.ts · from:events.select', error);
       if (!error && data) {
         const watchUrl = (data as { panood_watch_url?: string | null }).panood_watch_url ?? null;
         const videoId = watchUrl ? parseYouTubeVideoId(watchUrl) : null;

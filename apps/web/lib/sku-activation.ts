@@ -1674,13 +1674,20 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!chargeId) return;
       // SEC-4b: the paying order must belong to the charge's own vendor.
       await assertOrderOwnsVendorTarget(ctx, await chargeOwnerVendorId(ctx, chargeId));
-      const settled = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
+      const { settled, error: settleError } = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
+      // `settle_error` separates "already settled, no-op" (null) from "the RPC
+      // failed and the fee is still open" (the reason) — S34, 2026-09-18.
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
         event_type: 'service_activated',
         actor_user_id: ctx.actorUserId,
         actor_role: 'admin',
-        metadata: { service_key: ctx.serviceKey, booking_fee_charge_id: chargeId, settled },
+        metadata: {
+          service_key: ctx.serviceKey,
+          booking_fee_charge_id: chargeId,
+          settled,
+          settle_error: settleError,
+        },
       });
       // THE OWNER'S FIRST DOOR (2026-09-05): "vendors get 5% of the amount they
       // paid for on booking fee … when we approve the payment." The fee is now

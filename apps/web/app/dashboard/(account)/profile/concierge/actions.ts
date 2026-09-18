@@ -270,16 +270,13 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
     userPhone: (userRow as { phone?: string | null }).phone ?? null,
   });
   if (abuse) {
-    try {
-      await admin.from('concierge_abuse_flags').insert({
-        flagged_user_id: userId,
-        matched_user_ids: abuse.matchedUserIds,
-        similarity_score: abuse.similarityScore,
-        signals: abuse.signals,
-      });
-    } catch (e) {
-      console.error('[concierge] abuse-flag insert failed:', e);
-    }
+    const { error: abuseFlagErr } = await admin.from('concierge_abuse_flags').insert({
+      flagged_user_id: userId,
+      matched_user_ids: abuse.matchedUserIds,
+      similarity_score: abuse.similarityScore,
+      signals: abuse.signals,
+    });
+    if (abuseFlagErr) console.error('[concierge] abuse-flag insert failed:', abuseFlagErr.message);
     void emitNotification({
       userId,
       type: 'chat_message',

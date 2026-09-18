@@ -160,6 +160,9 @@ import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_co
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -632,6 +635,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     must SAY so, or it would ask the same question again forever.
   */
   const depositDeclined = Boolean(completion?.deposit_declined_at);
+
+  // S19 · can this couple see anywhere to pay you? Read only when the answer is
+  // about to be shown — a booking ask on screen, or a booked client whose
+  // deposit is still outstanding. The supplier's OWN profile id, never a param.
+  const payoutMatters = Boolean(lockRequest) || (isBooked && !depositAcked);
+  const payoutReadiness: PayoutReadiness = payoutMatters
+    ? await readSupplierPayoutReadiness({
+        adminClient: admin,
+        vendorProfileId: profile.vendor_profile_id,
+        // The SHOP OWNER's account — the Pro-tier check (payment links) is theirs,
+        // and a team member may be the one looking.
+        vendorUserId: profile.user_id,
+      }).catch((): PayoutReadiness => 'unreadable')
+    : 'unreadable';
   const eventVendorId = completion?.vendor_id ?? null;
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
@@ -1176,7 +1193,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <LockRequestAnswer
             eventVendorId={lockRequest.event_vendor_id}
             expiresAt={lockRequest.expires_at}
+            payoutReadiness={payoutReadiness}
           />
+        ) : isBooked && !depositAcked ? (
+          <PayoutMethodNudge readiness={payoutReadiness} context="client" />
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
@@ -3597,9 +3617,12 @@ function ScheduleTab(props: {
 function LockRequestAnswer({
   eventVendorId,
   expiresAt,
+  payoutReadiness,
 }: {
   eventVendorId: string;
   expiresAt: string | null;
+  /** S19 — asked HERE because agreeing makes the deposit the couple's next step. */
+  payoutReadiness: PayoutReadiness;
 }) {
   // Server-rendered, so "now" is the render instant. The deadline is the one the
   // DATABASE stamped and the sweep enforces — never a window recomputed here.
@@ -3624,6 +3647,7 @@ function LockRequestAnswer({
         You are seeing the area, the date and the headcount. The exact venue and the
         day-of run-of-show open the moment you agree.
       </p>
+      <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={vendorAgreeToLock}>
           <input type="hidden" name="vendor_id" value={eventVendorId} />

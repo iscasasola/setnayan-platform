@@ -18,6 +18,8 @@ import { CountUp } from '@/app/_components/count-up';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from './payout-method-nudge';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
@@ -601,6 +603,7 @@ export function WhatsNewFeed({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  payoutReadiness = 'unreadable',
 }: {
   cards: WhatsNewCard[];
   acceptInquiry: (formData: FormData) => void | Promise<void>;
@@ -615,6 +618,12 @@ export function WhatsNewFeed({
   /** The review reply is TAKEN HERE — the desk could name an unanswered review and not accept the answer. */
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  /**
+   * S19 — can a couple see anywhere to pay this supplier? Shown on the booking
+   * ask, where agreeing makes the deposit the couple's next step. Defaults to
+   * `unreadable`, which renders nothing.
+   */
+  payoutReadiness?: PayoutReadiness;
 }) {
   return (
     <section id="whats-new" className="mb-8 scroll-mt-24">
@@ -648,6 +657,7 @@ export function WhatsNewFeed({
                 declineDeletion={declineDeletion}
                 postReviewReply={postReviewReply}
                 respondMeeting={respondMeeting}
+                payoutReadiness={payoutReadiness}
               />
             </li>
           ))}
@@ -669,6 +679,7 @@ function FeedCard({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  payoutReadiness,
 }: {
   card: WhatsNewCard;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
@@ -682,6 +693,7 @@ function FeedCard({
   declineDeletion: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  payoutReadiness: PayoutReadiness;
 }) {
   const tone = cardTone(card);
   return (
@@ -703,7 +715,12 @@ function FeedCard({
           declineInquiry={declineInquiry}
         />
       ) : card.kind === 'lock_request' ? (
-        <LockRequestBody card={card} agreeLock={agreeLock} declineLock={declineLock} />
+        <LockRequestBody
+          card={card}
+          agreeLock={agreeLock}
+          declineLock={declineLock}
+          payoutReadiness={payoutReadiness}
+        />
       ) : card.kind === 'lock_request_lapsed' ? (
         <LockRequestLapsedBody card={card} />
       ) : card.kind === 'delete_request' ? (
@@ -838,10 +855,12 @@ function LockRequestBody({
   card,
   agreeLock,
   declineLock,
+  payoutReadiness,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request' }>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
+  payoutReadiness: PayoutReadiness;
 }) {
   // Rendered on the server, so "now" is the render instant.
   // ONE phrasing, shared with the customer card and the Customers roster — three
@@ -860,6 +879,7 @@ function LockRequestBody({
     <>
       <p className="text-sm font-semibold text-ink">A couple wants to book you</p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeLock}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />

@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { redirect } from 'next/navigation';
 import { AlertTriangle, ArrowRight, EyeOff, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -275,6 +278,17 @@ export default async function VendorOverviewPage({
 
   const { whatsNew, ongoing, upcoming } = data;
 
+  // S19 · can a couple see anywhere to pay this shop? Asked ONLY when a booking
+  // ask is on screen — that card is where the nudge sits, because agreeing is
+  // what makes the deposit the couple's next step. `unreadable` renders nothing.
+  const payoutReadiness: PayoutReadiness = whatsNew.some((c) => c.kind === 'lock_request')
+    ? await readSupplierPayoutReadiness({
+        adminClient: createAdminClient(),
+        vendorProfileId: profile.vendor_profile_id,
+        vendorUserId: profile.user_id,
+      }).catch((): PayoutReadiness => 'unreadable')
+    : 'unreadable';
+
   // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
   // (its first year) and a yearly anniversary after. Prefers the precise
   // founding date (guarded read, so a not-yet-applied migration degrades to the
@@ -487,6 +501,7 @@ export default async function VendorOverviewPage({
         declineDeletion={vendorDeclineDeletion}
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
+        payoutReadiness={payoutReadiness}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

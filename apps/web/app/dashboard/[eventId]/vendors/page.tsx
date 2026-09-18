@@ -35,6 +35,7 @@ import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
@@ -1087,6 +1088,44 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       </span>
     </Link>
   ) : null;
+  // ── The deposit, per LOCKED supplier (S19, 2026-09-18) ──────────────────
+  // Owner, on the booking run: after Lock the card read "Locked in ✓" and gave
+  // the couple nothing to do. The next step is paying the deposit, so each
+  // locked row now carries it — `depositStepOf` decides the state, the row
+  // links to the deposit card. Couple's OWN session (RLS: their event). A
+  // refused read becomes `unknown` for every row — never `due`, which would tell
+  // a couple who already paid to pay again.
+  const depositStepByVendorId = await (async (): Promise<Map<string, DepositStep>> => {
+    const m = new Map<string, DepositStep>();
+    // ONLY `contracted` — the state the supplier's agree writes. `deposit_paid`
+    // is already past it (the printed Locked-QR path promotes there without
+    // stamping `deposit_recorded_at`, so reading the column would say "due" to
+    // a couple who paid), and delivered/complete are past the event.
+    const lockedIds = vendors
+      .filter((v) => v.status === 'contracted')
+      .map((v) => v.vendor_id);
+    if (lockedIds.length === 0) return m;
+    const { data, error } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at')
+      .eq('event_id', eventId)
+      .in('vendor_id', lockedIds);
+    if (error) {
+      logQueryError('CoupleVendorsPage.depositSteps', error, { eventId }, 'graceful_degrade');
+    }
+    type DepositRow = {
+      vendor_id: string;
+      deposit_recorded_at: string | null;
+      deposit_acknowledged_at: string | null;
+      deposit_declined_at: string | null;
+    };
+    const byId = new Map(
+      (error ? [] : ((data ?? []) as DepositRow[])).map((r) => [r.vendor_id, r]),
+    );
+    for (const id of lockedIds) m.set(id, depositStepOf(byId.get(id) ?? null));
+    return m;
+  })();
+
   // ── Review status badges (PR12: couple post-event review flow) ──────────
   // For completed vendors, determine whether to show "Leave a review" (open
   // window, no review yet) or "Review submitted ✓" on their accordion card.
@@ -2177,6 +2216,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // "Leave a review" on the surface a couple actually sees.
           reviewStatusByVendorId={reviewStatusByVendorId}
           lockBlockedByVendorId={lockBlockedByVendorId}
+          depositStepByVendorId={depositStepByVendorId}
         />
         {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
             renders null when off (owner 2026-07-24). */}

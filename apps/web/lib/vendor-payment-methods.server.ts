@@ -18,6 +18,13 @@ import {
   type CoupleFacingMethod,
   type VendorPaymentMethodRow,
 } from '@/lib/vendor-payment-methods';
+import {
+  isCoupleVisible,
+  payoutReadinessOf,
+  type CouplePayMethodsState,
+  type PayoutMethodFacts,
+  type PayoutReadiness,
+} from '@/lib/deposit-pay-step';
 
 /**
  * A booked vendor's PUBLISHED + APPROVED + tier-allowed payment methods.
@@ -25,8 +32,9 @@ import {
  *   • `authedClient` (couple RLS) proves the couple owns this event_vendor row;
  *   • `adminClient` reads vendor_payment_methods (owner-RLS'd — couples cannot
  *     read it directly), but only AFTER ownership is proven above.
- * Returns [] for off-platform/manual vendors (no marketplace profile) or when
- * the couple doesn't own the event_vendor row.
+ * Returns [] for off-platform/manual vendors (no marketplace profile), when the
+ * couple doesn't own the event_vendor row, AND when a read fails — callers that
+ * must tell those apart use `readPublishedMethodsForCouple` below.
  */
 export async function fetchPublishedMethodsForCouple(opts: {
   authedClient: SupabaseClient;
@@ -34,32 +42,54 @@ export async function fetchPublishedMethodsForCouple(opts: {
   eventId: string;
   eventVendorId: string;
 }): Promise<CoupleFacingMethod[]> {
+  return (await readPublishedMethodsForCouple(opts)).methods;
+}
+
+/**
+ * The same read, with its outcome KEPT (S19, 2026-09-18).
+ *
+ * 🔑 On the deposit step, "no methods" becomes a SENTENCE — "they haven't added
+ * a way to pay them yet". A refused read collapsed to `[]` would print that
+ * sentence about a supplier who has three methods, and send the couple off to
+ * chase details that are one tap away. So a failure is `unreadable`, never an
+ * empty list.
+ */
+export async function readPublishedMethodsForCouple(opts: {
+  authedClient: SupabaseClient;
+  adminClient: SupabaseClient;
+  eventId: string;
+  eventVendorId: string;
+}): Promise<{ state: CouplePayMethodsState; methods: CoupleFacingMethod[] }> {
   const { authedClient, adminClient, eventId, eventVendorId } = opts;
+  const unreadable = { state: 'unreadable' as const, methods: [] };
 
   // 1. Prove the couple owns this event_vendor (RLS-scoped read).
-  const { data: ev } = await authedClient
+  const { data: ev, error: evError } = await authedClient
     .from('event_vendors')
     .select('vendor_id, event_id, marketplace_vendor_id')
     .eq('vendor_id', eventVendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evError) return unreadable;
   const marketplaceVendorId =
     (ev as { marketplace_vendor_id: string | null } | null)?.marketplace_vendor_id ?? null;
-  if (!marketplaceVendorId) return []; // off-platform/manual vendor → coordinate in chat
+  // off-platform/manual vendor (or not the couple's row) → coordinate in chat
+  if (!marketplaceVendorId) return { state: 'off_platform', methods: [] };
 
   // 2. Resolve the vendor's auth user (for the pro-tier check).
-  const { data: vp } = await adminClient
+  const { data: vp, error: vpError } = await adminClient
     .from('vendor_profiles')
     .select('vendor_profile_id, user_id')
     .eq('vendor_profile_id', marketplaceVendorId)
     .maybeSingle();
+  if (vpError) return unreadable;
   const vendorUserId = (vp as { user_id: string } | null)?.user_id ?? null;
-  if (!vendorUserId) return [];
+  if (!vendorUserId) return { state: 'off_platform', methods: [] };
 
   const proActive = await isVendorProActive(adminClient, vendorUserId);
 
   // 3. Read published + approved methods (admin client bypasses owner RLS).
-  const { data: rows } = await adminClient
+  const { data: rows, error: rowsError } = await adminClient
     .from('vendor_payment_methods')
     .select('*')
     .eq('vendor_profile_id', marketplaceVendorId)
@@ -67,10 +97,12 @@ export async function fetchPublishedMethodsForCouple(opts: {
     .eq('moderation_status', 'approved')
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true });
+  if (rowsError) return unreadable;
 
-  // 4. Tier gate: links only surface for active pro-tier vendors.
-  const list = ((rows ?? []) as VendorPaymentMethodRow[]).filter(
-    (m) => m.method_type !== 'link' || proActive,
+  // 4. Tier gate: links only surface for active pro-tier vendors. The one rule,
+  //    shared with the supplier's own "can a couple see this?" nudge.
+  const list = ((rows ?? []) as VendorPaymentMethodRow[]).filter((m) =>
+    isCoupleVisible(m, proActive),
   );
 
   const out: CoupleFacingMethod[] = [];
@@ -93,7 +125,31 @@ export async function fetchPublishedMethodsForCouple(opts: {
           : null,
     });
   }
-  return out;
+  return { state: 'listed', methods: out };
+}
+
+/**
+ * Can a couple see anywhere to pay THIS supplier? Read for the supplier's own
+ * nudge ("add a payment method") on the lock ask and the client page.
+ *
+ * Admin-read by `vendorProfileId`, which every caller resolves from the signed-in
+ * supplier's OWN profile (`fetchOwnVendorProfile`) — never from a URL or form.
+ * Only visibility FACTS leave this function, never a destination.
+ * A refused read is `unreadable`, and the nudge then says nothing.
+ */
+export async function readSupplierPayoutReadiness(opts: {
+  adminClient: SupabaseClient;
+  vendorProfileId: string;
+  vendorUserId: string;
+}): Promise<PayoutReadiness> {
+  const { adminClient, vendorProfileId, vendorUserId } = opts;
+  const { data, error } = await adminClient
+    .from('vendor_payment_methods')
+    .select('method_type, is_shown, moderation_status')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) return 'unreadable';
+  const proActive = await isVendorProActive(adminClient, vendorUserId);
+  return payoutReadinessOf((data ?? []) as PayoutMethodFacts[], proActive);
 }
 
 /**
@@ -140,7 +196,7 @@ export async function fetchProposalPaymentMethods(opts: {
 
     const picked = new Set(methodIds ?? []);
     const list = ((rows ?? []) as VendorPaymentMethodRow[])
-      .filter((m) => m.method_type !== 'link' || proActive)
+      .filter((m) => isCoupleVisible(m, proActive))
       // Preserve the vendor's chosen order when a subset was picked.
       .sort((a, b) => {
         if (picked.size === 0) return 0;

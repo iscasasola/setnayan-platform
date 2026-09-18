@@ -51,7 +51,7 @@ import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import {
   fetchScheduleBlocks,
   selectSchedulePreviewBlocks,
-  SCHEDULE_BLOCK_LABEL,
+  scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -1717,20 +1717,31 @@ export async function EventDashboard({
         <Camera aria-hidden strokeWidth={1.75} />
         Papic
       </span>
+      {/* S41b — a REFUSED count is null, not 0. `preCapture` is only true on a
+          MEASURED zero, so an unreadable photo count lands here and says so,
+          instead of flipping back to "shots ready" on an event mid-shoot. */}
       <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
-        <CountUp
-          value={papicHome.preCapture ? papicHome.shotsLeft : papicHome.photosGathered}
-          delayMs={700}
-        />
+        {papicHome.preCapture || papicHome.photosGathered !== null ? (
+          <CountUp
+            value={papicHome.preCapture ? papicHome.shotsLeft : (papicHome.photosGathered ?? 0)}
+            delayMs={700}
+          />
+        ) : (
+          '—'
+        )}
       </span>
       <span className="mt-0.5 block text-[11.5px] text-ink/55">
         {papicHome.preCapture
-          ? papicHome.cameras === 1
-            ? 'shots ready · 1 camera out'
-            : `shots ready · ${papicHome.cameras} cameras out`
-          : papicHome.shotsLeft > 0
-            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
-            : 'photos gathered'}
+          ? papicHome.cameras === null
+            ? 'shots ready · couldn’t count cameras'
+            : papicHome.cameras === 1
+              ? 'shots ready · 1 camera out'
+              : `shots ready · ${papicHome.cameras} cameras out`
+          : papicHome.photosGathered === null
+            ? 'couldn’t count photos just now'
+            : papicHome.shotsLeft > 0
+              ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
+              : 'photos gathered'}
       </span>
       {/* The verdict rides UNDER the existing line rather than replacing it —
        *  the balance is still the fact; this is what it means. Silent on
@@ -2878,7 +2889,7 @@ export async function EventDashboard({
                         {block.label}
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {SCHEDULE_BLOCK_LABEL[block.block_type]}
+                        {scheduleBlockLabelFor(block.block_type, eventType)}
                       </span>
                     </div>
                   ))}

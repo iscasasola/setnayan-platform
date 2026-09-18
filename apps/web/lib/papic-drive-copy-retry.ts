@@ -70,6 +70,7 @@ export async function listStrandedDriveCopies(
     .gte('attempt_count', DRIVE_COPY_RETRY_CEILING)
     .order('last_error_at', { ascending: false, nullsFirst: false })
     .limit(limit);
+  if (error) console.error('[supabase-error] lib/papic-drive-copy-retry.ts · from:drive_copy_artifacts.select', error);
   if (error || !data) return { total: 0, rows: [] };
   const rows: StrandedDriveCopy[] = data.map((r) => ({
     eventId: r.event_id as string,

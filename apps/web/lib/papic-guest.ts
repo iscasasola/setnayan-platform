@@ -44,7 +44,10 @@ import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic
  */
 
 export const PAPIC_GUEST_SERVICE_KEY = 'PAPIC_GUEST';
-export const PAPIC_GUEST_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
+// ⛔ NO PRICE LIVES HERE. `PAPIC_GUEST_PRICE_PHP = 2999` sat on this line with
+// no importer while the live catalogue sold PAPIC_GUEST ("add 3,000 credits") at
+// a different price. A price is read from `platform_retail_catalog_v2`, never
+// from a constant (AREA-PAPIC, 2026-09-19).
 
 /**
  * Per-guest captured-photo credits bundled in the Premium Guest Camera Pack.

@@ -299,6 +299,7 @@ async function resolveVendorFrameCover(
       .eq('vendor_id', eventVendorId)
       .eq('selection_match_rank', 1)
       .maybeSingle();
+    if (vendorError) console.error('[supabase-error] lib/story-cover.ts · from:event_vendors.select', vendorError);
     // Not (or no longer) the recommended pick → the frame is not publishable,
     // so it is not a cover either. A refused read fails the same way, closed.
     if (vendorError || !vendor) return null;

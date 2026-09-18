@@ -7,7 +7,11 @@ import {
   checklistChrome,
   checklistAnchorDateFor,
 } from '@/lib/checklist';
-import { computeBudgetHealth, type ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import {
+  computeBudgetHealth,
+  BUDGET_HEALTH_UNREADABLE,
+  type ChecklistBudgetHealth,
+} from '@/lib/checklist-budget';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { suggestLeafCategories, type LeafSuggestion } from '@/lib/leaf-suggestions';
 import {
@@ -193,10 +197,12 @@ export default async function EventChecklistPage({ params }: Props) {
   // Budget_Genericization_Design_2026-07-08.md §4 PR-B3); mirrors the
   // isWeddingBudget gate on the budget page itself.
   const isWeddingBudget = eventType == null || eventType === 'wedding';
-  let budgetHealth: ChecklistBudgetHealth | null = null;
+  let budgetHealth: ChecklistBudgetHealth | null | typeof BUDGET_HEALTH_UNREADABLE = null;
   try {
     budgetHealth = isWeddingBudget ? await computeBudgetHealth(eventId) : null;
   } catch (caught) {
+    // A throw is not "no budget set" either — the card says it could not check.
+    budgetHealth = BUDGET_HEALTH_UNREADABLE;
     logQueryError(
       'EventChecklistPage (computeBudgetHealth threw)',
       caught instanceof Error ? caught : new Error(String(caught)),

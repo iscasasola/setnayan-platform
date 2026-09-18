@@ -298,6 +298,7 @@ async function eventsPastTheirClock(
       p_retention_days: retentionDaysInForce,
       p_post_event_days: FULL_RES_POST_EVENT_GRACE_DAYS,
     });
+    if (error) console.error('[supabase-error] lib/papic-fullres-drop.ts · rpc:papic_events_past_fullres_clock', error);
     if (error || !Array.isArray(data)) return [];
     return data
       .map((r) => String((r as { event_id?: unknown }).event_id ?? ''))

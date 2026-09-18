@@ -10,14 +10,15 @@
  * checkout call site (default OFF → the flat SETNAYAN_AI catalog charge stands).
  *
  * SUPERSEDED — the intro/renewal cadence (₱499 first 28-day cycle / ₱799 after,
- * `resolveSetnayanAiEventChargeCentavos` + lib/setnayan-ai-pricing.ts) is kept
- * for lineage but NO LONGER wired into checkout: the 2026-07-22 per-type ladder
- * replaced it as the meaning of "per-event pricing". Prices stay catalog-
+ * lib/setnayan-ai-pricing.ts) is NO LONGER wired into checkout: the 2026-07-22
+ * per-type ladder replaced it as the meaning of "per-event pricing". Its
+ * resolver, `resolveSetnayanAiEventChargeCentavos`, had gone callerless and was
+ * deleted here (SUP-97). `SETNAYAN_AI_RENEW_SKU` stays: the literal
+ * `'SETNAYAN_AI_RENEW'` catalog code is still read directly in several places
+ * (see order-charge-authority.ts, sku-activation.ts). Prices stay catalog-
  * authoritative (never hardcoded); the code carries only last-resort fallbacks.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-import { resolveSetnayanAiOrderPricePhp } from './setnayan-ai-pricing';
 import {
   AI_TIER_ONBOARDING_FALLBACK_PHP,
   AI_TIER_FALLBACK_PHP,
@@ -318,56 +319,4 @@ export async function resolveSetnayanAiTypeChargeCentavos(
     return { status: 'read_error', message: price.message };
   }
   return { status: 'resolved', centavos: Math.round(price.php * 100) };
-}
-
-/**
- * Resolve the per-event Setnayan AI charge in CENTAVOS - the intro on the
- * event's first cycle, the renewal after - server-authoritative (re-resolves
- * `introUsed` from stored event state, so a tampered client cannot force the
- * intro price on a renewal).
- *
- * SUPERSEDED and currently callerless (the 2026-07-22 per-type ladder replaced
- * this model), but fixed in the same pass as its live twin ON PURPOSE: leaving
- * the swallow here would keep a worked example of the defect in the file for
- * whoever revives it. `(rows ?? [])` used to turn a failed read into "no such
- * row", which then priced off the hardcoded intro/renewal constants.
- */
-export async function resolveSetnayanAiEventChargeCentavos(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<AiChargeResolution> {
-  const { data: ev, error: evError } = await admin
-    .from('events')
-    .select('setnayan_ai_intro_used')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (evError) {
-    return { status: 'read_error', message: `events(${eventId}): ${evError.message}` };
-  }
-  if (!ev) return { status: 'absent' };
-  const introUsed =
-    (ev as { setnayan_ai_intro_used?: boolean | null }).setnayan_ai_intro_used === true;
-
-  const { data: rows, error: rowsError } = await admin
-    .from('platform_retail_catalog_v2')
-    .select('service_code, retail_price_php')
-    .in('service_code', [SETNAYAN_AI_SKU, SETNAYAN_AI_RENEW_SKU]);
-  if (rowsError) {
-    return {
-      status: 'read_error',
-      message: `platform_retail_catalog_v2(intro/renew): ${rowsError.message}`,
-    };
-  }
-
-  const priceOf = (code: string): number | null | undefined =>
-    (rows ?? []).find(
-      (r) => (r as { service_code?: string }).service_code === code,
-    )?.retail_price_php as number | null | undefined;
-
-  const pricePhp = resolveSetnayanAiOrderPricePhp({
-    introUsed,
-    introPricePhp: priceOf(SETNAYAN_AI_SKU),
-    renewalPricePhp: priceOf(SETNAYAN_AI_RENEW_SKU),
-  });
-  return { status: 'resolved', centavos: Math.round(pricePhp * 100) };
 }

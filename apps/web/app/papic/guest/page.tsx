@@ -3,7 +3,7 @@ import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { eventPapicGuestAccess, fetchGuestQuota } from '@/lib/papic-guest';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
@@ -102,8 +102,8 @@ export default async function PapicGuestPage({
   // "this event" is the only fallback. Read in parallel with the ownership
   // check (same query count as before) so the not-yet-on branch can name the
   // event too.
-  const [owns, { data: ev }, ownCamera] = await Promise.all([
-    eventPapicGuestActive(admin, session.event_id),
+  const [access, { data: ev }, ownCamera] = await Promise.all([
+    eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
       .select(`display_name, papic_face_mode, event_type, ${GUEST_CAPTURE_GATE_COLUMNS}`)
@@ -124,7 +124,15 @@ export default async function PapicGuestPage({
     (ev as { event_type?: string | null } | null)?.event_type,
   );
 
-  if (!owns) {
+  // 🔴 THREE STATES, NOT TWO. This is the page every guest reaches on the day —
+  // the invitation's Camera button, the day-of bar, and the personal QR all land
+  // here. It used to ask the BOOLEAN gate, which folds "we could not find out"
+  // into false, so a failed pool read told a guest standing at the reception
+  // that cameras "haven't been turned on" for the event — a decision nobody
+  // made. The pool applies on every production event, so that sentence was
+  // only ever reachable through a failed read. The gate still fails closed:
+  // anything but 'on' gets no camera; only the words know the difference.
+  if (access !== 'on') {
     return (
       <DoorShell
         tone="dead_end"
@@ -134,9 +142,19 @@ export default async function PapicGuestPage({
             Guest camera
           </>
         }
-        title="Guest cameras aren’t on yet."
-        sub={`Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the celebration!`}
-      />
+        title={access === 'unknown' ? 'We couldn’t check just now.' : 'Guest cameras aren’t on yet.'}
+        sub={
+          access === 'unknown'
+            ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation.'
+            : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the celebration!`
+        }
+      >
+        {backSlug ? (
+          <Link href={`/${backSlug}`} className="button-secondary">
+            Back to the invitation
+          </Link>
+        ) : null}
+      </DoorShell>
     );
   }
 
@@ -186,7 +204,26 @@ export default async function PapicGuestPage({
             </>
           )
         }
-      />
+      >
+        {/* ⚠ THESE TWO SCREENS USED TO END AT THE SENTENCE. "Your photos are
+            still in your gallery" named a place and gave no way to reach it,
+            and a guest who tapped Camera on the invitation the week before
+            the wedding had only the browser's back button. The gallery is the
+            guest's own personal-QR page, which the session already names. */}
+        {gate.state === 'closed' ? (
+          <Link
+            href={`/papic/me/${encodeURIComponent(session.qr_token)}`}
+            className="button-primary w-full"
+          >
+            See your photos
+          </Link>
+        ) : null}
+        {backSlug ? (
+          <Link href={`/${backSlug}`} className="button-secondary">
+            Back to the invitation
+          </Link>
+        ) : null}
+      </DoorShell>
     );
   }
 
@@ -264,7 +301,13 @@ export default async function PapicGuestPage({
         }
         title="Camera unavailable."
         sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in the gallery. If you think this is a mistake, reach out to the host directly.`}
-      />
+      >
+        {backSlug ? (
+          <Link href={`/${backSlug}`} className="button-secondary">
+            Back to the invitation
+          </Link>
+        ) : null}
+      </DoorShell>
     );
   }
 

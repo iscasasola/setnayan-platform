@@ -252,7 +252,11 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
     .eq('is_active', true)
     .order('retail_price_php', { ascending: true });
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] v2-catalog: platform_package_catalog', error);
+    return [];
+  }
+  if (!data) return [];
 
   return data.map((row) => ({
     package_code: row.package_code as string,
@@ -275,7 +279,11 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] v2-catalog: vendor_billing_catalog', error);
+    return [];
+  }
+  if (!data) return [];
 
   return data.map((row) => ({
     sku_code: row.sku_code as string,
@@ -406,7 +414,11 @@ export const getCustomerSkuPrice = cache(
       .eq('service_code', serviceCode)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] v2-catalog: getCustomerSkuPrice', error, { serviceCode });
+      return null;
+    }
+    if (!data) return null;
     return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));
   },
 );
@@ -434,7 +446,11 @@ export const getCustomerSkuPriceLabel = cache(
       .eq('service_code', serviceCode)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] v2-catalog: customer SKU price label', error, { serviceCode });
+      return null;
+    }
+    if (!data) return null;
     const row = data as { retail_price_php: number; billing_period: BillingPeriod | null };
     return `₱${formatPeso(Number(row.retail_price_php))}${formatBillingPeriodSuffix(row.billing_period)}`;
   },

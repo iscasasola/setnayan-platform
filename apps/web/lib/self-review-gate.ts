@@ -90,6 +90,7 @@ export async function detectSelfReviewSignal(
     p_vendor_profile_id: vendorProfileId,
     p_reviewer_user_id: reviewerUserId,
   });
+  if (error) console.error('[supabase-error] lib/self-review-gate.ts · rpc:detect_self_review_signal', error);
   if (error) {
     // Fail open — let the trigger be authoritative if the probe fails.
     return null;

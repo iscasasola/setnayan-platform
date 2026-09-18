@@ -18,11 +18,17 @@ type PackageOption = Option & { totalCentavos: number };
 type TemplateOption = Option & { defaultPackageId: string | null };
 
 /**
- * In-chat "Send a proposal" — the vendor-only composer affordance that creates
- * + sends a full structured proposal into the thread (see proposal-actions.ts).
- * Collapsed to a single button so it never crowds the conversation; expands to
- * the template/package/price form. If the vendor has no templates yet, we point
- * them to build one rather than show a dead form.
+ * In-chat "Send from a saved template" — the vendor-only composer affordance
+ * that creates + sends a full structured proposal into the thread (see
+ * proposal-actions.ts). Collapsed to a single button so it never crowds the
+ * conversation; expands to the template/package/price form. If the vendor has
+ * no templates yet, we point them to build one rather than show a dead form.
+ *
+ * ── ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19) ──────────────────────────
+ * This card no longer has a panel of its own. It mounts INSIDE the one
+ * `build-quote` panel, under the line-item builder (`ProposalMaker`), as the
+ * shortcut for a shop that keeps templates. Every deep link names
+ * `#build-quote`; nothing links `#send-proposal` any more.
  */
 export function SendProposalCard({
   threadId,
@@ -36,12 +42,12 @@ export function SendProposalCard({
   /**
    * The Setnayan gift's basis, or null when this quote carries no gift.
    *
-   * 🔑 THIS CARD GETS IT TOO, AND THAT IS THE POINT. Every shortcut in the app
-   * — the clients action bar, the chat info rail — deep-links to
-   * `#send-proposal`, i.e. HERE; `#build-quote` (the fuller ProposalMaker) has
-   * no inbound link anywhere in the repo. A gift line mounted only there would
-   * be invisible to any supplier who followed a Quote button, which is all of
-   * them. Same derived number, same two voices.
+   * 🔑 THIS CARD GETS IT TOO, AND THAT IS THE POINT. Until 2026-09-19 every
+   * shortcut in the app deep-linked `#send-proposal`, i.e. HERE, and the
+   * builder had no inbound link; a gift line mounted only in the builder would
+   * have been invisible to any supplier who followed a Quote button. The two
+   * now share one panel, and BOTH still carry the line — a supplier prices from
+   * whichever half they use. Same derived number, same two voices.
    */
   giftBasis?: GiftQuoteBasis | null;
 }) {
@@ -81,11 +87,13 @@ export function SendProposalCard({
   if (templates.length === 0) {
     return (
       <div className="rounded-xl border border-mulberry/25 bg-mulberry/[0.04] p-3 text-sm text-ink/70">
-        Want to send a priced proposal here?{' '}
+        {/* Under the builder now (SUP-H): a shop with no template still has
+            the builder above, so this must not read as "you cannot quote". */}
+        Quote the same thing often?{' '}
         <Link href="/vendor-dashboard/proposals" className="font-medium text-mulberry underline hover:text-mulberry-600">
-          Create a proposal template
+          Save a proposal template
         </Link>{' '}
-        first — then it&rsquo;s one tap from any chat.
+        and sending it is one tap from any chat.
       </div>
     );
   }
@@ -101,7 +109,7 @@ export function SendProposalCard({
           onClick={() => setOpen(true)}
           className="inline-flex h-10 items-center gap-2 rounded-lg border border-mulberry/30 bg-white/70 px-4 text-sm font-medium text-mulberry hover:border-mulberry/60"
         >
-          <span aria-hidden>📄</span> Send a proposal
+          <span aria-hidden>📄</span> Send from a saved template
         </button>
       ) : (
         <form action={sendProposalFromChat} className="space-y-2.5">

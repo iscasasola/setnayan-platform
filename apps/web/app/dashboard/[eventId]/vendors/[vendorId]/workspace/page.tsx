@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -342,6 +343,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendors.select', error);
     if (error || !data) return null;
     const row = data as {
       deposit_declined_at: string | null;
@@ -728,6 +730,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             trusted_review_count: 0,
           },
           reviews: [],
+          // Nothing to read for an off-platform supplier — a true "none".
+          reviewsMeasured: true,
         }),
   ]);
 
@@ -1382,20 +1386,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               gone, this page is always a third-party vendor relationship, so the
               affordance is always the right one. */}
           {(() => {
-            // Mirror the server-side downpaid signal from cancelBookingAsHost.
-            const downpaid =
-              ev.status === 'deposit_paid' ||
-              ev.status === 'delivered' ||
-              ev.status === 'complete';
-            const depositValueNumeric =
-              typeof ev.deposit_paid_php === 'string'
-                ? Number(ev.deposit_paid_php)
-                : ev.deposit_paid_php;
-            const hasDeposit =
-              Number.isFinite(depositValueNumeric) &&
-              (depositValueNumeric ?? 0) > 0;
-
-            if (downpaid || hasDeposit) {
+            // The SAME helper cancelBookingAsHost gates on — so a recorded
+            // deposit (deposit_recorded_at, no deposit_paid_php) offers the
+            // dispute, never a "Cancel booking" the server can only refuse.
+            if (bookingMoneyMoved(ev)) {
               return <DisputeLinkButton eventId={eventId} variant="cta" />;
             }
             if (ev.status === 'contracted') {
@@ -2224,9 +2218,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               {formatPHP(rolledTotalNum) ?? '₱0'}
             </span>
           </div>
+          {/* "PAID SO FAR", NOT "DEPOSIT PAID" (AREA-COUPLE, 2026-09-19). This
+              row read `deposit_paid_php`, which the couple's own "Record
+              deposit" never writes — the amount goes to the payment log. So a
+              recorded, supplier-confirmed ₱2,000 deposit read "Deposit paid —"
+              here while the header above said "Paid so far ₱2,000". One figure,
+              one source: the same `paidSoFarFormatted` the header shows. */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-ink/65">Deposit paid</span>
-            <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
+            <span className="text-ink/65">Paid so far</span>
+            <span className="font-medium text-ink">{paidSoFarFormatted ?? '—'}</span>
           </div>
 
           <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>

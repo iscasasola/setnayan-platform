@@ -58,8 +58,19 @@ extractor reads as blocks — not widgets); both routes GAIN `ChatBox`, `RevealT
 `ThreadToolPanel`; nothing else is lost. The couple's page leaves
 `page-masthead-baseline.json` (it no longer hand-rolls a `<header>` with `.sn-eye`).
 
+**With a tool panel OPEN** (same harness): the small deal menu leaves the couple's list at
+224 / 265 / 345px (320 / 390 / 1440); a tool taller than the screen ("Build a quote") pushes
+the list to exactly its **224px floor at every width**, the panel body caps at 55dvh and
+scrolls inside itself, and the composer's bottom edge stays inside the viewport while the
+column scrolls 37–199px. The tray-closed numbers above are the tray-closed numbers.
+
 **Guards:** `lib/one-chat-box-like-messenger.test.ts` (registry executed; source read
-comment-free and counted). `a-quote-card-does-not-crush-the-conversation.test.ts`'s
+comment-free and counted). `an-open-tool-does-not-bury-the-conversation.test.ts` (2026-09-11)
+found "the `<div>` before `<ChatMessageStream>`" — an anchor pinned to source order that,
+once the composer became a prop written before the child, pointed at the declined-inquiry
+notice. It now walks the floor CHAIN instead (page → ChatBox child slot `min-h-0 flex-1` →
+the list's own `min-h-[Nrem] flex-1`) and asserts the tray sits after the composer with a
+capped body; its fixed-height-row and scrolling-column tests are unchanged. `a-quote-card-does-not-crush-the-conversation.test.ts`'s
 column test evolves from "the column must grow" to "a bounded row must carry a ≥26rem
 floor on the same className, on both pages" — the property moved to where it is
 enforced; the bare fixed shape stays forbidden.

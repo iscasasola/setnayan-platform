@@ -139,6 +139,7 @@ export async function applyActivityPicks(formData: FormData) {
       })
       .select('block_id')
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/schedule/activity-picks-actions.ts · from:event_schedule_blocks.insert', error);
     if (error || !inserted) continue;
 
     await supabase

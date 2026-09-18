@@ -713,6 +713,7 @@ export async function commitOnboardingWedding(
       const { error: shortlistError } = await admin
         .from('event_vendors')
         .insert(shortlistRows);
+      if (shortlistError) console.error('[supabase-error] app/onboarding/wedding/actions.ts · from:event_vendors.insert', shortlistError);
       if (!shortlistError) {
         await recomputeReceptionAnchor(admin, insertedEvent.event_id);
       }

@@ -201,6 +201,12 @@ export type MarketplaceReviewsData = {
    */
   trustedStats: TrustedReviewStatsRow;
   reviews: MarketplaceReview[];
+  /**
+   * FALSE when the review list read was refused or threw — then `reviews` is
+   * empty because nothing was read, and the card must not say the supplier
+   * "still has no review" (S41, reads-are-honest).
+   */
+  reviewsMeasured: boolean;
 };
 
 /**
@@ -225,6 +231,7 @@ export async function fetchMarketplaceReviews(
 
   let stats = fallbackStats;
   let reviews: MarketplaceReview[] = [];
+  let reviewsMeasured = true;
   // ANTI-FRAUD (2026-07-05): trusted aggregate for the hero average + count.
   // Fail-soft inside fetchTrustedReviewStats → 0/0 when the view is missing.
   const trustedStats = await fetchTrustedReviewStats(supabase, vendorProfileId);
@@ -237,6 +244,7 @@ export async function fetchMarketplaceReviews(
       )
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    if (statsRes.error) console.error('[supabase-error] app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx · from:vendor_review_stats.select', statsRes.error);
     if (!statsRes.error && statsRes.data) {
       stats = {
         vendor_profile_id: statsRes.data.vendor_profile_id as string,
@@ -263,6 +271,10 @@ export async function fetchMarketplaceReviews(
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false })
       .limit(5);
+    if (reviewsRes.error) {
+      console.error('[supabase-error] app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx · from:vendor_reviews.select', reviewsRes.error);
+      reviewsMeasured = false;
+    }
     if (!reviewsRes.error && reviewsRes.data) {
       const baseReviews = reviewsRes.data as Array<{
         review_id: string;
@@ -317,9 +329,10 @@ export async function fetchMarketplaceReviews(
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[fetchMarketplaceReviews] reviews threw', e);
+    reviewsMeasured = false;
   }
 
-  return { stats, trustedStats, reviews };
+  return { stats, trustedStats, reviews, reviewsMeasured };
 }
 
 // ----------------------------------------------------------------------------
@@ -557,7 +570,7 @@ function ReviewsCard({
   vendorProfileSlug: string | null;
   reviewLinkHref: string | null;
 }) {
-  const { trustedStats, reviews } = data;
+  const { trustedStats, reviews, reviewsMeasured } = data;
   return (
     <section
       id="vendor-reviews"
@@ -586,7 +599,13 @@ function ReviewsCard({
 
       <ReviewsHero trusted={trustedStats} />
 
-      {reviews.length === 0 ? (
+      {!reviewsMeasured ? (
+        <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
+          <p className="text-xs text-ink/65">
+            We couldn&rsquo;t load {vendorBusinessName}&rsquo;s reviews right now.
+          </p>
+        </div>
+      ) : reviews.length === 0 ? (
         <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
           <p className="text-xs text-ink/65">
             {vendorBusinessName} still has no review.

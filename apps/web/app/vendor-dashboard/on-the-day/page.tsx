@@ -583,9 +583,10 @@ export default async function VendorOnTheDayPage({
         )}
       </div>
 
-      {/* 4 · Shot list — personal + device-local. It does NOT reach the couple;
-          the heading must not say it does (see shot-list.tsx: "Nothing here
-          touches the server"). A synced list is a follow-up, not a rename. */}
+      {/* 4 · Shot list — saved to event_shot_list_items (DAY-10) and read by
+          the couple on their vendor workspace. Whether THIS list has reached
+          them is said by the status line inside <ShotList>, never by the
+          heading alone. */}
       {kind === 'photo' ? (
         <ShotListSection eventId={todaysBooking?.eventId ?? null} eventName={coupleName} />
       ) : null}
@@ -1015,21 +1016,21 @@ function ShotListSection({
           className="font-mono text-[11px] uppercase tracking-[0.2em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
-          Shot list · yours, on this device
+          Shot list · the couple can follow along
         </h2>
         <p
           className="sn-tile mt-3 text-sm"
           style={{ color: 'var(--m-slate-2)' }}
         >
-          Your must-get shot list appears here on an event day, ready to check off as you shoot.
+          Your must-get shot list appears here on an event day, ready to check off as you shoot. Once you save it, the couple sees it on their vendor page.
         </p>
       </div>
     );
   }
-  // localStorage-backed, offline-tolerant client component.
+  // Saved to the DB; localStorage is only its offline cache.
   return (
     <div>
-      <h2 className="sn-sec">Shot list · yours, on this device</h2>
+      <h2 className="sn-sec">Shot list · the couple can follow along</h2>
       <div className="mt-3">
         <ShotList eventId={eventId} eventName={eventName ?? 'this event'} />
       </div>

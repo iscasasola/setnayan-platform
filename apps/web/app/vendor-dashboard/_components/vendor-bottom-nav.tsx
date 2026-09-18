@@ -161,7 +161,10 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // retired route still redirects there, so it stays in activeMatch to keep
     // the tab lit during that transient hop.
     key: 'performance',
-    label: 'Performance',
+    // 'Performance' (11 chars) truncated in this bar's 10px label row —
+    // 'Insights' is the shorter word this codebase already uses for the same
+    // kind of analytics content (see routeMeta.admin.insights).
+    label: 'Insights',
     href: '/vendor-dashboard/performance',
     icon: BarChart2,
     activeMatch: [

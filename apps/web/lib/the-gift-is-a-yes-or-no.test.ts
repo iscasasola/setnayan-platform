@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readSnapshot, snapshotFromService } from './service-card-snapshot';
+import { SETNAYAN_GIFT_CARD_COPY } from '@/app/_components/setnayan-gift-line';
 
 const HERE = join(import.meta.dirname, '..');
 const read = (rel: string) => readFileSync(join(HERE, rel), 'utf8');
@@ -75,10 +76,16 @@ test('the gift line on the card states no quantity', () => {
   assert.ok(branch.length > 0, 'the gift branch was not found on the card face');
 
   // Strip the JSX/style scaffolding, keep the words a couple reads.
-  const copy = branch
-    .replace(/className=(["'{])[^]*?\1/g, ' ')
-    .replace(/style=\{\{[^]*?\}\}/g, ' ')
-    .replace(/<[^>]*>/g, ' ');
+  // SUP-4 (2026-09-18): the words moved into the ONE shared line both cards
+  // mount (`SetnayanGiftLine`). When the branch mounts it, the words a couple
+  // reads are that component's copy — so they are what gets checked, not the
+  // now word-less JSX around the mount.
+  const copy =
+    branch
+      .replace(/className=(["'{])[^]*?\1/g, ' ')
+      .replace(/style=\{\{[^]*?\}\}/g, ' ')
+      .replace(/<[^>]*>/g, ' ') +
+    (/<SetnayanGiftLine\b/.test(branch) ? ` ${SETNAYAN_GIFT_CARD_COPY}` : '');
 
   // A digit here is the failure: the photo count is 40% of a booking fee that
   // does not exist yet, so any figure printed on a card could be broken by a

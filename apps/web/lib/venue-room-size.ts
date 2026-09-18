@@ -85,6 +85,7 @@ export async function fetchBookedVenueRoomSize(
       .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
       .not('linked_vendor_profile_id', 'is', null)
       .limit(1);
+    if (error) console.error('[supabase-error] lib/venue-room-size.ts · from:event_vendors.select', error);
 
     if (error || !data || data.length === 0) return null;
 

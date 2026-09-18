@@ -445,7 +445,9 @@ export async function buildVendorPricingLookup(
         'booking_id',
         packageBookings.map((b) => b.booking_id),
       );
-    if (!customRes.error) {
+    if (customRes.error) {
+      console.error('[supabase-error] budget: event_vendor_packages customizations', customRes.error);
+    } else {
       for (const row of (customRes.data ?? []) as Array<{
         booking_id: string;
         customizations_json: unknown;

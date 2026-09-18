@@ -53,6 +53,27 @@ export type ClusterTimelineRow = {
 export type MeasuredClusters = { rows: ClusterSummary[]; measured: boolean };
 export type MeasuredTimeline = { rows: ClusterTimelineRow[]; measured: boolean };
 export type MeasuredLinkable = { rows: LinkableCelebration[]; measured: boolean };
+export type MeasuredRoster = { rows: ClusterRosterPerson[]; measured: boolean };
+
+/** One guest row under a roster person — their place in ONE celebration. */
+export type ClusterRosterEntry = {
+  event_id: string;
+  guest_id: string;
+  rsvp_status: string;
+};
+
+/**
+ * One PERSON across the group. Mirrors public.cluster_guest_roster() (7b):
+ * guests the resolver matched share a `person_id`; a name-only guest with no
+ * cluster-mate is still one row, keyed by their own guest id, so nobody is
+ * dropped for lack of a match.
+ */
+export type ClusterRosterPerson = {
+  identity_key: string;
+  person_id: string | null;
+  display_name: string | null;
+  celebrations: ClusterRosterEntry[];
+};
 
 /** A celebration of yours that is not yet in any cluster. */
 export type LinkableCelebration = {
@@ -120,6 +141,34 @@ export async function fetchClusterTimeline(
 }
 
 /**
+ * 7b's planner view — one row per person across the group's celebrations.
+ *
+ * 🔑 THIS IS THE READ THAT 7b WROTE AND NOTHING CALLED. The function shipped
+ * 2026-09-02 as "the read shape", and 7c built the screen without it, so the
+ * matching that makes Liza-at-the-shower and Liza-at-the-wedding one person ran
+ * in the database and was never shown to anybody (S37, from S26's both-ends
+ * baseline).
+ *
+ * SECURITY INVOKER: it reads under the caller's own RLS on `guests` and
+ * `event_cluster_members`, so it can only ever return guests of celebrations
+ * this person may already open.
+ */
+export async function fetchClusterRoster(
+  supabase: SupabaseClient,
+  clusterId: string,
+): Promise<MeasuredRoster> {
+  const { data, error } = await supabase.rpc('cluster_guest_roster', {
+    p_event_cluster_id: clusterId,
+  });
+
+  if (error) {
+    logQueryError('fetchClusterRoster', error, { cluster_id: clusterId }, 'graceful_degrade');
+    return { rows: [], measured: false };
+  }
+  return { rows: (data ?? []) as ClusterRosterPerson[], measured: true };
+}
+
+/**
  * Celebrations this person could still link: ones where they are a COUPLE
  * member and which are not already in a cluster.
  *
@@ -171,6 +220,34 @@ export async function fetchLinkableCelebrations(
     return { rows: [], measured: false };
   }
   return { rows: (events ?? []) as LinkableCelebration[], measured: true };
+}
+
+/* ── roster ──────────────────────────────────────────────────────────────── */
+
+/**
+ * The roster in the order a planner reads it: people who are in MORE THAN ONE
+ * celebration first (that is the whole point of a group — the guests you are
+ * inviting twice), then alphabetically. A person with no usable name sorts last
+ * and is labelled by the caller, never dropped.
+ *
+ * `shared` counts people in two or more celebrations; it is only meaningful
+ * when the read was measured, and the caller must not print it otherwise.
+ */
+export function orderRoster(rows: ClusterRosterPerson[]): {
+  people: ClusterRosterPerson[];
+  shared: number;
+} {
+  const named = (p: ClusterRosterPerson) => (p.display_name ?? '').trim();
+  const people = [...rows].sort((a, b) => {
+    const byCount = b.celebrations.length - a.celebrations.length;
+    if (byCount !== 0) return byCount;
+    const an = named(a);
+    const bn = named(b);
+    if (!an !== !bn) return an ? -1 : 1;
+    return an.localeCompare(bn);
+  });
+  const shared = rows.filter((p) => p.celebrations.length > 1).length;
+  return { people, shared };
 }
 
 /* ── labels ──────────────────────────────────────────────────────────────── */

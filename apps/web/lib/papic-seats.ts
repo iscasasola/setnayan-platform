@@ -302,6 +302,7 @@ export async function provisionPapicSeatsAdmin(
       .select('seat_index')
       .eq('event_id', eventId)
       .lte('seat_index', PAPIC_SEAT_COUNT);
+    if (readError) console.error('[supabase-error] lib/papic-seats.ts · from:paparazzi_seats.select', readError);
     // Missing/legacy table (42P01) or column (42703) → a pre-bootstrap DB; the
     // couple can still self-serve from /crew once migrated. Don't throw.
     if (readError) return 0;
@@ -326,6 +327,7 @@ export async function provisionPapicSeatsAdmin(
     const { error: insertError } = await admin
       .from('paparazzi_seats')
       .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
+    if (insertError) console.error('[supabase-error] lib/papic-seats.ts · from:paparazzi_seats.upsert', insertError);
     if (insertError) return 0;
     return missing.length;
   } catch {

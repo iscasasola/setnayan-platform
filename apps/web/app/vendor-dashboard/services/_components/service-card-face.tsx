@@ -1,5 +1,6 @@
 import { Gift, Plus, AlertCircle, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
 import { php, type Snapshot } from '@/lib/service-card-snapshot';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 
 /**
  * service-card-face.tsx — the card a couple sees, drawn from a `Snapshot`.
@@ -139,13 +140,10 @@ export function ServiceCardFace({
         that puts a quantity on this line is a bug, not an improvement.
       */}
       {snap.givesSetnayanGift ? (
-        <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
-          <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-          <span>
-            Includes a Setnayan gift — free Papic photos for your celebration,
-            sized to the booking
-          </span>
-        </p>
+        <SetnayanGiftLine
+          className="flex items-center gap-1 text-[10px]"
+          style={{ color: 'var(--m-orange-2)' }}
+        />
       ) : snap.hasExclusive ? (
         <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />

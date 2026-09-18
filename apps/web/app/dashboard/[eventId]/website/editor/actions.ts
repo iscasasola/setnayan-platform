@@ -129,7 +129,7 @@ export async function setLaunchPhase(formData: FormData): Promise<void> {
   await requireHostMembership(eventId);
   const supabase = await createClient();
 
-  const { data: rows } = await supabase
+  const { data: rows, error: pinError } = await supabase
     .from('events')
     .update(
       pinned
@@ -138,7 +138,10 @@ export async function setLaunchPhase(formData: FormData): Promise<void> {
     )
     .eq('event_id', eventId)
     .select('slug');
-  const saved = Array.isArray(rows) && rows.length > 0;
+  // A write that ERRORED is a refusal too, never a silent success: log the
+  // reason, and the editor re-opens the row saying the pin did not take.
+  if (pinError) console.error('[website-editor] setLaunchPhase update failed:', pinError.message);
+  const saved = !pinError && Array.isArray(rows) && rows.length > 0;
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   const slug = saved ? (rows[0]?.slug as string | null) : null;

@@ -21,3 +21,5 @@ grants already cover both columns for `authenticated`.
 layer until they switch back to Automatic. The panel says the date no longer moves it.
 
 SPEC IMPACT: `registers/ONE_REGISTER.md` DAY-33 closed as built (corpus). No product decision changed: this implements the 2026-07-02 ruling.
+
+CI fix: the body phase now reads `solemnAdjustedPhase(phaseOverride ?? pinnedPhase ?? getLifecyclePhase(…))`, so a pinned solemn event still cannot open on the save-the-date film. `setLaunchPhase` now reads the update's `error`, logs it, and treats it as a refusal (`&pin=refused`) instead of dropping it.

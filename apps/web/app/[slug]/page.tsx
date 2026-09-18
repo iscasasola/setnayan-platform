@@ -753,7 +753,8 @@ async function InvitationBody({
   // never meet the wedding-shaped save-the-date film or the joyful recap —
   // the preview exists to show what guests get, and guests never get those.
   const lifecyclePhase: LifecyclePhase = solemnAdjustedPhase(
-    forcedPhase ??
+    phaseOverride ??
+      pinnedPhase ??
       getLifecyclePhase(
         event.event_date,
         venueTz,

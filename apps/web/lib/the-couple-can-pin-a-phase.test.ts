@@ -77,7 +77,9 @@ test('every site that picks the face composes the pin', () => {
   // preview does — or the body pins while the day-of layer follows the clock.
   assert.match(page, /forcedPhase: LifecyclePhase \| null = phaseOverride \?\? pinnedPhase/);
   assert.match(page, /const dayOfPhase: DayOfPhase = forcedPhase/);
-  assert.match(page, /forcedPhase \?\?\s*getLifecyclePhase\(/);
+  // …and the body's phase takes the pin INSIDE the solemn wrap, so a pinned
+  // wake still cannot open on the save-the-date film (the-wake-never-celebrates).
+  assert.match(page, /solemnAdjustedPhase\(\s*phaseOverride \?\?\s*pinnedPhase \?\?\s*getLifecyclePhase\(/);
 
   const editor = src('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.match(editor, /manualLaunchPhase\(/);

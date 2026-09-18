@@ -142,7 +142,7 @@ test('the device cache is kept, and it is a cache — the component still says w
   assert.match(comp, /window\.localStorage\.setItem/, 'the offline cache must stay');
   // The three states the status line must be able to say. Anchored on the
   // copy the supplier reads, because that sentence is the property.
-  for (const phrase of [/Saved — the couple can see/, /Not shared yet/, /Couldn’t reach Setnayan — changes are on this device only/]) {
+  for (const phrase of [/Saved — the couple can see/, /Not shared yet/, /Not saved to Setnayan — changes are on this device only/]) {
     assert.match(comp, phrase, `status line lost a state: ${phrase}`);
   }
 });

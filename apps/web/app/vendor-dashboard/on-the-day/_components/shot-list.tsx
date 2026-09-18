@@ -16,7 +16,7 @@
  * once the signal is back.
  *
  * 🔑 THE STATUS LINE IS THE POINT. Which of three states the list is in —
- * saved (the couple sees it), not shared yet, or couldn't reach Setnayan — is
+ * saved (the couple sees it), not shared yet, or not saved — is
  * always printed under the heading. A list that exists only on this phone must
  * never look like one the couple has; that is the exact defect PR #5502 removed
  * a heading for.
@@ -309,7 +309,7 @@ function ShotListStatus({
       <CloudOff aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
       <span className="flex-1">
         {offline
-          ? 'Couldn’t reach Setnayan — changes are on this device only, and the couple may be seeing an older list.'
+          ? 'Not saved to Setnayan — changes are on this device only, and the couple may be seeing an older list.'
           : 'Not shared yet — this list is only on this device. The couple sees it once you save it.'}
         {error ? ` (${error})` : null}
       </span>

@@ -18,7 +18,7 @@
  *   • "Still needs your decision" — the in-plan, unlocked categories in urgency
  *     order, each a doorway onto that category on the bench (the shipped
  *     `?tab=shortlist&open=<tile>` deep link, not a new navigation),
- *   • six anchor+money tiles: Date · Location · Locked · In build · Budget ·
+ *   • six anchor+money tiles: Date · Location · Locked · Still to lock · Budget ·
  *     **Buffer** (= estimated budget − locked − candidates),
  *   • "Clear candidates" — MOVED here from the Plans panel (spec §8.3) so the
  *     one surface that owns the team is the one that can empty it.
@@ -49,6 +49,7 @@ import {
 import { TeamSummaryChip } from './team-summary-chip';
 import type { BlockedLockReason } from '@/lib/bench-card-actions';
 import { BLOCKED_LOCK_ROW, CANT_LOCK_YET_HEADING } from '@/lib/explore-info-copy';
+import { depositStepHref, type DepositStep } from '@/lib/deposit-pay-step';
 
 const peso = (centavos: number) => `₱${Math.round((centavos ?? 0) / 100).toLocaleString('en-PH')}`;
 const pesoFromPhp = (php: number | null) =>
@@ -78,6 +79,7 @@ export function BuildLocked({
   savedBuilds,
   reviewStatusByVendorId,
   lockBlockedByVendorId,
+  depositStepByVendorId,
 }: {
   model: PlanBudgetModel;
   eventId: string;
@@ -114,6 +116,13 @@ export function BuildLocked({
    * for them either. Absent/empty (flag off) ⇒ every pick renders as it shipped.
    */
   lockBlockedByVendorId?: ReadonlyMap<string, BlockedLockReason>;
+  /**
+   * S19 (2026-09-18) — the deposit, per `contracted` supplier, from
+   * `depositStepOf`. Owner on the booking run: a locked card read "Locked in ✓"
+   * and gave the couple nothing to do, when the next step is paying the
+   * deposit. Absent for a row ⇒ no deposit line (not yet agreed, or past it).
+   */
+  depositStepByVendorId?: ReadonlyMap<string, DepositStep>;
   /** Categories the quote-fill row can offer. Empty (or absent) → no row. */
   quoteFillable?: ReadonlyArray<FillableCategory>;
   /** For the relocated "Save current as a plan" (§3 item 6). Flag-ON only. */
@@ -247,7 +256,13 @@ export function BuildLocked({
       <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
       <LockTile k="Location" v={summary?.region ?? '—'} />
       <LockTile k="Locked" v={pesoFromPhp(money.lockedPhp) ?? '—'} accent />
-      <LockTile k="In build" v={pesoFromPhp(money.inBuildPhp) ?? '—'} />
+      {/* "STILL TO LOCK", NOT "IN BUILD" (S19, 2026-09-18). This figure is
+          `teamMoney().inBuildPhp` — the sum of `toLockRows`, i.e. build picks
+          NOT yet locked. A locked supplier leaves that list, so right after a
+          lock the tile read "In build ₱0" beside "Locked ₱10,170" — as though
+          the build were empty, when the locked supplier IS the build. The
+          number was always right; the label claimed more than it measures. */}
+      <LockTile k="Still to lock" v={pesoFromPhp(money.inBuildPhp) ?? '—'} />
       <LockTile k="Budget" v={pesoFromPhp(money.budgetPhp) ?? '—'} />
       <LockTile k="Buffer" v={buffer.text} tone={buffer.tone} />
     </div>
@@ -387,51 +402,57 @@ export function BuildLocked({
             {lockedRows.map((r, i) => (
               <li
                 key={`${r.group}-${r.name}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50/60 px-4 py-3"
+                className="rounded-xl border border-success-200 bg-success-50/60 px-4 py-3"
               >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} aria-hidden />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
-                    <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
-                      {r.folder} · {r.group}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                        {r.folder} · {r.group}
+                      </span>
                     </span>
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2.5">
-                  {pesoFromPhp(r.cost) && (
-                    <span className="text-sm font-medium tabular-nums text-ink/75">
-                      {pesoFromPhp(r.cost)}
-                    </span>
-                  )}
-                  {/* The word the After-phase menu promises, finally attached to
-                      the supplier it is about. Offered ONLY where the window is
-                      genuinely open — a prompt the product would then refuse is
-                      worse than no prompt. */}
-                  {reviewStatusByVendorId?.get(r.vendorId) === 'open' ? (
-                    <Link
-                      href={`/dashboard/${eventId}/vendors/${r.vendorId}/review`}
-                      /* 🪤 THE QUIET VERSION OF THIS CHIP FAILED AA AND BOTH
-                         CONTRAST GUARDS WAVED IT THROUGH. `text-mulberry` on a
-                         `bg-mulberry/10` tint MEASURES 4.16:1 on the white page
-                         (3.62:1 on hover) — mulberry has only 0.26 of headroom
-                         over the 4.5 floor, so any tint under it spends the lot.
-                         The guards missed it because one checks token
-                         DEFINITIONS and the other only judges pairings where
-                         both sides are opaque; an alpha fill is neither.
-                         The solid action is the canonical treatment and
-                         measures 4.76:1 light / 6.20:1 dark. */
-                      className="rounded-full bg-mulberry px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-cream transition hover:opacity-90"
-                    >
-                      Leave a review
-                    </Link>
-                  ) : null}
-                  {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
-                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-success-700">
-                      Reviewed
-                    </span>
-                  ) : null}
-                </span>
+                  <span className="flex shrink-0 items-center gap-2.5">
+                    {pesoFromPhp(r.cost) && (
+                      <span className="text-sm font-medium tabular-nums text-ink/75">
+                        {pesoFromPhp(r.cost)}
+                      </span>
+                    )}
+                    {/* The word the After-phase menu promises, finally attached to
+                        the supplier it is about. Offered ONLY where the window is
+                        genuinely open — a prompt the product would then refuse is
+                        worse than no prompt. */}
+                    {reviewStatusByVendorId?.get(r.vendorId) === 'open' ? (
+                      <Link
+                        href={`/dashboard/${eventId}/vendors/${r.vendorId}/review`}
+                        /* 🪤 THE QUIET VERSION OF THIS CHIP FAILED AA AND BOTH
+                           CONTRAST GUARDS WAVED IT THROUGH. `text-mulberry` on a
+                           `bg-mulberry/10` tint MEASURES 4.16:1 on the white page
+                           (3.62:1 on hover) — mulberry has only 0.26 of headroom
+                           over the 4.5 floor, so any tint under it spends the lot.
+                           The guards missed it because one checks token
+                           DEFINITIONS and the other only judges pairings where
+                           both sides are opaque; an alpha fill is neither.
+                           The solid action is the canonical treatment and
+                           measures 4.76:1 light / 6.20:1 dark. */
+                        className="rounded-full bg-mulberry px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-cream transition hover:opacity-90"
+                      >
+                        Leave a review
+                      </Link>
+                    ) : null}
+                    {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
+                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-success-700">
+                        Reviewed
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <DepositLine
+                  step={depositStepByVendorId?.get(r.vendorId)}
+                  href={depositStepHref(eventId, r.vendorId)}
+                />
               </li>
             ))}
           </ul>
@@ -555,6 +576,49 @@ function decisionMeta(daysLeft: number | null, optionCount: number): string | nu
   if (daysLeft != null && daysLeft <= 30) return `${daysLeft}d left`;
   if (optionCount > 0) return `${optionCount} shortlisted`;
   return null;
+}
+
+/**
+ * The next step after a lock — the deposit (S19). One line under the locked row.
+ * `due`/`refused` are the calls to action (the couple has something to DO);
+ * `sent`/`confirmed` are quiet status; `unknown` (a refused read) is a neutral
+ * doorway that claims nothing either way.
+ */
+function DepositLine({ step, href }: { step: DepositStep | undefined; href: string }) {
+  if (!step) return null;
+  if (step === 'due' || step === 'refused') {
+    return (
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-success-200 pt-2.5">
+        <span className="text-xs text-ink/70">
+          {step === 'due'
+            ? 'Next: pay your deposit to hold the date.'
+            : 'They say your deposit hasn’t reached them.'}
+        </span>
+        {/* Solid mulberry — the canonical action treatment the review chip above
+            measured at 4.76:1 light / 6.20:1 dark. */}
+        <Link
+          href={href}
+          className="inline-flex items-center rounded-full bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition hover:opacity-90"
+        >
+          {step === 'due' ? 'Pay your deposit' : 'Send it again'}
+        </Link>
+      </div>
+    );
+  }
+  if (step === 'unknown') {
+    return (
+      <div className="mt-2 text-xs">
+        <Link href={href} className="font-medium text-ink/70 underline-offset-2 hover:underline">
+          Deposit &amp; payments
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60">
+      {step === 'confirmed' ? 'Deposit confirmed' : 'Deposit sent · waiting for them to confirm'}
+    </p>
+  );
 }
 
 function LockTile({

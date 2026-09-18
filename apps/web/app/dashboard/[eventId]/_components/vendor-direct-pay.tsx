@@ -153,7 +153,7 @@ function DirectPayTrigger({
             className="group flex w-full items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/[0.04] px-4 py-3 text-left transition-colors hover:border-terracotta/60 hover:bg-terracotta/[0.07]"
           >
             <span className="flex min-w-0 items-center gap-2.5">
-              <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+              <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium text-ink">
                   Pay {vendorName} directly
@@ -163,7 +163,7 @@ function DirectPayTrigger({
             </span>
             <ChevronRight
               aria-hidden
-              className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
+              className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta-700"
               strokeWidth={1.75}
             />
           </button>

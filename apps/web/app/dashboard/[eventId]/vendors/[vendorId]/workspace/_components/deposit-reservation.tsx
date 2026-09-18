@@ -16,6 +16,16 @@
 //     record."** A supplier not seeing the money is not evidence the couple did
 //     not send it; a transfer can be slow or land under another name.
 //
+// PAY FIRST, THEN RECORD (S19, 2026-09-18). Owner, live on the booking run:
+// "there is no mode to pay the vendor the deposit… the payment modes of the
+// vendor must show. and an easier way to pay of course." While a deposit is
+// still owed, the card now leads with step 1 — the supplier's OWN approved
+// destinations through the shipped `VendorDirectPay` sheet (with its
+// owner-locked disclosure) — and only then step 2, "Record deposit". When the
+// supplier has published nothing, the couple is told so in a sentence
+// (`noPayMethodsSentence`) instead of being shown an empty sheet; a refused
+// read says it could not load, never "they have none".
+//
 // OFF-PLATFORM MONEY: this records a host-entered PHP figure for the couple's
 // own ledger and holds the date — it is NOT a charge through Setnayan. Setnayan
 // never holds funds. Recording does NOT change the order status (orthogonal).
@@ -25,6 +35,13 @@ import { useRef, useState, useTransition } from 'react';
 import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
 import { recordDeposit } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import {
+  DEPOSIT_ANCHOR_ID,
+  noPayMethodsSentence,
+  type CouplePayMethodsState,
+} from '@/lib/deposit-pay-step';
 
 type Props = {
   eventId: string;
@@ -39,6 +56,13 @@ type Props = {
   depositDeclineReason: string | null;
   /** Setnayan's own finding, once the team has checked it by hand. */
   depositDisputeNote: string | null;
+  /**
+   * The supplier's approved payment destinations, read server-side through
+   * `readPublishedMethodsForCouple` — with the read's OUTCOME, so "they have
+   * none" and "we could not load them" never render as the same sentence.
+   */
+  payMethods: CoupleFacingMethod[];
+  payMethodsState: CouplePayMethodsState;
 };
 
 function fmtDate(iso: string | null): string {
@@ -64,6 +88,8 @@ export function DepositReservation({
   depositDeclinedAt,
   depositDeclineReason,
   depositDisputeNote,
+  payMethods,
+  payMethodsState,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -74,6 +100,10 @@ export function DepositReservation({
   const recorded = Boolean(depositRecordedAt);
   const acked = Boolean(depositAcknowledgedAt);
   const declined = Boolean(depositDeclinedAt);
+  // Still owed: nothing recorded, or the supplier said it never arrived.
+  // Confirmed or awaiting an answer → paying again is not the next step.
+  const owed = (!recorded || declined) && !acked;
+  const noMethods = noPayMethodsSentence(payMethodsState, payMethods.length, vendorName);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -97,7 +127,10 @@ export function DepositReservation({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
+    <div
+      id={DEPOSIT_ANCHOR_ID}
+      className="scroll-mt-24 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-xs font-semibold text-ink">
           <CalendarCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
@@ -134,11 +167,32 @@ export function DepositReservation({
         </p>
       ) : (
         <p className="text-[11px] text-ink/60">
-          Paid a deposit off-platform? Record it to hold your date on{' '}
-          {vendorName}&rsquo;s schedule while they confirm. Setnayan never holds
-          your money — this is your own record.
+          Pay {vendorName} directly, then record it here to hold your date on
+          their schedule while they confirm. Setnayan never holds your money —
+          this is your own record.
         </p>
       )}
+
+      {/* STEP 1 · PAY THEM — the supplier's own destinations, first in the
+          reading order, only while a deposit is still owed. The disclosure
+          rides inside VendorDirectPay (always-on line + the sheet's locked copy). */}
+      {owed ? (
+        <div className="space-y-1.5 pt-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
+            1 · Pay {vendorName}
+          </p>
+          {noMethods ? (
+            <p role="note" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+              {noMethods}
+            </p>
+          ) : (
+            <VendorDirectPay vendorName={vendorName} methods={payMethods} />
+          )}
+          <p className="pt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
+            2 · Record it here
+          </p>
+        </div>
+      ) : null}
 
       {declined && depositDeclineReason ? (
         <p className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-[11px] text-ink/75">

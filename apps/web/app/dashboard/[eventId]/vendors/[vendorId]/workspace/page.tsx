@@ -113,7 +113,8 @@ import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-orde
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
-import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   fetchPlanForCouple,
@@ -631,7 +632,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // vendor_profiles / vendor_services (USING is_published=TRUE) returns nothing,
   // so the header + services + contact came back empty and the couple saw their
   // just-connected vendor stripped. This mirrors the proven-ownership admin path
-  // already used for direct-pay methods (fetchPublishedMethodsForCouple, below).
+  // already used for direct-pay methods (readPublishedMethodsForCouple, below).
   // REVIEWS stay on the couple RLS client — vendor_reviews / vendor_review_stats
   // are public-read for marketplace consumption and carry no is_published gate.
   // This does NOT widen non-owner visibility: only this couple's own event's
@@ -763,16 +764,23 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // sheet. For off-platform/manual vendors the helper returns [] and the sheet
   // trigger collapses to the quiet "coordinate in chat" hint. Best-effort: a
   // failure degrades to [] rather than 500-ing the workspace.
+  //
+  // S19 · the OUTCOME is kept too, for the deposit step: there "no methods"
+  // becomes a sentence to the couple, and a refused read must not print it.
   let directPayMethods: CoupleFacingMethod[] = [];
+  let directPayState: CouplePayMethodsState = 'unreadable';
   try {
-    directPayMethods = await fetchPublishedMethodsForCouple({
+    const read = await readPublishedMethodsForCouple({
       authedClient: supabase,
       adminClient: createAdminClient(),
       eventId,
       eventVendorId: ev.vendor_id,
     });
+    directPayMethods = read.methods;
+    directPayState = read.state;
   } catch {
     directPayMethods = [];
+    directPayState = 'unreadable';
   }
 
   // Per-booking PAYMENT PLAN (Phase 2 PR-B) — the installments frozen at lock
@@ -1724,6 +1732,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             depositDeclinedAt={depositRefusal?.declinedAt ?? null}
             depositDeclineReason={depositRefusal?.reason ?? null}
             depositDisputeNote={depositRefusal?.settlementNote ?? null}
+            payMethods={directPayMethods}
+            payMethodsState={directPayState}
           />
 
           {/*

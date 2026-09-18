@@ -281,19 +281,6 @@ function formatPHP(value: number | string | null | undefined): string | null {
   }).format(n);
 }
 
-function formatMeetingDate(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat('en-PH', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Manila',
-  }).format(d);
-}
-
 function formatPaymentDate(iso: string): string {
   const d = new Date(iso);
   return new Intl.DateTimeFormat('en-PH', {
@@ -645,7 +632,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // fetches are gone.
   const [
     contractsRes,
-    meetingsRes,
     marketplaceProfileRes,
     chatThreadRes,
     marketplaceServicesData,
@@ -662,14 +648,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           .neq('status', 'draft')
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
-
-    // Upcoming meetings
-    supabase
-      .from('vendor_meetings')
-      .select('meeting_id, starts_at, ends_at, mode, title, location, agenda, notes')
-      .eq('event_id', eventId)
-      .eq('vendor_id', vendorId)
-      .order('starts_at', { ascending: true }),
 
     // Marketplace profile — logo, business name, city, slug. ADMIN read
     // (ownership proven above) so an unpublished claimed vendor still hydrates
@@ -848,17 +826,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const contractState = deriveBookingContractState(
     contracts.map((c) => c.status as ContractStatus),
   );
-
-  const meetings = (meetingsRes.data ?? []) as Array<{
-    meeting_id: string;
-    starts_at: string;
-    ends_at: string | null;
-    mode: string;
-    title: string;
-    location: string | null;
-    agenda: string | null;
-    notes: string | null;
-  }>;
 
   const marketplaceProfile = (marketplaceProfileRes.data ?? null) as {
     business_name: string;
@@ -1995,7 +1962,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         />
   );
 
-  const schedulesSection = (
+  // The Schedules card used to list ad-hoc `vendor_meetings` rows — a table
+  // nothing ever wrote, so it said "No meetings scheduled yet" to every couple
+  // forever, including ones with confirmed appointments right below it. The
+  // table was dropped 2026-09-18 (S39). Appointments (below) are how a time
+  // with a Setnayan supplier gets booked; this card now appears ONLY for a
+  // supplier the couple added themselves, where there is no scheduler, and
+  // says so instead of implying one.
+  const schedulesSection = ev.marketplace_vendor_id ? null : (
         <section
           id="schedules"
           aria-labelledby="schedules-heading"
@@ -2014,33 +1988,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Schedules
             </h2>
           </header>
-
-          {meetings.length === 0 ? (
-            <p className="text-xs text-ink/55">
-              No meetings scheduled yet. Coordinate the next consult, tasting,
-              or fitting via Messages.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {meetings.map((m) => (
-                <li
-                  key={m.meeting_id}
-                  className="rounded-lg border border-ink/10 bg-cream/80 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-ink">{m.title}</p>
-                  <p className="text-[11px] text-ink/65">
-                    {formatMeetingDate(m.starts_at)}
-                    {m.mode ? ` · ${m.mode.replace(/_/g, ' ')}` : ''}
-                  </p>
-                  {m.location ? (
-                    <p className="mt-0.5 truncate text-[11px] text-ink/55">
-                      {m.location}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="text-xs text-ink/55">
+            You added {displayName} yourself, so there&rsquo;s no booking calendar with them
+            here. Arrange consults, tastings and fittings with them directly.
+          </p>
         </section>
   );
 

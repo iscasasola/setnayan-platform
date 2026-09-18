@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 241 single-column FKs onto auth.users / public.users
-# CASCADE=60  RESTRICT=3  SET NULL=178
+# 239 single-column FKs onto auth.users / public.users
+# CASCADE=60  RESTRICT=3  SET NULL=176
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -231,7 +231,6 @@ vendor_invites.claimed_by_user_id                         SET NULL     nullable 
 vendor_invites.invited_by_user_id                         SET NULL     nullable  -> auth.users
 vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_lock_proposals.resolved_by_user_id                 SET NULL     nullable  -> auth.users
-vendor_meetings.created_by_user_id                        SET NULL     nullable  -> auth.users
 vendor_member_token_wallets.user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_payment_asks.asked_by_user_id                      SET NULL     nullable  -> auth.users
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
@@ -246,7 +245,6 @@ vendor_review_appeals.reviewer_user_id                    CASCADE      NOT NULL 
 vendor_review_flags.reviewed_by_admin_id                  SET NULL     nullable  -> auth.users
 vendor_reviews.couple_user_id                             SET NULL     nullable  -> auth.users
 vendor_reviews.override_admin_id                          SET NULL     nullable  -> users
-vendor_self_comp_caps.raised_by_admin                     SET NULL     nullable  -> users
 vendor_subscriptions.holder_user_id                       SET NULL     nullable  -> auth.users
 vendor_team_members.user_id                               CASCADE      NOT NULL  -> auth.users
 vendor_tier_history.admin_user_id                         SET NULL     nullable  -> users

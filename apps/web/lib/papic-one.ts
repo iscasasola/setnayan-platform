@@ -163,6 +163,7 @@ export async function fetchPapicOneTiers(db: SupabaseClient): Promise<PapicOneTi
       .select('service_code, points, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
+    if (error) console.error('[supabase-error] lib/papic-one.ts · from:papic_one_tiers.select', error);
     // Only a real read failure may fall back to the seed.
     if (error || !Array.isArray(data)) return [...FALLBACK_ONE_TIERS];
     // A readable table that offers nothing offers nothing.
@@ -308,6 +309,7 @@ export async function fetchPapicFreeOneCameraPoints(
       .select('free_one_camera_points')
       .eq('config_key', 'default')
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/papic-one.ts · from:papic_event_pool_config.select', error);
     if (error || !data) return PAPIC_FREE_ONE_POINTS_FALLBACK;
     const n = Number((data as { free_one_camera_points?: unknown }).free_one_camera_points);
     // A 0 here is MEANINGFUL, not a miss: the SQL treats `<= 0` as "don't arm a
@@ -348,6 +350,7 @@ export async function ensureFreePapicOneCameraAdmin(
     const { data, error } = await admin.rpc('papic_ensure_free_one_camera', {
       p_event_id: eventId,
     });
+    if (error) console.error('[supabase-error] lib/papic-one.ts · rpc:papic_ensure_free_one_camera', error);
     if (error) return null;
     return typeof data === 'string' && data.length > 0 ? data : null;
   } catch {
@@ -371,6 +374,7 @@ export async function fetchPapicOneDedicatedPoints(
     const { data, error } = await admin.rpc('papic_seat_dedicated_points', {
       p_seat_id: seatId,
     });
+    if (error) console.error('[supabase-error] lib/papic-one.ts · rpc:papic_seat_dedicated_points', error);
     if (error) return null;
     const n = Number(data);
     return Number.isFinite(n) && n > 0 ? n : null;

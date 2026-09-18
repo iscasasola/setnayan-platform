@@ -149,6 +149,7 @@ async function requireCoupleMember(
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/delete-actions.ts · from:event_members.select', error);
 
   /*
     🪤 SUPABASE DOES NOT THROW. An RLS refusal and "no such row" are the same

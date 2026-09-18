@@ -32,6 +32,7 @@ const fetchEventDateForPromo = cache(async (
     .select('event_date')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/entitlements.ts · from:events.select', error);
   if (error || !data) return null;
   return (data as { event_date: string | null }).event_date ?? null;
 });
@@ -138,6 +139,7 @@ export async function eventHostIsInternal(
   const { data, error } = await supabase.rpc('event_host_is_internal', {
     p_event_id: eventId,
   });
+  if (error) console.error('[supabase-error] lib/entitlements.ts · rpc:event_host_is_internal', error);
   if (error) return false;
   return data === true;
 }
@@ -165,6 +167,7 @@ export async function eventHostHoldsFounderSeat(
   const { data, error } = await supabase.rpc('event_host_holds_founder_seat', {
     p_event_id: eventId,
   });
+  if (error) console.error('[supabase-error] lib/entitlements.ts · rpc:event_host_holds_founder_seat', error);
   if (error) return false;
   return data === true;
 }
@@ -552,6 +555,7 @@ export async function fetchBundleComponents(
   const { data, error } = await supabase
     .from('bundle_components')
     .select('bundle_sku_code, component_service_code');
+  if (error) console.error('[supabase-error] lib/entitlements.ts · from:bundle_components.select', error);
 
   // Pre-migration / drift / any error → const fallback. Never throw at a gate.
   if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;

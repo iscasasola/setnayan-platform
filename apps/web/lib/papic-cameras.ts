@@ -893,6 +893,7 @@ export async function provisionFreeCamerasAdmin(
       .eq('event_id', eventId)
       .gte('seat_index', PAPIC_FREE_CAMERA_INDEX_BASE)
       .lte('seat_index', lastIndex);
+    if (readErr) console.error('[supabase-error] lib/papic-cameras.ts · from:paparazzi_seats.select', readErr);
     if (readErr) return 0; // missing/legacy table → pre-bootstrap DB; retry next render
     const have = new Set((existing ?? []).map((r) => r.seat_index as number));
     const missing = [];
@@ -913,6 +914,7 @@ export async function provisionFreeCamerasAdmin(
     const { error: insertErr } = await admin
       .from('paparazzi_seats')
       .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
+    if (insertErr) console.error('[supabase-error] lib/papic-cameras.ts · from:paparazzi_seats.upsert', insertErr);
     if (insertErr) return 0;
     return missing.length;
   } catch {
@@ -958,6 +960,7 @@ export async function provisionUploadsCameraAdmin(
       .eq('event_id', eventId)
       .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
       .maybeSingle();
+    if (readErr) console.error('[supabase-error] lib/papic-cameras.ts · from:paparazzi_seats.select', readErr);
     // ⚠ A refused read is NOT "there is none". Returning 0 here retries next
     // render; inserting on an unread would race the UNIQUE constraint for
     // nothing.
@@ -978,6 +981,7 @@ export async function provisionUploadsCameraAdmin(
       ],
       { onConflict: 'event_id,seat_index', ignoreDuplicates: true },
     );
+    if (insertErr) console.error('[supabase-error] lib/papic-cameras.ts · from:paparazzi_seats.upsert', insertErr);
     if (insertErr) return 0;
     return 1;
   } catch {

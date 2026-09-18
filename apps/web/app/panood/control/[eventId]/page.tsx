@@ -772,6 +772,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       .select('live_studio_guest_pick_enabled')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (gpErr) console.error('[supabase-error] app/panood/control/[eventId]/page.tsx · from:events.select', gpErr);
     if (!gpErr) {
       guestPickEnabled =
         (gpRow as { live_studio_guest_pick_enabled?: unknown } | null)

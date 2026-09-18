@@ -75,6 +75,11 @@ const STATIC_ROUTES: ReadonlyArray<{
   // Adventure-Chapter slice; the /vendors sibling for the storyteller side.
   { path: '/creators', lastmod: '2026-07-16', changefreq: 'monthly', priority: '0.8' },
 
+  // /alaala — living-memory doorway (Website master-plan Phase 1, shipped
+  // 2026-06-28 PR from commit 7484c7604). Was orphaned (indexable but in no
+  // sitemap).
+  { path: '/alaala', lastmod: '2026-06-28', changefreq: 'monthly', priority: '0.7' },
+
   // /tl/about — Taglish edition of /about (localization first slice,
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
   { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },

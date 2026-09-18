@@ -61,7 +61,11 @@ export async function fetchVendorReposts(
     .eq('source_vendor_id', vendorProfileId)
     .order('created_at', { ascending: false })
     .limit(100);
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] lib/vendor-theft-watch.ts · from:vendor_image_flags.select', error);
+    return [];
+  }
+  if (!data) return [];
   return (data as FlagRow[]).map((r) => ({
     publicId: r.public_id,
     surface: r.source_surface,

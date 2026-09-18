@@ -98,7 +98,11 @@ export async function isMarketplaceVendorBookable(
       .select('verification_state')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    if (error || !data) return false;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_profiles.select', error);
+      return false;
+    }
+    if (!data) return false;
     return isBookableVerificationState(
       parseVerificationState(
         (data as { verification_state?: unknown }).verification_state,
@@ -564,7 +568,11 @@ export async function fetchContactConfirmations(
         'application_id,contact_email_confirmed_at,contact_email_confirmed_by,contact_phone_confirmed_at,contact_phone_confirmed_by',
       )
       .in('application_id', applicationIds);
-    if (error || !data) return {};
+    if (error) {
+      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_verification_applications.select', error);
+      return {};
+    }
+    if (!data) return {};
     const out: Record<string, ContactConfirmation> = {};
     for (const row of data as Array<
       { application_id: string } & Partial<ContactConfirmation>

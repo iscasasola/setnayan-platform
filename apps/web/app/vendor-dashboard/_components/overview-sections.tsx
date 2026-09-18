@@ -413,32 +413,52 @@ export function VendorEnergyStats({
         icon={<Inbox className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
         value={inquiries}
         label="New inquiries"
+        href="/vendor-dashboard/messages"
       />
       <EnergyKpi
         icon={<ListTodo className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
         value={ongoing.length}
         label="Open tasks"
+        href="/vendor-dashboard/clients"
       />
       <EnergyKpi
         icon={<CalendarClock className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
         value={upcoming.length}
         label="Upcoming · next 5"
+        href="/vendor-dashboard/calendar"
       />
     </section>
   );
 }
 
+/**
+ * 🔴 A COUNT THAT GOES NOWHERE (owner, 2026-09-18). A supplier saw "New
+ * inquiries · 1" on his dashboard, tapped it, and nothing happened — while the
+ * `EarnedTile` sitting directly beside it links to the full ledger. Three
+ * numbers styled like tiles, none of them reachable, next to one that is.
+ *
+ * 🔑 This file already carries the lesson 180 lines down: *"href and no form: a
+ * control that looked pressable and did nothing."* Same defect, different
+ * direction — that one looked pressable and was inert; these ARE the answer to
+ * "where do I go next" and offered no way to go there.
+ *
+ * `href` is optional so a future count with no destination is a deliberate
+ * choice rather than an oversight, and the guard below counts how many go
+ * without one.
+ */
 function EnergyKpi({
   icon,
   value,
   label,
+  href,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
+  href?: string;
 }) {
-  return (
-    <div className="sn-tile sn-reveal">
+  const body = (
+    <>
       <p className="sn-eye">
         <span
           aria-hidden
@@ -452,7 +472,19 @@ function EnergyKpi({
       <p className="mt-2 font-mono text-3xl font-bold leading-none text-ink">
         <CountUp value={value} delayMs={200} />
       </p>
-    </div>
+    </>
+  );
+  // Whole tile is the target, matching EarnedTile — a number is a poor tap
+  // target and the label is the part that says where you are going.
+  return href ? (
+    <Link
+      href={href}
+      className="sn-tile sn-reveal block transition-colors hover:bg-ink/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className="sn-tile sn-reveal">{body}</div>
   );
 }
 

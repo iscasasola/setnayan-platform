@@ -282,7 +282,7 @@ export async function fetchPhotoChallengeExpiry(
  * production ever, and — once the activation hook moved to stamping the 28-day
  * window — zero writers anywhere. **A read arm whose only writer is gone can
  * never be true**, and leaving it in made the gate say there were two ways to be
- * entitled when there is one.
+ * entitled when there is one. (The table itself was dropped 2026-09-18.)
  *
  * `eventId` is accepted and IGNORED, matching the SQL signature: a subscription
  * covers every celebration the shop is booked for, and the per-celebration

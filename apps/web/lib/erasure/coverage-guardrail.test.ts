@@ -258,6 +258,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   calendar_feed_tokens:
     'Table DROPPED 2026-08-22 — the retired all-events calendar subscription feed; prod held one token, never once read. Nothing left to erase.',
   user_ai_subscription: 'Table DROPPED 2026-08-01 — no rows ever existed; nothing to erase.',
+  // ⚠ TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — soft-hold
+  // release audit whose writers never shipped. Its two SET NULL purge rules were
+  // removed from coverage.ts in the same change (a rule against a dropped table
+  // records an erasure FAILURE on every request). Listed only because the
+  // parser cannot see a DROP — same reason as calendar_feed_tokens above.
+  vendor_release_history:
+    'Table DROPPED 2026-09-18 — writers never shipped, 0 rows in prod ever. Nothing left to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',
 

@@ -340,6 +340,20 @@ const CLOSED = [
   ...CLOSED_IN_BATCH_7,
 ];
 
+/**
+ * Closed here FIRST, then DROPPED outright by a later migration. They stay in
+ * their batch lists (so no floor above is trimmed) and are checked the other
+ * way round: they must be ABSENT. A table cannot leave a batch list without
+ * either existing (and being closed) or being proven gone.
+ */
+const DROPPED_AFTER_CLOSING: Record<string, string> = {
+  couple_briefs: '20271234083820 — retired RFP marketplace (S37)',
+  vendor_bid_submissions: '20271234083820 — retired RFP marketplace (S37)',
+  vendor_release_history: '20271234083820 — soft-hold release audit, writers never shipped (S37)',
+};
+
+const CLOSED_LIVE = CLOSED.filter((t) => !(t in DROPPED_AFTER_CLOSING));
+
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
 
@@ -395,19 +409,41 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `SELECT count(*)::int AS n FROM pg_class c
        JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
       WHERE c.relname = ANY($1)`,
-    [CLOSED],
+    [CLOSED_LIVE],
   );
   assert.equal(
     rows[0]?.n,
-    CLOSED.length,
+    CLOSED_LIVE.length,
     'a table in the batch list does not exist in the replayed schema — fix the name, ' +
       'do not delete the line',
   );
 });
 
+test('a table dropped after closing is really gone, and was in a batch', async () => {
+  const names = Object.keys(DROPPED_AFTER_CLOSING);
+  for (const t of names) {
+    assert.ok(
+      (CLOSED as readonly string[]).includes(t),
+      `${t} is marked dropped but was never in a batch list — it cannot be a batch exemption`,
+    );
+  }
+  const { rows } = await db.query<{ relname: string }>(
+    `SELECT c.relname FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+      WHERE c.relname = ANY($1)`,
+    [names],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.relname),
+    [],
+    'a table marked DROPPED_AFTER_CLOSING still exists — it is no longer checked as ' +
+      'closed, so its grants are unguarded. Remove it from DROPPED_AFTER_CLOSING.',
+  );
+});
+
 test('anon holds NOTHING on any table closed so far (batches 1-7)', async () => {
   const open: string[] = [];
-  for (const table of CLOSED) {
+  for (const table of CLOSED_LIVE) {
     for (const verb of VERBS) {
       const { rows } = await db.query<{ ok: boolean }>(
         `SELECT has_table_privilege('anon', $1, $2) AS ok`,

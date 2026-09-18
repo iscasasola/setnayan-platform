@@ -869,3 +869,53 @@ export function serviceWizardSteps(opts: {
   steps.push({ id: 'review', label: 'Review & publish' });
   return steps;
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* COPYING A CARD'S OPTIONS (SUP-40, 2026-09-18)                              */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A source card's ★ lines, re-keyed to seed a NEW card's step.
+ *
+ * `loadPackageDraft` returns refs that are the source package's DATABASE ids.
+ * They would still work as client refs (they are unique), but a new card must
+ * carry no id belonging to the old one — the same rule `vendor-card-copy.ts`
+ * applies to the card itself: a copy is a blank card that starts out filled in,
+ * never a second claim on the first. So every item and option gets a fresh ref,
+ * and every follow-up's `parentRef` is re-pointed through the same map.
+ *
+ * A follow-up whose parent is not among the copied lines keeps an EMPTY
+ * `itemRef`, which the validator surfaces as `followup_parent_unknown` — the
+ * loader's own rule. Flattening it to `null` would quietly turn a line couples
+ * see only after one pick into a line every couple sees.
+ *
+ * Every line is re-homed under THIS card's canonical service: the step has no
+ * per-line category picker, and a copy into another category lands in the
+ * route's category (the card copy's own rule).
+ *
+ * Pure and total; the input is never mutated.
+ */
+export function rekeyCopiedItems(
+  items: readonly DraftItem[],
+  canonicalService: string,
+): DraftItem[] {
+  const itemRef = new Map<string, string>();
+  const optionRef = new Map<string, string>();
+  items.forEach((item, i) => {
+    const ir = `copy-i${i + 1}`;
+    itemRef.set(item.ref, ir);
+    item.options.forEach((o, j) => optionRef.set(o.ref, `${ir}-o${j + 1}`));
+  });
+  return items.map((item) => ({
+    ...item,
+    ref: itemRef.get(item.ref)!,
+    canonical_service: canonicalService,
+    options: item.options.map((o) => ({ ...o, ref: optionRef.get(o.ref)! })),
+    parentRef: item.parentRef
+      ? {
+          itemRef: itemRef.get(item.parentRef.itemRef) ?? '',
+          optionRef: optionRef.get(item.parentRef.optionRef) ?? '',
+        }
+      : null,
+  }));
+}

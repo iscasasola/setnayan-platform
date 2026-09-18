@@ -545,6 +545,23 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 threadId={threadId}
                 returnTo={`/dashboard/${eventId}/messages/${threadId}`}
                 blockedByMe={blockState.blockedByMe}
+                // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
+                // That page used to embed its own copy of this conversation and
+                // now sends a chat landing HERE; these are the way back to what
+                // it still holds. Only once the workspace route is known — it is
+                // keyed by `event_vendors.vendor_id`, resolved above for the
+                // Lock button, and null on a thread with no row yet.
+                links={
+                  quoteLockHref
+                    ? [
+                        { href: `${quoteLockHref}?tab=quote`, label: 'Quote' },
+                        { href: `${quoteLockHref}?tab=payments`, label: 'Payments' },
+                        { href: `${quoteLockHref}?tab=files`, label: 'Files' },
+                        { href: `${quoteLockHref}?tab=schedule`, label: 'Schedule' },
+                        { href: `${quoteLockHref}?tab=details`, label: 'Booking details' },
+                      ]
+                    : []
+                }
               />
             </>
           }

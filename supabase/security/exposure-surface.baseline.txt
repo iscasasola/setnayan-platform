@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6669
+# facts: 6680
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     586
-#   col       4900
-#   policy    910
+#   tpriv     587
+#   col       4908
+#   policy    912
 #   view      9
 #   func      260
 #
@@ -173,6 +173,7 @@ tpriv	public.event_seat_assignments|anon	SIUD
 tpriv	public.event_seat_assignments|authenticated	SIUD
 tpriv	public.event_seating_constraints|anon	SIUD
 tpriv	public.event_seating_constraints|authenticated	SIUD
+tpriv	public.event_shot_list_items|authenticated	SD
 tpriv	public.event_software_activations_v2|authenticated	SIUD
 tpriv	public.event_song_picks|authenticated	SIUD
 tpriv	public.event_song_requests|authenticated	SU
@@ -574,7 +575,7 @@ tpriv	public.vendor_service_price_history|authenticated	SIUD
 tpriv	public.vendor_service_recommendations|anon	SIUD
 tpriv	public.vendor_service_recommendations|authenticated	SIUD
 tpriv	public.vendor_service_time_slots|authenticated	SIUD
-tpriv	public.vendor_services|anon	SIUD
+tpriv	public.vendor_services|anon	S
 tpriv	public.vendor_services|authenticated	SIUD
 tpriv	public.vendor_songs|anon	SIUD
 tpriv	public.vendor_songs|authenticated	SIUD
@@ -1771,6 +1772,14 @@ col	public.event_seating_constraints.guest_a_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.guest_b_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.kind	anon=SIU authenticated=SIU
+col	public.event_shot_list_items.captured_at	anon=- authenticated=SIU
+col	public.event_shot_list_items.created_at	anon=- authenticated=S
+col	public.event_shot_list_items.event_id	anon=- authenticated=SI
+col	public.event_shot_list_items.item_id	anon=- authenticated=S
+col	public.event_shot_list_items.label	anon=- authenticated=SIU
+col	public.event_shot_list_items.position	anon=- authenticated=SIU
+col	public.event_shot_list_items.updated_at	anon=- authenticated=S
+col	public.event_shot_list_items.vendor_profile_id	anon=- authenticated=SI
 col	public.event_software_activations_v2.created_at	anon=- authenticated=SIU
 col	public.event_software_activations_v2.event_id	anon=- authenticated=SIU
 col	public.event_software_activations_v2.id	anon=- authenticated=SIU
@@ -5231,47 +5240,47 @@ col	public.vendor_service_time_slots.start_time	anon=- authenticated=SIU
 col	public.vendor_service_time_slots.updated_at	anon=- authenticated=SIU
 col	public.vendor_service_time_slots.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_service_time_slots.vendor_service_id	anon=- authenticated=SIU
-col	public.vendor_services.added_pax_block	anon=SIU authenticated=SIU
-col	public.vendor_services.added_pax_price_php	anon=SIU authenticated=SIU
-col	public.vendor_services.base_pax	anon=SIU authenticated=SIU
-col	public.vendor_services.branch_id	anon=SIU authenticated=SIU
-col	public.vendor_services.category	anon=SIU authenticated=SIU
-col	public.vendor_services.coverage_id	anon=SIU authenticated=SIU
-col	public.vendor_services.created_at	anon=SIU authenticated=SIU
-col	public.vendor_services.credit_price_centavos	anon=SIU authenticated=SIU
-col	public.vendor_services.crew_meal_included	anon=SIU authenticated=SIU
-col	public.vendor_services.crew_meal_required	anon=SIU authenticated=SIU
-col	public.vendor_services.crew_size	anon=SIU authenticated=SIU
-col	public.vendor_services.daily_capacity	anon=SIU authenticated=SIU
-col	public.vendor_services.demo_batch_id	anon=SIU authenticated=SIU
-col	public.vendor_services.exclusive_perk_text	anon=SIU authenticated=SIU
-col	public.vendor_services.extra_hour_php	anon=SIU authenticated=SIU
-col	public.vendor_services.hour_base_php	anon=SIU authenticated=SIU
-col	public.vendor_services.includes_setnayan_gift	anon=SIU authenticated=SIU
-col	public.vendor_services.is_active	anon=SIU authenticated=SIU
-col	public.vendor_services.is_demo	anon=SIU authenticated=SIU
-col	public.vendor_services.is_linked_only	anon=SIU authenticated=SIU
-col	public.vendor_services.last_minute_end_months	anon=SIU authenticated=SIU
-col	public.vendor_services.last_minute_surcharge_pct	anon=SIU authenticated=SIU
-col	public.vendor_services.min_hours	anon=SIU authenticated=SIU
-col	public.vendor_services.min_pax	anon=SIU authenticated=SIU
-col	public.vendor_services.package_inclusions	anon=SIU authenticated=SIU
-col	public.vendor_services.per_guest_delivery	anon=SIU authenticated=SIU
-col	public.vendor_services.per_pax_price_php	anon=SIU authenticated=SIU
-col	public.vendor_services.pricing_basis	anon=SIU authenticated=SIU
-col	public.vendor_services.primary_photo_r2_key	anon=SIU authenticated=SIU
-col	public.vendor_services.public_id	anon=SIU authenticated=SIU
-col	public.vendor_services.recommended_lead_time_months	anon=SIU authenticated=SIU
-col	public.vendor_services.showcase_photo_r2_keys	anon=SIU authenticated=SIU
-col	public.vendor_services.showcase_video_r2_key	anon=SIU authenticated=SIU
-col	public.vendor_services.starting_price_php	anon=SIU authenticated=SIU
-col	public.vendor_services.starts_at_centavos	anon=SIU authenticated=SIU
-col	public.vendor_services.title	anon=SIU authenticated=SIU
-col	public.vendor_services.transport_flat_fee_php	anon=SIU authenticated=SIU
-col	public.vendor_services.transport_included	anon=SIU authenticated=SIU
-col	public.vendor_services.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_services.vendor_profile_id	anon=SIU authenticated=SIU
-col	public.vendor_services.vendor_service_id	anon=SIU authenticated=SIU
+col	public.vendor_services.added_pax_block	anon=S authenticated=SIU
+col	public.vendor_services.added_pax_price_php	anon=S authenticated=SIU
+col	public.vendor_services.base_pax	anon=S authenticated=SIU
+col	public.vendor_services.branch_id	anon=S authenticated=SIU
+col	public.vendor_services.category	anon=S authenticated=SIU
+col	public.vendor_services.coverage_id	anon=S authenticated=SIU
+col	public.vendor_services.created_at	anon=S authenticated=SIU
+col	public.vendor_services.credit_price_centavos	anon=S authenticated=SIU
+col	public.vendor_services.crew_meal_included	anon=S authenticated=SIU
+col	public.vendor_services.crew_meal_required	anon=S authenticated=SIU
+col	public.vendor_services.crew_size	anon=S authenticated=SIU
+col	public.vendor_services.daily_capacity	anon=S authenticated=SIU
+col	public.vendor_services.demo_batch_id	anon=S authenticated=SIU
+col	public.vendor_services.exclusive_perk_text	anon=S authenticated=SIU
+col	public.vendor_services.extra_hour_php	anon=S authenticated=SIU
+col	public.vendor_services.hour_base_php	anon=S authenticated=SIU
+col	public.vendor_services.includes_setnayan_gift	anon=S authenticated=SIU
+col	public.vendor_services.is_active	anon=S authenticated=SIU
+col	public.vendor_services.is_demo	anon=S authenticated=SIU
+col	public.vendor_services.is_linked_only	anon=S authenticated=SIU
+col	public.vendor_services.last_minute_end_months	anon=S authenticated=SIU
+col	public.vendor_services.last_minute_surcharge_pct	anon=S authenticated=SIU
+col	public.vendor_services.min_hours	anon=S authenticated=SIU
+col	public.vendor_services.min_pax	anon=S authenticated=SIU
+col	public.vendor_services.package_inclusions	anon=S authenticated=SIU
+col	public.vendor_services.per_guest_delivery	anon=S authenticated=SIU
+col	public.vendor_services.per_pax_price_php	anon=S authenticated=SIU
+col	public.vendor_services.pricing_basis	anon=S authenticated=SIU
+col	public.vendor_services.primary_photo_r2_key	anon=S authenticated=SIU
+col	public.vendor_services.public_id	anon=S authenticated=SIU
+col	public.vendor_services.recommended_lead_time_months	anon=S authenticated=SIU
+col	public.vendor_services.showcase_photo_r2_keys	anon=S authenticated=SIU
+col	public.vendor_services.showcase_video_r2_key	anon=S authenticated=SIU
+col	public.vendor_services.starting_price_php	anon=S authenticated=SIU
+col	public.vendor_services.starts_at_centavos	anon=S authenticated=SIU
+col	public.vendor_services.title	anon=S authenticated=SIU
+col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
+col	public.vendor_services.transport_included	anon=S authenticated=SIU
+col	public.vendor_services.updated_at	anon=S authenticated=SIU
+col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
+col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
 col	public.vendor_songs.performance_url	anon=SIU authenticated=SIU
 col	public.vendor_songs.song_id	anon=SIU authenticated=SIU
@@ -5787,6 +5796,8 @@ policy	public.event_seat_assignments|event_seat_assignments_moderator_read	mode=
 policy	public.event_seat_assignments|event_seat_assignments_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'seat_plan'::text) = 'edit'::text)
 policy	public.event_seating_constraints|event_seating_constraints_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_seating_constraints|event_seating_constraints_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_shot_list_items|event_shot_list_items_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR is_admin()) check=NULL
+policy	public.event_shot_list_items|event_shot_list_items_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))
 policy	public.event_song_picks|event_song_picks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) OR (event_id IN ( SELECT current_vendor_dayof_grant_event_ids() AS current_vendor_dayof_grant_event_ids))) check=NULL
 policy	public.event_song_picks|event_song_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=NULL
 policy	public.event_song_picks|event_song_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR is_admin())

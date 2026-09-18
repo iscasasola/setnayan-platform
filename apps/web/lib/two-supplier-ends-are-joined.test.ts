@@ -20,12 +20,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const APP = join(__dirname, '..', 'app');
 const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
 /** Strip block and line comments so prose naming a symbol cannot satisfy a check. */
-const code = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const code = (src: string) => stripComments(src);
 const count = (hay: string, needle: string) => hay.split(needle).length - 1;
 
 /** The body of `export async function <name>(` up to its closing brace at column 0. */

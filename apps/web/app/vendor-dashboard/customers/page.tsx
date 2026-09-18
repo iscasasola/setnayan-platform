@@ -547,7 +547,10 @@ async function CustomersPipeline({ searchParams }: Props) {
           ).toString()}
         />
 
-        {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
+        {/* Sections 1 + 2 — filter row + month calendar (centrepiece).
+            `id="calendar"` is where every bare /vendor-dashboard/calendar link
+            lands (`customers/anchors.ts`). */}
+        <div id="calendar" className="scroll-mt-24">
         <CustomersCalendar
           initialDayStates={dayStates}
           initialWaitlist={waitlist}
@@ -578,6 +581,7 @@ async function CustomersPipeline({ searchParams }: Props) {
           agentsEnabled={agentsEnabled}
           agentCategories={agentCategories}
         />
+        </div>
 
         {/* Section 3 — three summary cards (glass `.sn-tile` bento). */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -895,7 +899,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
           (new inquiries), Payday = the cash-flow timeline (1 query, shown
           nowhere else). Rendered eagerly, not behind an accordion. */}
-      <div id="bookings">
+      <div id="bookings" className="scroll-mt-24">
         <BookingsSurface searchParams={Promise.resolve(sp) as never} />
       </div>
       <div id="payday">

@@ -90,7 +90,11 @@ export async function maybeSweepVendorCreditWarnings(): Promise<void> {
       .not('tier_expires_at', 'is', null)
       .gt('tier_expires_at', nowIso)
       .lte('tier_expires_at', horizonIso);
-    if (error || !rows || rows.length === 0) return;
+    if (error) {
+      console.error('[supabase-error] vendor-credit-warning: expiring-credit sweep read', error);
+      return;
+    }
+    if (!rows || rows.length === 0) return;
 
     const candidates: CreditWarningCandidate[] = (rows as Array<{
       vendor_profile_id: string;

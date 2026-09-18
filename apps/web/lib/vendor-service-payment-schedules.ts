@@ -512,7 +512,11 @@ export async function fetchOwnSchedule(
     .select('*')
     .eq('vendor_service_id', vendorServiceId)
     .order('seq', { ascending: true });
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] vendor-service-payment-schedules: one service', error, { vendorServiceId });
+    return [];
+  }
+  if (!data) return [];
   return data as PaymentScheduleItemRow[];
 }
 
@@ -532,7 +536,11 @@ export async function fetchOwnSchedulesByService(
     .select('*')
     .in('vendor_service_id', vendorServiceIds)
     .order('seq', { ascending: true });
-  if (error || !data) return out;
+  if (error) {
+    console.error('[supabase-error] vendor-service-payment-schedules: by service', error);
+    return out;
+  }
+  if (!data) return out;
   for (const row of data as PaymentScheduleItemRow[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);

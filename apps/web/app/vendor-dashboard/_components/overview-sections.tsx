@@ -399,6 +399,7 @@ export function VendorEnergyStats({
         <CashFlowTile
           confirmedPhp={earnings.confirmedPhp}
           expectedPhp={earnings.expectedPhp}
+          measured={earnings.paydayMeasured}
         />
       ) : null}
 
@@ -539,14 +540,27 @@ function EarnedTile({
 function CashFlowTile({
   confirmedPhp,
   expectedPhp,
+  measured,
 }: {
   confirmedPhp: number;
   expectedPhp: number;
+  /** false = the payday read was refused; ₱0 here is "unknown", not "none". */
+  measured: boolean;
 }) {
   const pct = expectedPhp > 0 ? (confirmedPhp / expectedPhp) * 100 : 0;
   return (
     <div className="sn-tile sn-reveal flex items-center gap-3.5">
-      {expectedPhp > 0 ? (
+      {!measured ? (
+        <div>
+          <p className="sn-eye">
+            <Wallet aria-hidden strokeWidth={1.75} />
+            Confirmed cash-flow
+          </p>
+          <p className="mt-1.5 text-sm text-ink/55">
+            Couldn&rsquo;t load your installments right now.
+          </p>
+        </div>
+      ) : expectedPhp > 0 ? (
         <>
           <ProgressRing
             pct={pct}

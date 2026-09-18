@@ -188,7 +188,11 @@ export async function fetchVendorDeepSearchPricePhp(
       .eq('sku_code', VENDOR_DEEP_SEARCH_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-deep-search-addon: price (using fallback)', error);
+      return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+    }
+    if (!data) return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : VENDOR_DEEP_SEARCH_FALLBACK_PHP;
   } catch {

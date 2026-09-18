@@ -9,6 +9,7 @@ import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
 import { isChannelOpen } from '@/lib/payment-channels';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -82,6 +83,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     .eq('order_id', payable.orderId)
     .order('created_at', { ascending: false })
     .limit(1);
+  if (paymentsError) logQueryError('pay/[reference]: latest payment', paymentsError, { order_id: payable.orderId });
   const latestPayment = paymentsError ? null : (paymentRows?.[0] ?? null);
   const latestRow = latestPayment as {
     status?: string;

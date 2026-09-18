@@ -154,7 +154,13 @@ export async function computeBudgetHealth(
     .eq('event_id', eventId)
     .single();
 
-  if (eventError || !event || !event.estimated_budget_centavos) {
+  if (eventError) {
+    // Refused, not "budget not set" — same null to the caller, but the reason
+    // is kept so the two can be told apart.
+    logQueryError('checklist-budget: events_host budget', eventError, { event_id: eventId });
+    return null;
+  }
+  if (!event || !event.estimated_budget_centavos) {
     // Budget not yet set — nothing to display.
     return null;
   }

@@ -747,6 +747,12 @@ export type VendorEarningsSummary = {
   confirmedPhp: number;
   /** Total booked installment value across booked events (pesos). */
   expectedPhp: number;
+  /**
+   * FALSE when the payday read was refused — then confirmedPhp/expectedPhp are
+   * 0 because nothing was measured, NOT because nothing is booked, and the tile
+   * must say "couldn't load" instead of "No booked installments yet".
+   */
+  paydayMeasured: boolean;
 };
 
 /**
@@ -775,7 +781,11 @@ export async function fetchVendorEarningsSummary(
     // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
     (async () => {
       const { data, error } = await supabase.rpc('vendor_payday_installments');
-      const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
+      if (error) {
+        logQueryError('vendor-overview: vendor_payday_installments', error);
+        return null; // unmeasured — never a ₱0 that reads as "nothing booked"
+      }
+      const rows = (data ?? []) as unknown as PaydayInstallmentRow[];
       return buildPaydayTimeline(rows, manilaTodayIso()).totals;
     })().catch(() => null),
   ]);
@@ -787,6 +797,7 @@ export async function fetchVendorEarningsSummary(
     bookingCount: earnings.length,
     confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
     expectedPhp: paydayTotals?.expectedPhp ?? 0,
+    paydayMeasured: paydayTotals !== null,
   };
 }
 

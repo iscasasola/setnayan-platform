@@ -1199,9 +1199,28 @@ export function ProposalMaker({
             className={`${field} w-full resize-y`}
           />
         </label>
+        {/*
+          🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
+          BACKWARDS. Owner, 2026-09-18: *"Plan should only fill at lock. not
+          when accepted. accepting it allows the user to test different builds
+          properly"* — combinations of different suppliers, compared before any
+          of them is committed.
+
+          The shipped behaviour already agreed with him and this one sentence
+          did not: `respond_vendor_proposal` upserts `event_vendors` at status
+          `shortlisted`, and `event_vendor_line_items` stays empty until Lock.
+          Measured on the platform's first real quote — accepted 06:46, budget
+          line items 0.
+
+          🔑 A supplier reading the old line would tell a couple their quote was
+          "in the plan" the moment it was accepted, and it is not. Nothing was
+          broken except what we said about it.
+        */}
         <p className="text-xs text-ink/55">
-          The quote appears in this chat. The couple reviews + accepts it — accepting just adds it to their plan,
-          never a payment.
+          The quote appears in this chat. The couple reviews and accepts it —
+          accepting shortlists you at this price so they can compare
+          combinations of suppliers. It books nothing and pays nothing; their
+          plan fills only when they Lock.
         </p>
         <div className="flex items-center gap-2">
           <SubmitButton

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cadc10532",
+  "generatedFromRef": "845ad05fa",
   "routeCount": 428,
-  "destinations": 919,
+  "destinations": 918,
   "actions": 636,
-  "blocks": 4470,
+  "blocks": 4471,
   "routes": {
     "/": {
       "files": [
@@ -10443,7 +10443,6 @@
       "destinations": [
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
-        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -11160,6 +11159,7 @@
         "ServiceCardView",
         "ServicesManagerSearch",
         "SetnayanGiftField",
+        "SetnayanGiftLine",
         "SheetKey",
         "ShowcaseMediaFields",
         "SlotEditor",

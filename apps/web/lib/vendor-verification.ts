@@ -905,7 +905,11 @@ export async function resolveApplicationFeeCentavos(
       .eq('sku_code', skuCode)
       .maybeSingle();
     // Missing row (null data) or read error → free.
-    if (error || !data) return 0;
+    if (error) {
+      console.error('[supabase-error] vendor-verification: application fee (charging 0)', error);
+      return 0;
+    }
+    if (!data) return 0;
     const row = data as { price_centavos?: number | null; is_active?: boolean | null };
     // Inactive (retired) row → free, regardless of the stored price_centavos.
     if (row.is_active !== true) return 0;

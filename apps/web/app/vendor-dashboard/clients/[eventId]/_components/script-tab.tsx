@@ -1,8 +1,14 @@
 import Link from 'next/link';
-import { Lock, Mic, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
+import { Lock, Mic, EyeOff, Sparkles, AlertCircle, MessageCircleQuestion } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { buildScriptWorkbook, type ScriptBlock } from '@/lib/emcee-script-layer';
 import { matchLines, fillSlots, needsAttention, type SavedLine } from '@/lib/emcee-lines';
+import {
+  buildQuestionnaire,
+  type Questionnaire,
+  type QuestionAnswer,
+  type VendorQuestion,
+} from '@/lib/emcee-questions';
 import { ScriptComposer } from './script-composer';
 import { ShopCard } from '../../../_components/kit';
 
@@ -67,7 +73,7 @@ export async function ScriptTab({
 }) {
   const supabase = await createClient();
 
-  const [blocksRes, scriptsRes, linesRes, picksRes] = await Promise.all([
+  const [blocksRes, scriptsRes, linesRes, picksRes, questionsRes, answersRes] = await Promise.all([
     supabase
       .from('event_schedule_blocks')
       .select(BLOCK_COLUMNS)
@@ -85,6 +91,16 @@ export async function ScriptTab({
     supabase
       .from('event_activity_picks')
       .select('scheduled_block_id, activity_id')
+      .eq('event_id', eventId),
+    // DAY-7 · his own questions, and what THIS couple answered. RLS admits the
+    // answers only while he is booked AND only to questions he wrote.
+    supabase
+      .from('vendor_questions')
+      .select('question_id, vendor_profile_id, prompt, hint, is_asked, display_order')
+      .eq('vendor_profile_id', vendorProfileId),
+    supabase
+      .from('event_question_answers')
+      .select('event_id, question_id, answer, updated_at')
       .eq('event_id', eventId),
   ]);
 
@@ -162,6 +178,15 @@ export async function ScriptTab({
           your script stays yours.
         </span>
       </p>
+
+      <TheyToldYou
+        coupleName={coupleName}
+        unread={Boolean(questionsRes.error || answersRes.error)}
+        questionnaire={buildQuestionnaire(
+          (questionsRes.data ?? []) as VendorQuestion[],
+          (answersRes.data ?? []) as QuestionAnswer[],
+        )}
+      />
 
       {prefilled > 0 ? (
         <p className="flex items-start gap-2 rounded-xl border border-sage/30 bg-sage/10 px-3 py-2 text-sm text-ink/75">
@@ -295,5 +320,79 @@ export async function ScriptTab({
         })}
       </ol>
     </section>
+  );
+}
+
+/**
+ * WHAT THEY TOLD YOU — the couple's answers to his questions (DAY-7), above
+ * the script because the names he is about to write are in here.
+ *
+ * Three honest states: a refused read SAYS so (never an empty "no answers");
+ * no questions yet points him to where he writes them; unanswered ones are
+ * listed as still open, so he knows what to chase.
+ */
+function TheyToldYou({
+  coupleName,
+  unread,
+  questionnaire,
+}: {
+  coupleName: string;
+  unread: boolean;
+  questionnaire: Questionnaire;
+}) {
+  if (unread) {
+    return (
+      <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-3 py-2 text-sm text-ink/70">
+        <strong className="text-ink">We couldn&rsquo;t load {coupleName}&rsquo;s answers.</strong>{' '}
+        Whatever they told you is still there — reload before you script the names.
+      </p>
+    );
+  }
+  if (questionnaire.rows.length === 0) {
+    return (
+      <p className="text-xs text-ink/50">
+        Ask {coupleName} how to say their names, who to call up, and what not to mention —{' '}
+        <Link href="/vendor-dashboard/activities#questions" className="underline">
+          write your questions once
+        </Link>{' '}
+        and every couple who books you answers them.
+      </p>
+    );
+  }
+  return (
+    <ShopCard pad="none" className="p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-gold-dark">
+          <MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden />
+          What {coupleName} told you
+        </p>
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+          {questionnaire.answered} of {questionnaire.total} answered
+        </span>
+      </div>
+      <dl className="mt-2 space-y-2.5">
+        {questionnaire.rows.map(({ question, answer }) => (
+          <div key={question.question_id}>
+            <dt className="text-xs font-semibold text-ink/70">{question.prompt}</dt>
+            <dd
+              className={
+                answer
+                  ? 'mt-0.5 whitespace-pre-line text-sm text-ink'
+                  : 'mt-0.5 text-xs italic text-ink/45'
+              }
+            >
+              {answer ?? 'Not answered yet.'}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-[11px] text-ink/45">
+        Only you and {coupleName} read these. They stay with this wedding —{' '}
+        <Link href="/vendor-dashboard/activities#questions" className="underline">
+          your questions
+        </Link>{' '}
+        carry on to the next.
+      </p>
+    </ShopCard>
   );
 }

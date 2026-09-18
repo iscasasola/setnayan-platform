@@ -42,6 +42,7 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
 import { EmceePicks } from './_components/emcee-picks';
+import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
 // channel and its send box already shipped, but only inside the supplier floor
 // console; the couple's own floor-runner (an aunt, a planner they invited) has
@@ -102,12 +103,17 @@ type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string; ros?: string; note?: string }>;
+  searchParams: Promise<{ view?: string; ros?: string; note?: string; host_answers?: string }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { view: viewParam, ros: rosParam, note: noteParam } = await searchParams;
+  const {
+    view: viewParam,
+    ros: rosParam,
+    note: noteParam,
+    host_answers: hostAnswersFlash,
+  } = await searchParams;
   // Result of a "Tell the host" send. Anything we did not write ourselves is
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
@@ -494,6 +500,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
            *  because picking and reading the resulting script are the same job.
            *  Placement logic is pure in lib/vendor-activities. */}
           <EmceePicks supabase={supabase} eventId={eventId} />
+          {/* DAY-7 · what only the couple can tell the host — above all how to
+           *  say the names he reads out. Renders nothing unless their booked
+           *  host asks something. Spec: Emcee_Script_System_BUILD_SPEC § 8. */}
+          <HostQuestions supabase={supabase} eventId={eventId} flash={hostAnswersFlash} />
           {/* A line to the host, mid-service. Sits with the host's own section
            *  because a note is nearly always "change what happens next".
            *  `canSend` is deliberately the SAME value as the run-of-show

@@ -56,7 +56,9 @@ function actualReservedRoutes(): string[] {
   const close = src.indexOf(']', open);
   assert.ok(close > open, 'Could not find the closing `]` of the RESERVED set in sw.js.');
   const body = src.slice(open + 1, close);
-  const matches = [...body.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const matches = [...body.matchAll(/'([^']+)'/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
   assert.ok(matches.length > 0, 'RESERVED set in sw.js parsed as empty — check the quoting.');
   return matches.sort();
 }

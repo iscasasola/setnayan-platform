@@ -236,6 +236,7 @@ export async function releaseSchedulePools(
     p_event_vendor_id: eventVendorId,
     p_reason: reason,
   });
+  if (error) console.error('[supabase-error] lib/schedule-pools.ts · rpc:release_schedule_pools', error);
   if (error) return null;
   const env = (data ?? {}) as { status?: string; released?: number };
   return env.status === 'ok' ? (env.released ?? 0) : null;
@@ -280,6 +281,7 @@ export async function acquireSchedulePoolsForBooking(
     .select('marketplace_vendor_id, service_id, category')
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/schedule-pools.ts · from:event_vendors.select', error);
   if (error || !data) return { status: 'no_pools' };
 
   const row = data as {

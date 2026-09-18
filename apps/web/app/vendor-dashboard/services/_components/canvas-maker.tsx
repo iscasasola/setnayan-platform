@@ -978,12 +978,12 @@ export function CanvasMaker({
 
           (1) This is a NEW card. The one they copied is untouched — it keeps
               its bookings, its record and its address. Nothing here posts an id.
-          (2) The ★ Customization options did NOT come across. They are stored
-              against a one-service package that has no link back to the card it
-              was minted for, so there is no honest way to find them — and
-              guessing by category would attach a DIFFERENT card's options to
-              this one. Saying so is the whole point: a copy that quietly loses
-              a card's choices is a card published missing what it sells. */}
+          (2) What happened to the ★ Customization options — SAID, whichever
+              way it went (SUP-40). They come across when the source card's
+              package names it (`vendor_packages.vendor_service_id`); a card
+              with no linked package, or a read that failed, is told so in its
+              own words. A copy that quietly loses a card's choices is a card
+              published missing what it sells. */}
       {initial ? (
         <div
           className="rounded-xl border p-3 text-sm"
@@ -1002,10 +1002,15 @@ export function CanvasMaker({
               You copied it into a different category, so it sits under this one now.
             </p>
           ) : null}
+          {customizationEnabled ? (
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Your options and choices under “What couples get” don’t come across yet —
-            add them here.
+            {initial.customization.status === 'copied'
+                ? `Your ${initial.customization.items.length === 1 ? 'option' : `${initial.customization.items.length} options`} under “What couples get” came across too — check them before you save.`
+                : initial.customization.status === 'unreadable'
+                  ? 'We couldn’t read the options under “What couples get” on that card just now, so none came across — add them here, or go back and try again.'
+                  : 'No options under “What couples get” are linked to that card, so none came across. If it had some, add them here.'}
           </p>
+          ) : null}
         </div>
       ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
@@ -1819,7 +1824,15 @@ export function CanvasMaker({
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
               field, exactly as the wizard behaves. */}
           {customizationEnabled ? (
-            <CustomizationStep categoryValue={category} categoryLabel={activeCategoryLabel} />
+            <CustomizationStep
+              categoryValue={category}
+              categoryLabel={activeCategoryLabel}
+              initialItems={
+                initial?.customization.status === 'copied'
+                  ? initial.customization.items
+                  : undefined
+              }
+            />
           ) : null}
         </CanvasSheet>
       </form>

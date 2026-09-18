@@ -1,11 +1,14 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { panoodCameraAnonEnabled, panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { mintTurnIceServers } from '@/lib/turn';
+import { venueDoorThrottleEnabled } from '@/lib/venue-door-flag';
+import { allowVenueDoorAttempt, VENUE_DOORS, VENUE_DOOR_STATE } from '@/lib/venue-door-throttle';
 
 // Panood · camera-operator (claimer) actions — the public camera-join surface.
 //
@@ -79,6 +82,19 @@ export async function claimPanoodCamera(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) {
     if (panoodCameraAnonEnabled()) {
+      // ⚖ Venue-sized throttle, OFF until the owner rules on the seat-claim
+      // trade (lib/venue-door-flag.ts). Same placement as claimPapicSeat:
+      // before the admin token lookup and the anonymous mint.
+      if (venueDoorThrottleEnabled()) {
+        const venueThrottle = await allowVenueDoorAttempt(
+          VENUE_DOORS.panoodCameraClaim,
+          null,
+          await headers(),
+        );
+        if (!venueThrottle.allowed) {
+          redirect(`/panood/cam/${token}?state=${VENUE_DOOR_STATE}`);
+        }
+      }
       const claimability = await cameraClaimability(token);
       if (claimability === 'taken') redirect(`/panood/cam/${token}?state=taken`);
       if (claimability !== 'claimable') {

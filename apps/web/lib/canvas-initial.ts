@@ -3,6 +3,7 @@ import type {
   DiscountDraft,
   InclusionDraft,
 } from '@/app/vendor-dashboard/services/_components/service-list-editors';
+import type { DraftItem } from '@/lib/package-authoring';
 
 /**
  * WHAT THE MAKER OPENS WITH.
@@ -78,4 +79,21 @@ export type CanvasInitial = {
   showcaseVideoR2Key: string | null;
   showcasePhotoR2Keys: string[];
   mediaDisplayUrls: Record<string, string>;
+
+  /**
+   * THE ★ OPTIONS (SUP-40, 2026-09-18) — the source card's "What couples get"
+   * lines, found through `vendor_packages.vendor_service_id`, re-keyed, and
+   * handed to the step as its starting lines. Three outcomes, never collapsed
+   * into one, because the maker SAYS which one happened:
+   *   · `copied`      — the lines came across; `items` may be edited freely.
+   *   · `none_linked` — no package names that card. Either it had no options, or
+   *                     it was made before the link existed (2026-08-24) —
+   *                     indistinguishable, so the maker says both.
+   *   · `unreadable`  — a read failed. NOT an empty list: the vendor is told the
+   *                     options could not be read, never that there were none.
+   */
+  customization:
+    | { status: 'copied'; items: DraftItem[] }
+    | { status: 'none_linked' }
+    | { status: 'unreadable' };
 };

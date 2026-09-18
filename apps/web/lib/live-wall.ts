@@ -22,6 +22,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveGuestSessionSecret } from '@/lib/guest-session';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
@@ -42,10 +43,9 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24; // one venue day, generous overrun
 const TILE_URL_TTL_SECONDS = 60 * 60 * 12;
 
 function getSecret(): Uint8Array {
-  const secret =
-    process.env.GUEST_SESSION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!secret) throw new Error('GUEST_SESSION_SECRET (or fallback) not configured');
-  return new TextEncoder().encode(secret);
+  const resolution = resolveGuestSessionSecret();
+  if (!resolution.ok) throw new Error(`[live-wall] ${resolution.reason}`);
+  return new TextEncoder().encode(resolution.material);
 }
 
 export type WallDisplaySession = { session_id: string; event_id: string };

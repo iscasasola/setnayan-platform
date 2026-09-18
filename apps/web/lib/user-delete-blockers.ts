@@ -9,7 +9,10 @@
  * verdict — see supabase/migrations/*_user_delete_fk_* and
  * tests/db/user-delete-refusing-fks.baseline.txt.
  *
- * THREE still refuse, and those three are decisions rather than oversights. That
+ * TWO still refuse (a third, supplies_orders_buyer_user_id_fkey, was retired
+ * along with the whole Supplies vertical — see migration
+ * 20271234329420_drop_retired_token_wallet_supplies_vertical), and those two
+ * are decisions rather than oversights. That
  * changes what a failure MEANS. Before, "delete failed" was a bug report. Now it
  * is the system correctly declining to destroy a financial or legal record — and
  * the person on the other end deserves to be told which record and what the
@@ -46,18 +49,14 @@ const DELIBERATE_BLOCKERS: readonly DeliberateBlocker[] = [
     reason:
       'a refund is money leaving the business, and a payout attributed to nobody is unauditable',
   },
-  {
-    constraint: 'supplies_orders_buyer_user_id_fkey',
-    record: 'a supplies purchase',
-    reason:
-      'a completed commercial transaction with a counterparty and a BIR record-keeping duty; the buyer is the record',
-  },
-  // vendor_contract_signatures_signer_user_id_fkey was the third entry until
-  // 2026-09-18: the table was DROPPED (migration 20271234094457) because
-  // contracts are upload-only by owner lock (2026-05-18) and no signature was
-  // ever written. A refusal that can no longer happen must not keep an
-  // explanation — the guard test would otherwise certify a sentence nobody can
-  // ever be shown.
+  // vendor_contract_signatures_signer_user_id_fkey and
+  // supplies_orders_buyer_user_id_fkey were entries here until 2026-09-18: both
+  // tables were DROPPED (migrations 20271234094457 and
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical) — contracts are
+  // upload-only by owner lock and no signature was ever written; the Supplies
+  // vertical is retired with 0 rows. A refusal that can no longer happen must not
+  // keep an explanation — the guard test would otherwise certify a sentence nobody
+  // can ever be shown.
 ];
 
 /**

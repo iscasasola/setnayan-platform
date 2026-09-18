@@ -49,8 +49,9 @@ export async function openBookingFeeCharge(
 
 /**
  * Mark a pending charge paid + roll it into the ledger (from the gateway/admin
- * confirmation path — the twin of approve_vendor_token_purchase). Idempotent:
- * a non-pending charge is a no-op. Service-role only.
+ * confirmation path — the same shape as the retired token wallet's
+ * approve_vendor_token_purchase). Idempotent: a non-pending charge is a
+ * no-op. Service-role only.
  */
 export async function settleBookingFeeCharge(
   admin: SupabaseClient,

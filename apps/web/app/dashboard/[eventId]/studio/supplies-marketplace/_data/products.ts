@@ -4,21 +4,26 @@
 // vendor-set retail prices. New locked model is Setnayan-sourced resale —
 // Setnayan negotiates wholesale per area, marks up 50% (retail = wholesale
 // × 1.5). The static catalog below still uses pre-pivot prices for UI
-// continuity; they will be replaced by a dynamic query in PR 3b.
+// continuity.
 //
-// PR 3b plan: swap this static SUPPLY_PRODUCTS array for a Supabase query
-// that calls public.resolve_supplies_pricing(sku_code, area, qty) for each
-// distinct sku_code in the supplier_vendor_skus catalog (schema PR #143/#145,
-// resolver function PR #146). Empty state ("Coming to your area soon") will
-// surface when the query returns no rows.
+// ⚠ PR 3b PLAN BELOW IS STALE as of 2026-09-18: `supplier_vendor_skus`,
+// `supplier_vendor_sku_pricing` and `public.resolve_supplies_pricing()`'s
+// backing tables were DROPPED (migration
+// 20271234329420_drop_retired_token_wallet_supplies_vertical) — the schema
+// held 0 rows and no live caller. Whoever revives this vertical needs to
+// re-cut that schema; it does not exist to query today.
+//
+// Original PR 3b plan (kept for context): swap this static SUPPLY_PRODUCTS
+// array for a Supabase query that calls
+// public.resolve_supplies_pricing(sku_code, area, qty) for each distinct
+// sku_code in the supplier_vendor_skus catalog (schema PR #143/#145, resolver
+// function PR #146). Empty state ("Coming to your area soon") would surface
+// when the query returns no rows.
 //
 // Static prices below remain reference points for UI sizing while supplier
 // vendor agreements are signed + SKU data is seeded (owner-side ops work
 // gated on `01_Contracts/Setnayan_Supplier_Vendor_Agreement.md` template).
 // No invented prices, no new SKUs — PHP only.
-//
-// TODO(0018 PR 3b): swap mock SUPPLY_PRODUCTS for a Supabase fetch +
-// resolveSuppliesPricing() per SKU; render empty state if zero rows.
 
 export const SUPPLY_CATEGORIES = [
   {
@@ -308,6 +313,6 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
 //     via BDO / GCash direct to Setnayan) stays the canonical flow.
 //
 // The `takeRatePct` field on each product row below is dead under V2 —
-// preserved for now so the scaffold compiles, will be dropped in the
-// PR 3b dynamic-fetch refactor when supplier_vendor_sku_pricing replaces
-// this static catalog.
+// preserved for now so the scaffold compiles. The PR 3b dynamic-fetch
+// refactor this was written for is stale (see the note at the top of this
+// file) — `supplier_vendor_sku_pricing` no longer exists.

@@ -104,7 +104,7 @@
 | Thread reply | `lib/chat-actions.ts:66` | `chat_messages` INSERT + notify | empty body → silent return | Operational | Accept-gate enforced server-side |
 | Token wallet read | `…/tokens/page.tsx:104` | `vendor_wallets`/`earned_token_vouchers`/`token_grants_log`/`token_redemptions_log` | `?? 0` / `?? []` | Operational | Lazy expiry RPC; null-safe |
 | **Buy token pack** | `…/tokens/_components/buy-tokens-cta.tsx:31` | **none (static card)** | static "opens this week" copy | **Missing** | No `/vendor-dashboard/tokens/buy` route — purchase flow unbuilt; dead-end CTA |
-| Redeem voucher code | `…/redeem-code/actions.ts:129` | `redeem_vendor_token_voucher` RPC | branded error map | Operational | SECURITY DEFINER mint |
+| ~~Redeem voucher code~~ | — | ~~`redeem_vendor_token_voucher` RPC~~ | — | **Removed** | Token wallet RETIRED 2026-05-11; RPC DROPPED 2026-09-18. This row's cited caller path (`…/redeem-code/actions.ts:129`) no longer existed even before the drop — the row was already stale. |
 | **Token burn (manpower handshake)** | `…/manpower/actions.ts:147` | `consume_vendor_assets` RPC (2 tokens) + `manpower_gigs` UPDATE | INSUFFICIENT_WALLET_BALANCES→friendly | **Risk** | Only handles RPC *raise*; ignores possible BOOLEAN-`false` return (file header claims both). If RPC returns false on shortfall, gig claimed with **0 tokens burned** |
 | Payment options add/delete/primary | `…/payment-options/actions.ts:41,102,116` | `vendor_payment_methods` | QR decode → pending_review | Operational | Pro-gate on links; server-side QR anti-swap |
 | Logo upload + profile save | `…/actions.ts:185` | `vendor_profiles` UPDATE | parseLogoValue→null; geocode best-effort | Operational | r2:// or http(s) only |
@@ -199,8 +199,8 @@
 ### Defined-but-unreferenced tables (orphaned schema — built, no UI wired) — 22 total
 Mostly *schema ahead of UI* for deferred/retired iterations, not bugs:
 - **Retired AI planner ("Setnayan AI"/Concierge):** `concierge_plan_templates`, `concierge_response_cache`, `concierge_unanswered_questions`. (`couple_briefs` dropped 2026-09-18, S37.)
-- **Deferred Supplies marketplace (0018):** `supplier_vendor_skus`, `supplier_vendor_sku_pricing`, `supplies_orders`, `supplies_order_line_items`.
-- **Vendor token-economy ahead of UI:** `vendor_token_boosters`, `vendor_tool_bundles`.
+- ~~**Deferred Supplies marketplace (0018):** `supplier_vendor_skus`, `supplier_vendor_sku_pricing`, `supplies_orders`, `supplies_order_line_items`.~~ **DROPPED 2026-09-18** (migration `20271234329420_drop_retired_token_wallet_supplies_vertical`) — 0 rows, no caller.
+- **Vendor token-economy ahead of UI:** `vendor_tool_bundles`. (`vendor_token_boosters` **DROPPED 2026-09-18**, same migration as above.)
 - **Contract intelligence (0032):** `vendor_contract_signatures` — **DROPPED 2026-09-18** (migration `20271234094457`); contracts are upload-only by owner lock.
 - **Other unwired:** `event_software_activations_v2` (the *target* of Action #1, currently unused), `founder_time_log`, `households` ("UI lands later"), `led_background_renders` (live route writes `led_background_configs` instead), `platform_availability`, `user_devices`, `vendor_screen_name_sequences` (likely SQL-function-only), `vendor_verifications` (read via view/RPC). (`vendor_bid_submissions`, `vendor_release_history`, `event_delegates` and `event_category_build_state` dropped 2026-09-18, S37.)
 

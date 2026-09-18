@@ -1843,7 +1843,8 @@ function VendorCompletionCard({
 //
 // Action bar: shortcut links only (no new call/quote logic). Chat + Call both
 // open the thread (the P2P call surface lands there per the Workspace spec);
-// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// Quote deep-links the thread's one quote panel (#build-quote — the builder
+// with the saved-template shortcut inside it, SUP-H); Files jumps to this
 // card's Files tab; Details is the current view (inert).
 // ===========================================================================
 function ReturningMarkerAndActions({
@@ -1909,7 +1910,7 @@ function ReturningMarkerAndActions({
         <Link
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              ? `/vendor-dashboard/messages/${threadId}#build-quote`
               : '/vendor-dashboard/proposals'
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}

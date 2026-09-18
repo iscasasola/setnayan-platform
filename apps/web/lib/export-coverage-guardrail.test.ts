@@ -206,6 +206,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // TABLE, so T1 still sees the table and deleting the line would report it as
   // an unclassified subject table.
   // Same parser limit as calendar_feed_tokens below: dropped, still "seen".
+  event_delegates:
+    'TABLE DROPPED 2026-09-18 (S37) — delegation superseded by event_moderators; ' +
+    'no writer ever shipped, 0 rows in prod. Nothing to export.',
   vendor_release_history:
     'TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — the soft-hold ' +
     'release audit whose writers never shipped; 0 rows in prod ever. Nothing to export.',
@@ -400,7 +403,6 @@ const KNOWN_GAPS: Record<string, string> = {
     'TODO(RA10173-backlog): actor-stamped activity log — export shape pending (mixes several actors per event).',
   event_appointments: 'TODO(RA10173-backlog): appointments the subject booked or was booked into.',
   event_blocked_users: 'TODO(RA10173-backlog): per-event block entries naming the subject.',
-  event_delegates: 'TODO(RA10173-backlog): delegate grants the subject holds or issued.',
   event_egift_methods: 'TODO(RA10173-backlog): the subject’s own e-gift payout handles (financial identifiers).',
   event_inspiration_assets: 'TODO(RA10173-backlog): uploads the subject contributed.',
   // Newly VISIBLE 2026-07-21 (second pass): both were suppressed by the blanket

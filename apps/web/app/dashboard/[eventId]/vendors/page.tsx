@@ -111,7 +111,6 @@ import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
 import type { FillableCategory } from './_components/quote-fill';
-import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -2051,11 +2050,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const buildChildren = model.folders.flatMap((f) => f.children);
 
     // ── The quote-fill row's input (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
-    // §4). The Lock/Auto/Hidden grid this used to feed is DELETED; the state map
-    // is now read-only legacy (nothing writes it) and only an explicit
-    // `'excluded'` row still speaks — the `stateOf` / `dimensionStates` wiring is
-    // gone with the grid it drove (spec §7).
-    const buildStates = await getCategoryBuildStates(eventId);
+    // §4). The Lock/Auto/Hidden grid and its state table are both gone (the
+    // table was dropped 2026-09-18, S37); "Not needed" / "✓ Covered" below is
+    // the couple's only way to take a category out.
 
     // Categories the couple REMOVED ("Not needed") or FINISHED ("✓ Covered").
     // Rows key on EITHER grain — plan_group_id for complete, tile for excluded —
@@ -2102,8 +2099,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     })();
 
     // FILLABLE = ≥1 quoted inquiry (total_cost_php != null) · no locked vendor ·
-    // no existing build pick · not decided above · no explicit 'excluded' state.
-    // `proposeBuildFromQuotes` re-derives the SAME five conditions server-side
+    // no existing build pick · not decided above.
+    // `proposeBuildFromQuotes` re-derives the SAME four conditions server-side
     // before it writes — this list only decides what the row SAYS.
     const quoteFillable: FillableCategory[] = !isExploreReplanEnabled()
       ? []
@@ -2125,8 +2122,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                 (p) => p.raw_status && LOCKED_VENDOR_STATUSES.includes(p.raw_status),
               ) &&
               child.buildPickVendorIds.length === 0 &&
-              !decidedGroupIds.has(child.groupId as string) &&
-              buildStates.get(child.groupId as string)?.state !== 'excluded',
+              !decidedGroupIds.has(child.groupId as string),
           )
           .map(({ child, options }) => ({
             groupId: child.groupId as string,

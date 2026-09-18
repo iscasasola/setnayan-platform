@@ -269,6 +269,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // parser cannot see a DROP — same reason as calendar_feed_tokens above.
   vendor_release_history:
     'Table DROPPED 2026-09-18 — writers never shipped, 0 rows in prod ever. Nothing left to erase.',
+  // Same parser limit. Their purge rules left coverage.ts in the same change.
+  event_delegates:
+    'Table DROPPED 2026-09-18 (S37) — superseded by event_moderators, no writer ever, 0 rows. Nothing left to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',
 

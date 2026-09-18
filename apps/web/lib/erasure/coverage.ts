@@ -550,16 +550,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Nulling anonymises the review; deleting it would silently move a vendor’s public star rating, which is a third party’s commercial record erasure does not reach.',
   },
   {
-    table: 'event_delegates',
-    column: 'granted_by_user_id',
-    why: 'SET NULL + nullable ⇒ an actor stamp. Deleting a delegation because the subject GRANTED it would revoke the coordinator’s access — someone else’s row.',
-  },
-  {
-    table: 'event_delegates',
-    column: 'revoked_by_user_id',
-    why: 'Same table, the revocation side. Also an actor stamp.',
-  },
-  {
     table: 'event_vendors',
     column: 'lock_requested_by_user_id',
     why: 'Who ASKED the vendor to hold the date (lock handshake, 2026-08-04). SET NULL + nullable ⇒ an actor stamp. The row’s subject is the BOOKING between a couple and a vendor; deleting it because one member of the couple requested the lock would erase the vendor’s commercial record and the other partner’s booking.',
@@ -890,11 +880,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_web_dossiers',
     column: 'requested_by',
     why: 'A verbatim snapshot of the subject’s own vendor profile, taken at their request. The row is ABOUT them, so it goes with them.',
-  },
-  {
-    table: 'event_delegates',
-    column: 'delegate_user_id',
-    why: 'CASCADE + NOT NULL — the schema’s own verdict that the row dies with the account. It is the record of THIS person’s access; erasure just never issued the delete that would have fired it. ⚠ Only this column: granted_by/revoked_by are actor stamps and are nulled instead.',
   },
   {
     table: 'person_stewardships',

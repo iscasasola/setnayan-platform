@@ -264,6 +264,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     what: 'The stalled "Release to Drive" drainer',
     reportsCount: true,
   },
+  {
+    key: 'email-delivery-check',
+    kind: 'operational',
+    gapMs: 10 * 60 * 1000,
+    what: 'Asking Resend whether each email we sent was delivered or bounced',
+    reportsCount: true,
+  },
 ] as const;
 
 export const PERIODIC_JOB_KEYS: readonly string[] = PERIODIC_JOBS.map((j) => j.key);

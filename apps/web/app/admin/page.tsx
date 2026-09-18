@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { ArrowRight, AlertTriangle, ListChecks, KeyRound, Plug } from 'lucide-react';
 import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
+import { EmailDeliveryStrip } from './_email-delivery-strip';
 import { KpiStatCard } from './_components/kpi-stat-card';
 import { WhatYouChange, EditingIsOnTheComputer } from './_components/what-you-change';
 import { ProgressRing } from '@/app/_components/progress-ring';
@@ -368,6 +370,13 @@ export default async function AdminOverview() {
           Apple Sign-in client secret expires 2026-12-11). Renders null the
           rest of the year. See ./_apple-secret-reminder.tsx. */}
       <AppleSecretReminder />
+
+      {/* 📬 Email delivery — renders ONLY when an email did not arrive, the log
+          cannot be read, or email is switched off. Streams in behind its own
+          Suspense so a slow log read never holds the Exception Desk. */}
+      <Suspense fallback={null}>
+        <EmailDeliveryStrip />
+      </Suspense>
 
       {/* EXCEPTION DESK · the obsidian focal (rollout plan § 1.3 · the one
        *  .sn-tile-dark this view is allowed). Headline = open items across the

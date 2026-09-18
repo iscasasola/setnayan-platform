@@ -16,6 +16,7 @@ import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
+import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -225,6 +226,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // release stalls with a still-'running' job and no advancer. This keeps stalled
   // deliveries moving without a user click; bounded per invocation. Never throws.
   after(() => maybeRunPhotoDeliveryDrain().catch(() => {}));
+  // Email delivery check (2026-09-18) — CRON-FREE: admin traffic + a ~10-min DB
+  // claim. Asks Resend what became of each accepted email (delivered, bounced,
+  // …) and writes it to email_deliveries, which the home strip and the
+  // Notifications tab read. Bounded (20 per run); never throws.
+  after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

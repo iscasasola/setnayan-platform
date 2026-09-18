@@ -421,6 +421,7 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           subject: title,
           text,
           html,
+          kind: type,
         });
       }
     } catch (e) {

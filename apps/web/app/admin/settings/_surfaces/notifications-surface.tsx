@@ -18,6 +18,7 @@ import {
   markNotificationRead,
 } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { EmailDeliverySection } from '../_components/email-delivery-section';
 
 /**
  * /admin/notifications — admin in-app notification reader (cross-actor audit
@@ -69,6 +70,9 @@ export async function NotificationsSurface() {
       <div className="mb-6">
         <PushToggle audience="admin" />
       </div>
+
+      {/* 📬 Did the emails arrive? The admin-home strip links here. */}
+      <EmailDeliverySection />
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

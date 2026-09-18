@@ -1,6 +1,7 @@
 import 'server-only';
 import { resolveResendConfig, isResendConfigured } from '@/lib/integration-config';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
+import { recordDelivery } from '@/lib/email-delivery.server';
 
 export type SendEmailArgs = {
   to: string;
@@ -27,6 +28,11 @@ export type SendEmailArgs = {
    * transactional notifications.
    */
   headers?: Record<string, string>;
+  /**
+   * What sent it, for the delivery log (`public.email_deliveries.kind`): a
+   * notification type, or the sender's own short tag. Defaults to 'other'.
+   */
+  kind?: string;
 };
 
 export type SendEmailResult =
@@ -58,10 +64,32 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   // (notifications, papic/patiktok/anniversary digests, order receipts, future
   // ones) is covered by one guard — the in-app notification still lands; only
   // the dead email is skipped. They start receiving email the moment they secure.
+  // It is not an email attempt (no address exists yet), so it is not logged.
   if (isPlaceholderEmail(args.to)) {
     return { ok: false, reason: 'placeholder_recipient' };
   }
+  const result = await sendViaResend(args);
+  /*
+    📬 EVERY EMAIL SAYS WHETHER IT ARRIVED (2026-09-18). Until now the id or
+    the reason below went back to 29 caller files and every one dropped it, so
+    "did it arrive?" had no answer anywhere. Recorded here, at the single
+    choke point, so no caller can forget; the email-delivery-check job later
+    asks Resend what became of each accepted id. recordDelivery never throws.
+  */
+  await recordDelivery({
+    to: args.to,
+    subject: args.subject,
+    kind: args.kind,
+    outcome: result.ok ? 'accepted' : result.reason === 'not_configured' ? 'not_configured' : 'send_failed',
+    providerMessageId: result.ok ? result.id : null,
+    error: result.ok ? null : (result.error ?? null),
+    scheduledFor: args.scheduledAt ?? null,
+  });
+  return result;
+}
 
+/** The Resend call itself. Only `sendEmail` calls it, so every send is logged. */
+async function sendViaResend(args: SendEmailArgs): Promise<SendEmailResult> {
   // DB-first (Integration Activation Console), env-fallback. Lets the owner set
   // the Resend key from /admin/integrations without a redeploy.
   const { apiKey, fromAddress } = await resolveResendConfig();

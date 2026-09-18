@@ -70,6 +70,7 @@ const JOBS = [
   { fn: 'maybeRunDriveCopyRetry', what: 'the Google Drive copy retry' },
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },
+  { fn: 'maybeRunEmailDeliveryCheck', what: 'asking Resend whether each email was delivered' },
   // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
   // per window, and an admin-only mount would leave a supplier's fuse waiting on

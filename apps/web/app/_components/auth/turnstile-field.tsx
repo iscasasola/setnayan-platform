@@ -16,8 +16,12 @@
  * default the tap-through funnels need.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
+import {
+  turnstileErrorGuidance,
+  turnstileErrorLogLine,
+} from '@/lib/turnstile-error-guidance';
 
 declare global {
   interface Window {
@@ -65,6 +69,12 @@ function loadTurnstileScript(): Promise<void> {
 export function TurnstileField({ action }: { action?: string }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // 🔴 THE WHOLE POINT OF THIS STATE. Until 2026-09-18 a failed challenge left
+  // the person looking at Cloudflare's red box with no code and no way
+  // forward, and left the OWNER with no way to find out why — the error
+  // callback took no argument. An hour of an outage went into guessing at what
+  // this variable now simply says.
+  const [failure, setFailure] = useState<{ code: string; message: string } | null>(null);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !holderRef.current) return;
@@ -112,12 +122,26 @@ export function TurnstileField({ action }: { action?: string }) {
           size: 'flexible',
           callback: (token: string) => {
             if (inputRef.current) inputRef.current.value = token;
+            // A retry that works must take the warning away with it.
+            setFailure(null);
           },
           'expired-callback': () => {
             if (inputRef.current) inputRef.current.value = '';
           },
-          'error-callback': () => {
+          /*
+            ⚠ THE PARAMETER IS THE POINT. Cloudflare hands us the error code
+            here; the previous version declared none and logged nothing, so the
+            one fact that explains the failure was discarded at the moment it
+            arrived. Never widen this back to `() => {}`.
+          */
+          'error-callback': (code: unknown) => {
             if (inputRef.current) inputRef.current.value = '';
+            // eslint-disable-next-line no-console
+            console.warn(turnstileErrorLogLine(code));
+            setFailure({
+              code: String(code ?? '').trim() || 'unknown',
+              message: turnstileErrorGuidance(code).message,
+            });
           },
         });
       })
@@ -147,6 +171,16 @@ export function TurnstileField({ action }: { action?: string }) {
     <>
       <input ref={inputRef} type="hidden" name="captcha_token" defaultValue="" />
       <div ref={holderRef} data-turnstile className="cf-turnstile" />
+      {failure ? (
+        <p
+          data-turnstile-error={failure.code}
+          role="status"
+          className="mt-2 text-xs leading-relaxed text-ink/70"
+        >
+          {failure.message}{' '}
+          <span className="text-ink/45">(code {failure.code})</span>
+        </p>
+      ) : null}
     </>
   );
 }

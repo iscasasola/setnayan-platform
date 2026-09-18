@@ -40,6 +40,14 @@ export type RelationshipTab = {
   badge?: ReactNode | null;
   /** Hide the tab entirely (e.g. Call unavailable for off-platform vendors). */
   hidden?: boolean;
+  /**
+   * A tab that LEAVES for another page instead of switching a panel. Rendered
+   * in the same strip, in the same shape, as an `<a>` — never selected, never
+   * given a panel. One Chat Box (owner, 2026-09-18): the conversation lives on
+   * the thread page and nowhere else, so the workspace's "Chat" is a way there,
+   * not a second copy of it. `node` is ignored on a link tab.
+   */
+  href?: string;
 };
 
 function readTabFromUrl(): string | null {
@@ -63,7 +71,8 @@ export function RelationshipTabShell({
   initialTabId?: string;
 }) {
   const visible = useMemo(() => tabs.filter((t) => !t.hidden), [tabs]);
-  const ids = useMemo(() => visible.map((t) => t.id), [visible]);
+  // Only PANEL tabs can be active; a link tab is a door, not a place.
+  const ids = useMemo(() => visible.filter((t) => !t.href).map((t) => t.id), [visible]);
   const fallback = initialTabId && ids.includes(initialTabId) ? initialTabId : ids[0] ?? '';
 
   const [active, setActive] = useState<string>(fallback);
@@ -115,7 +124,8 @@ export function RelationshipTabShell({
     [ids, select],
   );
 
-  const activeTab = visible.find((t) => t.id === active) ?? visible[0];
+  const activeTab =
+    visible.find((t) => t.id === active && !t.href) ?? visible.find((t) => !t.href);
   if (!activeTab) return null;
 
   const tabStrip = (
@@ -125,6 +135,20 @@ export function RelationshipTabShell({
       className="flex gap-1 overflow-x-auto rounded-xl border border-ink/10 bg-cream/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {visible.map((t, idx) => {
+        if (t.href) {
+          return (
+            <a
+              key={t.id}
+              href={t.href}
+              data-tab-link={t.id}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+            >
+              {t.icon ? <span aria-hidden>{t.icon}</span> : null}
+              <span>{t.label}</span>
+              {t.badge ? <span className="ml-0.5">{t.badge}</span> : null}
+            </a>
+          );
+        }
         const isActive = t.id === activeTab.id;
         return (
           <button

@@ -1,0 +1,26 @@
+-- vendor_services_signed_out_cannot_write  (SUP-28 / VER-6)
+--
+-- A signed-out visitor (`anon`) held INSERT, UPDATE, DELETE and TRUNCATE on
+-- public.vendor_services — the Supabase default table grant, never used.
+--
+-- Measured against prod 2026-09-18 before writing this:
+--   • pg_policies: the only two policies (vendor_services_manage,
+--     vendor_services_public_read) are both `TO authenticated`. anon has NO
+--     policy, so RLS already refuses every anon INSERT/UPDATE/DELETE row.
+--   • TRUNCATE is NOT row-level: RLS does not apply to it. That was the one
+--     privilege here that was a real hole rather than dead weight.
+--   • SQL callers: the only functions that write this table are
+--     save_vendor_service(...) and merge_canonical_service(...). Both are
+--     SECURITY DEFINER (they write as the owner, not as the caller) and anon
+--     cannot EXECUTE either. No trigger or policy writes it as anon.
+--   • No column-level ACLs exist on the table (pg_attribute.attacl is null for
+--     every column), so the per-column write facts in the exposure baseline
+--     come from this table grant and drop with it.
+--
+-- So removing these privileges changes no working path.
+-- SELECT is left alone on purpose. anon can see no rows today (it has no read
+-- policy), and changing reads is out of scope here.
+--
+-- Idempotent: REVOKE of a privilege that is not held is a no-op.
+
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.vendor_services FROM anon;

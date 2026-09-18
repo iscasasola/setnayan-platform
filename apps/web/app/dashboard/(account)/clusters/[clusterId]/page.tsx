@@ -1,17 +1,20 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Anchor, CalendarRange, Wallet } from 'lucide-react';
+import { Anchor, CalendarRange, Users, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   clusterSpan,
   fetchCluster,
+  fetchClusterRoster,
   fetchClusterTimeline,
   fetchLinkableCelebrations,
   isApproximate,
+  orderRoster,
   timelineDateLabel,
 } from '@/lib/clusters';
+import { RSVP_LABELS, type RsvpStatus } from '@/lib/guests';
 import { budgetStateNote, fetchClusterBudgets } from '@/lib/cluster-budgets';
 import { formatPhp } from '@/lib/budget';
 import { ClusterTools } from './_components/cluster-tools';
@@ -98,10 +101,13 @@ export default async function ClusterTimelinePage({ params }: Props) {
   // two apart would confirm the group exists.
   if (!cluster) notFound();
 
-  const [timeline, linkable] = await Promise.all([
+  const [timeline, linkable, roster] = await Promise.all([
     fetchClusterTimeline(supabase, clusterId),
     fetchLinkableCelebrations(supabase, user.id),
+    fetchClusterRoster(supabase, clusterId),
   ]);
+  const { people, shared } = orderRoster(roster.rows);
+  const celebrationName = new Map(timeline.rows.map((r) => [r.event_id, r.display_name]));
 
   const span = clusterSpan(timeline.rows);
 
@@ -278,6 +284,75 @@ export default async function ClusterTimelinePage({ params }: Props) {
           ))}
         </ol>
       )}
+
+      {/*
+        7b · ONE PERSON, NOT THREE ROWS — the roster the resolver builds.
+        Shown only once the group has celebrations to hold guests.
+
+        🛑 THREE STATES, AND ONLY ONE OF THEM IS "NOBODY". A refused read says
+        so; an empty list is the only branch allowed to say there are no
+        guests; and the shared count is printed only from a measured read.
+      */}
+      {timeline.measured && timeline.rows.length > 0 ? (
+        <section className="sn-tile">
+          <p className="sn-eye flex items-center gap-2">
+            <Users size={14} strokeWidth={1.75} aria-hidden />
+            Guests across the group
+          </p>
+
+          {!roster.measured ? (
+            <p className="mt-2 text-sm text-ink-soft" role="status">
+              We could not load the guest lists just now. Nothing has changed — refresh to try
+              again.
+            </p>
+          ) : people.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No guests on these celebrations yet. Add them inside each celebration.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-2xl font-medium text-ink">
+                {people.length} {people.length === 1 ? 'person' : 'people'}
+              </p>
+              <p className="mt-1 text-sm text-ink-soft">
+                {shared > 0
+                  ? `${shared} ${shared === 1 ? 'is' : 'are'} on more than one guest list`
+                  : 'Nobody is on more than one guest list yet'}
+              </p>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm font-medium text-terracotta">
+                  See everyone
+                </summary>
+                <ul className="mt-2 divide-y divide-ink/10">
+                  {people.map((p) => (
+                    <li key={p.identity_key} className="py-2">
+                      <p className="text-sm font-medium text-ink">
+                        {p.display_name?.trim() || 'Unnamed guest'}
+                      </p>
+                      <p className="mt-0.5 flex flex-wrap gap-1.5">
+                        {p.celebrations.map((c) => (
+                          <span
+                            key={c.guest_id}
+                            className="rounded-sm bg-ink/5 px-2 py-0.5 text-xs text-ink-soft"
+                          >
+                            {celebrationName.get(c.event_id) ?? 'A celebration'} ·{' '}
+                            {RSVP_LABELS[c.rsvp_status as RsvpStatus] ?? 'RSVP unknown'}
+                          </span>
+                        ))}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </>
+          )}
+
+          <p className="mt-2 text-xs text-ink-soft/80">
+            Each celebration still keeps its own guest list. This only shows who is on more than
+            one.
+          </p>
+        </section>
+      ) : null}
 
       <ClusterTools
         clusterId={clusterId}

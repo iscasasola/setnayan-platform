@@ -19,7 +19,13 @@ export type ApprovalActionType =
   // this gate. NOT offered in the manual new-request picker (APPROVAL_ACTIONS
   // below); initiated from /admin/fraud and confirmed by a second admin in
   // /admin/approvals. target_id carries the vendor_profile_id.
-  | 'approve_fraud_wipe_ban';
+  | 'approve_fraud_wipe_ban'
+  // Sponsored journal spotlight — initiated AND confirmed from
+  // /admin/journal-spotlights (its own executor), never offered in the picker.
+  // target_id carries the spotlight_id. LAU-20: a CHECK rebuild once dropped
+  // this value in prod; tests/db/every-approval-type-the-code-writes-is-allowed
+  // now inserts every member of this union against the replayed schema.
+  | 'approve_journal_spotlight';
 
 /**
  * Display labels for action types that are NOT in the manual picker
@@ -29,6 +35,7 @@ export type ApprovalActionType =
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_vendor_partnership: 'Approve vendor partnership',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
+  approve_journal_spotlight: 'Publish sponsored journal spotlight',
 };
 
 export type ApprovalActionMeta = {

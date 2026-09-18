@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Check, Clock, Lock, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   sponsorPhotoChallenge,
   type PhotoChallengeActionState,
@@ -52,6 +54,10 @@ function fmtDate(s: string) {
 }
 
 export type PapicChallengeCardProps = {
+  /** openChannels(settings) — the rails the owner has left ON. Empty = payments
+   *  paused: the paid path shows PaymentsPausedNote and its button is disabled
+   *  (the server action refuses the same case). A free grant ignores it. */
+  openRails: readonly PayChannel[];
   /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ "Coming soon". */
   available: boolean;
   /** Tier gate (Solo and up — owner 2026-08-29) AND verified. */
@@ -81,6 +87,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     expiresAt,
     pricePhp,
     periodDays,
+    openRails,
   } = props;
   const first5Free = props.first5Free === true;
   const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
@@ -182,22 +189,28 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           <input type="hidden" name="return_to" value="/vendor-dashboard/subscription" />
           {/* A ₱0 grant collects no payment, so it needs no channel. */}
           {!first5Free ? (
-            <fieldset className="mb-3">
-              <legend className="text-xs font-medium text-ink">Pay with</legend>
-              <div className="mt-1.5 flex flex-wrap gap-3">
-                <label className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                  <input type="radio" name="channel" value="bdo" defaultChecked />
-                  BDO
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                  <input type="radio" name="channel" value="gcash" />
-                  GCash
-                </label>
-              </div>
-            </fieldset>
+            openRails.length > 0 ? (
+              <fieldset className="mb-3">
+                <legend className="text-xs font-medium text-ink">Pay with</legend>
+                <div className="mt-1.5 flex flex-wrap gap-3">
+                  {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
+                  {(['bdo', 'gcash'] as const)
+                    .filter((r) => openRails.includes(r))
+                    .map((r, n) => (
+                      <label key={r} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+                        <input type="radio" name="channel" value={r} defaultChecked={n === 0} />
+                        {PAY_CHANNEL_LABEL[r]}
+                      </label>
+                    ))}
+                </div>
+              </fieldset>
+            ) : (
+              <PaymentsPausedNote className="mb-3" />
+            )
           ) : null}
 
           <SubmitButton
+            disabled={!first5Free && openRails.length === 0}
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
             pendingLabel={first5Free ? 'Turning on…' : 'Starting…'}
           >

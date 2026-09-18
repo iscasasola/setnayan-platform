@@ -14,6 +14,8 @@ import Link from 'next/link';
 import { Store, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openChannels } from '@/lib/payment-channels';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
@@ -39,7 +41,7 @@ export async function BoothEventSection({
   if (!seating3dEnabled()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [gateRow, orderState, eventPricePhp, cyclePricePhp] = await Promise.all([
+  const [gateRow, orderState, eventPricePhp, cyclePricePhp, settings] = await Promise.all([
     supabase
       .from('vendor_profiles')
       .select('tier_state, verification_state, booth_addon_expires_at')
@@ -53,7 +55,10 @@ export async function BoothEventSection({
     fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId),
     fetchVendor3dBoothEventPricePhp(supabase),
     fetchVendor3dBoothPricePhp(supabase),
+    fetchPlatformSettings(supabase),
   ]);
+  // The rails the owner has left ON — the buy form offers only these.
+  const openRails = openChannels(settings);
 
   const tierOk = isTierAtLeast(gateRow?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER);
   const verified = gateRow?.verification_state === 'verified';
@@ -112,7 +117,7 @@ export async function BoothEventSection({
             this celebration only — <strong className="text-ink/80">{peso(eventPricePhp)}, one-time</strong>.
             It stays for as long as the couple keeps their room up.
           </p>
-          <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} />
+          <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />
           {cyclePricePhp > 0 ? (
             <p className="mt-2 text-[11px] text-ink/45">
               Several weddings this month? The 3D Booth cycle brands every client&rsquo;s room for{' '}

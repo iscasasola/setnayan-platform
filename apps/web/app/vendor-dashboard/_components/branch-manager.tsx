@@ -17,6 +17,12 @@ import { useRouter } from 'next/navigation';
 import { Building2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  PAY_CHANNEL_LABEL,
+  type OpenRailDetails,
+  type PayChannel,
+} from '@/lib/payment-channels';
+import { PaymentsPausedNote } from './payments-paused-note';
 import { Collapsible } from './collapsible';
 import { BranchPinMap, type LatLng } from './branch-pin-map';
 import {
@@ -48,12 +54,9 @@ const STATUS_LABEL: Record<BranchStatus, string> = {
 
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
-export type PayInfo = {
-  bdoName: string | null;
-  bdoNumber: string | null;
-  gcashName: string | null;
-  gcashNumber: string | null;
-};
+/** openRailDetails(settings) — a CLOSED rail's name and number arrive null,
+ *  and `open` lists the rails the owner has left ON. */
+export type PayInfo = OpenRailDetails;
 
 type Props = {
   branches: VendorBranchView[];
@@ -64,7 +67,13 @@ type Props = {
   pay: PayInfo;
 };
 
-export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, pay }: Props) {
+export function BranchManager({
+  branches,
+  feePhp,
+  autoRadiusKm,
+  initialCenter,
+  pay,
+}: Props) {
   const toast = useToast();
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -94,6 +103,7 @@ export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, p
             feePhp={feePhp}
             autoRadiusKm={autoRadiusKm}
             initialCenter={initialCenter}
+            openRails={pay.open}
             onDone={() => {
               setAdding(false);
               setFormKey((k) => k + 1);
@@ -117,6 +127,7 @@ export function BranchManager({ branches, feePhp, autoRadiusKm, initialCenter, p
             <span className="font-medium">reference code</span> in the transfer note so
             our team can match it (confirmed within 24 hours).
           </p>
+          {!pay.bdoNumber && !pay.gcashNumber ? <PaymentsPausedNote /> : null}
           <dl className="grid gap-2 text-xs sm:grid-cols-2">
             {pay.bdoNumber ? (
               <div className="rounded-lg border bg-white p-2.5" style={{ borderColor: 'var(--m-line)' }}>
@@ -174,6 +185,7 @@ function AddBranchForm({
   feePhp,
   autoRadiusKm,
   initialCenter,
+  openRails,
   onDone,
   toastSuccess,
   toastError,
@@ -181,6 +193,7 @@ function AddBranchForm({
   feePhp: number;
   autoRadiusKm: number;
   initialCenter: LatLng;
+  openRails: readonly PayChannel[];
   onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
@@ -298,15 +311,29 @@ function AddBranchForm({
         Coverage area <span className="font-medium text-ink">~{autoRadiusKm} km</span> around this pin — set automatically for your plan.
       </div>
 
-      <label className="block space-y-1">
-        <span className="block text-xs font-medium text-ink/70">Pay with</span>
-        <select name="channel" defaultValue="bdo" className="input-field cursor-pointer">
-          <option value="bdo">BDO bank transfer</option>
-          <option value="gcash">GCash</option>
-        </select>
-      </label>
+      {openRails.length > 0 ? (
+        <label className="block space-y-1">
+          <span className="block text-xs font-medium text-ink/70">Pay with</span>
+          <select name="channel" className="input-field cursor-pointer">
+            {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
+            {(['bdo', 'gcash'] as const)
+              .filter((r) => openRails.includes(r))
+              .map((r) => (
+                <option key={r} value={r}>
+                  {r === 'bdo' ? 'BDO bank transfer' : PAY_CHANNEL_LABEL[r]}
+                </option>
+              ))}
+          </select>
+        </label>
+      ) : (
+        <PaymentsPausedNote />
+      )}
 
-      <SubmitButton className="button-primary w-full" pendingLabel="Starting…">
+      <SubmitButton
+        className="button-primary w-full"
+        pendingLabel="Starting…"
+        disabled={openRails.length === 0}
+      >
         Purchase · {peso(feePhp)} / 28 days
       </SubmitButton>
       <p className="text-center text-[11px] text-ink/45">
@@ -391,7 +418,8 @@ function BranchRow({
         {branch.status === 'expired' ? (
           <form action={renewAction}>
             <input type="hidden" name="branch_id" value={branch.branch_id} />
-            <input type="hidden" name="channel" value="bdo" />
+            {/* No channel posted: the rail is chosen on /pay, and the action
+                mints on an open one or refuses with "payments are paused". */}
             <button
               type="submit"
               className="inline-flex h-9 items-center gap-1.5 rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:border-warn-500"

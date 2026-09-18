@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { railForNewOrder } from '@/lib/rail-for-new-order';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { revokeAllSessions } from '@/lib/force-logout';
@@ -362,8 +364,10 @@ export async function buyExtraSeat(formData: FormData) {
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is
   // — so the chooser that used to sit beside this button is gone. This
   // placeholder row keeps a value only because `channel` is NOT NULL; the real
-  // one is written when they actually send the money.
-  const channel = formData.get('channel') === 'gcash' ? 'gcash' : 'bdo';
+  // one is written when they actually send the money. It still has to be an
+  // OPEN rail, and with none open there is no order to mint at all.
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const feePhp = await fetchSeatFeePhp(supabase);
   const referenceCode = generateSeatReferenceCode();
 

@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { payPath } from '@/lib/pay-path';
+import { railForNewOrder } from '@/lib/rail-for-new-order';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
@@ -98,9 +100,6 @@ function generateReferenceCode(): string {
   );
 }
 
-function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
-  return String(raw ?? '').trim() === 'gcash' ? 'gcash' : 'bdo';
-}
 
 export async function activateVendor3dBooth(
   _prev: Vendor3dBoothActionState,
@@ -337,7 +336,10 @@ export async function activateVendor3dBooth(
   }
 
   // ── PAID cycle → apply-then-pay (activates on admin approval) ───────────────
-  const channel = parseChannel(formData.get('channel'));
+  // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
+  // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const referenceCode = generateReferenceCode();
 
   // ── SEC-4b · service-role mint ─────────────────────────────────────────────

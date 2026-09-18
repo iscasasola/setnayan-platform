@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openChannels } from '@/lib/payment-channels';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
@@ -92,6 +94,8 @@ export default async function VendorPapicCapturePage({
     profile.vendor_profile_id,
     eventId,
   );
+  // The rails the owner has left ON — the credit-pack buy offers only these.
+  const openRails = openChannels(await fetchPlatformSettings(supabase));
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
@@ -142,6 +146,7 @@ export default async function VendorPapicCapturePage({
         offerPack={portfolioCredits.offerPack}
         packPricePhp={portfolioCredits.packPricePhp}
         packCredits={portfolioCredits.packCredits}
+        openRails={openRails}
       />
 
       {/* The supplier's PRIVATE portfolio album — visibly its own section,

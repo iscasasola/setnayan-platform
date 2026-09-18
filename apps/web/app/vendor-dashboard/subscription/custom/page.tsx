@@ -4,6 +4,7 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailDetails } from '@/lib/payment-channels';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
 import { fetchCustomUnitPrices } from '@/lib/vendor-custom-catalog';
 import type { CustomComposition } from '@/lib/vendor-custom-pricing';
@@ -116,12 +117,8 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
         unitPrices={unitPrices}
         canRequest={isVerified}
         activeComposition={activeComposition}
-        pay={{
-          bdoName: settings.bdo_account_name,
-          bdoNumber: settings.bdo_account_number,
-          gcashName: settings.gcash_account_name,
-          gcashNumber: settings.gcash_number,
-        }}
+        /* Only an OPEN rail's details — printing a number IS offering the rail. */
+        pay={openRailDetails(settings)}
       />
     </main>
   );

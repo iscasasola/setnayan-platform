@@ -3,6 +3,8 @@ import { Search } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openChannels } from '@/lib/payment-channels';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -96,6 +98,8 @@ export default async function VendorDeepSearchPage() {
   // Price + free-allowance state (admin-read for an authoritative use count).
   const admin = createAdminClient();
   const catalogCyclePricePhp = await fetchVendorDeepSearchPricePhp(supabase);
+  // The rails the owner has left ON — the runner offers only these.
+  const openRails = openChannels(await fetchPlatformSettings(supabase));
   // Tiered band for the About-You variant (₱1,000 Free/Solo · ₱500 Pro/Ent) —
   // mirrors the action exactly, INJECTED as the input so the Pro+ free run of the
   // cycle still resolves to ₱0.
@@ -168,6 +172,7 @@ export default async function VendorDeepSearchPage() {
           isFreeNow={isFreeNow}
           hasFreeAllowance={hasFreeAllowance}
           pricePhp={pricePhp > 0 ? pricePhp : cyclePricePhp}
+          openRails={openRails}
         />
       </section>
 

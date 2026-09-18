@@ -44,6 +44,7 @@ import {
   type VendorBranchView,
 } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
@@ -541,7 +542,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // manager, so the fee + payout accounts are only fetched for that tier (skips
   // two reads for everyone else).
   let branchFeePhp = BRANCH_FEE_PHP;
-  let branchPay: PayInfo = { bdoName: null, bdoNumber: null, gcashName: null, gcashNumber: null };
+  // Below Enterprise the manager does not render; `open: []` is never read.
+  let branchPay: PayInfo = {
+    bdoName: null,
+    bdoNumber: null,
+    gcashName: null,
+    gcashNumber: null,
+    open: [],
+  };
   if (isTierAtLeast(tier, 'enterprise')) {
     const [fee, settings] = await Promise.all([
       fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
@@ -549,12 +557,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     ]);
     branchFeePhp = fee;
     if (settings) {
-      branchPay = {
-        bdoName: settings.bdo_account_name ?? null,
-        bdoNumber: settings.bdo_account_number ?? null,
-        gcashName: settings.gcash_account_name ?? null,
-        gcashNumber: settings.gcash_number ?? null,
-      };
+      // Only an OPEN rail's details reach the "How to pay" box — printing a
+      // number IS offering the rail (lib/payment-channels.ts · openRailDetails).
+      branchPay = openRailDetails(settings);
     }
   }
 

@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { railForNewOrder } from '@/lib/rail-for-new-order';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -178,10 +180,6 @@ async function startBranchPayment(
   return { referenceCode };
 }
 
-function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
-  const v = String(raw ?? '').trim();
-  return v === 'gcash' ? 'gcash' : 'bdo';
-}
 
 /** Parse an optional finite coordinate from a form field. */
 
@@ -240,7 +238,10 @@ export async function createBranch(
   if (channelRaw !== 'bdo' && channelRaw !== 'gcash') {
     return err('Choose how you will pay (BDO or GCash).');
   }
-  const channel = channelRaw as 'bdo' | 'gcash';
+  // The rail kill switch — asked BEFORE the branch row below, so a closed
+  // rail leaves no inactive branch behind as well as no order.
+  const channel = await railForNewOrder(supabase, channelRaw);
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   // Coords are stored as a pair or not at all (a lone axis is meaningless).
   const hasCoords = lat !== null && lng !== null;
 
@@ -303,7 +304,10 @@ export async function renewBranch(
 
   const branchId = String(formData.get('branch_id') ?? '').trim();
   if (!branchId) return err('Missing branch.');
-  const channel = parseChannel(formData.get('channel'));
+  // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
+  // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
 
   const { data: branch } = await supabase
     .from('vendor_branches')

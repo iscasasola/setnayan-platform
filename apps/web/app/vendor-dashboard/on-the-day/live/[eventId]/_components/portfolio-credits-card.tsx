@@ -4,6 +4,8 @@ import { useActionState, useEffect, useRef } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   buyVendorPapicPortfolioPack,
   type BuyVendorPapicPortfolioPackState,
@@ -31,6 +33,7 @@ export function PortfolioCreditsCard({
   offerPack,
   packPricePhp,
   packCredits,
+  openRails,
 }: {
   eventId: string;
   /** Total credits granted so far (booking fee + packs + admin/comp). `null` = unreadable. */
@@ -41,6 +44,10 @@ export function PortfolioCreditsCard({
   /** `null` = the pack SKU is missing/inactive — render "unavailable", not a stale number. */
   packPricePhp: number | null;
   packCredits: number;
+  /** openChannels(settings) — the rails the owner has left ON. Empty = payments
+   *  paused: the buy form gives way to PaymentsPausedNote (the server action
+   *  refuses the same case). */
+  openRails: readonly PayChannel[];
 }) {
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
@@ -70,18 +77,25 @@ export function PortfolioCreditsCard({
         </p>
       </div>
 
-      {offerPack ? (
+      {offerPack && openRails.length === 0 ? (
+        <PaymentsPausedNote />
+      ) : offerPack ? (
         <form action={formAction} className="flex items-center gap-2">
           <input type="hidden" name="event_id" value={eventId} />
           <select
             name="channel"
-            defaultValue="bdo"
             className="rounded-lg border px-2 py-1.5 text-xs"
             style={{ borderColor: 'var(--m-line)' }}
             aria-label="Pay with"
           >
-            <option value="bdo">BDO</option>
-            <option value="gcash">GCash</option>
+            {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
+            {(['bdo', 'gcash'] as const)
+              .filter((r) => openRails.includes(r))
+              .map((r) => (
+                <option key={r} value={r}>
+                  {PAY_CHANNEL_LABEL[r]}
+                </option>
+              ))}
           </select>
           <SubmitButton
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-xs font-medium text-cream hover:bg-terracotta-800"

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openChannels, isChannelOpen } from './payment-channels';
+import { openChannels, isChannelOpen, openRailDetails } from './payment-channels';
 import { PAY_CHANNELS } from './payment-channels';
 
 /**
@@ -110,4 +110,104 @@ test('both rail vocabularies are one vocabulary', () => {
   // two mechanisms that disagree about one fact each pass their own suite.
   assert.deepEqual([...PAY_CHANNELS], ['gcash', 'bdo']);
   assert.equal(openChannels({}).length, 0);
+});
+
+/* ── THE SUPPLIER SURFACES (S2 · 2026-09-18) ─────────────────────────────── */
+//
+// Measured before this was written: the handoff said "4 supplier surfaces, one
+// already done". The real count was 8 pickers that hard-coded BOTH rails
+// (including the one called done — its switch was the 3D one, not this one),
+// 9 actions that minted an order with no rail check, 2 panels that printed
+// both account numbers straight from settings, and the shared /pay page, which
+// with both rails off still defaulted to the BDO tab and printed BDO's number.
+
+test('openRailDetails prints nothing for a closed rail, and agrees with openChannels', () => {
+  const full = {
+    gcash_number: '09178807163',
+    gcash_account_name: 'G Name',
+    bdo_account_number: '0012 3456 7890',
+    bdo_account_name: 'B Name',
+  };
+  const gOff = openRailDetails({ ...full, gcash_enabled: false });
+  assert.equal(gOff.gcashNumber, null, 'a closed GCash still handed out its number');
+  assert.equal(gOff.gcashName, null);
+  assert.equal(gOff.bdoNumber, '0012 3456 7890', 'closing GCash hid an OPEN BDO');
+  assert.deepEqual(gOff.open, ['bdo']);
+
+  const allOff = openRailDetails({ ...full, gcash_enabled: false, bdo_enabled: false });
+  assert.deepEqual(
+    [allOff.bdoNumber, allOff.gcashNumber, allOff.open.length],
+    [null, null, 0],
+    'with every rail switched off, a number still reached the page',
+  );
+  for (const flags of [{}, { gcash_enabled: false }, { bdo_enabled: false }]) {
+    assert.deepEqual(openRailDetails({ ...full, ...flags }).open, openChannels({ ...full, ...flags }));
+  }
+});
+
+const VD = join(WEB, 'app', 'vendor-dashboard');
+const rel = (f: string) => relative(WEB, f);
+
+test('every supplier action that mints a payment asks the rail switch first', () => {
+  const minting = sourceFiles(VD).filter((f) =>
+    /\.from\('payments'\)\s*\.insert\(/.test(readFileSync(f, 'utf8')),
+  );
+  const offenders: string[] = [];
+  for (const f of minting) {
+    const src = readFileSync(f, 'utf8');
+    if (!/\brailForNewOrder\(/.test(src)) offenders.push(`${rel(f)} (no railForNewOrder)`);
+    // A local re-spelling of "which rail" is the switch dropped out again.
+    if (/===\s*'gcash'\s*\?\s*'gcash'\s*:\s*'bdo'/.test(src) || /function parseChannel\b/.test(src)) {
+      offenders.push(`${rel(f)} (re-spells the channel instead of resolving it)`);
+    }
+  }
+  console.log(`# supplier actions that mint a payment: ${minting.length}`);
+  assert.deepEqual(offenders, [], 'These mint an order a closed rail cannot receive:\n  ' + offenders.join('\n  '));
+  // Floor, not a ceiling: an empty sweep (moved folder, broken regex) must not
+  // read as "nothing to check". Raise it when a new paid action lands.
+  assert.ok(minting.length >= 9, `only ${minting.length} minting actions found — the sweep went blind`);
+});
+
+test('every supplier "Pay with" choice offers only the open rails', () => {
+  const pickers = sourceFiles(VD).filter((f) => readFileSync(f, 'utf8').includes('name="channel"'));
+  const offenders: string[] = [];
+  for (const f of pickers) {
+    const src = readFileSync(f, 'utf8');
+    if (/value="(bdo|gcash)"/.test(src)) offenders.push(`${rel(f)} (hard-codes a rail)`);
+    if (!/\b(openRails|pay\.open)\.includes\(/.test(src)) offenders.push(`${rel(f)} (never asks which rails are open)`);
+    if (!/<PaymentsPausedNote\b/.test(src)) offenders.push(`${rel(f)} (says nothing when every rail is closed)`);
+  }
+  console.log(`# supplier pay pickers: ${pickers.length}`);
+  assert.deepEqual(offenders, [], 'These offer a rail the owner switched off:\n  ' + offenders.join('\n  '));
+  assert.ok(pickers.length >= 8, `only ${pickers.length} pickers found — the sweep went blind`);
+});
+
+test('no page copies an account number out of settings without the switch', () => {
+  const offenders: string[] = [];
+  for (const f of sourceFiles(join(WEB, 'app')).concat(sourceFiles(join(WEB, 'components')))) {
+    const src = readFileSync(f, 'utf8');
+    if (/(bdo|gcash)Number:\s*settings\??\./.test(src)) offenders.push(rel(f));
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'These copy a number into props straight from settings — use openRailDetails():\n  ' +
+      offenders.join('\n  '),
+  );
+});
+
+test('/pay asks the one rule, and hands out nothing when every rail is closed', () => {
+  const page = readFileSync(join(WEB, 'app/pay/[reference]/page.tsx'), 'utf8');
+  assert.doesNotMatch(page, /_enabled\s*!==\s*false/, '/pay reads the flag alone again');
+  const asks = page.match(/isChannelOpen\(settings, '(gcash|bdo)'\)/g) ?? [];
+  assert.equal(asks.length, 2, `expected both rails asked through isChannelOpen, found ${asks.length}`);
+
+  const panel = readFileSync(join(WEB, 'app/pay/[reference]/_components/pay-panel.tsx'), 'utf8');
+  const gate = panel.indexOf('!gcash.enabled && !bdo.enabled ? (');
+  assert.ok(gate > -1, 'the all-closed branch is gone — BDO becomes the fallback tab and prints its number');
+  const paused = panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', gate);
+  const qr = panel.indexOf('<QrTile', gate);
+  const manual = panel.indexOf('or send manually to', gate);
+  // The paused message is the TRUE arm; the QR and the number sit in the else.
+  assert.ok(paused > gate && paused < qr && qr < manual, 'the QR or the number escaped the all-closed branch');
 });

@@ -339,24 +339,6 @@ export async function fetchEventVendors(
   return (data ?? []) as EventVendorRow[];
 }
 
-export function computeVendorStats(vendors: EventVendorRow[]) {
-  let totalCost = 0;
-  let depositPaid = 0;
-  const byStatus: Partial<Record<VendorStatus, number>> = {};
-  for (const v of vendors) {
-    totalCost += Number(v.total_cost_php ?? 0);
-    depositPaid += Number(v.deposit_paid_php ?? 0);
-    byStatus[v.status] = (byStatus[v.status] ?? 0) + 1;
-  }
-  return {
-    count: vendors.length,
-    totalCost,
-    depositPaid,
-    remaining: Math.max(0, totalCost - depositPaid),
-    byStatus,
-  };
-}
-
 export function formatPhp(amount: number | null | undefined): string {
   if (amount === null || amount === undefined) return '—';
   return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;

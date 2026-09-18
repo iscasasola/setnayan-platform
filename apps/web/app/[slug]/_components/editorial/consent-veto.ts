@@ -196,6 +196,7 @@ export async function loadConsentVetoedPapicIds(
     const { data, error } = await admin.rpc('papic_event_blurs_every_capture', {
       p_event_id: eventId,
     });
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · rpc:papic_event_blurs_every_capture', error);
     if (error) return { ids, safeKeyById, failed: true };
     eventWideBlur = data === true;
   } catch {
@@ -216,13 +217,8 @@ export async function loadConsentVetoedPapicIds(
           )
           .eq('event_id', eventId)
           .limit(FACEBLOCK_ENUMERATION_CEILING);
-        if (error) {
-          console.error(
-            `[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`,
-            error,
-          );
-          return { ids, safeKeyById, failed: true };
-        }
+        if (error) console.error(`[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`, error);
+        if (error) return { ids, safeKeyById, failed: true };
         rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
       } catch {
         return { ids, safeKeyById, failed: true };
@@ -327,12 +323,8 @@ export async function loadConsentVetoedPapicIds(
       .eq('event_id', eventId)
       .in(src.idCol, [...tagged])
       .not('faceblock_baked_at', 'is', null);
-    if (error) {
-      console.error(
-        `[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`,
-        error,
-      );
-    } else {
+    if (error) console.error(`[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select`, error);
+    if (!error) {
       for (const r of (data ?? []) as unknown as Array<Record<string, unknown>>) {
         const id = asString(r[src.idCol]);
         const safe = trustedStandIn(r, src);

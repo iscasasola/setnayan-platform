@@ -181,9 +181,21 @@ test('resolveHonoreeDependentId: a refused read logs and still drops the link (r
 
 test('consent-veto.ts: BOTH from(src.table) call sites log — count is exactly 2', () => {
   const file = src('app/[slug]/_components/editorial/consent-veto.ts');
-  const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts';
+  // Scoped to the two `from(src.table)` reads this PR's baseline named — not
+  // the whole file's log-line count. Main independently added a THIRD,
+  // unrelated log call site to this same file (the `rpc:
+  // papic_event_blurs_every_capture` read), which must not make this
+  // assertion flap; that call site has its own coverage below.
+  const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:';
   const count = file.split(marker).length - 1;
-  assert.equal(count, 2, 'the S26 baseline finding for this file is count=2 — both call sites must log');
+  assert.equal(count, 2, 'the S26 baseline finding for this file is count=2 — both from(src.table) call sites must log');
+});
+
+test('consent-veto.ts: the rpc:papic_event_blurs_every_capture read also logs (added independently on main)', () => {
+  const file = src('app/[slug]/_components/editorial/consent-veto.ts');
+  const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · rpc:papic_event_blurs_every_capture';
+  const count = file.split(marker).length - 1;
+  assert.equal(count, 1, 'the rpc read site must keep its own log line — do not drop it while resolving a merge with this PR');
 });
 
 test('the remaining 9 shape-1 sites each carry exactly one [supabase-error] log at their read', () => {

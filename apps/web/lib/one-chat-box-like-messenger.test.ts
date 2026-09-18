@@ -154,7 +154,14 @@ test('the call launcher and the deal menu are tool panels, not cards of their ow
     }
     // The tray renders ONE panel template from a list, with ?compose=deal opening it server-side.
     assert.equal(count(s, /<ThreadToolPanel\b/g), 1, `${name}: ThreadToolPanel used ${count(s, /<ThreadToolPanel\b/g)} times`);
-    assert.match(s, /open=\{t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\}/, `${name}: ?compose=deal does not open the panel`);
+    // The window admits the deal clause alone OR as the first arm of an `||`
+    // (S5 added `?compose=quote` for the supplier's Build-a-quote panel). The
+    // assertion is unchanged: ?compose=deal must open the deal panel, server-side.
+    assert.match(
+      s,
+      /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\)?\s*(\}|\|\|)/,
+      `${name}: ?compose=deal does not open the panel`,
+    );
     assert.equal(count(s, /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
   }
   assert.match(read(COUPLE), /COUPLE_THREAD_PANELS\.filter\(/, "the couple's tray is not drawn from the shared list");

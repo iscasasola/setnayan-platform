@@ -135,6 +135,33 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   });
 
   /**
+   * S5 · WHERE AN ACCEPTED QUOTE'S "ASK THEM TO LOCK" GOES. Accepting only
+   * shortlists the shop at a price; the couple's one booking action is Lock on
+   * that shop's workspace page (the same next step `/proposals/[publicId]`
+   * shows). Resolved the way accept wrote the row — (event_id,
+   * marketplace_vendor_id) — under the couple's own RLS. Null when there is no
+   * row yet or the read fails: the card then shows the accepted note and no
+   * button, never a guessed route.
+   */
+  let quoteLockHref: string | null = null;
+  if (thread.vendor_profile_id) {
+    const { data: pick, error: pickErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id')
+      .eq('event_id', thread.event_id)
+      .eq('marketplace_vendor_id', thread.vendor_profile_id)
+      .is('archived_at', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pickErr) {
+      console.error('[couple thread] lock workspace read refused', pickErr);
+    } else if (pick?.vendor_id) {
+      quoteLockHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+    }
+  }
+
+  /**
    * ── DECISIONS · the couple's side of "where are we with this supplier?" ────
    *
    * The same view the supplier has, from this side. The standing sentence is
@@ -630,6 +657,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
           <ChatMessageStream
             flush
             counterHref={`?compose=deal`}
+            // S5 · an accepted quote points at the ONE action that books.
+            lockHref={quoteLockHref}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}

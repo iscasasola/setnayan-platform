@@ -81,6 +81,11 @@ import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
 import { affordancePanelId } from '@/lib/chat-box-tools';
+import {
+  seedQuoteRevision,
+  type QuoteRevisionSeed,
+  type QuoteRevisionSource,
+} from '@/lib/quote-revision-seed';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
@@ -130,6 +135,12 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_tier_free: 'Get your account verified to send proposals to couples.',
   proposal_sent_no_card: 'Proposal sent — find it in your Proposals list (the in-chat card didn’t post).',
   proposal_thread_closed: 'You can only send a proposal on an open conversation.',
+  // S5 · a new quote would replace an ACCEPTED one that the booking already
+  // rests on. Name the door that IS open instead of saying "failed".
+  proposal_deal_locked:
+    'This booking is already locked at the accepted quote — changes to it go through a change order, not a new quote.',
+  proposal_lock_requested:
+    'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6).
   outcome_saved: 'Outcome saved — thanks for logging it.',
   outcome_invalid: 'Pick won, lost, or no-response to log this inquiry.',
@@ -147,7 +158,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // deal panel on the server (`<details open>`) AND seeds the builder; until
   // 2026-09-18 only the builder was seeded, inside a closed panel, so the link
   // landed on a page that looked unchanged.
-  const composeMode = sp?.compose === 'deal' ? 'deal' : null;
+  // `?compose=quote` (S5) — the "Update this quote" link on the live quote
+  // card. Opens the Build-a-quote panel on the server AND seeds the builder
+  // from the quote being replaced (see `quoteRevision` below), so the supplier
+  // edits what they sent rather than retyping it. Same mechanism as `deal`.
+  const composeMode =
+    sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   const supabase = await createClient();
   const {
@@ -416,6 +432,36 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     publishable: m.is_shown && m.moderation_status === 'approved',
   }));
 
+  /**
+   * S5 · "UPDATE THIS QUOTE" — the builder opens seeded from the LIVE quote.
+   *
+   * Only on `?compose=quote`. The live quote is the newest non-draft row for
+   * (this event × this shop) that is still sent / viewed / accepted — the same
+   * rule `fetchLiveQuoteTotalPhp` and the thread's own card use ("one thread,
+   * one live quote"). Read under the supplier's OWN session (RLS: own org).
+   * Null when there is nothing live to revise: the builder then opens empty,
+   * which is the ordinary Build-a-quote, not an error.
+   */
+  let quoteRevision: QuoteRevisionSeed | null = null;
+  if (composeMode === 'quote') {
+    const { data: liveQuote, error: liveQuoteErr } = await supabase
+      .from('vendor_proposals')
+      .select(
+        'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids',
+      )
+      .eq('event_id', thread.event_id)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .in('status', ['sent', 'viewed', 'accepted'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (liveQuoteErr) {
+      console.error('[vendor thread] live quote read for revision refused', liveQuoteErr);
+    } else if (liveQuote) {
+      quoteRevision = seedQuoteRevision(liveQuote as QuoteRevisionSource);
+    }
+  }
+
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
   // ── Creator Economy PR-C · inquiry provenance (PRIVATE to the vendor) ──────
@@ -586,6 +632,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           coupleName={coupleLabel}
           packages={proposalPackages}
           paymentMethods={proposalPaymentMethods}
+          revision={quoteRevision}
           viewerPromo={
             attribution?.audienceRateTerms
               ? {
@@ -646,7 +693,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             id={t.id}
             label={t.label}
             hint={t.hint}
-            open={t.id === affordancePanelId('deal') && composeMode === 'deal'}
+            // `?compose=deal` opens the deal panel; `?compose=quote` (S5) opens
+            // Build a quote, seeded from the live quote — both on the server,
+            // so the link lands on an OPEN panel, never a page that looks unchanged.
+            open={
+              (t.id === affordancePanelId('deal') && composeMode === 'deal') ||
+              (t.id === 'build-quote' && composeMode === 'quote')
+            }
           >
             {toolNodes[t.id]}
           </ThreadToolPanel>
@@ -1408,6 +1461,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           <ChatMessageStream
             flush
             counterHref={`?compose=deal`}
+            // S5 · "Update this quote" on the live card → Build a quote, seeded.
+            reviseHref={`?compose=quote`}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}

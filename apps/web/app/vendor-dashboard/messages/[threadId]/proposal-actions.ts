@@ -28,6 +28,10 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   needs_template: 'proposal_needs_template',
   tier_free: 'proposal_tier_free',
   fee_unpaid: 'proposal_fee_unpaid',
+  // S5 · the ACCEPTED quote cannot be superseded once the couple has asked to
+  // lock at it, or the booking is confirmed. The notice names the next door.
+  deal_locked: 'proposal_deal_locked',
+  lock_requested: 'proposal_lock_requested',
   failed: 'proposal_failed',
 };
 

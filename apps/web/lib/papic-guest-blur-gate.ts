@@ -260,6 +260,7 @@ export async function loadGuestBlurGate(
         .select(cols.select)
         .eq('event_id', eventId)
         .in(cols.id, ids);
+      if (error) console.error(`[supabase-error] lib/papic-guest-blur-gate.ts · from:${table}.select`, error);
       // A stand-in read failure is deliberately NOT `failed`. `failed` means
       // "we do not know who needs a blur"; here we do, and an empty map already
       // withholds exactly those — the pre-ruling behaviour. Fail closed, quietly.

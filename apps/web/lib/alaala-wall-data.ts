@@ -115,6 +115,7 @@ async function viewerGuestIds(
     .select('guest_id')
     .eq('user_id', userId)
     .not('guest_id', 'is', null);
+  if (memberRes.error) console.error('[supabase-error] lib/alaala-wall-data.ts · from:event_members.select', memberRes.error);
   if (memberRes.error) unreadable = true;
   for (const row of memberRes.data ?? []) {
     const id = (row as { guest_id: string | null }).guest_id;
@@ -127,10 +128,8 @@ async function viewerGuestIds(
     .eq('claimed_by_user_id', userId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (personRes.error) {
-    console.error('[supabase-error] lib/alaala-wall-data.ts · from:people.select', personRes.error);
-    unreadable = true;
-  }
+  if (personRes.error) console.error('[supabase-error] lib/alaala-wall-data.ts · from:people.select', personRes.error);
+  if (personRes.error) unreadable = true;
   const personId = (personRes.data as { person_id: string } | null)?.person_id ?? null;
 
   if (personId && eventIds.length > 0) {
@@ -139,6 +138,7 @@ async function viewerGuestIds(
       .select('guest_id')
       .eq('person_id', personId)
       .in('event_id', eventIds);
+    if (guestRes.error) console.error('[supabase-error] lib/alaala-wall-data.ts · from:guests.select', guestRes.error);
     if (guestRes.error) unreadable = true;
     for (const row of guestRes.data ?? []) {
       const id = (row as { guest_id: string }).guest_id;
@@ -236,6 +236,7 @@ async function attendedRefs(
     .eq('event_id', event.event_id)
     .eq('user_id', userId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/alaala-wall-data.ts · from:event_members.select', error);
   if (error) return { refs: [], unreadable: true, saturated: false };
   const guestId = (member?.guest_id as string | null | undefined) ?? null;
   if (!guestId) return { refs: [], unreadable: false, saturated: false };

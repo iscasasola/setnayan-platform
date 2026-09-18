@@ -135,6 +135,7 @@ export async function readStoryVersionAt(eventId: string): Promise<string | null
       .select('story_version_at')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/a-withdrawal-reaches-every-copy.server.ts · from:event_editorial.select', error);
     if (error) return null;
     const v = (data as { story_version_at?: unknown } | null)?.story_version_at;
     return typeof v === 'string' ? v : null;
@@ -163,6 +164,7 @@ export async function readStoryShareState(
       .select('story_version_at, status')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/a-withdrawal-reaches-every-copy.server.ts · from:event_editorial.select', error);
     if (error) return { versionAt: null, published: false };
     const row = data as { story_version_at?: unknown; status?: unknown } | null;
     return {

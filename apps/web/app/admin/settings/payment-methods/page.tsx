@@ -117,7 +117,10 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       .select('channel, amount_php, paid_at, created_at')
       .eq('status', 'matched')
       .gte('paid_at', floor);
-    if (inflowError || inflow === null) inflowMeasured = false;
+    if (inflowError || inflow === null) {
+      logQueryError('admin/settings/payment-methods: matched inflow', inflowError);
+      inflowMeasured = false;
+    }
     for (const row of (inflow ?? []) as {
       channel: string;
       amount_php: number;

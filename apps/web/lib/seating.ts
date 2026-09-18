@@ -344,7 +344,11 @@ export async function fetchFloorPlan(
     .maybeSingle();
   // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
   // the defaults so the seating page never crashes on the floor-plan read.
-  if (error || !data) return { ...DEFAULT_FLOOR_PLAN };
+  if (error) {
+    console.error('[supabase-error] seating: event_floor_plan (using defaults)', error, { eventId });
+    return { ...DEFAULT_FLOOR_PLAN };
+  }
+  if (!data) return { ...DEFAULT_FLOOR_PLAN };
   const D = DEFAULT_FLOOR_PLAN;
   const num = (v: unknown, fb: number) => (v === null || v === undefined ? fb : Number(v));
   return {

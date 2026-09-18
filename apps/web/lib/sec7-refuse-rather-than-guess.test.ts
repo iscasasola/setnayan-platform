@@ -37,7 +37,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   resolveSetnayanAiTypeChargeCentavos,
-  resolveSetnayanAiEventChargeCentavos,
   resolveSetnayanAiTypePriceResolution,
 } from './setnayan-ai-event-pricing';
 
@@ -160,20 +159,6 @@ test('a failed CATALOG read refuses the charge too, through the resolver', async
   );
   assert.equal(r.status, 'read_error');
   assert.ok(!('centavos' in r));
-});
-
-test('the SUPERSEDED renewal path refuses too — the shape survives nowhere in the file', async () => {
-  const bad = await resolveSetnayanAiEventChargeCentavos(
-    fakeAdmin({ introUsed: true, catalogError: { message: 'connection reset' } }),
-    'S89E-abc',
-  );
-  assert.equal(bad.status, 'read_error');
-
-  const evBad = await resolveSetnayanAiEventChargeCentavos(
-    fakeAdmin({ eventsError: { message: 'timeout' } }),
-    'S89E-abc',
-  );
-  assert.equal(evBad.status, 'read_error');
 });
 
 // ── THE BLAST RADIUS: what must STILL be chargeable ─────────────────────────

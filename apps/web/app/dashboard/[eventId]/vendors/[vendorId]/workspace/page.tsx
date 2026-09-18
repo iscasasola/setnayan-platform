@@ -355,6 +355,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendors.select', error);
     if (error || !data) return null;
     const row = data as {
       deposit_declined_at: string | null;
@@ -750,6 +751,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             trusted_review_count: 0,
           },
           reviews: [],
+          // Nothing to read for an off-platform supplier — a true "none".
+          reviewsMeasured: true,
         }),
   ]);
 

@@ -174,6 +174,7 @@ export async function fetchVendorCommittedBookingCount(
       .select('vendor_id', { count: 'exact', head: true })
       .eq('marketplace_vendor_id', vendorProfileId)
       .in('status', COMMITTED_BOOKING_STATUSES as unknown as string[]);
+    if (error) console.error('[supabase-error] lib/vendor-addon-first5-free.ts · from:event_vendors.select', error);
     if (error) return FAIL_CLOSED;
     return typeof count === 'number' && Number.isFinite(count) && count >= 0
       ? count

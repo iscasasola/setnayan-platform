@@ -165,6 +165,7 @@ export async function readSlotDayAvailability(
     .eq('slot_id', slotId)
     .eq('reserved_date', date)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/slot-seat-reservations.ts · from:service_slot_day_state.select', error);
 
   if (error || !data) return null;
 
@@ -191,6 +192,7 @@ export async function listEventReservations(
     .eq('event_id', eventId)
     .in('status', OCCUPYING_STATUSES as unknown as string[])
     .order('reserved_date', { ascending: true });
+  if (error) console.error('[supabase-error] lib/slot-seat-reservations.ts · from:service_slot_reservations.select', error);
 
   if (error) return [];
   return (data ?? []) as SlotSeatReservation[];
@@ -217,6 +219,7 @@ export async function reserveSeats(
     p_party_size: args.partySize,
     p_guest_note: args.guestNote ?? null,
   });
+  if (error) console.error('[supabase-error] lib/slot-seat-reservations.ts · rpc:reserve_service_slot_seats', error);
 
   // Fail CLOSED. A transport error is not an empty result and must never be
   // reported as a successful hold.
@@ -248,6 +251,7 @@ export async function cancelReservation(
     p_reservation_id: reservationId,
     p_reason: reason ?? null,
   });
+  if (error) console.error('[supabase-error] lib/slot-seat-reservations.ts · rpc:cancel_service_slot_reservation', error);
   if (error || !data) return 'not_found';
   return (data as { status: CancelStatus }).status;
 }
@@ -260,6 +264,7 @@ export async function confirmReservation(
   const { data, error } = await supabase.rpc('confirm_service_slot_reservation', {
     p_reservation_id: reservationId,
   });
+  if (error) console.error('[supabase-error] lib/slot-seat-reservations.ts · rpc:confirm_service_slot_reservation', error);
   if (error || !data) return 'not_found';
   return (data as { status: ConfirmStatus }).status;
 }

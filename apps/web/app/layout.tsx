@@ -23,6 +23,7 @@ import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
+import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_ICON_SVG_192,
@@ -556,6 +557,12 @@ export default async function RootLayout({
           app always paints light. See _components/theme-provider.tsx.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        {/*
+          A page whose own stylesheet failed to load reloads ONCE instead of
+          sitting there as raw HTML (owner saw it on /vendor-dashboard,
+          2026-09-18). See lib/stylesheet-recovery.ts.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: stylesheetRecoveryScript }} />
         {/*
           App cold-start splash gate — sets data-sn-boot before first paint on
           the first app-route / native-shell load of a session. See

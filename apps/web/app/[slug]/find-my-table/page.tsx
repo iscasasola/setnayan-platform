@@ -117,6 +117,7 @@ export default async function FindMyTablePage({ params }: Props) {
     .eq('event_id', event.event_id)
     .eq('guest_id', session.guest_id)
     .maybeSingle();
+  if (assignmentErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_seat_assignments.select', assignmentErr);
 
   // Fetch this event's tables (admin client; constrained to event_id).
   const { data: tablesRaw, error: tablesErr } = await admin
@@ -127,6 +128,7 @@ export default async function FindMyTablePage({ params }: Props) {
     .eq('event_id', event.event_id)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  if (tablesErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_tables.select', tablesErr);
   const tables = (tablesRaw ?? []) as EventTableRow[];
 
   // 🔴 A failed read renders as "the floor plan is on its way" — a confident
@@ -232,6 +234,7 @@ async function resolveEntrance(
     .select('venue_entrance_x, venue_entrance_y')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:events.select', error);
   if (error) return DEFAULT_ENTRANCE;
   const x = data?.venue_entrance_x;
   const y = data?.venue_entrance_y;

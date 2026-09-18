@@ -663,7 +663,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     'deal-or-meeting': (
         <NegotiationComposerMenu
           embedded
-          initialMode={composeMode}
+          // `quote` is the Build-a-quote panel's mode, not this menu's.
+          initialMode={composeMode === 'deal' ? 'deal' : null}
           threadId={threadId}
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}

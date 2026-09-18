@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6668
+# facts: 6669
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4900
 #   policy    910
 #   view      9
-#   func      259
+#   func      260
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6655,6 +6655,7 @@ func	public.vendor_inquiry_missed(p_vendor_profile_id uuid, p_sla_hours integer,
 func	public.vendor_inquiry_outcomes_rollup(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_inquiry_reply_stats(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_lead_time(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_may_requote(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_move_cocktail_booth(p_event_id uuid, p_booth_id uuid, p_x numeric, p_y numeric)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_move_sign(p_event_id uuid, p_sign_id uuid, p_x numeric, p_y numeric, p_rotation numeric)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_payday_installments()	secdef=yes exec=authenticated search_path=public

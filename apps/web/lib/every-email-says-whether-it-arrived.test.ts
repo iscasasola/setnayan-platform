@@ -20,13 +20,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const count = (s: string, needle: string) => s.split(needle).length - 1;
 
 test('ANCHOR — this runs from apps/web and reads real files', () => {

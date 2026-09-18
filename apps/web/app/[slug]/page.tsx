@@ -47,6 +47,7 @@ import {
   type LifecyclePhase,
   isWebsitePhasesEnabled,
   getLifecyclePhase,
+  manualLaunchPhase,
 } from '@/lib/invitation-widgets';
 import { eventNounOf } from './_lib/event-noun';
 import {
@@ -692,6 +693,18 @@ async function InvitationBody({
       ? (phaseParam as LifecyclePhase)
       : null;
 
+  // THE COUPLE'S PIN (DAY-33 · owner 2026-07-02 "a manual toggle to set it
+  // automatic or manual launch … save the date, rsvp, event and editorial").
+  // Set from the website editor's "Which version guests see" row. Unlike the
+  // `?phase=` preview above it is not a per-viewer look: it is what EVERY
+  // visitor gets until the couple switches back to Automatic. A host's own
+  // `?phase=` preview still wins, so they can look at the other faces while
+  // pinned. Only honoured where the lifecycle engine runs at all.
+  const pinnedPhase: LifecyclePhase | null = phasesEnabled
+    ? manualLaunchPhase(event.launch_mode, event.manual_phase)
+    : null;
+  const forcedPhase: LifecyclePhase | null = phaseOverride ?? pinnedPhase;
+
   // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit bridge
   // for the couple's own preview iframe. STRICTER than the phase override: real
   // host membership only (no demo-event shortcut), because the bridge posts
@@ -724,10 +737,10 @@ async function InvitationBody({
 
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
   // unless the demo override forces a phase (event→live so the day-of UI shows).
-  const dayOfPhase: DayOfPhase = phaseOverride
-    ? phaseOverride === 'event'
+  const dayOfPhase: DayOfPhase = forcedPhase
+    ? forcedPhase === 'event'
       ? 'live'
-      : phaseOverride === 'editorial'
+      : forcedPhase === 'editorial'
         ? 'post'
         : 'pre'
     : event.event_date
@@ -740,7 +753,7 @@ async function InvitationBody({
   // never meet the wedding-shaped save-the-date film or the joyful recap —
   // the preview exists to show what guests get, and guests never get those.
   const lifecyclePhase: LifecyclePhase = solemnAdjustedPhase(
-    phaseOverride ??
+    forcedPhase ??
       getLifecyclePhase(
         event.event_date,
         venueTz,

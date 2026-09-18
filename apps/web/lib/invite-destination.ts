@@ -27,7 +27,12 @@
  * composition, asked for a different answer.
  */
 import { surfaceEnabled, type EventTypeProfile } from './event-type-profile';
-import { getLifecyclePhase, isWebsitePhasesEnabled, type LifecyclePhase } from './invitation-widgets';
+import {
+  getLifecyclePhase,
+  isWebsitePhasesEnabled,
+  manualLaunchPhase,
+  type LifecyclePhase,
+} from './invitation-widgets';
 import { solemnAdjustedPhase } from '@/app/[slug]/_lib/event-words';
 
 /** The face the Event Hub will be wearing when this guest arrives on it. */
@@ -69,13 +74,20 @@ export function arrivalDestinationFor(input: {
   eventEndDate: string | null;
   /** `eventTimezoneFromCoords(venue_latitude, venue_longitude)` — as the Event Hub page. */
   venueTz: string;
+  /** `events.launch_mode` / `events.manual_phase` — the couple's pin (DAY-33).
+   *  The page composes `manualLaunchPhase(…) ?? getLifecyclePhase(…)`; so does
+   *  this, or a pinned site's door describes a face the page is not wearing. */
+  launchMode?: string | null;
+  manualPhase?: string | null;
   nowMs?: number;
 }): ArrivalDestination {
   const { profile } = input;
+  const phasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(profile, 'website');
   return arrivalDestination({
-    phasesEnabled: isWebsitePhasesEnabled() || surfaceEnabled(profile, 'website'),
+    phasesEnabled,
     lifecyclePhase: solemnAdjustedPhase(
-      getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs),
+      (phasesEnabled ? manualLaunchPhase(input.launchMode, input.manualPhase) : null) ??
+        getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs),
       profile.terminology.register === 'solemn',
     ),
   });

@@ -34,7 +34,25 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
     .select('pool_gallery_open')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error || !ev) return null;
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx · from:events.select', error);
+  // 🔑 A REFUSED READ IS NOT "NOT AVAILABLE". This switch may be holding the
+  // whole pool OPEN to every guest; hiding it on a failed read took away the
+  // couple's only way to close it, silently (S41b).
+  if (error) {
+    return (
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+          <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
+          Shared gallery
+        </h2>
+        <p className="mt-1 text-sm text-terracotta-700">
+          We couldn&rsquo;t check whether your shared gallery is open just now. Refresh the
+          page to see it and change it.
+        </p>
+      </section>
+    );
+  }
+  if (!ev) return null;
 
   const open = ev.pool_gallery_open === true;
 

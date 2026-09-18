@@ -1516,25 +1516,19 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <span className="font-semibold text-ink">
                   That cut is rehearsal — your broadcast is still on {airLabel}.
                 </span>{' '}
-                {/* WAVE 7 · the copy forks on `entitled`, not on the capability. Telling
-                    a couple who ALREADY BOUGHT Live Studio that switching "is what the
-                    unlock buys" would be false — they bought it; their event-day ran
-                    out. The honest sentence names the day, and the window strip beside
-                    the transport carries the button. */}
-                {entitled ? (
-                  <>
-                    Your broadcast day has ended, so live switching is paused. Add another day
-                    {priceLabel ? ` (${priceLabel})` : ''} to cut between cameras on air again —
-                    until then, choose which single camera goes out with the ★ default control in
-                    Setup.
-                  </>
-                ) : (
-                  <>
-                    Switching cameras on air is what the unlock
-                    {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
-                    free broadcast carries with the ★ default control in Setup.
-                  </>
-                )}
+                {/* DAY-14 · `air.withheld` is only non-null when `decideProgramAir`
+                    was called with `owned: false` (live-studio-publish-pure.ts), and
+                    `entitled` (line ~677) is `broadcastWindow.reason !== 'not-owned'`
+                    — the same `owned` boolean, so it is always false wherever this
+                    paragraph renders at all. The per-event-DAY copy this used to fork
+                    to ("your broadcast day has ended") described a billing model LS6
+                    retired (owner 2026-09-02): Live Studio is now one unlock, for the
+                    life of the event, no clock. There is no "day" for a switching cut
+                    to have run out of, so that branch could never fire — confirmed 0
+                    of 12 measured (owned × channel-count × cut-vs-pinned) combinations. */}
+                Switching cameras on air is what the unlock
+                {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
+                free broadcast carries with the ★ default control in Setup.
               </span>
             </p>
           ) : null}

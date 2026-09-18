@@ -99,7 +99,11 @@ export async function fetchBranchFeePhp(
       .eq('sku_code', BRANCH_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return BRANCH_FEE_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-branches: branch fee (using fallback)', error);
+      return BRANCH_FEE_PHP;
+    }
+    if (!data) return BRANCH_FEE_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : BRANCH_FEE_PHP;
   } catch {

@@ -85,6 +85,7 @@ export async function loadLinkableEvents(
         'event_id, events:event_id ( display_name, event_date, event_end_date, archived, event_type )',
       )
       .in('linked_vendor_profile_id', shopIds);
+    if (bookedErr) console.error('[supabase-error] lib/chapter-event-participation.ts · from:event_vendors.select', bookedErr);
     if (!bookedErr) {
       for (const row of booked ?? []) {
         const [id, value] = entry(row, 'vendor');

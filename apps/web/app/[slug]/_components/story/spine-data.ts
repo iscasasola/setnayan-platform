@@ -776,6 +776,7 @@ export async function loadLiveRoom(
       )
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] story spine-data: event_floor_plan', error);
     if (!error && data) {
       const r = data as Record<string, unknown>;
       const box = (x: unknown, y: unknown, w: unknown, h: unknown) => {

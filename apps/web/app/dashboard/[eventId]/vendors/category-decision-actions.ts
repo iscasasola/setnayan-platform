@@ -188,6 +188,7 @@ async function archiveCategoryThreads(
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('category', categories as string[]);
+  if (vErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/category-decision-actions.ts · from:event_vendors.select', vErr);
   if (vErr || !vendorRows?.length) return;
 
   const profileIds = vendorRows
@@ -200,6 +201,7 @@ async function archiveCategoryThreads(
     .select('thread_id, vendor_profile_id, archived_at')
     .eq('event_id', eventId)
     .in('vendor_profile_id', profileIds);
+  if (tErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/category-decision-actions.ts · from:chat_threads.select', tErr);
   if (tErr || !threads?.length) return;
 
   const targets = threadsToArchive({ vendors: vendorRows, threads });

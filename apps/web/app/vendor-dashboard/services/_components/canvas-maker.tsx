@@ -467,6 +467,13 @@ export function CanvasMaker({
   const inPass =
     passIndex >= 0 && passIndex < firstPassSteps.length && !(offeredKeep && !keepDecided);
   const passStep = inPass ? firstPassSteps[passIndex] : null;
+  /**
+   * 🖥 THE CARD SITS BESIDE THE QUESTION — on a laptop, whenever a question is
+   * open (SUP-10): the guided pass, or any edit after it. Drives the pin, the
+   * hide, and the meter stepping aside; every rule behind it lives inside
+   * `@media (min-width: 1024px)` or an `lg:` utility, so a phone is untouched.
+   */
+  const cardBeside = inPass || sheet !== null;
   // The pass drives which sheet is open; closing a sheet leaves the pass, which
   // is the "I'll build it myself" escape and needs no separate control.
   useEffect(() => {
@@ -1039,6 +1046,7 @@ export function CanvasMaker({
             open={diagnosticsOpen}
             onToggle={() => setDiagnosticsOpen((v) => !v)}
             onGo={goTo}
+            asideAtLg={cardBeside}
           />
         )}
 
@@ -1046,14 +1054,17 @@ export function CanvasMaker({
         {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
             would remount the title input mid-typing; this way the "your card can
             go live now" beat costs nothing inside it. */}
-        {/* 🖥 PINNED, NOT SHRUNK — but only DURING the pass, and only at
-            lg+ (see .sn-canvas-pass-pin in globals.css). An ordinary edit,
-            after the pass, is never pinned: nothing is being built behind
-            those sheets, so the card stays exactly where it always has.
+        {/* 🖥 PINNED, NOT SHRUNK — whenever a question is open, and only at
+            lg+ (see .sn-canvas-pass-pin in globals.css). SUP-10 (2026-09-18):
+            this used to be the guided pass only, on the premise that "nothing
+            is being built behind" a later edit. Edits apply to the card LIVE
+            (see CanvasSheet's confirm button: it "changes nothing"), so the
+            card a supplier is changing was the one thing a laptop hid behind a
+            veil. Below 1024px the class has no rule, so a phone is unchanged.
             A SEPARATE wrapper, on purpose — the pulse wrapper below keeps
             its own untouched key+className so keying the card itself still
             cannot happen by accident. */}
-        <div className={inPass ? 'sn-canvas-pass-pin' : undefined}>
+        <div className={cardBeside ? 'sn-canvas-pass-pin' : undefined}>
         <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
         <div
           className="overflow-hidden rounded-2xl border"
@@ -1238,7 +1249,7 @@ export function CanvasMaker({
             here matches HealthHeader's own `{inPass ? null : …}` two dozen
             lines up, which already treats all of this as noise during the
             pass. Still mounted, so every field inside keeps posting. */}
-        <div className={inPass ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
+        <div className={cardBeside ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
             some; the couple reads it straight off the card. */}
         {otherCategoriesShown.length > 0 ? (
@@ -2103,11 +2114,18 @@ function HealthHeader({
   open,
   onToggle,
   onGo,
+  asideAtLg = false,
 }: {
   health: ReturnType<typeof scoreCardHealth>;
   open: boolean;
   onToggle: () => void;
   onGo: (sheet: CardHealthSheet) => void;
+  /**
+   * On a laptop with a question open, the card is pinned where this header
+   * sits and would paint over it — so it steps aside until the question
+   * closes. `lg:` only: a phone keeps it exactly as before.
+   */
+  asideAtLg?: boolean;
 }) {
   const colour = gradeColour(health.grade);
   const items = [
@@ -2117,7 +2135,9 @@ function HealthHeader({
   ];
   return (
     <div
-      className="sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6"
+      className={`sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6${
+        asideAtLg ? ' lg:hidden' : ''
+      }`}
       style={{
         borderColor: line,
         background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)',
@@ -2423,7 +2443,9 @@ function CanvasSheet({
         className={
           guided
             ? 'absolute inset-0 cursor-default'
-            : 'absolute inset-0 bg-ink/40 backdrop-blur-sm'
+            : // A phone keeps its veil. A laptop drops it: the card this sheet
+              // edits is pinned beside it (SUP-10) and must stay readable.
+              'absolute inset-0 bg-ink/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none'
         }
       />
       <div
@@ -2432,12 +2454,14 @@ function CanvasSheet({
         aria-modal="true"
         aria-labelledby={`${id}-title`}
         className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
-          guided
-            ? // On a laptop the question stops being a drawer over the card and
-              // becomes a column beside it — the card is what they are building,
-              // and a 1400px screen has no reason to hide it behind a sheet.
-              'max-h-[58dvh] lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
-            : 'max-h-[78dvh]'
+          guided ? 'max-h-[58dvh]' : 'max-h-[78dvh]'
+        } ${
+          // On a laptop the question stops being a drawer over the card and
+          // becomes a column beside it — the card is what they are building,
+          // and a 1400px screen has no reason to hide it behind a sheet. EVERY
+          // sheet since SUP-10 (2026-09-18), not only the guided pass: a later
+          // edit changes the card live too.
+          'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
         } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >

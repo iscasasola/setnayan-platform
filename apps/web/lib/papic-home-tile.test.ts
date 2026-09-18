@@ -161,11 +161,25 @@ test('an unreadable pool degrades to zero shots without hiding a real camera', a
   assert.equal(got.photosGathered, 5);
 });
 
-test('a failing capture-count table is a zero, not a crash', async () => {
-  const got = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, { seats: 1, crew: 9, failTable: 'papic_photos' }), 'evt-1', true);
-  assert.ok(got);
-  assert.equal(got.photosGathered, 0, 'the crew read failed; it must not throw');
-  assert.equal(got.preCapture, true);
+test('a failing capture-count table is NOT MEASURED, not a zero — and not a crash', async () => {
+  // S41b: this used to assert the zero. A zero is "nothing shot yet", which put
+  // the tile back on "shots ready" and mounted the free-camera nudge on an event
+  // that may be mid-shoot. A refused count is null, and preCapture stays false.
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    const got = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, { seats: 1, crew: 9, failTable: 'papic_photos' }), 'evt-1', true);
+    assert.ok(got);
+    assert.equal(got.photosGathered, null, 'the crew read failed; it is not measured');
+    assert.equal(got.preCapture, false, 'an unmeasured count is never "nothing shot yet"');
+    const cams = await resolvePapicHomeTile(makeAdmin({ total: 50, remaining: 50 }, { crew: 0, failTable: 'paparazzi_seats' }), 'evt-1', true);
+    assert.ok(cams);
+    assert.equal(cams.cameras, null, 'a refused camera count is not "0 cameras out"');
+    assert.equal(await papicNudgeShouldShow(makeAdmin(null, { failTable: 'papic_photos' }), 'evt-1', true), false, 'no nudge on a refused count');
+    assert.equal(await papicNudgeShouldShow(makeAdmin(null, { failTable: 'papic_guest_captures' }), 'evt-1', true), false, 'nor on a refused guest count');
+  } finally {
+    console.error = quiet;
+  }
 });
 
 test('the nudge gate shows ONLY before the first capture', async () => {

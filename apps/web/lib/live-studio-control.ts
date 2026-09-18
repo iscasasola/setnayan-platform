@@ -105,14 +105,6 @@ export function liveStudioControlPath(eventId: string): string {
   return `/panood/control/${eventId}`;
 }
 
-/**
- * Where the controller USED to live. Kept only so the old URL can redirect
- * instead of 404ing; never link to it.
- */
-export function liveStudioControlLegacyPath(eventId: string): string {
-  return `/dashboard/${eventId}/studio/${LIVE_STUDIO_CONTROL_SEGMENT}/setup`;
-}
-
 /* ══════════════════════════════════════════════════════════════════════════════
    WAVE 6 · ONE CONTROLLER — the single flag-aware router
    (owner 2026-07-25 · Live_Studio_Unified_Spec_2026-07-25 §§ 4b–4d.)

@@ -82,6 +82,11 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // (default-OFF) venue-door throttle is on; see lib/venue-door-throttle.ts.
   const venueThrottled = state === VENUE_DOOR_STATE;
 
+  // 🔴 OUR READ WAS REFUSED — the link may well be fine. Not the terminal
+  // "isn't active" branch below: that sends a crew member to the host for a new
+  // link when the fault was ours. Falls through to the claim form (S41b).
+  const checkUnreadable = state === 'unreadable';
+
   // Invalid / expired / soft error.
   if (state === 'invalid' || state === 'error') {
     return (
@@ -134,6 +139,12 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
       ) : null}
       {venueThrottled ? (
         <DoorNotice kind="alert">{VENUE_DOOR_THROTTLED_MESSAGE}</DoorNotice>
+      ) : null}
+      {checkUnreadable ? (
+        <DoorNotice kind="alert">
+          We couldn&rsquo;t check this seat link just now &mdash; your link is probably
+          fine. Tap once more to try again.
+        </DoorNotice>
       ) : null}
       <form action={claimPapicSeat}>
         <input type="hidden" name="token" value={token} />

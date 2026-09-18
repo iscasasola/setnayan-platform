@@ -262,6 +262,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     .eq('guest_id', session.guest_id)
     .is('deleted_at', null)
     .maybeSingle();
+  if (guestErr) console.error('[supabase-error] app/[slug]/seat/page.tsx · from:guests.select', guestErr);
 
   // 🔴 THE SHARPEST ONE. A discarded error made a failed read look like "you
   // are not a guest here", so the page told somebody who had just scanned their
@@ -423,6 +424,7 @@ async function PersonalPass({
     .eq('event_id', event.event_id)
     .eq('guest_id', guest.guest_id)
     .maybeSingle();
+  if (assignmentErr) console.error('[supabase-error] app/[slug]/seat/page.tsx · from:event_seat_assignments.select', assignmentErr);
   if (assignmentErr) {
     return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
   }

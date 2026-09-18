@@ -456,3 +456,42 @@ export function orderAllotmentPickerRows<T extends AllotmentPickerRow>(
   // outright and cannot be broken by somebody "simplifying" the comparator.
   return [...matches.filter((g) => g.saved != null), ...matches.filter((g) => g.saved == null)];
 }
+
+/**
+ * SHOULD THE COUPLE'S ALLOTMENT ROW DRAW NUMBERS AT ALL? One decision, executed
+ * by its guard rather than grepped for.
+ *
+ * The row reads five things: whether guest cameras are on, the pot, the head
+ * count, the guest list and the named allotments. Every number it shows
+ * (`N each`, the live summary, each guest's grey suggestion) is arithmetic over
+ * all five. Before this, a refused read quietly became a real-looking value:
+ *   • a refused guest list read `[]`, and the sheet told a couple with 180 names
+ *     "Your guest list is empty";
+ *   • refused allotments read as "nobody named", so the named guests' own numbers
+ *     vanished and the per-head share was worked out as if they did not exist;
+ *   • a refused pot read `0`, so every guest was shown "0 credits each";
+ *   • a refused camera check hid the whole row, which looks the same as a
+ *     celebration with no guest cameras.
+ * The database still enforces the real numbers at capture time. The screen was
+ * the only thing that was wrong, and it was wrong in the direction a couple
+ * acts on: they would "fix" a share that was never the one being applied.
+ *
+ * 🔑 'hidden' is only for a camera check that answered "off". Any read that did
+ * not answer is 'unknown', and the row then says so and offers no control, so a
+ * couple cannot save a number worked out from a failed read.
+ */
+export type AllotmentReads = {
+  /** `eventPapicGuestAccess` — three states, never the boolean. */
+  access: 'on' | 'off' | 'unknown';
+  poolOk: boolean;
+  headcountOk: boolean;
+  guestsOk: boolean;
+  allotmentsOk: boolean;
+};
+
+export function allotmentRowState(r: AllotmentReads): 'show' | 'hidden' | 'unknown' {
+  if (r.access === 'off') return 'hidden';
+  if (r.access !== 'on') return 'unknown';
+  if (!r.poolOk || !r.headcountOk || !r.guestsOk || !r.allotmentsOk) return 'unknown';
+  return 'show';
+}

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cadc10532",
+  "generatedFromRef": "8b2e3aac3",
   "routeCount": 428,
-  "destinations": 919,
-  "actions": 636,
-  "blocks": 4470,
+  "destinations": 918,
+  "actions": 637,
+  "blocks": 4478,
   "routes": {
     "/": {
       "files": [
@@ -5875,15 +5875,13 @@
     },
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
-        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/proposals/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "withdrawInquiry"
@@ -5897,7 +5895,6 @@
         "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
-        "ReadRefusedNotice",
         "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
@@ -7840,6 +7837,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/payment-asks-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts",
@@ -7888,6 +7886,7 @@
         "RelationshipTabShell",
         "ReservationTermsAck",
         "Result",
+        "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
         "TrustedCircleBadge",
@@ -10576,7 +10575,8 @@
         "vendor-dashboard/on-the-day/_components/shot-list.tsx",
         "vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx",
         "vendor-dashboard/on-the-day/actions.ts",
-        "vendor-dashboard/on-the-day/page.tsx"
+        "vendor-dashboard/on-the-day/page.tsx",
+        "vendor-dashboard/on-the-day/shot-list-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/customers",
@@ -10593,6 +10593,7 @@
         "CaptureCard",
         "CompactDayOf",
         "ConfigureEventView",
+        "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
         "EventPicker",
@@ -10607,10 +10608,14 @@
         "ModuleReadout",
         "NonPhotoConsole",
         "RequestsInbox",
+        "ServerRead",
         "SetActionResult",
         "ShopEmpty",
         "ShotList",
         "ShotListSection",
+        "ShotListSource",
+        "ShotListStatus",
+        "ShotListWriteResult",
         "SongDeskGate",
         "Tag",
         "VendorStatusUpdates"
@@ -10824,6 +10829,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
+        "routes.vendorDashboard.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],
@@ -10832,6 +10838,8 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "Link",
+        "LockedState",
         "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"
@@ -11160,6 +11168,7 @@
         "ServiceCardView",
         "ServicesManagerSearch",
         "SetnayanGiftField",
+        "SetnayanGiftLine",
         "SheetKey",
         "ShowcaseMediaFields",
         "SlotEditor",

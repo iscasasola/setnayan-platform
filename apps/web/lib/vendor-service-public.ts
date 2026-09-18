@@ -89,7 +89,10 @@ export async function fetchPriceBracketsByService(
     .select('vendor_service_id,min_pax,max_pax,price_php,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] vendor-service-public: vendor_service_price_brackets', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServicePriceBracket[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
@@ -154,7 +157,10 @@ export async function fetchDiscountsByServicePublic(
     )
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] vendor-service-public: vendor_service_discounts', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServiceDiscount[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);

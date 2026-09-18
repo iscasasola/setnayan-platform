@@ -2068,6 +2068,7 @@ export async function listMoodboardSlots(eventId: string): Promise<
     .is('removed_at', null)
     .order('slot_key', { ascending: true })
     .order('slot_position', { ascending: true });
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/wizard-actions.ts · from:event_inspiration_assets.select', error);
   if (error || !data) return [];
   return data.filter(
     (row): row is {

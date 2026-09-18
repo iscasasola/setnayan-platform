@@ -49,6 +49,7 @@ export async function fetchVendorIdsWithActiveService(
       .from('vendor_services')
       .select('vendor_profile_id')
       .eq('is_active', true);
+    if (error) console.error('[supabase-error] lib/vendor-inquirable-gate.ts · from:vendor_services.select', error);
     if (error || !data) return [];
     const ids = new Set(
       (data as { vendor_profile_id: string }[]).map((r) => r.vendor_profile_id),

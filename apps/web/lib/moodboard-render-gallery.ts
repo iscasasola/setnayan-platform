@@ -60,6 +60,7 @@ export async function readEventRenders(
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (error) console.error('[supabase-error] lib/moodboard-render-gallery.ts · from:event_renders.select', error);
   // 🔑 THE WHOLE POINT. An error is not an empty gallery.
   if (error || !data) return null;
   return data as EventRenderRow[];
@@ -147,6 +148,7 @@ export async function readAllRendersForAdmin(
     p_limit: opts.limit ?? 200,
     p_offset: opts.offset ?? 0,
   });
+  if (error) console.error('[supabase-error] lib/moodboard-render-gallery.ts · rpc:moodboard_admin_all_renders', error);
   if (error || !Array.isArray(data)) return null;
   return data as AdminRenderRow[];
 }

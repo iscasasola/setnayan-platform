@@ -205,6 +205,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           'papic_camera_points_remaining',
           { p_seat_id: s.seat_id },
         );
+        if (ptsErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/crew/page.tsx · rpc:papic_camera_points_remaining', ptsErr);
         // A failed probe stays null and the row simply says nothing about
         // shots — never 0, which on this screen means "that camera has
         // stopped" and would send a host to fix a camera that is fine.

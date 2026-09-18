@@ -223,6 +223,7 @@ export async function fetchRoamViewerState(
     .select('live_studio_roam_manifest, live_studio_guest_pick_enabled')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/live-studio-roam.ts · from:events.select', error);
   if (error) return { manifest: [], guestPickEnabled: true };
   const row = data as
     | { live_studio_roam_manifest?: unknown; live_studio_guest_pick_enabled?: unknown }

@@ -295,6 +295,7 @@ export async function resolveMutualStoryDays(input: {
     .is('hidden_at', null)
     .is('removed_at', null)
     .not('consented_at', 'is', null);
+  if (presenceErr) console.error('[supabase-error] lib/person-life-stories.ts · from:person_story_items.select', presenceErr);
   if (presenceErr || !presence) return [];
 
   const eventIds = mutualStoryEventIds(
@@ -310,6 +311,7 @@ export async function resolveMutualStoryDays(input: {
       'event_id,slug,display_name,event_date,venue_name,event_type,landing_page_visibility,scheduled_launch_at',
     )
     .in('event_id', eventIds);
+  if (eventsErr) console.error('[supabase-error] lib/person-life-stories.ts · from:events.select', eventsErr);
   if (eventsErr || !events) return [];
 
   // The event half of the rule — the SAME gate /[slug] and the public profile

@@ -157,6 +157,7 @@ export async function applyBuildToWorking(input: {
       },
       { onConflict: 'event_id,plan_group_id,vendor_id' },
     );
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/vendors/build-pick-actions.ts · from:event_build_picks.upsert', error);
     // A vendor removed from the shortlist since the build was saved FK-rejects;
     // skip it and keep applying the rest.
     if (!error) applied += 1;

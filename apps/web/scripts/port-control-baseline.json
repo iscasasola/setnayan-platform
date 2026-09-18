@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "81fa00919",
-  "routeCount": 427,
-  "destinations": 917,
-  "actions": 637,
-  "blocks": 4452,
+  "generatedFromRef": "5a29bda2f",
+  "routeCount": 428,
+  "destinations": 918,
+  "actions": 639,
+  "blocks": 4463,
   "routes": {
     "/": {
       "files": [
@@ -726,6 +726,7 @@
         "[slug]/_components/entourage-section.tsx",
         "[slug]/_components/event-words-provider.tsx",
         "[slug]/_components/face-data-notice.tsx",
+        "[slug]/_components/face-receipt-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-code-keepers.tsx",
         "[slug]/_components/guest-column-card.tsx",
@@ -876,8 +877,10 @@
         "ByTheNumbers",
         "CaptureTile",
         "CapturesByHour",
+        "Cell",
         "ChallengeAnswerColumn",
         "ChallengeBanner",
+        "ChallengeCountdown",
         "Chapter",
         "ChapterWriteUp",
         "ClientEventWords",
@@ -914,6 +917,7 @@
         "EventWordsProvider",
         "FaceDataNotice",
         "FaceGateResult",
+        "FaceReceiptCard",
         "FacebookWatchCard",
         "Field",
         "FilmMonogram",
@@ -1143,6 +1147,19 @@
         "OrbitControls",
         "Row",
         "Swatch"
+      ]
+    },
+    "/[slug]/everyone": {
+      "files": [
+        "[slug]/everyone/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "EntourageSection",
+        "Link"
       ]
     },
     "/[slug]/find-my-table": {
@@ -2037,6 +2054,7 @@
       "files": [
         "admin/data-privacy/_components/control-actions.tsx",
         "admin/data-privacy/_components/coverage-panel.tsx",
+        "admin/data-privacy/_components/deletion-runs-panel.tsx",
         "admin/data-privacy/_components/npc-checklist.tsx",
         "admin/data-privacy/_components/task-actions.tsx",
         "admin/data-privacy/actions.ts",
@@ -2055,12 +2073,15 @@
         "ControlCard",
         "ControlsBoard",
         "CoveragePanel",
+        "DeletionRunsPanel",
+        "Icon",
         "Link",
         "NpcChecklist",
         "NpcDocuments",
         "NpcTaskResult",
         "PageMasthead",
         "PrivacyControlStatus",
+        "Row",
         "StatusIcon",
         "TaskActions",
         "TaskCard"
@@ -2347,7 +2368,9 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "EventDeleteSnapshot"
+      ]
     },
     "/admin/force-majeure": {
       "files": [
@@ -5712,6 +5735,7 @@
     },
     "/dashboard/[eventId]/invitation": {
       "files": [
+        "dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx",
         "dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx",
         "dashboard/[eventId]/invitation/_components/slug-field.tsx",
         "dashboard/[eventId]/invitation/actions.ts",
@@ -5723,13 +5747,16 @@
         "/dashboard/[seg]/guests/[seg]"
       ],
       "actions": [
+        "markSent",
         "monoAction",
         "reissueAction"
       ],
       "blocks": [
         "CheckResult",
         "DetailPageSkeleton",
+        "GuestInviteModal",
         "HTMLDivElement",
+        "HTMLTextAreaElement",
         "Icon",
         "Link",
         "PageMasthead",
@@ -5865,8 +5892,7 @@
         "ReadRefusedNotice",
         "SubmitButton",
         "ThreadCallLauncher",
-        "ThreadInterestChips",
-        "ThreadQuotationsCard"
+        "ThreadInterestChips"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -5978,6 +6004,7 @@
     "/dashboard/[eventId]/pabuya": {
       "files": [
         "dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx",
+        "dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx",
         "dashboard/[eventId]/pabuya/actions.ts",
         "dashboard/[eventId]/pabuya/loading.tsx",
         "dashboard/[eventId]/pabuya/page.tsx"
@@ -5992,6 +6019,7 @@
         "ListPageSkeleton",
         "PabuyaCardList",
         "PabuyaManager",
+        "PabuyaMessageEditor",
         "PabuyaTrustNote",
         "PageMasthead"
       ]
@@ -9070,6 +9098,7 @@
         "MockBridge",
         "PairingState",
         "PapicCameraControls",
+        "PapicExhaustionCause",
         "PapicGuestBuyPanel",
         "PapicSeatCapture",
         "PapicSinkDeps",
@@ -10615,6 +10644,7 @@
         "/vendor-dashboard/repertoire"
       ],
       "actions": [
+        "advance",
         "formAction",
         "markStageNoteSeen",
         "sendStageNote"

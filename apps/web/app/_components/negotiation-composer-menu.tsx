@@ -24,12 +24,20 @@ export function NegotiationComposerMenu({
   threadId,
   returnPath,
   eventDate,
+  initialMode = null,
 }: {
   threadId: string;
   returnPath: string;
   eventDate: string | null;
+  /**
+   * Opens straight into a mode. `?compose=deal` sets this, which is how the
+   * Counter-offer button on a quote card reaches the amendment builder — the
+   * builder has existed for some time behind "Deal or meeting", below the fold
+   * and named after neither countering nor quoting.
+   */
+  initialMode?: 'deal' | 'meeting' | null;
 }) {
-  const [mode, setMode] = useState<Mode>(null);
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [kind, setKind] = useState<AppointmentKind>('video');
 
   if (!chatNegotiationEnabled()) return null;

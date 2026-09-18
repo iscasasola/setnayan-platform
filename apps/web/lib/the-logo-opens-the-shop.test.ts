@@ -53,8 +53,14 @@ const sitemap = stripComments(read('../app/sitemap-vendors.xml/route.ts'));
 
 /** The marketplace grid block in explore — the ~40 lines this build owns. */
 function marketplaceCardBlock(): string {
-  const start = explore.indexOf('serviceCards.map(');
-  assert.notEqual(start, -1, 'the marketplace no longer maps over serviceCards');
+  // Anchored on the JSX map (`{serviceCards.map(`), not on any `.map` over the
+  // cards: the page also maps them to collect ids for its batched reads, and a
+  // window opened there slides onto the vendor grid below. Exactly one, so a
+  // second grid cannot hide behind the first.
+  const anchor = '{serviceCards.map(';
+  const hits = explore.split(anchor).length - 1;
+  assert.equal(hits, 1, `expected one {serviceCards.map( grid on /explore, found ${hits}`);
+  const start = explore.indexOf(anchor);
   const end = explore.indexOf('</ul>', start);
   assert.notEqual(end, -1, 'could not find the end of the marketplace grid');
   return explore.slice(start, end);
@@ -207,7 +213,7 @@ test('the shared comment stripper is load-bearing here, and does not cry wolf', 
   // red — measured, not assumed.
   const rawExplore = read('../app/(shell)/explore/page.tsx');
   const block = (src: string) => {
-    const a = src.indexOf('serviceCards.map(');
+    const a = src.indexOf('{serviceCards.map(');
     return src.slice(a, src.indexOf('</ul>', a));
   };
   assert.match(block(rawExplore), /\/v\/\{slug\}/, 'the cry-wolf fixture is gone');

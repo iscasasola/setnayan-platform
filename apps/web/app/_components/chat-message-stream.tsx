@@ -33,6 +33,7 @@ import {
   type ChatSenderRole,
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
+import { quoteCardState } from '@/lib/quote-card-state';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -159,6 +160,24 @@ type Props = {
    */
   counterHref?: string;
   /**
+   * S5 · Where "Update this quote" goes on the LIVE quote card — the supplier's
+   * page passes `?compose=quote`, which opens the Build-a-quote panel seeded
+   * from the quote being replaced. Same shape as `counterHref`, same reason
+   * (a server component cannot pass a callback). The couple's page omits it;
+   * `quoteCardState` also never offers it to a couple.
+   */
+  reviseHref?: string;
+  /**
+   * S5 · Where "Ask them to lock" goes on the couple's live ACCEPTED quote —
+   * the supplier's workspace page, whose lock gate chain (date, impact,
+   * downpayment, slots) is the ONE way a couple books. The thread does not
+   * book a quote itself; duplicating that chain here is the second-mechanism
+   * mistake RULE 0 warns about. Resolved on the server from `event_vendors`
+   * (couple RLS), the same way `/proposals/[publicId]` resolves it. Omit it
+   * and the card shows the accepted note without a button.
+   */
+  lockHref?: string | null;
+  /**
    * Inside the chat box (One Chat Box, 2026-09-18) the frame draws the border,
    * so the three scrollers drop their own card chrome — a box in a box is the
    * old wall one row shorter. The other mounts (client brief, workspace) keep
@@ -186,6 +205,8 @@ export function ChatMessageStream({
   initialView = 'all',
   supplierReplyActions,
   counterHref,
+  reviseHref,
+  lockHref = null,
   flush = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -203,13 +224,15 @@ export function ChatMessageStream({
   // on exactly that card. This says the difference.
   const [cardsDegraded, setCardsDegraded] = useState(false);
   const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
-  const requestedProposalsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const ids = [
-      ...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x)),
-    ].filter((id) => !requestedProposalsRef.current.has(id));
+    // S5 · EVERY quote id, refetched whenever the message set changes — not
+    // "each id once". A new quote landing over realtime SUPERSEDES the one
+    // before it, and the old card must repaint from "Review & accept" to
+    // history in the same moment; fetched-once, it kept offering accept on a
+    // quote the database would already refuse. Same shape the appointment and
+    // amendment cards use. One query per change, RLS-scoped.
+    const ids = [...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x))];
     if (ids.length === 0) return;
-    ids.forEach((id) => requestedProposalsRef.current.add(id));
     let cancelled = false;
     void (async () => {
       // A refused read here does not show an error — the QUOTE CARD simply
@@ -955,17 +978,41 @@ export function ChatMessageStream({
             */
             const isLatestProposal = m.proposal_id === latestProposalId;
             const items = (card?.lineItems ?? []).filter((li) => li.label?.trim());
+            /*
+              S5 · WHAT THIS CARD MAY OFFER is decided ONCE, in
+              `quoteCardState`, from the quote's status, whether it is the
+              latest, who is looking, and the lock handshake. Owner, live,
+              2026-09-18: the card read "₱10,170 · Accepted" and still offered
+              "Review & accept". The label used to be chosen by the viewer
+              alone. Now: pending → Review & accept (couple) / Update this
+              quote (supplier); accepted → no accept, a Lock pointer (couple);
+              superseded or any earlier quote → history, view only.
+            */
+            const quoteState = card
+              ? quoteCardState({
+                  status: card.status,
+                  isLatest: isLatestProposal,
+                  viewer: viewerRole,
+                  handshake: lockHandshake?.state ?? null,
+                })
+              : null;
             return (
               <li
                 key={m.message_id}
                 ref={isLatestProposal ? latestProposalRef : undefined}
                 className="flex justify-center"
               >
-                <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+                <div
+                  className={`w-full max-w-[92%] rounded-xl border p-3 ${
+                    quoteState?.history
+                      ? 'border-ink/15 bg-ink/[0.03] opacity-80'
+                      : 'border-terracotta/40 bg-terracotta/[0.06]'
+                  }`}
+                >
                   <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
                     📄 Proposal
                   </p>
-                  {card ? (
+                  {card && quoteState ? (
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
                       <p className="text-sm text-ink/70">
@@ -977,6 +1024,9 @@ export function ChatMessageStream({
                           card.status as keyof typeof PROPOSAL_STATUS_LABEL
                         ] ?? card.status}
                       </p>
+                      {quoteState.note ? (
+                        <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
+                      ) : null}
                       {items.length > 0 ? (
                         <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
                           {items.slice(0, 5).map((li, i) => (
@@ -1004,10 +1054,41 @@ export function ChatMessageStream({
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}
-                          className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                          className={
+                            quoteState.primary.kind === 'review_accept'
+                              ? 'inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
+                              : 'inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]'
+                          }
                         >
-                          {viewerRole === 'couple' ? 'Review & accept' : 'View proposal'}
+                          {quoteState.primary.label}
                         </Link>
+                        {/*
+                          S5 · the couple's ONE next step on an accepted quote:
+                          ask the supplier to lock, on the workspace page that
+                          owns the lock gate. In shipped code the COUPLE asks
+                          and the SUPPLIER agrees; the thread never books.
+                        */}
+                        {quoteState.offerLock && lockHref ? (
+                          <Link
+                            href={lockHref}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                          >
+                            🔒 Ask {counterpartyLabel} to lock
+                          </Link>
+                        ) : null}
+                        {/*
+                          S5 · the supplier revises by sending a NEW quote that
+                          supersedes this one (owner, option a). Only on the
+                          live quote, never once the couple has asked to lock.
+                        */}
+                        {quoteState.offerRevise && reviseHref ? (
+                          <Link
+                            href={reviseHref}
+                            className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                          >
+                            Update this quote
+                          </Link>
+                        ) : null}
                         {/*
                           🔴 A QUOTE IS NOT TAKE-IT-OR-LEAVE-IT. Owner,
                           2026-09-18: "so it should not be just review and
@@ -1026,12 +1107,16 @@ export function ChatMessageStream({
                           is also shareable and survives a reload.
                         */}
                         {counterHref ? (
-                          <Link
-                            href={counterHref}
-                            className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
-                          >
-                            Counter-offer
-                          </Link>
+                          // S5 · only on the LIVE, still-pending quote; an
+                          // accepted or superseded quote is not countered.
+                          quoteState.offerCounter ? (
+                            <Link
+                              href={counterHref}
+                              className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                            >
+                              Counter-offer
+                            </Link>
+                          ) : null
                         ) : null}
                       </div>
                     </>

@@ -15,6 +15,10 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   tier_free: 403,
   needs_template: 422,
   fee_unpaid: 402, // Payment Required — the booking fee for this send is unpaid
+  // S5 · a new quote would supersede an ACCEPTED one the couple has already
+  // asked to lock at, or the booking is confirmed — a change order, not a re-quote.
+  deal_locked: 409,
+  lock_requested: 409,
   failed: 500,
 };
 

@@ -297,6 +297,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           That didn&rsquo;t go through — refresh and try again.
         </p>
       ) : null}
+      {/* S5 · sending this would supersede an ACCEPTED quote the booking rests on. */}
+      {search.notice === 'send_deal_locked' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          This booking is already locked at the accepted quote &mdash; changes to it go through a
+          change order, not a new quote. Your draft was kept.
+        </p>
+      ) : null}
+      {search.notice === 'send_lock_requested' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          The couple has asked to lock at the quote they accepted. Agree or decline that request on
+          your Today page first &mdash; a new quote can&rsquo;t replace it while it&rsquo;s open.
+          Your draft was kept.
+        </p>
+      ) : null}
 
       {/* Letterhead */}
       <header className="border-b border-ink/15 pb-4">

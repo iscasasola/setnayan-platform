@@ -313,7 +313,9 @@ test('ties break totally, so two renders of one page cannot disagree', () => {
  * ──────────────────────────────────────────────────────────────────────── */
 
 /** The SHIPPED status vocabularies, from the migrations that define them. */
-const QUOTE_STATUSES = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired'];
+// 'superseded' since 20270227904581; S5 (2026-09-18) made it reachable from an
+// accepted quote too, so Decisions must have a sentence for it.
+const QUOTE_STATUSES = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired', 'superseded'];
 const MEETING_STATUSES = ['proposed', 'confirmed', 'done', 'cancelled'];
 const AMENDMENT_STATUSES = ['proposed', 'accepted', 'declined', 'withdrawn'];
 
@@ -435,7 +437,27 @@ test('a quote wears only ladder words, and only where it moved the stage', () =>
     accepted: 'Booked',
     declined: null,
     expired: null,
+    superseded: null,
   });
+});
+
+test('a superseded quote is history — it asks nobody and says it was replaced', () => {
+  // S5 (2026-09-18). Before this, 'superseded' fell through to the default
+  // arm and the couple read "Waiting on you · N days" for a quote the
+  // supplier had already replaced — a decision nobody could make.
+  for (const viewer of ['couple', 'vendor'] as const) {
+    const e = only(buildThreadDecisions(facts({
+      viewer,
+      quotes: [{
+        proposalId: 'p1', publicId: 'S89P-ABCDEFGHJK', announcedAtMs: AUG_22,
+        title: 'Garden Buffet', totalPhp: 187_500, status: 'superseded', decidedAtMs: SEP_01,
+      }],
+    })));
+    assert.match(e.now.text, /^Replaced by a newer quote/, `${viewer}: "${e.now.text}"`);
+    assert.doesNotMatch(e.now.text, /Waiting on/, `${viewer} is asked to answer a replaced quote`);
+    assert.equal(e.now.needsYou, false, `${viewer}: a replaced quote counts as needing them`);
+    assert.equal(e.reply, null, `${viewer}: a replaced quote still offers Review & accept`);
+  }
 });
 
 test('the pill gate is a capability, not five call sites remembering', () => {

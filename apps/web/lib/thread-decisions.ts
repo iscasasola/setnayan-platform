@@ -306,8 +306,9 @@ function waitingLabel(fromMs: number, nowMs: number): string {
  * A `vendor_proposals` row as the thread sees it.
  *
  * `status` is the SHIPPED vocabulary, measured from migration
- * `20261208006000_vendor_proposals.sql`:
- * `draft · sent · viewed · accepted · declined · expired`.
+ * `20261208006000_vendor_proposals.sql` plus `20270227904581`:
+ * `draft · sent · viewed · accepted · declined · expired · superseded`.
+ * S5 (2026-09-18) made `superseded` reachable from an ACCEPTED quote too.
  */
 export type QuoteFact = {
   proposalId: string;
@@ -456,6 +457,12 @@ function quoteNow(q: QuoteFact, f: ThreadDecisionFacts): DecisionNow {
     case 'draft':
       // A draft was never sent, so it decided nothing and asks nobody.
       return { stage: null, text: 'Not sent', needsYou: false, wasText: null };
+    case 'superseded':
+      // S5 · the supplier sent a newer quote and this one is history. Until
+      // 2026-09-18 this fell through to the default and read "Waiting on you"
+      // — asking the couple to answer a quote nobody is offering. It asks
+      // nobody and wears no rung: the newer quote carries the stage.
+      return { stage: null, text: `Replaced by a newer quote${suffix}`, needsYou: false, wasText: null };
     case 'sent':
     case 'viewed':
     default: {

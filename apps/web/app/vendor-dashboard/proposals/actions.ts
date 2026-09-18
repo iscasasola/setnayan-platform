@@ -172,6 +172,33 @@ export async function sendProposal(formData: FormData) {
   // byte-behaviour-identical today (the block was inert while the two-key flags
   // are off). The dormant send-gate library (bookingFeeSendGate) is unremoved.
 
+  // S5 · MAY THIS SUPPLIER RE-QUOTE? Sending supersedes the live quote for this
+  // pair — including an ACCEPTED one (owner, 2026-09-18) — unless the booking is
+  // confirmed or the couple has an open request to lock at it. Asked BEFORE the
+  // draft→sent flip, so a refused send leaves the draft intact and nothing
+  // half-sent. Same rule the in-chat send paths ask (`vendor_may_requote`).
+  {
+    const { data: draft } = await supabase
+      .from('vendor_proposals')
+      .select('event_id, vendor_profile_id')
+      .eq('proposal_id', proposalId)
+      .eq('status', 'draft')
+      .maybeSingle();
+    if (draft) {
+      const { data: blocker, error: blockerErr } = await supabase.rpc('vendor_may_requote', {
+        p_event_id: draft.event_id,
+        p_vendor_profile_id: draft.vendor_profile_id,
+      });
+      if (blockerErr) {
+        console.error('[proposals/send] vendor_may_requote refused', blockerErr);
+        redirect(`/proposals/${publicId}?notice=send_failed`);
+      }
+      if (blocker === 'deal_locked' || blocker === 'lock_requested') {
+        redirect(`/proposals/${publicId}?notice=send_${blocker}`);
+      }
+    }
+  }
+
   // RLS: only the org's own DRAFT rows are updatable — the flip freezes it.
   // Return the keys so we can retire any earlier live proposal for this pair.
   const { data: sent, error } = await supabase
@@ -186,11 +213,16 @@ export async function sendProposal(formData: FormData) {
   // (event, vendor) so the couple can't accept a stale quote. DEFINER RPC —
   // RLS blocks the vendor from updating non-draft rows directly. Best-effort.
   if (!error && sent) {
-    await supabase.rpc('supersede_prior_vendor_proposals', {
+    // S5 · now also retires an ACCEPTED quote (and reverts its shortlist).
+    // Pre-checked above; a refusal here is a race and is READ, not swallowed.
+    const { error: supersedeErr } = await supabase.rpc('supersede_prior_vendor_proposals', {
       p_event_id: sent.event_id,
       p_vendor_profile_id: sent.vendor_profile_id,
       p_keep_proposal_id: proposalId,
     });
+    if (supersedeErr) {
+      console.error(`[proposals/send] supersede refused for proposal_id=${proposalId}:`, supersedeErr.message);
+    }
   }
 
   revalidatePath(`/proposals/${publicId}`);

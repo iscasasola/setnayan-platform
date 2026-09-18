@@ -48,6 +48,13 @@ export type SendProposalError =
   // Only reachable when the fee is ENFORCED (flag on + live Maya rail); until then
   // the gate always clears. The draft is left in place to be completed at checkout.
   | 'fee_unpaid'
+  // S5 · a new quote would supersede an ACCEPTED one, and the booking behind it
+  // is already real (confirmed status) or the couple has asked to lock at it
+  // (`lock_request_state = 'pending'`). `vendor_may_requote` says which, BEFORE
+  // anything is inserted; `supersede_prior_vendor_proposals` refuses the same
+  // two cases as the backstop.
+  | 'deal_locked'
+  | 'lock_requested'
   | 'failed';
 
 export type SendProposalResult =
@@ -108,6 +115,42 @@ async function gateVendorProposalThread(
     };
   }
 
+  // ── S5 · MAY THIS SUPPLIER RE-QUOTE? ──────────────────────────────────────
+  // A new quote supersedes the live one, INCLUDING an accepted one (owner,
+  // 2026-09-18: "they can do updates and must be reaccepted"). The two cases
+  // where it may not: the booking is already confirmed, or the couple has an
+  // open request to lock at the accepted price. Asked here, before a single
+  // row is written, so the supplier is told at the door rather than left with
+  // a half-sent quote. The supplier cannot read `event_vendors` through their
+  // own session, so this is a DEFINER RPC scoped to their own profile.
+  //
+  // A refused or failed READ must not pass as "may" — the RPC is the only thing
+  // standing between a re-quote and a booking the couple believes is settled.
+  {
+    const { data: blocker, error: blockerErr } = await supabase.rpc('vendor_may_requote', {
+      p_event_id: thread.event_id,
+      p_vendor_profile_id: profile.vendor_profile_id,
+    });
+    if (blockerErr) {
+      console.error('[proposal-send] vendor_may_requote refused', blockerErr);
+      return { ok: false, code: 'failed', message: 'Couldn’t check this booking just now. Please try again.' };
+    }
+    if (blocker === 'deal_locked') {
+      return {
+        ok: false,
+        code: 'deal_locked',
+        message: 'This booking is already locked at the accepted quote — use a change order instead of a new quote.',
+      };
+    }
+    if (blocker === 'lock_requested') {
+      return {
+        ok: false,
+        code: 'lock_requested',
+        message: 'The couple has asked to lock at the quote they accepted. Answer that request first.',
+      };
+    }
+  }
+
   // Inbox ungated (owner 2026-07-24) — the mirrored FREE-tier block that used to
   // sit here (matching sendChatMessageCore's tier gate) has been REMOVED. A
   // proposal is an answer, and the inbox is never locked by tier: a vendor on any
@@ -138,19 +181,49 @@ async function supersedeAndPostCard(
 ): Promise<{ cardPosted: boolean; priceLabel: string }> {
   const { thread, userId, eventId, proposalId, title, totalCentavos } = args;
 
-  // Retire any earlier still-live proposal for this (event, vendor) so the
-  // couple can't accept a stale quote. DEFINER RPC — RLS blocks the vendor from
-  // updating non-draft rows directly. Best-effort.
-  await supabase.rpc('supersede_prior_vendor_proposals', {
+  // S5 · WHAT IS THIS NEW QUOTE REPLACING? Read before retiring, so the card
+  // and the notification can say "updated" and — when the couple had ALREADY
+  // accepted — that their acceptance no longer stands. The supplier reads
+  // their own rows here (RLS: own org).
+  const { data: priorRows } = await supabase
+    .from('vendor_proposals')
+    .select('status')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', thread.vendor_profile_id)
+    .neq('proposal_id', proposalId)
+    .in('status', ['sent', 'viewed', 'accepted']);
+  const prior = (priorRows ?? []) as Array<{ status: string }>;
+  const replacesAccepted = prior.some((p) => p.status === 'accepted');
+  const replacesAny = prior.length > 0;
+
+  // Retire any earlier still-live proposal for this (event, vendor) — now
+  // INCLUDING an accepted one (owner, 2026-09-18) — so the couple can't accept
+  // or lock a stale quote. DEFINER RPC — RLS blocks the vendor from updating
+  // non-draft rows directly. The gate already asked `vendor_may_requote`, so a
+  // refusal here is a race; it is READ and logged, never swallowed — a quote
+  // that posted while the old accepted one stayed live is two live quotes.
+  const { error: supersedeErr } = await supabase.rpc('supersede_prior_vendor_proposals', {
     p_event_id: eventId,
     p_vendor_profile_id: thread.vendor_profile_id,
     p_keep_proposal_id: proposalId,
   });
+  if (supersedeErr) {
+    console.error(
+      `[proposal-send] supersede refused for proposal_id=${proposalId}:`,
+      supersedeErr.message,
+    );
+  }
 
   // Post the proposal AS a message into the thread (the in-thread card).
   // sender_role='vendor' also stamps vendor_first_reply_at via the DB trigger.
   const priceLabel = totalCentavos > 0 ? formatCentavos(totalCentavos) : 'Price on request';
-  const body = `📄 Proposal — “${title}” · ${priceLabel}. Tap to review and accept.`;
+  // An UPDATED quote says so, and says what it means for an acceptance already
+  // given — the couple must accept again; the earlier card stays as history.
+  const body = replacesAccepted
+    ? `📄 Updated quote — “${title}” · ${priceLabel}. This replaces the quote you accepted, so please review and accept again.`
+    : replacesAny
+      ? `📄 Updated quote — “${title}” · ${priceLabel}. This replaces the earlier quote. Tap to review and accept.`
+      : `📄 Proposal — “${title}” · ${priceLabel}. Tap to review and accept.`;
   // sender_user_id / sender_role omitted — `authenticated` cannot write either
   // (migration 20271132839561); the DB derives them from auth.uid(). The row
   // still lands as 'vendor' because gateVendorProposalThread has already

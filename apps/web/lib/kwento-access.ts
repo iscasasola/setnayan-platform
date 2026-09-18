@@ -36,6 +36,7 @@ export async function eventKwentoEnabled(
       .select('kwento_free_grandfathered')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/kwento-access.ts · from:events.select', error);
     // Pre-migration (column absent) or any read error → fail-OPEN.
     if (error) return true;
     const grandfathered =

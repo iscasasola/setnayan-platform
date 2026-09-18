@@ -81,6 +81,7 @@ export async function isRecapSocialShareAllowed(
       )
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/social/recap-post.ts · from:events.select', error);
     if (error || !data) return false;
     const ev = data as {
       recap_social_optout_at?: string | null;

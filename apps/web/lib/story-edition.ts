@@ -91,6 +91,7 @@ export async function countEditionNo(
       .eq('event_type', 'wedding')
       .gte('event_date', cycleStart)
       .lte('event_date', eventDate);
+    if (error) console.error('[supabase-error] lib/story-edition.ts · from:events.select', error);
     if (error) return null;
     if (typeof count !== 'number' || count <= 0) return null;
     return count;

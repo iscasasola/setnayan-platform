@@ -23,8 +23,7 @@ import {
 } from '@/lib/answers-desk';
 import { resolveAppointmentLabel, type AppointmentKind } from '@/lib/appointments';
 import { displayServiceLabel } from '@/lib/vendors';
-import { fetchVendorServices } from '@/lib/vendor-services';
-import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
+import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from '@/lib/vendor-earnings';
 import {
   buildPaydayTimeline,
   manilaTodayIso,
@@ -727,9 +726,9 @@ export async function fetchVendorOverviewData(
 // just wasn't loaded here). Two independent, real sources — both fail-soft:
 //
 //   · earnedThisYearPhp / bookingCount — the SAME year-to-date figure the
-//     /vendor-dashboard/earnings page shows: matched payments on orders whose
-//     service_key is in this vendor's own service categories (admin client,
-//     scoped by the vendor's OWN vendor_services rows — never a raw user_id).
+//     /vendor-dashboard/earnings page shows: ledger payments couples logged on
+//     this shop's own booking rows and the shop confirmed
+//     (`fetchVendorLedgerEarnings`, scoped by marketplace_vendor_id).
 //   · confirmedPhp / expectedPhp — the vendor's payday cash-flow: the
 //     ownership-gated `vendor_payday_installments()` RPC (auth.uid()-scoped
 //     internally), summed via buildPaydayTimeline. confirmed = installments the
@@ -739,9 +738,9 @@ export async function fetchVendorOverviewData(
 // ---------------------------------------------------------------------------
 
 export type VendorEarningsSummary = {
-  /** Year-to-date paid revenue on the vendor's service categories (pesos). */
+  /** Year-to-date money couples paid this shop and it confirmed (pesos). */
   earnedThisYearPhp: number;
-  /** Count of matched paid bookings behind the earnings figure. */
+  /** Count of confirmed ledger payments behind the earnings figure. */
   bookingCount: number;
   /** Confirmed (received) installment value across booked events (pesos). */
   confirmedPhp: number;
@@ -764,14 +763,10 @@ export async function fetchVendorEarningsSummary(
   const admin = createAdminClient();
 
   const [earnings, paydayTotals] = await Promise.all([
-    // Earnings: vendor's categories → matched payments (same path as the
-    // Earnings page). Fail-soft to [] so a bad read shows ₱0, not a crash.
-    (async () => {
-      const services = await fetchVendorServices(supabase, vendorProfileId);
-      const categories = Array.from(new Set(services.map((s) => s.category)));
-      if (categories.length === 0) return [];
-      return fetchVendorEarnings(admin, categories);
-    })().catch(() => []),
+    // Earnings: the payments couples logged to THIS shop and it confirmed (the
+    // same reader as the Earnings page). Fail-soft to [] — see #5650 for the
+    // honest-failure half of this tile.
+    fetchVendorLedgerEarnings(admin, vendorProfileId).catch(() => []),
     // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
     (async () => {
       const { data, error } = await supabase.rpc('vendor_payday_installments');

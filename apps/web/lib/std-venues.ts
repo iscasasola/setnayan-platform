@@ -44,6 +44,7 @@ export async function resolveStdFinalizedVenues(
       .select('category, status, vendor_name, updated_at')
       .eq('event_id', eventId)
       .is('archived_at', null);
+    if (error) console.error('[supabase-error] lib/std-venues.ts · from:event_vendors.select', error);
     if (error || !data) return { ceremony: null, reception: null };
 
     type Row = {

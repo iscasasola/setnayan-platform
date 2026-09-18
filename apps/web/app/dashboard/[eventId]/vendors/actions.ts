@@ -472,6 +472,15 @@ export async function deleteVendor(formData: FormData) {
     );
   }
 
+  // SUP-67 — the PROPERTY, not the status: any payment logged against this
+  // supplier blocks the delete, because `event_vendor_payments` cascades off
+  // this row. The status list above never saw the budget page's recorded
+  // costs (locked at `contracted`, money in the log). The database refuses it
+  // either way (`event_vendors_refuse_delete_with_payments`); asking here is
+  // what lets the couple read why instead of a constraint name.
+  const loggedPaymentsRefusal = await refusalForLoggedPayments(supabase, vendorId);
+  if (loggedPaymentsRefusal) throw new Error(loggedPaymentsRefusal);
+
   // Defensive release of any stray live pool reservations before the row
   // goes away (a hard delete would CASCADE them silently — release first
   // so the date frees with an auditable reason).
@@ -4038,7 +4047,43 @@ export type CancelBookingAsHostResult =
   | { status: 'not_signed_in' }
   | { status: 'not_found' }
   | { status: 'downpaid_use_dispute_flow' }
+  // SUP-67: money is logged against this supplier. Not a dispute — the couple
+  // may simply have recorded it on the budget page — so it carries the words.
+  | { status: 'has_logged_payments'; message: string }
   | { status: 'error'; message: string };
+
+/**
+ * SUP-67 — a supplier with ANY logged payment cannot be deleted, whatever its
+ * status says. `event_vendor_payments` cascades off `event_vendors`, so a
+ * delete would silently erase the couple's record of real money. The rule
+ * itself is enforced by the database (`event_vendors_refuse_delete_with_payments`,
+ * migration 20271233096294); this read exists to tell the couple WHY, and how
+ * through, in words. Returns null when nothing is logged.
+ *
+ * Fails CLOSED: if the ledger cannot be read, it refuses rather than guessing
+ * "no payments" — an absence here would authorise a destructive write.
+ */
+async function refusalForLoggedPayments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  vendorId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('event_vendor_payments')
+    .select('amount_php')
+    .eq('vendor_id', vendorId);
+  if (error) {
+    return 'We could not check this supplier\'s payments, so nothing was removed. Please try again.';
+  }
+  const rows = (data ?? []) as { amount_php: number | string | null }[];
+  if (rows.length === 0) return null;
+  const total = rows.reduce((sum, r) => sum + (Number(r.amount_php) || 0), 0);
+  const noun = rows.length === 1 ? 'a payment' : `${rows.length} payments`;
+  return (
+    `You've logged ${noun} to this supplier (₱${total.toLocaleString('en-PH')}), ` +
+    `so removing them would erase that record. If it was entered by mistake, ` +
+    `delete the payment on your Budget page first, then remove the supplier.`
+  );
+}
 
 const DOWNPAID_STATUSES = new Set<VendorStatus>([
   'deposit_paid',
@@ -4132,6 +4177,15 @@ export async function cancelBookingAsHost(
       : ev.deposit_paid_php;
   if (Number.isFinite(depositValue) && (depositValue ?? 0) > 0) {
     return { status: 'downpaid_use_dispute_flow' };
+  }
+  //   (c) SUP-67 — ANY row in the payment log. The two signals above miss
+  //       the budget page's recorded costs (locked at `contracted`, money in
+  //       the log, `deposit_paid_php` untouched), and the hard delete below
+  //       would cascade that log away. The database refuses it too; this is
+  //       the half that tells the couple why.
+  const loggedPaymentsRefusal = await refusalForLoggedPayments(supabase, ev.vendor_id);
+  if (loggedPaymentsRefusal) {
+    return { status: 'has_logged_payments', message: loggedPaymentsRefusal };
   }
 
   // Resolve host display name BEFORE the delete so the notification copy

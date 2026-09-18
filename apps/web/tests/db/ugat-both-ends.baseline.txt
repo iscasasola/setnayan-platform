@@ -99,7 +99,7 @@ result-dropped-silently	lib/vendor-service-public.ts · from:vendor_service_pric
 result-dropped-silently	lib/vendor-services.ts · from:vendor_service_discounts.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-services.ts · from:vendor_service_price_brackets.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-verification.ts · from:service_catalog.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (88) ══
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (89) ══
 rpc-no-caller	count_vendor_disputes_30d	1	no 'count_vendor_disputes_30d' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
@@ -114,6 +114,7 @@ table-no-writer	event_vendor_booth_placements	1	no .from('event_vendor_booth_pla
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_contract_signatures	1	no .from('vendor_contract_signatures').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 component-no-mount	app/_components/states/locked-state.tsx	1	no runtime importer in any source file
+component-no-mount	app/_components/thread-call-launcher-lazy.tsx	1	no runtime importer in any source file
 component-no-mount	app/dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx	1	no runtime importer in any source file
 result-dropped-silently	app/_actions/run-of-show.ts · from:event_schedule_blocks.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/[slug]/_components/editorial/data.ts · from:papic_mission_completions.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason

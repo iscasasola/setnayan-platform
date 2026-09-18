@@ -38,10 +38,10 @@ registries excluded) · 971 component candidates · 803 Next.js entries · 5,960
 | `rpc-no-caller` | 571 | 272 called from the app, 293 from SQL | **45** |
 | `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **35** |
 | `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **6** |
-| `component-no-mount` | 971 | 3,747 files reachable from an entry | **32** |
+| `component-no-mount` | 971 | 3,747 files reachable from an entry | **33** |
 | `result-dropped-silently` | 5,960 calls | — | **415** sites |
 
-By tier: money 89 · booking 88 · couple 203 · supplier 86 · admin 19 · unclassified 48.
+By tier: money 89 · booking 89 · couple 203 · supplier 86 · admin 19 · unclassified 48.
 
 **The money-tier top of the list, excluding drops** (the controller's next build candidates):
 - `rpc-no-caller` · `approve_vendor_token_purchase`
@@ -102,6 +102,14 @@ a name built at runtime (`.rpc(fn)`, `EXECUTE format(…)`) is invisible; a call
 reference in a comment counts for nothing. The `component-no-mount` importer check is
 file-level plus two mutation-shaped refinements; it cannot prove a mounted component is
 *reachable by a user*, only by the bundler.
+
+**Two orphans arrived on `main` while this PR sat in the CI queue, both caught by a trial merge**
+(`git merge --no-commit origin/main`, guard, `git merge --abort`) because branch protection is
+non-strict and neither PR's own CI can see the combination. One was a false positive in this
+guard's rule (#5626's `{ status: 'unreadable' }`, fixed above). The other is real and is frozen
+into the baseline as inherited debt: `app/_components/thread-call-launcher-lazy.tsx` lost its last
+importer when #5614 (S18) stopped the client page embedding its own call tab. The lazy loader
+lives on with no mount — the residue shape this guard exists for; delete it or re-mount it.
 
 **Not done in this PR, by instruction:** none of the orphans are fixed. The baseline is
 the deliverable; its top is the next build list.

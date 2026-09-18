@@ -52,12 +52,12 @@ const DELIBERATE_BLOCKERS: readonly DeliberateBlocker[] = [
     reason:
       'a completed commercial transaction with a counterparty and a BIR record-keeping duty; the buyer is the record',
   },
-  {
-    constraint: 'vendor_contract_signatures_signer_user_id_fkey',
-    record: 'a signed vendor contract',
-    reason:
-      'under RA 8792 the signer identity is the legally operative act — anonymising it voids the instrument and destroys the other party’s rights',
-  },
+  // vendor_contract_signatures_signer_user_id_fkey was the third entry until
+  // 2026-09-18: the table was DROPPED (migration 20271234094457) because
+  // contracts are upload-only by owner lock (2026-05-18) and no signature was
+  // ever written. A refusal that can no longer happen must not keep an
+  // explanation — the guard test would otherwise certify a sentence nobody can
+  // ever be shown.
 ];
 
 /**

@@ -477,7 +477,10 @@ const KNOWN_GAPS: Record<string, string> = {
     'TODO(RA10173-backlog): bundled proposal amendments the subject raised or was sent (same class as vendor_change_orders).',
   vendor_client_notes:
     'TODO(RA10173-backlog): vendor-authored notes — must be AUTHOR-scoped for the same reason as working notes.',
-  vendor_contract_signatures: 'TODO(RA10173-backlog): the subject’s own e-signatures (RA 8792 evidence).',
+  vendor_contract_signatures:
+    'TABLE DROPPED 2026-09-18 (migration 20271234094457) — contracts are upload-only by owner lock ' +
+    '(2026-05-18) and no e-signature was ever written (prod: 0 rows). Nothing to export. Listed ' +
+    'rather than deleted only because the migration parser cannot see a DROP.',
   vendor_contracts: 'TODO(RA10173-backlog): contracts the subject is a party to.',
   vendor_creator_offers: 'TODO(RA10173-backlog): offers the subject made or received.',
   vendor_date_waitlist: 'TODO(RA10173-backlog): waitlist entries naming the subject.',

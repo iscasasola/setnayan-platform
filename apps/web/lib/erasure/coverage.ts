@@ -1424,10 +1424,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
  * step 1 tombstones it.
  */
 export const OWN_ROW_DELETES_BY_EMAIL: ReadonlyArray<{ table: string; why: string }> = [
-  {
-    table: 'couple_waitlist_signups',
-    why: 'Pre-signup capture holding full_name, partner_name, ip_address and user_agent, with no user FK.',
-  },
+  // couple_waitlist_signups was the first entry until 2026-09-18 — DROPPED by
+  // migration 20271234094457 (the pre-launch waitlist; Setnayan has been live
+  // for couples since 2026-07-24 and the table held 0 rows). A DELETE against a
+  // dropped table is recorded by purge.ts as an erasure audit FAILURE, not
+  // thrown, so leaving the rule would have failed every erasure request forever.
   {
     table: 'couple_event_type_notify_signups',
     why: 'Notify-me capture; user_id is nullable and often unset, so email is the only reliable key.',

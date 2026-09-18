@@ -53,7 +53,10 @@ export async function fetchInclusionsByService(
     .select('vendor_service_id,label,worth_php,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-service-public.ts · from:vendor_service_inclusions.select', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServiceInclusion[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
@@ -124,7 +127,10 @@ export async function fetchCoveragesByIdPublic(
     .from('vendor_coverages')
     .select('id,event_types,faiths')
     .in('id', coverageIds);
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-service-public.ts · from:vendor_coverages.select', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServiceCoverage[]) {
     out.set(row.id, {
       id: row.id,

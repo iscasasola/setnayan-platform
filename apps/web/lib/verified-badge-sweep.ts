@@ -76,7 +76,10 @@ async function settleLapsedVouches(
       .eq('vendor_profile_id', row.vendor_profile_id)
       .eq('status', 'approved');
     // A refused read is not "no papers" — skip the row and try tomorrow.
-    if (countErr) continue;
+    if (countErr) {
+      console.error('[supabase-error] lib/verified-badge-sweep.ts · from:vendor_verification_applications.select', countErr);
+      continue;
+    }
     const documentsApproved = (count ?? 0) > 0;
 
     if (!vouchHasLapsed({ expiresAt: row.expires_at as string | null, documentsApproved }, now)) {

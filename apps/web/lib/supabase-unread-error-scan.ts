@@ -48,7 +48,10 @@ import ts from 'typescript';
  *                         read, but only as a CONDITION, and the branch that
  *                         condition selects records nothing: no call (log,
  *                         capture, message), no throw, no reference to the
- *                         reason. `if (error) return null;` — the shape that
+ *                         reason. A return of a DISTINCT failure state
+ *                         (`return unreadable`, `{ ok: false, reason }`) IS a
+ *                         record — the caller can tell it from emptiness.
+ *                         `if (error) return null;` — the shape that
  *                         let a booking fee skip with its reason discarded
  *                         (#5615). Off by default so this guard's own sweep
  *                         and baseline are unchanged; the both-ends sweep
@@ -197,12 +200,36 @@ function statementOf(node: ts.Node): ts.Node {
  * user), a throw, or any further reference to the error value? A branch that
  * does none of these is where a reason goes to die.
  */
+const FAILURE_SHAPED = /unreadable|unavailable|refused|denied|failed|failure|error|unknown/i;
+
+/**
+ * A returned value that is itself a DISTINCT failure state — `return unreadable`,
+ * `return 'refused'`, `return { ok: false, reason }` — is a record: the caller can
+ * tell it from emptiness, which is the whole point (the reads-are-honest pattern
+ * this repo built deliberately). `return null` / `[]` / `{ status: 'skipped' }`
+ * are not: they render identically to "nothing there".
+ */
+function returnsFailureShape(r: ts.ReturnStatement): boolean {
+  const e = r.expression;
+  if (!e) return false;
+  if (ts.isIdentifier(e) || ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return FAILURE_SHAPED.test(e.text);
+  if (ts.isPropertyAccessExpression(e)) return FAILURE_SHAPED.test(e.getText());
+  if (ts.isObjectLiteralExpression(e)) {
+    return e.properties.some((p) => {
+      const name = p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : '';
+      return /^(error|message|reason|cause|failure)$/i.test(name);
+    });
+  }
+  return false;
+}
+
 function branchRecords(branch: readonly ts.Node[], errName: string): boolean {
   let found = false;
   const visit = (n: ts.Node) => {
     if (found) return;
     if (ts.isCallExpression(n) || ts.isNewExpression(n) || ts.isThrowStatement(n) || ts.isAwaitExpression(n)) { found = true; return; }
     if (ts.isIdentifier(n) && n.text === errName) { found = true; return; }
+    if (ts.isReturnStatement(n) && returnsFailureShape(n)) { found = true; return; }
     ts.forEachChild(n, visit);
   };
   for (const b of branch) visit(b);

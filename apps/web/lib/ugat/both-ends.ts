@@ -206,6 +206,7 @@ export interface CatalogFunction {
   returnsTrigger?: boolean;
 }
 export interface CatalogPolicy { table: string; name: string; qual: string | null; withCheck: string | null }
+/** A row trigger (`pg_trigger`) or an EVENT trigger (`pg_event_trigger`, table = 'ddl'). */
 export interface CatalogTrigger { table: string; name: string; fn: string }
 export interface CatalogExpr { owner: string; def: string }
 
@@ -260,6 +261,23 @@ export function findRpcOrphans(
     });
   }
   return { findings, stats: { candidates: names.length, appCalled, sqlCalled, orphans: findings.length } };
+}
+
+/**
+ * Policies the replay CANNOT host. `realtime.messages` does not exist in PGlite,
+ * so a `CREATE POLICY … ON realtime.messages USING (some_fn(topic))` never
+ * reaches pg_policies there — and that is exactly the caller a TS grep missed
+ * in August. Read those statements out of the migration text, non-public
+ * schemas only, comments blanked. A dropped policy left in an old file can
+ * only make a function look CALLED (the safe direction).
+ */
+export function policiesOutsidePublic(migrationSql: readonly string[]): CatalogExpr[] {
+  const out: CatalogExpr[] = [];
+  const re = /create\s+policy\s+"?([A-Za-z0-9_]+)"?\s+on\s+((?!public\.)[a-z_]+\.[a-z_]+)\b([\s\S]*?);/gi;
+  for (const sql of migrationSql) {
+    for (const m of stripSqlComments(sql).matchAll(re)) out.push({ owner: `policy ${m[1]} on ${m[2]} (migration text)`, def: m[3] ?? '' });
+  }
+  return out;
 }
 
 // ─── class 2: tables with no writer ─────────────────────────────────────────

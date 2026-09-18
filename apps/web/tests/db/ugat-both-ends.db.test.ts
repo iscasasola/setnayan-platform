@@ -39,7 +39,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { createReplayedDb } from './replay-migrations';
+import { createReplayedDb, MIGRATIONS_DIR } from './replay-migrations';
 import {
   diffBaseline,
   findComponentOrphans,
@@ -54,6 +54,7 @@ import {
   parseAllowlist,
   parseBaseline,
   parseNotificationUnion,
+  policiesOutsidePublic,
   rankFindings,
   type Catalog,
   type OrphanFinding,
@@ -74,6 +75,10 @@ function walk(dir: string, out: string[]) {
     if (fs.statSync(p).isDirectory()) walk(p, out);
     else if (/\.tsx?$/.test(name) && !name.endsWith('.d.ts')) out.push(p);
   }
+}
+
+function readMigrations(): string[] {
+  return fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).map((f) => fs.readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
 }
 
 function readSources(): { sources: SourceFile[]; tests: SourceFile[] } {
@@ -103,6 +108,15 @@ async function introspect(db: Awaited<ReturnType<typeof createReplayedDb>>['db']
     `SELECT c.relname AS "table", t.tgname AS name, p.proname AS fn
        FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid
       WHERE NOT t.tgisinternal`,
+  );
+  // A function called only as another function's ARGUMENT DEFAULT lives in
+  // proargdefaults, not prosrc — `p_schedule_version text DEFAULT booking_fee_schedule_version()`.
+  const signatures = await db.query<{ owner: string; def: string }>(
+    `SELECT 'signature ' || p.proname AS owner, pg_get_function_arguments(p.oid) AS def
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.pronargdefaults > 0`,
+  );
+  const eventTriggers = await db.query<{ name: string; fn: string }>(
+    `SELECT e.evtname AS name, p.proname AS fn FROM pg_event_trigger e JOIN pg_proc p ON p.oid = e.evtfoid`,
   );
   const views = await db.query<{ owner: string; def: string }>(
     `SELECT 'view ' || viewname AS owner, definition AS def FROM pg_views WHERE schemaname NOT IN ('pg_catalog', 'information_schema')`,
@@ -134,8 +148,8 @@ async function introspect(db: Awaited<ReturnType<typeof createReplayedDb>>['db']
   return {
     functions: fns.rows.map((f) => ({ name: f.name, src: f.src, returnsTrigger: f.trg })),
     policies: policies.rows.map((p) => ({ table: p.table, name: p.name, qual: p.qual, withCheck: p.with_check })),
-    triggers: triggers.rows,
-    expressions: [...views.rows, ...cron.rows, ...defaults.rows, ...checks.rows],
+    triggers: [...triggers.rows, ...eventTriggers.rows.map((e) => ({ table: 'ddl', name: e.name, fn: e.fn }))],
+    expressions: [...views.rows, ...cron.rows, ...defaults.rows, ...checks.rows, ...signatures.rows, ...policiesOutsidePublic(readMigrations())],
     tables: tables.rows.map((t) => t.name),
     rowCounts,
     enumLabels: labels.rows.map((r) => r.l),
@@ -157,7 +171,7 @@ function sweep(catalog: Catalog & { enumLabels: string[] }, sources: SourceFile[
     },
     index,
   );
-  const candidates = sources.map((s) => s.path).filter((p) => /(^|\/)_components\/[^/]+\.tsx$/.test(p) || /^components\/.*\.tsx$/.test(p));
+  const candidates = sources.map((s) => s.path).filter((p) => /(^|\/)_components\/.*\.tsx$/.test(p) || /^components\/.*\.tsx$/.test(p));
   const components = findComponentOrphans({ files: byPath, testFiles: new Map(tests.map((t) => [t.path, t.text])), candidates });
   const drops = findSilentDrops(sources);
   const findings: OrphanFinding[] = rankFindings([...rpc.findings, ...tables.findings, ...notices.findings, ...components.findings, ...drops.findings]);
@@ -261,7 +275,7 @@ test('the guard can go red — a synthetic orphan of each DB-side class is NOT s
   assert.ok(rpc.includes('canary_rpc_nobody_calls'), 'a function nothing names must be an orphan');
   assert.ok(rpc.includes('canary_trigger_fn_unbound'), 'a trigger function with no trigger must be an orphan');
   assert.ok(!rpc.includes('canary_rpc_policy_calls'), 'a function an RLS policy calls is NOT an orphan — the TS-grep blind spot');
-  assert.ok(!rpc.includes('canary_writer'), 'a function referenced nowhere but writing a table is still an orphan only by name; here it is one — and that is correct');
+  assert.ok(rpc.includes('canary_writer'), 'writing a table does not give a function a caller — it is still an orphan');
 
   const tables = findTableOrphans(poisoned, indexWriters(sources, poisoned)).findings.map((f) => f.key);
   assert.ok(tables.includes('canary_table_nobody_writes'), 'a table nothing writes must be an orphan');

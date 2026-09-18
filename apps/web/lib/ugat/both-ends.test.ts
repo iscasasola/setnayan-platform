@@ -19,6 +19,7 @@ import {
   indexWriters,
   parseAllowlist,
   parseNotificationUnion,
+  policiesOutsidePublic,
   rankFindings,
   formatBaseline,
   parseBaseline,
@@ -77,6 +78,23 @@ test('rpc-no-caller: only the function nothing names is an orphan, and the trigg
   assert.match(findings.find((f) => f.key === 'trg_unbound')!.evidence, /no trigger is bound/);
   // A test file and the map's own claims do not vouch for a caller.
   assert.ok(findings.some((f) => f.key === 'nobody_calls_me'));
+});
+
+test('rpc-no-caller: a policy on realtime.messages — which the replay cannot host — still counts as a caller, from the migration text', () => {
+  const sql = `-- create policy "commented_out" on realtime.messages using (fake_fn(topic));
+CREATE POLICY "guest_rtc_read" ON realtime.messages FOR SELECT TO authenticated
+  USING (public.live_studio_guest_rtc_can_access(realtime.topic()));
+CREATE POLICY "public_one" ON public.events USING (called_by_policy(id));`;
+  const exprs = policiesOutsidePublic([sql]);
+  assert.equal(exprs.length, 1, 'only the non-public policy is read from text; public ones come from pg_policies');
+  assert.match(exprs[0]!.owner, /guest_rtc_read on realtime\.messages/);
+  const cat: Catalog = { ...CATALOG, functions: [...CATALOG.functions, { name: 'live_studio_guest_rtc_can_access', src: 'select true' }, { name: 'fake_fn', src: 'select true' }], expressions: [...CATALOG.expressions, ...exprs] };
+  const keys = findRpcOrphans(cat, indexLiterals(SOURCES)).findings.map((f) => f.key);
+  assert.ok(!keys.includes('live_studio_guest_rtc_can_access'));
+  assert.ok(keys.includes('fake_fn'), 'a policy in a SQL comment vouches for nothing');
+  // An EVENT trigger binds its function exactly like a row trigger.
+  const cat2: Catalog = { ...CATALOG, functions: [...CATALOG.functions, { name: 'rls_auto_enable', src: 'begin end' }], triggers: [...CATALOG.triggers, { table: 'ddl', name: 'ensure_rls', fn: 'rls_auto_enable' }] };
+  assert.ok(!findRpcOrphans(cat2, indexLiterals(SOURCES)).findings.some((f) => f.key === 'rls_auto_enable'));
 });
 
 test('table-no-writer: seeded, app-written, dynamically-written and SQL-written tables are not orphans', () => {
@@ -189,6 +207,8 @@ test('result-dropped-silently: the booking-fee shape fires; a recorded reason do
     `async function f(sb, set){ const { data, error } = await sb.from('orders').select('id'); if (!error) set(data); }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (!error) return data; return null; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); return error ? null : data; }`,
+    // `{ status: 'skipped' }` and `{ ok: false }` say nothing about WHY — still dropped.
+    `async function f(sb){ const { error } = await sb.from('orders').insert({ a: 1 }); if (error) return { ok: false }; }`,
   ];
   for (const s of fires) {
     assert.deepEqual(scanSource(s, 'f.ts', { silentDrops: true }).map((f) => f.kind), ['error-dropped-silently'], s);
@@ -205,6 +225,10 @@ test('result-dropped-silently: the booking-fee shape fires; a recorded reason do
     `async function f(sb){ const res = await sb.from('orders').select('id'); if (res.error) { log(res.error); return null; } return res.data; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); const ok = !error; return { ok, data }; }`,
     `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error?.code === 'PGRST116') return null; return data; }`,
+    // A DISTINCT failure state is a record — the reads-are-honest sentinel.
+    `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error) return unreadable; return data; }`,
+    `async function f(sb){ const { data, error } = await sb.from('orders').select('id'); if (error) return 'unreadable'; return data; }`,
+    `async function f(sb){ const { error } = await sb.from('orders').insert({ a: 1 }); if (error) return { ok: false, reason: 'refused' }; }`,
     `async function f(sb){
        // supabase-error-ignored: a view counter — a lost increment changes nothing a person sees
        const { error } = await sb.rpc('bump_views', { id: 1 }); if (error) return;

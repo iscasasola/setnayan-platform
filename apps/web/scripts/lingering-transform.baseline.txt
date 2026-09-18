@@ -1,0 +1,47 @@
+# Rules whose animation keeps a TRANSFORM applied after it ends (fill-mode
+# both/forwards over keyframes that touch transform/translate/rotate/scale).
+#
+# WHY THIS LIST EXISTS — measured on production 2026-09-18. `.sn-page-enter`,
+# the wrapper around every in-shell page, ended on an IDENTITY transform
+# (matrix(1,0,0,1,0,0)). It moves nothing and is invisible in a screenshot, a
+# diff and a review. Per CSS spec any transform on an ancestor becomes the
+# containing block for `position: fixed` descendants — so it silently unpinned
+# every fixed overlay in the app. The vendor coach-mark measured 636x2444
+# against a 1107px viewport; its Skip and Next buttons sat 341px below the fold.
+#
+# Most entries below are LEAF elements (badges, loaders, decorative spans) where
+# a held transform harms nothing. They are listed, not fixed, because "harmless"
+# depends on whether anything inside is position:fixed — a fact about the React
+# tree, not this stylesheet.
+#
+# THE LIST MAY ONLY SHRINK. A new entry fails the guard: prove nothing fixed
+# lives inside, then add it here with a reason, or use `backwards`.
+#
+# `.sn-page-enter` is deliberately ABSENT and must stay absent.
+.gl-settle :: gl-settle
+.gl-settle-delayed :: gl-settle
+.journey-node-pop :: journey-node-pop
+.journey-rail-fill :: journey-rail-grow
+.journey-rise :: journey-rise
+.journey-today :: journey-beacon
+.journey-today :: journey-today-in
+.loading-status-line :: loading-status-fade
+.perf-play .perf-bar-grow :: perf-bar-grow
+.perf-play .perf-bar-grow-y :: perf-bar-grow-y
+.perf-reanim.perf-play :: perf-fade-rise
+.sd-loader[data-done] .sd-glow :: sd-bloom
+.sd-loader[data-done] .sd-lg :: sd-pop
+.sn-arrival-bloom :: sn-arrival-bloom
+.sn-arrival-ring :: sn-arrival-ring
+.sn-bloom :: sn-bloom
+.sn-canvas-rise :: sn-canvas-rise
+.sn-canvas-sheet :: sn-canvas-sheet-up
+.sn-capiz :: sn-capiz-sweep
+.sn-lens-swap :: sn-lens-swap
+.sn-modal :: sn-scale-in
+.sn-paint-cover :: sn-paint-cover
+.sn-paint-in :: sn-paint-in
+.sn-pop-in :: sn-pop-in
+.sn-reveal :: sn-rise
+.sn-veil :: sn-veil-lift
+.subnav-lift :: subnav-lift

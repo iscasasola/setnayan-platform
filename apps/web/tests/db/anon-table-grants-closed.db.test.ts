@@ -350,6 +350,7 @@ const DROPPED_AFTER_CLOSING: Record<string, string> = {
   couple_briefs: '20271234083820 — retired RFP marketplace (S37)',
   vendor_bid_submissions: '20271234083820 — retired RFP marketplace (S37)',
   vendor_release_history: '20271234083820 — soft-hold release audit, writers never shipped (S37)',
+  event_category_build_state: '20271234098872 — the retired build-grid state; writer deleted 2026-07-29 (S37)',
 };
 
 const CLOSED_LIVE = CLOSED.filter((t) => !(t in DROPPED_AFTER_CLOSING));

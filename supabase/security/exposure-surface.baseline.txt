@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6616
+# facts: 6589
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     581
-#   col       4861
-#   policy    904
+#   tpriv     578
+#   col       4843
+#   policy    898
 #   view      9
 #   func      257
 #
@@ -116,7 +116,6 @@ tpriv	public.event_bench_arrangement|authenticated	SIUD
 tpriv	public.event_blocked_users|authenticated	SIUD
 tpriv	public.event_build_picks|anon	SIUD
 tpriv	public.event_build_picks|authenticated	SIUD
-tpriv	public.event_category_build_state|authenticated	SIUD
 tpriv	public.event_category_decisions|authenticated	SIUD
 tpriv	public.event_checklist_items|anon	SIUD
 tpriv	public.event_checklist_items|authenticated	SIUD
@@ -127,8 +126,6 @@ tpriv	public.event_colour_grants_coordinator|authenticated	S
 tpriv	public.event_colour_grants|authenticated	S
 tpriv	public.event_costs|authenticated	SIUD
 tpriv	public.event_day_requests|authenticated	SIU
-tpriv	public.event_delegates|anon	SIUD
-tpriv	public.event_delegates|authenticated	SIUD
 tpriv	public.event_editorial|authenticated	SIUD
 tpriv	public.event_egift_methods|anon	SIUD
 tpriv	public.event_egift_methods|authenticated	SIUD
@@ -1305,13 +1302,6 @@ col	public.event_build_picks.picked_by	anon=SIU authenticated=SIU
 col	public.event_build_picks.plan_group_id	anon=SIU authenticated=SIU
 col	public.event_build_picks.updated_at	anon=SIU authenticated=SIU
 col	public.event_build_picks.vendor_id	anon=SIU authenticated=SIU
-col	public.event_category_build_state.created_at	anon=- authenticated=SIU
-col	public.event_category_build_state.event_id	anon=- authenticated=SIU
-col	public.event_category_build_state.pinned_vendor_id	anon=- authenticated=SIU
-col	public.event_category_build_state.plan_group_id	anon=- authenticated=SIU
-col	public.event_category_build_state.set_by	anon=- authenticated=SIU
-col	public.event_category_build_state.state	anon=- authenticated=SIU
-col	public.event_category_build_state.updated_at	anon=- authenticated=SIU
 col	public.event_category_decisions.decided_at	anon=- authenticated=SIU
 col	public.event_category_decisions.decision	anon=- authenticated=SIU
 col	public.event_category_decisions.event_id	anon=- authenticated=SIU
@@ -1397,17 +1387,6 @@ col	public.event_day_requests.resolved_at	anon=- authenticated=SIU
 col	public.event_day_requests.resolved_by_user_id	anon=- authenticated=SIU
 col	public.event_day_requests.status	anon=- authenticated=SIU
 col	public.event_day_requests.updated_at	anon=- authenticated=SIU
-col	public.event_delegates.created_at	anon=SIU authenticated=SIU
-col	public.event_delegates.delegate_user_id	anon=SIU authenticated=SIU
-col	public.event_delegates.delegate_vendor_profile_id	anon=SIU authenticated=SIU
-col	public.event_delegates.event_id	anon=SIU authenticated=SIU
-col	public.event_delegates.granted_at	anon=SIU authenticated=SIU
-col	public.event_delegates.granted_by_user_id	anon=SIU authenticated=SIU
-col	public.event_delegates.revoked_at	anon=SIU authenticated=SIU
-col	public.event_delegates.revoked_by_user_id	anon=SIU authenticated=SIU
-col	public.event_delegates.revoked_reason	anon=SIU authenticated=SIU
-col	public.event_delegates.role	anon=SIU authenticated=SIU
-col	public.event_delegates.updated_at	anon=SIU authenticated=SIU
 col	public.event_deletion_requests.admin_note	anon=- authenticated=S
 col	public.event_deletion_requests.created_at	anon=- authenticated=S
 col	public.event_deletion_requests.event_id	anon=- authenticated=SI
@@ -5605,7 +5584,7 @@ policy	public.event_access_requests|event_access_requests_own_insert	mode=PERMIS
 policy	public.event_access_requests|event_access_requests_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(requester_user_id = auth.uid()) check=NULL
 policy	public.event_access_requests|event_access_requests_own_withdraw	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((requester_user_id = auth.uid()) AND (status = 'pending'::text)) check=((requester_user_id = auth.uid()) AND (status = 'withdrawn'::text))
 policy	public.event_action_log|event_action_log_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
-policy	public.event_action_log|event_action_log_event_members_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_action_log.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))))) OR (EXISTS ( SELECT 1 FROM event_delegates ed WHERE ((ed.event_id = event_action_log.event_id) AND (ed.delegate_user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid()))) AND (ed.revoked_at IS NULL))))) check=NULL
+policy	public.event_action_log|event_action_log_event_members_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_action_log.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))))) check=NULL
 policy	public.event_activity_picks|event_activity_picks_booked_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (activity_id IN ( SELECT a.activity_id FROM vendor_activities a WHERE (a.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) check=NULL
 policy	public.event_activity_picks|event_activity_picks_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
 policy	public.event_activity_picks|event_activity_picks_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())
@@ -5624,10 +5603,6 @@ policy	public.event_build_picks|couple_deletes_event_build_picks	mode=PERMISSIVE
 policy	public.event_build_picks|couple_inserts_event_build_picks	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) AND (picked_by = auth.uid()))
 policy	public.event_build_picks|couple_reads_event_build_picks	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
 policy	public.event_build_picks|couple_updates_event_build_picks	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type))))
-policy	public.event_category_build_state|couple_deletes_event_category_build_state	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
-policy	public.event_category_build_state|couple_inserts_event_category_build_state	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) AND (set_by = auth.uid()))
-policy	public.event_category_build_state|couple_reads_event_category_build_state	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
-policy	public.event_category_build_state|couple_updates_event_category_build_state	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type))))
 policy	public.event_category_decisions|couples manage category decisions	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=(event_id IN ( SELECT current_event_ids() AS current_event_ids))
 policy	public.event_category_decisions|members read own event category decisions	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
 policy	public.event_checklist_items|couple_writes_checklist	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin()) check=((event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) OR is_admin())
@@ -5657,8 +5632,6 @@ policy	public.event_day_requests|event_day_requests_event_read	mode=PERMISSIVE c
 policy	public.event_day_requests|event_day_requests_event_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text)) check=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text))
 policy	public.event_day_requests|event_day_requests_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = 'vendor'::day_request_origin) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
 policy	public.event_day_requests|event_day_requests_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((author_user_id = auth.uid()) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids))) check=NULL
-policy	public.event_delegates|event_delegates_couple_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_delegates.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid()))))))
-policy	public.event_delegates|event_delegates_couple_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_delegates.event_id) AND (em.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))))) OR (delegate_user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = auth.uid())))) check=NULL
 policy	public.event_deletion_requests|edr_admin_select_all	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.event_deletion_requests|edr_admin_update_all	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=is_admin() check=is_admin()
 policy	public.event_deletion_requests|edr_user_cancel_own	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((user_id = auth.uid()) AND (status = 'pending'::text)) check=((user_id = auth.uid()) AND (status = 'cancelled'::text))

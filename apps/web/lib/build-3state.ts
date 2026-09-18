@@ -12,9 +12,10 @@
  *   • Excluded — left out of the build; the implicit default / empty state.
  *
  * Resolved picks STILL land in the existing `event_build_picks` table, so the
- * Compare + Lock tabs (which read it) are unchanged. No schema change — the
- * `event_category_build_state` table already exists in prod (migration
- * 20261230000000); this PR is read/write only.
+ * Compare + Lock tabs (which read it) are unchanged. The per-group state table
+ * that once stored these (`event_category_build_state`) was dropped 2026-09-18
+ * (S37) — its grid and writers went 2026-07-29 — so a state map now only ever
+ * holds what `withAbsentQuotedAsAuto` synthesizes.
  *
  * This file is the PURE core (no DB, no React) — the resolution logic is
  * unit-tested in `build-3state.test.ts`. The DB side lives in
@@ -36,8 +37,8 @@ export function isBuildState(v: unknown): v is BuildState {
 
 /**
  * Reserved `plan_group_id` keys for the three always-present dimension rows
- * (Date · Budget · Location). They share the `event_category_build_state` table
- * with taxonomy rows but carry NO `pinned_vendor_id` — their Locked value lives
+ * (Date · Budget · Location). They shared the (now dropped) state table with
+ * taxonomy rows but carried NO `pinned_vendor_id` — their Locked value lives
  * on `events` (event_date / estimated_budget_centavos / region). The `_dim_`
  * prefix can never collide with a real `PlanGroupId` (those are bare slugs).
  */

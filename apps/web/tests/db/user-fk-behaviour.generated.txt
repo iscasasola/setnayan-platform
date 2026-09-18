@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 239 single-column FKs onto auth.users / public.users
-# CASCADE=60  RESTRICT=3  SET NULL=176
+# 235 single-column FKs onto auth.users / public.users
+# CASCADE=59  RESTRICT=3  SET NULL=173
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -66,7 +66,6 @@ event_action_log.performed_by_user_id                     SET NULL     nullable 
 event_bench_arrangement.set_by                            SET NULL     nullable  -> auth.users
 event_blocked_users.blocked_by_user_id                    SET NULL     nullable  -> users
 event_build_picks.picked_by                               SET NULL     nullable  -> auth.users
-event_category_build_state.set_by                         SET NULL     nullable  -> auth.users
 event_cluster_members.linked_by                           SET NULL     nullable  -> auth.users
 event_clusters.owner_user_id                              CASCADE      NOT NULL  -> auth.users
 event_colour_changes.actor_user_id                        SET NULL     nullable  -> users
@@ -76,9 +75,6 @@ event_colour_grants_coordinator.granted_by_user_id        SET NULL     nullable 
 event_costs.created_by_user_id                            SET NULL     nullable  -> auth.users
 event_day_requests.author_user_id                         SET NULL     nullable  -> auth.users
 event_day_requests.resolved_by_user_id                    SET NULL     nullable  -> auth.users
-event_delegates.delegate_user_id                          CASCADE      NOT NULL  -> users
-event_delegates.granted_by_user_id                        SET NULL     nullable  -> users
-event_delegates.revoked_by_user_id                        SET NULL     nullable  -> users
 event_deletion_requests.reviewed_by                       SET NULL     nullable  -> auth.users
 event_deletion_requests.user_id                           CASCADE      NOT NULL  -> auth.users
 event_egift_methods.created_by_user_id                    SET NULL     nullable  -> auth.users

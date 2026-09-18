@@ -109,10 +109,19 @@ export function PipelineStrip({
   reached,
   current,
   capAt = PIPELINE_STEPS.length - 1,
+  currentLabel,
 }: {
   reached: number;
   current: number;
   capAt?: number;
+  /**
+   * What the CURRENT rung says, when the fixed word is no longer the truth.
+   * Owner, 2026-09-18, on a client whose quote was accepted and who had asked
+   * to book: the strip still read "Quoted". The rung had not moved — a booking
+   * exists only once the supplier agrees — but the word was stale. See
+   * `lib/supplier-next-move.ts` (`pipelineCurrentLabel`).
+   */
+  currentLabel?: string | null;
 }) {
   const steps = PIPELINE_STEPS.slice(0, capAt + 1);
   return (
@@ -143,7 +152,7 @@ export function PipelineStrip({
                   isCurrent ? 'text-ink' : done ? 'text-ink/70' : 'text-ink/40'
                 }`}
               >
-                {s.label}
+                {isCurrent && currentLabel ? currentLabel : s.label}
               </span>
             </span>
             {i < steps.length - 1 ? (

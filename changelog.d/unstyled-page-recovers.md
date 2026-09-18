@@ -26,3 +26,14 @@ deploy. That is a candidate, not a finding.
   (9 cases, each sabotage-checked red), and pins the one `<head>` mount.
 
 SPEC IMPACT: None.
+
+### Also: `main`'s red unit test, fixed in the same PR
+`lib/answers-desk.test.ts` › "song_request stays withheld only while its cited
+defect is real" was failing on `main`. #5601 gave the song-request RPCs their
+first application callers (`app/[slug]/_components/song-request-card.tsx`,
+`app/api/song-requests/route.ts`), which made the withheld row's reason ("zero
+application callers") false. The test's own message says to update the row
+then. Following the SUP-53/58 precedent (56a271286), the row is dropped, the
+floor tracks the list (2 → 1), and the song-request-only check is retired
+because its subject is gone. `payment_claim` stays withheld; its reason is an
+owner decision.

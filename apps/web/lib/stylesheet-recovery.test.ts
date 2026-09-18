@@ -133,8 +133,8 @@ test('a good load clears the marker, so a failure after a LATER deploy gets its 
   assert.equal(r.store.has(STYLESHEET_RELOAD_KEY), false);
 });
 
-test('a stylesheet that is not our build (fonts, third parties) never triggers a reload', () => {
-  const r = run({ links: [link('https://fonts.googleapis.com/css2?family=X', null), link(APP_CSS, OK)] });
+test('a stylesheet that is not our build (a third party) never triggers a reload', () => {
+  const r = run({ links: [link('https://cdn.example.com/widget.css', null), link(APP_CSS, OK)] });
   r.load();
   assert.equal(r.reloads(), 0);
 });

@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6669
+# facts: 6668
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4900
 #   policy    910
 #   view      9
-#   func      260
+#   func      259
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6561,7 +6561,6 @@ func	public.papic_accept_ugc_terms(p_guest_id uuid)	secdef=yes exec=anon,authent
 func	public.papic_arm_challenge(p_mission_id uuid, p_duration_minutes smallint)	secdef=no exec=authenticated search_path=public
 func	public.papic_armed_challenge(p_event_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_camera_points_remaining(p_seat_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.papic_camera_remaining(p_seat_id uuid, p_kind text, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_challenge_ends_at(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_challenge_is_open(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_challenge_pick_counts()	secdef=yes exec=authenticated search_path=public

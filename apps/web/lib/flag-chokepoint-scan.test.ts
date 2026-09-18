@@ -190,6 +190,27 @@ const FLAGS: FlagSpec[] = [
     // objects and keep holding their slot whatever the app believes.
     locals: ['handshakeAsk'],
   },
+  {
+    // S9 · the venue-door throttle (2026-09-18). Ships OFF behind an OPEN owner
+    // decision — "the seat-claim trade". Server-only, so no NEXT_PUBLIC_ prefix;
+    // the four properties hold for it all the same.
+    env: 'VENUE_DOOR_THROTTLE_ENABLED',
+    helper: 'lib/venue-door-flag.ts',
+    fn: 'venueDoorThrottleEnabled',
+    gates: [
+      // The three doors that mint an anonymous session at a venue. Each asks
+      // the flag itself, so with it off the throttle is never even called.
+      'app/papic/actions.ts',
+      'app/panood/actions.ts',
+      'app/panood/guest-pick-actions.ts',
+    ],
+    pureCores: [
+      // Never reads the flag — which is what lets its unit suite drive every
+      // branch in one process.
+      'lib/venue-door-throttle.ts',
+    ],
+    locals: ['venueThrottleOn'],
+  },
 ];
 
 /** Strip comments — a docblock naming the helper must not read as a call. */

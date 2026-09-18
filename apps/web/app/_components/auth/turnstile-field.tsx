@@ -24,6 +24,10 @@ import {
   TURNSTILE_HOLDER_MIN_WIDTH_PX,
   TURNSTILE_WIDGET_SIZE,
 } from '@/lib/turnstile-submit-gate';
+import {
+  turnstileErrorGuidance,
+  turnstileErrorLogLine,
+} from '@/lib/turnstile-error-guidance';
 
 declare global {
   interface Window {
@@ -93,6 +97,12 @@ export function TurnstileField({ action }: { action?: string }) {
   const queuedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [waiting, setWaiting] = useState(false);
+  // 🔴 THE WHOLE POINT OF THIS STATE. Until 2026-09-18 a failed challenge left
+  // the person looking at Cloudflare's red box with no code and no way
+  // forward, and left the OWNER with no way to find out why — the error
+  // callback took no argument. An hour of an outage went into guessing at what
+  // this variable now simply says.
+  const [failure, setFailure] = useState<{ code: string; message: string } | null>(null);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !holderRef.current) return;
@@ -186,12 +196,26 @@ export function TurnstileField({ action }: { action?: string }) {
               release();
               form?.requestSubmit();
             }
+            // A retry that works must take the warning away with it.
+            setFailure(null);
           },
           'expired-callback': () => {
             if (inputRef.current) inputRef.current.value = '';
           },
-          'error-callback': () => {
+          /*
+            ⚠ THE PARAMETER IS THE POINT. Cloudflare hands us the error code
+            here; the previous version declared none and logged nothing, so the
+            one fact that explains the failure was discarded at the moment it
+            arrived. Never widen this back to `() => {}`.
+          */
+          'error-callback': (code: unknown) => {
             if (inputRef.current) inputRef.current.value = '';
+            // eslint-disable-next-line no-console
+            console.warn(turnstileErrorLogLine(code));
+            setFailure({
+              code: String(code ?? '').trim() || 'unknown',
+              message: turnstileErrorGuidance(code).message,
+            });
             // Do not hold a submit hostage to a check that has already failed.
             if (queuedRef.current) {
               release();
@@ -246,6 +270,16 @@ export function TurnstileField({ action }: { action?: string }) {
       {waiting ? (
         <p role="status" aria-live="polite" className="m-mono text-xs opacity-70">
           Checking you&rsquo;re human&hellip;
+        </p>
+      ) : null}
+      {failure ? (
+        <p
+          data-turnstile-error={failure.code}
+          role="status"
+          className="mt-2 text-xs leading-relaxed text-ink/70"
+        >
+          {failure.message}{' '}
+          <span className="text-ink/45">(code {failure.code})</span>
         </p>
       ) : null}
     </>

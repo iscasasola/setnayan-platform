@@ -206,6 +206,7 @@ async function loadSaid(
       .is('hard_deleted_at', null)
       .order('submitted_at', { ascending: true })
       .limit(20);
+    if (error) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:photo_messages.select', error);
     if (error || !data) return [];
     return data
       .map((r) => ({

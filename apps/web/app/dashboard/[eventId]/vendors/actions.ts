@@ -3720,6 +3720,7 @@ export async function searchMarketplaceVendorsByName(
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('marketplace_vendor_id', profileIds);
+  if (alreadyErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/actions.ts · from:event_vendors.select', alreadyErr);
   // We don't graceful-degrade alreadyErr — if event_vendors can't be
   // read the autocomplete is unusable. Treat as no-matches.
   if (alreadyErr) {

@@ -29,6 +29,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -48,10 +49,6 @@ const DOORS: Record<string, { rpc: string; action: string }> = {
   },
 };
 
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-}
-
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name === '.next') continue;
@@ -67,7 +64,10 @@ const ALL = ['app', 'lib']
   .map((f) => relative(WEB, f))
   .filter((rel) => !/\.test\.tsx?$/.test(rel));
 
-const read = (rel: string) => code(readFileSync(resolve(WEB, rel), 'utf8'));
+// The ONE comment stripper (lib/strip-comments.ts) — a home-grown two-replace
+// regex opens a block comment on a line comment containing `video/*` and blanks
+// everything to the next `*/`, and a guard then asserts against a blank.
+const read = (rel: string) => stripComments(readFileSync(resolve(WEB, rel), 'utf8'));
 
 /** Name of the `export async function` enclosing the FIRST match of `needle`. */
 function enclosingAction(src: string, needle: RegExp): string | null {

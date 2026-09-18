@@ -251,7 +251,13 @@ test('the couple’s page resolves the Lock destination from event_vendors and p
   const c = read(COUPLE);
   assert.equal(count(c, /lockHref=\{quoteLockHref\}/g), 1);
   assert.match(c, /eq\('marketplace_vendor_id', thread\.vendor_profile_id\)/, 'resolved by a guessed key');
-  assert.match(c, /\/dashboard\/\$\{eventId\}\/vendors\/\$\{pick\.vendor_id\}\/workspace/, 'not the workspace route');
+  /* ✏️ EVOLVED 2026-09-19 (AREA-CHAT). This asserted "the workspace route" —
+     a page with no Lock control, which #5614 then made redirect back to this
+     very thread. The lock door is now the shared rule (lib/lock-door.ts): the
+     bench, on the pick's category tile. The workspace route survives here
+     only as the ⋮ menu's base, every use of it carrying a ?tab=. */
+  assert.match(c, /quoteLockHref = coupleLockDoorHref\(eventId,/, 'the lock door is not the shared rule');
+  assert.doesNotMatch(c, /quoteLockHref = `[^`]*\/workspace`/, 'the lock link is the workspace again');
   // The thread NEVER books a quote itself: no lockDeal form is mounted on the card.
   const s = read(STREAM);
   const branch = s.slice(s.indexOf('if (m.proposal_id) {'), s.indexOf('if (negotiationOn && m.appointment_id)'));

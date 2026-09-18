@@ -40,6 +40,7 @@ import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
 import { initialsFor } from '@/lib/conversation-list';
+import { coupleLockDoorHref } from '@/lib/lock-door';
 
 export const metadata = { title: 'Thread' };
 
@@ -136,18 +137,26 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   /**
    * S5 · WHERE AN ACCEPTED QUOTE'S "ASK THEM TO LOCK" GOES. Accepting only
-   * shortlists the shop at a price; the couple's one booking action is Lock on
-   * that shop's workspace page (the same next step `/proposals/[publicId]`
-   * shows). Resolved the way accept wrote the row — (event_id,
+   * shortlists the shop at a price; the couple's one booking action is Lock,
+   * and the pick is resolved the way accept wrote the row — (event_id,
    * marketplace_vendor_id) — under the couple's own RLS. Null when there is no
    * row yet or the read fails: the card then shows the accepted note and no
    * button, never a guessed route.
+   *
+   * ⚠ TWO DOORS FROM ONE ROW, AND THEY ARE NOT THE SAME PLACE (AREA-CHAT,
+   * 2026-09-19). `workspaceHref` is the shop's workspace — the ⋮ menu's
+   * sections, each reached WITH a `?tab=`, because a bare workspace landing
+   * redirects straight back to this frame (#5614). `quoteLockHref` is where
+   * the Lock control actually mounts: the bench, on this pick's category tile
+   * (`lib/lock-door.ts`). Until today it pointed at the workspace, which holds
+   * no Lock, and after #5614 it reloaded this very page.
    */
+  let workspaceHref: string | null = null;
   let quoteLockHref: string | null = null;
   if (thread.vendor_profile_id) {
     const { data: pick, error: pickErr } = await supabase
       .from('event_vendors')
-      .select('vendor_id')
+      .select('vendor_id, category')
       .eq('event_id', thread.event_id)
       .eq('marketplace_vendor_id', thread.vendor_profile_id)
       .is('archived_at', null)
@@ -157,7 +166,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     if (pickErr) {
       console.error('[couple thread] lock workspace read refused', pickErr);
     } else if (pick?.vendor_id) {
-      quoteLockHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+      workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+      quoteLockHref = coupleLockDoorHref(eventId, (pick as { category?: string | null }).category ?? null);
     }
   }
 
@@ -552,13 +562,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 // keyed by `event_vendors.vendor_id`, resolved above for the
                 // Lock button, and null on a thread with no row yet.
                 links={
-                  quoteLockHref
+                  workspaceHref
                     ? [
-                        { href: `${quoteLockHref}?tab=quote`, label: 'Quote' },
-                        { href: `${quoteLockHref}?tab=payments`, label: 'Payments' },
-                        { href: `${quoteLockHref}?tab=files`, label: 'Files' },
-                        { href: `${quoteLockHref}?tab=schedule`, label: 'Schedule' },
-                        { href: `${quoteLockHref}?tab=details`, label: 'Booking details' },
+                        { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
+                        { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
+                        { href: `${workspaceHref}?tab=files`, label: 'Files' },
+                        { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
+                        { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
                       ]
                     : []
                 }

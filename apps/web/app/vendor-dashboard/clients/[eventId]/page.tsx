@@ -1733,7 +1733,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   return (
     <RelationshipTabShell
       tabs={tabs}
-      initialTabId="chat"
+      // The tab the URL names, painted on the SERVER. "chat" is a link tab and
+      // can never be active, so it fell through to the first panel (Quote) and
+      // the shell only switched to `?tab=details` after hydration — a door
+      // from the thread's ⋮ landed on the wrong section for one paint.
+      initialTabId={rawTab}
       contextRail={contextRail}
       header={
         <div>

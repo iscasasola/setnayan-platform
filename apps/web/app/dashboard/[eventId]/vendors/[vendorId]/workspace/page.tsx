@@ -866,8 +866,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     a door to the thread. Same mechanism, same reasons, as the supplier side:
     see app/vendor-dashboard/clients/[eventId]/page.tsx.
   */
+  const rawLanding = typeof search.tab === 'string' ? search.tab : undefined;
   if (relationshipShellEnabled && chatThread) {
-    const rawLanding = typeof search.tab === 'string' ? search.tab : undefined;
     if (!rawLanding || rawLanding === 'chat' || rawLanding === 'call') {
       redirect(`/dashboard/${eventId}/messages/${chatThread.thread_id}`);
     }
@@ -2748,7 +2748,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   return (
     <RelationshipTabShell
       tabs={tabs}
-      initialTabId="chat"
+      // The tab the URL names, painted on the server — "chat" is a link tab
+      // and can never be active (see the client page for the same note).
+      initialTabId={rawLanding}
       contextRail={contextRail}
       header={
         <div className="space-y-4">

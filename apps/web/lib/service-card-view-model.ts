@@ -95,6 +95,13 @@ export type ServiceCard = {
   /** Vendor-level trusted rating shown inside the record block. SHOP-wide, not
    *  per-card: reviews carry no service dimension. null → no stars. */
   recordRating: CardRecordRating | null;
+  /**
+   * SUP-4 (2026-09-18): the supplier said yes to the Setnayan gift on this card
+   * (`vendor_services.includes_setnayan_gift`). Drives the ONE shared gift line
+   * (`SetnayanGiftLine`), so a couple sees it while CHOOSING, not only once a
+   * card is offered in chat. A yes/no — never a photo count (see that file).
+   */
+  givesSetnayanGift: boolean;
 };
 
 export function toServiceCard(
@@ -267,5 +274,6 @@ export function toServiceCard(
     // advertise its emptiness).
     record: cardRecordHasSomethingToSay(cardRecord) ? cardRecord : null,
     recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
+    givesSetnayanGift: row.includes_setnayan_gift === true,
   };
 }

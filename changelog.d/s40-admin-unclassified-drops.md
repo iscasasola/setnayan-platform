@@ -36,4 +36,13 @@ one-line reason inline — not a silent trim), `tests/db/user-delete-fk-surface.
 `tests/db/user-fk-behaviour.generated.txt` (regenerated via `UPDATE_FK_BEHAVIOUR=1`). All 66 tests in
 the affected db-test files pass.
 
+**CI follow-up (2026-09-19):** dropping `bespoke_monogram_generations` left
+`apps/web/tests/db/ugat-concept.baseline.txt`'s `bespoke_monogram_* | map-backlog —
+monogram generation (iteration 0037)` line matching no table — that prefix was only
+ever used by this one table (`20261112000000_bespoke_monogram_studio.sql`), and this
+PR is what dropped it. `ugat-concept-coverage.db.test.ts`'s stale-baseline check
+(`not ok 2574`) caught it correctly: deleted the line rather than weakening the
+check. All 6 `ugat-*` db tests plus the exposure-freeze and user-FK db tests re-run
+clean after the merge with `main`.
+
 SPEC IMPACT: None — pure dead-code/dead-schema removal, no product behavior change.

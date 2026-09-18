@@ -11,7 +11,7 @@
  *   1. someone ELSE's card (owner scoping)
  *   2. a second claim on the original's HISTORY (bookings, record, address)
  *   3. an edit of the original (the maker posts no id, so it can only insert)
- *   4. a silent loss (the options that cannot come across are said out loud)
+ *   4. a silent loss (whether the ★ options came across is said out loud)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,14 +39,15 @@ function code(path: string): string {
 
 test('the source card is read owner-scoped, on EVERY read', () => {
   const src = code(COPY);
-  // Two reads name a service id from the URL: the card itself and its bundle
-  // links. Both must also name the profile. RLS is a FLOOR, not a scope — this
-  // repo has already shipped a read that leaned on a policy whose second
-  // disjunct (`OR is_admin()`) made it wider than the caller.
+  // Three reads name a service id from the URL: the card itself, its bundle
+  // links, and (SUP-40) the ★ package linked to it. All three must also name
+  // the profile. RLS is a FLOOR, not a scope — this repo has already shipped a
+  // read that leaned on a policy whose second disjunct (`OR is_admin()`) made
+  // it wider than the caller.
   assert.equal(
     [...src.matchAll(/\.eq\('vendor_profile_id', vendorProfileId\)/g)].length,
-    2,
-    'both the card read and the links read must filter on the vendor profile',
+    3,
+    'the card read, the links read and the package read must all filter on the vendor profile',
   );
   // A malformed id must not reach the database as a query at all.
   assert.match(src, /test\(sourceServiceId\)/, 'the id is shape-checked before use');
@@ -130,16 +131,16 @@ test('the maker can only INSERT — the original cannot be edited through it', (
   );
 });
 
-test('the copy discloses what it could NOT bring across', () => {
+test('the copy SAYS what happened to the ★ options, whichever way it went', () => {
   const canvas = readFileSync(CANVAS, 'utf8');
-  // The ★ Customization options live in a one-service package with no link back
-  // to the card. A copy that drops them silently is a card published missing
-  // the choices it sells, and the vendor finds out from a couple.
-  assert.match(
-    canvas,
-    /don’t come across yet/,
-    'the maker must say that the customization options were not copied',
-  );
+  // SUP-40: the options now come across when the source card's package names
+  // it. When they do not — no linked package, or a read that failed — the maker
+  // must say so in THAT outcome's words. A copy that drops them silently is a
+  // card published missing the choices it sells, and the vendor finds out from
+  // a couple. Each of the three outcomes has its own sentence.
+  assert.match(canvas, /came across too/, 'the maker must say the options were copied');
+  assert.match(canvas, /couldn’t read the options/, 'a failed read must be said, not shown as "none"');
+  assert.match(canvas, /are linked to that card, so none came across/, 'an unlinked card must be said');
   assert.match(canvas, /keeps its bookings/, 'and that the original is untouched');
 });
 

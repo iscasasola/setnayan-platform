@@ -110,6 +110,8 @@ type CouplePaymentAskRow = {
 };
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
+import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
+import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -566,6 +568,26 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     logQueryError('VendorWorkspacePage.handoverRows', handoverRowsError, { eventId }, 'graceful_degrade');
   }
   const handovers = (handoverRows ?? []) as HandoverRow[];
+
+  // DAY-10 · the supplier's day-of shot list (event_shot_list_items), read
+  // through event_shot_list_items_event_read. Only a marketplace supplier can
+  // keep one — a manual vendor has no console. `unreadable` is carried to the
+  // render so a refused read never says "they haven't shared one".
+  let shotList: ShotListCardState | null = null;
+  if (ev.marketplace_vendor_id) {
+    const { data: shotRows, error: shotRowsError } = await supabase
+      .from('event_shot_list_items')
+      .select('item_id, vendor_profile_id, label, position, captured_at')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .order('position', { ascending: true });
+    if (shotRowsError || !shotRows) {
+      logQueryError('VendorWorkspacePage.shotList', shotRowsError, { eventId }, 'graceful_degrade');
+      shotList = { state: 'unreadable' };
+    } else {
+      shotList = { state: 'ok', rows: shotRows as ShotRow[] };
+    }
+  }
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
   const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
@@ -1766,6 +1788,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             handovers={handovers}
             canAdvanceToDelivered={canAdvanceToDelivered}
           />
+
+          {/*
+            DAY-10 · Shot list — the supplier's must-get shots from their day-of
+            console, read-only, with what has been captured so far.
+          */}
+          {shotList ? (
+            <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
+          ) : null}
 
           {vendorBudgetSummary ? (
             <VendorItemizationCard

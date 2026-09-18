@@ -36,6 +36,7 @@ import {
 } from '@/lib/plan-groups-by-event-type';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import {
   buildCockpitModel,
   type CockpitDecision,
@@ -371,7 +372,9 @@ export async function EventDashboard({
           // price the lock wrote. A refused embed refuses the whole read, which
           // `vendorsMeasured` below already reports honestly.
           .select(
-            `vendor_id, vendor_name, category, status, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+            // `lock_request_state` (SUP-69): an asked-and-waiting category is not
+            // a "go book" decision — see `hasOutstandingAsk`.
+            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
@@ -906,7 +909,13 @@ export async function EventDashboard({
   // overdue category — i.e. it hands a finished celebration a job to do.
   const topPriorityTask =
     marketplaceEnabled && !eventHasHappened && event.event_date && eventDatePrecision === 'day'
-      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
+      ? pickTodaysOneThing(
+          vendorRowInputs,
+          event.event_date,
+          now,
+          eventPlanGroups,
+          isLockHandshakeEnabled(),
+        )
       : null;
 
   const paperworkRows = (paperworkRes.data ?? []) as PaperworkRow[];
@@ -996,6 +1005,7 @@ export async function EventDashboard({
       vendors: vendorRowInputs,
       sponsors: sponsorRows,
       topPriorityTask,
+      lockHandshakeEnabled: isLockHandshakeEnabled(),
       paperwork: paperworkRows
         .filter((r) => r.status !== 'received' && r.status !== 'expired')
         .map((r) => ({

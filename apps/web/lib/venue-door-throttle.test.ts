@@ -24,6 +24,7 @@ import {
   VENUE_DOOR_STATE,
 } from '@/lib/venue-door-throttle';
 import { JOIN_DOOR_LIMIT, JOIN_DOOR_WINDOW_SECS } from '@/lib/join-door-throttle';
+import { stripComments } from '@/lib/strip-comments';
 
 const IP = { 'x-vercel-forwarded-for': '203.0.113.7' };
 const hdrs = (init: Record<string, string>) => new Headers(init);
@@ -45,8 +46,8 @@ test('allowed when the limiter says ok, and it asks with the venue sizing', asyn
   const d = await allowVenueDoorAttempt(VENUE_DOORS.papicSeatClaim, null, hdrs(IP), { limiter });
   assert.deepEqual(d, { allowed: true, retryAfterSecs: 0, reason: 'ok' });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].bucket, VENUE_DOORS.papicSeatClaim);
-  assert.deepEqual(calls[0].opts, { limit: VENUE_DOOR_LIMIT, windowSecs: VENUE_DOOR_WINDOW_SECS });
+  assert.equal(calls[0]!.bucket, VENUE_DOORS.papicSeatClaim);
+  assert.deepEqual(calls[0]!.opts, { limit: VENUE_DOOR_LIMIT, windowSecs: VENUE_DOOR_WINDOW_SECS });
 });
 
 test('refused on a real ok:false, carrying the limiter\'s retry-after', async () => {
@@ -104,7 +105,7 @@ test('the claim doors key on the connection, never the token: a new token meets 
   const { calls, limiter } = recording({ ok: true, retryAfterSecs: 0, remaining: 1 });
   await allowVenueDoorAttempt(VENUE_DOORS.papicSeatClaim, null, hdrs(IP), { limiter });
   await allowVenueDoorAttempt(VENUE_DOORS.papicSeatClaim, null, hdrs(IP), { limiter });
-  assert.equal(calls[0].ident, calls[1].ident);
+  assert.equal(calls[0]!.ident, calls[1]!.ident);
 });
 
 test('doors, events and connections each get their own bucket', () => {
@@ -127,10 +128,8 @@ test('the venue sizing IS the join door\'s — one number for "a room behind one
 // ── the wiring: behind the flag, before the mint, at all three doors ─────────
 
 const WEB = join(__dirname, '..');
-/** Strip comments so a docblock mentioning a call can never satisfy the guard. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/.*$/gm, '');
-}
+/** Comments stripped so a docblock mentioning a call can never satisfy the guard. */
+const code = (src: string): string => stripComments(src);
 function indices(src: string, needle: string): number[] {
   const out: number[] = [];
   for (let i = src.indexOf(needle); i !== -1; i = src.indexOf(needle, i + 1)) out.push(i);
@@ -154,10 +153,10 @@ for (const d of DOORS) {
     assert.equal(mint.length, 1, 'expected exactly one anonymous mint');
     assert.equal(call.length, 1, 'expected exactly one venue throttle');
     assert.equal(flag.length, 1, 'expected exactly one flag read');
-    assert.ok(flag[0] < call[0], 'the flag must be asked before the throttle runs');
-    assert.ok(call[0] < mint[0], 'the throttle must run BEFORE signInAnonymously');
+    assert.ok(flag[0]! < call[0]!, 'the flag must be asked before the throttle runs');
+    assert.ok(call[0]! < mint[0]!, 'the throttle must run BEFORE signInAnonymously');
     // …and it must be THIS door's bucket and scope, not a copy-pasted sibling's.
-    const args = src.slice(call[0], src.indexOf(')', call[0]));
+    const args = src.slice(call[0]!, src.indexOf(')', call[0]!));
     assert.match(args, new RegExp(`VENUE_DOORS\\.${d.door}\\s*,\\s*${d.scope}\\s*,`));
   });
 }
@@ -171,7 +170,7 @@ test('the claim doors run the throttle BEFORE the admin token lookup', () => {
     const call = indices(src, 'allowVenueDoorAttempt(');
     const look = indices(src, lookup);
     assert.equal(look.length, 1, `${file}: ${lookup} count`);
-    assert.ok(call[0] < look[0], `${file}: throttle must precede ${lookup}`);
+    assert.ok(call[0]! < look[0]!, `${file}: throttle must precede ${lookup}`);
   }
 });
 

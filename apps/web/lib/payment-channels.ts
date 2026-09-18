@@ -110,6 +110,52 @@ export function resolveChannel(
   return open[0] ?? null;
 }
 
+/**
+ * What a buyer is told when every rail is closed. ONE sentence for every
+ * surface — couple checkout, every supplier buy button, the /pay page — so the
+ * owner switching a rail off reads the same wherever somebody meets it.
+ */
+export const PAYMENTS_PAUSED_MESSAGE =
+  'Payments are paused right now while we switch receiving accounts. Please try again shortly — nothing has been charged.';
+
+/** Account details a panel may PRINT: a closed rail's are nulled. */
+export type OpenRailDetails = {
+  bdoName: string | null;
+  bdoNumber: string | null;
+  gcashName: string | null;
+  gcashNumber: string | null;
+  /** The rails that are open — the same list `openChannels` returns, so a
+   *  panel's "Pay with" choice and the numbers it prints cannot disagree. */
+  open: PayChannel[];
+};
+
+/**
+ * The account names and numbers a page may put on screen — only for rails
+ * that are open.
+ *
+ * ⚠ Exists because two supplier panels (the branch "How to pay" box and the
+ * Custom-plan configurator) copied `settings.bdo_account_number` and
+ * `settings.gcash_number` straight into props. Printing a number IS offering
+ * the rail, so the switch has to be asked at the moment the number is picked
+ * up, not later by whoever renders it.
+ */
+export function openRailDetails(
+  settings: ChannelSettings & {
+    bdo_account_name?: string | null;
+    gcash_account_name?: string | null;
+  },
+): OpenRailDetails {
+  const bdo = isChannelOpen(settings, 'bdo');
+  const gcash = isChannelOpen(settings, 'gcash');
+  return {
+    bdoName: bdo ? (settings.bdo_account_name ?? null) : null,
+    bdoNumber: bdo ? (settings.bdo_account_number ?? null) : null,
+    gcashName: gcash ? (settings.gcash_account_name ?? null) : null,
+    gcashNumber: gcash ? (settings.gcash_number ?? null) : null,
+    open: openChannels(settings),
+  };
+}
+
 export type CapBand = 'ok' | 'warn' | 'critical' | 'over';
 
 /**

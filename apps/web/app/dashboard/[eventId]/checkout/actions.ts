@@ -47,7 +47,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { resolveChannel } from '@/lib/payment-channels';
+import { resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -332,8 +332,7 @@ export async function submitOrderAction(
   if (!openChannel) {
     return {
       ok: false,
-      reason:
-        'Payments are paused right now while we switch receiving accounts. Please try again shortly — nothing has been charged.',
+      reason: PAYMENTS_PAUSED_MESSAGE,
     };
   }
   if (openChannel !== channel) {

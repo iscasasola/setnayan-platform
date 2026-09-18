@@ -8,6 +8,7 @@ import { mintOrderQr } from '@/lib/emv-qr';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
+import { isChannelOpen } from '@/lib/payment-channels';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -129,14 +130,15 @@ export default async function PayPage({ params, searchParams }: Props) {
     staticUrl: settings.gcash_qr_url,
     number: settings.gcash_number,
     name: settings.gcash_account_name,
-    enabled: settings.gcash_enabled !== false,
+    // The ONE rule (switch AND something to pay to), never the flag alone.
+    enabled: isChannelOpen(settings, 'gcash'),
   };
   const bdo: ChannelInfo = {
     payload: mintOrderQr(settings.bdo_qr_payload, payable.amountPhp),
     staticUrl: settings.bdo_qr_url,
     number: settings.bdo_account_number,
     name: settings.bdo_account_name,
-    enabled: settings.bdo_enabled !== false,
+    enabled: isChannelOpen(settings, 'bdo'),
   };
 
   const activates = payable.isVendorPlan

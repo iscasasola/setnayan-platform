@@ -202,5 +202,5 @@ test('the section stands in the retired slot, booked-only, and explains every st
     assert.ok(section.includes(state), `state branch present: ${state}`);
   }
   assert.ok(section.includes('fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId)'), 'order state read with ADMIN — a teammate\'s order has another user_id');
-  assert.ok(section.includes('<BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} />'), 'the buy form is reached only in the buyable state');
+  assert.ok(section.includes('<BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />'), 'the buy form is reached only in the buyable state');
 });

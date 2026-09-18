@@ -5,6 +5,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 
 /**
  * The paying half of /pay/[reference] — steps 2 and 3, plus the bar that keeps
@@ -79,6 +80,20 @@ export function PayPanel({
     <>
       <section id="payCard" className="sn-tile mt-5 scroll-mt-4 p-6">
         <StepHead n={2} title="Pay this exact amount" />
+        {/*
+          🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
+          receiving cap and the owner switched them off — a transfer now
+          fails at the bank. Show no QR and no number (the fallback tab
+          below would otherwise hand out BDO's with BDO switched off).
+          The proof form further down stays: somebody who paid before the
+          switch still needs to send their picture.
+        */}
+        {!gcash.enabled && !bdo.enabled ? (
+          <p role="status" className="rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/75">
+            {PAYMENTS_PAUSED_MESSAGE}
+          </p>
+        ) : (
+        <>
         <div className="flex gap-2">
           <ChannelTab
             label="GCash"
@@ -114,6 +129,8 @@ export function PayPanel({
             I&rsquo;ve paid &mdash; send my proof
           </button>
         </div>
+        </>
+        )}
 
         <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
           Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s

@@ -22,6 +22,8 @@ import {
   type CustomUnitPrices,
 } from '@/lib/vendor-custom-pricing';
 import { requestCustomPlan } from '../actions';
+import { type OpenRailDetails, type PayChannel } from '@/lib/payment-channels';
+import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 
 /**
  * Custom-plan configurator (client). Renders the 7 composition controls, shows
@@ -33,12 +35,9 @@ import { requestCustomPlan } from '../actions';
  * No discount control (admin-only · PR-C) — the vendor always composes at LIST.
  */
 
-type PayInfo = {
-  bdoName: string | null;
-  bdoNumber: string | null;
-  gcashName: string | null;
-  gcashNumber: string | null;
-};
+/** openRailDetails(settings) — a CLOSED rail's name and number arrive null,
+ *  and `open` lists the rails the owner has left ON. */
+type PayInfo = OpenRailDetails;
 
 type Props = {
   unitPrices: CustomUnitPrices;
@@ -80,7 +79,10 @@ export function CustomConfigurator({
   const [comp, setComp] = useState<CustomComposition>(
     activeComposition ?? BASE_COMPOSITION,
   );
-  const [channel, setChannel] = useState<'bdo' | 'gcash'>('bdo');
+  // Only the rails the owner has left open; BDO first, as before.
+  const rails = (['bdo', 'gcash'] as const).filter((r) => pay.open.includes(r));
+  const [channel, setChannel] = useState<PayChannel>(rails[0] ?? 'bdo');
+  const paused = rails.length === 0;
   const [submitting, setSubmitting] = useState(false);
 
   const quote = useMemo(
@@ -331,8 +333,9 @@ export function CustomConfigurator({
                 <p className="text-[11px] uppercase tracking-[0.12em] text-ink/50">
                   Pay with
                 </p>
+                {paused ? <PaymentsPausedNote className="mt-1.5" /> : null}
                 <div className="mt-1.5 grid grid-cols-2 gap-2">
-                  {(['bdo', 'gcash'] as const).map((ch) => (
+                  {rails.map((ch) => (
                     <button
                       key={ch}
                       type="button"
@@ -365,7 +368,7 @@ export function CustomConfigurator({
 
               <button
                 type="submit"
-                disabled={!canRequest || submitting}
+                disabled={!canRequest || submitting || paused}
                 className="mt-4 w-full rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {submitting ? 'Sending…' : 'Request this plan'}

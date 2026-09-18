@@ -6,11 +6,24 @@
 import { useActionState } from 'react';
 import { buyBoothBrandingForEvent, type BoothEventActionState } from '../booth-event-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 
-export function BoothEventBuyForm({ eventId, pricePhp }: { eventId: string; pricePhp: number }) {
+export function BoothEventBuyForm({
+  eventId,
+  pricePhp,
+  openRails,
+}: {
+  eventId: string;
+  pricePhp: number;
+  /** openChannels(settings) — empty = payments paused; the form gives way to
+   *  PaymentsPausedNote (the server action refuses the same case). */
+  openRails: readonly PayChannel[];
+}) {
   const [state, action] = useActionState<BoothEventActionState, FormData>(buyBoothBrandingForEvent, {
     status: 'idle',
   });
+  if (openRails.length === 0) return <PaymentsPausedNote className="mt-3" />;
   return (
     <form action={action} className="mt-3 flex flex-wrap items-center gap-2">
       <input type="hidden" name="event_id" value={eventId} />
@@ -20,11 +33,16 @@ export function BoothEventBuyForm({ eventId, pricePhp }: { eventId: string; pric
       <select
         id="booth-event-channel"
         name="channel"
-        defaultValue="gcash"
         className="h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
       >
-        <option value="gcash">GCash</option>
-        <option value="bdo">BDO</option>
+        {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
+        {(['gcash', 'bdo'] as const)
+          .filter((r) => openRails.includes(r))
+          .map((r) => (
+            <option key={r} value={r}>
+              {PAY_CHANNEL_LABEL[r]}
+            </option>
+          ))}
       </select>
       <SubmitButton
         pendingLabel="Starting your order"

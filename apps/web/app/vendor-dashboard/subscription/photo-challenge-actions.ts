@@ -11,6 +11,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { appendLedger } from '@/lib/ledger';
 import { payPath } from '@/lib/pay-path';
+import { railForNewOrder } from '@/lib/rail-for-new-order';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   addonIsFreeUnderFirst5,
@@ -88,9 +90,6 @@ function generateReferenceCode(): string {
   );
 }
 
-function parseChannel(raw: FormDataEntryValue | null): 'bdo' | 'gcash' {
-  return String(raw ?? '').trim() === 'gcash' ? 'gcash' : 'bdo';
-}
 
 /**
  * Where to send the caller back to after a ₱0 activation. Taken from the form
@@ -305,7 +304,10 @@ export async function sponsorPhotoChallenge(
   }
 
   // ── Apply-then-pay: a submitted order + a pending payment row ───────────────
-  const channel = parseChannel(formData.get('channel'));
+  // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
+  // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const referenceCode = generateReferenceCode();
 
   // ── SEC-4b · service-role mint ─────────────────────────────────────────────

@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { railForNewOrder } from '@/lib/rail-for-new-order';
+import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -148,7 +150,10 @@ export async function requestCustomPlan(formData: FormData) {
     backErr('Get verified first — Custom plans are for verified stores.');
   }
 
-  const channel = formData.get('channel') === 'gcash' ? 'gcash' : 'bdo';
+  // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
+  // nobody can pay into.
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return backErr(PAYMENTS_PAUSED_MESSAGE);
   const composition = parseComposition(formData);
 
   // Re-price server-side from the admin-managed catalog (never trust the client

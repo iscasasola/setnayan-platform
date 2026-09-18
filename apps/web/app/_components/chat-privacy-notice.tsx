@@ -19,18 +19,39 @@ import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
  * place. Nothing was cut and nothing became dismissible: the 0019 lock says
  * pinned and non-dismissible, and this keeps both.
  */
+/**
+ * ── TWO READERS, ONE NOTICE (owner, 2026-09-18) ─────────────────────────────
+ * The 0019 lock says the notice is pinned on BOTH sides. Its canonical string
+ * is written to the couple — "your vendor sees what they need from your
+ * profile" — and for four months that exact sentence was pinned above the
+ * SUPPLIER's conversation too, telling a shop about "your vendor". The owner
+ * read it on the client page and named it. The supplier's line says the same
+ * thing from the supplier's side: what they need is already here, and asking
+ * for the listed items in chat is what the couple is told to report.
+ *
+ * `viewer` picks the reader. The couple's string is unchanged, byte for byte.
+ */
 const COPY = {
   'en-PH': {
-    lead: 'All your event info is already in Setnayan',
-    body: '— your vendor sees what they need from your profile. Please don’t share private info in chat.',
-    examples: 'government IDs · card numbers · full addresses · OTPs · passwords',
-    report: 'If a vendor asks for these, report it via Help.',
+    couple: {
+      lead: 'All your event info is already in Setnayan',
+      body: '— your vendor sees what they need from your profile. Please don’t share private info in chat.',
+      examples: 'government IDs · card numbers · full addresses · OTPs · passwords',
+      report: 'If a vendor asks for these, report it via Help.',
+    },
+    vendor: {
+      lead: 'Everything you need for this event is already in Setnayan',
+      body: '— their profile and this conversation carry it. Never ask for private info in chat.',
+      examples: 'government IDs · card numbers · full addresses · OTPs · passwords',
+      report: 'Couples are told to report a vendor who asks for these.',
+    },
   },
   // TL / CEB placeholders — wire the locale key now, copy lands in the next
   // locale pass (per spec § Gate "EN required; TL + CEB strings TBD").
 } as const;
 
 type Locale = keyof typeof COPY;
+export type ChatPrivacyViewer = 'couple' | 'vendor';
 
 /**
  * `inBox` — rendered as a flush line inside the chat box's frame (border-b,
@@ -48,11 +69,15 @@ const TOGGLE =
 export function ChatPrivacyNotice({
   locale = 'en-PH',
   inBox = false,
+  viewer = 'couple',
 }: {
   locale?: Locale | string;
   inBox?: boolean;
+  /** Who is reading — the string is addressed to them. Defaults to the couple,
+   *  the 0019 canonical reader; every supplier mount must say `vendor`. */
+  viewer?: ChatPrivacyViewer;
 }) {
-  const strings = COPY[(locale as Locale) in COPY ? (locale as Locale) : 'en-PH'];
+  const strings = COPY[(locale as Locale) in COPY ? (locale as Locale) : 'en-PH'][viewer];
   const [more, setMore] = useState(false);
   return (
     <div

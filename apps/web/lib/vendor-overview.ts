@@ -8,7 +8,7 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -54,7 +54,8 @@ import {
  *        · A quote, and a contract, written and never sent.
  *   2. ONGOING     — the vendor's open tasks: unanswered inquiries and booking
  *        asks. (Draft contracts moved INTO the feed — one thing, one list.)
- *   3. UPCOMING    — the next booked events by date (schedule-pool bookings).
+ *   3. UPCOMING    — the next booked events by date (`fetchVendorRoomEvents`:
+ *        the pool, plus agreed-lock and claimed Locked-QR bookings — SUP-8).
  *
  * DATA-SOURCE HONESTY (per the build brief — never invent a number):
  *   · Inquiries / reviews / contracts / handovers / schedule-pool bookings are
@@ -219,6 +220,16 @@ export type OngoingTask = {
   href: string;
 };
 
+/**
+ * The React id of an Upcoming row: (event, date), the key `dedupe` in
+ * `vendor-room-access-rule.ts` already makes unique. Never `poolBookingId` —
+ * an agreed or Locked-QR booking has none, and every such row would share
+ * `up-null`.
+ */
+export function upcomingRowId(b: { eventId: string; bookedDate: string }): string {
+  return `up-${b.eventId}-${b.bookedDate}`;
+}
+
 /** A single row in "Upcoming schedules". */
 export type UpcomingEventRow = {
   id: string;
@@ -290,7 +301,7 @@ export async function fetchVendorOverviewData(
     threads,
     reviews,
     contracts,
-    poolBookings,
+    roomBookings,
     disputes,
     meetingProposals,
     draftQuotes,
@@ -300,10 +311,14 @@ export async function fetchVendorOverviewData(
       () => [],
     ),
     fetchVendorContracts(supabase, vendorProfileId).catch(() => []),
-    // LEFT ON THE POOL READ, and this one is a real gap, named not fixed: the
-    // upcoming list keys its React ids on poolBookingId, which an agreed booking
-    // does not have. Widening it needs a stable id first — its own change.
-    fetchVendorPoolBookings(supabase, vendorProfileId).catch(() => []),
+    // SUP-8 · OFF THE POOL READ. The schedule pool has one writer, reached by
+    // one booking path, so a supplier who pressed Agree (`vendor_agree_to_lock`)
+    // or whose Locked QR a couple claimed held no pool row and was missing from
+    // their own Upcoming list. `fetchVendorRoomEvents` is the same three-arm
+    // answer every day-of screen already uses. What held it back was the row
+    // id (keyed on `poolBookingId`, which those bookings lack); it is now keyed
+    // on (event, date), which `dedupe` makes unique by construction.
+    fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => []),
     fetchDisputedHandovers(supabase, vendorProfileId),
     // Both read under the vendor's OWN session: event_appointments carries a
     // vendor-read policy keyed on vendor_profile_id, and vendor_proposals is the
@@ -338,7 +353,7 @@ export async function fetchVendorOverviewData(
   // Event-region + venue + name for every event referenced by an inquiry or a
   // booking — one batched read.
   const inquiryEventIds = pendingThreads.map((t) => t.event_id);
-  const bookingEventIds = poolBookings.map((b) => b.eventId);
+  const bookingEventIds = roomBookings.map((b) => b.eventId);
   /*
     🔴 THE REQUEST FETCHES MOVED AHEAD OF `fetchEventMeta`, AND IT IS A BUG FIX.
     They used to run in the SAME `Promise.all` as the meta lookup, so their
@@ -697,7 +712,7 @@ export async function fetchVendorOverviewData(
 
   // --- Assemble UPCOMING (next 5 booked events by date) ----------------------
   const today = todayManila();
-  const upcoming: UpcomingEventRow[] = poolBookings
+  const upcoming: UpcomingEventRow[] = roomBookings
     .filter((b) => new Date(`${b.bookedDate}T00:00:00`).getTime() >= today.getTime())
     .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate))
     .slice(0, 5)
@@ -705,7 +720,7 @@ export async function fetchVendorOverviewData(
       const meta = eventMeta.get(b.eventId);
       const inDays = daysUntil(b.bookedDate) ?? 0;
       return {
-        id: `up-${b.poolBookingId}`,
+        id: upcomingRowId(b),
         eventId: b.eventId,
         eventName: b.eventName,
         date: b.bookedDate,
@@ -747,6 +762,12 @@ export type VendorEarningsSummary = {
   confirmedPhp: number;
   /** Total booked installment value across booked events (pesos). */
   expectedPhp: number;
+  /**
+   * FALSE when the payday read was refused — then confirmedPhp/expectedPhp are
+   * 0 because nothing was measured, NOT because nothing is booked, and the tile
+   * must say "couldn't load" instead of "No booked installments yet".
+   */
+  paydayMeasured: boolean;
 };
 
 /**
@@ -775,7 +796,11 @@ export async function fetchVendorEarningsSummary(
     // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
     (async () => {
       const { data, error } = await supabase.rpc('vendor_payday_installments');
-      const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
+      if (error) {
+        logQueryError('vendor-overview: vendor_payday_installments', error);
+        return null; // unmeasured — never a ₱0 that reads as "nothing booked"
+      }
+      const rows = (data ?? []) as unknown as PaydayInstallmentRow[];
       return buildPaydayTimeline(rows, manilaTodayIso()).totals;
     })().catch(() => null),
   ]);
@@ -787,6 +812,7 @@ export async function fetchVendorEarningsSummary(
     bookingCount: earnings.length,
     confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
     expectedPhp: paydayTotals?.expectedPhp ?? 0,
+    paydayMeasured: paydayTotals !== null,
   };
 }
 

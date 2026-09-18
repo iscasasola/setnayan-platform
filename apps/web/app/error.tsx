@@ -8,8 +8,11 @@ import Link from 'next/link';
 // Root error boundary — brand-voice per feedback_setnayan_no_dev_text_post_launch
 // lock. Next.js auto-mounts this for any unhandled exception in a route segment.
 // Must be a Client Component (Next.js requirement for error boundaries).
-// Sentry SDK already captures the error via the global handler wired in
-// instrumentation.ts (iteration 0035 Observability) — no manual logging needed.
+// Sentry SDK already captures the error via the browser SDK, lazy-loaded
+// post-hydration by app/_components/deferred-observability.tsx (iteration
+// 0035 Observability) — no manual logging needed. This boundary is a Client
+// Component (Next.js requirement, per the comment above), so instrumentation.ts
+// (server-only) never runs for it.
 
 type Props = {
   error: Error & { digest?: string };

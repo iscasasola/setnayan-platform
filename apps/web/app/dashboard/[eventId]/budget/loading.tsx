@@ -21,5 +21,5 @@ import { ListPageSkeleton } from '@/components/skeletons';
  * either. Change the page's stat strip and that guard tells you to change this.
  */
 export default function BudgetLoading() {
-  return <ListPageSkeleton rows={6} toolbar={false} stats={4} actions={1} />;
+  return <ListPageSkeleton rows={6} toolbar={false} stats={4} actions={3} />;
 }

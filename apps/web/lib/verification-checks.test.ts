@@ -14,7 +14,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  comparePayoutName,
   grantWarning,
+  nameTokens,
   resolveDocumentLocation,
   runVerificationChecks,
   sortForReview,
@@ -69,6 +71,9 @@ function cleanFacts(over: Partial<CheckFacts> = {}): CheckFacts {
     contactPhoneConfirmedAt: '2026-09-01T02:05:00.000Z',
     inBusinessSinceYear: 2019,
     experienceVerifiedAt: '2026-09-03T00:00:00.000Z',
+    registeredBusinessName: 'Banawe Blooms',
+    businessOwnerName: 'Maria Clara Santos',
+    payoutAccounts: [{ label: 'GCash', accountName: 'BANAWE BLOOMS' }],
     ...over,
   };
 }
@@ -146,6 +151,9 @@ test('"all manual" is a case, never a mode — it is simply every check landing 
       contactPhoneConfirmedAt: null,
       inBusinessSinceYear: null,
       experienceVerifiedAt: null,
+      registeredBusinessName: null,
+      businessOwnerName: null,
+      payoutAccounts: null,
     },
     NOW,
   );
@@ -172,6 +180,7 @@ test('every check keeps a stable key, and the set does not silently shrink', () 
     'identity_meeting',
     'shop_reachable',
     'declared_experience',
+    'payout_account_name',
   ]) {
     assert.ok(keys.includes(expected), `the "${expected}" check disappeared`);
   }
@@ -211,6 +220,7 @@ test('EVERY mismatch carries two named sides with two sources — never bare "ne
     { contactPhone: null, hqAddress: null },
     { inBusinessSinceYear: 2031 },
     { registryAnswer: { kind: 'no_match' } },
+    { payoutAccounts: [{ label: 'GCash', accountName: 'Pedro Reyes' }] },
   ];
   let seen = 0;
   for (const over of scenarios) {
@@ -702,4 +712,114 @@ test('nothing the desk draws names a table, a column, or a flag', () => {
   // to one entry makes the whole test pass on almost nothing — measured: 13
   // entries down to 1, still green. Proved by mutation, not assumed.
   assert.ok(checked > 300, `only ${checked} strings were checked — the battery has gone thin`);
+});
+
+// ---------------------------------------------------------------------------
+// SUP-27 · THE PAYOUT ACCOUNT IS IN THE BUSINESS'S OR THE OWNER'S NAME
+// ---------------------------------------------------------------------------
+
+function payout(over: Partial<CheckFacts>): CheckResult {
+  return byKey(runVerificationChecks(cleanFacts(over), NOW), 'payout_account_name');
+}
+
+test('name tokens fold case, accents, punctuation, suffixes, initials and order', () => {
+  assert.deepEqual(nameTokens('Banawe Blooms, Inc.'), nameTokens('BANAWE BLOOMS'));
+  assert.deepEqual(nameTokens('DELA CRUZ, JUAN P.'), nameTokens('Mr. Juan Dela Cruz Jr.'));
+  assert.deepEqual(nameTokens('Peñafrancia Florals'), nameTokens('PENAFRANCIA FLORALS'));
+  assert.deepEqual(nameTokens(null), []);
+  assert.deepEqual(nameTokens('  . , '), []);
+});
+
+test('comparePayoutName: same, overlap and unrelated are three different answers', () => {
+  assert.equal(comparePayoutName('BANAWE BLOOMS INC', 'Banawe Blooms'), 'same');
+  assert.equal(comparePayoutName('Saysay Live Band', 'Saysay Live Band & Hosting'), 'overlap');
+  assert.equal(comparePayoutName('Rosa Santos', 'Maria Clara Santos'), 'overlap');
+  assert.equal(comparePayoutName('Pedro Reyes', 'Banawe Blooms'), 'unrelated');
+  // A two-letter word in common is not an identity.
+  assert.equal(comparePayoutName('Al Reyes', 'Al Santos'), 'unrelated');
+});
+
+test('an account in the business name passes', () => {
+  const r = payout({});
+  assert.equal(r.outcome, 'pass', r.detail);
+});
+
+test("an account in the OWNER's name passes (a sole proprietor's own account)", () => {
+  const r = payout({ payoutAccounts: [{ label: 'BDO', accountName: 'SANTOS, MARIA CLARA' }] });
+  assert.equal(r.outcome, 'pass', r.detail);
+});
+
+test('the registry name counts, even when the profile name differs', () => {
+  const r = payout({
+    registeredBusinessName: null,
+    businessName: 'Blooms by Maria',
+    registryAnswer: { kind: 'match', registeredName: 'Banawe Floral Trading' },
+    payoutAccounts: [{ label: 'BPI', accountName: 'Banawe Floral Trading' }],
+  });
+  assert.equal(r.outcome, 'pass', r.detail);
+});
+
+test('a name that shares NOTHING is a mismatch, naming both sides', () => {
+  const r = payout({ payoutAccounts: [{ label: 'GCash', accountName: 'Pedro Reyes' }] });
+  assert.equal(r.outcome, 'mismatch');
+  assert.match(r.disagreement!.right.value, /Pedro Reyes/);
+  assert.match(r.disagreement!.right.value, /GCash/);
+  assert.match(r.disagreement!.left.value, /Banawe Blooms/);
+  assert.match(r.disagreement!.left.value, /Maria Clara Santos/);
+});
+
+test('ONE stranger among clean accounts is still a mismatch', () => {
+  const r = payout({
+    payoutAccounts: [
+      { label: 'GCash', accountName: 'Banawe Blooms' },
+      { label: 'Maya', accountName: 'Pedro Reyes' },
+    ],
+  });
+  assert.equal(r.outcome, 'mismatch');
+  assert.match(r.disagreement!.right.value, /Maya/);
+  assert.doesNotMatch(r.disagreement!.right.value, /GCash/);
+});
+
+test('AMBIGUOUS goes to a person, never to a refusal: a partial overlap is manual', () => {
+  const r = payout({ payoutAccounts: [{ label: 'GCash', accountName: 'Rosa Santos' }] });
+  assert.equal(r.outcome, 'manual');
+  assert.equal(r.alwaysHuman, true);
+  assert.match(r.reason ?? '', /Rosa Santos/);
+});
+
+test('no account on file is manual (read the bank proof), never a pass', () => {
+  const r = payout({ payoutAccounts: [] });
+  assert.equal(r.outcome, 'manual');
+  assert.equal(r.alwaysHuman, true);
+  assert.match(r.detail, /No payout account/);
+});
+
+test('an account with a blank name is manual, never a pass', () => {
+  const r = payout({ payoutAccounts: [{ label: 'GCash', accountName: '   ' }] });
+  assert.equal(r.outcome, 'manual');
+});
+
+test('a FAILED read is manual and says so; it is not "no account"', () => {
+  const r = payout({ payoutAccounts: null });
+  assert.equal(r.outcome, 'manual');
+  assert.equal(r.alwaysHuman, false, 'a failed read may answer next time');
+  assert.match(r.detail, /could not be read/);
+});
+
+test('nothing to compare against is manual, never a pass', () => {
+  const r = payout({
+    businessName: null,
+    registeredBusinessName: null,
+    businessOwnerName: null,
+    registryAnswer: { kind: 'not_attempted', note: 'no lookup' },
+  });
+  assert.equal(r.outcome, 'manual');
+});
+
+test('the payout mismatch reaches the grant warning (it warns, it does not refuse)', () => {
+  const s = summariseChecks(
+    runVerificationChecks(cleanFacts({ payoutAccounts: [{ label: 'GCash', accountName: 'Pedro Reyes' }] }), NOW),
+  );
+  assert.equal(s.mismatched, 1);
+  assert.match(grantWarning(s) ?? '', /1 check disagrees/);
 });

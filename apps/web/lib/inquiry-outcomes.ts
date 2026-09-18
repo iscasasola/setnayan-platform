@@ -97,6 +97,7 @@ export async function fetchReasonCodes(
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .order('label', { ascending: true });
+  if (error) console.error('[supabase-error] lib/inquiry-outcomes.ts · from:inquiry_outcome_reason_codes.select', error);
   if (error || !data) return [];
   return data.map((r) => ({
     reasonCode: r.reason_code as string,
@@ -118,6 +119,7 @@ export async function fetchVendorOutcomeRollup(
   const { data, error } = await supabase.rpc('vendor_inquiry_outcomes_rollup', {
     p_vendor_profile_id: vendorProfileId,
   });
+  if (error) console.error('[supabase-error] lib/inquiry-outcomes.ts · rpc:vendor_inquiry_outcomes_rollup', error);
   if (error || !data) return null;
   const rpc = data as RpcRollup;
   return {
@@ -155,6 +157,7 @@ export async function fetchAdminOutcomeOverview(): Promise<AdminOutcomeOverview>
   };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('admin_inquiry_outcomes_overview');
+  if (error) console.error('[supabase-error] lib/inquiry-outcomes.ts · rpc:admin_inquiry_outcomes_overview', error);
   if (error || !data) return empty;
   const rpc = data as RpcRollup;
   return {

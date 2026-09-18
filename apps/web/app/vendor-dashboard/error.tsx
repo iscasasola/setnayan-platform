@@ -37,9 +37,11 @@ import { AlertTriangle } from 'lucide-react';
  * (which on retry, after the racy env-var case clears per PR #628 commit
  * body, will succeed cleanly).
  *
- * Sentry SDK still captures the underlying error via the global handler
- * wired in instrumentation.ts (iteration 0035 Observability) — no manual
- * logging needed beyond dev-mode debug.
+ * Sentry SDK still captures the underlying error via the browser SDK, lazy-
+ * loaded post-hydration by app/_components/deferred-observability.tsx
+ * (iteration 0035 Observability) — no manual logging needed beyond dev-mode
+ * debug. This boundary is a Client Component, so instrumentation.ts
+ * (server-only) does not see it.
  *
  * Per `[[feedback_setnayan_no_dev_text_post_launch]]` — brand-voice
  * editorial copy with selective Filipino warmth, not engineering jargon.

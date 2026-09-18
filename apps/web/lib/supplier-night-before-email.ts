@@ -78,6 +78,7 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
     .in('status', BOOKED_STATUSES as unknown as string[])
     .not('linked_vendor_profile_id', 'is', null)
     .limit(NIGHT_BEFORE_MAX_BATCH);
+  if (bookingsError) console.error('[supabase-error] lib/supplier-night-before-email.ts · from:event_vendors.select', bookingsError);
   if (bookingsError || !bookings || bookings.length === 0) return { scanned: 0, sent: 0 };
 
   const vendorProfileIds = [...new Set(bookings.map((b) => b.linked_vendor_profile_id as string))];

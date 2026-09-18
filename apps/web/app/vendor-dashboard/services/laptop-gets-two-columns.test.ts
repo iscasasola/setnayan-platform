@@ -14,10 +14,13 @@
  *      phone must render byte-identically to before this change, and the
  *      only honest way to prove that from source is that the rules cannot
  *      even be reached below that width;
- *   2. the card only pins DURING the pass — an ordinary edit stays a bottom
- *      sheet at every width, because nothing is being built behind those;
+ *   2. the card pins whenever a QUESTION IS OPEN — the guided pass, and
+ *      (SUP-10, 2026-09-18) any edit after it. This used to be the pass only,
+ *      on the premise that "nothing is being built behind" a later edit; the
+ *      maker applies every edit to the card LIVE, so that premise was false
+ *      and the veil hid the one thing being changed. It is still lg+ only;
  *   3. the trailing content (recap, publish, "make it richer") is hidden,
- *      not removed, at lg+ during the pass — it still posts;
+ *      not removed, at lg+ while the card is pinned — it still posts;
  *   4. the pin reads the shared shell's own rail/bar tokens, never a
  *      hand-typed offset that can drift from the real chrome.
  */
@@ -96,15 +99,22 @@ test('the pin reads the shared rail and bar tokens, not a hand-typed offset', ()
 });
 
 // ---------------------------------------------------------------------------
-// 2 · ONLY DURING THE PASS — an ordinary edit stays exactly as it was
+// 2 · WHENEVER A QUESTION IS OPEN — the pass, or any edit after it (SUP-10)
 // ---------------------------------------------------------------------------
 
-test('the card only pins when inPass is true, and only once — via its OWN wrapper', () => {
+test('the card pins when a question is open, and only once — via its OWN wrapper', () => {
   const src = read(MAKER);
+  // ONE flag drives the pin, the hide and the meter, so they cannot disagree
+  // about whether the card is beside the question.
   assert.match(
     src,
-    /inPass \? 'sn-canvas-pass-pin' : undefined/,
-    'the pin wrapper stopped conditioning the pin class on inPass',
+    /const cardBeside = inPass \|\| sheet !== null;/,
+    'the pin stopped being driven by "a question is open"',
+  );
+  assert.match(
+    src,
+    /cardBeside \? 'sn-canvas-pass-pin' : undefined/,
+    'the pin wrapper stopped conditioning the pin class on cardBeside',
   );
   const count = (src.match(/sn-canvas-pass-pin/g) ?? []).length;
   assert.equal(count, 1, `sn-canvas-pass-pin is referenced ${count} times in the maker, expected exactly 1`);
@@ -118,12 +128,12 @@ test('the card only pins when inPass is true, and only once — via its OWN wrap
   );
 });
 
-test('the trailing content only hides when inPass is true, and only once', () => {
+test('the trailing content hides exactly when the card pins, and only once', () => {
   const src = read(MAKER);
   assert.match(
     src,
-    /inPass \? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'/,
-    'the trailing-content wrapper stopped conditioning the hide class on inPass',
+    /cardBeside \? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'/,
+    'the trailing-content wrapper stopped conditioning the hide class on cardBeside',
   );
   const count = (src.match(/sn-canvas-pass-hide/g) ?? []).length;
   assert.equal(count, 1, `sn-canvas-pass-hide is referenced ${count} times in the maker, expected exactly 1`);
@@ -135,7 +145,7 @@ test('the trailing content only hides when inPass is true, and only once', () =>
 
 test('the trailing wrapper hides with CSS, never with a conditional unmount', () => {
   const src = read(MAKER);
-  const wrapOpen = src.indexOf("inPass ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'");
+  const wrapOpen = src.indexOf("cardBeside ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'");
   assert.notEqual(wrapOpen, -1, 'the trailing wrapper is gone');
   // The publish buttons and the recap dl must still be inside that wrapper —
   // an unmount would silently stop them posting during the pass on a laptop.
@@ -155,4 +165,40 @@ test('no second CanvasMaker-shaped component was introduced for desktop', () => 
     1,
     'a second maker component appeared — the task asked for one wrapper, not a desktop version',
   );
+});
+
+// ---------------------------------------------------------------------------
+// 5 · SUP-10 — EVERY SHEET IS A COLUMN ON A LAPTOP, AND STILL A SHEET ON A PHONE
+// ---------------------------------------------------------------------------
+
+test('the sheet becomes a column beside the card for EVERY sheet, at lg+ only', () => {
+  const src = read(MAKER);
+  const at = src.indexOf('function CanvasSheet(');
+  assert.notEqual(at, -1, 'CanvasSheet is gone');
+  const sheetSrc = src.slice(at, src.indexOf('createPortal(', at) + 3000);
+
+  // The laptop column is no longer inside the `guided ?` branch.
+  const column = "'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'";
+  assert.ok(sheetSrc.includes(column), 'the laptop column classes are gone');
+  assert.ok(
+    !/guided\s*\?\s*'max-h-\[58dvh\] lg:/.test(sheetSrc),
+    'the laptop column went back inside the guided-only branch',
+  );
+  // THE PHONE IS UNTOUCHED: the column is ALL lg: utilities, the phone heights
+  // are unchanged, and the non-guided veil still exists below lg.
+  for (const cls of column.slice(1, -1).split(' ')) {
+    assert.ok(cls.startsWith('lg:'), `"${cls}" in the laptop column applies on a phone`);
+  }
+  assert.match(sheetSrc, /guided \? 'max-h-\[58dvh\]' : 'max-h-\[78dvh\]'/);
+  assert.match(
+    sheetSrc,
+    /'absolute inset-0 bg-ink\/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none'/,
+    'the phone veil changed, or the laptop still veils the card it is editing',
+  );
+});
+
+test('the meter steps aside on a laptop while the card is pinned over it — lg only', () => {
+  const src = read(MAKER);
+  assert.match(src, /asideAtLg=\{cardBeside\}/);
+  assert.match(src, /asideAtLg \? ' lg:hidden' : ''/);
 });

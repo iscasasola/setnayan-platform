@@ -44,6 +44,7 @@ async function resolveEventVendorId(
       p_event_id: eventId,
       p_vendor_profile_id: vendorProfileId,
     });
+    if (error) console.error('[supabase-error] app/vendor-dashboard/contracts/actions.ts · rpc:resolve_event_vendor_for_contract', error);
     if (!error && typeof data === 'string') return data;
   } catch {
     /* RPC missing (pre-migration) — fall through to the direct query */
@@ -57,6 +58,7 @@ async function resolveEventVendorId(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/vendor-dashboard/contracts/actions.ts · from:event_vendors.select', error);
   if (error) {
     // 42703 (column missing) / 42883 etc → graceful-degrade, link stays null.
     return null;

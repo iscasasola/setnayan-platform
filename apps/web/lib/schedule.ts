@@ -210,6 +210,7 @@ export async function fetchScheduleVisibility(
     .from('event_schedule_blocks')
     .select('block_id, visibility, released_at')
     .eq('event_id', eventId);
+  if (error) console.error('[supabase-error] lib/schedule.ts · from:event_schedule_blocks.select', error);
   if (error) return map; // pre-migration / no access → treat as all couple_visible
   for (const row of (data ?? []) as {
     block_id: string;

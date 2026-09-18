@@ -4072,6 +4072,7 @@ async function refusalForLoggedPayments(
     .select('amount_php')
     .eq('vendor_id', vendorId);
   if (error) {
+    console.error('[supabase-error] vendors/actions: supplier payments before removal', error, { vendor_id: vendorId });
     return 'We could not check this supplier\'s payments, so nothing was removed. Please try again.';
   }
   const rows = (data ?? []) as { amount_php: number | string | null }[];

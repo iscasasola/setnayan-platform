@@ -394,6 +394,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           .eq('event_id', event.event_id)
           .eq('guest_id', guest.guest_id)
           .maybeSingle();
+        if (checkinErr) console.error('[supabase-error] app/[slug]/hub/page.tsx · from:guest_checkins.select', checkinErr);
         if (!checkinErr) arrived = Boolean(checkinRow?.checked_in_at);
       } catch {
         arrived = false;

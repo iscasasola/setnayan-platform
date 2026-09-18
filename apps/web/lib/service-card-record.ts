@@ -397,6 +397,27 @@ export function cardRecordHasSomethingToSayToTheShop(
   );
 }
 
+/**
+ * The "shop rating" badge inside a card's record, from the shop's TRUSTED
+ * aggregate (`vendor_trusted_review_stats` — the only source the anti-fraud
+ * lock permits for a public rating number). null when the shop has no trusted
+ * review yet, so the badge never shows a 0.0 it has not earned.
+ *
+ * One rule for every surface that mounts the record for a couple — the shop's
+ * own page and the marketplace — so the badge cannot say one thing on the
+ * card in `/explore` and another on the same card one click later.
+ */
+export function cardRecordRatingFromTrusted(
+  stats:
+    | { trusted_avg_rating: number | null; trusted_review_count: number | null }
+    | null
+    | undefined,
+): { avg: number; count: number } | null {
+  const avg = Number(stats?.trusted_avg_rating ?? 0);
+  const count = Number(stats?.trusted_review_count ?? 0);
+  return count > 0 && avg > 0 ? { avg, count } : null;
+}
+
 // ---------------------------------------------------------------------------
 // The server wrapper
 // ---------------------------------------------------------------------------

@@ -38,14 +38,14 @@ a green PR is not "served yet". #5672 is a migration: it only takes effect after
 11. Tap **Earnings**: Year-to-date **₱2,000**, "1 payment confirmed"; one row *Rosa & Ben · Band / DJ ·
     Paid 2026-09-18 · Deposit · GCash · ₱2,000*. (#5680)
 12. Open `/vendor-dashboard/shop#gallery-media` in the address bar: the **Website** panel opens by
-    itself and scrolls to *Gallery & media*. (#5690)
+    itself and scrolls to *Gallery & media*. (#5687)
 13. My Performance → the **"Add recent photos"** tip: its button now says **"Add photos"** and lands on
-    the open gallery. (#5690)
+    the open gallery. (#5687)
 14. Website tab (`/vendor-dashboard/website`) → **Edit page**: lands on My Shop with the Website panel
-    open. (#5690)
+    open. (#5687)
 15. On the Website tab, if Saysay is not both verified and listed, the button reads **"Open preview"**
     with an orange line "Only you can see this page…"; once verified and listed it reads **"Open live"**.
-    (#5690)
+    (#5687)
 16. Shop → Website editor → About box: the placeholder says "the couples you **work with**". (#5674)
 
 ## Still open (not fixed by AREA-VENDOR — see the report)

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
+import { Download, Printer, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -428,13 +428,40 @@ export default async function BudgetPage({ params }: Props) {
         className="scroll-mt-24"
         title="Budget"
         actions={
-          <a
-            href={`/api/budget/${eventId}/ics`}
-            className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-          >
-            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Export upcoming dates (.ics)
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`/api/budget/${eventId}/ics`}
+              className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
+            >
+              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Export upcoming dates (.ics)
+            </a>
+            {/* SUP-64 · the same books as this page, to print or to open in a
+                spreadsheet. Agreed money only — see lib/budget-export.ts.
+                Offered only when the resolver answered: with no `money` the
+                route can only say "try again", so the button would be a
+                promise the page already knows it cannot keep. */}
+            {money ? (
+              <>
+                <a
+                  href={`/api/budget/${eventId}/export?format=csv`}
+                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
+                >
+                  <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Budget (.csv)
+                </a>
+                <a
+                  href={`/api/budget/${eventId}/export`}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
+                >
+                  <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Print budget
+                </a>
+              </>
+            ) : null}
+          </div>
         }
       />
 

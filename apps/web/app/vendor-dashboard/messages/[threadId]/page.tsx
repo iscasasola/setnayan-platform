@@ -601,15 +601,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * the heavy tools live here, once, and the launchers open them by id.
    */
   const toolNodes: Record<string, React.ReactNode> = {
-    'send-proposal': (
-        <SendProposalCard
-          giftBasis={composerGiftBasis}
-          threadId={threadId}
-          templates={proposalTemplates}
-          packages={proposalPackages}
-        />
-    ),
     /*
+      ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19). `send-proposal` and
+      `build-quote` were two panels and two launchers for one job; a supplier
+      following the brief's "Quote" landed in the template form and following
+      its "New quote" landed in the builder. Both composers still mount — once
+      each, so the gift line, the anchors and the forms stay unique — inside
+      the ONE panel: the builder first (it works for every shop; production has
+      no proposal template on any shop), the saved-template shortcut under it.
+
       THE QUOTE OPENS AT THE LIVE COUNT (owner, 2026-09-09).
 
       Both numbers go in and the builder seeds itself from `livePax`, falling
@@ -624,6 +624,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       is.
     */
     'build-quote': (
+      <div className="space-y-3">
         <ProposalMaker
           threadId={threadId}
           giftBasis={composerGiftBasis}
@@ -642,6 +643,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               : null
           }
         />
+        <SendProposalCard
+          giftBasis={composerGiftBasis}
+          threadId={threadId}
+          templates={proposalTemplates}
+          packages={proposalPackages}
+        />
+      </div>
     ),
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
     'thread-call': (

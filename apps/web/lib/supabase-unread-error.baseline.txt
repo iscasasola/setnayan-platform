@@ -244,7 +244,6 @@ app/vendor-dashboard/website/actions.ts	discarded	from:custom_domains.update	2
 app/vendor/lock/[token]/actions.ts	discarded-in-try	from:vendor_contracts.insert	1
 lib/account-autosurface-actions.ts	discarded	from:event_members.update	1
 lib/anon-draft-sweep.ts	discarded-in-try	from:users.update	1
-lib/booking-fee-lock.server.ts	discarded	from:orders.delete	1
 lib/concierge.ts	discarded-in-try	from:events.update	1
 lib/creator-offers.ts	write-error-dropped	from:platform_settings.update	1
 lib/daily-email-jobs.ts	discarded	from:events.update	1

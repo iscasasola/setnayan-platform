@@ -562,6 +562,8 @@ export default async function LauncherPage({
       .eq('user_id', user.id);
     if (!error) {
       chapterCount = ((data ?? []) as unknown[]).length;
+    } else {
+      logQueryError('Launcher (creator_chapters count)', error, { user_id: user.id }, 'graceful_degrade');
     }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.

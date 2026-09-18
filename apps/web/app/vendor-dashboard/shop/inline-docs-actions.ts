@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   businessProfileChecklist,
   fetchOwnVendorProfile,
@@ -107,6 +108,11 @@ async function fetchRegistrationNumberState(
       .select('registration_number_raw,registration_number_needs_review')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    if (error) {
+      logQueryError('inline-docs-actions.ts: fetchRegistrationNumberState vendor_profiles_self', error, {
+        vendor_profile_id: vendorProfileId,
+      });
+    }
     if (error || !data) return { raw: null, needsReview: false };
     const row = data as {
       registration_number_raw?: string | null;
@@ -308,11 +314,16 @@ async function resolveEditableDraft(
     };
   }
   // Fresh / rejected / withdrawn → start a new draft with the right type.
-  const { data: vp } = await supabase
+  const { data: vp, error: vpErr } = await supabase
     .from('vendor_profiles')
     .select('verification_state, last_verified_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (vpErr) {
+    logQueryError('inline-docs-actions.ts: draft-start vendor_profiles', vpErr, {
+      vendor_profile_id: vendorProfileId,
+    });
+  }
   const verState = parseVerificationState(
     (vp as { verification_state?: string } | null)?.verification_state,
   );
@@ -859,6 +870,14 @@ export async function loadVerificationIdentityFields(): Promise<{
       )
       .eq('vendor_profile_id', auth.vendorProfileId)
       .maybeSingle();
+    if (error) {
+      // The docstring's degrade is for a MISSING COLUMN; a genuinely refused
+      // read collapses to the identical "not sent yet" state — keep the
+      // reason logged so the two never get confused from the outside.
+      logQueryError('inline-docs-actions.ts: loadVerificationIdentityFields vendor_profiles', error, {
+        vendor_profile_id: auth.vendorProfileId,
+      });
+    }
     if (error || !data) return empty;
     const row = data as Record<string, unknown>;
     const values: Record<string, string | null> = {};

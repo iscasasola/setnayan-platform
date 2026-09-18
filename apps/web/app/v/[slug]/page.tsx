@@ -1026,6 +1026,13 @@ export async function renderVendorBySlug({
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
     });
+    if (error) {
+      // The fail-soft (hide the badge) stays — see the comment above — but a
+      // refused call should not vanish the way the pre-20271141980127 P0001s did.
+      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
+        vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
     return !error && typeof data === 'number' ? data : 0;
   })();
 
@@ -4075,6 +4082,12 @@ async function fetchVendorPackagesWithItems(
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .order('created_at', { ascending: true });
+    if (pkgsErr) {
+      // Same posture as the itemsError guard a few lines down: an empty list
+      // OMITS the Packages section (an honest absence), so keep the reason
+      // logged rather than let a refused read look like "no packages".
+      logQueryError('PublicVendorPage.packages', pkgsErr, { vendorProfileId }, 'graceful_degrade');
+    }
     if (pkgsErr || !pkgs || pkgs.length === 0) return [];
 
     const packageIds = pkgs.map((p) => p.package_id);

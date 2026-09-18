@@ -481,6 +481,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       next_renewal_due_at: string | null;
     };
 
+    if (statsRes.error) {
+      // A refused read strips the card to typed-name + initials — the same
+      // shape as a genuinely off-platform pick (see the comment above this
+      // Promise.all) — so at least keep the reason in the logs.
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: card enrichment vendor_market_stats', statsRes.error, {
+        event_id: eventId,
+      });
+    }
     const statsByProfile = new Map<string, StatsRow>();
     for (const s of (statsRes.data as StatsRow[] | null) ?? []) {
       statsByProfile.set(s.vendor_profile_id, s);
@@ -2303,6 +2311,9 @@ async function fetchActiveCategoryMarketPool(
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);
+    if (error) {
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: fetchActiveCategoryMarketPool vendor_market_stats', error);
+    }
     if (error || count == null) return 0;
     return count;
   } catch (e) {

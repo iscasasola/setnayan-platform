@@ -163,14 +163,6 @@ export const ANSWERS_THAT_DO_NOT_JOIN: ReadonlyArray<{
   readonly why: string;
 }> = [
   {
-    slug: 'waitlist_pick',
-    why: 'Choosing a waiting couple does nothing at all today and reports success.',
-  },
-  {
-    slug: 'crew_shift',
-    why: 'A paid crew shift cannot be posted, seen or accepted by anyone who is not a Setnayan admin — the database refuses all three, silently.',
-  },
-  {
     slug: 'song_request',
     why: 'Nobody can ask for a song: both submit routines exist in the database with zero application callers.',
   },

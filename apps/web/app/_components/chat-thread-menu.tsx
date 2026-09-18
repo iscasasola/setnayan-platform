@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Ban, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
+import Link from 'next/link';
+import { Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
 import { blockUser, reportUser, unblockUser } from '@/lib/chat-actions';
 
 // Apple Guideline 1.2 (UGC safety): an in-app way to REPORT abusive content and
@@ -22,10 +23,18 @@ export function ChatThreadMenu({
   threadId,
   returnTo,
   blockedByMe,
+  links = [],
 }: {
   threadId: string;
   returnTo: string;
   blockedByMe: boolean;
+  /**
+   * Destinations that leave the conversation, listed above Report / Block.
+   * One Chat Box (2026-09-18): the header keeps one control, ⋮, and anything
+   * that is a page rather than a tool lives behind it. Plain strings — this is
+   * a client component and the pages that fill it are server components.
+   */
+  links?: readonly { href: string; label: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -66,6 +75,17 @@ export function ChatThreadMenu({
           >
             {!showReport ? (
               <>
+                {links.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    role="menuitem"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                  >
+                    <ExternalLink aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                    {l.label}
+                  </Link>
+                ))}
                 <button
                   type="button"
                   role="menuitem"

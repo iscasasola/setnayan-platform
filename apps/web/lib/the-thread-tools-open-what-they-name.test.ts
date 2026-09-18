@@ -40,7 +40,7 @@ import {
 const WEB = join(import.meta.dirname, '..');
 const THREAD_PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const RAIL = 'app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx';
-const OPENER = 'app/vendor-dashboard/messages/[threadId]/_components/reveal-thread-tool.tsx';
+const OPENER = 'app/_components/chat/reveal-thread-tool.tsx';
 const CLIENT_BRIEF = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));

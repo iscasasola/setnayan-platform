@@ -20,9 +20,18 @@ import { interestLabeller } from '@/lib/thread-interest-labels.server';
 export async function ThreadInterestChips({
   supabase,
   threadId,
+  compact = false,
 }: {
   supabase: SupabaseClient;
   threadId: string;
+  /**
+   * Inside the chat box's header the services are a few words on the muted
+   * line under the counterparty's name — "Live Band · Oct 30, 2026" — not a
+   * bordered row of their own (One Chat Box, 2026-09-18). Renders the labels
+   * as bare `<span>`s so the parent's line can dot-separate them with
+   * whatever else it carries; the same labels, the same de-duping.
+   */
+  compact?: boolean;
 }) {
   const interests = await fetchThreadInterests(supabase, threadId);
   if (interests.length === 0) return null;
@@ -43,6 +52,18 @@ export async function ThreadInterestChips({
     labels.push(label);
   }
   if (labels.length === 0) return null;
+
+  if (compact) {
+    return (
+      <>
+        {labels.map((label) => (
+          <span key={label} title="Inquiring about">
+            {label}
+          </span>
+        ))}
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-ink/10 bg-cream/60 px-4 py-2.5">

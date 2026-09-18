@@ -6,7 +6,6 @@
   "app/dashboard/[eventId]/hosts/page.tsx",
   "app/dashboard/[eventId]/invitation/page.tsx",
   "app/dashboard/[eventId]/launch/page.tsx",
-  "app/dashboard/[eventId]/messages/[threadId]/page.tsx",
   "app/dashboard/[eventId]/orders/[orderId]/page.tsx",
   "app/dashboard/[eventId]/sponsors/page.tsx",
   "app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx",

@@ -11,6 +11,13 @@ import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
  *
  * Copy is locale-resolved per iteration 0015. EN-PH is the canonical
  * string; TL and CEB land in the next locale pass.
+ *
+ * ── ONE LINE, SINCE 2026-09-18 (One Chat Box) ───────────────────────────────
+ * It used to be a bordered paragraph — one of the seven cards stacked above the
+ * conversation that left the message list 32px tall on a phone. It is now ONE
+ * line: the lead, and a "More" toggle that opens the full locked copy in
+ * place. Nothing was cut and nothing became dismissible: the 0019 lock says
+ * pinned and non-dismissible, and this keeps both.
  */
 const COPY = {
   'en-PH': {
@@ -25,31 +32,60 @@ const COPY = {
 
 type Locale = keyof typeof COPY;
 
+/**
+ * `inBox` — rendered as a flush line inside the chat box's frame (border-b,
+ * no radius). Off, it keeps the rounded standalone look for the mounts that
+ * still stack it above a stream (the client brief's Chat tab).
+ */
+const NOTE_LINE =
+  'flex items-start gap-2 text-[11px] leading-snug text-ink/70';
+const NOTE_IN_BOX = `${NOTE_LINE} border-b border-ink/10 bg-ink/[0.02] px-3 py-1 sm:px-4`;
+const NOTE_STANDALONE = `${NOTE_LINE} rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-1.5`;
+
+const TOGGLE =
+  'shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-mulberry underline underline-offset-2 hover:text-mulberry-600';
+
 export function ChatPrivacyNotice({
   locale = 'en-PH',
+  inBox = false,
 }: {
   locale?: Locale | string;
+  inBox?: boolean;
 }) {
   const strings = COPY[(locale as Locale) in COPY ? (locale as Locale) : 'en-PH'];
+  const [more, setMore] = useState(false);
   return (
     <div
       role="note"
       aria-label="Chat privacy notice"
-      className="flex items-start gap-3 rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-xs text-ink/75"
+      className={inBox ? NOTE_IN_BOX : NOTE_STANDALONE}
     >
       <ShieldAlert
         aria-hidden
-        className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
+        className="mt-[3px] h-3.5 w-3.5 shrink-0 text-terracotta"
         strokeWidth={1.75}
       />
-      <p className="leading-relaxed">
+      <p className={`min-w-0 flex-1 self-center ${more ? '' : 'truncate'}`}>
         <span className="font-medium text-ink">{strings.lead}</span>{' '}
-        {strings.body}{' '}
-        <span className="underline decoration-terracotta/40 underline-offset-2">
-          {strings.examples}
-        </span>{' '}
-        {strings.report}
+        {strings.body}
+        {more ? (
+          <>
+            {' '}
+            <span className="underline decoration-terracotta/40 underline-offset-2">
+              {strings.examples}
+            </span>{' '}
+            {strings.report}
+          </>
+        ) : null}
       </p>
+      <button
+        type="button"
+        onClick={() => setMore((v) => !v)}
+        aria-expanded={more}
+        className={TOGGLE}
+      >
+        {more ? 'Less' : 'More'}
+      </button>
     </div>
   );
 }
@@ -71,6 +107,15 @@ export function ChatPrivacyNotice({
  * reversible only by clearing storage — the guidance is advisory, not a gate,
  * so a lost dismissal costs nothing. Not stored in chat_messages; no unread
  * impact; no sender attribution.
+ *
+ * ── ONE LINE, SINCE 2026-09-18 (One Chat Box) ───────────────────────────────
+ * The bulleted panel was the second-tallest of seven cards above the
+ * conversation. It is now ONE line — the first point, which is the whole
+ * message ("Keep your chats and payments inside Setnayan.") — with a "Tips"
+ * toggle that opens all four points in place, and the same × that remembers
+ * the dismissal. The four points are unchanged; they are one tap further away.
+ * Dismissal still PERSISTS (localStorage, as before): this was checked before
+ * the redraw, and nothing here made it ephemeral.
  */
 const SAFETY_DISMISS_KEY = 'setnayan_chat_safety_banner_dismissed';
 
@@ -81,10 +126,14 @@ const SAFETY_POINTS = [
   'A vendor rushing you to pay off Setnayan is a red flag — tell us via Help.',
 ] as const;
 
-export function ChatSafetyBanner() {
+const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 bg-terracotta/[0.04] px-3 py-1 sm:px-4`;
+const SAFETY_STANDALONE = `${NOTE_LINE} rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-1.5`;
+
+export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
   // Default to visible so SSR + first paint never flash the banner in-then-out;
   // the remembered dismissal is applied after hydration if it was set.
   const [dismissed, setDismissed] = useState(false);
+  const [tips, setTips] = useState(false);
 
   useEffect(() => {
     try {
@@ -109,36 +158,50 @@ export function ChatSafetyBanner() {
     <div
       role="note"
       aria-label="Staying safe while you plan"
-      className="rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-4 py-3 text-xs text-ink/75"
+      className={inBox ? SAFETY_IN_BOX : SAFETY_STANDALONE}
     >
-      <div className="flex items-start gap-3">
-        <ShieldCheck
-          aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-          strokeWidth={1.75}
-        />
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="font-medium text-ink">Plan with peace of mind</p>
-          <ul className="space-y-1 leading-relaxed">
-            {SAFETY_POINTS.map((point) => (
-              <li key={point} className="flex gap-1.5">
-                <span aria-hidden className="text-terracotta/60">
-                  ·
-                </span>
-                <span>{point}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss safety tips"
-          className="-mr-1 -mt-1 shrink-0 rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+      <ShieldCheck
+        aria-hidden
+        className="mt-[3px] h-3.5 w-3.5 shrink-0 text-terracotta"
+        strokeWidth={1.75}
+      />
+      <div className="min-w-0 flex-1 self-center">
+        {tips ? (
+          <>
+            <p className="font-medium text-ink">Plan with peace of mind</p>
+            <ul className="mt-0.5 space-y-0.5">
+              {SAFETY_POINTS.map((point) => (
+                <li key={point} className="flex gap-1.5">
+                  <span aria-hidden className="text-terracotta/60">
+                    ·
+                  </span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="truncate">
+            <span className="font-medium text-ink">{SAFETY_POINTS[0]}</span>
+          </p>
+        )}
       </div>
+      <button
+        type="button"
+        onClick={() => setTips((v) => !v)}
+        aria-expanded={tips}
+        className={TOGGLE}
+      >
+        {tips ? 'Less' : 'Tips'}
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss safety tips"
+        className="-mr-1 shrink-0 rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70"
+      >
+        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </button>
     </div>
   );
 }

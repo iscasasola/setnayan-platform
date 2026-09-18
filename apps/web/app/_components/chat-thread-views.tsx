@@ -110,11 +110,17 @@ export function ThreadViewSwitch({
         aria-label="Show"
         className="inline-flex overflow-hidden rounded-lg border border-ink/15"
       >
-        {tab('all', 'All', null, 0)}
+        {/* "Chat", not "All" — the approved One Chat Box layout (2026-09-18)
+            names the first tab for what it shows. The key stays `all`: it is
+            the URL fact (`?view=`), and the plain thread URL must keep meaning
+            the chat. */}
+        {tab('all', 'Chat', null, 0)}
         {tab('decisions', 'Decisions', decisionsCount, needsYouCount)}
         {tab('files', 'Files', filesCount, 0)}
       </div>
-      <span className="text-[0.7rem] text-ink/50">{VIEW_HINT[view]}</span>
+      {/* The hint is a second line on a phone, and on a phone every line here
+          comes out of the conversation. Desktop keeps it. */}
+      <span className="hidden text-[0.7rem] text-ink/50 sm:inline">{VIEW_HINT[view]}</span>
     </div>
   );
 }

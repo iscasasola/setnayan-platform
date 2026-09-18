@@ -38,7 +38,6 @@
 .sn-canvas-sheet :: sn-canvas-sheet-up
 .sn-capiz :: sn-capiz-sweep
 .sn-lens-swap :: sn-lens-swap
-.sn-lens-swap > * :: sn-lens-in
 .sn-modal :: sn-scale-in
 .sn-paint-cover :: sn-paint-cover
 .sn-paint-in :: sn-paint-in

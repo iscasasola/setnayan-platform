@@ -51,7 +51,13 @@ export function GuidedTour({ tourKey, completeAction }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="guided-tour-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center focus:outline-none"
+      /* Centred on every size (owner, 2026-09-18). It was a bottom sheet on
+         phones — the standard thumb-reach placement — and that is exactly
+         where the `.sn-page-enter` transform bug hid it: the backdrop was
+         sized to the DOCUMENT, so "the bottom" was 1300px below the fold and
+         the card surfaced behind the bottom nav. #5582 fixes the sizing; the
+         owner asked for centre regardless, so centre it is. */
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 focus:outline-none"
     >
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-[0_30px_80px_-40px_rgba(26,26,26,0.5)]">
         <button

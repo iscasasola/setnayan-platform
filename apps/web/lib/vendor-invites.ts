@@ -350,6 +350,7 @@ export async function ensureAutoShareInvite(
     .eq('source', 'auto_share_link')
     .eq('status', 'pending')
     .maybeSingle();
+  if (readErr) console.error('[supabase-error] lib/vendor-invites.ts · from:vendor_invites.select', readErr);
   if (readErr) {
     // RLS or transient error — don't try to insert blindly. Caller can
     // re-run on the next finalize hit.

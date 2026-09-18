@@ -54,6 +54,7 @@ export default async function EventDeletionsPage() {
     .select('id, event_id, event_name, user_id, reason_code, reason, created_at')
     .eq('status', 'pending')
     .order('created_at', { ascending: true });
+  if (openErr) console.error('[supabase-error] app/admin/event-deletions/page.tsx · from:event_deletion_requests.select', openErr);
 
   const { data: recentRows } = await admin
     .from('event_deletion_requests')

@@ -14,7 +14,7 @@ Sign in by **email + password**, never the Google button (`is_internal` passes
 every paid gate and hides what a real couple sees).
 
 PRs this checklist depends on: **#5614** (one chat box everywhere), **#5677**
-(doors off the frame), **#5682** (one quote tool), **#5683** (Event Hub next
+(doors off the frame), **#5682** (one quote tool), **#5686** (Event Hub next
 step). Wait for `/api/health` to serve a sha at or past the last of them.
 
 ## A · The supplier's chat box — as testnayan2
@@ -81,7 +81,7 @@ step). Wait for `/api/health` to serve a sha at or past the last of them.
     not replied yet"* → **See who** → the Guests page. Mark the other two as
     replied (or add none and reply all), reload: expect *"Every reply is in"* →
     **Open as a guest** — which opens `/rosa-ben` in a NEW tab and does NOT
-    reload the controller. (#5683)
+    reload the controller. (#5686)
 18. **View as** chips under the facts: press each. Expect: the card below changes
     to that role's read, and the **Preview** button opens the public page in a
     new tab.

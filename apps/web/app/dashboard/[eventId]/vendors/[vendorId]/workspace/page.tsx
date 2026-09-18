@@ -35,11 +35,11 @@
 // ============================================================================
 
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
-import { paidToVendorPhp } from '@/lib/paid-to-vendor';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { paidToVendorPhp } from '@/lib/paid-to-vendor';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {

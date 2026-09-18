@@ -157,7 +157,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'White-label couple tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },
           { n: 'Setnayan-certified partner', soon: true, b: 'Get badged to deliver in-app services; couples who bought them route to you.' },
           { n: 'Earn on your crew', soon: true, b: 'Post your second shooters and HMUA. Earn a referral cut when they’re booked.' },
-          { n: 'Priority support', soon: true, b: 'Move to the front of the support queue.' },
+          { n: 'Priority support', b: 'Move to the front of the support queue.' },
         ],
       },
     ],

@@ -8,6 +8,7 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -4136,7 +4137,7 @@ export async function cancelBookingAsHost(
   const { data: vendorRow, error: readErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, vendor_name, status, deposit_paid_php, marketplace_vendor_id, event_id',
+      'vendor_id, vendor_name, status, deposit_paid_php, deposit_recorded_at, marketplace_vendor_id, event_id',
     )
     .eq('vendor_id', vendorIdRaw)
     .eq('event_id', eventIdRaw)
@@ -4155,6 +4156,7 @@ export async function cancelBookingAsHost(
     vendor_name: string;
     status: VendorStatus;
     deposit_paid_php: number | string | null;
+    deposit_recorded_at: string | null;
     marketplace_vendor_id: string | null;
     event_id: string;
   };
@@ -4168,14 +4170,11 @@ export async function cancelBookingAsHost(
   //       enter a deposit figure via the inline contact form on the
   //       vendors list WITHOUT flipping the status pill. Real money
   //       has moved even if the enum lags behind.
-  if (DOWNPAID_STATUSES.has(ev.status)) {
-    return { status: 'downpaid_use_dispute_flow' };
-  }
-  const depositValue =
-    typeof ev.deposit_paid_php === 'string'
-      ? Number(ev.deposit_paid_php)
-      : ev.deposit_paid_php;
-  if (Number.isFinite(depositValue) && (depositValue ?? 0) > 0) {
+  //   (b2) deposit_recorded_at — the couple's own "Record deposit", which
+  //       writes the payment log and this marker but NEVER deposit_paid_php.
+  //       All three live in `bookingMoneyMoved`, the same helper the
+  //       workspace uses to pick its button, so the two cannot disagree.
+  if (bookingMoneyMoved(ev)) {
     return { status: 'downpaid_use_dispute_flow' };
   }
   //   (c) SUP-67 — ANY row in the payment log. The two signals above miss

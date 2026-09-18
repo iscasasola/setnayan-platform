@@ -64,6 +64,13 @@
 --       event_service_deliveries is NOT touched: no migration creates it, so a
 --       DROP here would be a no-op in the replay and a hand-applied change in
 --       prod. It stays a KNOWN_GAP in tests/db/schema-snapshot.ts.
+--       ⚠ The three functions were the ONLY things that named
+--       vendor_services.per_guest_delivery — a switch "no shipped surface sets"
+--       (20271115531329's own words), back-filled from prod by 20271011873973.
+--       With them gone the gates-have-handles guard correctly reports a switch
+--       nothing can flip, so the column goes with its feature: 0 of 2 prod
+--       rows have it set, and nothing depends on it (pg_depend). Adding a
+--       baseline excuse instead would keep a gate with no handle on purpose.
 --
 -- Idempotent: every statement is IF EXISTS. The DO block at the end asserts
 -- the objects are gone, so a partial apply cannot read as a full one.
@@ -88,6 +95,8 @@ DROP FUNCTION IF EXISTS public.get_vendor_thread_summaries(uuid);
 DROP FUNCTION IF EXISTS public.list_vendor_delivery_bookings();
 DROP FUNCTION IF EXISTS public.confirm_guest_delivery(uuid, text, text);
 DROP FUNCTION IF EXISTS public.undo_guest_delivery(uuid, text);
+-- …and the switch only those three functions ever read (0 rows set in prod).
+ALTER TABLE public.vendor_services DROP COLUMN IF EXISTS per_guest_delivery;
 
 -- ─── POST-CONDITIONS ───────────────────────────────────────────────────────
 DO $$
@@ -125,6 +134,11 @@ BEGIN
                        'claim_unlock_vendor_event');
   IF v_kept < 3 THEN
     RAISE EXCEPTION 'retire_the_booking_ends_nobody_needs: a LIVE unlock function is missing (% of 3 found)', v_kept;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'vendor_services'
+                AND column_name = 'per_guest_delivery') THEN
+    RAISE EXCEPTION 'retire_the_booking_ends_nobody_needs: vendor_services.per_guest_delivery still exists';
   END IF;
   IF to_regclass('public.event_floor_booths') IS NULL
      OR to_regclass('public.vendor_contracts') IS NULL THEN

@@ -20,10 +20,13 @@ type LinkState = 'idle' | 'busy';
 export function PoolGrid({
   initialTiles,
   initialCursor,
+  initialUnreadable = false,
   chapters,
 }: {
   initialTiles: PoolTile[];
   initialCursor: string | null;
+  /** The first page's read was REFUSED — not the same as an empty pool (S41b). */
+  initialUnreadable?: boolean;
   /**
    * How to chapter the feed — a countdown to the day, or the days of a trip.
    * Resolved on the server from the event itself.
@@ -86,7 +89,7 @@ export function PoolGrid({
           { cache: 'no-store' },
         );
         const data = (await res.json().catch(() => null)) as
-          | { ok?: boolean; tiles?: PoolTile[]; nextCursor?: string | null }
+          | { ok?: boolean; error?: string; tiles?: PoolTile[]; nextCursor?: string | null }
           | null;
         if (data?.ok && Array.isArray(data.tiles)) {
           setTiles((prev) => {
@@ -94,6 +97,10 @@ export function PoolGrid({
             return [...prev, ...data.tiles!.filter((t) => !seen.has(t.id))];
           });
           setCursor(data.nextCursor ?? null);
+        } else if (data?.error === 'unreadable') {
+          // A refused read is not the end of the gallery — keep the cursor so
+          // the guest can tap again (S41b).
+          setNotice('We couldn’t load more photos just now. Tap to try again.');
         } else {
           setCursor(null);
         }
@@ -101,6 +108,15 @@ export function PoolGrid({
         // Leave the cursor so the guest can retry on venue WiFi.
       }
     });
+  }
+
+  if (tiles.length === 0 && initialUnreadable) {
+    return (
+      <p className="mt-8 rounded-xl border border-terracotta/30 bg-terracotta/5 p-6 text-center text-sm text-terracotta-700">
+        We couldn&rsquo;t load the gallery just now. Nothing is lost — refresh the page
+        to try again.
+      </p>
+    );
   }
 
   if (tiles.length === 0) {

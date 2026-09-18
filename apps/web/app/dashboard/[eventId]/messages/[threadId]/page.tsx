@@ -30,7 +30,6 @@ import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
-import { ThreadQuotationsCard } from './_components/thread-quotations-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
@@ -38,12 +37,18 @@ export const metadata = { title: 'Thread' };
 type Props = {
   params: Promise<{ eventId: string; threadId: string }>;
   /** `?view=decisions|files` — see lib/thread-view.ts. */
-  searchParams?: Promise<{ view?: string | string[] }>;
+  searchParams?: Promise<{ view?: string | string[]; compose?: string }>;
 };
 
 export default async function CoupleThreadPage({ params, searchParams }: Props) {
   // Read on the server so a Decisions link paints Decisions, not the chat.
-  const initialView = parseThreadView((await searchParams)?.view);
+  const sp = await searchParams;
+  const initialView = parseThreadView(sp?.view);
+  // `?compose=deal` — the Counter-offer button on a quote card links here, so
+  // the amendment builder opens where the composer already lives. A URL rather
+  // than shared state: this page is a server component and cannot hand a
+  // callback to the client stream.
+  const composeMode = sp?.compose === 'deal' ? 'deal' : null;
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const {
@@ -375,8 +380,16 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     formatTime: formatChatTimestamp,
   });
 
+  /*
+    🔴 `min-h`, not a fixed `h`. The column used to be exactly
+    `h-[calc(100dvh-12rem)]`, so once the quote card appeared the message list
+    was crushed to 32px of visible height against 498px of content — and on
+    desktop it clipped a card mid-sentence. The column now GROWS when its
+    contents need more room and the page scrolls, rather than the conversation
+    disappearing. See chat-message-stream.tsx for the floor on the list itself.
+  */
   return (
-    <div className="flex h-[calc(100dvh-12rem)] gap-4">
+    <div className="flex min-h-[calc(100dvh-12rem)] gap-4">
       {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
           xl, where there is room for it without squeezing the conversation —
           giving the conversation back its space was the whole point. */}
@@ -422,16 +435,32 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
       <ChatSafetyBanner />
 
-      <ThreadQuotationsCard
-        supabase={supabase}
-        eventId={eventId}
-        vendorProfileId={thread.vendor_profile_id}
-        vendorLabel={vendorLabel}
-      />
+      {/*
+        🔴 THE PINNED QUOTE CARD IS GONE — owner, 2026-09-18: "i think it is
+        better to place the quotation inside the chat box."
+
+        It rendered the live quote ABOVE the conversation, and this column is a
+        fixed height, so the card's height came straight out of the message
+        list. Measured on production with one quote present: the list had
+        clientHeight 32px against scrollHeight 498px on a phone, and on desktop
+        it clipped a card mid-sentence. The quote was also duplicated — the same
+        proposal already renders as a card inside the stream.
+
+        The stream's card now carries the line items and a Counter-offer action,
+        and two jump pills (📄 Jump to the quote · ↓ Latest messages) sit OVER
+        the scroller so finding it costs no layout height. A negotiation reads
+        as quote → counter → counter-back; the quote belongs in that order.
+
+        `ThreadQuotationsCard` still exists and is still exported — nothing was
+        deleted, only unmounted here. Its removal is recorded in
+        scripts/port-control-baseline.json, which exists to stop exactly this
+        kind of change happening silently.
+      */}
 
       <ThreadInterestChips supabase={supabase} threadId={threadId} />
 
       <ChatMessageStream
+        counterHref={`?compose=deal`}
         threadId={threadId}
         initialMessages={initialMessages}
         currentUserId={user.id}
@@ -470,6 +499,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             </p>
           ) : null}
           <NegotiationComposerMenu
+            initialMode={composeMode}
             threadId={threadId}
             returnPath={`/dashboard/${eventId}/messages/${threadId}`}
             eventDate={eventDate}

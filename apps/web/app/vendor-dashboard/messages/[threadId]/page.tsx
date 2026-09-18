@@ -115,7 +115,7 @@ export const metadata = { title: 'Thread · Vendor' };
 
 type Props = {
   params: Promise<{ threadId: string }>;
-  searchParams?: Promise<{ notice?: string; view?: string | string[] }>;
+  searchParams?: Promise<{ notice?: string; view?: string | string[]; compose?: string }>;
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
@@ -605,6 +605,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     ),
     'deal-or-meeting': (
         <NegotiationComposerMenu
+          initialMode={sp?.compose === 'deal' ? 'deal' : null}
           threadId={threadId}
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
@@ -1201,6 +1202,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           less than this, so an open tool cannot flatten it (see the section). */}
       <div className="flex min-h-[20rem] flex-1 flex-col">
         <ChatMessageStream
+          counterHref={`?compose=deal`}
           threadId={threadId}
           initialMessages={initialMessages}
           currentUserId={user.id}

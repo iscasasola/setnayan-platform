@@ -65,11 +65,23 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
+type ProposalLineItem = {
+  label: string | null;
+  detail: string | null;
+  amount_centavos: number | null;
+};
+
 type ProposalCardData = {
   publicId: string;
   title: string;
   totalCentavos: number;
   status: string;
+  /**
+   * The inclusions, so the quote reads in the conversation without a round
+   * trip. They used to live only in the pinned card above the list — the one
+   * whose height crushed the conversation to 32px on a phone.
+   */
+  lineItems: ProposalLineItem[];
   /**
    * `vendor_proposals.resolved_at` — WHEN the current status was reached.
    * Decisions needs it to say "Accepted · 1 Sep" rather than dating a verdict
@@ -139,6 +151,13 @@ type Props = {
    * the supplier's page; the couple never receives those replies.
    */
   supplierReplyActions?: SupplierReplyActions;
+  /**
+   * Where "Counter-offer" goes on a quote card. A URL rather than a callback —
+   * the thread pages are server components and cannot pass functions across the
+   * boundary. Omit it and the button does not render, which is what a surface
+   * with no negotiation composer wants.
+   */
+  counterHref?: string;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -157,6 +176,7 @@ export function ChatMessageStream({
   lockHandshake = null,
   initialView = 'all',
   supplierReplyActions,
+  counterHref,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -188,7 +208,7 @@ export function ChatMessageStream({
       // waiting, and neither of them can tell anything went wrong.
       const { data, error } = await supabase
         .from('vendor_proposals')
-        .select('proposal_id, public_id, title, total_centavos, status, resolved_at')
+        .select('proposal_id, public_id, title, total_centavos, status, resolved_at, line_items')
         .in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -205,6 +225,7 @@ export function ChatMessageStream({
           title: string;
           total_centavos: number;
           status: string;
+          line_items: ProposalLineItem[] | null;
         }[]) {
           next[p.proposal_id] = {
             resolvedAt: p.resolved_at,
@@ -212,6 +233,7 @@ export function ChatMessageStream({
             title: p.title,
             totalCentavos: p.total_centavos,
             status: p.status,
+            lineItems: p.line_items ?? [],
           };
         }
         return next;
@@ -639,12 +661,65 @@ export function ChatMessageStream({
     }
   }, [messages, scrollToBottom]);
 
+  /*
+    Jump pills — owner, 2026-09-18: "chatbox everything inside it, and buttons
+    to jump to the different latest proposals, so it can jump back on the latest
+    conversation when they need to see it."
+
+    ⚖ WHY PILLS AND NOT A PINNED BAR. The quote used to sit in a card ABOVE this
+    list, and on a phone that card crushed the conversation to 32px of visible
+    height against 498px of content. Anything permanently occupying the column
+    costs the same rent. These are absolutely positioned over the scroller, so
+    they cost NO layout height, and each only appears when its target is
+    off-screen.
+  */
+  const latestProposalRef = useRef<HTMLLIElement | null>(null);
+  // The newest quote in the thread — what "jump to the quote" means, and the
+  // only card that gets the ref. Older quotes stay in place as the audit trail.
+  const latestProposalId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const id = messages[i]?.proposal_id;
+      if (id) return id;
+    }
+    return null;
+  }, [messages]);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const [quoteOffScreen, setQuoteOffScreen] = useState(false);
+
+  const recomputePills = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAwayFromBottom(distanceFromBottom > 240);
+    const q = latestProposalRef.current;
+    if (!q) {
+      setQuoteOffScreen(false);
+      return;
+    }
+    const lr = el.getBoundingClientRect();
+    const qr = q.getBoundingClientRect();
+    // Off-screen means genuinely out of the scroller's window, in either
+    // direction — a quote above you is as unreachable as one below.
+    setQuoteOffScreen(qr.bottom < lr.top + 8 || qr.top > lr.bottom - 8);
+  }, []);
+
+  const scrollToLatestQuote = useCallback(() => {
+    latestProposalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
   const handleScroll = useCallback(() => {
     const el = listRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distanceFromBottom < 80;
-  }, []);
+    recomputePills();
+  }, [recomputePills]);
+
+  // Messages arriving (or a quote landing) changes what is on screen without a
+  // scroll event, so the pills have to be recomputed then too.
+  useEffect(() => {
+    recomputePills();
+  }, [messages, proposalCards, recomputePills]);
 
   // ---------------------------------------------------------------------------
   // Presence channel — broadcast & receive typing state.
@@ -775,7 +850,7 @@ export function ChatMessageStream({
       />
 
       {view === 'decisions' ? (
-        <div className="flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
+        <div className="min-h-[14rem] flex-1 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
           <DecisionsPanel
             entries={decisions}
             standing={standing}
@@ -806,10 +881,34 @@ export function ChatMessageStream({
           <FilesPanel files={files} />
         </div>
       ) : (
+    <div className="relative flex min-h-0 flex-1 flex-col">
     <ol
       ref={listRef}
       onScroll={handleScroll}
-      className="flex-1 space-y-2 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4"
+      /*
+        🔴 `min-h-[14rem]` — measured on production 2026-09-18, the first time a
+        quote was ever sent on this platform.
+
+        The thread column is a FIXED height (`h-[calc(100dvh-12rem)]` on the
+        page) and this list is the only `flex-1` child, so it absorbs whatever
+        its siblings leave. Siblings: a safety notice, the INQUIRING ABOUT chip,
+        the tab row, a call row, the composer — and, once a supplier sends one,
+        the CURRENT QUOTE card, which is unbounded and tall.
+
+        With a quote present the list measured **clientHeight 32px against
+        scrollHeight 498px**: the whole conversation, squeezed into a sliver the
+        owner described as "the chatbox shrunk".
+
+        🔑 IT WAS UNREACHABLE UNTIL TODAY. The card only renders when a quote
+        exists, and no quote had ever been sent — so the layout was correct for
+        every state anyone had been able to reach.
+
+        A floor, not a fixed height: the list still grows into spare room and
+        still scrolls internally. When the column genuinely cannot fit
+        everything, the page scrolls instead of crushing the conversation to
+        nothing.
+      */
+      className="min-h-[14rem] flex-1 space-y-2 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4"
       aria-live="polite"
       aria-relevant="additions"
     >
@@ -832,8 +931,22 @@ export function ChatMessageStream({
           // fall back to the message body until the card data loads.
           if (m.proposal_id) {
             const card = proposalCards[m.proposal_id];
+            /*
+              The quote now lives HERE, in the conversation, and nowhere else.
+              It used to be duplicated into a pinned card above the list, which
+              on a phone crushed the whole conversation to 32px of visible
+              height — the owner's "the chatbox shrunk". A negotiation reads as
+              quote → counter → counter-back, so the quote belongs in that
+              order, not floating above it.
+            */
+            const isLatestProposal = m.proposal_id === latestProposalId;
+            const items = (card?.lineItems ?? []).filter((li) => li.label?.trim());
             return (
-              <li key={m.message_id} className="flex justify-center">
+              <li
+                key={m.message_id}
+                ref={isLatestProposal ? latestProposalRef : undefined}
+                className="flex justify-center"
+              >
                 <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
                   <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
                     📄 Proposal
@@ -850,12 +963,63 @@ export function ChatMessageStream({
                           card.status as keyof typeof PROPOSAL_STATUS_LABEL
                         ] ?? card.status}
                       </p>
-                      <Link
-                        href={`/proposals/${card.publicId}`}
-                        className="mt-2 inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-                      >
-                        {viewerRole === 'couple' ? 'Review & accept' : 'View proposal'}
-                      </Link>
+                      {items.length > 0 ? (
+                        <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
+                          {items.slice(0, 5).map((li, i) => (
+                            <li key={i} className="flex items-baseline justify-between gap-3">
+                              <span className="min-w-0 truncate">
+                                {li.label}
+                                {li.detail ? (
+                                  <span className="text-ink/45"> · {li.detail}</span>
+                                ) : null}
+                              </span>
+                              <span className="shrink-0 tabular-nums">
+                                {typeof li.amount_centavos === 'number'
+                                  ? formatCentavos(li.amount_centavos)
+                                  : 'Complimentary'}
+                              </span>
+                            </li>
+                          ))}
+                          {items.length > 5 ? (
+                            <li className="text-ink/45">
+                              + {items.length - 5} more in the full quote
+                            </li>
+                          ) : null}
+                        </ul>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/proposals/${card.publicId}`}
+                          className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                        >
+                          {viewerRole === 'couple' ? 'Review & accept' : 'View proposal'}
+                        </Link>
+                        {/*
+                          🔴 A QUOTE IS NOT TAKE-IT-OR-LEAVE-IT. Owner,
+                          2026-09-18: "so it should not be just review and
+                          accept." The amendment builder — proposal_amendments,
+                          its db tests, the whole negotiation loop — has shipped
+                          for some time behind the composer's "Deal or meeting"
+                          button, below the fold and named after neither
+                          countering nor quoting. A couple reading ₱10,170 with
+                          one button assumes those are the terms.
+                        */}
+                        {/*
+                          A HREF, not a callback: this page is a server
+                          component and cannot hand a function across the
+                          boundary. The link opens the composer's existing
+                          amendment builder via `?compose=deal`, so the counter
+                          is also shareable and survives a reload.
+                        */}
+                        {counterHref ? (
+                          <Link
+                            href={counterHref}
+                            className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                          >
+                            Counter-offer
+                          </Link>
+                        ) : null}
+                      </div>
                     </>
                   ) : (
                     <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink/80">
@@ -1069,6 +1233,32 @@ export function ChatMessageStream({
         </li>
       ) : null}
     </ol>
+
+      {/*
+        Jump pills. Absolutely positioned OVER the scroller, so they occupy no
+        layout height — the whole point, after a pinned quote card cost this
+        conversation all but 32px of its own column on a phone. Each appears
+        only when its target is out of view.
+      */}
+      {quoteOffScreen && latestProposalId ? (
+        <button
+          type="button"
+          onClick={scrollToLatestQuote}
+          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-terracotta/40 bg-cream/95 px-3 py-1 text-xs font-medium text-terracotta shadow-sm backdrop-blur hover:bg-cream"
+        >
+          📄 Jump to the quote
+        </button>
+      ) : null}
+      {awayFromBottom ? (
+        <button
+          type="button"
+          onClick={() => scrollToBottom('smooth')}
+          className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-ink/15 bg-cream/95 px-3 py-1 text-xs font-medium text-ink/70 shadow-sm backdrop-blur hover:bg-cream"
+        >
+          ↓ Latest messages
+        </button>
+      ) : null}
+    </div>
       )}
     </div>
   );

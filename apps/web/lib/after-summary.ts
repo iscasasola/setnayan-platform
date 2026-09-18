@@ -152,6 +152,7 @@ export async function loadAfterSummary(
             .select('status, published_at')
             .eq('event_id', eventId)
             .maybeSingle();
+          if (error) console.error('[supabase-error] lib/after-summary.ts · from:event_editorial.select', error);
           if (error) return null;
           return (data ?? { status: null, published_at: null }) as {
             status: string | null;

@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
+import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -36,7 +37,8 @@ import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
-import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
+import { resolvePlanned, suggestedPlanByBucket } from '@/lib/budget-ledger';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
 import {
@@ -360,6 +362,69 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read-only at the TOP of the Shortlist. Oldest-first. Empty → strip hides.
   const waitingForQuotes: WaitingInquiry[] = [];
 
+  // Hoisted out of the marketplace block (SUP-65): the rails' Planned figure
+  // must show for a couple who has not shortlisted anyone yet — that is when
+  // a target is most useful.
+  //
+  // Budget-fit for the per-candidate compat % (compat-score `budgetFit` dim,
+  // 0.20). Allocate the couple's budget across categories with the SAME
+  // median-anchored engine the Budget tab + the category-search overlay use,
+  // then score each vendor's "starts at" against its category's share — so the
+  // budget planner's own % finally reflects budget fit (it fed only distance/
+  // reviews/verified before, leaving budgetFit frozen at neutral). One extra
+  // allocation read, skipped entirely when no budget is set (→ every
+  // budget_fit stays neutral anyway), and fail-open: any error → empty map →
+  // neutral, never blocks the vendors page.
+  const budgetByPlanGroup = new Map<string, number>();
+  const plannedByGroup = new Map<string, { plannedPhp: number; plannedSource: 'saved' | 'suggested' }>();
+  // SUP-65 · the per-category ₱ the couple SEES on each rail. Deliberately
+  // NOT `budgetByPlanGroup`: that one also folds in the band estimate so the
+  // ranking has something to score against, which is fine for an ordering
+  // and wrong for a figure printed as "your plan". This is `/budget`'s
+  // Planned column, built by the same two helpers — saved plan first, then
+  // the unpinned suggestion from the couple's own typed budget, weddings
+  // only — so one category can never read two amounts on two pages.
+  const isWeddingPlan = (ev?.event_type ?? 'wedding') === 'wedding';
+  const savedPlanPromise = fetchSavedAllocationPlan(supabase, eventId);
+  let suggestedPlan = new Map<string, number | null>();
+  // PRICE DECIDES REACH: the gate now also opens for a couple who chose a
+  // budget FEEL and a guest count but never typed a figure — the resolver
+  // turns their band into a number (lib/budget-band-money) and this page's
+  // budget_fit stops being frozen at neutral for exactly the couples whose
+  // only budget answer WAS the band. Still skipped for a couple who answered
+  // neither, so the no-budget path issues the queries it always did.
+  if (ev?.estimated_budget_centavos != null || (ev?.budget_band != null && ev?.estimated_pax != null)) {
+    try {
+      const alloc = await resolveAllocationInputs(supabase, eventId);
+      // Same explicit opt-in as the category-search overlay, so the page's %
+      // and the overlay's % can never disagree about this couple's budget.
+      const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+      if (searchBudgetPhp != null) {
+        const allocResult = computeBudgetAllocation({
+          budgetPhp: searchBudgetPhp,
+          leaves: alloc.leaves,
+          config: alloc.config,
+        });
+        for (const l of allocResult.leaves) budgetByPlanGroup.set(l.canonicalService, l.amountPhp);
+      }
+      suggestedPlan = suggestedPlanByBucket({
+        isWedding: isWeddingPlan,
+        budgetPhp: alloc.budgetPhp,
+        leaves: alloc.leaves,
+        config: alloc.config,
+      });
+    } catch {
+      // budget-fit stays neutral — never blocks the vendors page.
+    }
+  }
+  // `fetchSavedAllocationPlan` never throws (it logs and returns an empty
+  // map), so a failed read shows the suggestion or nothing — never ₱0.
+  const savedPlan = await savedPlanPromise;
+  for (const id of new Set([...savedPlan.keys(), ...suggestedPlan.keys()])) {
+    const p = resolvePlanned(id, savedPlan, suggestedPlan);
+    if (p) plannedByGroup.set(id, p);
+  }
+
   if (marketplaceIds.length > 0) {
     // Couple-visibility fix (2026-07-01): the picked-vendor marketplace
     // enrichment (name / logo / rating / badges) is read through the ADMIN
@@ -541,40 +606,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const venueLat = ev?.venue_latitude ?? null;
     const venueLng = ev?.venue_longitude ?? null;
 
-    // Budget-fit for the per-candidate compat % (compat-score `budgetFit` dim,
-    // 0.20). Allocate the couple's budget across categories with the SAME
-    // median-anchored engine the Budget tab + the category-search overlay use,
-    // then score each vendor's "starts at" against its category's share — so the
-    // budget planner's own % finally reflects budget fit (it fed only distance/
-    // reviews/verified before, leaving budgetFit frozen at neutral). One extra
-    // allocation read, skipped entirely when no budget is set (→ every
-    // budget_fit stays neutral anyway), and fail-open: any error → empty map →
-    // neutral, never blocks the vendors page.
-    const budgetByPlanGroup = new Map<string, number>();
-    // PRICE DECIDES REACH: the gate now also opens for a couple who chose a
-    // budget FEEL and a guest count but never typed a figure — the resolver
-    // turns their band into a number (lib/budget-band-money) and this page's
-    // budget_fit stops being frozen at neutral for exactly the couples whose
-    // only budget answer WAS the band. Still skipped for a couple who answered
-    // neither, so the no-budget path issues the queries it always did.
-    if (ev?.estimated_budget_centavos != null || (ev?.budget_band != null && ev?.estimated_pax != null)) {
-      try {
-        const alloc = await resolveAllocationInputs(supabase, eventId);
-        // Same explicit opt-in as the category-search overlay, so the page's %
-        // and the overlay's % can never disagree about this couple's budget.
-        const searchBudgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
-        if (searchBudgetPhp != null) {
-          const allocResult = computeBudgetAllocation({
-            budgetPhp: searchBudgetPhp,
-            leaves: alloc.leaves,
-            config: alloc.config,
-          });
-          for (const l of allocResult.leaves) budgetByPlanGroup.set(l.canonicalService, l.amountPhp);
-        }
-      } catch {
-        // budget-fit stays neutral — never blocks the vendors page.
-      }
-    }
 
     // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
     // 0.07). Read the couple's faith list from the Event Brief — the SAME source
@@ -763,7 +794,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // this field, so this is the one place it is folded. Display only: no
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
-      deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
@@ -1050,6 +1080,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     moodBoardSet: ev?.mood_board_updated_at != null,
     taxonomy,
     buildPicksByGroup,
+    plannedByGroup,
   });
 
   // Committed-date label + precision — feed the Build/Lock date anchor + the
@@ -1612,6 +1643,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         supabase,
         eventId,
         nowMs: Date.now(),
+        // One headcount for the whole bench — each card compares it with the
+        // count that supplier was asked with ("Guest count changed", SUP-2).
+        livePax: await resolveLivePax(supabase, eventId),
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,
@@ -2523,6 +2557,7 @@ async function sweepRipeReviewRequests(
         .eq('vendor_id', v.vendor_id)
         .in('status', ['contracted', 'deposit_paid'])
         .select('vendor_id');
+      if (updErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/page.tsx · from:event_vendors.update', updErr);
       if (updErr || !updated || updated.length === 0) continue;
       await emitNotification({
         userId: coupleUserId,

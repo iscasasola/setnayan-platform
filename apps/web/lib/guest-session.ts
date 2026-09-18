@@ -8,6 +8,33 @@ const COOKIE_NAME = 'setnayan_guest_session';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30-day post-event window
 
 /**
+ * The cookie is set ONCE — at redeem/claim/rotate — and never again. A guest
+ * who first opens the site well before the wedding (a save-the-date QR, a
+ * save-the-seat link) and keeps returning through the up-to-30-day post-event
+ * window can still run past 60 days total elapsed since that first mint, even
+ * though every visit in between was active use. Nothing re-sets the cookie on
+ * an ordinary page read, so that guest is signed out mid-event with no way
+ * back in but a fresh QR scan.
+ *
+ * The fix is a sliding window, applied in middleware (the only place a
+ * request can both read and rewrite a cookie without landing in a Server
+ * Component or Server Action): once less than half the max age remains on a
+ * verified cookie, re-sign the SAME payload with a fresh 60-day expiry. A
+ * guest who returns at least once every 30 days never sees the boundary; one
+ * who doesn't falls back to the QR, same as today.
+ *
+ * Deliberately DB-free — `readGuestSession()`'s qr_token/deleted_at
+ * revalidation stays the one chokepoint that can revoke a session; this only
+ * decides whether to extend a cookie that a real page read will still
+ * re-check on its own next use. Extending the cookie of a session that gets
+ * revoked a moment later does not restore anything the DB check would have
+ * blocked.
+ */
+export const GUEST_SESSION_COOKIE_NAME = COOKIE_NAME;
+export const GUEST_SESSION_COOKIE_MAX_AGE_SECONDS = COOKIE_MAX_AGE_SECONDS;
+const REFRESH_WINDOW_SECONDS = COOKIE_MAX_AGE_SECONDS / 2; // 30 days
+
+/**
  * QR-rotation session revocation (build ④ · council § 5.11). The 60-day JWT
  * embeds the guest's qr_token at mint time; without this check a session
  * minted from a LEAKED QR survives up to 60 days after the host/guest rotates
@@ -290,6 +317,60 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
   } catch {
     return null;
   }
+}
+
+export type VerifiedGuestSessionToken = {
+  payload: GuestSessionPayload;
+  expiresAtSeconds: number;
+};
+
+/**
+ * Signature-only verification, with the token's `exp` claim, for middleware's
+ * sliding-window refresh. No DB call — see the comment above
+ * REFRESH_WINDOW_SECONDS for why that is deliberate. Never use this as a
+ * substitute for readGuestSession()'s DB-backed check when deciding whether a
+ * request is allowed to act as a guest.
+ */
+export async function verifyGuestSessionToken(
+  token: string,
+): Promise<VerifiedGuestSessionToken | null> {
+  const resolution = resolveGuestSessionSecret();
+  warnOnce(resolution);
+  if (!resolution.ok) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(resolution.material));
+    if (
+      typeof payload.guest_id !== 'string' ||
+      typeof payload.event_id !== 'string' ||
+      typeof payload.qr_token !== 'string' ||
+      typeof payload.exp !== 'number'
+    ) {
+      return null;
+    }
+    return {
+      payload: {
+        guest_id: payload.guest_id,
+        event_id: payload.event_id,
+        qr_token: payload.qr_token,
+      },
+      expiresAtSeconds: payload.exp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pure so it can be tested against a fixed clock without minting real JWTs.
+ * True once fewer than REFRESH_WINDOW_SECONDS remain before `exp`.
+ */
+export function shouldRefreshGuestSession(
+  expiresAtSeconds: number,
+  nowMs: number = Date.now(),
+): boolean {
+  const remainingSeconds = expiresAtSeconds - nowMs / 1000;
+  return remainingSeconds < REFRESH_WINDOW_SECONDS;
 }
 
 export async function setGuestSession(payload: GuestSessionPayload): Promise<void> {

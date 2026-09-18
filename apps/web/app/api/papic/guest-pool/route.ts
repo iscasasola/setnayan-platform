@@ -28,5 +28,10 @@ export async function GET(req: Request) {
 
   const before = new URL(req.url).searchParams.get('before');
   const page = await getPoolGalleryPage(session.guest_id, before);
+  // A refused read is not "no more photos" — say so, and the grid keeps its
+  // cursor so the guest can try again (S41b).
+  if (page.unreadable) {
+    return NextResponse.json({ ok: false, error: 'unreadable' }, { status: 503 });
+  }
   return NextResponse.json({ ok: true, tiles: page.tiles, nextCursor: page.nextCursor });
 }

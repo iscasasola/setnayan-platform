@@ -48,6 +48,7 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { computeVatFromBase } from '@/lib/receipts';
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { logQueryError } from '@/lib/supabase/error-detect';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -1361,6 +1362,7 @@ async function fetchDeskBills(
     // A failed catalog read degrades to raw codes with NO retail column — the
     // bill still itemises off its own stored lines; only the "normally" figures
     // and the saving line go quiet (regularPhp stays null → no claim invented).
+    if (error) logQueryError('admin/payments: bill catalogue titles', error);
     if (!error && Array.isArray(data)) {
       for (const row of data) {
         const r = row as { service_code?: string; title?: string; retail_price_php?: number };
@@ -1567,7 +1569,10 @@ async function fetchDuplicateExposure(
     .from('payments')
     .select('payment_id, order_id, reference_number, amount_php, status, order:orders(public_id)')
     .in('status', MONEY_STATUSES);
-  if (error || !Array.isArray(data)) return { byPaymentId, failed: true };
+  if (error || !Array.isArray(data)) {
+    logQueryError('admin/payments: prior money payments', error);
+    return { byPaymentId, failed: true };
+  }
 
   const priors = data.map((row) => {
     // `as unknown` first: PostgREST's generated type for the `order` embed is

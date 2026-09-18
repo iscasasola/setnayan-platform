@@ -2,6 +2,7 @@ import { HandHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * "GUESTS CHIPPED IN" — the host is NOTIFIED, not asked (owner-locked
@@ -40,6 +41,23 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
   if (!memberEvent) return null;
 
   const rows = await fetchGuestContributions(eventId);
+  // A REFUSED read is not "nobody chipped in": vanishing here would tell a host
+  // whose guests gave ₱1,000 exactly what it tells a host whose guests gave
+  // nothing. Say we could not look instead.
+  if (rows === CONTRIBUTIONS_UNREADABLE) {
+    return (
+      <section className="space-y-1.5 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <p className="flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
+          <HandHeart aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+          Guests chipped in
+        </p>
+        <p className="text-sm text-ink/70">
+          We couldn&rsquo;t check for guest contributions right now. Refresh in a
+          moment to see whether anyone bought extra shots.
+        </p>
+      </section>
+    );
+  }
   if (rows.length === 0) return null;
 
   return (
@@ -85,6 +103,8 @@ type Contribution = {
   settled: boolean;
 };
 
+const CONTRIBUTIONS_UNREADABLE = 'unreadable' as const;
+
 /**
  * The event's guest contributions. Admin client on purpose: `papic_guest_orders`
  * carries no read policy (service-role only, by design — the bearer token is
@@ -95,10 +115,13 @@ type Contribution = {
  * — the product promise is that they can buy without telling us who they are,
  * and a card that quietly resolved them to a guest-list row would break it.
  *
- * Degrades to an empty list on any read problem rather than throwing: a missing
- * card is recoverable, a thrown error takes down the whole Papic studio.
+ * Degrades to `'unreadable'` on any read problem rather than throwing: a thrown
+ * error takes down the whole Papic studio. It is NOT an empty list — an empty
+ * list hides the card, which would read as "no guest gave anything" (S41).
  */
-async function fetchGuestContributions(eventId: string): Promise<Contribution[]> {
+async function fetchGuestContributions(
+  eventId: string,
+): Promise<Contribution[] | typeof CONTRIBUTIONS_UNREADABLE> {
   try {
     const admin = createAdminClient();
     const { data, error } = await admin
@@ -107,7 +130,10 @@ async function fetchGuestContributions(eventId: string): Promise<Contribution[]>
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(20);
-    if (error || !Array.isArray(data)) return [];
+    if (error || !Array.isArray(data)) {
+      logQueryError('papic guest-contributions-card: papic_guest_orders', error);
+      return CONTRIBUTIONS_UNREADABLE;
+    }
 
     return data
       .map((r) => {
@@ -126,7 +152,8 @@ async function fetchGuestContributions(eventId: string): Promise<Contribution[]>
         };
       })
       .filter((r): r is Contribution => r !== null && r.points > 0);
-  } catch {
-    return [];
+  } catch (err) {
+    logQueryError('papic guest-contributions-card: threw', err);
+    return CONTRIBUTIONS_UNREADABLE;
   }
 }

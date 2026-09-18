@@ -110,6 +110,7 @@ export function HideableWidgetRender({
           eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           nowTrigger={isGuestNowTriggerEnabled()}
           estimated={scheduleEstimated}
+          eventType={event.event_type}
         />
       ) : null;
 

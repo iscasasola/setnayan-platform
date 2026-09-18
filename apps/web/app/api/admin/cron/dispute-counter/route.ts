@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorSuspensionEmail } from '@/lib/vendor-email-triggers';
 import { secureCompare } from '@/lib/secure-compare';
+import { reconcileDisputeCount } from '@/lib/dispute-demotion';
 
 /**
  * Dispute counter cron — runs daily, rolls a 30-day window of disputes per
@@ -115,7 +116,71 @@ export async function POST(request: Request) {
 
   const results: DemotionResult[] = [];
 
-  for (const [vendorProfileId, count] of candidates) {
+  for (const [vendorProfileId, scanned] of candidates) {
+    // ONE SOURCE OF TRUTH FOR THE NUMBER THAT DEMOTES (S36, 2026-09-18). The
+    // scan above is a cheap TypeScript candidate filter; the DEMOTION itself
+    // reads the count from public.count_vendor_disputes_30d — the SQL helper
+    // the dispute-mediation migration (20270413204817) shipped for exactly
+    // this, and whose predicate the scan mirrors "byte-aligned". Two
+    // mechanisms for one fact each pass their own suite while disagreeing
+    // (CLAUDE.md RULE 0 §8); asking the database's own function before writing
+    // is what turns a silent disagreement into a recorded one. Until today the
+    // helper had no caller at all (both-ends baseline, #5625).
+    const { data: authoritative, error: countErr } = await admin.rpc(
+      'count_vendor_disputes_30d' as never,
+      { v_vendor_profile_id: vendorProfileId } as never,
+    );
+    if (countErr) {
+      results.push({
+        vendor_profile_id: vendorProfileId,
+        business_name: null,
+        dispute_count: scanned,
+        before_visibility: '?',
+        before_state: null,
+        demoted: false,
+        error: `count_vendor_disputes_30d failed: ${countErr.message}`,
+      });
+      continue;
+    }
+    const verdict = reconcileDisputeCount({
+      scanned,
+      authoritative,
+      threshold: DEMOTION_THRESHOLD,
+    });
+    if (!verdict.ok) {
+      results.push({
+        vendor_profile_id: vendorProfileId,
+        business_name: null,
+        dispute_count: scanned,
+        before_visibility: '?',
+        before_state: null,
+        demoted: false,
+        error: verdict.reason,
+      });
+      continue;
+    }
+    if (verdict.disagreed) {
+      // Recorded, never swallowed: the two counts of one fact differ. The SQL
+      // count wins below; this line is how anyone finds out the scan drifted.
+      console.warn(
+        `[dispute-counter] scan counted ${scanned} dispute(s) for ${vendorProfileId}; count_vendor_disputes_30d says ${verdict.count} — the SQL count decides`,
+      );
+    }
+    // Everything below reads the database's count, never the scan's.
+    const count = verdict.count;
+    if (!verdict.demote) {
+      results.push({
+        vendor_profile_id: vendorProfileId,
+        business_name: null,
+        dispute_count: count,
+        before_visibility: '?',
+        before_state: null,
+        demoted: false,
+        error: `count_vendor_disputes_30d returned ${count}, below the threshold of ${DEMOTION_THRESHOLD} (the scan said ${scanned}) — not demoted`,
+      });
+      continue;
+    }
+
     const { data: profile, error: pErr } = await admin
       .from('vendor_profiles')
       .select(

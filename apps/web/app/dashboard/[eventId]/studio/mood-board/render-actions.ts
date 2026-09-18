@@ -57,6 +57,7 @@ import {
 import { buildGalleryCopy } from '@/lib/moodboard-gallery-copy';
 import { renderImageKey } from '@/lib/moodboard-render-keys';
 import { signOwnRenderImage } from '@/lib/moodboard-render-serve';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * What the tile gets back. Three outcomes, all of them visible:
@@ -417,7 +418,12 @@ async function readBalanceLeft(
   eventId: string,
 ): Promise<number | null> {
   const { data, error } = await supabase.rpc('moodboard_render_balance', { p_event_id: eventId });
-  if (error || !Array.isArray(data) || data.length === 0) return null;
+  if (error) {
+    // null already renders as "unknown", never as zero; keep the reason too.
+    logQueryError('mood-board render-actions: moodboard_render_balance', error, { event_id: eventId });
+    return null;
+  }
+  if (!Array.isArray(data) || data.length === 0) return null;
   const row = data[0] as { credits_left?: number };
   return typeof row.credits_left === 'number' ? row.credits_left : null;
 }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b4957157a",
+  "generatedFromRef": "8b2e3aac3",
   "routeCount": 428,
-  "destinations": 916,
-  "actions": 636,
-  "blocks": 4468,
+  "destinations": 918,
+  "actions": 637,
+  "blocks": 4478,
   "routes": {
     "/": {
       "files": [
@@ -4213,6 +4213,7 @@
       "files": [
         "dashboard/(account)/create-event/_components/create-date-picker.tsx",
         "dashboard/(account)/create-event/_components/create-location-picker.tsx",
+        "dashboard/(account)/create-event/_components/event-type-carousel.tsx",
         "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
         "dashboard/(account)/create-event/_components/event-type-picker.tsx",
         "dashboard/(account)/create-event/_components/event-types.ts",
@@ -4239,8 +4240,10 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HeroCard",
         "Image",
         "InPlanningWedding",
         "Link",
@@ -4610,10 +4613,18 @@
     },
     "/dashboard/(launcher)": {
       "files": [
+        "dashboard/(launcher)/_components/account-inline.tsx",
+        "dashboard/(launcher)/_components/alaala-lenses.tsx",
+        "dashboard/(launcher)/_components/alaala-tile.tsx",
+        "dashboard/(launcher)/_components/alaala-wall.tsx",
+        "dashboard/(launcher)/_components/creator-benefits.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
+        "dashboard/(launcher)/_components/expandable.tsx",
+        "dashboard/(launcher)/_components/home-board.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
+        "dashboard/(launcher)/_components/shop-logo.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
@@ -4625,23 +4636,31 @@
         "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/create-event",
+        "/dashboard/creator",
         "/dashboard/library",
+        "/dashboard/life-flash",
         "/dashboard/notifications",
         "/dashboard/people",
         "/dashboard/profile",
         "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
+        "/v/[seg]",
         "/vendor-dashboard"
       ],
       "actions": [],
       "blocks": [
         "AccountSwitcher",
+        "AlaalaLensBody",
+        "AlaalaLensKey",
+        "AlaalaLenses",
         "AppRailShell",
         "AttentionPill",
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
         "CardShell",
         "ClashNotice",
+        "CollabRow",
+        "ComingSoonNote",
         "CountUp",
         "DeletionImpact",
         "EmptyYear",
@@ -4649,6 +4668,7 @@
         "EventCardMenu",
         "EventMonogram",
         "EventScene",
+        "Facet",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4668,6 +4688,7 @@
         "RemoveDialog",
         "SectionLabel",
         "ShelfInfo",
+        "ShopLogo",
         "StanceChip",
         "StartPlanningLink",
         "Tile",
@@ -5854,15 +5875,13 @@
     },
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
-        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/proposals/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "withdrawInquiry"
@@ -5876,7 +5895,6 @@
         "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
-        "ReadRefusedNotice",
         "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
@@ -6505,6 +6523,7 @@
     "/dashboard/[eventId]/studio": {
       "files": [
         "dashboard/[eventId]/studio/_components/addon-detail-view.tsx",
+        "dashboard/[eventId]/studio/_components/service-poster.tsx",
         "dashboard/[eventId]/studio/_components/service-tags.tsx",
         "dashboard/[eventId]/studio/_components/studio-app-row.tsx",
         "dashboard/[eventId]/studio/_components/studio-buy-hero.tsx",
@@ -10810,6 +10829,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
+        "routes.vendorDashboard.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],
@@ -10818,6 +10838,8 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "Link",
+        "LockedState",
         "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"

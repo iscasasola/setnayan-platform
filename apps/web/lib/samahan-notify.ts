@@ -155,6 +155,7 @@ export async function notifySamahanCoMembers(args: {
       .is('read_at', null)
       .gte('created_at', new Date(Date.now() - COLLAPSE_WINDOW_MS).toISOString())
       .in('user_id', recipients);
+    if (standingErr) console.error('[supabase-error] lib/samahan-notify.ts · from:notifications.select', standingErr);
     const toTell = selectSamahanRecipients(
       recipients,
       actorUserId,

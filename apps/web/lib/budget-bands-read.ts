@@ -36,7 +36,11 @@ export async function fetchBudgetBands(client: SupabaseClient): Promise<BudgetBa
       .select('band_slug,label,tag,per_head_median_centavos,sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
-    if (error || !data || data.length === 0) return BUDGET_BANDS_FALLBACK;
+    if (error) {
+      console.error('[supabase-error] budget-bands-read: budget_band_config (using fallback)', error);
+      return BUDGET_BANDS_FALLBACK;
+    }
+    if (!data || data.length === 0) return BUDGET_BANDS_FALLBACK;
     return (data as BandRow[]).map((r) => ({
       value: r.band_slug,
       label: r.label,

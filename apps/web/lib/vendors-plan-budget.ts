@@ -350,6 +350,15 @@ export type AccordionChild = {
   timelineStatus: TimelineStatus;
   /** Σ of locked picks in this child. */
   lockedTotal: number;
+  /**
+   * SUP-65 · what the couple planned to spend on this category, in whole
+   * pesos — the SAME figure `/budget`'s ledger prints under Planned (saved
+   * plan wins, the engine's suggestion is the fallback; see `resolvePlanned`
+   * in `lib/budget-ledger.ts`). `source` says which, so a suggestion is never
+   * presented as the couple's own number. null → no plan, and the rail says
+   * nothing rather than ₱0.
+   */
+  planned: { php: number; source: 'saved' | 'suggested' } | null;
   /** Whether the group is hard-single (one pick max). */
   hardSingle: boolean;
   /** The vendor_id pinned to the build for this category (event_build_picks),
@@ -651,6 +660,9 @@ export function buildPlanBudgetModel(args: {
    *  never read the env itself. Default `false` reproduces today's production
    *  exactly: no category can ever reach the `'awaiting'` state. */
   lockHandshakeEnabled?: boolean;
+  /** plan_group_id → the category's Planned figure, already resolved by the
+   *  page through `resolvePlanned`. Absent → every child's `planned` is null. */
+  plannedByGroup?: ReadonlyMap<string, { plannedPhp: number; plannedSource: 'saved' | 'suggested' }>;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -882,6 +894,10 @@ export function buildPlanBudgetModel(args: {
       daysLeft: deadlineFor(group.id, daysUntilWedding),
       timelineStatus,
       lockedTotal,
+      planned: (() => {
+        const p = args.plannedByGroup?.get(group.id);
+        return p ? { php: p.plannedPhp, source: p.plannedSource } : null;
+      })(),
       hardSingle,
       buildPickVendorId,
       buildPickVendorIds,

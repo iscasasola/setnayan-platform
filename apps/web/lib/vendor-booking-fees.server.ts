@@ -11,6 +11,7 @@ import {
   isFeeOrderPayable,
   bookingFeeNotificationCopy,
 } from '@/lib/vendor-booking-fees';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Vendor Booking-Fee SURFACING — the DB-touching half (fetch + notification
@@ -28,20 +29,27 @@ const FEE_ORDER_SELECT =
  * The caller's OWN booking-fee orders, newest first. Uses the CALLER-scoped
  * client so RLS (orders_owner_read · user_id = auth.uid()) guarantees a vendor
  * can only ever read their OWN fee orders — never another vendor's — even though
- * the fee order carries the couple's event_id. Fail-soft to [] on any error so a
- * surfacing read never crashes the vendor dashboard.
+ * the fee order carries the couple's event_id. Fail-soft on any error so a
+ * surfacing read never crashes the vendor dashboard — but to
+ * `FEE_ORDERS_UNREADABLE`, never `[]`: an empty list renders "No booking fees
+ * yet." to a shop that may owe one (S41, reads-are-honest).
  */
+export const FEE_ORDERS_UNREADABLE = 'unreadable' as const;
+
 export async function fetchVendorFeeOrders(
   supabase: SupabaseClient,
   userId: string,
-): Promise<OrderRow[]> {
+): Promise<OrderRow[] | typeof FEE_ORDERS_UNREADABLE> {
   const { data, error } = await supabase
     .from('orders')
     .select(FEE_ORDER_SELECT)
     .eq('user_id', userId)
     .like('service_key', VENDOR_BOOKING_FEE_SERVICE_KEY_LIKE)
     .order('created_at', { ascending: false });
-  if (error) return [];
+  if (error) {
+    logQueryError('vendor-booking-fees: own fee orders', error);
+    return FEE_ORDERS_UNREADABLE;
+  }
   return (data ?? []) as OrderRow[];
 }
 
@@ -51,6 +59,9 @@ export async function countDueVendorFeeOrders(
   userId: string,
 ): Promise<number> {
   const orders = await fetchVendorFeeOrders(supabase, userId);
+  // Unreadable → 0 hides only the DOORWAY; the reason is already logged above,
+  // and the booking-fees page itself says it could not load.
+  if (orders === FEE_ORDERS_UNREADABLE) return 0;
   return orders.filter((o) => isFeeOrderPayable(o.status)).length;
 }
 
@@ -109,7 +120,11 @@ export async function maybeSweepVendorBookingFeeNotifications(
       .eq('user_id', userId)
       .like('service_key', VENDOR_BOOKING_FEE_SERVICE_KEY_LIKE)
       .in('status', ['submitted', 'awaiting_payment']);
-    if (oErr || !orderRows || orderRows.length === 0) return;
+    if (oErr) {
+      logQueryError('vendor-booking-fees: notification sweep read', oErr);
+      return;
+    }
+    if (!orderRows || orderRows.length === 0) return;
 
     const dueOrders = (orderRows as Array<{
       order_id: string;

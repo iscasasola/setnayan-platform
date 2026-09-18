@@ -52,6 +52,7 @@ export async function viewerSeesCoupleScopedPapic(
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/papic-gallery-scope.ts · from:event_members.select', error);
 
   // Fail toward SHOWING the caveat: if we cannot prove the viewer is permitted,
   // say the album may be incomplete. An unproven "you see everything" is the

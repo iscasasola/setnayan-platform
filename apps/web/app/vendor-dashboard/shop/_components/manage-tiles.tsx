@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import { Collapsible } from '../../_components/collapsible';
-
-type ToolKey = 'profile' | 'website' | 'team' | 'branch';
+import { panelForHash, type ToolKey } from './manage-tiles-hash';
 
 /**
  * Manage grid for My Shop. Every tile expands its function INLINE via the
@@ -33,6 +32,7 @@ export function ManageTiles({
   websitePanel,
   teamPanel,
   branchPanel,
+  initialOpen = null,
 }: {
   completionPct: number;
   verifyLabel: string;
@@ -44,8 +44,34 @@ export function ManageTiles({
   websitePanel: React.ReactNode;
   teamPanel: React.ReactNode;
   branchPanel: React.ReactNode;
+  /**
+   * The panel to render OPEN on the server — e.g. 'website' when the page is
+   * carrying an Instagram connect result, which is shown inside that panel.
+   */
+  initialOpen?: ToolKey | null;
 }) {
-  const [open, setOpen] = useState<ToolKey | null>(null);
+  const [open, setOpen] = useState<ToolKey | null>(initialOpen);
+
+  // A link into a panel (`#gallery-media`, `#website`, …) opens that panel and
+  // brings its anchor into view once the fold has animated open. See
+  // `manage-tiles-hash.ts` for the links that used to land on a shut panel.
+  useEffect(() => {
+    const apply = () => {
+      const target = panelForHash(window.location.hash);
+      if (!target) return;
+      setOpen(target);
+      const id = window.location.hash.replace(/^#/, '');
+      window.setTimeout(() => {
+        (document.getElementById(id) ?? document.getElementById('manage-shop'))?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 420);
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
+    return () => window.removeEventListener('hashchange', apply);
+  }, []);
   const toggle = (t: ToolKey) => setOpen((cur) => (cur === t ? null : t));
 
   return (

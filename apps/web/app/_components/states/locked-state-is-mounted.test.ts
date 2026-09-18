@@ -23,7 +23,7 @@ test('LockedState is mounted on the payment-links gate, with an unlock step', ()
   const mounts = src.match(/<LockedState\b/g) ?? [];
   console.log(`# LockedState mounts in ${GATE}: ${mounts.length}`);
   assert.equal(mounts.length, 1, 'exactly one LockedState on this gate');
-  assert.match(src, /href=\{routes\.vendor\.subscription\(\)\}/, 'the unlock step must point at the plans page');
+  assert.match(src, /href=\{routes\.vendorDashboard\.subscription\(\)\}/, 'the unlock step must point at the plans page');
   // The old grey box is gone, not sitting beside the new frame.
   assert.doesNotMatch(src, /<Lock\b/, 'the bespoke grey lock box was left behind');
 });

@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "29f644dec",
+  "generatedFromRef": "077927b06",
   "routeCount": 428,
   "destinations": 918,
   "actions": 640,
@@ -10837,7 +10837,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
-        "routes.vendor.subscription",
+        "routes.vendorDashboard.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],

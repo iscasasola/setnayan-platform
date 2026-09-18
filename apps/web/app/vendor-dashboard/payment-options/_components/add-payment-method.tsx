@@ -227,7 +227,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
             blurb="Upgrade your plan to add Maya, PayPal, or Stripe checkout links. Bank, e-wallet, and QR options are free on every plan."
             action={
               <Link
-                href={routes.vendor.subscription()}
+                href={routes.vendorDashboard.subscription()}
                 className="button-primary inline-flex min-h-[40px] items-center justify-center px-5 text-sm font-semibold"
               >
                 See plans

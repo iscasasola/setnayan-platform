@@ -121,23 +121,44 @@ test('sign out is a POST form, never a link', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2 · THE WORDMARK IS THE WAY OUT OF THE APP
+   2 · THE APP-VARIANT WORDMARK TARGET IS PINNED, WHEREVER IT LIVES
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the app rail wordmark leaves the app, and both variants agree', () => {
-  const src = code(read('_components/nav/doorway-sidebar-header.tsx'));
-  // Two links: the expanded wordmark and the collapsed 64px mark. They live in
-  // one file precisely so they can never point different ways.
-  const outbound = src.match(/href="\/"/g) ?? [];
-  assert.equal(
-    outbound.length,
-    2,
-    'Both the expanded wordmark and the collapsed mark must go to the public front door (owner 2026-08-13: "the wordmark is the way out of the app").',
-  );
-  assert.doesNotMatch(
+/*
+  ⚠ S40 (2026-09-19): the ORIGINAL version of this test read
+  `_components/nav/doorway-sidebar-header.tsx`, which asserted the owner's
+  2026-08-13 rule "the wordmark is the way out of the app" / "must NOT go to
+  /dashboard". That file has ZERO runtime importers — all four doorway
+  layouts (admin, vendor, customer, event) say in their own docblocks that
+  `<SidebarShell>` + `<DoorwaySidebarHeader>` are "no longer mounted here",
+  replaced by `<AppRailShell>` → `<FrontDoorShell variant="app">`. So this
+  test had been silently checking DEAD CODE for an unknown stretch of time —
+  a pass here proved nothing about what actually rendered.
+
+  Re-pointed to the live file. Its OWN inline comment (front-door-shell.tsx,
+  `const homeHref = variant === 'app' ? '/dashboard' : '/'`) states the
+  CURRENT, opposite rule: "ONLY the signed-in app may point at /dashboard,
+  which redirects a stranger to /login" — i.e. the app-variant wordmark
+  deliberately targets /dashboard today, contradicting the old
+  doorway-sidebar-header.tsx rule this test used to enforce. Whether that is
+  an intentional later supersession (both are dated in the 2026-08-13 "One
+  Shell" redesign) or an undetected regression was NOT resolved here — see
+  the flagged follow-up task. This test now pins CURRENT reality so a future
+  change to it is at least visible, rather than re-creating a guard on dead
+  code.
+*/
+test('the app-variant wordmark target is exactly what front-door-shell.tsx documents', () => {
+  const src = code(read('_components/frontdoor/front-door-shell.tsx'));
+  assert.match(
     src,
-    /href="\/dashboard"/,
-    'The wordmark no longer goes to /dashboard — that is what "← All your events" and the account panel are for.',
+    /const homeHref = variant === 'app' \? '\/dashboard' : '\/'/,
+    'front-door-shell.tsx no longer computes homeHref this way — the app-variant wordmark target changed. ' +
+      "Re-verify against the owner's current \"wordmark is the way out\" intent before updating this pin.",
+  );
+  assert.match(
+    src,
+    /<Link href=\{homeHref\} className="fd-wordmark fd-wordmark-app">/,
+    'the app-variant wordmark Link no longer uses homeHref — update this pin to match.',
   );
 });
 

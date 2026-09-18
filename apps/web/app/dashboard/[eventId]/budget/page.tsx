@@ -22,8 +22,7 @@ import {
   legacyCommittedVendorsPhp,
 } from '@/lib/budget-page-money';
 import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
-import { computeBudgetAllocation } from '@/lib/budget-allocation';
-import { buildBudgetLedger } from '@/lib/budget-ledger';
+import { buildBudgetLedger, suggestedPlanByBucket } from '@/lib/budget-ledger';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -323,16 +322,15 @@ export default async function BudgetPage({ params }: Props) {
   // would print a ₱450,000 catering plan the couple never made, from a table
   // that does not describe their event. Their rows still render; Planned reads
   // "—", which is the truth: we publish no typical prices for that shape yet.
-  const suggestedPlanPhp = new Map<string, number | null>();
-  if (isWeddingBudget && allocInputs.budgetPhp != null) {
-    for (const leaf of computeBudgetAllocation({
-      budgetPhp: allocInputs.budgetPhp,
-      leaves: allocInputs.leaves,
-      config: allocInputs.config,
-    }).leaves) {
-      suggestedPlanPhp.set(leaf.canonicalService, leaf.amountPhp);
-    }
-  }
+  //
+  // SUP-65: the suggestion is built by `suggestedPlanByBucket`, the same helper
+  // the Merkado's category rails call, so the two pages share one Planned.
+  const suggestedPlanPhp = suggestedPlanByBucket({
+    isWedding: isWeddingBudget,
+    budgetPhp: allocInputs.budgetPhp,
+    leaves: allocInputs.leaves,
+    config: allocInputs.config,
+  });
   const allocLabels = new Map(allocInputs.leaves.map((l) => [l.canonicalService, l.label]));
   const ledger = money
     ? buildBudgetLedger({

@@ -7,3 +7,13 @@ Replaced by `fetchVendorLedgerEarnings(admin, vendorProfileId)`: `event_vendor_p
 Test: `lib/vendor-earnings-read-the-ledger.test.ts` (rule · scoped read via a recording fake client · wiring of both screens). Sabotages — drop the shop filter, count unconfirmed money, drop the booking scope — each turn it red.
 
 SPEC IMPACT: None.
+
+**FIX-5680 · refused and disputed money is not earned.** The payments read now
+selects the canonical `LEDGER_DISPUTE_COLUMNS` and the bookings read the
+`DEPOSIT_DISPUTE_COLUMNS`, and `isEarnedPayment` decides through
+`readPaymentDispute` (lib/payment-refusal.ts) — the same rule as
+`isOpenDispute` / `vendor_payday_installments()` arm 2: a settled
+`payment_stands` counts; an open refusal or a `not_received` ruling does not;
+otherwise only a supplier-confirmed payment counts. Before, a deposit declined
+on the booking row (where a deposit's refusal lives) and a half-written
+`payment_stands` without `payment_dispute_settled_at` were both counted.

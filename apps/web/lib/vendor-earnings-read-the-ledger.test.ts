@@ -67,11 +67,59 @@ test('money not yet confirmed, or refused, is not earned — a ruling that it st
     [
       pay({ payment_id: 'unconfirmed', vendor_confirmed_at: null }),
       pay({ payment_id: 'refused', vendor_confirmed_at: null, payment_refused_at: '2026-09-18T00:00:00Z', is_deposit_record: false }),
-      pay({ payment_id: 'ruled', vendor_confirmed_at: null, payment_refused_at: '2026-09-18T00:00:00Z', payment_dispute_outcome: 'payment_stands', is_deposit_record: false, amount_php: 500 }),
+      pay({ payment_id: 'ruled', vendor_confirmed_at: null, payment_refused_at: '2026-09-18T00:00:00Z', payment_dispute_settled_at: '2026-09-18T01:00:00Z', payment_dispute_outcome: 'payment_stands', is_deposit_record: false, amount_php: 500 }),
     ],
     new Map(),
   );
   assert.deepEqual(rows.map((r) => r.order_id), ['ruled']);
+});
+
+/*
+ * REFUSED AND DISPUTED MONEY IS NOT EARNED (FIX-5680). The rule is the one
+ * `readPaymentDispute`/`isOpenDispute` (lib/payment-refusal.ts) define for
+ * every surface: an installment's refusal lives on its ledger row, a
+ * deposit's on the BOOKING row. Each case below carries a vendor_confirmed_at,
+ * so only the dispute can keep it out.
+ */
+const T = '2026-09-18T00:00:00Z';
+test('a refused payment, or one under an unsettled dispute, is not earned — even if it was confirmed', () => {
+  const inst = { is_deposit_record: false } as const;
+  const rows = ledgerEarningRows(
+    [SHOP_ROW],
+    [
+      pay({ ...inst, payment_id: 'refused-open', payment_refused_at: T }),
+      pay({ ...inst, payment_id: 'ruled-not-received', payment_refused_at: T, payment_dispute_settled_at: T, payment_dispute_outcome: 'not_received' }),
+      pay({ ...inst, payment_id: 'half-written-ruling', payment_refused_at: T, payment_dispute_outcome: 'payment_stands' }),
+      pay({ ...inst, payment_id: 'clean', amount_php: 300 }),
+    ],
+    new Map(),
+  );
+  assert.deepEqual(rows.map((r) => r.order_id), ['clean']);
+});
+
+test('a DEPOSIT the supplier declined on the booking is not earned; a ruling that it stands is', () => {
+  const declined: LedgerBooking = { ...SHOP_ROW, deposit_declined_at: T };
+  assert.equal(ledgerEarningRows([declined], [pay({})], new Map()).length, 0, 'a declined deposit was counted as earned');
+  const ruledNot: LedgerBooking = { ...declined, deposit_dispute_settled_at: T, deposit_dispute_outcome: 'not_received' };
+  assert.equal(ledgerEarningRows([ruledNot], [pay({})], new Map()).length, 0, 'a deposit ruled not received was counted');
+  const stands: LedgerBooking = { ...SHOP_ROW, deposit_dispute_settled_at: T, deposit_dispute_outcome: 'payment_stands' };
+  assert.equal(ledgerEarningRows([stands], [pay({ vendor_confirmed_at: null })], new Map()).length, 1, 'a deposit ruled to stand was not counted');
+});
+
+test('the read EXECUTES the rule end to end — refused and disputed rows from the ledger are not summed', async () => {
+  const { client } = fakeAdmin({
+    event_vendors: { data: [SHOP_ROW, { vendor_id: 'ev-declined', event_id: 'e-2', category: 'band_dj', deposit_declined_at: T }] },
+    event_vendor_payments: {
+      data: [
+        pay({ payment_id: 'ok' }),
+        pay({ payment_id: 'refused', is_deposit_record: false, payment_refused_at: T }),
+        pay({ payment_id: 'declined-deposit', vendor_id: 'ev-declined', event_id: 'e-2' }),
+      ],
+    },
+  });
+  const rows = await fetchVendorLedgerEarnings(client, 'shop-saysay');
+  assert.deepEqual(rows.map((r) => r.order_id), ['ok']);
+  assert.equal(computeMonthlySubtotals(rows, new Date('2026-09-19T04:00:00Z')).ytdTotal, 2000);
 });
 
 test('a payment on somebody else’s booking row is never counted', () => {

@@ -1,4 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  DEPOSIT_DISPUTE_COLUMNS,
+  LEDGER_DISPUTE_COLUMNS,
+  readPaymentDispute,
+  type DepositDisputeRow,
+  type LedgerDisputeRow,
+} from '@/lib/payment-refusal';
 
 /**
  * Default Setnayan Pay convenience-fee percentage. Disclosed transparently
@@ -98,31 +105,45 @@ export type MonthlySubtotal = {
  * not yet theirs to count.
  */
 
-/** One ledger payment, as read. */
-export type LedgerPayment = {
+/** One ledger payment, as read — with the canonical dispute columns. */
+export type LedgerPayment = LedgerDisputeRow & {
   payment_id: string;
   vendor_id: string;
   event_id: string;
   amount_php: number | string;
   paid_at: string | null;
   method: string | null;
-  is_deposit_record: boolean | null;
   vendor_confirmed_at: string | null;
-  payment_refused_at: string | null;
-  payment_dispute_outcome: string | null;
 };
 
-/** One of this shop's booking rows, as read. */
-export type LedgerBooking = {
+/**
+ * One of this shop's booking rows, as read. Carries the DEPOSIT's dispute
+ * columns: a deposit's refusal lives on `event_vendors`, not on its ledger row
+ * (see `lib/payment-refusal.ts`), so a reader that looked only at the ledger
+ * row would count a declined deposit as money received.
+ */
+export type LedgerBooking = DepositDisputeRow & {
   vendor_id: string;
   event_id: string;
   category: string | null;
 };
 
-/** Is this ledger payment money the supplier has received? */
-export function isEarnedPayment(p: LedgerPayment): boolean {
-  if (p.payment_dispute_outcome === 'payment_stands') return true;
-  if (p.payment_refused_at) return false;
+/**
+ * Is this ledger payment money the supplier has received?
+ *
+ * The dispute is read ONE way — `readPaymentDispute` (lib/payment-refusal.ts),
+ * the same module every ledger surface and /admin/disputes use — and the rule
+ * matches `vendor_payday_installments()` arm 2 (migration 20271233896417):
+ *   • Setnayan ruled it stands (a SETTLED `payment_stands`) → earned;
+ *   • the supplier refused it and nobody has ruled (an OPEN dispute, the
+ *     `isOpenDispute` definition), or Setnayan ruled `not_received` → NOT earned;
+ *   • otherwise it is earned only once the supplier confirmed it.
+ * An installment's refusal is on its own row; the deposit's is on the booking.
+ */
+export function isEarnedPayment(p: LedgerPayment, booking?: DepositDisputeRow | null): boolean {
+  const dispute = readPaymentDispute(p, booking);
+  if (dispute?.settlement?.outcome === 'payment_stands') return true;
+  if (dispute != null) return false;
   return p.vendor_confirmed_at != null;
 }
 
@@ -140,7 +161,7 @@ export function ledgerEarningRows(
   const rows: VendorEarningRow[] = [];
   for (const p of payments) {
     const booking = byVendorId.get(p.vendor_id);
-    if (!booking || !isEarnedPayment(p)) continue;
+    if (!booking || !isEarnedPayment(p, booking)) continue;
     const amount = Number(p.amount_php);
     if (!Number.isFinite(amount)) continue;
     const kind = p.is_deposit_record ? 'Deposit' : 'Payment';
@@ -174,7 +195,7 @@ export async function fetchVendorLedgerEarnings(
 ): Promise<VendorEarningRow[]> {
   const { data: bookingRows, error: bookingError } = await adminClient
     .from('event_vendors')
-    .select('vendor_id, event_id, category')
+    .select(`vendor_id, event_id, category, ${DEPOSIT_DISPUTE_COLUMNS}`)
     .eq('marketplace_vendor_id', vendorProfileId)
     .eq('voided_by_fraud', false);
   if (bookingError) {
@@ -186,7 +207,7 @@ export async function fetchVendorLedgerEarnings(
   const { data: paymentRows, error: paymentError } = await adminClient
     .from('event_vendor_payments')
     .select(
-      'payment_id, vendor_id, event_id, amount_php, paid_at, method, is_deposit_record, vendor_confirmed_at, payment_refused_at, payment_dispute_outcome',
+      `payment_id, vendor_id, event_id, amount_php, paid_at, method, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
     )
     .in(
       'vendor_id',

@@ -757,7 +757,8 @@ export function papicPerCameraTier(
  * resolved from the admin-editable papic_tier_config table. Both enforcement
  * seams (api/upload presign + papic/actions record) now call the points RPCs
  * (migration 20270821110100). Kept one release alongside the deprecated
- * papic_camera_remaining / papic_reserve_camera_capture DB fns, then dropped.
+ * papic_camera_remaining / papic_reserve_camera_capture DB fns, both dropped
+ * 2026-09-18 (20271234330879).
  */
 export function papicTierDailyLimit(
   tier: CameraTier,
@@ -779,8 +780,9 @@ export function papicTierDailyLimit(
 // 20270821110100) resolve the budget internally:
 //   • papic_camera_points_remaining(seat) — read-only probe for the PRESIGN
 //     seam (api/upload): refuse the upload URL at 0 so no orphan R2 bytes.
-//   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
-//     atomic record-layer gate (papic/actions.recordSeatCapture).
+//   • The record-layer gate WAS papic_reserve_camera_points; it was replaced
+//     by papic_reserve_capture_split (dedicated first, pool for the rest —
+//     owner 2026-08-11) and dropped 2026-09-18 (20271234330879).
 
 /**
  * Postgres "function does not exist" (42883) / PostgREST schema-cache miss
@@ -817,45 +819,6 @@ export function resolvePointsGate(
   if (allowed === true) return 'allow';
   if (allowed === false) return 'exhausted';
   return 'blocked';
-}
-
-/**
- * The shared-pool reserve's TRI-STATE result, decoded.
- *
- * `papic_reserve_event_points_for_seat` (migration 20271019231590) returns
- *   1 = booked · 0 = refused (pool exhausted) · -1 = not applicable, because the
- * seat is a Papic ONE camera that was already metered against its OWN dedicated
- * balance by the per-seat gate.
- *
- * A plain boolean would collapse 1 and -1 into "true", and the CALLER needs the
- * difference: it decides whether a later failure has shared-pool points to
- * unwind. Release what was never booked and every aborted upload from a
- * dedicated camera silently REFUNDS the couple's shared pool.
- *
- * Pure + unit-tested. Returns the gate verdict and whether points were actually
- * booked; an indeterminate value is fail-CLOSED ('blocked'), same posture as
- * resolvePointsGate.
- */
-export function resolveEventPoolReserve(
-  errorCode: string | null | undefined,
-  result: unknown,
-): { gate: PointsGateVerdict; booked: boolean } {
-  if (errorCode != null) {
-    return {
-      gate: isMissingRpcErrorCode(errorCode) ? 'allow' : 'blocked',
-      booked: false,
-    };
-  }
-  // null / undefined is INDETERMINATE, not zero. Number(null) is 0, which would
-  // read a missing result as "pool exhausted" — a wrong-but-plausible verdict is
-  // worse than a blocked one, because it teaches the couple their pool is empty.
-  if (result === null || result === undefined) return { gate: 'blocked', booked: false };
-  const n = typeof result === 'number' ? result : Number(result);
-  if (!Number.isFinite(n)) return { gate: 'blocked', booked: false };
-  if (n === 1) return { gate: 'allow', booked: true };
-  if (n === -1) return { gate: 'allow', booked: false };
-  if (n === 0) return { gate: 'exhausted', booked: false };
-  return { gate: 'blocked', booked: false };
 }
 
 /**

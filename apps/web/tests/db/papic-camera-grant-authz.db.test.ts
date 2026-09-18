@@ -52,9 +52,22 @@ test('an ordinary signed-in account cannot either', async () => {
   assert.equal(await canExecute('authenticated', 'papic_grant_camera_points'), false);
 });
 
-test('the dropped sibling is closed too — it took its own quota ceiling from the caller', async () => {
-  assert.equal(await canExecute('anon', 'papic_reserve_camera_capture'), false);
-  assert.equal(await canExecute('authenticated', 'papic_reserve_camera_capture'), false);
+async function exists(fn: string): Promise<boolean> {
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = $1`,
+    [fn],
+  );
+  return (r.rows[0]?.n ?? 0) > 0;
+}
+
+test('the dropped sibling is GONE — it took its own quota ceiling from the caller', async () => {
+  // Was "closed to anon and authenticated". Dropped outright 2026-09-18 (S37,
+  // 20271234330879) with the rest of the pre-split camera gate, so the stronger
+  // claim is now checkable: there is nothing left to re-grant.
+  // ⚠ canExecute() over a missing function returns false too, so absence is
+  // asserted directly rather than inferred from a privilege check.
+  assert.equal(await exists('papic_reserve_camera_capture'), false);
 });
 
 test('the ANONYMOUS GUEST-CAPTURE path still works — this fix must not break Papic', async () => {
@@ -74,10 +87,13 @@ test('the two release functions were ALREADY closed — checked, not assumed', a
   // service_role. Asserting the opposite would have published a false claim
   // about our own surface, and it is pinned here so nobody re-opens them
   // thinking the guest path needs it.
-  for (const fn of ['papic_release_camera_points', 'papic_release_event_points']) {
+  assert.ok(await exists('papic_release_event_points'), 'the pool release is live — update this guard');
+  for (const fn of ['papic_release_event_points']) {
     assert.equal(await canExecute('anon', fn), false, `${fn} must stay closed to anon`);
     assert.equal(await canExecute('authenticated', fn), false, `${fn} must stay closed`);
   }
+  // Its camera twin was dropped 2026-09-18 with the pre-split gate (S37).
+  assert.equal(await exists('papic_release_camera_points'), false);
 });
 
 test('the function refuses an order that does not belong to the event', async () => {

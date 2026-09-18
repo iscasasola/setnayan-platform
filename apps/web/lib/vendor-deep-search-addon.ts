@@ -216,7 +216,10 @@ export async function countDeepSearchUsesSince(
       .select('id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorProfileId)
       .gte('used_at', sinceIso);
-    if (error) return 1;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-deep-search-addon.ts · from:vendor_deep_search_uses.select', error);
+      return 1;
+    }
     return count ?? 0;
   } catch {
     return 1;

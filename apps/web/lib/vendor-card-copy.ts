@@ -88,7 +88,10 @@ export async function buildCanvasInitialFromCard(
   // Supabase does not throw; it resolves with { error }. A refused read is not
   // an absent card, but for this feature both mean the same thing to the
   // vendor — the maker opens blank — so the branch is one line, not a guess.
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/vendor-card-copy.ts · from:vendor_services.select', error);
+    return null;
+  }
 
   const src = data as Pick<
     VendorServiceRow,

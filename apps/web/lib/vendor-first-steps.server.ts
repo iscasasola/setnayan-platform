@@ -96,6 +96,9 @@ async function countVendorServices(
     .eq('vendor_profile_id', vendorProfileId);
   // `count === null` means NOT MEASURED, never zero — but for this rail both
   // land on "step not done", which is the safe direction (see the header).
+  if (error) {
+    console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_services.select', error);
+  }
   return error || count == null ? 0 : count;
 }
 

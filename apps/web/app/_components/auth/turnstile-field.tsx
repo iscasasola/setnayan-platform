@@ -16,8 +16,14 @@
  * default the tap-through funnels need.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
+import {
+  decideSubmitGate,
+  TURNSTILE_HOLDER_MARGIN_RECLAIM_PX,
+  TURNSTILE_HOLDER_MIN_WIDTH_PX,
+  TURNSTILE_WIDGET_SIZE,
+} from '@/lib/turnstile-submit-gate';
 
 declare global {
   interface Window {
@@ -65,6 +71,28 @@ function loadTurnstileScript(): Promise<void> {
 export function TurnstileField({ action }: { action?: string }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /**
+   * 🔴 THE BUTTON IS TAPPABLE BEFORE THE TOKEN EXISTS, AND THAT IS THE COMMON
+   * PATH — NOT AN EDGE CASE.
+   *
+   * `appearance:'interaction-only'` means a legitimate visitor sees NOTHING
+   * here, so there is no widget to wait for and no reason to hesitate: the page
+   * paints, the button is right there, they tap. If Cloudflare has not answered
+   * yet the hidden field is empty, the server action refuses, and the person is
+   * bounced to a retry notice for doing the one thing the screen invited.
+   *
+   * Measured on production the hour captcha went live: the FIRST tap on
+   * /papic/claim was refused, and so was the second. The error copy is good
+   * ("Your link is fine. Give it one more go.") — but the best error message is
+   * the one nobody has to read.
+   *
+   * So a tap that arrives early is QUEUED, not failed: hold the submit, and
+   * re-submit the moment the token lands. Nothing about the server contract
+   * changes — it still receives a token or refuses.
+   */
+  const queuedRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [waiting, setWaiting] = useState(false);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !holderRef.current) return;
@@ -90,7 +118,48 @@ export function TurnstileField({ action }: { action?: string }) {
      * already serialised the old value into the POST by the time `submit`
      * fires, so this cannot rob the in-flight request of its token.
      */
-    const onSubmit = () => {
+    /**
+     * Release a queued submit and let the form go through. Used both when the
+     * token arrives and when it never will — see the timeout below. NEVER trap
+     * the person in a pending state: if the check cannot complete, the server's
+     * own honest refusal is a better outcome than a button that does nothing.
+     */
+    const release = () => {
+      queuedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setWaiting(false);
+    };
+
+    const onSubmit = (e: Event) => {
+      const token = inputRef.current?.value ?? '';
+
+      // No token yet, but a widget exists to produce one → hold the submit and
+      // let the callback below re-fire it. `widgetId` is the load-bearing half:
+      // if the script was blocked (ad-blocker, offline) there is nothing to
+      // wait for, so we fall through and the server decides — unchanged.
+      const gate = decideSubmitGate({
+        token,
+        hasWidget: Boolean(widgetId),
+        alreadyQueued: queuedRef.current,
+      });
+      if (gate === 'queue') {
+        e.preventDefault();
+        queuedRef.current = true;
+        setWaiting(true);
+        timerRef.current = setTimeout(() => {
+          // The check did not finish — or needs an interaction the person has
+          // not given. Submit anyway; the action answers for itself.
+          release();
+          form?.requestSubmit();
+        }, 10_000);
+        return;
+      }
+
+      // Proceeding. Spend the token locally too — a Turnstile token is
+      // single-use and a failed submit does NOT remount us (see above).
       if (inputRef.current) inputRef.current.value = '';
       if (widgetId && window.turnstile) {
         try {
@@ -109,15 +178,25 @@ export function TurnstileField({ action }: { action?: string }) {
           sitekey: TURNSTILE_SITE_KEY,
           action,
           appearance: 'interaction-only',
-          size: 'flexible',
+          size: TURNSTILE_WIDGET_SIZE,
           callback: (token: string) => {
             if (inputRef.current) inputRef.current.value = token;
+            // A tap was already waiting on this token — deliver it now.
+            if (queuedRef.current) {
+              release();
+              form?.requestSubmit();
+            }
           },
           'expired-callback': () => {
             if (inputRef.current) inputRef.current.value = '';
           },
           'error-callback': () => {
             if (inputRef.current) inputRef.current.value = '';
+            // Do not hold a submit hostage to a check that has already failed.
+            if (queuedRef.current) {
+              release();
+              form?.requestSubmit();
+            }
           },
         });
       })
@@ -129,6 +208,7 @@ export function TurnstileField({ action }: { action?: string }) {
 
     return () => {
       cancelled = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
       form?.removeEventListener('submit', onSubmit);
       if (widgetId && window.turnstile) {
         try {
@@ -146,7 +226,28 @@ export function TurnstileField({ action }: { action?: string }) {
   return (
     <>
       <input ref={inputRef} type="hidden" name="captcha_token" defaultValue="" />
-      <div ref={holderRef} data-turnstile className="cf-turnstile" />
+      {/*
+        min-width is load-bearing, not styling: below Cloudflare's 300px
+        minimum the `flexible` widget lays out at ZERO HEIGHT, so an
+        interactive challenge cannot be shown and cannot be solved. The
+        card's padding leaves 293px at a 375px viewport — measured, live.
+        The negative inline margin reclaims that shortfall from the padding
+        instead of widening the page.
+      */}
+      <div
+        ref={holderRef}
+        data-turnstile
+        className="cf-turnstile"
+        style={{
+          minWidth: `${TURNSTILE_HOLDER_MIN_WIDTH_PX}px`,
+          marginInline: `-${TURNSTILE_HOLDER_MARGIN_RECLAIM_PX}px`,
+        }}
+      />
+      {waiting ? (
+        <p role="status" aria-live="polite" className="m-mono text-xs opacity-70">
+          Checking you&rsquo;re human&hellip;
+        </p>
+      ) : null}
     </>
   );
 }

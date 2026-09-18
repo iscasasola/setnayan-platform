@@ -1,4 +1,4 @@
-## 2026-09-18 · chore(db): drop nine retired ends nobody calls or writes (S37)
+## 2026-09-18 · chore(db): drop eight retired orphans and their two companions (S37)
 
 **SPEC IMPACT:** None — every object is the leftover of a feature already retired or replaced in the
 decision log; no product behaviour changes.

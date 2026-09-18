@@ -4663,45 +4663,14 @@ export async function recordDeposit(
   return { status: 'ok' };
 }
 
-/**
- * acknowledgeDeposit — VENDOR side.
- *
- * Calls the single-winner acknowledge_vendor_deposit RPC (SELECT … FOR UPDATE +
- * deposit_acknowledged_at-IS-NULL precondition; idempotent). Ownership is
- * enforced inside the SECURITY DEFINER RPC (current_vendor_event_vendor_ids /
- * is_admin), so this wrapper just forwards. No money moves — acknowledge is a
- * signal.
- */
-export async function acknowledgeDeposit(
-  formData: FormData,
-): Promise<{ status: 'ok' | 'already' | 'not_recorded' | 'error' | 'not_signed_in'; message?: string }> {
-  const eventVendorId = formData.get('vendor_id');
-  const eventId = formData.get('event_id');
-  if (typeof eventVendorId !== 'string') {
-    return { status: 'error', message: 'Invalid input' };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'not_signed_in' };
-
-  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
-    p_event_vendor_id: eventVendorId,
-  });
-  if (error) return { status: 'error', message: error.message };
-
-  const env = (data ?? {}) as { status?: string };
-  if (typeof eventId === 'string' && eventId.length > 0) {
-    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
-    revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`, 'layout');
-  }
-  if (env.status === 'ok') return { status: 'ok' };
-  if (env.status === 'already') return { status: 'already' };
-  if (env.status === 'not_recorded') return { status: 'not_recorded' };
-  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
-}
+// `acknowledgeDeposit` — the VENDOR-side acknowledge that used to sit here — is
+// DELETED (2026-09-18), not moved. It had zero callers (`git grep acknowledgeDeposit`
+// finds only this note), and it was a third door onto `acknowledge_vendor_deposit`
+// that ran none of the acknowledge effects (fee + schedule). The two live doors
+// are `vendorAcknowledgeDeposit` (clients card) and `confirmVendorPayment`
+// (payment card), both routed through `lib/deposit-acknowledged-effects.server.ts`;
+// `lib/deposit-acknowledge-fires-from-every-door.test.ts` refuses a caller of that
+// RPC that does not run them, which is how this dead export was found.
 
 // ==========================================================================
 // Payment-gated lock (flag: NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).

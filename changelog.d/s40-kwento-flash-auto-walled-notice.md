@@ -10,16 +10,17 @@ notification row for the audit trail." Nothing ever emitted it — the intake ro
 Flagged as a `notice-no-emitter` orphan in S26's baseline (`ugat-both-ends.baseline.txt`),
 assigned UNCLASSIFIED to S40.
 
-Wired it in, debounced to match the existing `kwento_story_batch` pattern exactly (a
-live reception can auto-wall dozens of clean Flash captures in a few minutes, and this
-is an audit-trail notice, not a per-message alert): new migration `20271234798804` adds
-`events.last_kwento_flash_wall_notify_at`, its own column separate from the flagged-Story
-debounce (`last_kwento_notify_at`) so a busy Flash stream can never delay the
-more important flagged-Story review nudge. Notifies the couple, not the guest —
-best-effort, wrapped so a notify failure can never undo the wall approval it follows.
-
-Verified: `tests/db/schema-drift.db.test.ts` and `tests/db/exposure-freeze.db.test.ts`
-both pass against the new migration (7/7 and 6/6).
+Wired it in, debounced to a 10-minute window like the existing `kwento_story_batch`
+pattern (a live reception can auto-wall dozens of clean Flash captures in a few minutes,
+and this is an audit-trail notice, not a per-message alert). The debounce reads the
+notification rows this notice itself writes (`type` + `related_url` + `created_at`) rather
+than a stamp column on `events`: an earlier cut added `events.last_kwento_flash_wall_notify_at`,
+which under the events column lockdown would have needed its own `GRANT SELECT` plus an
+`events_host` rebuild for a value only the admin client reads — no schema change is needed.
+Every Supabase `error` in the new block is read and logged via `logQueryError`; an
+unreadable debounce still sends (an extra audit row beats a silently missing one).
+Notifies the couple, not the guest — best-effort, wrapped so a notify failure can never
+undo the wall approval it follows.
 
 SPEC IMPACT: None — the notification type and its email-allowlist exclusion already
 existed; this only adds the missing emit site.

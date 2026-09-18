@@ -478,7 +478,13 @@ export async function sendCustomProposalCore(
   const note = (input.note ?? '').trim().slice(0, 20000);
   const renderedBody =
     note ||
-    `Quote from ${profile.business_name ?? 'your vendor'}. Review the line items below and accept to add it to your plan.`;
+    // 🔴 SAID "accept to add it to your plan" — backwards, and this one goes to
+    // the COUPLE. Owner, 2026-09-18: the plan fills at Lock, not on accept;
+    // accepting exists so a couple can compare combinations of suppliers before
+    // committing to any of them. Measured on the first real quote: accepted
+    // 06:46, event_vendor_line_items 0 — the behaviour was right and only the
+    // sentence was wrong.
+    `Quote from ${profile.business_name ?? 'your vendor'}. Review the line items below. Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Lock.`;
 
   const validUntil = (input.validUntil ?? '').trim();
 

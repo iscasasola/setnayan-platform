@@ -3756,7 +3756,21 @@ html.dark {
  * every in-shell nav gets a soft rise; search-param changes don't remount).
  * The template.tsx files land per-surface in PR-2/5/6/8; the CSS lands here. */
 @keyframes sn-rise-soft { from { opacity: 0; transform: translateY(8px); } }
-.sn-page-enter { animation: sn-rise-soft 400ms both var(--sn-ease-out); }
+/* 🔴 `backwards`, NEVER `both` — measured on production 2026-09-18.
+ * `both` keeps the animation's TRANSFORM applied after it finishes, at its
+ * identity value `matrix(1,0,0,1,0,0)`. That moves nothing and is invisible —
+ * and per CSS spec ANY transform on an ancestor makes it the containing block
+ * for every `position: fixed` descendant. So this wrapper silently unpinned
+ * every fixed overlay on the page: the 3-step vendor coach-mark measured
+ * 636 x 2444 instead of 636 x 1107, and with `items-end` its card sat at
+ * y 1052-1393 against a 1107px viewport — 341px of it, Skip and Next
+ * included, below the fold. The owner could see a sliver of a dialog he could
+ * not reach, on a page that looked like a layout failure.
+ * `backwards` holds the FROM state before the run (no flash) and returns the
+ * element to its own styles afterwards — visually identical, structurally
+ * inert. The keyframe declares only `from`, so nothing is lost by not holding
+ * an end state. */
+.sn-page-enter { animation: sn-rise-soft 400ms backwards var(--sn-ease-out); }
 
 /* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
  * during the directional VT slide the incoming pane is a LIVE capture, so the

@@ -60,7 +60,10 @@ export async function mintEncoderToken(
     broadcast_id: active.id,
     requested_by: requestedBy,
   });
-  if (error) return null;
+  if (error) {
+    console.error('[supabase-error] live-studio-encoder-tokens: token insert', error, { eventId });
+    return null;
+  }
 
   return {
     token,

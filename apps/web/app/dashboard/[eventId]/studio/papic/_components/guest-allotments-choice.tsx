@@ -22,13 +22,14 @@ import { Coins } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   ALLOTMENT_RPC,
   ALLOTMENT_STORAGE,
   allotmentRoleOf,
+  allotmentRowState,
   suggestedAllotment,
   splitTheRest,
   summariseAllotments,
@@ -86,15 +87,19 @@ export async function GuestAllotmentsChoice({
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // 🔴 THE CEILING COLUMNS ARE LIVE NOW, so a refusal here is no longer the
+  // "storage not there yet" merge gate described above. It is a failed read,
+  // and a failed read says so instead of making the row vanish.
   if (error) {
     logQueryError('GuestAllotmentsChoice.event', error, { eventId }, 'graceful_degrade');
-    return null;
+    return <AllotmentsCouldNotLoad variant={variant} />;
   }
   if (!data) return null;
 
-  // Nothing to divide if guests cannot shoot at all.
-  const active = await eventPapicGuestActive(admin, eventId);
-  if (!active) return null;
+  // Nothing to divide if guests cannot shoot at all. THREE states: 'off' hides
+  // the row, and 'unknown' (a failed check) says so rather than hiding it.
+  const access = await eventPapicGuestAccess(admin, eventId);
+  if (access === 'off') return null;
 
   const row = data as Record<string, unknown>;
   const enabled = row[ALLOTMENT_STORAGE.enabled] === true;
@@ -116,7 +121,7 @@ export async function GuestAllotmentsChoice({
   // the couple would be shown one number while their guests were given another.
   // The database divides by this function; so do we.
   const [pool, headcountResult, guestsResult, allotmentsResult] = await Promise.all([
-    readEventPoolStatus(admin, eventId).catch(() => null),
+    readEventPoolStatus(admin, eventId).catch(() => ({ ok: false as const, status: null })),
     admin.rpc(ALLOTMENT_RPC.headcount, { p_event_id: eventId }),
     admin
       .from('guests')
@@ -134,6 +139,29 @@ export async function GuestAllotmentsChoice({
       .select('guest_id, ceiling_points')
       .eq('event_id', eventId),
   ]);
+
+  // 🔴 EVERY NUMBER BELOW IS ARITHMETIC OVER ALL FIVE READS. If any did not
+  // answer, draw none of them. See `allotmentRowState`.
+  const rowState = allotmentRowState({
+    access,
+    poolOk: pool.ok === true,
+    headcountOk: !headcountResult.error,
+    guestsOk: !guestsResult.error,
+    allotmentsOk: !allotmentsResult.error,
+  });
+  if (rowState === 'hidden') return null;
+  if (rowState === 'unknown') {
+    if (guestsResult.error) {
+      logQueryError('GuestAllotmentsChoice.guests', guestsResult.error, { eventId }, 'graceful_degrade');
+    }
+    if (allotmentsResult.error) {
+      logQueryError('GuestAllotmentsChoice.allotments', allotmentsResult.error, { eventId }, 'graceful_degrade');
+    }
+    if (headcountResult.error) {
+      logQueryError('GuestAllotmentsChoice.headcount', headcountResult.error, { eventId }, 'graceful_degrade');
+    }
+    return <AllotmentsCouldNotLoad variant={variant} />;
+  }
 
   const guests = (guestsResult.data ?? []) as Array<{
     guest_id: string;
@@ -181,7 +209,7 @@ export async function GuestAllotmentsChoice({
   // ⚠ `pool.status.totalPoints` is the POT. It is NOT `points_per_guest`, which
   // sizes the pot (guest_count × points_per_guest, clamped) and is a different
   // number wearing a similar phrase — see `papic-guest-allotments.ts`.
-  const pot = pool?.status.totalPoints ?? 0;
+  const pot = pool.status?.totalPoints ?? 0;
   const guestCount =
     typeof headcountResult.data === 'number' && headcountResult.data > 0
       ? headcountResult.data
@@ -362,6 +390,42 @@ export async function GuestAllotmentsChoice({
         </h2>
       </div>
       {control}
+    </section>
+  );
+}
+
+/**
+ * What the row says when it could not read what it needs. No numbers and no
+ * controls: a share worked out from a failed read is a wrong number, and a
+ * couple who "corrects" it saves a limit nobody chose.
+ */
+function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
+  const body = (
+    <p className="text-sm text-ink/65">
+      We couldn&rsquo;t load your guest list and credit limits just now, so we won&rsquo;t show
+      numbers that might be wrong. Nothing you set before has changed. Reload the page to try
+      again.
+    </p>
+  );
+  if (variant === 'row') {
+    return (
+      <SettingRow
+        icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        label="How many credits each guest gets"
+        value="Couldn’t load"
+        sheetTitle="How many credits each guest gets"
+      >
+        {body}
+      </SettingRow>
+    );
+  }
+  return (
+    <section className="space-y-3 sn-tile p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <Coins aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+        How many credits each guest gets
+      </h2>
+      {body}
     </section>
   );
 }

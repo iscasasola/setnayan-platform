@@ -130,15 +130,23 @@ function estimatePaperworkCentavos(ceremonyType: string | null): number {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
+ * A read behind the health check was REFUSED — distinct from `null` ("no budget
+ * set yet"), so the checklist never hides the card as if the couple had no
+ * budget, and never draws it over a committed total it failed to read (S41b).
+ */
+export const BUDGET_HEALTH_UNREADABLE = 'unreadable' as const;
+
+/**
  * Compute the budget health-check for a single event.
  *
  * Returns `null` when the event has no `estimated_budget_centavos` (budget not
  * yet set during onboarding). Callers should render a "set your budget" CTA
- * rather than a health-check UI.
+ * rather than a health-check UI. Returns {@link BUDGET_HEALTH_UNREADABLE} when
+ * the budget or the committed suppliers could not be read.
  */
 export async function computeBudgetHealth(
   eventId: string,
-): Promise<ChecklistBudgetHealth | null> {
+): Promise<ChecklistBudgetHealth | null | typeof BUDGET_HEALTH_UNREADABLE> {
   const supabase = await createClient();
 
   // ── 1. Fetch event core ──────────────────────────────────────────────────
@@ -155,10 +163,10 @@ export async function computeBudgetHealth(
     .single();
 
   if (eventError) {
-    // Refused, not "budget not set" — same null to the caller, but the reason
-    // is kept so the two can be told apart.
+    // Refused, not "budget not set". Returning null here HID the card exactly
+    // as if the couple had never set a budget — so it says so instead (S41b).
     logQueryError('checklist-budget: events_host budget', eventError, { event_id: eventId });
-    return null;
+    return BUDGET_HEALTH_UNREADABLE;
   }
   if (!event || !event.estimated_budget_centavos) {
     // Budget not yet set — nothing to display.
@@ -205,11 +213,14 @@ export async function computeBudgetHealth(
     .eq('event_id', eventId)
     .in('status', [...COMMITTED_STATUSES]);
   if (vendorsError) {
-    // A refused read must not pass for "nothing committed" silently — it still
-    // degrades to [] (the card falls back to market ranges), but it is reported.
+    // A refused read must not pass for "nothing committed". It used to degrade
+    // to [] and draw the card from market ranges alone — a buffer computed as if
+    // no supplier were booked, on a money screen. Now the card says it could
+    // not check (S41b).
     logQueryError('computeBudgetHealth (committed event_vendors)', vendorsError, {
       event_id: eventId,
     });
+    return BUDGET_HEALTH_UNREADABLE;
   }
 
   const committedVendors = (vendors ?? []) as CommittedVendorRow[];

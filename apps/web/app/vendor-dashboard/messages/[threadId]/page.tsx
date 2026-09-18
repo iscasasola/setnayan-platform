@@ -1124,16 +1124,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}
                   blockedByMe={blockState.blockedByMe}
-                  // The one destination that is a PAGE, not a tool, lives
-                  // behind ⋮ (the rail's dark button offers it too).
+                  // The client page's sections live behind ⋮ (One Chat Box,
+                  // 2026-09-18). That page used to embed its own copy of this
+                  // conversation; it now sends a chat landing HERE, and these
+                  // are the way back to what it still holds. Each names a
+                  // `?tab=` — a bare link would bounce straight back to this
+                  // frame.
                   links={[
-                    { href: `/vendor-dashboard/clients/${thread.event_id}`, label: 'Full customer profile' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile' },
                   ]}
                 />
               </div>
             </>
           }
-          notice={<ChatPrivacyNotice inBox />}
+          notice={<ChatPrivacyNotice inBox viewer="vendor" />}
           pinned={
             /* The cards that must stay in sight. Empty for most threads, and
                then it takes no space at all (`empty:hidden`). The band carries

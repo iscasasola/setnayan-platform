@@ -8,6 +8,7 @@ import {
   CardRecordSection,
   type CardRecordRating,
 } from '@/app/_components/card-record-section';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
@@ -213,6 +214,14 @@ export function ServiceCardView({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {/* The Setnayan gift — the SAME line the card offered in chat carries
+          (`SetnayanGiftLine`), so a couple meets the gift while choosing, not
+          only after a supplier has offered them the card. No number: the photo
+          count belongs to the quote. */}
+      {c.givesSetnayanGift ? (
+        <SetnayanGiftLine className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-terracotta-700" />
       ) : null}
 
       {/* Serves — who this service is declared for (coverage event types +

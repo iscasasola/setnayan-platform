@@ -124,6 +124,7 @@ import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import {
   cardRecordHasSomethingToSay,
+  cardRecordRatingFromTrusted,
   fetchServiceCardRecords,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
@@ -2922,15 +2923,7 @@ export async function renderVendorBySlug({
                so the record block can never disagree with the top of the page,
                and costs no extra query. Vendor-level by nature: reviews carry
                no service dimension, which is why the badge says "shop rating". */
-            cardRecordRating={
-              trustedReviewStats.trusted_review_count > 0 &&
-              trustedReviewStats.trusted_avg_rating > 0
-                ? {
-                    avg: trustedReviewStats.trusted_avg_rating,
-                    count: trustedReviewStats.trusted_review_count,
-                  }
-                : null
-            }
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
             /* The details sheet (flag-dark). OFF ⇒ every card renders as the
                static div it does today and no sheet is mounted. */
             detailsEnabled={detailsEnabled}

@@ -116,7 +116,7 @@ function AgentHome() {
  * Manila 2026-09-10 02:33 (UTC 09-09 18:33): the page greeted the shop with
  * "Wednesday, September 9". **Every Filipino supplier who opens the app after
  * 8pm was shown yesterday**, and everything on this page that means "today"
- * moved with it — Next shoot, Upcoming, Open tasks.
+ * moved with it — Next booking, Upcoming, Open tasks.
  *
  * ⚠ CI runs in UTC, the one clock on which this cannot be seen. Same family as
  * the 2026-08-04 wall-clock sweep (`venueNowMs`, `formatEventDate`); this page

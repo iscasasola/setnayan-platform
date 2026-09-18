@@ -14,6 +14,11 @@ import {
   inclusionsToDrafts,
 } from './vendor-service-drafts';
 import { displayUrlForStoredAsset } from './uploads';
+import { loadPackageDraft } from './package-draft-loader';
+import {
+  canonicalServiceForVendorCategory,
+  rekeyCopiedItems,
+} from './service-customization-draft';
 import type { CanvasInitial } from './canvas-initial';
 
 /**
@@ -43,12 +48,18 @@ import type { CanvasInitial } from './canvas-initial';
  * SILENTLY, which is why the presigned URLs are resolved here and handed over
  * as a map.)
  *
- * ⛔ THE ★ CUSTOMIZATION OPTIONS CANNOT BE COPIED TODAY, and the maker says so
- * out loud rather than quietly dropping them. They live in a one-service
- * `vendor_packages` row that has NO link back to the service it was minted for —
- * `commitVendorService`'s own comment names the missing column. Until that link
- * exists there is no way to find the source card's options, and GUESSING (by
- * vendor + category + name) would attach another card's options to this one.
+ * ★ THE CUSTOMIZATION OPTIONS COME ACROSS TOO (SUP-40, 2026-09-18). They live
+ * in a one-service `vendor_packages` row, and since migration 20271159436100
+ * (2026-08-24) that row names its card in `vendor_service_id` — the link this
+ * docblock used to say was missing. The package is found through THAT column
+ * only, owner-scoped, read with the shipped `loadPackageDraft`, and re-keyed
+ * (`rekeyCopiedItems`) so the new card carries no id of the old one's.
+ * 🔒 STILL NEVER GUESSED. A card with no linked package — including every card
+ * made before the link existed — comes across with no options, and the maker
+ * says so. Matching by vendor + category + name would attach ANOTHER card's
+ * options to this one. Two packages naming one card is not a state the maker
+ * creates; if it happens, neither is picked. A failed read is reported as a
+ * failed read, never as "no options".
  *
  * ── OWNER-SCOPED BY CONSTRUCTION ────────────────────────────────────────────
  * The source id is a query parameter, so it is hostile input. The read filters
@@ -114,7 +125,7 @@ export async function buildCanvasInitialFromCard(
   // cross-category copy is allowed and simply lands in the route's category.
   const sameCategory = src.category === category;
 
-  const [discounts, inclusions, brackets, links] = await Promise.all([
+  const [discounts, inclusions, brackets, links, customization] = await Promise.all([
     fetchDiscountsByService(supabase, [sourceServiceId]),
     fetchInclusionsByService(supabase, [sourceServiceId]),
     fetchBracketsByService(supabase, [sourceServiceId]),
@@ -124,6 +135,7 @@ export async function buildCanvasInitialFromCard(
       .eq('vendor_service_id', sourceServiceId)
       .eq('vendor_profile_id', vendorProfileId)
       .order('display_order', { ascending: true }),
+    copyCardOptions(supabase, vendorProfileId, sourceServiceId, category),
   ]);
 
   const mediaRefs = [
@@ -185,5 +197,42 @@ export async function buildCanvasInitialFromCard(
     showcaseVideoR2Key: src.showcase_video_r2_key ?? null,
     showcasePhotoR2Keys: src.showcase_photo_r2_keys ?? [],
     mediaDisplayUrls: displayUrls,
+    customization,
+  };
+}
+
+/**
+ * The source card's ★ lines, through the link and nothing else.
+ *
+ * Owner-scoped on the package read (the vendor's own packages only) and again
+ * inside `loadPackageDraft`, so a foreign card id cannot surface a foreign
+ * package even if RLS were widened.
+ */
+async function copyCardOptions(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  sourceServiceId: string,
+  category: string,
+): Promise<CanvasInitial['customization']> {
+  const { data, error } = await supabase
+    .from('vendor_packages')
+    .select('package_id')
+    .eq('vendor_service_id', sourceServiceId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .limit(2);
+  if (error) return { status: 'unreadable' };
+  const rows = (data ?? []) as { package_id: string }[];
+  // Zero: nothing linked. Two: ambiguous — never pick one.
+  if (rows.length !== 1) return { status: 'none_linked' };
+
+  const read = await loadPackageDraft(supabase, vendorProfileId, rows[0]!.package_id);
+  if (!read.ok) {
+    return read.reason === 'read_failed' ? { status: 'unreadable' } : { status: 'none_linked' };
+  }
+  const items = read.loaded.draft.items;
+  if (items.length === 0) return { status: 'none_linked' };
+  return {
+    status: 'copied',
+    items: rekeyCopiedItems(items, canonicalServiceForVendorCategory(category)),
   };
 }

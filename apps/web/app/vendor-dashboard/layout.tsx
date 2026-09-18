@@ -8,6 +8,7 @@ import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
+import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -167,6 +168,7 @@ export default async function VendorDashboardLayout({
         .select('thread_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vp.vendor_profile_id)
         .eq('inquiry_status', 'pending');
+      if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
       return error ? 0 : count ?? 0;
     })
     .catch(() => 0);
@@ -320,6 +322,14 @@ export default async function VendorDashboardLayout({
   // inside the helper, so it never double-notifies and no-ops when the fee
   // system is dark.
   after(() => maybeSweepVendorBookingFeeNotifications(user.id).catch(() => {}));
+
+  // Deposit-acknowledge catch-up (CRON-FREE · same shape as the sweep above).
+  // A booking this supplier acknowledged that carries no live fee charge is one
+  // whose acknowledge effects never ran — the 2026-09-18 first booking was
+  // acknowledged through the payment card, which stamped the row and ran
+  // nothing. The effects are idempotent, scoped to the caller's own bookings,
+  // flag-gated inside, and every run is recorded.
+  after(() => maybeCatchUpAcknowledgedDeposits(user.id).catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

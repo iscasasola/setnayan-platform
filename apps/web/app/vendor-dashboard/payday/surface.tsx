@@ -12,6 +12,7 @@ import {
 import { PaydaySummary } from './_components/payday-summary';
 import { PaydayInstallmentRow as PaydayRow } from './_components/payday-installment-row';
 import { ShopEmpty } from '../_components/kit';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Payday · Vendor' };
 
@@ -39,6 +40,9 @@ export default async function VendorPaydayPage() {
   // Ownership-gated read fn (auth.uid()-scoped internally). No args — the fn
   // resolves the caller's owned vendor + only their bookings' installments.
   const { data, error } = await supabase.rpc('vendor_payday_installments');
+  // The render below already says "couldn't load" on `error`; this leaves the
+  // reason in the logs so nobody has to guess WHY it could not.
+  if (error) logQueryError('vendor-dashboard/payday: vendor_payday_installments', error);
   const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
 
   const today = manilaTodayIso();

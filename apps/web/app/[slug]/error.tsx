@@ -17,7 +17,9 @@ import { useEffect } from 'react';
 // and landing on a page about buying a product. Here, home IS this page, so the
 // only thing offered is trying again.
 //
-// Sentry captures via the global handler (instrumentation.ts) — no manual log.
+// Sentry captures via the browser SDK, lazy-loaded post-hydration by
+// app/_components/deferred-observability.tsx — no manual log. This boundary is
+// a Client Component, so instrumentation.ts (server-only) does not see it.
 
 type Props = {
   error: Error & { digest?: string };

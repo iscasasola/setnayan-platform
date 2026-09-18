@@ -181,7 +181,12 @@ export async function isVendorProActive(
     .from('vendor_profiles')
     .select('tier_state, tier_expires_at')
     .eq('user_id', vendorUserId);
-  if (error || !data) return false;
+  if (error) {
+    // Fails closed (not Pro) — correct for a gate — but never without a reason.
+    console.error('[supabase-error] vendor-payment-methods: isVendorProActive', error);
+    return false;
+  }
+  if (!data) return false;
 
   const now = Date.now();
   return (data as { tier_state?: string | null; tier_expires_at?: string | null }[]).some(
@@ -194,19 +199,37 @@ export async function isVendorProActive(
   );
 }
 
-/** Vendor's own methods (all of them). Call with the vendor's RLS client. */
-export async function fetchOwnPaymentMethods(
+/**
+ * Vendor's own methods (all of them), MEASURED. Call with the vendor's RLS
+ * client. `measured: false` means the read was refused — the list is empty
+ * because nothing was read, not because the shop has no payment options, and a
+ * page must not say "No payment options yet." over it (S41, reads-are-honest).
+ */
+export async function fetchOwnPaymentMethodsMeasured(
   client: SupabaseClient,
   vendorProfileId: string,
-): Promise<VendorPaymentMethodRow[]> {
+): Promise<{ methods: VendorPaymentMethodRow[]; measured: boolean }> {
   const { data, error } = await client
     .from('vendor_payment_methods')
     .select('*')
     .eq('vendor_profile_id', vendorProfileId)
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true });
-  if (error || !data) return [];
-  return data as VendorPaymentMethodRow[];
+  if (error) {
+    // console, not logQueryError: a client component imports this module, and
+    // Sentry is deliberately deferred in the browser bundle.
+    console.error('[supabase-error] vendor-payment-methods: own methods', error, { vendor_profile_id: vendorProfileId });
+    return { methods: [], measured: false };
+  }
+  return { methods: (data ?? []) as VendorPaymentMethodRow[], measured: true };
+}
+
+/** Vendor's own methods, unmeasured — a refused read is `[]` (logged). */
+export async function fetchOwnPaymentMethods(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorPaymentMethodRow[]> {
+  return (await fetchOwnPaymentMethodsMeasured(client, vendorProfileId)).methods;
 }
 
 export type CoupleFacingMethod = {

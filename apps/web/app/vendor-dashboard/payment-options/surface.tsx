@@ -14,7 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
-  fetchOwnPaymentMethods,
+  fetchOwnPaymentMethodsMeasured,
   isVendorProActive,
   type ModerationStatus,
   type PaymentMethodType,
@@ -88,7 +88,10 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const methods = await fetchOwnPaymentMethods(supabase, profile.vendor_profile_id);
+  const { methods, measured: methodsMeasured } = await fetchOwnPaymentMethodsMeasured(
+    supabase,
+    profile.vendor_profile_id,
+  );
   const isPro = await isVendorProActive(supabase, user.id);
 
   // Pre-resolve QR thumbnails through the shared helper, which presigns only a
@@ -125,7 +128,17 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
       ) : null}
 
       <section className="mb-6 space-y-3">
-        {methods.length === 0 ? (
+        {!methodsMeasured ? (
+          <div className="rounded-2xl border border-dashed border-ink/20 px-5 py-8 text-center">
+            <p className="text-sm font-medium text-ink">
+              We couldn&rsquo;t load your payment options right now.
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-ink/55">
+              Your saved options are not lost. Refresh in a moment before adding
+              one again.
+            </p>
+          </div>
+        ) : methods.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-ink/20 px-5 py-8 text-center">
             <p className="text-sm font-medium text-ink">No payment options yet.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink/55">

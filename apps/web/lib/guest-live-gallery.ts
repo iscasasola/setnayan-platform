@@ -143,6 +143,7 @@ export async function getGuestLiveGallery(
       .is('removed_at', null) // a "not me" tombstone drops the photo from this guest
       .order('created_at', { ascending: false })
       .limit(60);
+    if (tagsError) console.error('[supabase-error] lib/guest-live-gallery.ts · from:photo_tags.select', tagsError);
     // A REFUSED QUERY IS NOT A THROWN ERROR. PostgREST answers a phantom
     // column, a stale enum or a missing grant with `{ data: null, error }` and
     // never throws, so `.error` is the ONLY way this failure is visible here.

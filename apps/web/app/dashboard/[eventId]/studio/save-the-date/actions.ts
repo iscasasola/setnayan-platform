@@ -91,6 +91,7 @@ export async function chooseRevealTemplate(
     .from('events')
     .update({ std_reveal_template: templateId })
     .eq('event_id', eventId);
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/studio/save-the-date/actions.ts · from:events.update', error);
   if (error) return { ok: false };
   revalidate(eventId);
   return { ok: true };

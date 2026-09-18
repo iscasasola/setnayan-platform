@@ -52,7 +52,6 @@ import {
   LinkIcon,
   MessageCircle,
   Package as PackageIcon,
-  Phone,
   PiggyBank,
   Receipt,
   Sparkles,
@@ -111,6 +110,8 @@ type CouplePaymentAskRow = {
 };
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
+import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
+import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -188,20 +189,8 @@ import {
   type RelationshipTab,
 } from '@/app/_components/relationship-tab-shell';
 // Chat-tab embed — mirror the couple thread page (Chat tab = the live thread).
-import { fetchMessages, fetchThreadById } from '@/lib/chat';
-import { markThreadRead, sendChatMessage } from '@/lib/chat-actions';
-import { getThreadBlockState } from '@/lib/chat-block';
-import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
-import { ChatMessageStream } from '@/app/_components/chat-message-stream';
-import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
-import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
-import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
-import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
-import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
-import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 // Completion handshake (Event Lifecycle Menu §6.1) — surface the couple's
 // "confirm received" + review prompt inside the shell (flag-ON only). Reuses the
 // same actions + review-state logic the standalone /review page uses.
@@ -366,6 +355,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendors.select', error);
     if (error || !data) return null;
     const row = data as {
       deposit_declined_at: string | null;
@@ -579,6 +569,26 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     logQueryError('VendorWorkspacePage.handoverRows', handoverRowsError, { eventId }, 'graceful_degrade');
   }
   const handovers = (handoverRows ?? []) as HandoverRow[];
+
+  // DAY-10 · the supplier's day-of shot list (event_shot_list_items), read
+  // through event_shot_list_items_event_read. Only a marketplace supplier can
+  // keep one — a manual vendor has no console. `unreadable` is carried to the
+  // render so a refused read never says "they haven't shared one".
+  let shotList: ShotListCardState | null = null;
+  if (ev.marketplace_vendor_id) {
+    const { data: shotRows, error: shotRowsError } = await supabase
+      .from('event_shot_list_items')
+      .select('item_id, vendor_profile_id, label, position, captured_at')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .order('position', { ascending: true });
+    if (shotRowsError || !shotRows) {
+      logQueryError('VendorWorkspacePage.shotList', shotRowsError, { eventId }, 'graceful_degrade');
+      shotList = { state: 'unreadable' };
+    } else {
+      shotList = { state: 'ok', rows: shotRows as ShotRow[] };
+    }
+  }
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
   const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
@@ -741,6 +751,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             trusted_review_count: 0,
           },
           reviews: [],
+          // Nothing to read for an off-platform supplier — a true "none".
+          reviewsMeasured: true,
         }),
   ]);
 
@@ -868,6 +880,23 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
+
+  /*
+    ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
+    The couple's thread page is the one Messenger-style frame (#5586). Under
+    the flag-on shell this workspace embedded its OWN copy of the conversation
+    as a Chat tab — the same duplicate the supplier's client page carried. A
+    chat landing here now lands on THE conversation; this page's sections stay
+    reachable by `?tab=` and behind that frame's ⋮. The strip keeps "Chat" as
+    a door to the thread. Same mechanism, same reasons, as the supplier side:
+    see app/vendor-dashboard/clients/[eventId]/page.tsx.
+  */
+  if (relationshipShellEnabled && chatThread) {
+    const rawLanding = typeof search.tab === 'string' ? search.tab : undefined;
+    if (!rawLanding || rawLanding === 'chat' || rawLanding === 'call') {
+      redirect(`/dashboard/${eventId}/messages/${chatThread.thread_id}`);
+    }
+  }
 
   // --------------------------------------------------------------------------
   // The booked service/package — the HERO of this page.
@@ -1763,6 +1792,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             canAdvanceToDelivered={canAdvanceToDelivered}
           />
 
+          {/*
+            DAY-10 · Shot list — the supplier's must-get shots from their day-of
+            console, read-only, with what has been captured so far.
+          */}
+          {shotList ? (
+            <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
+          ) : null}
+
           {vendorBudgetSummary ? (
             <VendorItemizationCard
               summary={vendorBudgetSummary}
@@ -2589,153 +2626,19 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       </section>
     ) : null;
 
-  let chatTabNode: ReactNode = null;
-  let callTabNode: ReactNode = null;
-  if (ev.marketplace_vendor_id && chatThread) {
-    const thread = await fetchThreadById(supabase, chatThread.thread_id);
-    if (thread) {
-      // Mirror the couple thread page: mark read on open, resolve block state,
-      // server-render the first message batch. `displayName` (the resolved
-      // business_name for this booked vendor) is the counterparty label.
-      //
-      // Mark-read parity with the vendor side (2026-07-11): only clear the
-      // unread badge when Chat is the LANDING tab (no ?tab or ?tab=chat). A
-      // server round-trip that lands on another tab (e.g. the rail's ?tab=payments
-      // quick link, or a deep-link) must NOT mark the thread read without the
-      // couple actually viewing the chat. The chat NODE is still built either way
-      // — only the WRITE is gated. Read the RAW searchParam (the shell reads it
-      // client-side too). RLS session client only; never admin for chat reads.
-      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
-      if (!rawTab || rawTab === 'chat') {
-        await markThreadRead(chatThread.thread_id);
-      }
-      const blockState = await getThreadBlockState(thread, user.id, 'couple');
-      const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
-      // PR-H · booked, or merely asked? Couple's own session; RLS is the gate.
-      const chatLockHandshake = await fetchThreadLockHandshake(supabase, {
-        eventId,
-        vendorProfileId: thread.vendor_profile_id,
-      });
-      const coupleMsgCount = initialMessages.filter(
-        (m) => m.sender_role === 'couple',
-      ).length;
-      const canFollowUpWhilePending = coupleMsgCount <= 1;
-      const declineReason = thread.decline_reason?.trim() || null;
-      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
-      // the couple sees the call UI only when this vendor's tier unlocks it.
-      const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
-
-      callTabNode =
-        thread.inquiry_status === 'accepted' ? (
-          <ThreadCallLauncherLazy
-            threadId={thread.thread_id}
-            currentUserId={user.id}
-            counterpartyLabel={displayName}
-            callsEnabled={callsEnabled}
-            viewerRole="couple"
-          />
-        ) : (
-          <p className="text-xs text-ink/55">
-            Voice and video calls open once {displayName} accepts your inquiry.
-          </p>
-        );
-
-      chatTabNode = (
-        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
-          {/* Menu carries the real block/unblock/report/archive affordances the
-              blocked-state copy refers to — mirror the messages thread page so
-              the Chat tab isn't an unblock dead-end. returnTo keeps the couple on
-              this workspace Chat tab after acting. */}
-          <div className="flex items-center justify-end">
-            <ChatThreadMenu
-              threadId={thread.thread_id}
-              returnTo={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=chat`}
-              blockedByMe={blockState.blockedByMe}
-            />
-          </div>
-          <ChatSafetyBanner />
-          <ThreadInterestChips supabase={supabase} threadId={thread.thread_id} />
-          <ChatMessageStream
-            threadId={thread.thread_id}
-            initialMessages={initialMessages}
-            currentUserId={user.id}
-            viewerRole="couple"
-            counterpartyLabel={displayName}
-            lockHandshake={chatLockHandshake}
-          />
-          {blockState.blockedByMe || blockState.blockedByThem ? (
-            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
-              {blockState.blockedByMe
-                ? 'You blocked this person. Unblock from the conversation menu to message again.'
-                : 'You can no longer message in this conversation.'}
-            </div>
-          ) : thread.inquiry_status === 'accepted' ||
-            (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
-            <div className="space-y-2">
-              {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
-                <p className="text-xs text-ink/55">
-                  You can send one follow-up while you wait for {displayName} to
-                  accept.
-                </p>
-              ) : null}
-              <ChatSendForm threadId={thread.thread_id} sendAction={sendChatMessage} />
-            </div>
-          ) : thread.inquiry_status === 'pending' ? (
-            <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-              <p className="text-sm text-ink">
-                <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}
-                {displayName} to accept before your chat opens.
-              </p>
-              <form action={withdrawInquiry}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <input type="hidden" name="thread_id" value={thread.thread_id} />
-                <SubmitButton
-                  pendingLabel="Withdrawing…"
-                  className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta-700 hover:underline"
-                >
-                  Withdraw inquiry
-                </SubmitButton>
-              </form>
-            </div>
-          ) : (
-            <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
-              <p className="text-sm text-ink">
-                {declineReason ? (
-                  <>
-                    {displayName} declined this inquiry.{' '}
-                    <span className="font-semibold">Why:</span> &ldquo;{declineReason}
-                    &rdquo;
-                  </>
-                ) : (
-                  <>{displayName} isn&rsquo;t available for your date.</>
-                )}
-              </p>
-              <Link
-                href={`/dashboard/${eventId}/vendors`}
-                className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-              >
-                See similar vendors
-              </Link>
-            </div>
-          )}
-        </section>
-      );
-    }
-  }
-  if (!chatTabNode) {
-    // No thread yet / off-platform vendor → reuse the existing conversation
-    // link block (it already carries the "open full chat" / "go to Messages"
-    // affordances and the off-platform explanation).
-    chatTabNode = conversationSection;
-  }
+  // No chat tab node and no call tab node: the conversation — and the call
+  // button on its composer row — is the thread page's frame, and a chat landing
+  // already redirected there above.
 
   const tabIconClass = 'h-3.5 w-3.5';
   const tabs: RelationshipTab[] = [
     {
+      // A DOOR, not a room — the one chat box is the thread page (#5586).
       id: 'chat',
       label: 'Chat',
       icon: <MessageCircle aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: chatTabNode,
+      href: conversationHref,
+      node: null,
     },
     {
       id: 'quote',
@@ -2770,20 +2673,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           {appointmentsSection}
         </div>
       ),
-    },
-    {
-      id: 'call',
-      label: 'Call',
-      icon: <Phone aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      // callTabNode is only set once a thread resolves. A marketplace vendor
-      // with no conversation started yet → give a helpful empty state rather
-      // than a blank panel (mirrors the Chat tab's no-thread fallback).
-      node: callTabNode ?? (
-        <p className="text-xs text-ink/55">
-          Voice and video calls open once you start a conversation with {displayName}.
-        </p>
-      ),
-      hidden: !ev.marketplace_vendor_id,
     },
     {
       id: 'details',
@@ -2874,10 +2763,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         ) : null}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <a
-          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=chat`}
-          className={quickLinkClass}
-        >
+        <a href={conversationHref} className={quickLinkClass}>
           <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Chat
         </a>

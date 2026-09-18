@@ -167,6 +167,25 @@ export type CheckFacts = {
 
   inBusinessSinceYear: number | null;
   experienceVerifiedAt: string | null;
+
+  /** `vendor_profiles.registered_business_name`, the DTI/SEC name as the shop typed it. */
+  registeredBusinessName: string | null;
+  /** `vendor_profiles.business_owner_name`, the sole proprietor's own name. */
+  businessOwnerName: string | null;
+  /**
+   * Every payout account on the shop (`vendor_payment_methods`), the accounts a
+   * couple is shown and pays into. `null` means THE READ FAILED, never "none on
+   * file". An empty array is "none on file".
+   */
+  payoutAccounts: PayoutAccountFact[] | null;
+};
+
+/** One account a couple could be told to pay into. */
+export type PayoutAccountFact = {
+  /** How the shop labelled it ("GCash", "BDO savings"), for the reviewer. */
+  label: string;
+  /** The name on the account, as the shop typed it. */
+  accountName: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -704,6 +723,182 @@ function checkDeclaredExperience(f: CheckFacts, now: Date): CheckResult {
 }
 
 // ---------------------------------------------------------------------------
+// The payout account is in the business's (or the owner's) name — SUP-27
+// ---------------------------------------------------------------------------
+
+/**
+ * Words that say nothing about WHOSE account it is: company-form suffixes,
+ * honorifics, generational suffixes and the joining words in a trading name.
+ * Dropped before two names are compared, so "Banawe Blooms Inc." is the same
+ * name as "BANAWE BLOOMS" and "Mr. Juan Dela Cruz Jr." as "Juan Dela Cruz".
+ */
+const NAME_NOISE: ReadonlySet<string> = new Set([
+  'inc', 'incorporated', 'corp', 'corporation', 'co', 'company', 'ltd', 'limited',
+  'opc', 'llc', 'the', 'and', 'of', 'ng', 'at', 'mr', 'mrs', 'ms', 'dr', 'jr',
+  'sr', 'ii', 'iii', 'iv',
+]);
+
+/**
+ * A name as a sorted list of the words that identify somebody. Accents are
+ * folded (Peñafrancia = Penafrancia), punctuation becomes a space, and single
+ * letters are dropped because a middle initial is present on one document and
+ * absent on the next. Order is ignored: a bank prints "DELA CRUZ JUAN" for the
+ * same person a DTI certificate calls "Juan Dela Cruz".
+ */
+export function nameTokens(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((t) => t.length > 1 && !NAME_NOISE.has(t))
+    .sort();
+}
+
+export type NameComparison = 'same' | 'overlap' | 'unrelated';
+
+/**
+ * How one payout account name compares with one name the shop goes by.
+ *
+ *   same      — the same identifying words, in any order.
+ *   overlap   — at least one identifying word (3+ letters) in common, but not
+ *               the same name: "Saysay Live Band" against "Saysay Live Band &
+ *               Hosting", or the owner's surname on a relative's account. A
+ *               person has to judge that. The machine does not guess.
+ *   unrelated — nothing in common at all.
+ */
+export function comparePayoutName(accountName: string, reference: string): NameComparison {
+  const a = nameTokens(accountName);
+  const b = nameTokens(reference);
+  if (a.length === 0 || b.length === 0) return 'unrelated';
+  if (a.join(' ') === b.join(' ')) return 'same';
+  const bs = new Set(b.filter((t) => t.length >= 3));
+  return a.some((t) => t.length >= 3 && bs.has(t)) ? 'overlap' : 'unrelated';
+}
+
+/**
+ * 🔴 WHY THIS EXISTS. The bank-proof slot's help copy has always TOLD the shop
+ * *"the name should match your DTI/SEC business name (or your own name if sole
+ * proprietor)"*, and nothing ever compared the two. A shop could be verified
+ * with every peso a couple sends routed to a stranger's GCash.
+ *
+ * ⚖ IT FLAGS; IT NEVER REFUSES. A clean match passes. Anything a person could
+ * reasonably read either way (a partial overlap, no account yet, nothing to
+ * compare against) is `manual` for the reviewer. Only a name that shares NO
+ * identifying word with any name the shop goes by is a `mismatch`. Like every
+ * check here, that reaches the grant as a warning, not a refusal (the owner's
+ * 2026-09-09 ruling in `grantWarning`).
+ */
+function checkPayoutAccountName(f: CheckFacts): CheckResult {
+  const key = 'payout_account_name';
+  const label = "Payout accounts are in the business's or the owner's name";
+  const slotKey = 'bank_account_proof';
+
+  if (f.payoutAccounts === null) {
+    return manual(
+      key,
+      label,
+      'The payout accounts could not be read.',
+      "The read of the shop's payment methods failed. This says nothing about the accounts themselves. Open the shop's payment settings, or try again.",
+      { slotKey },
+    );
+  }
+
+  const named = f.payoutAccounts.filter((a) => nameTokens(a.accountName).length > 0);
+  if (named.length === 0) {
+    return manual(
+      key,
+      label,
+      f.payoutAccounts.length === 0
+        ? 'No payout account is on file yet.'
+        : 'No payout account on file carries an account name.',
+      'There is no typed account name to compare. Read the name off the bank proof and check it against the DTI/SEC name or the owner.',
+      { alwaysHuman: true, slotKey },
+    );
+  }
+
+  const references: Array<{ name: string; source: string }> = [];
+  const addRef = (name: string | null | undefined, source: string) => {
+    if (nameTokens(name).length > 0) references.push({ name: name!.trim(), source });
+  };
+  addRef(f.registeredBusinessName, 'the registered business name on the profile');
+  if (f.registryAnswer.kind === 'match') {
+    addRef(f.registryAnswer.registeredName, 'the business registry');
+  }
+  addRef(f.businessName, 'the shop name');
+  addRef(f.businessOwnerName, "the owner's name on the profile");
+
+  if (references.length === 0) {
+    return manual(
+      key,
+      label,
+      'The shop has no business or owner name to compare the accounts against.',
+      'Neither a business name nor an owner name is on the profile. Compare the account names with the DTI certificate by hand.',
+      { alwaysHuman: true, slotKey },
+    );
+  }
+
+  const unrelated: PayoutAccountFact[] = [];
+  const close: Array<{ account: PayoutAccountFact; ref: string }> = [];
+  for (const account of named) {
+    const verdicts = references.map((r) => ({ r, v: comparePayoutName(account.accountName!, r.name) }));
+    if (verdicts.some((x) => x.v === 'same')) continue;
+    const overlap = verdicts.find((x) => x.v === 'overlap');
+    if (overlap) close.push({ account, ref: overlap.r.name });
+    else unrelated.push(account);
+  }
+
+  const refText = list(references.map((r) => `"${r.name}"`));
+  const refSource = list(Array.from(new Set(references.map((r) => r.source))));
+
+  if (unrelated.length > 0) {
+    const first = unrelated[0]!;
+    return mismatch(
+      key,
+      label,
+      unrelated.length === 1
+        ? `The ${first.label} account is in a name that shares nothing with the business or the owner.`
+        : `${unrelated.length} payout accounts are in names that share nothing with the business or the owner.`,
+      {
+        label: 'The names this shop goes by',
+        value: refText,
+        source: refSource,
+      },
+      {
+        label: 'The name couples would be paying',
+        value: list(unrelated.map((a) => `"${a.accountName!.trim()}" (${a.label})`)),
+        source: "The shop's payment methods",
+      },
+      slotKey,
+    );
+  }
+
+  if (close.length > 0) {
+    return manual(
+      key,
+      label,
+      close.length === 1
+        ? `The ${close[0]!.account.label} account name is close to, but not the same as, "${close[0]!.ref}".`
+        : `${close.length} payout account names are close to, but not the same as, the business or owner name.`,
+      `Close is not the same: ${list(close.map((c) => `"${c.account.accountName!.trim()}" vs "${c.ref}"`))}. It could be a longer trading name, or a relative's account. Check it against the bank proof before you decide.`,
+      { alwaysHuman: true, slotKey },
+    );
+  }
+
+  return pass(
+    key,
+    label,
+    named.length === 1
+      ? `The ${named[0]!.label} account is in a name the shop goes by.`
+      : `All ${named.length} payout accounts are in a name the shop goes by.`,
+    slotKey,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The run
 // ---------------------------------------------------------------------------
 
@@ -727,6 +922,7 @@ export function runVerificationChecks(facts: CheckFacts, now: Date = new Date())
     checkIdentityMeeting,
     checkReachable,
     (f) => checkDeclaredExperience(f, now),
+    checkPayoutAccountName,
   ];
   return runners.map((run, i) => {
     try {

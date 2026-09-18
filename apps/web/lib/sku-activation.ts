@@ -1171,8 +1171,9 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     // `setnayan_ai_active_until` via extendUserAiSubscription(…, 1, …), so "this
     // event's NEXT purchase is a ₱799 renewal". That belonged to a RETIRED
     // intro/renewal model: `SETNAYAN_AI_RENEW` is is_active=false and its
-    // resolver (resolveSetnayanAiEventChargeCentavos) has NO callers — the live
-    // charge path is the event-TYPE ladder. So the stamp bought nothing and cost
+    // resolver (resolveSetnayanAiEventChargeCentavos) had NO callers and was
+    // deleted (SUP-97) — the live charge path is the event-TYPE ladder. So the
+    // stamp bought nothing and cost
     // everything: eventOwnsSetnayanAi treats a non-NULL window as AUTHORITATIVE,
     // so a couple paid once and lost AI 28 days later with no way to renew.
     //

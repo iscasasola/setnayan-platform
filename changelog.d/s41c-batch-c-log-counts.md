@@ -21,3 +21,9 @@ SPEC IMPACT: None
 deposit-acknowledge catch-up (#5615) and S40's deletion-request nudge (#5688) each added a sweep and named it
 in the list, and neither bumped the count. The count is now 8 and the title says eight. Every sweep is still
 asserted by name. The two fixes ship together because two separate PRs would each fail CI on the other's cause.
+
+**And a THIRD way (found by running the full unit suite, 15,299 tests, before CI):** `lib/s41c-admin-reads-are-honest.test.ts`
+(#5692) pinned `getVendorDemandRadar` as "unchanged" by its exact old line `if (error || !Array.isArray(data)) return EMPTY_RADAR;`.
+S41c batch B (#5699) then deliberately made it honest, so a refused RPC now logs and returns `DEMAND_RADAR_UNREADABLE`.
+The pin now asserts that stronger property instead: the error branch logs and returns the sentinel, and never
+returns `EMPTY_RADAR`. Sabotage (returning `EMPTY_RADAR` on error) turns it red. 10/10 pass.

@@ -42,5 +42,21 @@ least visible. Also regenerated `scripts/port-control-baseline.json` (deliberate
 of `mega-column-tabs.tsx` from the `/explore` route's file list) — `lint:port-controls`
 passes, 428 routes / 1558 controls / 4490 blocks, no route lost a control.
 
-SPEC IMPACT: None — dead-code removal only; the one behavioral question raised (wordmark
-target) is flagged for the owner/a follow-up session, not resolved here.
+**Also restores an owner lock (WORDMARK, 2026-09-19).** The follow-up above is resolved
+in this PR: it WAS a regression. Owner, `DECISION_LOG.md` 2026-08-13 SESSION 6: *"The
+WORDMARK is the way out of the app, still signed in."* The 2026-08-14 "one top bar" commit
+(cf58418b48) hard-coded the app wordmark to `/dashboard` citing "the launcher's own shipped
+grammar" with no owner statement; 08-15 (a7308cccd4) only parametrised it. `homeHref` in
+`app/_components/frontdoor/front-door-shell.tsx` is now `'/'` for every variant (which also
+keeps the 08-15 "never send a stranger to /dashboard" constraint by construction). The
+one-press way home is unchanged: the rail's signed-in events row, the shell's account menu
+and `<AccountSwitcher>`'s Home link, all → `/dashboard`. `seam-invariants.test.ts` now pins
+the SEMANTIC (every wordmark href resolved; `/`, never `/dashboard`) and the way-home links
+where the live shell renders them (its old "All your events" pin read the unmounted
+`customer-sidebar.tsx`); sabotage-proven 5 ways. `rail-active.test.ts` and
+`doorway-shell.test.ts` pins updated to the restored value. Owner may revert with one line
+if he prefers the 2026-07-16 Wordmark-as-Home.
+
+SPEC IMPACT: `DECISION_LOG.md` — 2026-09-19 row records the 08-14 regression and its
+restoration per the 08-13 owner lock (flagged for owner confirmation). Otherwise dead-code
+removal only.

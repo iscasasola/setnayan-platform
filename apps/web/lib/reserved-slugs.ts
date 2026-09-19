@@ -114,6 +114,9 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // ⚠ It belongs in THIS half, not ROUTE_RESERVED_SLUGS: that half is GENERATED
   // from the route folders on disk, so naming a folder that does not exist yet
   // breaks its drift test. Mirrored by migration 20271147550834.
+  // 2026-09-20 (DAY-12): `app/live/` now exists, so the word ALSO appears in the
+  // generated half below. It stays here too because the database mirrors THIS
+  // half, and dropping it would un-reserve it in `business_slug_is_reserved`.
   'live',
 
   // --- ⬇ ADDED 2026-08-23 -------------------------------------------------
@@ -178,6 +181,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'help',
   'host',
   'join',
+  'live',
   'login',
   'marketplace',
   'monogram',

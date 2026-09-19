@@ -30,7 +30,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { DEMO_MODE_HINT_COOKIE_NAME } from '@/lib/demo-mode-constants';
-import { isBroadcastCaptureRoute } from './capture-safe-routes';
+import { isBroadcastCaptureRoute, isRoomDisplayRoute } from './capture-safe-routes';
 import { DemoModeBannerClient } from './demo-mode-banner-client';
 
 type Status = { show: boolean; deadlineLabel?: string };
@@ -62,7 +62,8 @@ export function DemoModeBanner() {
   }, []);
 
   if (!status?.show) return null;
-  // Never paint into a window an encoder is capturing (see capture-safe-routes).
-  if (isBroadcastCaptureRoute(pathname)) return null;
+  // Never paint into a window an encoder is capturing, or onto a venue screen a
+  // room is watching (see capture-safe-routes).
+  if (isBroadcastCaptureRoute(pathname) || isRoomDisplayRoute(pathname)) return null;
   return <DemoModeBannerClient deadlineLabel={status.deadlineLabel ?? ''} />;
 }

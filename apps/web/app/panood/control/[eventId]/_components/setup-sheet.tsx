@@ -42,6 +42,7 @@ export const SETUP_ANCHORS = [
   'overlays',
   'moments',
   'watch',
+  'screens',
 ] as const;
 
 export function SetupSheet({ children }: { children: ReactNode }) {

@@ -71,6 +71,7 @@ import {
 } from '@/lib/vendors-plan-budget';
 import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { eventNoun } from '@/lib/event-noun';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -677,10 +678,13 @@ export type VendorReviewStatus = 'open' | 'submitted';
 export function PlanBudgetAccordion({
   model,
   eventId,
+  eventType = null,
   reviewStatusByVendorId = new Map(),
 }: {
   model: PlanBudgetModel;
   eventId: string;
+  /** The event's kind — the empty-folder line names it. A wedding stays byte-identical. */
+  eventType?: string | null;
   /**
    * Review eligibility / completion per vendor_id.
    * 'open'      — review window is open, no review submitted yet → show "Leave a review"
@@ -907,6 +911,7 @@ export function PlanBudgetAccordion({
               onOpen={openService}
               lockHintKey={lockHintKey}
               reviewStatusByVendorId={reviewStatusByVendorId}
+              eventType={eventType}
             />
           ))}
           {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
@@ -997,6 +1002,7 @@ function FolderSection({
   onOpen,
   lockHintKey,
   reviewStatusByVendorId,
+  eventType,
 }: {
   folder: AccordionFolder;
   eventId: string;
@@ -1012,6 +1018,8 @@ function FolderSection({
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
   reviewStatusByVendorId: ReadonlyMap<string, VendorReviewStatus>;
+  /** The event's kind — the empty-folder line names it. A wedding stays byte-identical. */
+  eventType?: string | null;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Single-open (owner 2026-06-09): the .cat-head is now a toggle button; only
@@ -1050,7 +1058,7 @@ function FolderSection({
           // skip the "nothing here" line for it even in the (unreachable) empty
           // case — the rail still renders.
           folder.folder === 'design' ? null : (
-            <p className="cat-empty">Nothing here yet for your wedding.</p>
+            <p className="cat-empty">Nothing here yet for your {eventNoun(eventType)}.</p>
           )
         ) : (
           folder.children.map((child) => (

@@ -512,7 +512,9 @@ export default async function EventHomePage({
        *  later so the date-gated public website lifecycle (Save-the-Date / Event
        *  / Editorial) can launch. Renders ONLY when no date is set; dismissible
        *  per-event; links to the existing /date-selection governed surface. */}
-      {!event.event_date ? <SetDateNudge eventId={eventId} /> : null}
+      {!event.event_date ? (
+        <SetDateNudge eventId={eventId} eventType={event.event_type as string | null} />
+      ) : null}
 
       {/* "Your free camera is ready" — Papic promotion PR-G option B (owner picked
        *  A + B on 2026-07-30). Every event is armed at creation with a free shared

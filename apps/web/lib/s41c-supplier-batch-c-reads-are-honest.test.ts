@@ -179,7 +179,7 @@ const LOG_SITE_COUNTS: { file: string; expected: number }[] = [
   { file: 'lib/service-merge-forward-db.ts', expected: 1 },
   { file: 'lib/service-trade-aliases-db.ts', expected: 1 },
   { file: 'lib/stage-notes-recipients.ts', expected: 1 },
-  { file: 'lib/supplier-night-before-email.ts', expected: 2 },
+  { file: 'lib/supplier-night-before-email.ts', expected: 3 },
   { file: 'lib/trusted-circle-recs.ts', expected: 1 },
   { file: 'lib/vendor-branches.ts', expected: 2 },
   { file: 'lib/vendor-card-copy.ts', expected: 1 },

@@ -6,6 +6,7 @@ import {
   type DepositDisputeRow,
   type LedgerDisputeRow,
 } from '@/lib/payment-refusal';
+import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 
 /**
  * Default Setnayan Pay convenience-fee percentage. Disclosed transparently
@@ -196,44 +197,76 @@ export async function fetchVendorLedgerEarnings(
   adminClient: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorEarningRow[]> {
-  const { data: bookingRows, error: bookingError } = await adminClient
-    .from('event_vendors')
-    .select(`vendor_id, event_id, category, ${DEPOSIT_DISPUTE_COLUMNS}`)
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .eq('voided_by_fraud', false);
-  if (bookingError) {
-    throw new Error(`fetchVendorLedgerEarnings bookings: ${bookingError.message}`);
+  // ⚠ MONEY — EVERY READ HERE GOES TO THE END OR THROWS. This was one
+  // un-ranged booking read (PostgREST caps it at 1000 rows, `error: null`),
+  // then ONE `in.()` of every booking id (refused 400 past ~600 ids) with a
+  // `.limit(1000)` on the payments — so past a thousand confirmed payments the
+  // YTD total was silently short. Now: bookings paged to the server's exact
+  // count, payments asked 100 bookings at a time and each chunk paged to ITS
+  // count. Anything short throws, like a refusal: never a smaller total.
+  const bookingRead = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await adminClient
+        .from('event_vendors')
+        .select(`vendor_id, event_id, category, ${DEPOSIT_DISPUTE_COLUMNS}`, { count: 'exact' })
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .eq('voided_by_fraud', false)
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  );
+  if (!bookingRead.complete) {
+    throw new Error(
+      `fetchVendorLedgerEarnings bookings: ${bookingRead.error ?? 'read did not reach the server count'}`,
+    );
   }
-  const bookings = (bookingRows ?? []) as LedgerBooking[];
+  const bookings = bookingRead.rows as LedgerBooking[];
   if (bookings.length === 0) return [];
 
-  const { data: paymentRows, error: paymentError } = await adminClient
-    .from('event_vendor_payments')
-    .select(
-      `payment_id, vendor_id, event_id, amount_php, paid_at, method, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
-    )
-    .in(
-      'vendor_id',
-      bookings.map((b) => b.vendor_id),
-    )
-    .limit(1000);
+  const { rows: payments, error: paymentError } = await readInChunks<LedgerPayment>(
+    bookings.map((b) => b.vendor_id),
+    async (part) => {
+      const chunk = await readAllPages(
+        async (from, to) => {
+          const { data, error, count } = await adminClient
+            .from('event_vendor_payments')
+            .select(
+              `payment_id, vendor_id, event_id, amount_php, paid_at, method, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
+              { count: 'exact' },
+            )
+            .in('vendor_id', part)
+            .order('payment_id', { ascending: true })
+            .range(from, to);
+          return { rows: data ?? null, error: error ? error.message : null, total: count };
+        },
+        { pageSize: 1000 },
+      );
+      return {
+        data: chunk.rows,
+        error: chunk.complete
+          ? null
+          : { message: chunk.error ?? 'read did not reach the server count' },
+      };
+    },
+  );
   if (paymentError) {
     throw new Error(`fetchVendorLedgerEarnings payments: ${paymentError.message}`);
   }
-  const payments = (paymentRows ?? []) as LedgerPayment[];
 
   const eventIds = Array.from(new Set(payments.map((p) => p.event_id)));
   const eventNames = new Map<string, string | null>();
   if (eventIds.length > 0) {
-    const { data: events, error: eventsError } = await adminClient
-      .from('events')
-      .select('event_id, display_name')
-      .in('event_id', eventIds);
+    const { rows: events, error: eventsError } = await readInChunks<{
+      event_id: string;
+      display_name: string | null;
+    }>(eventIds, (part) =>
+      adminClient.from('events').select('event_id, display_name').in('event_id', part),
+    );
     // A missing NAME is cosmetic ("Event"); the money above is already read.
     if (!eventsError) {
-      for (const e of (events ?? []) as Array<{ event_id: string; display_name: string | null }>) {
-        eventNames.set(e.event_id, e.display_name);
-      }
+      for (const e of events) eventNames.set(e.event_id, e.display_name);
     }
   }
   return ledgerEarningRows(bookings, payments, eventNames);

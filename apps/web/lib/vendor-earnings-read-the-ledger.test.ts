@@ -143,8 +143,15 @@ function fakeAdmin(tables: Record<string, { data?: unknown[]; error?: { message:
         eq: (col: string, v: unknown) => (call.filters.push(['eq', col, v]), q),
         in: (col: string, v: unknown) => (call.filters.push(['in', col, v]), q),
         limit: () => q,
+        // The reads page to the server's exact count (`readAllPages`).
+        order: () => q,
+        range: () => q,
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-          Promise.resolve({ data: result.error ? null : result.data ?? [], error: result.error ?? null }).then(res, rej),
+          Promise.resolve({
+            data: result.error ? null : result.data ?? [],
+            error: result.error ?? null,
+            count: result.error ? null : (result.data ?? []).length,
+          }).then(res, rej),
       };
       return q;
     },

@@ -106,7 +106,8 @@ import {
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { BookingMoneySummary } from './_components/booking-money-summary';
-import { bookingMoney, type BookingMoney, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
+import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -147,6 +148,7 @@ import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
+import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -773,6 +775,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ownership-gated timeline Today and /payday read. Empty when nothing is
   // logged, or when the read is refused (logged, never shown as money).
   let ledgerMoney: BookingMoney = { rows: [], receivedPhp: 0, expectedPhp: 0 };
+  // ⚠ A LEDGER THAT COULD NOT BE READ IS NOT AN EMPTY ONE. Refused or cut short,
+  // this used to render "No payments to confirm yet" over a real deposit. Now
+  // the Quote and Payments tabs say the payments couldn't load.
+  let ledgerUnreadable = false;
   if (isBooked) {
     const [plans, pending, payday] = await Promise.all([
       fetchPlanProgressForVendor({
@@ -785,17 +791,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
-      supabase.rpc('vendor_payday_installments'),
+      // This event's rows only, paged to the server's exact count
+      // (`lib/vendor-payday-read.ts`) — never one capped request.
+      readVendorPaydayInstallments(supabase, { eventId }),
     ]);
     planRowsAll = plans;
-    if (payday.error) {
-      logQueryError('VendorClientPage.paydayInstallments', payday.error, { eventId }, 'graceful_degrade');
-    } else if (plans.length === 0) {
-      ledgerMoney = bookingMoney(
-        (payday.data ?? []) as unknown as PaydayInstallmentRow[],
-        eventId,
-        eventVendorId,
+    if (!payday.complete) {
+      logQueryError(
+        'VendorClientPage.paydayInstallments',
+        { message: payday.error ?? `read ${payday.rows.length} rows without reaching the server count` },
+        { eventId },
+        'graceful_degrade',
       );
+      ledgerUnreadable = plans.length === 0;
+    } else if (plans.length === 0) {
+      ledgerMoney = bookingMoney(payday.rows, eventId, eventVendorId);
     }
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
@@ -847,15 +857,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     separately (`asksMeasured`) so the panel can say "we could not read this"
     instead of "there is nothing here", which are opposite sentences.
   */
-  const { data: askRows, error: askRowsError } = isBooked && eventVendorId
-    ? await supabase
-        .from('vendor_payment_asks')
-        .select('ask_id, amount_php, note, due_date, status, created_at')
-        .eq('event_vendor_id', eventVendorId)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(20)
-    : { data: null, error: null };
+  // Read to the END (`readOpenPaymentAsks`): it was `.limit(20)`, so a 21st
+  // open ask was hidden and the shop could bill the same thing twice.
+  const askRead = isBooked && eventVendorId
+    ? await readOpenPaymentAsks(supabase, eventVendorId)
+    : { rows: [] as OpenPaymentAskRow[], error: null, complete: true };
+  const askRowsError = askRead.error;
   // 🪤 SAME DEPLOY-WINDOW CARVE-OUT AS THE COUPLE'S SIDE. A relation this build
   // has not seen yet is a TRUE empty — nothing can have been written into a
   // table that does not exist — and reporting it as unmeasured would put the
@@ -870,8 +877,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const asksMeasured = !askRowsError || asksAbsent;
-  const paymentAsks = (askRows ?? []) as PaymentAskRow[];
+  // A read that stopped short of the server's count is NOT measured either —
+  // a shorter list of asks is exactly the double-bill this panel prevents.
+  const asksMeasured = asksAbsent || (!askRowsError && askRead.complete);
+  const paymentAsks = (asksMeasured ? askRead.rows : []) as PaymentAskRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
@@ -1444,6 +1453,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
       ledgerMoney={ledgerMoney}
+      ledgerUnreadable={ledgerUnreadable}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1601,6 +1611,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Payments
           </p>
+          {ledgerUnreadable ? (
+            <LedgerUnreadableNote />
+          ) : (
+            <>
           <BookingMoneySummary money={ledgerMoney} />
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
@@ -1608,6 +1622,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
               : `No payments to confirm yet. When ${eventName} logs a payment, confirm it here.`}
           </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -2596,6 +2612,8 @@ function QuoteTab(props: {
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
   ledgerMoney: BookingMoney;
+  /** The no-plan ledger read failed or was cut short — say so, never "none". */
+  ledgerUnreadable: boolean;
   threadId: string | null;
   /**
    * "Ask for a payment" — passed in rather than built here so this component
@@ -2604,8 +2622,17 @@ function QuoteTab(props: {
    */
   askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, ledgerMoney, threadId, askPanel } =
-    props;
+  const {
+    proposals,
+    isBooked,
+    planRollup,
+    planStepRows,
+    pendingPayments,
+    ledgerMoney,
+    ledgerUnreadable,
+    threadId,
+    askPanel,
+  } = props;
   const steps = planStepRows?.steps ?? null;
 
   return (
@@ -2744,6 +2771,8 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
+        ) : ledgerUnreadable ? (
+          <LedgerUnreadableNote />
         ) : ledgerMoney.rows.length > 0 ? (
           <BookingMoneySummary money={ledgerMoney} />
         ) : (
@@ -3590,5 +3619,18 @@ function LockRequestAnswer({
         </form>
       </details>
     </div>
+  );
+}
+
+/** The booking's payments could not be read — said plainly, never as "none". */
+function LedgerUnreadableNote() {
+  return (
+    <p
+      role="status"
+      className="flex items-center gap-2 rounded-lg border border-warn-300/50 bg-warn-50 px-3 py-2.5 text-sm text-warn-900"
+    >
+      <Wallet aria-hidden className="h-4 w-4 shrink-0" /> Some payments on this booking
+      couldn&rsquo;t load. Reload the page to try again.
+    </p>
   );
 }

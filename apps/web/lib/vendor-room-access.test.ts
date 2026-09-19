@@ -219,7 +219,9 @@ test('every day-of screen asks the room read, and none of them still asks the po
   let total = 0;
   for (const [file, expected] of ROOM_SITES) {
     const src = code(file);
-    const calls = [...src.matchAll(/fetchVendorRoomEvents\(/g)].length;
+    // `fetchVendorRoomEventsDetailed` is the same room read, plus whether it
+    // reached the end (the uncapped reads, 2026-09-20).
+    const calls = [...src.matchAll(/fetchVendorRoomEvents(?:Detailed)?\(/g)].length;
     assert.equal(calls, expected, `${file} should call fetchVendorRoomEvents ${expected}×, got ${calls}`);
     assert.equal(
       [...src.matchAll(/fetchVendorPoolBookings\(/g)].length,
@@ -285,8 +287,13 @@ test('every reader left on the pool read carries a stated reason', () => {
   }
 });
 
+// The room read's queries live in `vendor-room-reads.ts` since they were paged
+// (2026-09-20) — split out because this module is `server-only` and a test
+// cannot execute it. Both files ARE the room read.
+const roomRead = () => code('lib/vendor-room-access.ts') + '\n' + code('lib/vendor-room-reads.ts');
+
 test('the room read imports the TYPED status set and never retypes the four strings', () => {
-  const src = code('lib/vendor-room-access.ts');
+  const src = roomRead();
   assert.match(
     src,
     /import \{ BOOKED_VENDOR_STATUSES \} from '@\/lib\/vendors'/,
@@ -319,7 +326,7 @@ test('the RULE file stays pure — no client, no io, so it can keep being import
 });
 
 test('the room read is scoped in SQL by the id it was handed, and resolves no session', () => {
-  const src = code('lib/vendor-room-access.ts');
+  const src = roomRead();
   // The grantee path in on-the-day/live passes an admin client and a vendor id
   // derived from an access GRANT. Resolving the caller from the session in here
   // would break that role silently.

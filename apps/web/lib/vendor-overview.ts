@@ -24,11 +24,15 @@ import {
 import { resolveAppointmentLabel, type AppointmentKind } from '@/lib/appointments';
 import { displayServiceLabel } from '@/lib/vendors';
 import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from '@/lib/vendor-earnings';
+import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
+import { readInChunks } from '@/lib/read-all-pages';
 import {
-  buildPaydayTimeline,
-  manilaTodayIso,
-  type PaydayInstallmentRow,
-} from '@/lib/vendor-cashflow';
+  readDeclinedDepositIds,
+  readDeletionRequests,
+  readDepositsAwaitingAcknowledgement,
+  readLockAgreementRequests,
+} from '@/lib/vendor-overview-desk-reads';
 
 /**
  * vendor-overview.ts — the server-side data assembly for the vendor dashboard
@@ -257,6 +261,12 @@ export type VendorOverviewData = {
   whatsNew: WhatsNewCard[];
   ongoing: OngoingTask[];
   upcoming: UpcomingEventRow[];
+  /**
+   * True when a booking-ask or deposit read did not reach the end (refused, or
+   * short of the server's exact count). The Overview says "couldn't load" and
+   * never draws the empty "all caught up" state on top of it.
+   */
+  deskIncomplete: boolean;
 };
 
 /** Manila civil day (midnight) as a Date, for date math. */
@@ -377,18 +387,33 @@ export async function fetchVendorOverviewData(
     covers their events too. The deletion card would have inherited the
     identical hole — a supplier asked to release a celebration, not told which.
   */
-  const [lockRequests, lockAgreementRequests, deletionRequests, declinedDeposits] =
+  const [lockRead, lockAgreementRead, deletionRead, declinedRead] =
     await Promise.all([
       fetchLockRequests(admin, vendorProfileId),
       // Flag-gated so the extra read does not even run while the handshake is
       // dark. This file is registered as a GATE for exactly this call.
       isLockHandshakeEnabled()
         ? fetchLockAgreementRequests(admin, vendorProfileId)
-        : Promise.resolve([] as LockAgreementRequest[]),
+        : Promise.resolve({ rows: [] as LockAgreementRequest[], complete: true }),
       // NOT flag-gated: the deletion handshake is live, not dark.
       fetchDeletionRequests(admin, vendorProfileId),
       fetchDeclinedDepositIds(admin, vendorProfileId),
     ]);
+  const lockRequests = lockRead.rows;
+  const lockAgreementRequests = lockAgreementRead.rows;
+  const deletionRequests = deletionRead.rows;
+  const declinedDeposits = declinedRead.ids;
+  /*
+    🔑 A READ THAT DID NOT FINISH IS SAID ON THE OVERVIEW. Any of these four
+    coming back short (refused, or cut off past the server's row cap) means the
+    desk below may be missing a deposit to confirm or an ask on a 7-day fuse —
+    and an empty desk would otherwise read "You're all caught up".
+  */
+  const deskIncomplete =
+    !lockRead.complete ||
+    !lockAgreementRead.complete ||
+    !deletionRead.complete ||
+    !declinedRead.complete;
 
   /*
     THE ASK SPLITS BY ITS OWN MATERIALIZED DEADLINE. `fetchLockAgreementRequests`
@@ -746,7 +771,7 @@ export async function fetchVendorOverviewData(
       };
     });
 
-  return { whatsNew, ongoing, upcoming };
+  return { whatsNew, ongoing, upcoming, deskIncomplete };
 }
 
 // ---------------------------------------------------------------------------
@@ -781,6 +806,12 @@ export type VendorEarningsSummary = {
    * must say "couldn't load" instead of "No booked installments yet".
    */
   paydayMeasured: boolean;
+  /**
+   * FALSE when the ledger read was refused or could not reach the end — then
+   * earnedThisYearPhp is 0 because nothing was measured, and the tile must say
+   * "couldn't load" instead of printing ₱0.
+   */
+  earningsMeasured: boolean;
 };
 
 /**
@@ -801,24 +832,35 @@ export async function fetchVendorEarningsSummary(
     // Earnings: the payments couples logged to THIS shop and it confirmed (the
     // same reader as the Earnings page). Fail-soft to [] — see #5650 for the
     // honest-failure half of this tile.
-    fetchVendorLedgerEarnings(admin, vendorProfileId).catch(() => []),
+    // ⚠ A refused OR short ledger read throws; `null` = unmeasured, and the
+    // tile says "couldn't load" — never ₱0, never a smaller year.
+    fetchVendorLedgerEarnings(admin, vendorProfileId).catch((e: unknown) => {
+      logQueryError('vendor-overview: ledger earnings', {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    }),
     // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
     (async () => {
-      const { data, error } = await supabase.rpc('vendor_payday_installments');
-      if (error) {
-        logQueryError('vendor-overview: vendor_payday_installments', error);
-        return null; // unmeasured — never a ₱0 that reads as "nothing booked"
+      // Paged to the server's exact count (`lib/vendor-payday-read.ts`): one
+      // capped request made these totals silently short past 1,000 rows.
+      const read = await readVendorPaydayInstallments(supabase);
+      if (!read.complete) {
+        logQueryError('vendor-overview: vendor_payday_installments', {
+          message: read.error ?? `read ${read.rows.length} rows without reaching the server count`,
+        });
+        return null; // unmeasured — never a ₱0 (or a short total) that reads as real
       }
-      const rows = (data ?? []) as unknown as PaydayInstallmentRow[];
-      return buildPaydayTimeline(rows, manilaTodayIso()).totals;
+      return buildPaydayTimeline(read.rows, manilaTodayIso()).totals;
     })().catch(() => null),
   ]);
 
-  const { ytdTotal } = computeMonthlySubtotals(earnings);
+  const { ytdTotal } = computeMonthlySubtotals(earnings ?? []);
 
   return {
     earnedThisYearPhp: ytdTotal,
-    bookingCount: earnings.length,
+    bookingCount: earnings?.length ?? 0,
+    earningsMeasured: earnings !== null,
     confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
     expectedPhp: paydayTotals?.expectedPhp ?? 0,
     paydayMeasured: paydayTotals !== null,
@@ -893,10 +935,14 @@ async function fetchEventMeta(
   // PostgREST 42703s on ONE unknown column and fails the WHOLE row, so this map
   // was permanently empty and every vendor-overview card lost its couple name,
   // event date, region, venue AND event type — not just the venue line.
-  const { data, error } = await admin
-    .from('events')
-    .select('event_id, display_name, event_date, region, venue_name, event_type')
-    .in('event_id', eventIds);
+  // Chunked: past ~600 ids one `in.()` is refused 400 by the gateway, and the
+  // desk now reads every ask past the 1,000-row cap.
+  const { rows: data, error } = await readInChunks<Record<string, unknown>>(eventIds, (part) =>
+    admin
+      .from('events')
+      .select('event_id, display_name, event_date, region, venue_name, event_type')
+      .in('event_id', part),
+  );
   if (error) {
     logQueryError('vendor-overview:fetchEventMeta', error, {
       eventCount: eventIds.length,
@@ -950,33 +996,22 @@ type LockAgreementRequest = {
 async function fetchLockAgreementRequests(
   admin: SupabaseClient,
   vendorProfileId: string,
-): Promise<LockAgreementRequest[]> {
-  const { data } = await admin
-    .from('event_vendors')
-    .select('vendor_id, event_id, lock_requested_at, lock_request_expires_at')
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .eq('lock_request_state', 'pending')
-    // A confirmed row can carry a stale 'pending' marker — the printed Locked-QR
-    // path promotes to deposit_paid without touching any lock_* column — and
-    // offering that supplier an "agree?" card for a booking they have already
-    // been paid for is nonsense. Same floor the sweeps carry.
-    .not('status', 'in', '("contracted","deposit_paid","delivered","complete")')
-    // A covered cascade line carries no request of its own; only the anchor is
-    // asked. An archived row is a withdrawn booking.
-    .or('package_role.is.null,package_role.eq.anchor')
-    .is('archived_at', null)
-    .order('lock_requested_at', { ascending: true });
-  return ((data ?? []) as Array<{
-    vendor_id: string;
-    event_id: string;
-    lock_requested_at: string;
-    lock_request_expires_at: string | null;
-  }>).map((r) => ({
-    eventId: r.event_id,
-    eventVendorId: r.vendor_id,
-    requestedAt: r.lock_requested_at,
-    expiresAt: r.lock_request_expires_at,
-  }));
+): Promise<{ rows: LockAgreementRequest[]; complete: boolean }> {
+  const read = await readLockAgreementRequests(admin, vendorProfileId);
+  if (read.error) {
+    logQueryError('vendor-overview:fetchLockAgreementRequests', { message: read.error }, {
+      vendor_profile_id: vendorProfileId,
+    });
+  }
+  return {
+    rows: read.rows.map((r) => ({
+      eventId: r.event_id,
+      eventVendorId: r.vendor_id,
+      requestedAt: r.lock_requested_at,
+      expiresAt: r.lock_request_expires_at,
+    })),
+    complete: read.complete,
+  };
 }
 
 type DeletionRequest = {
@@ -1002,24 +1037,21 @@ type DeletionRequest = {
 async function fetchDeletionRequests(
   admin: SupabaseClient,
   vendorProfileId: string,
-): Promise<DeletionRequest[]> {
-  const { data } = await admin
-    .from('event_vendors')
-    .select('vendor_id, event_id, delete_requested_at')
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .eq('delete_request_state', 'pending')
-    .or('package_role.is.null,package_role.eq.anchor')
-    .is('archived_at', null)
-    .order('delete_requested_at', { ascending: true });
-  return ((data ?? []) as Array<{
-    vendor_id: string;
-    event_id: string;
-    delete_requested_at: string;
-  }>).map((r) => ({
-    eventId: r.event_id,
-    eventVendorId: r.vendor_id,
-    requestedAt: r.delete_requested_at,
-  }));
+): Promise<{ rows: DeletionRequest[]; complete: boolean }> {
+  const read = await readDeletionRequests(admin, vendorProfileId);
+  if (read.error) {
+    logQueryError('vendor-overview:fetchDeletionRequests', { message: read.error }, {
+      vendor_profile_id: vendorProfileId,
+    });
+  }
+  return {
+    rows: read.rows.map((r) => ({
+      eventId: r.event_id,
+      eventVendorId: r.vendor_id,
+      requestedAt: r.delete_requested_at,
+    })),
+    complete: read.complete,
+  };
 }
 
 /**
@@ -1035,57 +1067,32 @@ async function fetchDeletionRequests(
 async function fetchDeclinedDepositIds(
   admin: SupabaseClient,
   vendorProfileId: string,
-): Promise<Set<string>> {
-  const { data, error } = await admin
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .not('deposit_declined_at', 'is', null);
-  if (error) {
-    logQueryError('vendor-overview:fetchDeclinedDepositIds', error, {
+): Promise<{ ids: Set<string>; complete: boolean }> {
+  const read = await readDeclinedDepositIds(admin, vendorProfileId);
+  if (read.error) {
+    logQueryError('vendor-overview:fetchDeclinedDepositIds', { message: read.error }, {
       vendor_profile_id: vendorProfileId,
     });
-    return new Set();
   }
-  return new Set(
-    ((data ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
-  );
+  return { ids: read.ids, complete: read.complete };
 }
 
 async function fetchLockRequests(
   admin: SupabaseClient,
   vendorProfileId: string,
-): Promise<LockRequest[]> {
-  const { data } = await admin
-    .from('event_vendors')
-    .select(
-      'vendor_id, event_id, vendor_name, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
-    )
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .not('deposit_recorded_at', 'is', null)
-    .is('deposit_acknowledged_at', null)
-    // PR-I · §12.2 step 9. This feed hands its raw `vendor_id` straight to
-    // `vendorAcknowledgeDeposit`, which now moves MONEY — so it must never
-    // offer a row that is not a sale:
-    //   · `package_role='covered'` is a cascade line carrying ₱0; the anchor
-    //     is the money row, and the "covered rows carry no money" CHECK
-    //     constrains the AMOUNTS only, not the deposit markers, so nothing at
-    //     the DB layer stops one appearing here.
-    //   · an archived row is a rejected/withdrawn booking.
-    // `resolveFeeAnchorRowId` is the backstop; this is the design.
-    .or('package_role.is.null,package_role.eq.anchor')
-    .is('archived_at', null)
-    .order('deposit_recorded_at', { ascending: false });
-  const rows = (data ?? []) as Array<{
-    vendor_id: string;
-    event_id: string;
-    vendor_name: string | null;
-    deposit_recorded_at: string;
-    deposit_acknowledged_at: string | null;
-    deposit_proof_url: string | null;
-  }>;
-  return Promise.all(
-    rows.map(async (r) => ({
+): Promise<{ rows: LockRequest[]; complete: boolean }> {
+  const read = await readDepositsAwaitingAcknowledgement(
+    admin,
+    vendorProfileId,
+    'vendor_id, event_id, vendor_name, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+  );
+  if (read.error) {
+    logQueryError('vendor-overview:fetchLockRequests', { message: read.error }, {
+      vendor_profile_id: vendorProfileId,
+    });
+  }
+  const rows = await Promise.all(
+    read.rows.map(async (r) => ({
       eventId: r.event_id,
       eventVendorId: r.vendor_id,
       // event_vendors.vendor_name is the vendor's own business name — NOT the
@@ -1098,6 +1105,7 @@ async function fetchLockRequests(
       recordedAt: r.deposit_recorded_at,
     })),
   );
+  return { rows, complete: read.complete };
 }
 
 // --- The four answers the desk gained (all vendor's-own-session reads) -------

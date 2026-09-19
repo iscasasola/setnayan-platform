@@ -478,13 +478,22 @@ export function resolveHubNextStep(
     };
   }
 
+  /*
+    ⚠ NOT '/launch' (AREA-CHAT, 2026-09-19). This step used to carry the
+    controller's OWN route, so the page's one primary button — "Preview the
+    day" — reloaded the page it sat on, on the state a couple reaches when they
+    have done everything right. '' is the public address in a new tab, the same
+    door the day-of step opens. Held by
+    `the-hub-next-step-never-points-at-itself.test.ts`: only "Try again" may
+    name `/launch`.
+  */
   return {
     key: 'ready',
     headline: 'Every reply is in.',
     blurb:
       'Your list is settled. Look at the day the way your guests will see it, and change anything that reads wrong.',
-    ctaLabel: 'Preview the day',
-    ctaPath: '/launch',
+    ctaLabel: 'Open as a guest',
+    ctaPath: '',
   };
 }
 

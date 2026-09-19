@@ -784,8 +784,7 @@ const PASSES_THROUGH: Record<string, string> = {
   'lib/wedding-plan-groups.ts': 'bucketVendorsByGroup copies the row’s price onto each pick',
   'lib/shortlist-taxonomy.ts': 'buildShortlistFolders prices the shortlist from vendorRows',
   'lib/vendors-plan-budget.ts': 'buildPlanBudgetModel rolls up each pick’s price',
-  'lib/vendors.ts':
-    'fetchEventVendors returns the raw row (HONEST SHOP’s file); computeVendorStats has no caller',
+  'lib/vendors.ts': 'fetchEventVendors returns the raw row (HONEST SHOP’s file)',
 };
 /** entry function → its callers: the ones that FOLD first, and the ones that read no price. */
 const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }> = {
@@ -799,7 +798,6 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],
     readsNoPrice: ['lib/setnayan-ai-cockpit.ts', 'lib/todays-one-thing.ts'],
   },
-  computeVendorStats: { folds: [], readsNoPrice: [] },
 };
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */

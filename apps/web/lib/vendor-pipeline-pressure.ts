@@ -124,7 +124,11 @@ export async function fetchPipelinePressure(
     const { data, error } = await supabase.rpc('vendor_whitelist_pressure', {
       p_thread_id: threadId,
     });
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-pipeline-pressure.ts · rpc:vendor_whitelist_pressure', error);
+      return null;
+    }
+    if (!data) return null;
     const row = (Array.isArray(data) ? data[0] : data) as
       | { used?: number; cap?: number; event_date?: string; enforced?: boolean }
       | undefined;

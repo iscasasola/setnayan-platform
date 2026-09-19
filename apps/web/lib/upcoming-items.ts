@@ -533,7 +533,11 @@ async function fetchSkuRenewalItems(
     .order('expires_at', { ascending: true })
     .limit(20);
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] upcoming-items: expiring subscription orders', error);
+    return [];
+  }
+  if (!data) return [];
 
   return (data as SubscriptionOrderRow[])
     .filter((row) => row.expires_at !== null)

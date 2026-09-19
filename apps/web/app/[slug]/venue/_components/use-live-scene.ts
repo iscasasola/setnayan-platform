@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   LIVE_SCENE_POLL_MS,
   sceneSignature,
@@ -44,6 +45,14 @@ export function useLiveScene(
       inFlight = true;
       try {
         const { data, error } = await supabase.rpc('public_venue_scene', { p_slug: slug, p_token: token });
+        if (error) {
+          // a failed call is not news to the guest — the last good scene stays —
+          // but the reason should not vanish; a stuck room and a slow poll look
+          // identical without this.
+          logQueryError('app/[slug]/venue/_components/use-live-scene.ts: public_venue_scene', error, {
+            slug,
+          });
+        }
         if (cancelled || error || !data) return; // a failed call is not news
         if (sceneWasTakenDown(data)) {
           setTakenDown(true);

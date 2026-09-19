@@ -127,6 +127,7 @@ function buildTree(
   guests: GuestMapRow[],
   groups: GuestGroupWithCount[],
   memberships: Record<string, string[]>,
+  eventWord: 'wedding' | 'event' = 'wedding',
 ): MapNode[] {
   const nodes: MapNode[] = [];
   const bride = guests.find((g) => g.role === 'bride');
@@ -134,7 +135,7 @@ function buildTree(
   const coupleLabel =
     bride && groom
       ? `${bride.first_name} & ${groom.first_name}`
-      : 'Your wedding';
+      : `Your ${eventWord}`;
   nodes.push({ id: 'root', parent: null, label: coupleLabel, kind: 'couple', side: null });
 
   const groupsById = Object.fromEntries(groups.map((g) => [g.group_id, g]));
@@ -276,11 +277,14 @@ export function GuestMindMap({
   guests,
   groups,
   groupMemberships,
+  eventWord = 'wedding',
 }: {
   eventId: string;
   guests: GuestMapRow[];
   groups: GuestGroupWithCount[];
   groupMemberships: Record<string, string[]>;
+  /** eventNoun(event_type) — a debut's map is rooted at "Your event", not "Your wedding". */
+  eventWord?: 'wedding' | 'event';
 }) {
   const [lens, setLens] = useState<Lens>('sg');
   const [editing, setEditing] = useState<{ parentId: string; spec: AddSpec } | null>(null);
@@ -291,8 +295,8 @@ export function GuestMindMap({
   const save = useSaveLoader();
 
   const nodes = useMemo(
-    () => buildTree(lens, guests, groups, groupMemberships),
-    [lens, guests, groups, groupMemberships],
+    () => buildTree(lens, guests, groups, groupMemberships, eventWord),
+    [lens, guests, groups, groupMemberships, eventWord],
   );
 
   // Guards the Enter→commit + unmount-blur→commit double-fire (the input blurs

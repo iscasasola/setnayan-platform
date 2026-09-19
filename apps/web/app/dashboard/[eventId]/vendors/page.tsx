@@ -546,6 +546,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       next_renewal_due_at: string | null;
     };
 
+    if (statsRes.error) {
+      // A refused read strips the card to typed-name + initials — the same
+      // shape as a genuinely off-platform pick (see the comment above this
+      // Promise.all) — so at least keep the reason in the logs.
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: card enrichment vendor_market_stats', statsRes.error, {
+        event_id: eventId,
+      });
+    }
     const statsByProfile = new Map<string, StatsRow>();
     for (const s of (statsRes.data as StatsRow[] | null) ?? []) {
       statsByProfile.set(s.vendor_profile_id, s);
@@ -794,7 +802,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // this field, so this is the one place it is folded. Display only: no
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
-      deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
@@ -2338,6 +2345,9 @@ async function fetchActiveCategoryMarketPool(
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);
+    if (error) {
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: fetchActiveCategoryMarketPool vendor_market_stats', error);
+    }
     if (error || count == null) return 0;
     return count;
   } catch (e) {

@@ -170,6 +170,13 @@ const FLAGS: FlagSpec[] = [
       // handshake can populate — so with the flag off that lane must be empty
       // BY THE SAME ANSWER the couple's screens get, not by a second guess.
       'app/vendor-dashboard/customers/page.tsx',
+      // SUP-69 (2026-09-19) · the Overview's decisions board + "today's one
+      // thing", and the Setnayan AI briefing that mirrors it. With the flag on
+      // they must not tell a couple who ASKED a supplier to "Compare & lock" or
+      // "Book your caterer" again — so each asks the flag and hands it to the
+      // pure cores below.
+      'app/dashboard/[eventId]/_components/event-dashboard.tsx',
+      'lib/setnayan-ai-activity.ts',
     ],
     pureCores: [
       // Takes `enabled` as a PARAMETER — six surfaces derive their state from
@@ -183,6 +190,9 @@ const FLAGS: FlagSpec[] = [
       'lib/shortlist-taxonomy.ts',
       'lib/bench-card-actions.ts',
       'lib/chat-lock-booking.ts',
+      // SUP-69 · the picker and the cockpit take `lockHandshakeEnabled` too.
+      'lib/todays-one-thing.ts',
+      'lib/setnayan-ai-cockpit.ts',
     ],
     // ⚠ `lib/lock-request-expiry.ts` is deliberately in NEITHER list: the sweep
     // does not read the flag at all. Gating it would strand every in-flight

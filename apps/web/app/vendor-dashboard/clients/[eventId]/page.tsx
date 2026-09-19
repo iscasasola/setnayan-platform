@@ -144,6 +144,16 @@ import {
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import {
+  acceptedQuoteTerms,
+  firstPaymentSentence,
+  pesoFromCentavos,
+  supplierFirstPaymentStatus,
+  moneyStepLine,
+  type SupplierFirstPaymentStatus,
+} from '@/lib/accepted-quote-terms';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
+import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
@@ -392,6 +402,9 @@ type ProposalRow = {
   valid_until: string | null;
   sent_at: string | null;
   created_at: string;
+  /** Read for the accepted quote's terms (`acceptedQuoteTerms`). */
+  line_items: unknown;
+  payment_schedule: unknown;
 };
 
 type ContractRow = {
@@ -535,7 +548,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .maybeSingle(),
       supabase
         .from('vendor_proposals')
-        .select('proposal_id, public_id, title, status, total_centavos, valid_until, sent_at, created_at')
+        .select('proposal_id, public_id, title, status, total_centavos, valid_until, sent_at, created_at, line_items, payment_schedule')
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false }),
@@ -643,6 +656,63 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     Boolean(completion?.service_marked_complete_at) && !isCompleteConfirmed && !isDisputed;
 
   const proposals = (proposalRows ?? []) as ProposalRow[];
+
+  // THE FIRST PAYMENT YOU ASKED FOR — the supplier's end of the couple's
+  // "First payment requested" line (2026-09-19). Same rule, same quote
+  // (`acceptedQuoteTerms`), plus the couple's recorded deposit row from the
+  // payment log (the one deposit reader, `recordedDepositPhp`). A refused
+  // ledger read leaves the amount unknown ("an amount"), never ₱0.
+  const acceptedTerms = acceptedQuoteTerms(proposals, brief.event.event_date);
+  let recordedDeposit: number | null = null;
+  if (acceptedTerms?.firstPaymentCentavos != null && completion?.vendor_id && completion.deposit_recorded_at) {
+    const { data: depRows, error: depErr } = await admin
+      .from('event_vendor_payments')
+      .select('amount_php, is_deposit_record')
+      .eq('event_id', eventId)
+      .eq('vendor_id', completion.vendor_id)
+      .eq('is_deposit_record', true);
+    if (depErr) {
+      // eslint-disable-next-line no-console
+      console.error('[VendorClientPage] recorded deposit read failed', depErr.message);
+    } else {
+      recordedDeposit = recordedDepositPhp((depRows ?? []) as LoggedPayment[], null);
+    }
+  }
+  const firstPaymentStatus = supplierFirstPaymentStatus({
+    terms: acceptedTerms,
+    recordedPhp: recordedDeposit,
+    recordedAt: completion?.deposit_recorded_at ?? null,
+    acknowledgedAt: completion?.deposit_acknowledged_at ?? null,
+    declinedAt: completion?.deposit_declined_at ?? null,
+  });
+  const firstPaymentSentenceText = firstPaymentSentence(acceptedTerms);
+  // THE NEXT INSTALLMENT, THIS END (2026-09-20). The couple's "Amount to pay"
+  // names the next payment from `moneyStep`; the supplier reads the same step
+  // here, so both ends name the same payment. Only once the first is settled —
+  // before that the status line above says it all.
+  const supplierMoney = acceptedTerms
+    ? await readBookedMoney(admin, {
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+        eventDate: brief.event.event_date,
+      })
+    : null;
+  const supplierNextLine =
+    supplierMoney &&
+    (supplierMoney.step.kind === 'installment_due' || supplierMoney.step.kind === 'paid_in_full')
+      ? moneyStepLine(supplierMoney.step, 'vendor', 'the couple')
+      : null;
+  const firstPayment =
+    firstPaymentStatus && acceptedTerms && firstPaymentSentenceText
+      ? {
+          sentence: firstPaymentSentenceText,
+          status: firstPaymentStatus,
+          nextLine: supplierNextLine,
+          laterRows: acceptedTerms.schedule
+            .filter((r) => !r.isFirstPayment)
+            .map((r) => ({ label: r.label, amount: pesoFromCentavos(r.amountCentavos), dueText: r.dueText })),
+        }
+      : null;
   const contracts = (contractRows ?? []) as ContractRow[];
   const hasContract = contracts.length > 0;
 
@@ -1378,6 +1448,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
+      firstPayment={firstPayment}
       depositAcked={depositAcked}
       depositDeclined={depositDeclined}
       isCompleteConfirmed={isCompleteConfirmed}
@@ -2008,6 +2079,18 @@ function OverviewTab(props: {
   depositAcked: boolean;
   /** They answered "it never arrived" — a state that keeps the couple's record. */
   depositDeclined: boolean;
+  /**
+   * The first payment this supplier's ACCEPTED quote asked for, and whether the
+   * couple has recorded it (`supplierFirstPaymentStatus`). null = no accepted
+   * quote, or it requested no first payment.
+   */
+  firstPayment: {
+    sentence: string;
+    status: SupplierFirstPaymentStatus;
+    /** The next installment from `moneyStep`, once the first is settled. */
+    nextLine: string | null;
+    laterRows: { label: string; amount: string; dueText: string }[];
+  } | null;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
@@ -2039,6 +2122,7 @@ function OverviewTab(props: {
     depositRecorded,
     depositAcked,
     depositDeclined,
+    firstPayment,
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
@@ -2380,6 +2464,33 @@ function OverviewTab(props: {
       ) : search.deposit_reject === 'error' ? (
         <Card>
           <p role="alert" className="text-xs text-warn-900">That didn&rsquo;t go through — try again.</p>
+        </Card>
+      ) : null}
+
+      {firstPayment ? (
+        <Card>
+          <p className="text-sm font-medium text-ink">{firstPayment.sentence}</p>
+          <p
+            className={
+              firstPayment.status.state === 'recorded_short' || firstPayment.status.state === 'refused'
+                ? 'mt-1 text-xs text-warn-900'
+                : 'mt-1 text-xs text-ink/65'
+            }
+          >
+            {firstPayment.status.line}
+          </p>
+          {firstPayment.nextLine ? (
+            <p className="mt-1 text-xs font-medium text-ink">{firstPayment.nextLine}</p>
+          ) : null}
+          {firstPayment.laterRows.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs text-ink/65">
+              {firstPayment.laterRows.map((r, i) => (
+                <li key={`${i}-${r.label}`}>
+                  {r.label}: {r.amount} — due {r.dueText}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Card>
       ) : null}
 

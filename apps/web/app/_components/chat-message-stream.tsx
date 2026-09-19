@@ -38,6 +38,8 @@ import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { LockAnswerForms } from './lock-answer-forms';
+import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
+import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -202,6 +204,27 @@ type Props = {
    */
   flush?: boolean;
   /**
+   * THE NEXT MONEY STEP on a BOOKED accepted quote (owner, live, 2026-09-20: "i
+   * do not see the confirmation here and the payment action?"). `moneyStep`
+   * (lib/accepted-quote-terms.ts) decides it; both pages read it through
+   * `readBookedMoney`. Absent = the card says nothing about money, as before.
+   */
+  bookedStep?: MoneyStep | null;
+  /**
+   * Couple only: the props of the Payments tab's own "Amount to pay" card
+   * (`DepositReservation`), which the quote card MOUNTS — the same
+   * `recordDeposit` (first payment, minimum enforced) and `logScheduledPayment`
+   * (later installments). Never re-implemented here.
+   */
+  couplePay?: React.ComponentProps<typeof DepositReservation> | null;
+  /**
+   * Supplier only: the unconfirmed first-payment ledger row. Its "Confirm"
+   * posts `supplierReplyActions.confirmPayment` — `confirmVendorPayment`, the
+   * same door the payment card uses, which acknowledges the deposit through
+   * `confirm_vendor_payment` and runs the acknowledge effects.
+   */
+  supplierFirstPaymentRowId?: string | null;
+  /**
    * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
    * On the live ACCEPTED quote card the supplier gets the same one-tap door
    * the Overview's booking card carries (2026-09-19) — the couple's next step
@@ -210,6 +233,10 @@ type Props = {
    */
   payoutReadiness?: PayoutReadiness;
 };
+
+function statusLabelOf(status: string): string {
+  return PROPOSAL_STATUS_LABEL[status as keyof typeof PROPOSAL_STATUS_LABEL] ?? status;
+}
 
 const TYPING_DEBOUNCE_MS = 700;
 const TYPING_IDLE_MS = 3000;
@@ -232,6 +259,9 @@ export function ChatMessageStream({
   reviseHref,
   lockTarget = null,
   flush = false,
+  bookedStep = null,
+  couplePay = null,
+  supplierFirstPaymentRowId = null,
   payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -1051,10 +1081,13 @@ export function ChatMessageStream({
                         {card.totalCentavos > 0
                           ? formatCentavos(card.totalCentavos)
                           : 'Price on request'}
-                        {' · '}
-                        {PROPOSAL_STATUS_LABEL[
-                          card.status as keyof typeof PROPOSAL_STATUS_LABEL
-                        ] ?? card.status}
+                        {/* Owner, live 2026-09-20: "₱16,750 · Accepted ·
+                            Accepted · booked". When the note below already
+                            opens with the status, the price line does not
+                            repeat it. */}
+                        {quoteState.note?.startsWith(statusLabelOf(card.status))
+                          ? null
+                          : ` · ${statusLabelOf(card.status)}`}
                       </p>
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
@@ -1199,6 +1232,41 @@ export function ChatMessageStream({
                           ) : null
                         ) : null}
                       </div>
+                      {/*
+                        THE NEXT MONEY STEP — only on the live, accepted quote
+                        of a BOOKED supplier. One line from `moneyStepLine`,
+                        then the existing control for whoever acts next: the
+                        couple's "Amount to pay" card (mounted), or the
+                        supplier's Confirm (the payment card's own action).
+                      */}
+                      {isLatestProposal &&
+                      card.status === 'accepted' &&
+                      bookedStep &&
+                      bookedStep.kind !== 'not_booked' ? (
+                        <div className="mt-3 space-y-2 border-t border-terracotta/20 pt-2">
+                          <p className="text-sm font-medium text-ink">
+                            {moneyStepLine(bookedStep, viewerRole, counterpartyLabel)}
+                          </p>
+                          {viewerRole === 'couple' && couplePay ? (
+                            <DepositReservation {...couplePay} step={bookedStep} compact />
+                          ) : null}
+                          {viewerRole === 'vendor' &&
+                          bookedStep.kind === 'first_payment_sent' &&
+                          supplierFirstPaymentRowId &&
+                          supplierReplyActions?.confirmPayment ? (
+                            <form action={supplierReplyActions.confirmPayment}>
+                              <input type="hidden" name="payment_id" value={supplierFirstPaymentRowId} />
+                              <input type="hidden" name="thread_id" value={threadId} />
+                              <button
+                                type="submit"
+                                className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                              >
+                                Confirm it reached you
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink/80">

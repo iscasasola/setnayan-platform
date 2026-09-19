@@ -79,6 +79,13 @@ import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_compo
 import { splitVendorLines } from '@/lib/agreed-total-and-its-changes';
 import { pesoLabel } from '@/lib/proposal-amendments';
 import {
+  lineItemsPanelLead,
+  pesoFromCentavos,
+  type PaymentDoor,
+  type QuoteLine,
+} from '@/lib/accepted-quote-terms';
+import { depositStepHref } from '@/lib/deposit-pay-step';
+import {
   addLineItem,
   deleteLineItem,
   deletePayment,
@@ -112,6 +119,24 @@ export type VendorItemizationCardProps = {
    * host logs a generic payment, exactly as before.
    */
   installments?: PlanInstance[] | null;
+  /**
+   * The ACCEPTED quote's priced lines (`acceptedQuoteTerms(...).lines`). When
+   * present they lead the LINE ITEMS panel — read-only, the supplier's own
+   * figures — in place of the catalogue and the "hasn't shared pricing" empty
+   * state (`lineItemsPanelLead`). Display only: the money strip's totals are
+   * unchanged. null = not loaded / no accepted quote.
+   */
+  acceptedQuoteLines?: QuoteLine[] | null;
+  /** The accepted quote's total, shown under its lines. null = none / not loaded. */
+  acceptedQuoteTotalCentavos?: number | null;
+  /**
+   * Which door "+ Log a payment" is (`paymentDoor`, lib/accepted-quote-terms.ts).
+   * 'amount_to_pay' points at the one "Amount to pay" card instead of being a
+   * second way to record the same money. Default 'log' — the
+   * caller that cannot tell keeps today's behaviour, and `logPayment` enforces
+   * the same rule on the server either way.
+   */
+  paymentDoor?: PaymentDoor;
 };
 
 export function VendorItemizationCard({
@@ -120,6 +145,9 @@ export function VendorItemizationCard({
   variant = 'card',
   directPayMethods = [],
   installments = null,
+  acceptedQuoteLines = null,
+  acceptedQuoteTotalCentavos = null,
+  paymentDoor = 'log',
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -225,6 +253,8 @@ export function VendorItemizationCard({
           vendorId={vendor.vendor_id}
           suggestTotalPhp={itemizedTotal}
           agreedBeforeChangesPhp={agreedBeforeChanges}
+          acceptedQuoteLines={acceptedQuoteLines}
+          acceptedQuoteTotalCentavos={acceptedQuoteTotalCentavos}
         />
         <PaymentSection
           payments={payments}
@@ -235,6 +265,7 @@ export function VendorItemizationCard({
           vendorName={vendor.vendor_name}
           directPayMethods={directPayMethods}
           installments={installments}
+          paymentDoor={paymentDoor}
         />
     </div>
   );
@@ -531,7 +562,11 @@ function LineItemSection({
   vendorId,
   suggestTotalPhp,
   agreedBeforeChangesPhp,
+  acceptedQuoteLines = null,
+  acceptedQuoteTotalCentavos = null,
 }: {
+  acceptedQuoteLines?: QuoteLine[] | null;
+  acceptedQuoteTotalCentavos?: number | null;
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
   lineItems: LineItemRow[];
@@ -542,7 +577,15 @@ function LineItemSection({
   /** The agreed price before any change — `agreedBeforeChanges`. */
   agreedBeforeChangesPhp: number;
 }) {
-  const hasVendorControlled = vendorControlledItems.length > 0;
+  const lead = lineItemsPanelLead({
+    priceSource,
+    hasVendorControlled: vendorControlledItems.length > 0,
+    quoteLines: acceptedQuoteLines,
+  });
+  // The catalogue block keeps its old meaning ("vendor-controlled lines are on
+  // screen") for the manual-lines subheading below; with a quote leading, the
+  // quote's lines are the vendor-controlled lines on screen.
+  const hasVendorControlled = lead === 'catalogue' || lead === 'quote';
   // ── A CHANGE IS SHOWN SEPARATELY (owner 2026-09-09) ──────────────────────
   // "Both, shown separately" — the agreed total updates AND the change stays
   // visible as its own line. A settled change-order delta shares this table
@@ -561,7 +604,42 @@ function LineItemSection({
         </h3>
       </header>
 
-      {hasVendorControlled ? (
+      {lead === 'quote' && acceptedQuoteLines ? (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
+            From the quote you accepted
+          </p>
+          <ul className="space-y-1.5">
+            {acceptedQuoteLines.map((line, i) => (
+              <li
+                key={`${i}-${line.label}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-terracotta/15 bg-terracotta/[0.04] px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate font-medium text-ink">{line.label}</p>
+                  {line.detail ? <p className="text-xs text-ink/55">{line.detail}</p> : null}
+                </div>
+                <span className="font-mono text-sm font-semibold text-ink">
+                  {pesoFromCentavos(line.amountCentavos)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {acceptedQuoteTotalCentavos != null && acceptedQuoteTotalCentavos > 0 ? (
+            <p className="flex items-center justify-between border-t border-ink/10 pt-2 text-xs text-ink/70">
+              <span>Quote total</span>
+              <span className="font-mono font-semibold text-ink">
+                {pesoFromCentavos(acceptedQuoteTotalCentavos)}
+              </span>
+            </p>
+          ) : null}
+          <p className="text-xs text-ink/55">
+            To change these, ask the supplier to send an updated quote.
+          </p>
+        </div>
+      ) : null}
+
+      {lead === 'catalogue' ? (
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
             From the vendor&rsquo;s catalog
@@ -593,7 +671,7 @@ function LineItemSection({
         </div>
       ) : null}
 
-      {priceSource === 'pending' && !hasVendorControlled ? (
+      {lead === 'pending' ? (
         <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
           <p className="text-ink/75">
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
@@ -832,6 +910,7 @@ function PaymentSection({
   vendorName,
   directPayMethods,
   installments,
+  paymentDoor = 'log',
 }: {
   payments: PaymentRow[];
   lineItems: LineItemRow[];
@@ -841,6 +920,7 @@ function PaymentSection({
   vendorName: string;
   directPayMethods: CoupleFacingMethod[];
   installments?: PlanInstance[] | null;
+  paymentDoor?: PaymentDoor;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
   const planInstallments = installments ?? [];
@@ -912,8 +992,34 @@ function PaymentSection({
         </ul>
       )}
 
-      {/* Default-then-disclose: the 5-field log stays out of the way until the
-          host actually has a payment to record (it's the page's busiest form). */}
+      {/* ONE VISIBLE DOOR (owner, 2026-09-20). A Setnayan supplier's payments go
+          through the "Amount to pay" card — it names which payment is due,
+          takes the first through `recordDeposit` (date held, supplier asked to
+          confirm) and later ones through `logPayment`. Logging here as well was
+          a second door: a first payment logged here counted as Paid, held
+          nothing, and left the first payment still owed. */}
+      {paymentDoor === 'amount_to_pay' ? (
+        <div className="space-y-1.5 border-t border-ink/10 pt-3 text-xs text-ink/65">
+          <p>
+            Payments to {vendorName} are recorded under Amount to pay, which shows
+            which payment is due next and lets them confirm it.
+          </p>
+          <Link
+            href={depositStepHref(eventId, vendorId)}
+            className="inline-flex items-center gap-1 font-medium text-success-700 hover:text-success-800"
+          >
+            Amount to pay
+            <ArrowUpRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+          </Link>
+        </div>
+      ) : paymentDoor === 'unknown' ? (
+        <p role="status" className="border-t border-ink/10 pt-3 text-xs text-ink/60">
+          We couldn&rsquo;t check whether your deposit to {vendorName} is
+          recorded, so logging a payment is paused. Refresh to try again.
+        </p>
+      ) : (
+      /* Default-then-disclose: the 5-field log stays out of the way until the
+          host actually has a payment to record (it's the page's busiest form). */
       <details className="group border-t border-ink/10 pt-3">
         <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-success-700 hover:text-success-800">
           <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -1039,6 +1145,7 @@ function PaymentSection({
         </SubmitButton>
         </form>
       </details>
+      )}
     </section>
   );
 }

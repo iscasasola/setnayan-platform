@@ -123,11 +123,14 @@ test('the couple is told in a sentence — and "could not load" never reads as "
 
 // ─── Part 2 · where it is mounted ──────────────────────────────────────────
 
-test('the deposit card shows the supplier’s methods FIRST, then "Record deposit"', () => {
+test('the deposit card shows the supplier’s methods FIRST, then "Record payment"', () => {
   const card = read(DEPOSIT_CARD);
   const pay = card.indexOf('<VendorDirectPay vendorName={vendorName} methods={payMethods} />');
   const sentence = card.indexOf('{noMethods}');
-  const record = card.indexOf("{declined ? 'Send it again' : 'Record deposit'}");
+  /* ✏️ EVOLVED 2026-09-20 (owner: "better to say amount to pay … not just for
+     the downpayment but also for the next payments"). The button's words
+     changed; what is asserted — pay first, then record — did not. */
+  const record = card.indexOf("{declined ? 'Send it again' : 'Record payment'}");
   assert.ok(pay > 0, 'the deposit step does not mount the pay sheet');
   assert.ok(sentence > 0, 'the no-methods sentence is not rendered');
   assert.ok(record > 0, 'the Record deposit button is gone');
@@ -135,7 +138,11 @@ test('the deposit card shows the supplier’s methods FIRST, then "Record deposi
   // The pay step renders only while a deposit is owed, and the owed rule is the
   // record/refusal/ack one — not a second invention.
   assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked;/);
-  assert.match(card, /\{owed \? \(/, 'the pay step is not gated on what is owed');
+  /* ✏️ EVOLVED 2026-09-20: the one pay sheet also serves the NEXT installment
+     (Amount to pay), so its gate is `payDue` — built from `owed`, not a second
+     invention. */
+  assert.match(card, /const payDue = \(owed && firstPaymentOffered\) \|\| later !== null;/);
+  assert.match(card, /\{payDue \? \(/, 'the pay step is not gated on what is owed');
   // Exactly one pay sheet in the card.
   assert.equal(card.split('<VendorDirectPay').length - 1, 1);
 });

@@ -4,11 +4,8 @@ import { CalendarClock, Info, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp } from '@/lib/vendors';
-import {
-  buildPaydayTimeline,
-  manilaTodayIso,
-  type PaydayInstallmentRow,
-} from '@/lib/vendor-cashflow';
+import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { PaydaySummary } from './_components/payday-summary';
 import { PaydayInstallmentRow as PaydayRow } from './_components/payday-installment-row';
 import { ShopEmpty } from '../_components/kit';
@@ -39,11 +36,21 @@ export default async function VendorPaydayPage() {
 
   // Ownership-gated read fn (auth.uid()-scoped internally). No args — the fn
   // resolves the caller's owned vendor + only their bookings' installments.
-  const { data, error } = await supabase.rpc('vendor_payday_installments');
-  // The render below already says "couldn't load" on `error`; this leaves the
-  // reason in the logs so nobody has to guess WHY it could not.
-  if (error) logQueryError('vendor-dashboard/payday: vendor_payday_installments', error);
-  const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
+  //
+  // ⚠ PAGED TO THE SERVER'S EXACT COUNT (`readVendorPaydayInstallments`). One
+  // un-ranged call was capped at 1,000 rows with `error: null`, so a busy shop's
+  // totals were silently short. A read that did not reach the end renders as
+  // "couldn't load", never as a timeline that adds up to less.
+  const paydayRead = await readVendorPaydayInstallments(supabase);
+  const paydayIncomplete = !paydayRead.complete;
+  // The render below says "couldn't load"; this leaves the reason in the logs
+  // so nobody has to guess WHY it could not.
+  if (paydayIncomplete) {
+    logQueryError('vendor-dashboard/payday: vendor_payday_installments', {
+      message: paydayRead.error ?? `read ${paydayRead.rows.length} rows without reaching the server count`,
+    });
+  }
+  const rows = paydayIncomplete ? [] : paydayRead.rows;
 
   const today = manilaTodayIso();
   const timeline = buildPaydayTimeline(rows, today);
@@ -65,10 +72,10 @@ export default async function VendorPaydayPage() {
         </div>
       </article>
 
-      {error ? (
-        <p className="sn-row p-6 text-sm text-ink/65">
-          We couldn&rsquo;t load your Payday timeline right now. Please try again
-          shortly.
+      {paydayIncomplete ? (
+        <p role="status" className="sn-row p-6 text-sm text-ink/65">
+          Some of your payments couldn&rsquo;t load, so your Payday timeline and
+          its totals aren&rsquo;t shown. Please reload the page to try again.
         </p>
       ) : timeline.totals.installmentCount === 0 ? (
         <ShopEmpty>

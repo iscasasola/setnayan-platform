@@ -70,6 +70,7 @@ async function render(): Promise<string> {
           confirmedPhp: 2000,
           expectedPhp: 10170,
           paydayMeasured: true,
+          earningsMeasured: true,
         } as VendorEarningsSummary,
       }),
     ),

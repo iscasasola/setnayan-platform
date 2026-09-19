@@ -9,7 +9,7 @@ import { countUnreadMessages, fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';
 import {
-  fetchVendorBlocks,
+  fetchVendorBlocksDetailed,
   fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
@@ -22,7 +22,8 @@ import {
   fetchAgentServiceAssignments,
 } from '@/lib/vendor-team';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { manilaTodayIso, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   buildCustomerCalendarMonth,
@@ -120,7 +121,7 @@ async function CustomersPipeline({ searchParams }: Props) {
   const [
     pools,
     bookings,
-    blocks,
+    blocksRead,
     dayStates,
     waitlist,
     threadsRead,
@@ -134,7 +135,8 @@ async function CustomersPipeline({ searchParams }: Props) {
     // CAPACITY, not the room: fullDatesForPool() counts these against each pool's
     // seat count. A booking with no pool cannot consume a pool seat.
     fetchVendorPoolBookings(supabase, vendorProfileId),
-    fetchVendorBlocks(supabase, vendorProfileId),
+    // Paged to the server's count; `complete` drives a note over the calendar.
+    fetchVendorBlocksDetailed(supabase, vendorProfileId),
     fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
     // Waitlist for the visible month (the lib bounds by a from-date; a past
     // month simply returns nothing pending, which is correct).
@@ -145,8 +147,9 @@ async function CustomersPipeline({ searchParams }: Props) {
     countUnreadMessages(supabase, user.id),
     fetchVendorServices(supabase, vendorProfileId),
     fetchVendorTeam(supabase, vendorProfileId),
-    // Frozen installment plan across all booked events (ownership-gated RPC).
-    supabase.rpc('vendor_payday_installments'),
+    // Frozen installment plan across all booked events (ownership-gated RPC),
+    // paged to the server's exact count — see `lib/vendor-payday-read.ts`.
+    readVendorPaydayInstallments(supabase),
     // tier_state is excluded from the profile select → isolated probe (matches
     // the chat-send / proposal-send convention). Gates the Agent filter.
     supabase
@@ -157,6 +160,8 @@ async function CustomersPipeline({ searchParams }: Props) {
   ]);
 
   const threads = threadsRead.threads;
+  const blocks = blocksRead.blocks;
+  const blocksIncomplete = !blocksRead.complete;
 
   // Agent filtering is a subscription feature — enabled only when the tier
   // grants agent accounts (Pro+, agentAccounts > 0). A vendor who drops below
@@ -185,9 +190,23 @@ async function CustomersPipeline({ searchParams }: Props) {
     }
   }
 
-  const paydayRows = (
-    paydayRes.error ? [] : ((paydayRes.data ?? []) as unknown as PaydayInstallmentRow[])
-  );
+  // ⚠ MONEY. A payday read that did not reach the server's count is NOT added
+  // up: the tile says some payments couldn't load and the roster's money notes
+  // stay off, rather than showing a "collected of expected" that is too small.
+  const paydayIncomplete = !paydayRes.complete;
+  if (paydayIncomplete) {
+    logQueryError(
+      'VendorCustomersPage.paydayInstallments',
+      {
+        message:
+          paydayRes.error ??
+          `read ${paydayRes.rows.length} rows without reaching the server count`,
+      },
+      { vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const paydayRows = paydayIncomplete ? [] : paydayRes.rows;
 
   // The dates couples are ASKING about. Derived from `threads`, which this page
   // already loads — zero new queries, and a COUNT only: a pending enquiry is
@@ -604,6 +623,12 @@ async function CustomersPipeline({ searchParams }: Props) {
             `id="calendar"` is where every bare /vendor-dashboard/calendar link
             lands (`customers/anchors.ts`). */}
         <div id="calendar" className="scroll-mt-24">
+        {blocksIncomplete ? (
+          <p role="status" className="mb-3 rounded-xl border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+            Some of your blocked dates couldn&rsquo;t load, so a date you closed may show as open
+            here. Reload the page to try again.
+          </p>
+        ) : null}
         <CustomersCalendar
           initialDayStates={dayStates}
           initialWaitlist={waitlist}
@@ -650,7 +675,13 @@ async function CustomersPipeline({ searchParams }: Props) {
               </span>
               Ongoing payments
             </p>
-            {payments.isEmpty ? (
+            {paydayIncomplete ? (
+              <p role="status" className="mt-3 text-sm" style={{ color: 'var(--sn-warning-deep)' }}>
+                Some payments couldn&rsquo;t load, so this month&rsquo;s totals and
+                your customers&rsquo; payment notes aren&rsquo;t shown. Reload the
+                page to try again.
+              </p>
+            ) : payments.isEmpty ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
                 No installments due this month. Amounts appear here once a couple
                 books you on a service with a payment schedule.

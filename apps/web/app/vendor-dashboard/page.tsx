@@ -318,7 +318,8 @@ export default async function VendorOverviewPage({
   // them as text — that was the same three numbers a few lines above the focal
   // (deduped 2026-07-16); the hero subline is now a plain orienting lead-in.
   const heroInquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
-  const heroEarnedPhp = earnings?.earnedThisYearPhp ?? null;
+  // Unmeasured (ledger read refused or short) is null, never a ₱0 or short year.
+  const heroEarnedPhp = earnings?.earningsMeasured ? earnings.earnedThisYearPhp : null;
 
   // WHY COUPLES CAN'T FIND YOU — decided once, in `lib/vendor-shop-findable.ts`,
   // from the `public_visibility` already on this row (no extra query) and from

@@ -24,11 +24,8 @@ import {
 import { resolveAppointmentLabel, type AppointmentKind } from '@/lib/appointments';
 import { displayServiceLabel } from '@/lib/vendors';
 import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from '@/lib/vendor-earnings';
-import {
-  buildPaydayTimeline,
-  manilaTodayIso,
-  type PaydayInstallmentRow,
-} from '@/lib/vendor-cashflow';
+import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 
 /**
  * vendor-overview.ts — the server-side data assembly for the vendor dashboard
@@ -781,6 +778,12 @@ export type VendorEarningsSummary = {
    * must say "couldn't load" instead of "No booked installments yet".
    */
   paydayMeasured: boolean;
+  /**
+   * FALSE when the ledger read was refused or could not reach the end — then
+   * earnedThisYearPhp is 0 because nothing was measured, and the tile must say
+   * "couldn't load" instead of printing ₱0.
+   */
+  earningsMeasured: boolean;
 };
 
 /**
@@ -801,24 +804,35 @@ export async function fetchVendorEarningsSummary(
     // Earnings: the payments couples logged to THIS shop and it confirmed (the
     // same reader as the Earnings page). Fail-soft to [] — see #5650 for the
     // honest-failure half of this tile.
-    fetchVendorLedgerEarnings(admin, vendorProfileId).catch(() => []),
+    // ⚠ A refused OR short ledger read throws; `null` = unmeasured, and the
+    // tile says "couldn't load" — never ₱0, never a smaller year.
+    fetchVendorLedgerEarnings(admin, vendorProfileId).catch((e: unknown) => {
+      logQueryError('vendor-overview: ledger earnings', {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    }),
     // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
     (async () => {
-      const { data, error } = await supabase.rpc('vendor_payday_installments');
-      if (error) {
-        logQueryError('vendor-overview: vendor_payday_installments', error);
-        return null; // unmeasured — never a ₱0 that reads as "nothing booked"
+      // Paged to the server's exact count (`lib/vendor-payday-read.ts`): one
+      // capped request made these totals silently short past 1,000 rows.
+      const read = await readVendorPaydayInstallments(supabase);
+      if (!read.complete) {
+        logQueryError('vendor-overview: vendor_payday_installments', {
+          message: read.error ?? `read ${read.rows.length} rows without reaching the server count`,
+        });
+        return null; // unmeasured — never a ₱0 (or a short total) that reads as real
       }
-      const rows = (data ?? []) as unknown as PaydayInstallmentRow[];
-      return buildPaydayTimeline(rows, manilaTodayIso()).totals;
+      return buildPaydayTimeline(read.rows, manilaTodayIso()).totals;
     })().catch(() => null),
   ]);
 
-  const { ytdTotal } = computeMonthlySubtotals(earnings);
+  const { ytdTotal } = computeMonthlySubtotals(earnings ?? []);
 
   return {
     earnedThisYearPhp: ytdTotal,
-    bookingCount: earnings.length,
+    bookingCount: earnings?.length ?? 0,
+    earningsMeasured: earnings !== null,
     confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
     expectedPhp: paydayTotals?.expectedPhp ?? 0,
     paydayMeasured: paydayTotals !== null,

@@ -409,6 +409,7 @@ export function VendorEnergyStats({
         <EarnedTile
           earnedThisYearPhp={earnings.earnedThisYearPhp}
           bookingCount={earnings.bookingCount}
+          measured={earnings.earningsMeasured}
         />
       ) : null}
 
@@ -501,10 +502,30 @@ function EnergyKpi({
 function EarnedTile({
   earnedThisYearPhp,
   bookingCount,
+  measured,
 }: {
   earnedThisYearPhp: number;
   bookingCount: number;
+  /** False = the ledger read failed or came up short: say so, never ₱0. */
+  measured: boolean;
 }) {
+  if (!measured) {
+    return (
+      <Link
+        href="/vendor-dashboard/earnings"
+        className="sn-tile sn-reveal sn-press group flex flex-col"
+      >
+        <p className="sn-eye">
+          <Wallet aria-hidden strokeWidth={1.75} />
+          Earned · this year
+        </p>
+        <span role="status" className="mt-2 block text-sm text-ink/70">
+          Some payments couldn&rsquo;t load, so this year&rsquo;s total isn&rsquo;t shown.
+          Open your earnings to try again.
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link
       href="/vendor-dashboard/earnings"

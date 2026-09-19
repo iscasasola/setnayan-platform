@@ -524,6 +524,40 @@ export function getLifecyclePhase(
   }
 }
 
+/**
+ * The couple's PINNED phase (owner 2026-07-02, register DAY-33 · PH-6).
+ *
+ * Owner, verbatim: *"a manual toggle to set it automatic or manual launch,
+ * whichever website they want. activating one will deactivate the other …
+ * save the date, rsvp, event and editorial."*
+ *
+ * `events.launch_mode = 'manual'` plus a valid `events.manual_phase` pins that
+ * phase for EVERY visitor, until the couple switches back to automatic. Any
+ * other combination (auto, a null pin, an unknown value) returns null and the
+ * clock decides, exactly as before. The columns have existed since migration
+ * `20270426100000`; the reader shipped in PR #2562 was closed unmerged, so
+ * until this function they had no reader at all.
+ *
+ * 🔒 COMPOSED AT EVERY SITE THAT PICKS THE SITE'S FACE, as
+ * `manualLaunchPhase(mode, pin) ?? getLifecyclePhase(date, tz, end)` — the
+ * page, the arrival door (`lib/invite-destination.ts`) and the editor's
+ * preview. Left literal rather than wrapped so the venue-clock guard keeps
+ * seeing each real `getLifecyclePhase(` call; `the-couple-can-pin-a-phase.test.ts`
+ * fails if one of the three forgets the pin.
+ */
+export function manualLaunchPhase(
+  launchMode: string | null | undefined,
+  manualPhase: string | null | undefined,
+): LifecyclePhase | null {
+  if (launchMode !== 'manual') return null;
+  return manualPhase === 'save_the_date' ||
+    manualPhase === 'rsvp' ||
+    manualPhase === 'event' ||
+    manualPhase === 'editorial'
+    ? manualPhase
+    : null;
+}
+
 // ---------------------------------------------------------------------------
 // Open-browse engine (OPEN-BROWSE PR7 · council verdict 2026-07-22 §1.3)
 //

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Compass } from 'lucide-react';
-import { fetchSavedVendors } from '../_data/saved-vendors';
+import { fetchSavedVendors, SAVED_VENDORS_UNREADABLE } from '../_data/saved-vendors';
 import { fetchAttendedSavedVendors } from '../_data/attended-vendors';
 import { SavedVendorCardItem } from './saved-vendor-card';
 
@@ -16,10 +16,24 @@ import { SavedVendorCardItem } from './saved-vendor-card';
  */
 export async function VendorsTab({ userId }: { userId: string }) {
   void userId;
-  const [own, attended] = await Promise.all([
+  const [ownRead, attended] = await Promise.all([
     fetchSavedVendors(),
     fetchAttendedSavedVendors(),
   ]);
+  // A refused read is not "none saved": say we could not look, never the
+  // empty state below (S41, reads-are-honest).
+  const ownUnreadable = ownRead === SAVED_VENDORS_UNREADABLE;
+  const own = ownUnreadable ? [] : ownRead;
+
+  if (ownUnreadable && attended.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
+        <p className="text-sm text-ink/60">
+          We couldn&rsquo;t load your saved vendors right now. Refresh in a moment.
+        </p>
+      </div>
+    );
+  }
 
   if (own.length === 0 && attended.length === 0) {
     return (
@@ -38,6 +52,11 @@ export async function VendorsTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-8">
+      {ownUnreadable ? (
+        <p className="text-sm text-ink/60">
+          We couldn&rsquo;t load the vendors saved in your own plans right now.
+        </p>
+      ) : null}
       {own.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {own.map((v) => (

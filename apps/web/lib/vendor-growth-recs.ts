@@ -104,8 +104,10 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
         : 'A complete profile with fresh photos gets about 3× more inquiries.',
       impact: 'high',
       impactLabel: IMPACT_LABEL.high,
-      ctaLabel: 'Edit profile',
-      ctaHref: '/vendor-dashboard/profile',
+      ctaLabel: 'Add photos',
+      // Straight to the gallery — `/vendor-dashboard/profile` redirects to My
+      // Shop with every panel shut (manage-tiles-hash.ts).
+      ctaHref: '/vendor-dashboard/shop#gallery-media',
       weight: !hasStats ? 60 : 100 - completeness,
     });
   }

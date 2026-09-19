@@ -78,6 +78,7 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
     .in('status', BOOKED_STATUSES as unknown as string[])
     .not('linked_vendor_profile_id', 'is', null)
     .limit(NIGHT_BEFORE_MAX_BATCH);
+  if (bookingsError) console.error('[supabase-error] lib/supplier-night-before-email.ts · from:event_vendors.select', bookingsError);
   if (bookingsError || !bookings || bookings.length === 0) return { scanned: 0, sent: 0 };
 
   const vendorProfileIds = [...new Set(bookings.map((b) => b.linked_vendor_profile_id as string))];
@@ -107,7 +108,18 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
       const { error: lockErr } = await admin
         .from('supplier_night_before_email_log')
         .insert({ event_vendor_id: booking.vendor_id, event_date: tomorrow });
-      if (lockErr) continue;
+      if (lockErr) {
+        // 23505 = unique violation = this booking's night-before email for this
+        // date already went — the expected, silent case. Anything else is a
+        // genuine refusal and must leave a trace.
+        if (lockErr.code !== '23505') {
+          console.error(
+            '[supabase-error] lib/supplier-night-before-email.ts · from:supplier_night_before_email_log.insert',
+            lockErr,
+          );
+        }
+        continue;
+      }
 
       const { data: blocksRaw } = await admin
         .from('event_schedule_blocks')

@@ -186,7 +186,7 @@ _⚠ Enterprise is NO LONGER ∞ on these axes. Cap numbers **owner-confirmed 20
 
 > 🔴 **RETIRED BY OWNER RULING 2026-08-27 — THE WHITE-GLOVE PREMIUM IS GONE.** Owner, verbatim: *"custom does not mean they get their own concierge from us. it just means they get an upgrade the 3 tiers does not provide."* **Custom is defined by CAPABILITY, not by human attention** — no dedicated account manager, no quarterly business review, no concierge, no named contact. Custom = everything Enterprise has with its ceilings removed. The construction below (*Enterprise + ₱1,500 white-glove premium*) is therefore **superseded**, and with it the ₱11,500 base it would have implied: **₱11,000 is final.** ⚖ Nothing was owed to anybody — all four white-glove promises were marketing copy with **no implementation whatsoever** (no manager assignment, no review scheduling, no response promise), and production has never had a Custom subscriber. The lineage below is kept as history.
 
-For franchises and chains beyond Enterprise caps: **more branches · more seats · more capacity**, plus a dedicated account manager. Composed as **Enterprise + ₱999 branches + overflow units + white-glove** (owner 2026-07-03). Multi-brand houses are NOT a Custom composition — one vendor account per brand. **Quotes are computed from the §11 rate card (numbers partially owner-decided; remainder pending sign-off), not invented per deal.**
+For franchises and chains beyond Enterprise caps: **more branches · more seats · more capacity**, plus a dedicated account manager. Composed as **Enterprise + ₱999 branches + overflow units + white-glove** (owner 2026-07-03). Multi-brand houses are NOT a Custom composition — one vendor account per brand. **Quotes are computed from the §11 rate card (fully signed 2026-07-04, repriced 2026-08-27), not invented per deal.**
 
 ---
 
@@ -364,7 +364,7 @@ Final `agentAccounts` ladder (invitable teammates **on top of** the always-free 
 - **Pending (owner-specified, NOT built):** Enterprise-only **paid extra seats at +₱500/28d each** beyond the base 10. Needs a `vendor_billing_catalog` add-on SKU + a purchased-seat count + effective-cap wiring (`base + purchased`) + a Team "Add seat" CTA + admin reconcile — and a billing-lifecycle decision (co-terminate with the Enterprise sub vs. independent per-seat renewal; lapse behavior). Held for owner sign-off before build.
 - ✅ **Seat-price conflict RESOLVED (owner 2026-07-04): ₱250/28d.** The ₱500 figure above is dead. **PR #2623 merges as-is** (auto-merge armed 2026-07-04); §11's rate card uses ₱250.
 
-## 11 · Custom tier rate card (PROPOSED 2026-07-03 · owner sign-off pending)
+## 11 · Custom tier rate card (SIGNED 2026-07-04 · repriced 2026-08-27)
 
 > **Why:** companies ask for a custom tier and we have no way to hand them a price — the §2 Custom card is a contact prompt with nothing behind it. This section makes Custom **quotable in minutes, from a formula, not per-deal improvisation**. Stage 1 = quote by hand from this card; Stage 2 = HQ admin quote builder computes it (build brief goes out only after the numbers below are signed). All values are **provisional** per the admin-managed-pricing + holistic-review locks — the rate card defines the *structure*; amounts stay editable in the admin catalog.
 

@@ -43,6 +43,7 @@ import {
   type CheckResult,
   type CheckSummary,
   type FiledDocument,
+  type PayoutAccountFact,
   type RegistryAnswer,
 } from '@/lib/verification-checks';
 
@@ -120,7 +121,82 @@ export type ChecksInput = {
   registrationNumberNeedsReview: boolean;
   inBusinessSinceYear: number | null;
   experienceVerifiedAt: string | null;
+  /**
+   * The names a payout account is compared against, and the accounts. A caller
+   * rendering MANY shops passes these from one batched `readPayoutNameFacts`.
+   * Left out, this builder reads them for its one shop.
+   */
+  payoutNames?: PayoutNameFacts;
 };
+
+/** What the payout-name check (SUP-27) needs about one shop. */
+export type PayoutNameFacts = {
+  registeredBusinessName: string | null;
+  businessOwnerName: string | null;
+  /** `null` = the read failed. `[]` = the shop has no payout account on file. */
+  payoutAccounts: PayoutAccountFact[] | null;
+};
+
+/**
+ * The payout-name facts for a whole screen of shops, in TWO queries however
+ * many shops there are. The queue renders up to 200 applications, and the same
+ * rule as `buildVerificationChecksForVendors` applies: never a query per shop.
+ *
+ * ⚠ A FAILED READ IS NOT AN EMPTY ONE. If the payment-method read fails, every
+ * shop gets `payoutAccounts: null`, which the check reports as "could not be
+ * read". An empty array would claim "no account on file". A failed profile read
+ * leaves the two names null, which the check reports as "nothing to compare"
+ * (manual). It never passes.
+ */
+export async function readPayoutNameFacts(
+  vendorProfileIds: readonly string[],
+): Promise<Record<string, PayoutNameFacts>> {
+  const ids = Array.from(new Set(vendorProfileIds.filter(Boolean)));
+  const out: Record<string, PayoutNameFacts> = {};
+  if (ids.length === 0) return out;
+  for (const id of ids) {
+    out[id] = { registeredBusinessName: null, businessOwnerName: null, payoutAccounts: null };
+  }
+  try {
+    const admin = createAdminClient();
+    const [profiles, methods] = await Promise.all([
+      admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, registered_business_name, business_owner_name')
+        .in('vendor_profile_id', ids),
+      admin
+        .from('vendor_payment_methods')
+        .select('vendor_profile_id, method_type, label, provider, account_name')
+        .in('vendor_profile_id', ids),
+    ]);
+    if (profiles.error) {
+      console.error('[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (readPayoutNameFacts)', profiles.error);
+    }
+    if (!profiles.error && profiles.data) {
+      for (const p of profiles.data as Array<Record<string, unknown>>) {
+        const f = out[String(p.vendor_profile_id)];
+        if (!f) continue;
+        f.registeredBusinessName = (p.registered_business_name as string | null) ?? null;
+        f.businessOwnerName = (p.business_owner_name as string | null) ?? null;
+      }
+    }
+    if (!methods.error && methods.data) {
+      for (const id of ids) out[id]!.payoutAccounts = [];
+      for (const m of methods.data as Array<Record<string, unknown>>) {
+        const f = out[String(m.vendor_profile_id)];
+        if (!f?.payoutAccounts) continue;
+        const label =
+          [m.label, m.provider, m.method_type]
+            .map((v) => (typeof v === 'string' ? v.trim() : ''))
+            .find((v) => v.length > 0) ?? 'payout';
+        f.payoutAccounts.push({ label, accountName: (m.account_name as string | null) ?? null });
+      }
+    }
+  } catch {
+    // Leave the defaults in place: accounts null ("could not be read"), names null.
+  }
+  return out;
+}
 
 /**
  * Who ELSE holds this shop's registration number.
@@ -147,7 +223,11 @@ async function otherShopsHoldingNumber(
       .eq('registration_number_normalized', normalized)
       .neq('vendor_profile_id', vendorProfileId)
       .limit(5);
-    if (error || !data) return [];
+    if (error) {
+      console.error('[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (otherShopsHoldingNumber)', error);
+      return [];
+    }
+    if (!data) return [];
     return (data as Array<{ business_name?: string | null; vendor_profile_id: string }>).map(
       (r) => r.business_name?.trim() || r.vendor_profile_id,
     );
@@ -322,11 +402,21 @@ export async function buildVerificationChecks(
     }
   }
 
-  const [heldAlsoBy, registryAnswer] = await Promise.all([
+  const [heldAlsoBy, registryAnswer, payoutNames] = await Promise.all([
     input.registrationNumberNeedsReview
       ? otherShopsHoldingNumber(input.vendorProfileId, input.registrationNumberRaw)
       : Promise.resolve<string[]>([]),
     lookUpRegistry(input.registrationNumberRaw),
+    input.payoutNames
+      ? Promise.resolve(input.payoutNames)
+      : readPayoutNameFacts([input.vendorProfileId]).then(
+          (m) =>
+            m[input.vendorProfileId] ?? {
+              registeredBusinessName: null,
+              businessOwnerName: null,
+              payoutAccounts: null,
+            },
+        ),
   ]);
 
   const facts: CheckFacts = {
@@ -351,6 +441,9 @@ export async function buildVerificationChecks(
     contactPhoneConfirmedAt: input.contactPhoneConfirmedAt,
     inBusinessSinceYear: input.inBusinessSinceYear,
     experienceVerifiedAt: input.experienceVerifiedAt,
+    registeredBusinessName: payoutNames.registeredBusinessName,
+    businessOwnerName: payoutNames.businessOwnerName,
+    payoutAccounts: payoutNames.payoutAccounts,
   };
 
   const results = runVerificationChecks(facts);
@@ -429,6 +522,7 @@ export async function buildVerificationChecksForVendors(
       const key = String(row.vendor_profile_id);
       if (!latest[key]) latest[key] = row;
     }
+    const payoutNames = await readPayoutNameFacts(ids);
 
     const built = await Promise.all(
       (vendorRows as unknown as Array<Record<string, unknown>>).map(async (v) => {
@@ -450,6 +544,7 @@ export async function buildVerificationChecksForVendors(
             registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
             inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,
             experienceVerifiedAt: (v.experience_verified_at as string | null) ?? null,
+            payoutNames: payoutNames[id],
           }),
         };
       }),

@@ -32,8 +32,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { stripComments } from '@/lib/strip-comments';
+import { fetchVendorPapicCreditsGranted } from '@/lib/vendor-papic-grants';
 
 const WEB = dirname(dirname(fileURLToPath(import.meta.url)));
 const ROUTE_SRC = readFileSync(join(WEB, 'app/api/vendor/papic-capture/route.ts'), 'utf8');
@@ -43,6 +45,19 @@ const ACTIVATION_SRC = readFileSync(join(WEB, 'lib/sku-activation.ts'), 'utf8');
 
 /** Source with comments removed — the explanation of a fix must not satisfy the check for it. */
 const code = (src: string) => stripComments(src);
+
+/**
+ * Just enough of the query builder for `fetchVendorPapicCreditsGranted`'s shape:
+ * `.from(table).select(cols).eq(k, v).eq(k, v)`, awaited with no terminal call.
+ * `.then` makes the chain itself thenable, same as the real Postgrest builder.
+ */
+function fakeCreditsClient(result: { data: unknown; error: unknown }): SupabaseClient {
+  const builder: Record<string, unknown> = {};
+  for (const m of ['select', 'eq']) builder[m] = () => builder;
+  builder.then = (resolve: (v: typeof result) => unknown, reject?: (e: unknown) => unknown) =>
+    Promise.resolve(result).then(resolve, reject);
+  return { from: () => builder } as unknown as SupabaseClient;
+}
 
 test('the capture route still exists and still meters — or every rule below is vacuous', () => {
   assert.ok(ROUTE_SRC.includes('canCapture('), 'the capture route no longer checks an allowance at all');
@@ -139,19 +154,30 @@ test('🚨 …and PASSES them to the allowance check', () => {
   );
 });
 
-test('🚨 an unread ledger grants nothing — null must never become a number', () => {
+test('🚨 an unread ledger grants nothing — null must never become a number', async () => {
   const body = /export function allowancePointsFor[\s\S]*?\n}/.exec(TIER_SRC)?.[0] ?? '';
   assert.ok(body, 'allowancePointsFor was restructured beyond recognition');
   assert.ok(
     /creditsGranted == null\) return base/.test(body),
     'an unread ledger no longer falls back to the tier number — a metering outage could now mint points',
   );
-  const reader = /export async function fetchVendorPapicCreditsGranted[\s\S]*?\n}/.exec(GRANTS_SRC)?.[0] ?? '';
-  assert.ok(reader, 'fetchVendorPapicCreditsGranted is gone');
-  assert.ok(
-    /if \(error\) return null/.test(reader),
-    'the ledger reader returns something other than null on a read error — a failed read is not a zero balance',
+
+  // EXECUTE the reader against a refused read rather than pattern-match its
+  // source. The property is "a refused read must never grant credits" — that
+  // must hold however the early return is phrased (braces, a logged reason,
+  // anything), not only when it is spelled exactly `if (error) return null`.
+  const refused = fakeCreditsClient({ data: null, error: { message: 'refused' } });
+  assert.equal(
+    await fetchVendorPapicCreditsGranted(refused, 'v1', 'e1'),
+    null,
+    'a refused ledger read must return null, never a number — a metering outage could mint points',
   );
+
+  // And prove the assertion above is load-bearing: the SAME query shape with
+  // no error yields a real summed number, so the null is specifically the
+  // error path, not "this function always returns null".
+  const ok = fakeCreditsClient({ data: [{ credits: 40 }, { credits: 10 }], error: null });
+  assert.equal(await fetchVendorPapicCreditsGranted(ok, 'v1', 'e1'), 50);
 });
 
 test('🚨 the credits can only RAISE the allowance, never lower it', () => {

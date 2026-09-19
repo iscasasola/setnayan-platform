@@ -639,6 +639,7 @@ export async function applyMoodboardTemplate(
         sampled_hex_5: hexes[4],
         sampled_hex_6: hexes[5],
       });
+      if (insertErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/mood-board/actions.ts · from:event_inspiration_assets.insert', insertErr);
       if (!insertErr) filledInspirationSlots.push(slotKey);
     }
   }

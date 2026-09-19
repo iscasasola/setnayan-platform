@@ -49,8 +49,19 @@ const DEFINITION = 'lib/booking-fee-lock.server.ts';
  *
  * A SIXTH ruling has to change this line and say why — which is the entire
  * point of writing it down here rather than in prose.
+ *
+ * 2026-09-18 — THE LINE MOVED ONE LEVEL DOWN, AND THE RULING DID NOT CHANGE.
+ * "The vendor confirming the payment" turned out to have TWO doors: the
+ * customer card (`vendorAcknowledgeDeposit`) and the payment card
+ * (`confirmVendorPayment`, whose RPC acknowledges the deposit inside SQL).
+ * Only the first ran the fee; the platform's first real booking went through
+ * the second. The collector's one call site is now the shared effects module
+ * both doors call — still one trigger, still "when the supplier accepts the
+ * payment". `deposit-acknowledge-fires-from-every-door.test.ts` holds the
+ * door-to-module edge; this file holds the module-to-collector edge.
  */
-const CANONICAL_CALLER = 'app/vendor-dashboard/clients/[eventId]/actions.ts';
+const CANONICAL_CALLER = 'lib/deposit-acknowledged-effects.server.ts';
+const CANONICAL_FUNCTION = 'runDepositAcknowledgedEffects';
 
 /** Strip comments — the three "no fee here any more" notes must not read as calls. */
 function code(src: string): string {
@@ -94,24 +105,29 @@ test('the booking fee has EXACTLY ONE non-test call site', () => {
   );
 });
 
-test('the canonical caller is the ACKNOWLEDGE action, not some other export in that file', () => {
+test('the canonical caller is the ACKNOWLEDGE-EFFECTS function, not some other export in that file', () => {
   const src = code(readFileSync(resolve(WEB, CANONICAL_CALLER), 'utf8'));
   const idx = src.indexOf('collectBookingFeeAtLock(');
   assert.ok(idx > 0, 'no call found in the canonical caller');
 
-  // The call must sit inside vendorAcknowledgeDeposit — the file also exports
-  // vendorRejectDeposit and several unrelated vendor actions, and billing from
-  // any of those would satisfy a naive file-level check while being wrong.
+  // The call must sit inside runDepositAcknowledgedEffects — the module also
+  // exports the render-time catch-up sweep, and billing from the sweep
+  // directly (rather than through the one effects function it loops over)
+  // would satisfy a naive file-level check while being a second trigger.
   const before = src.slice(0, idx);
   const fnIdx = before.lastIndexOf('export async function ');
   const fnName = before.slice(fnIdx).match(/export async function (\w+)/)?.[1];
   assert.equal(
     fnName,
-    'vendorAcknowledgeDeposit',
-    `the fee must be collected in vendorAcknowledgeDeposit, not ${fnName} — ` +
-      `the ruling is "billed alongside ACCEPTING the payment", and reject/other ` +
-      `actions in this file must never charge.`,
+    CANONICAL_FUNCTION,
+    `the fee must be collected in ${CANONICAL_FUNCTION}, not ${fnName} — ` +
+      `the ruling is "billed alongside ACCEPTING the payment", and every door ` +
+      `to that moment reaches the collector through this one function.`,
   );
+
+  // And exactly once in that file — a second call anywhere in it is a second trigger.
+  const calls = src.match(/collectBookingFeeAtLock\s*\(/g) ?? [];
+  assert.equal(calls.length, 1, `expected 1 collector call in ${CANONICAL_CALLER}, found ${calls.length}`);
 });
 
 test('the fee resolves the ANCHOR row before charging', () => {

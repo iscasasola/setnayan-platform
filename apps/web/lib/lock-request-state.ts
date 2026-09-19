@@ -87,6 +87,22 @@ export function isAwaitingVendor(row: LockRequestRow, enabled: boolean): boolean
 }
 
 /**
+ * SUP-69 · Has the couple ASKED any supplier in this set and not been answered?
+ *
+ * The category-level question every "go book" nag has to ask first. A couple
+ * who pressed Lock has done the only thing those surfaces could ask of them —
+ * telling them to "Compare & lock" or "Book your caterer" again reads as if the
+ * ask never went out. A confirmed booking in the same set still wins (the
+ * caller checks locks first); this only answers "is an ask outstanding".
+ */
+export function anyAwaitingVendor(
+  rows: ReadonlyArray<LockRequestRow>,
+  enabled: boolean,
+): boolean {
+  return rows.some((r) => isAwaitingVendor(r, enabled));
+}
+
+/**
  * HOW LONG A SUPPLIER HAS TO ANSWER A BOOKING ASK — owner ruling 2026-08-28,
  * asked and answered in one word: **48 hours**.
  *

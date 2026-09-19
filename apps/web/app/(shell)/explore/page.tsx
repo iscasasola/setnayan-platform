@@ -24,7 +24,17 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { formatStarRating } from '@/lib/reviews';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+  type TrustedReviewStatsRow,
+} from '@/lib/reviews';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  cardRecordRatingFromTrusted,
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
@@ -42,7 +52,16 @@ import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
-import { toServiceCard } from '@/lib/service-card-view-model';
+import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
+import {
+  fetchCoveragesByIdPublic,
+  fetchDiscountsByServicePublic,
+  fetchInclusionsByService,
+  type VendorServiceCoverage,
+  type VendorServiceInclusion,
+} from '@/lib/vendor-service-public';
+import type { VendorServiceDiscount } from '@/lib/vendor-services';
+import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
@@ -1611,6 +1630,46 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     A failure costs a picture, never the grid — the card falls back to the
     initials tile, which is a real design state, not an error state.
   */
+  /*
+    ═ SUP-41 · THE CARD'S RECORD COMES WITH IT, AND SO DOES THE SHOP'S PRICE CHOICE ═
+    The shop's own page (`app/v/[slug]`) grows each card its record — booked
+    count, event-type mix, anonymized ledger, medals — and this grid drew the
+    SAME `ServiceCardView` with the record hard-wired to null, so a card with a
+    real history looked brand new on the marketplace and veteran one click
+    later. Same batched RPC, same flag, same shop-rating rule
+    (`cardRecordRatingFromTrusted`) as the shop page, so the two cannot disagree.
+
+    It also passed `hidePrices: false` for every card. A shop that ticked "hide
+    my prices publicly" had them hidden on its own page and on the vendor grid
+    (`hidingPrices` below) — and printed on this grid. Same batch reader,
+    same fail-open default.
+
+    Each read fails soft to "nothing extra", never to an empty grid: a missing
+    record renders the card as it rendered yesterday.
+  */
+  const serviceCardShopIds = serviceCards
+    ? [...new Set(serviceCards.map((c) => c.vendorProfileId))]
+    : [];
+  const [serviceCardRecords, serviceCardShopStats, serviceCardHidingPrices] = serviceCards
+    ? await Promise.all([
+        cardRecordEnabled()
+          ? fetchServiceCardRecords(
+              admin,
+              serviceCards.map((c) => c.row.vendor_service_id),
+            ).catch(() => new Map<string, CompiledCardRecord>())
+          : Promise.resolve(new Map<string, CompiledCardRecord>()),
+        cardRecordEnabled()
+          ? fetchTrustedReviewStatsForMany(admin, serviceCardShopIds).catch(
+              () => new Map<string, TrustedReviewStatsRow>(),
+            )
+          : Promise.resolve(new Map<string, TrustedReviewStatsRow>()),
+        fetchVendorsHidingPricesPublicly(admin, serviceCardShopIds),
+      ])
+    : [
+        new Map<string, CompiledCardRecord>(),
+        new Map<string, TrustedReviewStatsRow>(),
+        new Set<string>(),
+      ];
   const serviceCardLogoUrls = new Map<string, string | null>();
   if (serviceCards) {
     const byShop = new Map<string, string | null>();
@@ -1647,6 +1706,65 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         c.row.vendor_service_id,
         publicUrlForStoredAsset(c.row.primary_photo_r2_key),
       );
+    }
+  }
+  /*
+    ═ S43 · 5: THE REST OF THE CARD FACE — inclusions, discount, Serves, showcase ═
+    The shop page (`app/v/[slug]`) hands `toServiceCard` four things this grid
+    passed as `undefined`: the free inclusions, the discounts (so the best badge
+    can be picked), the Serves line and the showcase photos/clip. So the SAME
+    `ServiceCardView` drew a thinner card here than one click later on the shop
+    — no "Includes …", no "20% off", no photo strip.
+
+    Same readers as the shop page (`lib/vendor-service-public`, the shared
+    `buildServesLine`), batched over the 24 cards, each fail-soft to "nothing
+    extra" by its own contract — a failed read renders the card as it rendered
+    yesterday, never an empty grid.
+
+    ⚖ SHOWCASE URLS ARE PUBLIC, NOT PRESIGNED. The shop page presigns them
+    (`displayUrlForStoredAsset`); this grid resolves them the way it already
+    resolves the cover — `publicUrlForStoredAsset`, whose docblock names this
+    grid as the surface it exists for. A ref it cannot serve publicly resolves
+    to null and is dropped, so a card loses that photo, never the grid.
+    `coupleEventDate` stays null: the grid is anonymous, so the early-booking
+    ladder advertises "up to", exactly as the shop page does for a guest.
+  */
+  const serviceCardIds = serviceCards ? serviceCards.map((c) => c.row.vendor_service_id) : [];
+  const serviceCardCoverageIds = serviceCards
+    ? [
+        ...new Set(
+          serviceCards
+            .map((c) => c.row.coverage_id)
+            .filter((id): id is number => id !== null),
+        ),
+      ]
+    : [];
+  const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
+    ? await Promise.all([
+        fetchInclusionsByService(admin, serviceCardIds),
+        fetchDiscountsByServicePublic(admin, serviceCardIds),
+        fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
+      ])
+    : [
+        new Map<string, VendorServiceInclusion[]>(),
+        new Map<string, VendorServiceDiscount[]>(),
+        new Map<number, VendorServiceCoverage>(),
+      ];
+  const serviceCardServes = new Map<string, string>();
+  const serviceCardShowcase = new Map<string, ServiceShowcaseMedia>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      const id = c.row.vendor_service_id;
+      if (c.row.coverage_id !== null) {
+        const line = buildServesLine(serviceCardCoverages.get(c.row.coverage_id), eventTypeLabel);
+        if (line) serviceCardServes.set(id, line);
+      }
+      const photos = (c.row.showcase_photo_r2_keys ?? [])
+        .slice(0, 5)
+        .map((k) => publicUrlForStoredAsset(k))
+        .filter((u): u is string => Boolean(u));
+      const videoUrl = publicUrlForStoredAsset(c.row.showcase_video_r2_key) ?? null;
+      if (photos.length > 0 || videoUrl) serviceCardShowcase.set(id, { photos, videoUrl });
     }
   }
   const marketplaceIsEmpty = liveShopCount === 0;
@@ -3589,15 +3707,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 <ServiceCardView
                   card={toServiceCard(
                     c.row,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    false,
+                    serviceCardInclusions.get(c.row.vendor_service_id),
+                    serviceCardDiscounts.get(c.row.vendor_service_id),
+                    serviceCardServes.get(c.row.vendor_service_id),
+                    serviceCardShowcase.get(c.row.vendor_service_id),
+                    serviceCardHidingPrices.has(c.vendorProfileId),
                     null,
                     new Date(),
-                    null,
-                    null,
+                    serviceCardRecords.get(c.row.vendor_service_id) ?? null,
+                    cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
                     false,
                     serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
                   )}

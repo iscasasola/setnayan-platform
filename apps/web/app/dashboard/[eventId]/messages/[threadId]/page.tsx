@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
-import { buildCoupleConversationRows } from '@/lib/conversation-list';
+import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -198,6 +198,18 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     }),
   ]);
 
+  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
+  // so show the current count, matching what the vendor now sees. Read before
+  // the standing, which says when it has moved since the inquiry (SUP-2).
+  const livePax = await resolveLivePax(supabase, thread.event_id);
+  const headerPax = livePax ?? thread.pax_current;
+  // The facts beside the rung — the SAME reader the bench card uses, so the
+  // card and the thread it opens cannot disagree about a deposit or a meeting.
+  const standingNowMs = Date.now();
+  const standingExtras = (
+    await readStandingExtras(supabase, thread.event_id, [thread.vendor_profile_id], standingNowMs)
+  ).get(thread.vendor_profile_id);
+
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     stage: threadStage,
@@ -217,7 +229,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     lastSaidAtMs: lastThreadMessage
       ? Date.parse(lastThreadMessage.created_at) || null
       : null,
-    nowMs: Date.now(),
+    nowMs: standingNowMs,
+    depositPaid: standingExtras?.depositPaid ?? false,
+    meeting: standingExtras?.meeting ?? null,
+    guestCounts: { live: headerPax ?? null, atInquiry: thread.pax_at_inquiry ?? null },
   });
   const vendorLabel = vendor
     ? resolveVendorDisplayName({
@@ -233,11 +248,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         location_city: vendor.location_city ?? null,
       })
     : 'Vendor';
-
-  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
-  // so show the current count, matching what the vendor now sees.
-  const livePax = await resolveLivePax(supabase, thread.event_id);
-  const headerPax = livePax ?? thread.pax_current;
 
   // One-follow-up gate (inquiry-followthrough 2026-06-16). Count only
   // COUPLE-authored rows. A `pending` thread is NOT couple-only: the Vendor
@@ -545,6 +555,23 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 threadId={threadId}
                 returnTo={`/dashboard/${eventId}/messages/${threadId}`}
                 blockedByMe={blockState.blockedByMe}
+                // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
+                // That page used to embed its own copy of this conversation and
+                // now sends a chat landing HERE; these are the way back to what
+                // it still holds. Only once the workspace route is known — it is
+                // keyed by `event_vendors.vendor_id`, resolved above for the
+                // Lock button, and null on a thread with no row yet.
+                links={
+                  quoteLockHref
+                    ? [
+                        { href: `${quoteLockHref}?tab=quote`, label: 'Quote' },
+                        { href: `${quoteLockHref}?tab=payments`, label: 'Payments' },
+                        { href: `${quoteLockHref}?tab=files`, label: 'Files' },
+                        { href: `${quoteLockHref}?tab=schedule`, label: 'Schedule' },
+                        { href: `${quoteLockHref}?tab=details`, label: 'Booking details' },
+                      ]
+                    : []
+                }
               />
             </>
           }
@@ -650,9 +677,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             The quote lives HERE, in the conversation (owner, 2026-09-18: "i
             think it is better to place the quotation inside the chat box"),
             with its line items, Review & accept and Counter-offer; the two jump
-            pills sit OVER the scroller and cost no height. `ThreadQuotationsCard`
-            still exists and is still exported — unmounted, recorded in
-            scripts/port-control-baseline.json.
+            pills sit OVER the scroller and cost no height. The pinned
+            `ThreadQuotationsCard` that used to sit above the stream was deleted
+            on 2026-09-18 (S36) — unmounted since #5584, an orphan in the
+            both-ends baseline; lib/a-quote-card-does-not-crush-the-conversation
+            still asserts it is never mounted again.
           */}
           <ChatMessageStream
             flush

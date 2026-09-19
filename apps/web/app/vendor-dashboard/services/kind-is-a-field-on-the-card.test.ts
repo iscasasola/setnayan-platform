@@ -85,7 +85,7 @@ test('every per-kind editor reads the chosen kind', () => {
   for (const [what, re] of [
     ['the pricing basis', /<PricingBasisEditor\s+idPrefix="canvas"\s+category=\{category\}/],
     ["what's included", /<IncludedFlags\s+idPrefix="canvas"\s+category=\{category\}/],
-    ['the customization list', /<CustomizationStep categoryValue=\{category\}/],
+    ['the customization list', /<CustomizationStep\s+categoryValue=\{category\}/],
   ] as const) {
     assert.match(src, re, `${what} stopped following the chosen kind`);
   }
@@ -531,7 +531,8 @@ test('the explainer shows a card, because that is what it is explaining', () => 
   const src = read(MAKER);
   const intro = src.slice(src.indexOf('id="canvas-intro"'));
   const body = intro.slice(0, intro.indexOf('</CanvasSheet>'));
-  assert.match(body, /from ₱44,999 per event/, 'the sample card is gone from the explainer');
-  // Plainly somebody else's — never a fake card of theirs.
-  assert.match(body, /Another supplier&rsquo;s card/, 'the sample stopped saying whose it is');
+  // S43 · 6: the sample became trade-neutral (see the-card-maker-sample-is-honest.test.ts).
+  assert.match(body, /from ₱25,000 per event/, 'the sample card is gone from the explainer');
+  // Plainly a sample — never a fake card of theirs.
+  assert.match(body, /A sample card — this is what couples browse\./, 'the sample stopped saying it is a sample');
 });

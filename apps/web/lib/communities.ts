@@ -578,6 +578,7 @@ export async function fetchSamahanMessages(
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(200);
+  if (error) console.error('[supabase-error] lib/communities.ts · from:samahan_messages.select', error);
   if (error || !data) return [];
   const rows = (data as Array<{
     message_id: string;

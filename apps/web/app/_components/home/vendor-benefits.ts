@@ -151,7 +151,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Multiple events per day', b: 'Take more than one booking on the same date.' },
           { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
-          { n: 'Editorial & article spotlights', soon: true, b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
+          { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
           { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Studio, monogram or Pakanta into your own quote.' },
           { n: 'White-label couple tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },

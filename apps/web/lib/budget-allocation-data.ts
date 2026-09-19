@@ -149,7 +149,11 @@ export async function fetchAllocationConfig(
       .select('min_sample_n, high_confidence_n, med_confidence_n, band_pct, surplus_mode')
       .eq('config_key', 'default')
       .maybeSingle();
-    if (error || !data) return DEFAULT_CONFIG_FALLBACK;
+    if (error) {
+      console.error('[supabase-error] budget-allocation-data: budget_allocation_config (using fallback)', error);
+      return DEFAULT_CONFIG_FALLBACK;
+    }
+    if (!data) return DEFAULT_CONFIG_FALLBACK;
     const r = data as {
       min_sample_n: number;
       high_confidence_n: number;
@@ -177,7 +181,11 @@ export async function fetchActiveBenchmarks(client: SupabaseClient): Promise<Ben
       .select('plan_group_id, label, benchmark_php, floor_php, p25_php, p75_php, is_active, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
-    if (error || !data) return [];
+    if (error) {
+      console.error('[supabase-error] budget-allocation-data: budget_leaf_benchmarks', error);
+      return [];
+    }
+    if (!data) return [];
     return data as BenchmarkRow[];
   } catch {
     return [];

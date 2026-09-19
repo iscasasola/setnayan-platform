@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 // lib/schedule-seed.server.ts.
 import { seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
 import {
-  SCHEDULE_BLOCK_LABEL,
+  scheduleBlockLabelFor,
   SCHEDULE_BLOCK_TYPES,
   fetchScheduleBlocks,
   fetchScheduleVisibility,
@@ -592,6 +592,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 rosMeta={rosMeta}
                 rosVendors={rosVendors}
                 canPrep={canPrep}
+                eventType={eventRow?.event_type ?? null}
               />
             </>
           )}
@@ -722,6 +723,7 @@ function EventDayView({
   rosMeta = EMPTY_ROS_META,
   rosVendors = [],
   canPrep = false,
+  eventType = null,
 }: {
   eventId: string;
   blocks: ScheduleBlockRow[];
@@ -730,6 +732,8 @@ function EventDayView({
   rosMeta?: RosMetaMap;
   rosVendors?: EventVendorOption[];
   canPrep?: boolean;
+  /** events.event_type — a birthday's arrival block is not "Pre-ceremony". */
+  eventType?: string | null;
 }) {
   const publicCount = blocks.filter((b) => b.is_public).length;
   // "Next up" (Glass PR-3 §3.1) — the imminent block: the first one that hasn't
@@ -769,7 +773,7 @@ function EventDayView({
         </div>
       ) : null}
 
-      <AddBlockForm eventId={eventId} isTravel={isTravel} canPrep={canPrep} />
+      <AddBlockForm eventId={eventId} isTravel={isTravel} canPrep={canPrep} eventType={eventType} />
 
       {blocks.length === 0 ? (
         <div className="sn-row border-dashed p-8 text-center">
@@ -796,6 +800,7 @@ function EventDayView({
                 rosEnabled={rosEnabled}
                 rosMeta={rosMeta}
                 rosVendors={rosVendors}
+                eventType={eventType}
               />
             </li>
           ))}
@@ -809,10 +814,12 @@ function AddBlockForm({
   eventId,
   isTravel = false,
   canPrep = false,
+  eventType = null,
 }: {
   eventId: string;
   isTravel?: boolean;
   canPrep?: boolean;
+  eventType?: string | null;
 }) {
   // Travel gets the trip-shaped menu (hotel night-blocks + tour time-blocks
   // first); every other event type keeps today's list exactly.
@@ -845,7 +852,7 @@ function AddBlockForm({
           <select name="block_type" defaultValue="custom" className="input-field">
             {typeOptions.map((t) => (
               <option key={t} value={t}>
-                {SCHEDULE_BLOCK_LABEL[t]}
+                {scheduleBlockLabelFor(t, eventType)}
               </option>
             ))}
           </select>
@@ -939,6 +946,7 @@ function BlockCard({
   rosEnabled = false,
   rosMeta = EMPTY_ROS_META,
   rosVendors = [],
+  eventType = null,
 }: {
   eventId: string;
   block: ScheduleBlockRow;
@@ -946,6 +954,7 @@ function BlockCard({
   rosEnabled?: boolean;
   rosMeta?: RosMetaMap;
   rosVendors?: EventVendorOption[];
+  eventType?: string | null;
 }) {
   // Pre-format the time/range string the same way the prior static
   // surface did, then hand off to the BlockTimeEditor client component
@@ -970,7 +979,7 @@ function BlockCard({
           <BlockTimeEditor
             eventId={eventId}
             blockId={block.block_id}
-            blockTypeLabel={SCHEDULE_BLOCK_LABEL[block.block_type]}
+            blockTypeLabel={scheduleBlockLabelFor(block.block_type, eventType)}
             startAt={block.start_at}
             endAt={block.end_at}
             viewLabel={viewLabel}

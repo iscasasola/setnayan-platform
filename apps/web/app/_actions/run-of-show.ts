@@ -69,6 +69,7 @@ export async function fetchRunOfShowBlocks(
     .eq('event_id', eventId)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
+  if (error) console.error('[supabase-error] app/_actions/run-of-show.ts · from:event_schedule_blocks.select', error);
   if (error) return null;
   return (data ?? []).map((b) => ({
     block_id: b.block_id as string,

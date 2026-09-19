@@ -99,3 +99,53 @@ export async function setOpenBrowse(formData: FormData): Promise<void> {
   if (event?.slug) revalidatePath(`/${event.slug}`);
   redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=open-browse`));
 }
+
+/**
+ * Pin the site to one phase, or hand it back to the clock (DAY-33 · PH-6).
+ *
+ * Owner 2026-07-02: *"a manual toggle to set it automatic or manual launch,
+ * whichever website they want. activating one will deactivate the other …
+ * save the date, rsvp, event and editorial."* One radio group, so choosing a
+ * phase IS choosing manual, and choosing Automatic clears the pin — the two
+ * columns can never disagree about which is on.
+ *
+ * Writes `events.launch_mode` / `events.manual_phase` (migration
+ * `20270426100000`, CHECK-guarded) through the couple's own session, so
+ * `couple_can_update_event` is the real gate. 🔑 The update asks for its row
+ * back: a refused write returns zero rows and NO error, and the editor would
+ * otherwise re-render saying the pin took when it did not.
+ */
+export async function setLaunchPhase(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const choice = formData.get('launch_phase');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  const pinned =
+    choice === 'save_the_date' || choice === 'rsvp' || choice === 'event' || choice === 'editorial'
+      ? choice
+      : null;
+  if (choice !== 'auto' && !pinned) return;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+
+  const { data: rows, error: pinError } = await supabase
+    .from('events')
+    .update(
+      pinned
+        ? { launch_mode: 'manual', manual_phase: pinned }
+        : { launch_mode: 'auto', manual_phase: null },
+    )
+    .eq('event_id', eventId)
+    .select('slug');
+  // A write that ERRORED is a refusal too, never a silent success: log the
+  // reason, and the editor re-opens the row saying the pin did not take.
+  if (pinError) console.error('[website-editor] setLaunchPhase update failed:', pinError.message);
+  const saved = !pinError && Array.isArray(rows) && rows.length > 0;
+
+  revalidatePath(`/dashboard/${eventId}/website/editor`);
+  const slug = saved ? (rows[0]?.slug as string | null) : null;
+  if (slug) revalidatePath(`/${slug}`);
+  const fallback = `/dashboard/${eventId}/website/editor?open=launch-phase${saved ? '' : '&pin=refused'}`;
+  redirect(saved ? resolveReturnTo(formData, fallback) : fallback);
+}

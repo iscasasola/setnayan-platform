@@ -188,7 +188,11 @@ export async function fetchVendorDeepSearchPricePhp(
       .eq('sku_code', VENDOR_DEEP_SEARCH_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-deep-search-addon: price (using fallback)', error);
+      return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+    }
+    if (!data) return VENDOR_DEEP_SEARCH_FALLBACK_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : VENDOR_DEEP_SEARCH_FALLBACK_PHP;
   } catch {
@@ -216,7 +220,10 @@ export async function countDeepSearchUsesSince(
       .select('id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorProfileId)
       .gte('used_at', sinceIso);
-    if (error) return 1;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-deep-search-addon.ts · from:vendor_deep_search_uses.select', error);
+      return 1;
+    }
     return count ?? 0;
   } catch {
     return 1;

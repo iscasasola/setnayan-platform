@@ -293,6 +293,7 @@ async function fetchAppointments(
     .gt('scheduled_at', now.toISOString())
     .order('scheduled_at', { ascending: true })
     .limit(20);
+  if (error) console.error('[supabase-error] lib/upcoming-items.ts · from:event_appointments.select', error);
   if (error || !data || data.length === 0) return [];
   const rows = data as AppointmentUpcomingRow[];
 
@@ -381,6 +382,7 @@ async function fetchScheduleBlockItems(
     .gte('start_at', new Date(venueNowMs(DEFAULT_EVENT_TZ, now)).toISOString())
     .order('start_at', { ascending: true })
     .limit(20);
+  if (error) console.error('[supabase-error] lib/upcoming-items.ts · from:event_schedule_blocks.select', error);
 
   if (error || !data) return [];
 
@@ -448,6 +450,7 @@ async function fetchVendorPaymentItems(
     .gte('due_date', todayIso)
     .order('due_date', { ascending: true })
     .limit(20);
+  if (lineItemsErr) console.error('[supabase-error] lib/upcoming-items.ts · from:event_vendor_line_items.select', lineItemsErr);
 
   if (lineItemsErr || !lineItems || lineItems.length === 0) return [];
 
@@ -530,7 +533,11 @@ async function fetchSkuRenewalItems(
     .order('expires_at', { ascending: true })
     .limit(20);
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] upcoming-items: expiring subscription orders', error);
+    return [];
+  }
+  if (!data) return [];
 
   return (data as SubscriptionOrderRow[])
     .filter((row) => row.expires_at !== null)

@@ -2213,6 +2213,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .not('capture_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);
+    if (cErr) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_mission_completions.select', cErr);
 
     if (!cErr && Array.isArray(completions) && completions.length > 0) {
       const captureIds = completions
@@ -2304,6 +2305,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .eq('author_publicly_hidden', false)
       .order('submitted_at', { ascending: true })
       .limit(EDITORIAL_KWENTO_CAP);
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:photo_messages.select', error);
     const msgRows = !error && Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
     if (msgRows.length > 0) {
       // Resolve author display names in one read (guests.display_name, else the
@@ -2678,6 +2680,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           .order('ended_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (broadcastErr) {
+          console.error(
+            '[supabase-error] app/[slug]/_components/editorial/data.ts · from:panood_broadcasts.select',
+            broadcastErr,
+          );
+        }
         if (!broadcastErr && broadcastRow) {
           const rawId = (broadcastRow as Record<string, unknown>).broadcast_id;
           if (isYouTubeVideoId(rawId)) videoId = rawId;

@@ -206,7 +206,11 @@ export async function formatV2Sku(
     .select('service_code, title, retail_price_php, is_token_able, description')
     .eq('service_code', sku)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error('[supabase-error] sku-catalog-v2: catalogue row', error);
+    return null;
+  }
+  if (!data) return null;
   return {
     service_code: data.service_code as V2SkuCode,
     display_name: data.title,

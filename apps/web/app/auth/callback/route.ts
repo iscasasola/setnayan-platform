@@ -62,7 +62,14 @@ export async function GET(request: NextRequest) {
             .from('users')
             .update({ account_type: 'vendor' })
             .eq('user_id', userId);
-          if (!promoteErr) accountType = 'vendor';
+          if (promoteErr) {
+            console.error(
+              '[supabase-error] app/auth/callback/route.ts · from:users.update',
+              promoteErr,
+            );
+          } else {
+            accountType = 'vendor';
+          }
         } catch {
           // createAdminClient() THROWS on a missing/misconfigured service-role
           // key (it doesn't return {error}), and a network-level failure can

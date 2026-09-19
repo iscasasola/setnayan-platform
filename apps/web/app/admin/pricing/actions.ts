@@ -7,7 +7,6 @@ import {
 } from '@/lib/onboarding-discount';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
-import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 import { recheckRetailRemovability, computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
 import { validateRetailRowFields, retailRowUnchanged } from '@/lib/admin/pricing-row-diff';
 
@@ -586,45 +585,15 @@ export async function reactivateVendorRow(
   measurement. Removing a CONTROL is not removing a CAPABILITY.
 */
 
-export async function saveFeeSetting(
-  _prev: RowActionState,
-  formData: FormData,
-): Promise<RowActionState> {
-  const { userId: adminUserId } = await requireAdminAction();
-  const admin = createAdminClient();
+/*
+  ── THE PLATFORM-FEE EDITOR IS GONE TOO, 2026-09-18 (S34) ─────────────────────
+  `saveFeeSetting` and `_components/fee-form.tsx` were taken off the screen on
+  2026-08-29 (see pricing-surface.tsx) and left behind with no caller. Deleted,
+  same reasoning as the set-up discount above.
 
-  const feeRaw = String(formData.get('setnayan_pay_fee_pct') ?? '').trim();
-  const fee = Number(feeRaw);
-  if (!Number.isFinite(fee) || fee < 0 || fee > 100) {
-    return { ok: false, message: 'Fee must be between 0 and 100.' };
-  }
-  const feeR = round2(fee);
-
-  const { data: priorSettings } = await admin
-    .from('platform_settings')
-    .select('setnayan_pay_fee_pct')
-    .eq('id', 1)
-    .maybeSingle();
-  const priorFee =
-    priorSettings?.setnayan_pay_fee_pct != null ? Number(priorSettings.setnayan_pay_fee_pct) : null;
-  const effectivePrior = priorFee ?? SETNAYAN_PAY_FEE_PCT;
-  if (effectivePrior === feeR) return { ok: true, message: 'No changes to save.' };
-
-  const { error } = await admin
-    .from('platform_settings')
-    .update({ setnayan_pay_fee_pct: feeR, updated_at: new Date().toISOString() })
-    .eq('id', 1);
-  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
-
-  await admin.from('admin_audit_log').insert({
-    action: 'platform_fee_edit',
-    target_id: 'setnayan_pay_fee_pct',
-    actor_user_id: adminUserId,
-    metadata: { table: 'platform_settings', field: 'setnayan_pay_fee_pct', before: priorFee, after: feeR },
-  });
-
-  revalidatePath('/admin/payments');
-  revalidatePath('/vendor-dashboard', 'layout');
-  revalidatePath('/admin/pricing');
-  return { ok: true, message: `Saved — ${feeR}%.` };
-}
+  ⚠ `platform_settings.setnayan_pay_fee_pct` IS STILL READ: `getSetnayanFeeBps`
+  in lib/payouts.ts is the fallback in the payout dispatch in
+  app/admin/payments/actions.ts, for an order with no `setnayan_fee_bps`
+  snapshot. It is not editable from any screen now; the stored value (or the
+  5.0% constant) holds. Bringing a control back is the owner's call.
+*/

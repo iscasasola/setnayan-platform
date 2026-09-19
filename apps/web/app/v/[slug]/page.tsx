@@ -42,7 +42,6 @@ import {
   fetchInclusionsByService,
   fetchDiscountsByServicePublic,
   pickBestDiscount,
-  type VendorServiceCoverage,
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import { getEventTypeVocab } from '@/lib/event-types-db';
@@ -50,9 +49,10 @@ import {
   toServiceCard,
   type ServiceShowcaseMedia,
 } from '@/lib/service-card-view-model';
-import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { buildServesLine } from '@/lib/service-serves-line';
 import {
   fetchTrustedByVendors,
+  TRUSTED_BY_UNREADABLE,
   type TrustedByVendor,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
@@ -124,11 +124,14 @@ import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import {
   cardRecordHasSomethingToSay,
+  cardRecordRatingFromTrusted,
   fetchServiceCardRecords,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
+  fetchReviewForVendorWithCouple,
+  pinReviewFirst,
   fetchReviewStats,
   fetchTrustedReviewStats,
   fetchVendorCompletedEvents,
@@ -781,38 +784,6 @@ async function resolveTileByCardKind(
   return out;
 }
 
-/** faithCol (Title-Case storage key) → couple-facing label, from the single
- *  faith registry ([[lib/faith-registry.ts]]). Unknown values pass through. */
-const FAITHCOL_TO_LABEL: ReadonlyMap<string, string> = new Map(
-  FAITH_REGISTRY.map((e) => [e.faithCol, e.label]),
-);
-
-/**
- * The card's "Serves" line from its coverage row — event types first, faiths
- * after an em-dash. EMPTY faiths = "All faiths" (the column contract: an empty
- * array means all faiths welcomed). No coverage row → null → no line rendered.
- * e.g. "Wedding · Debut — All faiths" / "Wedding — Catholic, Muslim".
- */
-function buildServesLine(
-  coverage: VendorServiceCoverage | undefined,
-  eventTypeLabelByKey: ReadonlyMap<string, string>,
-): string | null {
-  if (!coverage) return null;
-  const types = coverage.event_types
-    .map(
-      (t) =>
-        eventTypeLabelByKey.get(t) ??
-        t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    )
-    .filter((t) => t.length > 0);
-  const faiths =
-    coverage.faiths.length === 0
-      ? 'All faiths'
-      : coverage.faiths.map((f) => FAITHCOL_TO_LABEL.get(f) ?? f).join(', ');
-  if (types.length === 0) return faiths === 'All faiths' ? null : faiths;
-  return `${types.join(' · ')} — ${faiths}`;
-}
-
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // render a vendor when a bare slug resolves to one, without duplicating this
 // route. The route's own default export (below) is a thin wrapper.
@@ -989,7 +960,11 @@ export async function renderVendorBySlug({
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
-  const trustedBy = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+  // A REFUSED read is not the same [] — say we couldn't check instead of
+  // silently reading as "nobody endorsed this shop" (S41, reads-are-honest).
+  const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+  const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
+  const trustedBy = trustedByUnreadable ? [] : trustedByRead;
 
   // Verified "typical price" (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
   // The median of this vendor's OWN locked-booking declared prices. Read ONLY
@@ -1025,6 +1000,13 @@ export async function renderVendorBySlug({
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
     });
+    if (error) {
+      // The fail-soft (hide the badge) stays — see the comment above — but a
+      // refused call should not vanish the way the pre-20271141980127 P0001s did.
+      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
+        vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
     return !error && typeof data === 'number' ? data : 0;
   })();
 
@@ -1253,16 +1235,32 @@ export async function renderVendorBySlug({
   const accentVars = canPersonalizePage
     ? micrositeAccentVars(microsite.accent)
     : undefined;
-  // Pro pinned review — float the chosen review to the top of the loaded set.
-  // Best-effort: if it's older than the loaded window it simply isn't surfaced
-  // (no extra fetch); a stale/foreign id no-ops.
-  const orderedReviews =
-    premiumLayout && microsite.pinnedReviewId
-      ? [
-          ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
-          ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
-        ]
-      : reviews;
+  // Pro pinned review — the chosen review leads the list.
+  // 🔴 S43 · 4: this used to say "if it's older than the loaded window it simply
+  // isn't surfaced (no extra fetch)". The window is the newest 5, so pinning any
+  // older review — the whole point of pinning — changed nothing on the page the
+  // supplier was paying to customise. When the pin is outside the window it is
+  // now fetched on its own, scoped to THIS vendor (a stale/foreign id still
+  // no-ops). A refused read is logged and the list renders unpinned.
+  const pinnedReviewId = premiumLayout ? microsite.pinnedReviewId : null;
+  let pinnedOutsideWindow: (typeof reviews)[number] | null = null;
+  if (pinnedReviewId && !reviews.some((r) => r.review_id === pinnedReviewId)) {
+    try {
+      pinnedOutsideWindow = await fetchReviewForVendorWithCouple(
+        admin,
+        vendor.vendor_profile_id,
+        pinnedReviewId,
+      );
+    } catch (err) {
+      logQueryError(
+        'PublicVendorPage.pinnedReview',
+        err,
+        { slug },
+        'graceful_degrade',
+      );
+    }
+  }
+  const orderedReviews = pinReviewFirst(reviews, pinnedReviewId, pinnedOutsideWindow);
 
   // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
   // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being
@@ -2922,15 +2920,7 @@ export async function renderVendorBySlug({
                so the record block can never disagree with the top of the page,
                and costs no extra query. Vendor-level by nature: reviews carry
                no service dimension, which is why the badge says "shop rating". */
-            cardRecordRating={
-              trustedReviewStats.trusted_review_count > 0 &&
-              trustedReviewStats.trusted_avg_rating > 0
-                ? {
-                    avg: trustedReviewStats.trusted_avg_rating,
-                    count: trustedReviewStats.trusted_review_count,
-                  }
-                : null
-            }
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
             /* The details sheet (flag-dark). OFF ⇒ every card renders as the
                static div it does today and no sheet is mounted. */
             detailsEnabled={detailsEnabled}
@@ -3005,7 +2995,11 @@ export async function renderVendorBySlug({
         />
 
         {showTrustedBy ? (
-          <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
+          <TrustedBySection
+            vendors={trustedBy}
+            businessName={displayLabel}
+            unreadable={trustedByUnreadable}
+          />
         ) : null}
 
         <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
@@ -3633,10 +3627,26 @@ const FAVORITES_MIN_DISPLAY = 3;
 function TrustedBySection({
   vendors,
   businessName,
+  unreadable,
 }: {
   vendors: ReadonlyArray<TrustedByVendor>;
   businessName: string;
+  /** true = the vendor_profiles half of the read was refused; `vendors` is []
+   *  because nothing was read, not because nobody endorsed this shop. */
+  unreadable: boolean;
 }) {
+  if (unreadable) {
+    return (
+      <section className="space-y-1.5 border-b border-ink/10 py-8">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Trusted by
+        </h2>
+        <p className="text-sm text-ink/65">
+          We couldn&rsquo;t load {businessName}&rsquo;s vendor endorsements right now.
+        </p>
+      </section>
+    );
+  }
   if (vendors.length === 0) return null;
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -4082,6 +4092,12 @@ async function fetchVendorPackagesWithItems(
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .order('created_at', { ascending: true });
+    if (pkgsErr) {
+      // Same posture as the itemsError guard a few lines down: an empty list
+      // OMITS the Packages section (an honest absence), so keep the reason
+      // logged rather than let a refused read look like "no packages".
+      logQueryError('PublicVendorPage.packages', pkgsErr, { vendorProfileId }, 'graceful_degrade');
+    }
     if (pkgsErr || !pkgs || pkgs.length === 0) return [];
 
     const packageIds = pkgs.map((p) => p.package_id);

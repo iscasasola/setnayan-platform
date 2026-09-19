@@ -710,8 +710,9 @@ export default async function ProfilePage({ searchParams }: Props) {
       </dl>
 
       {/*
-        Anchor target for the Settings row of the (I) menu in
-        apps/web/app/_components/profile-menu.tsx. The menu splits
+        Anchor target for the Settings row of the (I) menu that lived in
+        apps/web/app/_components/profile-menu.tsx (deleted 2026-09-18,
+        unmounted — superseded by the account switcher). That menu split
         identity rows (above this section) from preferences rows
         (this section onward — Planner mode, Display language,
         Appearance, Privacy & data). `scroll-mt-24` pads under the

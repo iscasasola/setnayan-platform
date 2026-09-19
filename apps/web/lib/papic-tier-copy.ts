@@ -174,6 +174,7 @@ export async function fetchPapicTierConfig(
       .select(
         'tier_code, display_title, points_per_day, rate_service_code, seats_per_event, wedding_day_cap_php, sort_order, is_active',
       );
+    if (error) console.error('[supabase-error] lib/papic-tier-copy.ts · from:papic_tier_config.select', error);
     if (error || !data) return { ...PAPIC_TIER_CONFIG_FALLBACK };
     const out: PapicTierConfig = { ...PAPIC_TIER_CONFIG_FALLBACK };
     for (const raw of data as Array<Record<string, unknown>>) {
@@ -311,6 +312,7 @@ export async function fetchPapicFreeGrantRead(
       .select('free_grant_points')
       .eq('config_key', 'default')
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/papic-tier-copy.ts · from:papic_event_pool_config.select', error);
     if (error || !data) return { kind: 'unknown' };
     const n = Number((data as { free_grant_points?: unknown }).free_grant_points);
     if (!Number.isFinite(n)) return { kind: 'unknown' };

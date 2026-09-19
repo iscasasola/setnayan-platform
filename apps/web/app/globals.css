@@ -3886,9 +3886,11 @@ html:active-view-transition .sn-page-enter { animation: none; }
 }
 
 /* ═══ THE LAPTOP GETS ITS TWO COLUMNS (owner 2026-08-28) ════════════════════
- * During the two-question guided pass the drawn desktop layout pins the card
+ * Whenever a question is open — the two-question guided pass, and since SUP-10
+ * (2026-09-18) any edit after it — the drawn desktop layout pins the card
  * beside the question instead of shrinking it inside the page's centred
- * `max-w-2xl` column. Below 1024px NEITHER rule exists — both classes are
+ * `max-w-2xl` column. (The class names still say "pass"; they are pinned by
+ * name in laptop-gets-two-columns.test.ts.) Below 1024px NEITHER rule exists — both classes are
  * declared only inside this one media query, so a phone renders exactly what
  * it rendered before this change, unconditionally.
  *

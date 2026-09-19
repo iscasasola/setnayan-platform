@@ -21,6 +21,13 @@ import {
   STORE_SHELL_CLIENT_TYPE_COOKIE,
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
+import {
+  GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
+  GUEST_SESSION_COOKIE_NAME,
+  shouldRefreshGuestSession,
+  signGuestSession,
+  verifyGuestSessionToken,
+} from '@/lib/guest-session';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
 // (`[a-z0-9-]+`), so a UUID — 36 chars including hyphens — cannot
@@ -117,7 +124,55 @@ function detectVendorSubdomain(hostname: string): string | null {
   return slug;
 }
 
+/**
+ * LAU-40 / DAY-32#4: the guest-session cookie is minted once (redeem, seat
+ * claim, QR rotation) and never touched again — so a guest who is actively
+ * returning across the up-to-30-day post-event window can still hit the flat
+ * 60-day expiry and get logged out mid-event. Middleware is the one place a
+ * request can both read and rewrite a cookie without a Server Component or
+ * Server Action, so it owns the sliding-window refresh: once a verified
+ * cookie has less than half its max age left, re-sign the same payload with
+ * a fresh 60-day expiry. Wraps every return path of the real middleware body
+ * rather than threading through each one — the handler below has a dozen
+ * early returns (rewrites, redirects, the demo-mode branch) and every one of
+ * them can be a guest's request.
+ *
+ * Deliberately does not touch `setnayan_wall_display` (live-wall.ts) — that
+ * cookie is LAU-40's other, separate finding and is S13's (#5593).
+ */
+async function refreshGuestSessionCookie(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<void> {
+  const cookie = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
+  if (!cookie) return;
+
+  const verified = await verifyGuestSessionToken(cookie);
+  // Invalid, forged, or already-expired — leave it alone. A real page read
+  // still runs readGuestSession()'s DB-backed check and signs the guest out
+  // on its own terms; extending an unverifiable cookie here would not help.
+  if (!verified) return;
+  if (!shouldRefreshGuestSession(verified.expiresAtSeconds)) return;
+
+  const refreshed = await signGuestSession(verified.payload);
+  response.cookies.set({
+    name: GUEST_SESSION_COOKIE_NAME,
+    value: refreshed,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
+  });
+}
+
 export async function middleware(request: NextRequest) {
+  const response = await middlewareCore(request);
+  await refreshGuestSessionCookie(request, response);
+  return response;
+}
+
+async function middlewareCore(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostname = (request.headers.get('host') ?? '').toLowerCase();
 

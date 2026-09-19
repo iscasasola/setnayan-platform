@@ -860,8 +860,8 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   const INJECTED_CLIENT_REVIEWED: Record<string, string> = {
     'lib/booking-fee-lock.server.ts':
       '`admin: SupabaseClient` is a parameter. Its ONE production caller ' +
-      '(app/vendor-dashboard/clients/[eventId]/actions.ts — vendorAcknowledgeDeposit) passes ' +
-      'createMoneyWriterClient(); tests/db passes its replay client.',
+      '(lib/deposit-acknowledged-effects.server.ts — runDepositAcknowledgedEffects, which both ' +
+      'acknowledge doors call) passes createMoneyWriterClient(); tests/db passes its replay client.',
   };
 
   const offenders: string[] = [];
@@ -893,7 +893,13 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // `lib/booking-fee-single-trigger.test.ts` is the companion check — it fails
   // if a SECOND non-test caller ever appears, or if this one disappears. If a
   // sixth ruling moves the trigger again, both files change together.
-  for (const caller of ['app/vendor-dashboard/clients/[eventId]/actions.ts']) {
+  //
+  // ⚠ AND IT MOVED AGAIN 2026-09-18 — one level down, same ruling. "The vendor
+  // accepts the payment" has two doors (the customer card and the payment
+  // card), and only the first was collecting. The collector's one caller is
+  // now the shared effects module both doors call; this list went red the
+  // moment the call left the action, which is again the guard working.
+  for (const caller of ['lib/deposit-acknowledged-effects.server.ts']) {
     const src = readFileSync(join(WEB, caller), 'utf8');
     if (!/collectBookingFeeAtLock\(\s*createMoneyWriterClient\(\)/.test(src)) {
       offenders.push(`${caller} → passes a non-money client into collectBookingFeeAtLock`);

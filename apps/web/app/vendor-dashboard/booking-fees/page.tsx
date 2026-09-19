@@ -13,6 +13,7 @@ import {
 import {
   fetchVendorFeeOrders,
   bucketFeeOrders,
+  FEE_ORDERS_UNREADABLE,
 } from '@/lib/vendor-booking-fees.server';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
@@ -44,7 +45,9 @@ export default async function VendorBookingFeesPage() {
   if (!user) redirect(loginRedirectPath('/vendor-dashboard/booking-fees'));
   const supabase = await createClient();
 
-  const orders = await fetchVendorFeeOrders(supabase, user.id);
+  const read = await fetchVendorFeeOrders(supabase, user.id);
+  const unreadable = read === FEE_ORDERS_UNREADABLE;
+  const orders = unreadable ? [] : read;
   const { due, settled, closed } = bucketFeeOrders(orders);
 
   const totalDue = due.reduce(
@@ -76,7 +79,21 @@ export default async function VendorBookingFeesPage() {
         </div>
       ) : null}
 
-      {orders.length === 0 ? (
+      {unreadable ? (
+        <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
+          <ReceiptText
+            className="mx-auto h-8 w-8 text-ink/30"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+          <p className="mt-3 text-sm font-medium text-ink">
+            We couldn&rsquo;t load your booking fees right now.
+          </p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
+            This is on our side, not a sign you owe nothing. Refresh in a moment.
+          </p>
+        </div>
+      ) : orders.length === 0 ? (
         <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
           <ReceiptText
             className="mx-auto h-8 w-8 text-ink/30"

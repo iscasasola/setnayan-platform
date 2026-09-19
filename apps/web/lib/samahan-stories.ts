@@ -39,13 +39,16 @@ export type SamahanStory = {
  * Reads through the CALLER'S client so RLS does the scoping (member-only,
  * expired-hidden) — the admin client is used ONLY for display names, the
  * exact split fetchCommunityRoster already uses.
+ *
+ * `null` = the read was REFUSED — never `[]`, which the strip prints as
+ * "Nothing yet this day." to a community that may be full of stories (S41b).
  */
 export async function fetchSamahanStories(
   supabase: SupabaseClient,
   admin: SupabaseClient,
   communityId: string,
   viewerId: string,
-): Promise<SamahanStory[]> {
+): Promise<SamahanStory[] | null> {
   const { data, error } = await supabase
     .from('samahan_stories')
     .select('story_id, user_id, duration_ms, created_at, expires_at, r2_object_key, poster_r2_key')
@@ -53,7 +56,11 @@ export async function fetchSamahanStories(
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(96);
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] lib/samahan-stories.ts · from:samahan_stories.select', error);
+    return null;
+  }
+  if (!data) return [];
   const rows = data as Array<{
     story_id: string;
     user_id: string;

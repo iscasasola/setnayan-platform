@@ -61,6 +61,7 @@ import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
 import { inclusionsAreSet } from '@/lib/service-publish-gate';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
@@ -467,6 +468,13 @@ export function CanvasMaker({
   const inPass =
     passIndex >= 0 && passIndex < firstPassSteps.length && !(offeredKeep && !keepDecided);
   const passStep = inPass ? firstPassSteps[passIndex] : null;
+  /**
+   * 🖥 THE CARD SITS BESIDE THE QUESTION — on a laptop, whenever a question is
+   * open (SUP-10): the guided pass, or any edit after it. Drives the pin, the
+   * hide, and the meter stepping aside; every rule behind it lives inside
+   * `@media (min-width: 1024px)` or an `lg:` utility, so a phone is untouched.
+   */
+  const cardBeside = inPass || sheet !== null;
   // The pass drives which sheet is open; closing a sheet leaves the pass, which
   // is the "I'll build it myself" escape and needs no separate control.
   useEffect(() => {
@@ -978,12 +986,12 @@ export function CanvasMaker({
 
           (1) This is a NEW card. The one they copied is untouched — it keeps
               its bookings, its record and its address. Nothing here posts an id.
-          (2) The ★ Customization options did NOT come across. They are stored
-              against a one-service package that has no link back to the card it
-              was minted for, so there is no honest way to find them — and
-              guessing by category would attach a DIFFERENT card's options to
-              this one. Saying so is the whole point: a copy that quietly loses
-              a card's choices is a card published missing what it sells. */}
+          (2) What happened to the ★ Customization options — SAID, whichever
+              way it went (SUP-40). They come across when the source card's
+              package names it (`vendor_packages.vendor_service_id`); a card
+              with no linked package, or a read that failed, is told so in its
+              own words. A copy that quietly loses a card's choices is a card
+              published missing what it sells. */}
       {initial ? (
         <div
           className="rounded-xl border p-3 text-sm"
@@ -1002,10 +1010,15 @@ export function CanvasMaker({
               You copied it into a different category, so it sits under this one now.
             </p>
           ) : null}
+          {customizationEnabled ? (
           <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Your options and choices under “What couples get” don’t come across yet —
-            add them here.
+            {initial.customization.status === 'copied'
+                ? `Your ${initial.customization.items.length === 1 ? 'option' : `${initial.customization.items.length} options`} under “What couples get” came across too — check them before you save.`
+                : initial.customization.status === 'unreadable'
+                  ? 'We couldn’t read the options under “What couples get” on that card just now, so none came across — add them here, or go back and try again.'
+                  : 'No options under “What couples get” are linked to that card, so none came across. If it had some, add them here.'}
           </p>
+          ) : null}
         </div>
       ) : null}
       <form ref={formRef} action={commitVendorService} className="space-y-4">
@@ -1034,6 +1047,7 @@ export function CanvasMaker({
             open={diagnosticsOpen}
             onToggle={() => setDiagnosticsOpen((v) => !v)}
             onGo={goTo}
+            asideAtLg={cardBeside}
           />
         )}
 
@@ -1041,14 +1055,17 @@ export function CanvasMaker({
         {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
             would remount the title input mid-typing; this way the "your card can
             go live now" beat costs nothing inside it. */}
-        {/* 🖥 PINNED, NOT SHRUNK — but only DURING the pass, and only at
-            lg+ (see .sn-canvas-pass-pin in globals.css). An ordinary edit,
-            after the pass, is never pinned: nothing is being built behind
-            those sheets, so the card stays exactly where it always has.
+        {/* 🖥 PINNED, NOT SHRUNK — whenever a question is open, and only at
+            lg+ (see .sn-canvas-pass-pin in globals.css). SUP-10 (2026-09-18):
+            this used to be the guided pass only, on the premise that "nothing
+            is being built behind" a later edit. Edits apply to the card LIVE
+            (see CanvasSheet's confirm button: it "changes nothing"), so the
+            card a supplier is changing was the one thing a laptop hid behind a
+            veil. Below 1024px the class has no rule, so a phone is unchanged.
             A SEPARATE wrapper, on purpose — the pulse wrapper below keeps
             its own untouched key+className so keying the card itself still
             cannot happen by accident. */}
-        <div className={inPass ? 'sn-canvas-pass-pin' : undefined}>
+        <div className={cardBeside ? 'sn-canvas-pass-pin' : undefined}>
         <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
         <div
           className="overflow-hidden rounded-2xl border"
@@ -1233,7 +1250,7 @@ export function CanvasMaker({
             here matches HealthHeader's own `{inPass ? null : …}` two dozen
             lines up, which already treats all of this as noise during the
             pass. Still mounted, so every field inside keeps posting. */}
-        <div className={inPass ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
+        <div className={cardBeside ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
         {/* Comes with — bundles the vendor's OTHER cards. Only when they have
             some; the couple reads it straight off the card. */}
         {otherCategoriesShown.length > 0 ? (
@@ -1395,8 +1412,7 @@ export function CanvasMaker({
             footer={passStep === 'intro' ? passFooter : null}
           >
             {/* A sample card, because three sentences about a card are not a
-                card. Somebody else's, plainly labelled — never a fake one of
-                theirs. */}
+                card. Plainly labelled a sample — never a fake one of theirs. */}
             <div
               className="overflow-hidden rounded-xl border"
               style={{ borderColor: line, background: paper }}
@@ -1408,20 +1424,31 @@ export function CanvasMaker({
                 <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
               </div>
               <div className="space-y-0.5 px-3 py-2.5">
+                {/* S43 · 6 — THE SAMPLE MAY ONLY SHOW WHAT A SUPPLIER CAN WRITE.
+                    It used to be a photographer's card promising a free
+                    "engagement mini-shoot", drawn as a Setnayan Exclusive — a
+                    free-text perk that was RETIRED on 2026-09-09 and that no
+                    supplier can author any more, pitched in one trade's words to
+                    every trade. Now: a trade-neutral card whose every line is a
+                    field the maker really has — title, starting price, what's
+                    included, and the ONE shared gift line (an optional yes/no). */}
                 <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Kuya Dan Photo &amp; Video — Full Day
+                  Casa Luna Events — Full-day service
                 </p>
                 <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
-                  from ₱44,999 per event
+                  from ₱25,000 per event
                 </p>
-                <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }}>
-                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                  Free engagement mini-shoot for Setnayan couples
+                <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
+                  Includes: A planning call · Travel within the city
                 </p>
+                <SetnayanGiftLine
+                  className="flex items-center gap-1.5 text-[12px]"
+                  style={{ color: 'var(--m-orange-2)' }}
+                />
               </div>
             </div>
             <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Another supplier&rsquo;s card — this is what couples browse.
+              A sample card — this is what couples browse.
             </p>
             <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
               <li className="flex gap-2">
@@ -1434,20 +1461,21 @@ export function CanvasMaker({
               <li className="flex gap-2">
                 <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
                 <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The price can wait.</span>{' '}
-                  Add it on the card afterwards, or leave it as quote-on-request.
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>A starting price and what&rsquo;s included.</span>{' '}
+                  Couples see &ldquo;from ₱&rdquo; and what comes with it. The final figure is still your quote in chat.
                 </span>
               </li>
               <li className="flex gap-2">
                 <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
                 <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Exclusive is why they book here.</span>{' '}
-                  One thing couples only get through Setnayan.
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Setnayan gift is optional.</span>{' '}
+                  Say yes and your card tells couples it comes with free Papic photos, sized to the booking.
                 </span>
               </li>
             </ul>
             <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Two answers and your card can go live. Everything else is optional, always.
+              A photo, a starting price and what&rsquo;s included, and your card can go live.
+              Everything else is optional, always.
             </p>
           </CanvasSheet>
         ) : null}
@@ -1819,7 +1847,15 @@ export function CanvasMaker({
               the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
               field, exactly as the wizard behaves. */}
           {customizationEnabled ? (
-            <CustomizationStep categoryValue={category} categoryLabel={activeCategoryLabel} />
+            <CustomizationStep
+              categoryValue={category}
+              categoryLabel={activeCategoryLabel}
+              initialItems={
+                initial?.customization.status === 'copied'
+                  ? initial.customization.items
+                  : undefined
+              }
+            />
           ) : null}
         </CanvasSheet>
       </form>
@@ -2090,11 +2126,18 @@ function HealthHeader({
   open,
   onToggle,
   onGo,
+  asideAtLg = false,
 }: {
   health: ReturnType<typeof scoreCardHealth>;
   open: boolean;
   onToggle: () => void;
   onGo: (sheet: CardHealthSheet) => void;
+  /**
+   * On a laptop with a question open, the card is pinned where this header
+   * sits and would paint over it — so it steps aside until the question
+   * closes. `lg:` only: a phone keeps it exactly as before.
+   */
+  asideAtLg?: boolean;
 }) {
   const colour = gradeColour(health.grade);
   const items = [
@@ -2104,7 +2147,9 @@ function HealthHeader({
   ];
   return (
     <div
-      className="sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6"
+      className={`sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6${
+        asideAtLg ? ' lg:hidden' : ''
+      }`}
       style={{
         borderColor: line,
         background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)',
@@ -2410,7 +2455,9 @@ function CanvasSheet({
         className={
           guided
             ? 'absolute inset-0 cursor-default'
-            : 'absolute inset-0 bg-ink/40 backdrop-blur-sm'
+            : // A phone keeps its veil. A laptop drops it: the card this sheet
+              // edits is pinned beside it (SUP-10) and must stay readable.
+              'absolute inset-0 bg-ink/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none'
         }
       />
       <div
@@ -2419,12 +2466,14 @@ function CanvasSheet({
         aria-modal="true"
         aria-labelledby={`${id}-title`}
         className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
-          guided
-            ? // On a laptop the question stops being a drawer over the card and
-              // becomes a column beside it — the card is what they are building,
-              // and a 1400px screen has no reason to hide it behind a sheet.
-              'max-h-[58dvh] lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
-            : 'max-h-[78dvh]'
+          guided ? 'max-h-[58dvh]' : 'max-h-[78dvh]'
+        } ${
+          // On a laptop the question stops being a drawer over the card and
+          // becomes a column beside it — the card is what they are building,
+          // and a 1400px screen has no reason to hide it behind a sheet. EVERY
+          // sheet since SUP-10 (2026-09-18), not only the guided pass: a later
+          // edit changes the card live too.
+          'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
         } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >

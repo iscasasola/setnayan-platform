@@ -13,13 +13,16 @@ import { FaceReceiptCard } from './face-receipt-card';
  * flipped it would show the guest a switch in the wrong position, which on a
  * privacy control is worse than no switch at all.
  *
- * ⚠ FAILS TOWARD "NOT BLURRED". A read error returns false, so the control
- * offers to turn blurring ON. That is the honest direction: the alternative
- * tells a guest they are already blurred on the strength of a failed read.
+ * ⚠ FAILS TOWARD "NOT BLURRED". A read error returns null (NOT MEASURED), and
+ * the control offers to turn blurring ON. That is the honest direction: the
+ * alternative tells a guest they are already blurred on the strength of a
+ * failed read. And since S41b the SENTENCE no longer claims "Your face can
+ * appear" either — a refused read says it could not check, and only the
+ * button leans protective.
  * The GATE itself is in the database and is unaffected by this — this value
  * only decides which sentence and which button the guest sees.
  */
-async function readFaceBlock(eventId: string, guestId: string): Promise<boolean> {
+async function readFaceBlock(eventId: string, guestId: string): Promise<boolean | null> {
   try {
     const { data, error } = await createAdminClient()
       .from('guests')
@@ -27,10 +30,13 @@ async function readFaceBlock(eventId: string, guestId: string): Promise<boolean>
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle();
-    if (error) return false;
+    if (error) {
+      console.error('[supabase-error] app/[slug]/_components/face-data-notice.tsx · from:guests.select', error);
+      return null;
+    }
     return (data as { faceblock_enabled?: boolean } | null)?.faceblock_enabled === true;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -52,12 +58,21 @@ async function readEventClock(
       .select('event_date, event_end_date')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_components/face-data-notice.tsx · from:events.select', error);
     if (error) return { eventDate: null, eventEndDate: null };
     const row = data as { event_date?: string | null; event_end_date?: string | null } | null;
     return { eventDate: row?.event_date ?? null, eventEndDate: row?.event_end_date ?? null };
   } catch {
     return { eventDate: null, eventEndDate: null };
   }
+}
+
+/**
+ * What the one button sets FaceBlock TO. `null` (not measured) offers the
+ * PROTECTIVE action — blur ON — never "show my face again" (S41b).
+ */
+export function faceBlockTarget(current: boolean | null): boolean {
+  return current !== true;
 }
 
 // Guest-facing face controls (RA 10173). Shown under the RSVP once the guest has
@@ -87,7 +102,7 @@ export async function FaceDataNotice({
     resolvePapicFaceMode(createAdminClient(), eventId),
   ]);
   const withdraw = withdrawFaceConsent.bind(null, eventId, guestId);
-  const toggleBlur = setGuestFaceBlock.bind(null, eventId, guestId, !faceblockEnabled);
+  const toggleBlur = setGuestFaceBlock.bind(null, eventId, guestId, faceBlockTarget(faceblockEnabled));
 
   return (
     <div className="space-y-2">
@@ -118,9 +133,11 @@ export async function FaceDataNotice({
             the irreversible one first invites using it by mistake. */}
         <form action={toggleBlur} className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="min-w-0">
-            {faceblockEnabled
-              ? 'Your face is blurred on the screens at the venue.'
-              : 'Your face can appear on the screens at the venue.'}
+            {faceblockEnabled === null
+              ? 'We couldn’t check whether your face is blurred on the screens just now.'
+              : faceblockEnabled
+                ? 'Your face is blurred on the screens at the venue.'
+                : 'Your face can appear on the screens at the venue.'}
           </span>
           <SubmitButton
             className="shrink-0 font-medium text-mulberry underline-offset-2 hover:underline"

@@ -71,6 +71,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   buildVerificationChecks,
   buildVerificationChecksForVendors,
+  readPayoutNameFacts,
   type VerificationChecksReport,
 } from '@/lib/verification-checks-server';
 import {
@@ -594,6 +595,8 @@ async function ApplicationsSurface({
   // applications. `buildVerificationChecks` never throws — a shop with
   // malformed JSONB comes back as manual marks, not as a 500 on the whole queue.
   const checksMap: Record<string, VerificationChecksReport> = {};
+  // SUP-27: the payout-name facts for every shop on screen, in one batch.
+  const payoutNames = await readPayoutNameFacts(fullRows.map((r) => r.vendor_profile_id));
   const checkReports = await Promise.all(
     fullRows.map(async (r) => ({
       id: r.application_id,
@@ -612,6 +615,7 @@ async function ApplicationsSurface({
         registrationNumberNeedsReview: r.vendor.registrationNumberNeedsReview,
         inBusinessSinceYear: r.vendor.inBusinessSinceYear,
         experienceVerifiedAt: r.vendor.experienceVerifiedAt,
+        payoutNames: payoutNames[r.vendor_profile_id],
       }),
     })),
   );

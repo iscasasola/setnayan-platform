@@ -98,7 +98,11 @@ export async function isMarketplaceVendorBookable(
       .select('verification_state')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    if (error || !data) return false;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_profiles.select', error);
+      return false;
+    }
+    if (!data) return false;
     return isBookableVerificationState(
       parseVerificationState(
         (data as { verification_state?: unknown }).verification_state,
@@ -564,7 +568,11 @@ export async function fetchContactConfirmations(
         'application_id,contact_email_confirmed_at,contact_email_confirmed_by,contact_phone_confirmed_at,contact_phone_confirmed_by',
       )
       .in('application_id', applicationIds);
-    if (error || !data) return {};
+    if (error) {
+      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_verification_applications.select', error);
+      return {};
+    }
+    if (!data) return {};
     const out: Record<string, ContactConfirmation> = {};
     for (const row of data as Array<
       { application_id: string } & Partial<ContactConfirmation>
@@ -905,7 +913,11 @@ export async function resolveApplicationFeeCentavos(
       .eq('sku_code', skuCode)
       .maybeSingle();
     // Missing row (null data) or read error → free.
-    if (error || !data) return 0;
+    if (error) {
+      console.error('[supabase-error] vendor-verification: application fee (charging 0)', error);
+      return 0;
+    }
+    if (!data) return 0;
     const row = data as { price_centavos?: number | null; is_active?: boolean | null };
     // Inactive (retired) row → free, regardless of the stored price_centavos.
     if (row.is_active !== true) return 0;

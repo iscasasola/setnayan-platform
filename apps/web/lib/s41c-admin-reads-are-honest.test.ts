@@ -141,8 +141,15 @@ test('getAdminDemandRadar logs a refused RPC before falling back to EMPTY_RADAR'
     s,
     /export async function getAdminDemandRadar\([\s\S]{0,200}?if \(error\) \{\s*logQueryError\('demand-radar: demand_radar_admin', error\);\s*return EMPTY_RADAR;/,
   );
-  // The vendor-facing sibling RPC (out of scope for S41c) is unchanged.
-  assert.match(s, /export async function getVendorDemandRadar[\s\S]{0,260}?if \(error \|\| !Array\.isArray\(data\)\) return EMPTY_RADAR;/);
+  // The vendor-facing sibling was out of scope for THIS batch and pinned as
+  // "unchanged" — then S41c batch B (#5699) deliberately made it honest: a
+  // refused RPC now logs AND returns DEMAND_RADAR_UNREADABLE instead of
+  // EMPTY_RADAR, so the supplier's card can say "couldn't load" rather than
+  // "not enough data yet". Assert that stronger property instead of the old
+  // phrasing: the error branch logs and returns the sentinel, never EMPTY_RADAR.
+  const vendorBody = s.slice(s.indexOf('export async function getVendorDemandRadar'), s.indexOf('export async function getAdminDemandRadar'));
+  assert.match(vendorBody, /if \(error\) \{[\s\S]*?\[supabase-error\][\s\S]*?return DEMAND_RADAR_UNREADABLE;/, 'a refused vendor radar RPC must log and return the unreadable sentinel');
+  assert.doesNotMatch(vendorBody, /if \(error[^)]*\)[^{;]*return EMPTY_RADAR;/, 'a refused vendor radar RPC must never read as an empty radar');
 });
 
 test('the NPC data-sheet page logs both count reads it used to discard (countOf + activeFaceCount)', () => {

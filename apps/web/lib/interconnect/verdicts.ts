@@ -57,6 +57,12 @@ export async function latestVerdictByJoint(): Promise<Record<string, JointVerdic
       .in('probe_key', [...jointByProbe.keys()])
       .order('ran_at', { ascending: false })
       .limit(200);
+    if (error) {
+      console.error(
+        '[supabase-error] lib/interconnect/verdicts.ts · from:interconnection_probe_runs.select',
+        error,
+      );
+    }
     if (error || !data) return {};
 
     const out: Record<string, JointVerdict> = {};

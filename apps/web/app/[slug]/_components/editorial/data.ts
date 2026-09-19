@@ -2680,6 +2680,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           .order('ended_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (broadcastErr) {
+          console.error(
+            '[supabase-error] app/[slug]/_components/editorial/data.ts · from:panood_broadcasts.select',
+            broadcastErr,
+          );
+        }
         if (!broadcastErr && broadcastRow) {
           const rawId = (broadcastRow as Record<string, unknown>).broadcast_id;
           if (isYouTubeVideoId(rawId)) videoId = rawId;

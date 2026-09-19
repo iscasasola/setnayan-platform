@@ -12,6 +12,7 @@ import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 // Admin Compliance — NPC data-sheet export view.
 //
 // A read-only, print-friendly rendering of the stored compliance facts laid out
@@ -108,7 +109,11 @@ export default async function ComplianceDataSheetPage() {
     const { count, error } = await admin
       .from(table)
       .select('*', { count: 'exact', head: true });
-    return error ? null : (count ?? 0);
+    if (error) {
+      logQueryError(`admin/compliance/data-sheet: ${table} count`, error);
+      return null;
+    }
+    return count ?? 0;
   };
 
   const activeFaceCount = async (): Promise<number | null> => {
@@ -116,7 +121,11 @@ export default async function ComplianceDataSheetPage() {
       .from('guest_face_enrollments') // chat-guard-allow: count-only NPC tally (count:exact, head:true) — returns a number, reads zero face vectors
       .select('*', { count: 'exact', head: true })
       .is('revoked_at', null);
-    return error ? null : (count ?? 0);
+    if (error) {
+      logQueryError('admin/compliance/data-sheet: active face enrollments count', error);
+      return null;
+    }
+    return count ?? 0;
   };
 
   const [factsRes, users, guests, faces] = await Promise.all([

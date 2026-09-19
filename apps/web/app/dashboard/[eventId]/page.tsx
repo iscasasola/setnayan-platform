@@ -26,6 +26,7 @@ import {
   type CallTimeVendor,
 } from '@/lib/coordinator-broadcasts';
 import {
+  BROADCASTS_UNREADABLE,
   fetchLatestBroadcasts,
   isCoordinatorP3Enabled,
   resolveBroadcastAuthority,
@@ -308,10 +309,12 @@ export default async function EventHomePage({
     // undefined and the card renders its pre-P3 stub exactly as today.
     if (await isCoordinatorP3Enabled()) {
       try {
-        const [broadcastItems, authority] = await Promise.all([
+        const [broadcastRead, authority] = await Promise.all([
           fetchLatestBroadcasts(supabase, eventId, 3),
           resolveBroadcastAuthority(supabase, eventId, user.id),
         ]);
+        const broadcastsMeasured = broadcastRead !== BROADCASTS_UNREADABLE;
+        const broadcastItems = broadcastsMeasured ? broadcastRead : [];
         let callTimeCount = 0;
         let emailConfigured = false;
         if (authority.canSend) {
@@ -333,6 +336,7 @@ export default async function EventHomePage({
           senderRole: authority.role,
           callTimeCount,
           emailConfigured,
+          broadcastsMeasured,
         };
       } catch {
         dayOfBroadcast = undefined;

@@ -13,11 +13,12 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorContracts } from '@/lib/contracts';
-import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
 import { ShopCard, ShopNotice } from '../_components/kit';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
+import { QrActions } from '@/app/_components/qr-actions';
+import { svgDataUri } from '@/lib/qr-download';
 
 export const metadata = { title: 'QR Code Generator · Vendor' };
 
@@ -236,8 +237,12 @@ async function LockedMode({
             <code className="min-w-0 flex-1 truncate rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink/75">
               {lockUrl}
             </code>
-            <CopyButton value={lockUrl} label="Copy link" />
           </div>
+          <QrActions
+            className="mt-3 flex flex-wrap items-center gap-2"
+            url={lockUrl}
+            download={{ href: svgDataUri(qrSvg), filename: 'setnayan-locked-qr.svg' }}
+          />
           <p className="mt-4 text-xs text-ink/50">
             Give this to that one customer. It works once — after they claim it,
             the QR is spent.
@@ -406,8 +411,12 @@ async function ShortlistMode({
             <code className="min-w-0 flex-1 truncate rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink/75">
               {inviteUrl}
             </code>
-            <CopyButton value={inviteUrl} label="Copy link" />
           </div>
+          <QrActions
+            className="mt-3 flex flex-wrap items-center gap-2"
+            url={inviteUrl}
+            download={{ href: svgDataUri(qrSvg), filename: 'setnayan-shortlist-qr.svg' }}
+          />
         </div>
 
         <ol className="mt-5 space-y-2 text-sm text-ink/65">

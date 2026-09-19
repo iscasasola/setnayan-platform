@@ -6482,7 +6482,6 @@ func	public.compute_attribute_completeness(payload jsonb, schema jsonb)	secdef=n
 func	public.confirm_guest_delivery(p_event_vendor_id uuid, p_qr_token text, p_method text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.confirm_service_slot_reservation(p_reservation_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.confirm_vendor_payment(p_payment_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.consume_vendor_assets(p_vendor_id uuid, p_spend_amount integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
@@ -6623,7 +6622,6 @@ func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverabl
 func	public.respond_vendor_proposal(p_proposal_id uuid, p_response text, p_coarse_category text)	secdef=yes exec=authenticated search_path=public
 func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
-func	public.rival_signals_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public

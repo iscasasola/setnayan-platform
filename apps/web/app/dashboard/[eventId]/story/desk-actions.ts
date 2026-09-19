@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { hostUserId } from './_lib/host-authority';
 import {
   DESK_WRITE_TARGET,
@@ -105,7 +106,9 @@ async function heldBackNow(
       .eq(key, id)
       .eq('event_id', eventId)
       .maybeSingle();
-    if (error) console.error('[supabase-error] app/dashboard/[eventId]/story/desk-actions.ts · from:editorial_vendor_media.select', error);
+    if (error) {
+      logQueryError('desk-actions.ts: heldBackNow editorial_vendor_media', error, { event_id: eventId, id });
+    }
     if (error || !data) return true;
     const ms = (data as Record<string, unknown>).moderation_state;
     return supplierHeldBack({ moderationState: typeof ms === 'string' ? ms : 'unscreened' }) !== null;

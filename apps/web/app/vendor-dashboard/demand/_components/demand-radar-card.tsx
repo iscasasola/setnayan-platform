@@ -22,11 +22,30 @@ export function DemandRadarCard({
   radar,
   marketLabel,
   scope,
+  unreadable = false,
 }: {
   radar: DemandRadar;
   marketLabel: string | null;
   scope: 'vendor' | 'admin';
+  /** true = the radar read was REFUSED, not below the min-N floor — say we
+   *  couldn't check, never "not enough demand data yet" (S41c). */
+  unreadable?: boolean;
 }) {
+  if (unreadable) {
+    return (
+      <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
+        <Radar aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
+        <p className="mt-3 text-sm font-medium text-ink">
+          We couldn&rsquo;t load your demand radar right now
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
+          This is on our side, not a sign your market is quiet. Refresh in a
+          moment.
+        </p>
+      </div>
+    );
+  }
+
   if (!radar.hasData) {
     return (
       <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">

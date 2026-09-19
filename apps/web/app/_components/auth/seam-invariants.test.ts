@@ -63,13 +63,17 @@ const TSX_FILES = walk(APP);
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * The three account menus. All three are the SAME gesture — press your picture
+ * The two account menus. Both are the SAME gesture — press your picture
  * (or your plaque, which is your picture with your name on it), the panel
- * opens, Sign out is in it. Three files because three shells render that panel
- * on different surfaces, not three places to look.
+ * opens, Sign out is in it. Two files because two shells render that panel
+ * on different surfaces, not two places to look.
+ *
+ * There were three. `_components/profile-menu.tsx` was deleted 2026-09-18
+ * (S39) because NOTHING imported it — it had been superseded by the account
+ * switcher. Keeping an unmounted file on this list let the check below count a
+ * Sign-out control nobody could ever see as one of the ways out.
  */
 const ACCOUNT_MENUS = [
-  '_components/profile-menu.tsx',
   '_components/account-switcher/account-switcher.tsx',
   '_components/frontdoor/front-door-shell.tsx',
 ];
@@ -92,7 +96,7 @@ test('signing out is reachable from the account menu and nowhere else', () => {
   );
 });
 
-test('all three account menus still carry it — the rule removed FOUR, not five', () => {
+test('both account menus still carry it — the rule removed FOUR, not five', () => {
   // The counterpart of the check above. Narrowing "exactly one place" until
   // there is NO place is the failure mode that check cannot see, and it would
   // strand every signed-in person in the product.

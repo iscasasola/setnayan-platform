@@ -10,7 +10,9 @@ import {
   classifyNativeNfcError,
   classifyNfcError,
   decodeNdefUriRecords,
+  guestTokenFromTag,
   ndefUriRecord,
+  nfcReadFailureCopy,
   ndefUrlTagBytes,
   sessionEndReason,
   nfcFailureCopy,
@@ -166,4 +168,34 @@ test("the plugin's rejections name the same reasons as the web path", () => {
   assert.equal(sessionEndReason('sessionTimeout'), 'timed-out');
   assert.equal(sessionEndReason('invalidated'), 'unexpected');
   assert.equal(sessionEndReason(undefined), 'unexpected');
+});
+
+test('a tag and a QR are judged by the one parser', async () => {
+  const { parseGuestQrPayload } = await import('./checkin');
+  const token = 'ab'.repeat(16);
+  const invite = `https://www.setnayan.com/u/o/ana-miguel?invite=${token}`;
+  assert.deepEqual(guestTokenFromTag([invite], parseGuestQrPayload), { token });
+  // The first record that is a guest code wins; other records are ignored.
+  assert.deepEqual(
+    guestTokenFromTag(['https://www.setnayan.com/v/saysay', invite], parseGuestQrPayload),
+    { token },
+  );
+  assert.deepEqual(guestTokenFromTag([], parseGuestQrPayload), { token: null, reason: 'empty' });
+  assert.deepEqual(guestTokenFromTag(['https://www.setnayan.com/v/saysay'], parseGuestQrPayload), {
+    token: null,
+    reason: 'not-a-guest-code',
+  });
+  // A tag written by the strip round-trips to the same token the QR yields.
+  assert.deepEqual(
+    guestTokenFromTag(decodeNdefUriRecords([ndefUriRecord(invite)]), parseGuestQrPayload),
+    { token },
+  );
+});
+
+test('read failures are worded for a desk, and always offer the QR', () => {
+  for (const r of ['permission-denied', 'nfc-off', 'no-nfc', 'unsupported-browser'] as const) {
+    assert.match(nfcReadFailureCopy(r), /QR/, r);
+  }
+  assert.match(nfcReadFailureCopy('timed-out'), /Read a tag/);
+  assert.doesNotMatch(nfcReadFailureCopy('tag-moved'), /write/i);
 });

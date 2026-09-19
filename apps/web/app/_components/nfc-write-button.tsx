@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Nfc, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { CopyButton } from '@/app/_components/copy-button';
-import { isNfcWriteEnabled } from '@/lib/nfc-write-flag';
+import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import {
   NFC_READBACK_TIMEOUT_MS,
   NFC_WRITE_TIMEOUT_MS,
@@ -19,8 +19,14 @@ import {
   sessionEndReason,
   tagSizeCopy,
   type NfcFailureReason,
-  type RawNdefRecord,
 } from '@/lib/nfc-tag';
+import {
+  nativeNfc,
+  type ListenerHandle,
+  type NativeNfc,
+  type NativeNfcEvent,
+  type NdefReaderCtor,
+} from '@/app/_components/nfc-runtime';
 
 /**
  * NfcWriteButton — "Write to NFC": the same link a QR encodes, written onto a
@@ -52,42 +58,9 @@ import {
  * Held by app/_components/every-qr-carries-the-strip.test.ts.
  *
  * Gated by NEXT_PUBLIC_NFC_WRITE_ENABLED (lib/nfc-write-flag.ts) — OFF until
- * the owner confirms one real tap. Download + Copy on the same strip are not.
+ * the owner confirms one real tap — or this phone's own `?nfc-test=1` opt-in
+ * (use-nfc-enabled.ts). Download + Copy on the same strip are not.
  */
-
-// ── Web NFC (not in TypeScript's lib.dom) ─────────────────────────────────
-type NdefRecordLike = { recordType: string; data?: DataView | null };
-type NdefReaderLike = {
-  write(message: { records: { recordType: 'url'; data: string }[] }, opts: { signal: AbortSignal; overwrite: boolean }): Promise<void>;
-  scan(opts: { signal: AbortSignal }): Promise<void>;
-  addEventListener(type: 'reading', cb: (ev: { message: { records: NdefRecordLike[] } }) => void): void;
-};
-type NdefReaderCtor = new () => NdefReaderLike;
-
-// ── The app's native plugin (@capgo/capacitor-nfc, jsName "CapacitorNfc") ──
-type ListenerHandle = { remove: () => Promise<void> | void };
-type NativeNfcEvent = { tag?: { ndefMessage?: RawNdefRecord[] | null } };
-type NativeNfc = {
-  startScanning(opts: { invalidateAfterFirstRead?: boolean; alertMessage?: string }): Promise<void>;
-  stopScanning(): Promise<void>;
-  write(opts: { records: RawNdefRecord[]; allowFormat?: boolean }): Promise<void>;
-  getStatus(): Promise<{ status: string }>;
-  addListener(event: 'nfcEvent', cb: (e: NativeNfcEvent) => void): Promise<ListenerHandle> | ListenerHandle;
-  addListener(event: 'nfcSessionEnd', cb: (e: { reason?: string }) => void): Promise<ListenerHandle> | ListenerHandle;
-};
-type CapacitorGlobal = {
-  isNativePlatform?: () => boolean;
-  isPluginAvailable?: (name: string) => boolean;
-  Plugins?: { CapacitorNfc?: NativeNfc };
-};
-
-function nativeNfc(): NativeNfc | null {
-  if (typeof window === 'undefined') return null;
-  const cap = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
-  if (!cap?.isNativePlatform?.()) return null;
-  if (cap.isPluginAvailable && !cap.isPluginAvailable('CapacitorNfc')) return null;
-  return cap.Plugins?.CapacitorNfc ?? null;
-}
 
 type Writer = 'app' | 'web' | 'none';
 
@@ -116,7 +89,7 @@ export function NfcWriteButton({
   url: string;
   className?: string;
 }) {
-  const nfcWrite = isNfcWriteEnabled();
+  const nfcOn = useNfcEnabled();
   const eligibility = nfcTagEligibility(url);
   const [writer, setWriter] = useState<Writer | null>(null);
   const [state, setState] = useState<SheetState>({ kind: 'closed' });
@@ -200,7 +173,7 @@ export function NfcWriteButton({
     [eligibility, writer, settle, stop],
   );
 
-  if (!nfcWrite || !eligibility.eligible) return null;
+  if (!nfcOn || !eligibility.eligible) return null;
 
   const open = state.kind !== 'closed';
 

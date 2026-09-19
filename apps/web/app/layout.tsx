@@ -11,6 +11,7 @@ import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { NativeBridge } from './_components/native-bridge';
+import { NfcTestSwitch } from './_components/use-nfc-enabled';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
@@ -693,6 +694,8 @@ export default async function RootLayout({
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />
+        {/* Remembers a phone's own `?nfc-test=1` NFC opt-in from any page. */}
+        <NfcTestSwitch />
         {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
             it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
             itself only on the two Live Studio surfaces where it would be

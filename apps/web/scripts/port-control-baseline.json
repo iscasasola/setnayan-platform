@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "06c2151a0f",
+  "generatedFromRef": "e7a6cf0e24",
   "routeCount": 428,
   "destinations": 921,
-  "actions": 638,
-  "blocks": 4484,
+  "actions": 639,
+  "blocks": 4485,
   "routes": {
     "/": {
       "files": [
@@ -2969,6 +2969,7 @@
         "formAction",
         "ladderFormAction",
         "reactivateFormAction",
+        "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
@@ -4929,6 +4930,7 @@
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
+        "UpcomingItemSource",
         "UpdateMatchCriteriaResult",
         "VeilReveal",
         "VendorCategoryProgress",
@@ -8816,6 +8818,7 @@
       ],
       "blocks": [
         "Banner",
+        "BroadcastReadiness",
         "BroadcastWindowStrip",
         "CachedRead",
         "CameraFeedsContext.Provider",
@@ -9821,6 +9824,7 @@
       "files": [
         "vendor-dashboard/bookings/_components/vendor-prep-add.tsx",
         "vendor-dashboard/bookings/actions.ts",
+        "vendor-dashboard/bookings/booking-list-status.ts",
         "vendor-dashboard/bookings/loading.tsx",
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
@@ -9935,6 +9939,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
@@ -9998,6 +10003,7 @@
         "BoothEventBuyForm",
         "BoothEventSection",
         "BoothPosterCard",
+        "BoothStudioCard",
         "Card",
         "CardTabs",
         "ClientNotes",
@@ -10210,6 +10216,7 @@
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
+        "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx"
       ],
       "destinations": [

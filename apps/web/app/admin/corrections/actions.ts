@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { geocodeNominatim } from '@/lib/geo';
 import {
   isLockedIdentityFieldKey,
@@ -170,6 +171,11 @@ async function loadOpenRequest(
     )
     .eq('id', Number(requestId))
     .maybeSingle();
+  if (error) {
+    logQueryError('app/admin/corrections/actions.ts: loadOpenRequest vendor_correction_requests', error, {
+      request_id: requestId,
+    });
+  }
   if (error || !data) return null;
   return data as VendorCorrectionRequestRow;
 }

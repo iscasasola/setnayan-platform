@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   createEventTypeCore,
   updateEventTypeCore,
@@ -340,7 +341,14 @@ export async function setFolderEventTypeOffered(formData: FormData) {
       .from('service_categories')
       .update({ applicable_event_types: next })
       .eq('id', t.id);
-    if (!error) changed += 1;
+    if (error) {
+      logQueryError('app/admin/event-types/actions.ts: setFolderEventTypeOffered service_categories', error, {
+        tile_id: t.id,
+        folder_id: folderId,
+      });
+    } else {
+      changed += 1;
+    }
   }
 
   await admin.from('admin_audit_log').insert({

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Gauge, TrendingUp, Radar, Info } from 'lucide-react';
 import { replyTimeVerdict } from '@/lib/vendor-reply-time';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
@@ -407,6 +408,11 @@ export default async function PerformanceHome({
     )
     .eq('status', 'accepted')
     .eq('is_active', true);
+  if (partnershipErr) {
+    logQueryError('vendor-dashboard/performance/page.tsx: vendor_partnerships count', partnershipErr, {
+      vendor_profile_id: profile.vendor_profile_id,
+    });
+  }
 
   const growthRecs = buildGrowthRecs(
     statsRow

@@ -59,6 +59,10 @@ function toServiceCardCalls(src: string): string[][] {
 }
 
 // Positions, from the builder's own signature in lib/service-card-view-model.ts.
+const INCLUSIONS = 1;
+const DISCOUNTS = 2;
+const SERVES = 3;
+const SHOWCASE = 4;
 const HIDE_PRICES = 5;
 const CARD_RECORD = 8;
 const CARD_RECORD_RATING = 9;
@@ -72,6 +76,10 @@ test('the builder signature still has the record and hidePrices where this test 
     .map((l) => l.trim())
     .filter((l) => /^[a-zA-Z]+\??:/.test(l))
     .map((l) => l.split(':')[0]!.replace('?', ''));
+  assert.equal(params[INCLUSIONS], 'inclusions', `params were: ${params.join(', ')}`);
+  assert.equal(params[DISCOUNTS], 'discounts', `params were: ${params.join(', ')}`);
+  assert.equal(params[SERVES], 'serves', `params were: ${params.join(', ')}`);
+  assert.equal(params[SHOWCASE], 'showcase', `params were: ${params.join(', ')}`);
   assert.equal(params[HIDE_PRICES], 'hidePrices', `params were: ${params.join(', ')}`);
   assert.equal(params[CARD_RECORD], 'cardRecord', `params were: ${params.join(', ')}`);
   assert.equal(params[CARD_RECORD_RATING], 'cardRecordRating', `params were: ${params.join(', ')}`);
@@ -118,4 +126,28 @@ test('the shop-rating rule: nothing until a trusted review exists', () => {
     cardRecordRatingFromTrusted({ trusted_avg_rating: 4.8, trusted_review_count: 3 }),
     { avg: 4.8, count: 3 },
   );
+});
+
+test('S43 · 5 — the marketplace card gets the same inclusions, discounts, Serves line and showcase as the shop page', () => {
+  // The four positions were hard-wired to `undefined`, so the SAME ServiceCardView
+  // drew no "Includes", no discount badge, no Serves line and no photo strip on
+  // /explore, and all four one click later on the shop.
+  const [args] = toServiceCardCalls(read('app', '(shell)', 'explore', 'page.tsx'));
+  const expect: Array<[number, RegExp, string]> = [
+    [INCLUSIONS, /^serviceCardInclusions\.get\(c\.row\.vendor_service_id\)$/, 'inclusions'],
+    [DISCOUNTS, /^serviceCardDiscounts\.get\(c\.row\.vendor_service_id\)$/, 'discounts'],
+    [SERVES, /^serviceCardServes\.get\(c\.row\.vendor_service_id\)$/, 'serves'],
+    [SHOWCASE, /^serviceCardShowcase\.get\(c\.row\.vendor_service_id\)$/, 'showcase'],
+  ];
+  for (const [pos, re, name] of expect) {
+    assert.match(args![pos]!, re, `${name} is "${args![pos]}" on /explore`);
+  }
+  const explore = read('app', '(shell)', 'explore', 'page.tsx');
+  // The same readers the shop page uses — a second copy would drift.
+  for (const fn of ['fetchInclusionsByService(', 'fetchDiscountsByServicePublic(', 'fetchCoveragesByIdPublic(', 'buildServesLine(']) {
+    assert.ok(explore.includes(fn), `/explore no longer calls ${fn}`);
+  }
+  const shop = read('app', 'v', '[slug]', 'page.tsx');
+  assert.ok(shop.includes("from '@/lib/service-serves-line'"), 'the shop page must use the ONE Serves-line builder');
+  assert.ok(!/function buildServesLine\(/.test(shop), 'a second, private Serves-line builder is back on the shop page');
 });

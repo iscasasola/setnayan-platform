@@ -519,8 +519,8 @@ function EarnedTile({
       </span>
       <span className="mt-2 flex items-center gap-1 text-xs text-ink/60">
         {bookingCount === 0
-          ? 'Paid bookings roll up here.'
-          : `${bookingCount} booking${bookingCount === 1 ? '' : 's'} logged`}
+          ? 'Payments you confirm roll up here.'
+          : `${bookingCount} payment${bookingCount === 1 ? '' : 's'} confirmed`}
         <ArrowUpRight
           className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
           strokeWidth={1.75}

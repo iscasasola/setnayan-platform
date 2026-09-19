@@ -106,7 +106,10 @@ export async function collectEventMediaRefs(
     .from('event_egift_methods')
     .select(EGIFT_KEYS.join(','))
     .eq('event_id', eventId);
-  if (egiftErr) return null;
+  if (egiftErr) {
+    console.error('[supabase-error] event-media-sweep: event_egift_methods', egiftErr, { eventId });
+    return null;
+  }
 
   const { data: ev, error: evErr } = await admin
     .from('events')

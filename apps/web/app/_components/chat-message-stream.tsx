@@ -51,6 +51,7 @@ import {
 } from './chat-amendment-card';
 import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
+import type { DealEntry } from '@/lib/deal-entry';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
   ThreadViewSwitch,
@@ -99,6 +100,13 @@ type ProposalCardData = {
 
 type Props = {
   threadId: string;
+  /**
+   * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
+   * chip opens the amendment builder, and a Deal amends a quote — so before
+   * one exists the chip is not offered on either side (owner, 2026-09-19: it
+   * rendered under the couple's own opening inquiry).
+   */
+  dealEntry: DealEntry;
   initialMessages: ChatMessageRow[];
   currentUserId: string;
   /**
@@ -207,6 +215,7 @@ const TYPING_DEBOUNCE_MS = 700;
 const TYPING_IDLE_MS = 3000;
 
 export function ChatMessageStream({
+  dealEntry,
   threadId,
   initialMessages,
   currentUserId,
@@ -1373,6 +1382,7 @@ export function ChatMessageStream({
                   creating new changes; existing change-order cards still
                   resolve). Opens the multi-item amendment builder. */}
               {negotiationOn &&
+              dealEntry.offerDeal &&
               ownsBubble(m, viewerRole) &&
               !m.proposal_id &&
               !m.appointment_id &&

@@ -5,12 +5,20 @@
 // "Request a meeting" — so a structured card can be created without waiting for
 // the auto-suggest chip to fire. Reuses the same server actions + builder the
 // chips use. Flag-gated; nothing renders when the negotiation flag is off.
+//
+// Owner's two entry points stand (the verdict's "OWNER DECISIONS": the "+" AND
+// the auto-suggest chip). What changed on 2026-09-19 is only WHEN "Send a deal"
+// is offered: a Deal is "current total → changes → new total", so with no quote
+// on the thread it is withheld (`entry.offerDeal`, from `lib/deal-entry.ts`).
+// Request a meeting is never withheld.
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { AmendmentBuilder } from './amendment-builder';
 import { createAmendmentFromChat, createScheduleRequestFromChat } from './negotiation-actions';
+import { revealThreadTool } from './chat/reveal-thread-tool';
+import type { DealEntry } from '@/lib/deal-entry';
 import {
   TIME_SLOTS,
   todayIsoLocal,
@@ -26,8 +34,11 @@ export function NegotiationComposerMenu({
   eventDate,
   initialMode = null,
   embedded = false,
+  entry,
 }: {
   threadId: string;
+  /** `dealEntryFor(...)` for this thread — whether "Send a deal" is offered at all. */
+  entry: DealEntry;
   returnPath: string;
   eventDate: string | null;
   /**
@@ -45,7 +56,10 @@ export function NegotiationComposerMenu({
    */
   embedded?: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>(initialMode ?? (embedded ? 'menu' : null));
+  // `?compose=deal` cannot open the amendment builder over nothing — with no
+  // quote on the thread it lands on the menu instead.
+  const opening = initialMode === 'deal' && !entry.offerDeal ? 'menu' : initialMode;
+  const [mode, setMode] = useState<Mode>(opening ?? (embedded ? 'menu' : null));
   const [kind, setKind] = useState<AppointmentKind>('video');
 
   if (!chatNegotiationEnabled()) return null;
@@ -66,16 +80,28 @@ export function NegotiationComposerMenu({
     );
   }
 
-  if (mode === 'menu') {
+  // A 'deal' mode with nothing to amend shows the menu — never an empty panel.
+  if (mode === 'menu' || (mode === 'deal' && !entry.offerDeal)) {
     return (
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setMode('deal')}
-          className="inline-flex items-center gap-1.5 rounded-full border border-mulberry/30 bg-mulberry/[0.06] px-3 py-1 text-xs font-medium text-mulberry hover:bg-mulberry/10"
-        >
-          🧾 Send a deal
-        </button>
+        {entry.menuQuote ? (
+          <button
+            type="button"
+            onClick={() => revealThreadTool(entry.menuQuote!.reveal)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-mulberry/30 bg-mulberry/[0.06] px-3 py-1 text-xs font-medium text-mulberry hover:bg-mulberry/10"
+          >
+            🧾 {entry.menuQuote.label}
+          </button>
+        ) : null}
+        {entry.offerDeal ? (
+          <button
+            type="button"
+            onClick={() => setMode('deal')}
+            className="inline-flex items-center gap-1.5 rounded-full border border-mulberry/30 bg-mulberry/[0.06] px-3 py-1 text-xs font-medium text-mulberry hover:bg-mulberry/10"
+          >
+            🧾 Send a deal
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setMode('meeting')}
@@ -93,11 +119,12 @@ export function NegotiationComposerMenu({
             <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           </button>
         )}
+        {entry.menuNote ? <p className="w-full text-xs text-ink/55">{entry.menuNote}</p> : null}
       </div>
     );
   }
 
-  if (mode === 'deal') {
+  if (mode === 'deal' && entry.offerDeal) {
     return (
       <div className="mb-1.5">
         <AmendmentBuilder

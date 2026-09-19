@@ -7,8 +7,9 @@ import { ServiceScopeSelectClient } from './service-scope-select-client';
 /**
  * Service-scope selector for My Performance — "All services" + one control per
  * ACTIVE service. Lets a multi-service vendor read the bookings-derived cards
- * (Momentum, ROI, booked count) segmented to a single service; the shop-level
- * cards wear an "across all services" note when a service is picked.
+ * (Momentum, ROI, booked count) segmented to a single service. The shop-level
+ * cards sit ABOVE this control, so they are visibly outside its scope; the
+ * funnel below it says in words that its other stages are shop-wide.
  *
  * FORM factor (owner: 44px targets, no horizontal scroll thrash):
  *   • ≤4 active services → accessible pill tablist (role=tablist/tab +

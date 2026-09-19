@@ -281,7 +281,6 @@ export const loadDayOfBroadcast = cache(
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select', error);
     // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
     // read error must never take the wedding page down on the day.
     if (error) {

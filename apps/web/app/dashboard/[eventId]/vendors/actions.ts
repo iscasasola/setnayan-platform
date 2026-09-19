@@ -9,6 +9,13 @@
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
+import {
+  ACCEPTED_QUOTE_SELECT,
+  acceptedQuoteTerms,
+  decideDepositAmount,
+  manualCostingEditorShown,
+  type AcceptedQuoteRow,
+} from '@/lib/accepted-quote-terms';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -209,12 +216,41 @@ export async function updateVendorCosts(formData: FormData) {
   // grows further).
   const { data: existing } = await supabase
     .from('event_vendors')
-    .select('total_cost_php')
+    .select('total_cost_php, marketplace_vendor_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // 🔒 AN ACCEPTED QUOTE IS THE PRICE (controller ruling, 2026-09-19). This
+  // form used to overwrite `total_cost_php` with whatever the couple typed —
+  // a second writer of a price the supplier's accepted quote already settled.
+  // With an accepted marketplace quote the editor does not render
+  // (`manualCostingEditorShown`), and this action — the door a stale tab or a
+  // hand-built POST still reaches — leaves the three price columns alone and
+  // writes only the crew fields. Fails closed: an unreadable quote read writes
+  // nothing rather than guessing the price is the couple's to set.
+  const existingMarketplaceId =
+    (existing as { marketplace_vendor_id?: string | null } | null)?.marketplace_vendor_id ?? null;
+  let quoteSettlesPrice = false;
+  if (existingMarketplaceId) {
+    const { data: quoteRows, error: quoteErr } = await supabase
+      .from('vendor_proposals')
+      .select(ACCEPTED_QUOTE_SELECT)
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', existingMarketplaceId)
+      .eq('status', 'accepted')
+      .limit(1);
+    if (quoteErr) throw new Error(quoteErr.message);
+    quoteSettlesPrice = !manualCostingEditorShown({
+      isMarketplaceVendor: true,
+      acceptedQuote: acceptedQuoteTerms((quoteRows ?? []) as AcceptedQuoteRow[]),
+    });
+  }
+
   const totalChanged =
-    existing != null && Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
+    !quoteSettlesPrice &&
+    existing != null &&
+    Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
 
   // Crew-meal coverage (2026-07-09): when the couple marks this vendor's crew as
   // fed by the event's crew-meal provider, its own crew-meal line
@@ -227,13 +263,15 @@ export async function updateVendorCosts(formData: FormData) {
     typeof crewSizeRaw === 'string' && crewSizeRaw.trim() !== '' ? Number(crewSizeRaw) : NaN;
   const crewSize = Number.isFinite(crewSizeNum) ? Math.max(0, Math.trunc(crewSizeNum)) : null;
 
-  const updatePayload: Record<string, unknown> = {
-    total_cost_php: newTotal,
-    transport_php: parseMoney(formData.get('transport_php')),
-    food_allowance_php: crewMealCovered ? null : parseMoney(formData.get('food_allowance_php')),
-    crew_size: crewSize,
-    crew_meal_covered: crewMealCovered,
-  };
+  const updatePayload: Record<string, unknown> = quoteSettlesPrice
+    ? { crew_size: crewSize, crew_meal_covered: crewMealCovered }
+    : {
+        total_cost_php: newTotal,
+        transport_php: parseMoney(formData.get('transport_php')),
+        food_allowance_php: crewMealCovered ? null : parseMoney(formData.get('food_allowance_php')),
+        crew_size: crewSize,
+        crew_meal_covered: crewMealCovered,
+      };
   if (totalChanged) {
     const livePax = await resolveLivePax(supabase, eventId);
     updatePayload.pax_quote_base = livePax;
@@ -4463,6 +4501,45 @@ export async function recordDeposit(
     deposit_recorded_at: string | null;
     contact_email: string | null;
   };
+
+  // THE REQUESTED FIRST PAYMENT IS THE MINIMUM (owner, 2026-09-19: "it should
+  // follow the amount requested and that means that is the minimum"). The
+  // accepted quote's frozen schedule names it; `decideDepositAmount`
+  // (lib/accepted-quote-terms.ts) is the rule, executed by its test. Read on
+  // the admin client, scoped to THIS booking's supplier, only AFTER the
+  // RLS-gated read above proved the caller may act on it — so a coordinator
+  // whose RLS cannot see proposals is held to the same minimum as the couple.
+  // 🔒 FAILS CLOSED: a refused read cannot tell "no minimum" from "₱3,350", so
+  // nothing is recorded until the terms can be checked.
+  let depositMinimumCentavos: number | null = null;
+  if (ev.marketplace_vendor_id) {
+    const { data: quoteRows, error: quoteErr } = await createAdminClient()
+      .from('vendor_proposals')
+      .select(ACCEPTED_QUOTE_SELECT)
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .eq('status', 'accepted')
+      .limit(1);
+    if (quoteErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] accepted-quote read failed for vendor_id=${vendorId}:`, quoteErr.message);
+      return {
+        status: 'error',
+        message:
+          "We couldn't check the payment terms on your accepted quote, so nothing was recorded. Please try again.",
+      };
+    }
+    depositMinimumCentavos =
+      acceptedQuoteTerms((quoteRows ?? []) as AcceptedQuoteRow[])?.firstPaymentCentavos ?? null;
+  }
+  const amountDecision = decideDepositAmount({
+    amountPhp,
+    minimumCentavos: depositMinimumCentavos,
+    vendorName: ev.vendor_name,
+  });
+  if (!amountDecision.ok) {
+    return { status: 'error', message: amountDecision.message };
+  }
 
   // Optional proof artifact — to the PRIVATE bucket under this event's deposit
   // folder, stored as a ref and read back only through a short-lived signed

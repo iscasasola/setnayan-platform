@@ -38,6 +38,14 @@ export type CollectBookingFeeResult =
   | { status: 'free'; chargeId: string; bookingOrdinal: number }
   | { status: 'zero_fee'; chargeId: string }
   | { status: 'order_exists'; chargeId: string; orderId: string }
+  /**
+   * The insert hit `orders_booking_fee_one_bill_per_charge` (23505): another
+   * writer billed this charge between our existence check and our insert. The
+   * DATABASE refused the second bill, so this is success-without-a-second-row.
+   * `orderId` is the surviving bill, or NULL if the follow-up read failed
+   * (the bill still exists — the index proves it).
+   */
+  | { status: 'already_billed'; chargeId: string; orderId: string | null }
   | { status: 'no_payer'; chargeId: string }
   | {
       status: 'ordered';
@@ -49,6 +57,14 @@ export type CollectBookingFeeResult =
       /** Free Papic photos this bill buys the couple (0 = no gift). */
       giftCredits: number;
     };
+
+/**
+ * A unique_violation on the one-bill-per-charge index. Only 23505 — any other
+ * insert error is a real failure and stays a `skipped` with its reason.
+ */
+function isAlreadyBilled(err: { code?: string | null }): boolean {
+  return err.code === '23505';
+}
 
 /** 'SN' + 8 uppercase hex — the shared reference-code shape (createOrder / ai-addon). */
 function generateReferenceCode(): string {
@@ -118,8 +134,10 @@ export async function collectBookingFeeAtLock(
   // same serviceKey → skip re-issuing (belt over the RPC's own one-live-charge).
   //
   // ⚠ A REFUSED read here is NOT "no order yet" (FEE-HONEST, 2026-09-19). Read
-  // as absence it minted a SECOND bill for a charge that already had one —
-  // `orders.service_key` carries no unique index to stop it. Fail-safe
+  // as absence it minted a SECOND bill for a charge that already had one.
+  // Since 20271234849476 a partial unique index also refuses that second row
+  // (handled as `already_billed` at the insert below); the skip stays, because
+  // an unanswered question should not be answered by provoking the index. Fail-safe
   // invariant #1: an unanswered question bills NOTHING; the next acknowledge
   // re-asks. The charge stays pending, so nothing is lost by waiting.
   const { data: existingOrder, error: existingOrderError } = await admin
@@ -221,6 +239,27 @@ export async function collectBookingFeeAtLock(
     })
     .select('order_id')
     .maybeSingle();
+  if (oErr && isAlreadyBilled(oErr)) {
+    // ONE BILL PER CHARGE, ENFORCED BY THE DATABASE (owner 2026-09-20, migration
+    // 20271234849476). The key IS the charge, so a unique_violation means the
+    // bill already exists — a concurrent acknowledge, or the SQL amendment
+    // writer, won the race. Success, and no second row. Read the survivor so
+    // the caller can point at it; a failed read does not change the verdict.
+    const { data: winner, error: winnerError } = await admin
+      .from('orders')
+      .select('order_id')
+      .eq('service_key', serviceKey)
+      .limit(1)
+      .maybeSingle();
+    if (winnerError) {
+      logQueryError('booking-fee-lock.collectBookingFeeAtLock.alreadyBilled', winnerError, { chargeId });
+    }
+    const winnerId = (winner as { order_id?: string } | null)?.order_id ?? null;
+    console.warn(
+      `[booking-fee-lock] already billed: charge ${chargeId} (${serviceKey}) — the database refused a second bill (23505); existing order ${winnerId ?? 'unreadable'}`,
+    );
+    return { status: 'already_billed', chargeId, orderId: winnerId };
+  }
   if (oErr || !orderRow) {
     // The charge remains pending; a re-lock re-attempts the order. Non-fatal.
     return { status: 'skipped', reason: oErr?.message ?? 'order_insert_failed' };

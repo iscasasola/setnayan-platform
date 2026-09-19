@@ -205,6 +205,7 @@ export async function POST(req: Request) {
       .select(GUEST_CAPTURE_GATE_COLUMNS)
       .eq('event_id', session.event_id)
       .maybeSingle();
+    if (gateErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:events.select', gateErr);
 
     // ⚠ Supabase RESOLVES with { error }, it does not throw. A phantom column
     // here would return null and read exactly like "no event" — so an unreadable

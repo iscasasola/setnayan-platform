@@ -209,6 +209,17 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // S40 — the deletion-handshake quartet's own comment described this
+    // notice ("informational... audit trail") for a month before anything
+    // emitted it. No expiry: unlike the lock handshake, a deletion ask stays
+    // pending until answered or cancelled, so this is a reminder only.
+    key: 'deletion-request-nudge',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'The day-3 reminder to a supplier sitting on a deletion request',
+    reportsCount: true,
+  },
+  {
     key: 'seo-health',
     kind: 'operational',
     gapMs: DAILY_GAP_MS,

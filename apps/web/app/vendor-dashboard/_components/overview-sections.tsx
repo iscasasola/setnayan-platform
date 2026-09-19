@@ -208,7 +208,7 @@ export function VendorTodayFocal({
         ? 'A lead is warm — answer first, win first.'
         : `${inquiries} leads are warm — answer first, win first.`
       : nextBooking
-        ? 'Your next shoot is on the books.'
+        ? 'Your next booking is on the books.'
         : 'Your shop is all set for now.';
 
   return (
@@ -351,7 +351,8 @@ export function VendorEnergyStats({
 
   return (
     <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {/* Countdown ring — nearest upcoming shoot (gold sweep). */}
+      {/* Countdown ring — nearest upcoming booking (gold sweep). Every supplier
+          reads this tile — a band, a caterer or a florist does not "shoot". */}
       <div className="sn-tile sn-reveal flex items-center gap-3.5">
         {nearest ? (
           <>
@@ -371,7 +372,7 @@ export function VendorEnergyStats({
             <div className="min-w-0">
               <p className="sn-eye">
                 <CalendarClock aria-hidden strokeWidth={1.75} />
-                Next shoot
+                Next booking
               </p>
               <p className="mt-1 truncate text-sm font-semibold text-ink">
                 {nearest.eventName}
@@ -386,7 +387,7 @@ export function VendorEnergyStats({
           <div>
             <p className="sn-eye">
               <CalendarClock aria-hidden strokeWidth={1.75} />
-              Next shoot
+              Next booking
             </p>
             <p className="mt-1.5 text-sm text-ink/55">No booked events yet.</p>
           </div>
@@ -399,6 +400,7 @@ export function VendorEnergyStats({
         <CashFlowTile
           confirmedPhp={earnings.confirmedPhp}
           expectedPhp={earnings.expectedPhp}
+          measured={earnings.paydayMeasured}
         />
       ) : null}
 
@@ -539,14 +541,27 @@ function EarnedTile({
 function CashFlowTile({
   confirmedPhp,
   expectedPhp,
+  measured,
 }: {
   confirmedPhp: number;
   expectedPhp: number;
+  /** false = the payday read was refused; ₱0 here is "unknown", not "none". */
+  measured: boolean;
 }) {
   const pct = expectedPhp > 0 ? (confirmedPhp / expectedPhp) * 100 : 0;
   return (
     <div className="sn-tile sn-reveal flex items-center gap-3.5">
-      {expectedPhp > 0 ? (
+      {!measured ? (
+        <div>
+          <p className="sn-eye">
+            <Wallet aria-hidden strokeWidth={1.75} />
+            Confirmed cash-flow
+          </p>
+          <p className="mt-1.5 text-sm text-ink/55">
+            Couldn&rsquo;t load your installments right now.
+          </p>
+        </div>
+      ) : expectedPhp > 0 ? (
         <>
           <ProgressRing
             pct={pct}

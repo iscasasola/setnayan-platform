@@ -25,14 +25,15 @@ import { setGuestScanTracking } from '../actions';
  * guest flipped it shows a switch in the wrong position, which on a privacy
  * control is worse than no switch at all.
  *
- * ⚠ FAILS TOWARD "WE ARE KEEPING A RECORD". A read error returns false, so the
- * control offers the PROTECTIVE action. The alternative tells a guest they are
+ * ⚠ FAILS TOWARD "WE ARE KEEPING A RECORD". A read error returns null (NOT
+ * MEASURED), and the control offers the PROTECTIVE action — while the sentence
+ * says it could not check, rather than stating either setting as fact (S41b). The alternative tells a guest they are
  * already untracked on the strength of a failed read. The gate itself is in
  * `recordScan`, which is unaffected by this: it fails the other way, toward
  * writing nothing, because there a wrong guess costs a greeting rather than a
  * record somebody asked us not to keep.
  */
-async function readScanOptOut(eventId: string, guestId: string): Promise<boolean> {
+async function readScanOptOut(eventId: string, guestId: string): Promise<boolean | null> {
   try {
     const { data, error } = await createAdminClient()
       .from('guests')
@@ -40,11 +41,22 @@ async function readScanOptOut(eventId: string, guestId: string): Promise<boolean
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle();
-    if (error) return false;
+    if (error) {
+      console.error('[supabase-error] app/[slug]/_components/scan-trail-notice.tsx · from:guests.select', error);
+      return null;
+    }
     return (data as { scan_tracking_opt_out?: boolean } | null)?.scan_tracking_opt_out === true;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * What the one button sets the opt-out TO. `null` (not measured) offers the
+ * PROTECTIVE action — stop keeping a record (S41b).
+ */
+export function scanOptOutTarget(current: boolean | null): boolean {
+  return current !== true;
 }
 
 export async function ScanTrailNotice({
@@ -58,12 +70,14 @@ export async function ScanTrailNotice({
     eventWordsForEvent(eventId),
     readScanOptOut(eventId, guestId),
   ]);
-  const toggle = setGuestScanTracking.bind(null, eventId, guestId, !optedOut);
+  const toggle = setGuestScanTracking.bind(null, eventId, guestId, scanOptOutTarget(optedOut));
 
   // The OFF sentence carries the cost, said plainly. A guest who turns this off
   // should not later wonder why the page stopped welcoming them on arrival —
   // that greeting is the trail's only reader anywhere in the product.
-  const sentence = optedOut
+  const sentence = optedOut === null
+    ? `We couldn’t check just now whether we keep a record of when you open your invitation at this ${w.eventWord}.`
+    : optedOut
     ? `We keep no record of when you open your invitation or scan your code at this ${w.eventWord}. This page will greet you the same way every time.`
     : `We keep a record of when you open your invitation or scan your code at this ${w.eventWord} — it is how this page knows to welcome you when you first arrive.`;
 

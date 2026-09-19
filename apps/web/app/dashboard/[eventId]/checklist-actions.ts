@@ -65,6 +65,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
     .from('event_checklist_items')
     .select('template_key, status')
     .eq('event_id', eventId);
+  if (existingErr) console.error('[supabase-error] app/dashboard/[eventId]/checklist-actions.ts · from:event_checklist_items.select', existingErr);
   // Graceful skip if the table isn't here yet — the card simply won't render
   // rather than crashing home.
   if (existingErr) return 0;
@@ -142,6 +143,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   let inserted = 0;
   if (missing.length > 0) {
     const { error: insertErr } = await admin.from('event_checklist_items').insert(missing);
+    if (insertErr) console.error('[supabase-error] app/dashboard/[eventId]/checklist-actions.ts · from:event_checklist_items.insert', insertErr);
     // On a lost race (unique index on event_id+template_key) or a missing table,
     // don't crash — fall through to reconcile, which is independent of the insert.
     if (!insertErr) {
@@ -270,6 +272,7 @@ export async function reconcileChecklistCompletion(
       .eq('status', 'pending')
       .in('template_key', satisfied)
       .select('item_id');
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/checklist-actions.ts · from:event_checklist_items.update', error);
     if (error) return 0;
     return updated?.length ?? 0;
   } catch {

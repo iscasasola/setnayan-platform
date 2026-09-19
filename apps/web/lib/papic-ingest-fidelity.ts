@@ -72,6 +72,7 @@ export async function readEventFidelityTier(
       .select('papic_quality_tier')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/papic-ingest-fidelity.ts · from:events.select', error);
     if (error) return FIDELITY_READ_FAILSAFE;
     return asPapicFidelityTier(
       (data as { papic_quality_tier?: string } | null)?.papic_quality_tier,

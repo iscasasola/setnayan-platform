@@ -294,6 +294,7 @@ async function freezeTheRoom(
       .select('event_type')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/story/actions.ts · from:events.select', error);
     if (error || !data) return null;
     // The LIVE plan, deliberately — `loadStoryRoom` prefers a snapshot, and a
     // freeze must never photograph an older photograph of itself.
@@ -329,6 +330,7 @@ async function freezeTheSeating(
       .from('event_seat_assignments')
       .select('guest_id, event_tables!inner(public_id)')
       .eq('event_id', eventId);
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/story/actions.ts · from:event_seat_assignments.select', error);
     if (error || !data) return null;
     const seats = new Map<string, string>();
     for (const r of data as Array<Record<string, unknown>>) {

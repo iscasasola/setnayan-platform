@@ -52,8 +52,14 @@ test('the source card is read owner-scoped, on EVERY read', () => {
   // A malformed id must not reach the database as a query at all.
   assert.match(src, /test\(sourceServiceId\)/, 'the id is shape-checked before use');
   // Supabase does not throw. A refused read must land on the same branch as a
-  // missing card, not fall through with `data` undefined.
-  assert.match(src, /if \(error \|\| !data\) return null;/);
+  // missing card, not fall through with `data` undefined — and (S41c batch 3)
+  // the refusal is now also logged, not just discarded.
+  assert.match(src, /if \(error \|\| !data\) \{/);
+  assert.match(
+    src,
+    /console\.error\('\[supabase-error\] lib\/vendor-card-copy\.ts · from:vendor_services\.select', error\);/,
+  );
+  assert.match(src, /return null;/);
 });
 
 test('a copy carries what was AUTHORED and nothing the card EARNED', () => {

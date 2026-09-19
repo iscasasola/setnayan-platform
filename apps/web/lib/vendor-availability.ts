@@ -89,6 +89,7 @@ export async function getCommonAvailableDays(
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  if (vendorsErr) console.error('[supabase-error] lib/vendor-availability.ts · from:event_vendors.select', vendorsErr);
 
   if (vendorsErr) return empty;
 
@@ -111,6 +112,7 @@ export async function getCommonAvailableDays(
     .in('vendor_profile_id', profileIds)
     .lte('blocked_at', rangeEnd.toISOString())
     .gte('blocked_until', rangeStart.toISOString());
+  if (blocksErr) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', blocksErr);
 
   if (blocksErr) {
     // On error, return zero available days but report the vendor count
@@ -268,6 +270,7 @@ export async function getVendorAvailableDays(
     .eq('vendor_profile_id', vendorProfileId)
     .lte('blocked_at', rangeEnd.toISOString())
     .gte('blocked_until', rangeStart.toISOString());
+  if (error) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', error);
 
   // On error, return the unfiltered window. The marketplace will still
   // surface the vendor; the locked-vendor intersection on the parent helper
@@ -325,6 +328,7 @@ export async function getEventCommonAvailability(
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  if (error) console.error('[supabase-error] lib/vendor-availability.ts · from:event_vendors.select', error);
 
   if (error) {
     // Defensive: no filter on read error. The marketplace stays browsable.
@@ -558,6 +562,7 @@ export async function getAvailableDaysForVendorSet(
     .in('vendor_profile_id', profileIds)
     .lte('blocked_at', rangeEnd.toISOString())
     .gte('blocked_until', rangeStart.toISOString());
+  if (error) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', error);
   if (error) {
     // Honest failure: report the vendor count, claim no available days.
     return { connectedVendorCount: profileIds.length, availableDayKeys: [], totalDaysInRange, conflictPair: null };

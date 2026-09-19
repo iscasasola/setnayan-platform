@@ -68,6 +68,7 @@ export async function fetchVendorTimeSlotsByService(
     .eq('is_active', true)
     .order('display_order', { ascending: true })
     .order('start_time', { ascending: true });
+  if (error) console.error('[supabase-error] lib/vendor-time-slots.ts · from:vendor_service_time_slots.select', error);
   if (error) return byService;
   for (const row of (data ?? []) as VendorServiceTimeSlot[]) {
     const list = byService.get(row.vendor_service_id) ?? [];
@@ -96,6 +97,7 @@ export async function fetchSlotsForCoupleBooking(
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
+  if (evErr) console.error('[supabase-error] lib/vendor-time-slots.ts · from:event_vendors.select', evErr);
   if (evErr) return [];
   const serviceId = (ev as { service_id?: string | null } | null)?.service_id ?? null;
   if (!serviceId) return [];
@@ -107,6 +109,7 @@ export async function fetchSlotsForCoupleBooking(
     .eq('is_active', true)
     .order('display_order', { ascending: true })
     .order('start_time', { ascending: true });
+  if (error) console.error('[supabase-error] lib/vendor-time-slots.ts · from:vendor_service_time_slots.select', error);
   if (error) return [];
   return (data ?? []) as VendorServiceTimeSlot[];
 }

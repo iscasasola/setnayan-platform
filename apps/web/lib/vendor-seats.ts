@@ -108,7 +108,11 @@ export async function fetchSeatFeePhp(supabase: SupabaseClient): Promise<number>
       .eq('sku_code', SEAT_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return SEAT_FEE_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-seats: seat fee (using fallback)', error);
+      return SEAT_FEE_PHP;
+    }
+    if (!data) return SEAT_FEE_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : SEAT_FEE_PHP;
   } catch {

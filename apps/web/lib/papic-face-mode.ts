@@ -162,6 +162,7 @@ export async function resolvePapicFaceMode(
       .select('papic_face_mode, event_type, face_tagging_declined_by_couple')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/papic-face-mode.ts · from:events.select', error);
     if (error || !data) return 'mode_b';
     const row = data as {
       papic_face_mode?: string | null;

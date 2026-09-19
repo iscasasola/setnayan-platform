@@ -34,7 +34,10 @@ export const getReviewedTradeAliasRows = cache(async (): Promise<TradeAliasRow[]
       .from('canonical_service_aliases')
       .select('phrase,canonical_service,reviewed_at')
       .not('reviewed_at', 'is', null);
-    if (error || !data) return [];
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/service-trade-aliases-db.ts · from:canonical_service_aliases.select', error);
+      return [];
+    }
     return data as TradeAliasRow[];
   } catch {
     return [];

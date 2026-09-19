@@ -400,7 +400,10 @@ export async function fetchVendorMicrosite(
       )
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    if (error || !data) return DEFAULT_MICROSITE;
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select', error);
+      return DEFAULT_MICROSITE;
+    }
     const row = data as MicrositeRow;
     const about = row.microsite_about?.trim();
     base = {
@@ -423,11 +426,14 @@ export async function fetchVendorMicrosite(
   // values are provider-prefixed strings (`vimeo:{id}[:{hash}]`) or bare
   // 11-char YouTube ids (legacy rows) — deserializeVideoRef handles both.
   try {
-    const { data } = await client
+    const { data, error } = await client
       .from('vendor_profiles')
       .select('microsite_video_ids')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select (videos)', error);
+    }
     const videos = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
       .map((v) => deserializeVideoRef(v))
       .filter((v): v is VideoRef => Boolean(v))

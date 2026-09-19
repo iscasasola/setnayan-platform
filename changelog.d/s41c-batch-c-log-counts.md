@@ -15,3 +15,9 @@ The four `expected` values move 1 → 2, the same shape the table already carrie
 weakened. 26/26 pass.
 
 SPEC IMPACT: None
+
+**Also in this PR (main was red for a SECOND reason):** `app/vendor-dashboard/_components/vendor-rail-context.test.ts`
+"all seven cron-free sweeps still ride on this layout" expected 7 `after(` jobs; the layout has 8. S6's
+deposit-acknowledge catch-up (#5615) and S40's deletion-request nudge (#5688) each added a sweep and named it
+in the list, and neither bumped the count. The count is now 8 and the title says eight. Every sweep is still
+asserted by name. The two fixes ship together because two separate PRs would each fail CI on the other's cause.

@@ -887,7 +887,7 @@ export function ChatMessageStream({
       />
 
       {view === 'decisions' ? (
-        <div className={`min-h-[14rem] flex-1 overflow-y-auto ${scrollerChrome}`}>
+        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <DecisionsPanel
             entries={decisions}
             standing={standing}
@@ -914,7 +914,7 @@ export function ChatMessageStream({
           />
         </div>
       ) : view === 'files' ? (
-        <div className={`flex-1 overflow-y-auto ${scrollerChrome}`}>
+        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
       ) : (
@@ -944,8 +944,15 @@ export function ChatMessageStream({
         still scrolls internally. When the column genuinely cannot fit
         everything, the page scrolls instead of crushing the conversation to
         nothing.
+
+        🔴 `basis-0` (2026-09-19) — the floor alone did not reach the frame:
+        every wrapper above this list is `min-h-0`, so with "Send a quote" open
+        the wrapper measured 0px tall and this list spilled over the quote
+        builder. The frame (`chat/chat-box.tsx`) now keeps its automatic
+        minimum, and `basis-0` makes that minimum count THIS FLOOR rather than
+        the whole thread. Same on the Decisions and Files scrollers above.
       */
-      className={`min-h-[14rem] flex-1 space-y-2 overflow-y-auto ${scrollerChrome}`}
+      className={`min-h-[14rem] flex-1 basis-0 space-y-2 overflow-y-auto ${scrollerChrome}`}
       aria-live="polite"
       aria-relevant="additions"
     >

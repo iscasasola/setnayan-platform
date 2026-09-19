@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Download } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -11,7 +10,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { CopyButton } from '@/app/_components/copy-button';
+import { QrActions } from '@/app/_components/qr-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 
@@ -201,17 +200,13 @@ function ShortlistBody({
           >
             {inviteUrl}
           </code>
-          <CopyButton value={inviteUrl} label="Copy link" />
         </div>
 
-        <a
-          href={qrDataUri}
-          download="setnayan-shortlist-qr.svg"
-          className="button-secondary inline-flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Download QR
-        </a>
+        {/* Download · Write to NFC · Copy link — the one strip every link-QR carries. */}
+        <QrActions
+          url={inviteUrl}
+          download={{ href: qrDataUri, filename: 'setnayan-shortlist-qr.svg' }}
+        />
       </div>
     </div>
   );

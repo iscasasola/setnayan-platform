@@ -15,6 +15,8 @@ import { suggestedInviteTheme } from '@/lib/invite-themes';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { RegenerateQrButton } from './_components/regenerate-qr-button';
+import { QrActions } from '@/app/_components/qr-actions';
+import { svgDataUri } from '@/lib/qr-download';
 
 export const metadata = { title: 'Invite guests' };
 
@@ -192,6 +194,12 @@ export default async function GuestInvitePage({ params, searchParams }: Props) {
                   Your invite link
                 </p>
                 <InviteLink url={joinUrl} />
+                <QrActions
+                  hideCopy
+                  url={joinUrl}
+                  download={qrSvg ? { href: svgDataUri(qrSvg), filename: 'setnayan-guest-invite-qr.svg' } : null}
+                  className="mt-2 flex flex-wrap items-center gap-2"
+                />
               </div>
               <p className="text-xs leading-relaxed text-ink/55">
                 Send it by text, email, or your group chat — or let guests scan the QR on a

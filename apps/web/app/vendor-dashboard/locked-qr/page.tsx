@@ -6,8 +6,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
-import { CopyButton } from '@/app/_components/copy-button';
 import { ShopEmpty, ShopPill } from '../_components/kit';
+import { QrActions } from '@/app/_components/qr-actions';
 
 export const metadata = { title: 'Locked QRs · Vendor' };
 
@@ -184,7 +184,7 @@ export default async function VendorLockedQrListPage() {
                     >
                       Show QR
                     </Link>
-                    <CopyButton value={lockUrl} label="Copy link" />
+                    <QrActions url={lockUrl} className="contents" />
                   </div>
                 )}
               </li>

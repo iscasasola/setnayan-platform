@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "1eaeaa8a34",
+  "generatedFromRef": "c5745ae586",
   "routeCount": 428,
   "destinations": 917,
   "actions": 639,
@@ -162,7 +162,6 @@
         "(shell)/explore/_components/filter-drawer.tsx",
         "(shell)/explore/_components/folder-vendors-section.tsx",
         "(shell)/explore/_components/icon-tile-folder-strip.tsx",
-        "(shell)/explore/_components/mega-column-tabs.tsx",
         "(shell)/explore/_components/review-carousel.tsx",
         "(shell)/explore/_components/save-vendor-button.tsx",
         "(shell)/explore/_components/sticky-marketplace-header.tsx",

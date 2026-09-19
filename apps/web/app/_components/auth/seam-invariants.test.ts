@@ -125,41 +125,100 @@ test('sign out is a POST form, never a link', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2 · THE WORDMARK IS THE WAY OUT OF THE APP
+   2 · THE WORDMARK IS THE WAY OUT OF THE APP, STILL SIGNED IN
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the app rail wordmark leaves the app, and both variants agree', () => {
-  const src = code(read('_components/nav/doorway-sidebar-header.tsx'));
-  // Two links: the expanded wordmark and the collapsed 64px mark. They live in
-  // one file precisely so they can never point different ways.
-  const outbound = src.match(/href="\/"/g) ?? [];
-  assert.equal(
-    outbound.length,
-    2,
-    'Both the expanded wordmark and the collapsed mark must go to the public front door (owner 2026-08-13: "the wordmark is the way out of the app").',
-  );
-  assert.doesNotMatch(
-    src,
-    /href="\/dashboard"/,
-    'The wordmark no longer goes to /dashboard — that is what "← All your events" and the account panel are for.',
-  );
+/*
+  🔒 OWNER, VERBATIM — `DECISION_LOG.md` 2026-08-13, SESSION 6 (the seam):
+  *"The WORDMARK is the way out of the app, still signed in."* The rail
+  wordmark goes to `/` (the public front door, session intact) — a deliberate
+  partial reversal of the 2026-07-16 "Wordmark-as-Home" council verdict — and
+  the one-press way home is carried by the rail's events row and the account
+  panel instead.
+
+  HISTORY, so nobody re-derives the wrong answer from a comment:
+    · The original version of this test read `doorway-sidebar-header.tsx`,
+      which stopped being mounted when the doorways moved to
+      `<AppRailShell>` → `<FrontDoorShell variant="app">`. It guarded dead code.
+    · 2026-08-14 (cf58418b48, "one top bar") pointed the LIVE app wordmark at
+      /dashboard citing "the launcher's own shipped grammar" — no owner
+      statement. S40 re-pointed this test at the live file and pinned that
+      regression verbatim. 2026-09-19 (PR #5679) restored the owner's 08-13
+      lock; see the `DECISION_LOG.md` 2026-09-19 row. If the owner ever asks
+      for the 07-16 Wordmark-as-Home back, it is one line in `homeHref` and
+      this block is the thing to change — deliberately, not to go green.
+
+  🔑 SEMANTIC, NOT VERBATIM. Every wordmark <Link> in the shell is found and its
+  destination RESOLVED (a literal, or `homeHref` read back to its value). A
+  rewrite that keeps the destination stays green; any path that sends a
+  wordmark to /dashboard — a ternary, a new variable, a literal — goes red,
+  because an unresolvable href is itself a failure.
+*/
+
+const SHELL_CODE = code(read('_components/frontdoor/front-door-shell.tsx'));
+
+/** Every wordmark link in the shell, with its href resolved to a string. */
+function wordmarkTargets(src: string): { className: string; href: string }[] {
+  const homeHrefMatch = /const homeHref\s*=\s*([^;]+);/.exec(src);
+  const homeHrefExpr = homeHrefMatch?.[1]?.trim();
+  const out: { className: string; href: string }[] = [];
+  const re = /<Link\b([^>]*?)className="(fd-wordmark[^"]*)"([^>]*)>/g;
+  for (let m = re.exec(src); m; m = re.exec(src)) {
+    const attrs = `${m[1]} ${m[3]}`;
+    const lit = /href="([^"]*)"/.exec(attrs);
+    const expr = /href=\{([^}]*)\}/.exec(attrs);
+    let href: string;
+    if (lit) href = lit[1]!;
+    else if (expr && expr[1]!.trim() === 'homeHref') {
+      const plain = homeHrefExpr ? /^'([^']*)'$|^"([^"]*)"$/.exec(homeHrefExpr) : null;
+      href = plain ? (plain[1] ?? plain[2]!) : `<unresolvable: ${homeHrefExpr ?? 'no homeHref'}>`;
+    } else href = `<unresolvable: ${expr?.[1] ?? 'no href'}>`;
+    out.push({ className: m[2]!, href });
+  }
+  return out;
+}
+
+test("the wordmark is the way out of the app — '/' on every variant, never /dashboard", () => {
+  const targets = wordmarkTargets(SHELL_CODE);
+  const app = targets.filter((t) => t.className.includes('fd-wordmark-app'));
+  const frontDoor = targets.filter((t) => t.className === 'fd-wordmark');
+  // Floors: an empty scan must never read as a pass.
+  assert.equal(app.length, 1, `expected exactly one app-variant wordmark, found ${app.length}`);
+  assert.equal(frontDoor.length, 1, `expected exactly one front-door wordmark, found ${frontDoor.length}`);
+  for (const t of targets) {
+    assert.ok(
+      !t.href.includes('/dashboard'),
+      `a wordmark (${t.className}) points at ${t.href}. Owner 2026-08-13: "The WORDMARK is ` +
+        'the way out of the app, still signed in." /dashboard also 307s a stranger to /login.',
+    );
+  }
+  assert.equal(app[0]!.href, '/', `the app-variant wordmark goes to ${app[0]!.href}, not the front door`);
+  assert.equal(frontDoor[0]!.href, '/', `the front-door wordmark goes to ${frontDoor[0]!.href}, not /`);
 });
 
-test('losing the wordmark did not lose 1-click home', () => {
-  // The 2026-07-16 council verdict's real concern. The wordmark moved; the
-  // one-press route back to the board did not disappear, it moved down a level
-  // into the in-event rail — exactly where the prototype draws it.
-  const src = code(read('dashboard/[eventId]/_components/customer-sidebar.tsx'));
+test('the wordmark leaving did not lose the one-press way home', () => {
+  /*
+    The 2026-07-16 council verdict's real concern, which the owner's 08-13 ruling
+    answered by moving the route home, not dropping it. The old version of this
+    test read `customer-sidebar.tsx`'s "All your events" row — a component no
+    layout mounts any more — so it is pinned where the shell ACTUALLY renders it:
+      · the rail's signed-in events row (every signed-in variant, every page);
+      · the shell's own account menu;
+      · `<AccountSwitcher>`, the account panel every app layout hands the bar.
+  */
+  const eventsRow = SHELL_CODE.match(/<Link href="\/dashboard" \{\.\.\.rowProps\('events'\)\}>/g) ?? [];
+  assert.equal(eventsRow.length, 1, `the rail's events row → /dashboard is missing (found ${eventsRow.length})`);
+  const railEvents = SHELL_CODE.slice(SHELL_CODE.indexOf("rowProps('events')"), SHELL_CODE.indexOf("rowProps('events')") + 600);
+  assert.match(railEvents, /Your events/, 'the rail events row no longer names the board');
+
+  const acctMenu = SHELL_CODE.slice(SHELL_CODE.indexOf('function AccountMenu'));
   assert.match(
-    src,
-    /href="\/dashboard"/,
-    'The in-event rail must carry a one-press route back to the board.',
+    acctMenu,
+    /<Link href="\/dashboard" role="menuitem"[^>]*>\s*Your events\s*<\/Link>/,
+    "the shell's account menu lost its 'Your events' → /dashboard row",
   );
-  assert.match(
-    src,
-    /All your events/,
-    'That row is labelled "All your events" — the level above, named.',
-  );
+  const switcher = code(read('_components/account-switcher/account-switcher.tsx'));
+  assert.match(switcher, /href="\/dashboard\?hub=1"/, 'the account panel lost its Home → /dashboard link');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

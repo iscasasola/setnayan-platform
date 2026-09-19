@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 362
+# facts: 346
 #   shadow  20
-#   omit    342
+#   omit    326
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -156,7 +156,6 @@ omit	app/_actions/plan3d-demo-actions.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
-omit	app/_components/chat-message-stream.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	last_name
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	middle_name
@@ -307,10 +306,6 @@ omit	app/dashboard/[eventId]/studio/patiktok/actions.ts	guests	ENTOURAGE_COLUMNS
 omit	app/dashboard/[eventId]/studio/patiktok/actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/studio/patiktok/actions.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/dashboard/[eventId]/studio/patiktok/actions.ts	guests	ENTOURAGE_COLUMNS	role
-omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
-omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	public_id
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
@@ -329,8 +324,6 @@ omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/tour/seating/page.tsx	guests	ENTOURAGE_COLUMNS	role
-omit	app/vendor-dashboard/messages/[threadId]/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	app/vendor-dashboard/messages/[threadId]/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	proposal_id
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	consumable_budget_centavos
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	created_at
 omit	app/vendor-dashboard/packages/page.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	description
@@ -347,8 +340,6 @@ omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_S
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	updated_at
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
-omit	app/vendor-dashboard/proposals/surface.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
-omit	app/vendor-dashboard/proposals/surface.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
 omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
 omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
 omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
@@ -404,10 +395,3 @@ omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	role
 omit	lib/vendor-autoreply/inbox-hook.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
-omit	lib/vendor-overview.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
-omit	lib/vendor-overview.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	lib/vendor-overview.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	status
-omit	scripts/prove-the-flow-watch.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
-omit	scripts/prove-the-flow-watch.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	scripts/prove-the-flow-watch.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	public_id
-omit	scripts/prove-the-flow-watch.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	title

@@ -237,6 +237,10 @@ export async function screenCapture(opts: {
         .eq('r2_object_key', opts.r2ObjectKey)
         .maybeSingle();
       if (rowError) {
+        console.error(
+          `[supabase-error] lib/nsfw-screen.ts · from:${opts.table}.select (screenCapture row fetch)`,
+          rowError,
+        );
         // A pre-migration guest-captures env (no media_type column) fails the
         // select — retry without it so the photo path still screens. Clips on
         // that env stay 'unscreened' (excluded from guest surfaces) until the
@@ -392,6 +396,12 @@ export async function reScreenStuckCaptures(eventId: string): Promise<number> {
       if (error) console.error(`[supabase-error] lib/nsfw-screen.ts · from:${table}.select`, error);
       // Pre-migration (missing column → 42703) or any read error → skip this
       // table, never the whole sweep.
+      if (error) {
+        console.error(
+          `[supabase-error] lib/nsfw-screen.ts · from:${table}.select (reScreenStuckCaptures)`,
+          error,
+        );
+      }
       if (error || !stuck || stuck.length === 0) continue;
       for (const row of stuck) {
         const key = (row as { r2_object_key: string | null }).r2_object_key;
@@ -496,6 +506,12 @@ export async function reScreenAllStuckCaptures(): Promise<number> {
       if (error) console.error(`[supabase-error] lib/nsfw-screen.ts · from:${table}.select`, error);
       // Pre-migration (missing column → 42703) or any read error → skip this
       // table, never the whole sweep.
+      if (error) {
+        console.error(
+          `[supabase-error] lib/nsfw-screen.ts · from:${table}.select (reScreenAllStuckCaptures)`,
+          error,
+        );
+      }
       if (error || !data) continue;
       rows.push(
         ...(data as Array<{ event_id?: string | null; created_at?: string | null }>),

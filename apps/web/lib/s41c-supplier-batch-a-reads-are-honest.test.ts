@@ -194,7 +194,7 @@ test('inline-docs-actions.ts: all three vendor_profiles(_self) reads are logged 
   assert.equal(
     count(docs, 'logQueryError('),
     3,
-    'expected 3 logQueryError call sites: vendor_profiles_self probe, draft-start vendor_profiles, loadVerificationIdentityFields vendor_profiles',
+    'expected 3 logQueryError call sites: vendor_profiles_self probe, draft-start vendor_profiles, loadVerificationIdentityFields vendor_profiles_self',
   );
   const selfAt = indexAfter(docs, "from('vendor_profiles_self')");
   const selfLogAt = indexAfter(docs, 'logQueryError(', selfAt);
@@ -202,7 +202,7 @@ test('inline-docs-actions.ts: all three vendor_profiles(_self) reads are logged 
   assert.ok(selfAt < selfLogAt && selfLogAt < selfReturnAt);
 
   const fieldsAt = indexAfter(docs, 'export async function loadVerificationIdentityFields');
-  const fieldsQueryAt = indexAfter(docs, "from('vendor_profiles')", fieldsAt);
+  const fieldsQueryAt = indexAfter(docs, "from('vendor_profiles_self')", fieldsAt);
   const fieldsLogAt = indexAfter(docs, 'logQueryError(', fieldsQueryAt);
   const fieldsReturnAt = indexAfter(docs, 'if (error || !data) return empty;', fieldsLogAt);
   assert.ok(fieldsQueryAt < fieldsLogAt && fieldsLogAt < fieldsReturnAt);

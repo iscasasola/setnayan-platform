@@ -44,18 +44,46 @@ import { extractFilterSites, scanFilterSites } from './query-column-scan';
 import { stripComments } from '../strip-comments';
 
 const CONTACT = new Set(['contact_email', 'contact_phone']);
+/**
+ * The shop's TAX IDENTITY — off `authenticated`'s SELECT allowlist since
+ * migration 20271217955839 (read out of prod with has_column_privilege on
+ * 2026-09-19, not remembered). Same failure class as the contact pair: a
+ * browser-session read naming ANY of these is refused whole (42501). The shop
+ * reads its own through `vendor_profiles_self`; admin surfaces use the service
+ * role. `loadVerificationIdentityFields` read five of them off the TABLE on the
+ * session and every verification line read "Not filled in yet" (prod,
+ * 2026-09-19) — nothing scanned for this set until then.
+ */
+const TAX_IDENTITY = new Set([
+  'bir_service_category',
+  'business_owner_name',
+  'next_renewal_due_at',
+  'registered_address',
+  'registered_business_name',
+  'registered_zip',
+  'registration_number_needs_review',
+  'registration_number_normalized',
+  'registration_number_raw',
+  'registration_number_submitted_at',
+  'tin_number',
+  'tin_type',
+]);
 /** Relations whose invoker-privileged read would reach the two columns. */
 const RELATIONS = new Set(['vendor_profiles', 'vendor_market_stats']);
 const SERVICE_FACTORIES = ['createAdminClient', 'createMoneyWriterClient'];
 
 type Site = { file: string; line: number; table: string; columns: string[]; kind: string };
 
-function contactSites(select: SelectSite[], filter: SelectSite[]): Site[] {
+function contactSites(
+  select: SelectSite[],
+  filter: SelectSite[],
+  deny: ReadonlySet<string> = CONTACT,
+): Site[] {
   const out: Site[] = [];
   for (const [kind, list] of [['select', select], ['filter', filter]] as const) {
     for (const s of list) {
       if (!RELATIONS.has(s.table)) continue;
-      const cols = s.columns.filter((c) => CONTACT.has(c));
+      const cols = s.columns.filter((c) => deny.has(c));
       if (cols.length) out.push({ ...s, columns: cols, kind });
     }
   }
@@ -154,6 +182,10 @@ function nearestAssignment(src: string, ident: string, at: number): { expr: stri
     // `admin = null` (the export route's catch arm) cannot read anything — a
     // null receiver throws. Only a binding that yields a CLIENT counts.
     if (/^(null|undefined)\b/.test(expr)) continue;
+    // `<CatalogView admin={admin} />` — a JSX ATTRIBUTE, not a binding. Taking
+    // it as one made explore/page.tsx's createAdminClient() read look like a
+    // session read the moment a second column set was scanned.
+    if (/^\{[\w$\s]*\}/.test(expr)) continue;
     best = { expr, index: m.index };
   }
   return best;
@@ -383,4 +415,56 @@ test('no later migration hands either column (or the whole table) back to a brow
     }
   }
   assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+// ── TAX IDENTITY (20271217955839) ─────────────────────────────────────────
+// Same classifier, second column set. Embeds and `.or()` strings are not
+// scanned for this set (none exist today; stated so green is not over-read).
+const TAX_SITES: Site[] = contactSites(scan.sites, scanFilterSites(), TAX_IDENTITY);
+
+test('ANTI-VACUITY: the tax-identity scan sees the known readers', () => {
+  // Measured 2026-09-19: the service-role admin/verify surface and the
+  // explore catalogue's next_renewal_due_at read are both on vendor_profiles.
+  assert.ok(TAX_SITES.length >= 3, `only ${TAX_SITES.length} tax-identity read sites found — the scanner is blind`);
+  const files = new Set(TAX_SITES.map((s) => s.file));
+  assert.ok(files.has('app/(shell)/explore/page.tsx'), 'the scan no longer sees the explore catalogue read');
+  const fixture = [
+    "import { createClient } from '@/lib/supabase/server';",
+    'export async function bad() {',
+    '  const supabase = await createClient();',
+    "  return supabase.from('vendor_profiles').select('vendor_profile_id, tin_number');",
+    '}',
+    'export async function own() {',
+    '  const supabase = await createClient();',
+    "  return supabase.from('vendor_profiles_self').select('vendor_profile_id, tin_number');",
+    '}',
+    'export function Page() {',
+    '  const admin = createAdminClient();',
+    '  const x = <View admin={admin} />;',
+    "  return admin.from('vendor_profiles').select('tin_type');",
+    '}',
+  ].join('\n');
+  const rel = 'lib/security/__tax_fixture__.ts';
+  const sites = contactSites(extractSelectSites(fixture, rel), extractFilterSites(fixture, rel), TAX_IDENTITY);
+  assert.equal(sites.length, 2, `the fixture should yield 2 table sites (the _self read is not one), got ${sites.length}`);
+  const byLine = new Map(sites.map((s) => [s.line, classifySite([], s, fixture).service]));
+  assert.equal(byLine.get(4), false, 'a session read of tin_number on the TABLE was accepted — the guard is blind');
+  assert.equal(byLine.get(13), true, 'a JSX attribute `admin={admin}` was taken as the binding — the guard cries wolf');
+});
+
+test('every read of a shop’s tax identity off the TABLE runs on the SERVICE ROLE (the shop uses vendor_profiles_self)', () => {
+  const bad: string[] = [];
+  for (const s of TAX_SITES) {
+    const v = classifySite(FILES, s);
+    if (!v.service) bad.push(`${s.file}:${s.line} (${s.kind} ${s.table}: ${s.columns.join(',')}) — ${v.why}`);
+  }
+  assert.deepEqual(
+    bad,
+    [],
+    'These reads name a shop’s tax-identity column on vendor_profiles with a BROWSER SESSION. Since ' +
+      '20271217955839 authenticated may not SELECT them, so PostgREST refuses the WHOLE statement (42501) ' +
+      'and the screen reads "not filled in". For the shop’s own row read `vendor_profiles_self`; ' +
+      'otherwise createAdminClient() scoped by a session-proved id:\n  ' +
+      bad.join('\n  '),
+  );
 });

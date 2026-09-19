@@ -1,6 +1,7 @@
 import { CalendarPlus, Check, Clock, Mic } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { HOST_TILE } from '@/lib/booked-host';
 import {
   offeredCatalogue,
   totalMinutes,
@@ -27,8 +28,8 @@ import { applyActivityPicks, toggleActivityPick } from '../activity-picks-action
  * than making one, so the page's own auth context is the only one in play.
  */
 
-/** The host/MC canonical tile — the same key the specialization gate uses. */
-const HOST_TILE = 'host_mc';
+// The host/MC tile key lives in `lib/booked-host.ts`, shared with the host's
+// questions (DAY-7) so the two sections can never disagree about who the host is.
 
 /** Said once, in both places a refused read used to remove the block silently. */
 function EmceePicksUnread() {

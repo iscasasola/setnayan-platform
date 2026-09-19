@@ -43,12 +43,14 @@ type Row = Record<string, unknown>;
  * `this`; awaiting resolves to { data, error }.
  */
 function makeSupabase(rows: Row[]) {
-  const result = { data: rows, error: null as null };
+  const result = { data: rows, error: null as null, count: rows.length };
   const builder: Record<string, unknown> = {
     from: () => builder,
     select: () => builder,
     eq: () => builder,
     order: () => builder,
+    // The read now pages to the server's exact count (`readAllPages`).
+    range: () => builder,
     then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
   };
   return builder as unknown as SupabaseClient;

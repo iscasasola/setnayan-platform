@@ -23,7 +23,7 @@
  * never a fresh call to YouTube.
  */
 
-export type GuestWatchState = 'live' | 'reconnecting' | 'ended' | 'not_yet';
+export type GuestWatchState = 'live' | 'reconnecting' | 'ended' | 'not_yet' | 'unknown';
 
 /** The same reduction watch-live-links.ts hands the story page. */
 export type GuestWatchLive = {
@@ -39,9 +39,18 @@ export type GuestWatchStatusInput = {
    * `panood_broadcasts.status` of the MOST RECENT row for this event (any
    * status, not just the active one) — `null` when no Setnayan-provisioned
    * broadcast has ever been created (a by-hand host who pastes their own
-   * link, or an event that hasn't gone live yet).
+   * link, or an event that hasn't gone live yet); `'unreadable'` when the
+   * read itself was refused (S41c) — NEVER folded into `null`, which would
+   * tell a guest mid-broadcast that the ceremony "hasn't started".
    */
-  latestBroadcastStatus: 'ready' | 'testing' | 'live' | 'complete' | 'errored' | null;
+  latestBroadcastStatus:
+    | 'ready'
+    | 'testing'
+    | 'live'
+    | 'complete'
+    | 'errored'
+    | null
+    | 'unreadable';
 };
 
 /**
@@ -67,9 +76,14 @@ export type GuestWatchStatusInput = {
  * GUARD: 'complete' must NEVER fall into the 'reconnecting' branch — a
  * finished broadcast is not "about to come back", and telling a guest it is
  * would be worse than saying nothing.
+ *
+ * GUARD: 'unreadable' must NEVER fall into the 'not_yet' branch — a refused
+ * read is not "nothing has ever gone out"; folding the two together is
+ * exactly what stopped the client poller mid-reconnect (S41c).
  */
 export function decideGuestWatchState(input: GuestWatchStatusInput): GuestWatchState {
   if (input.watchLive) return 'live';
+  if (input.latestBroadcastStatus === 'unreadable') return 'unknown';
   if (input.latestBroadcastStatus === null) return 'not_yet';
   if (input.latestBroadcastStatus === 'complete') return 'ended';
   return 'reconnecting';

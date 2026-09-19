@@ -4,7 +4,8 @@ import { CalendarDays, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorThreads } from '@/lib/chat';
+import { fetchVendorThreadsDetailed } from '@/lib/chat';
+import { paginate } from '@/lib/paginate';
 import {
   fetchVendorBlocks,
   fetchVendorPools,
@@ -14,6 +15,7 @@ import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { shopInputClass } from '../_components/kit';
+import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveThreadStage,
@@ -46,7 +48,14 @@ export const metadata = { title: 'Clients · Vendor' };
  * this page is the committed/working set.
  */
 
-type Props = { searchParams: Promise<{ notice?: string }> };
+type Props = {
+  /**
+   * `cbpage` / `cipage` / `copage` page Booked, In conversation and Outside.
+   * Each list has its own param because every list on My Customers shares one
+   * URL; the rest of the params are kept by the pager.
+   */
+  searchParams: Promise<{ notice?: string; [key: string]: string | string[] | undefined }>;
+};
 
 const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   client_imported: { tone: 'ok', text: 'Client imported — free. They now hold a slot on that schedule.' },
@@ -103,7 +112,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const [pools, bookings, blocks, threads] = await Promise.all([
+  const [pools, bookings, blocks, threadsRead] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     // S43 · OFF THE POOL READ, the same rule #5634 (SUP-8) gave Today's
     // Upcoming list. The pool has one writer, reached by one booking path, so a
@@ -114,8 +123,9 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     // by the arm that admitted it (`bookedLabel` below), never a guessed pool.
     fetchVendorRoomEvents(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
-    fetchVendorThreads(supabase, profile.vendor_profile_id),
+    fetchVendorThreadsDetailed(supabase, profile.vendor_profile_id),
   ]);
+  const threads = threadsRead.threads;
   const notice = search.notice ? NOTICES[search.notice] : undefined;
 
   /*
@@ -176,12 +186,21 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     (t) => t.inquiry_status === 'accepted' && !bookedByEvent.has(t.event_id),
   );
 
+  /*
+    PAGED (owner 2026-09-19: "if they have 1000 inquiries, they can still
+    manage all"). Each list is sliced by the shared `paginate()` BEFORE the
+    per-row fact reads below, so those reads ask about one page of ids — never
+    one `in.()` of every client, which the gateway refuses past ~600 UUIDs.
+  */
+  const bookedPage = paginate([...bookedByEvent.entries()], search.cbpage);
+  const acceptedPage = paginate(accepted, search.cipage);
+
   // Quoted probe — ONE batched read across every in-conversation event: which
   // of them already have a proposal out with the couple (sent/viewed, i.e. not
   // a draft). Same predicate as deriveThreadStage, but for the whole list in a
   // single .in() rather than N per-row queries. Graceful-degrades to empty.
   const quotedEventIds = new Set<string>();
-  const acceptedEventIds = [...new Set(accepted.map((t) => t.event_id))];
+  const acceptedEventIds = [...new Set(acceptedPage.items.map((t) => t.event_id))];
 
   /*
     WHO EACH CONVERSATION IS WITH. `t.event?.display_name` is an RLS embed a
@@ -193,7 +212,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   */
   const acceptedCustomers = await fetchInquiryCustomerFacts(
     createAdminClient(),
-    threads.map((t) => t.event_id),
+    acceptedPage.items.map((t) => t.event_id),
   );
   if (acceptedEventIds.length > 0) {
     const { data: quoted, error: quotedError } = await supabase
@@ -235,7 +254,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
      job shown as live is a stale label; a live job shown as finished tells a
      supplier to stop working. */
   const completedEventIds = new Set<string>();
-  const bookedEventIds = [...bookedByEvent.keys()];
+  const bookedEventIds = bookedPage.items.map(([eventId]) => eventId);
   if (bookedEventIds.length > 0) {
     const { data: done, error: doneError } = await createAdminClient()
       .from('event_vendors')
@@ -263,7 +282,9 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   }
 
   // Outside — external-client blocks.
-  const externals = blocks.filter((b) => b.source === 'external_client');
+  const externalsAll = blocks.filter((b) => b.source === 'external_client');
+  const externalsPage = paginate(externalsAll, search.copage);
+  const externals = externalsPage.items;
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -295,7 +316,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       ) : null}
 
       {/* Booked */}
-      <div className="sn-tile p-4 sm:p-6">
+      <div id="clients-booked" className="sn-tile scroll-mt-24 p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
@@ -311,7 +332,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
-            {[...bookedByEvent.entries()].map(([eventId, group]) => {
+            {bookedPage.items.map(([eventId, group]) => {
               // One ordering, shared with the thread pill.
               const stage = resolveThreadStage({
                 completed: completedEventIds.has(eventId),
@@ -356,10 +377,18 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             })}
           </ul>
         )}
+        <ListPager
+          paged={bookedPage}
+          param="cbpage"
+          keepParams={keepParamsFrom(search, ['cbpage'])}
+          hash="clients-booked"
+          noun="booked clients"
+          incomplete={!threadsRead.complete}
+        />
       </div>
 
       {/* Inquiring */}
-      <div className="sn-tile p-4 sm:p-6">
+      <div id="clients-talking" className="sn-tile scroll-mt-24 p-4 sm:p-6">
         <h2 className="text-lg font-semibold">In conversation</h2>
         <p className="mt-1 text-sm text-ink/65">
           Accepted inquiries that haven&rsquo;t booked yet. The full inbox lives in{' '}
@@ -375,7 +404,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
-            {accepted.map((t) => {
+            {acceptedPage.items.map((t) => {
               const who = acceptedCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN;
               // Same resolver, same ordering — the list cannot rank these
               // differently from the thread it opens.
@@ -435,10 +464,18 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             })}
           </ul>
         )}
+        <ListPager
+          paged={acceptedPage}
+          param="cipage"
+          keepParams={keepParamsFrom(search, ['cipage'])}
+          hash="clients-talking"
+          noun="clients in conversation"
+          incomplete={!threadsRead.complete}
+        />
       </div>
 
       {/* Outside clients */}
-      <div className="sn-tile p-4 sm:p-6">
+      <div id="clients-outside" className="sn-tile scroll-mt-24 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Outside clients</h2>
           <Link
@@ -497,6 +534,14 @@ export default async function VendorClientsPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
+        <ListPager
+          paged={externalsPage}
+          param="copage"
+          keepParams={keepParamsFrom(search, ['copage'])}
+          hash="clients-outside"
+          noun="outside clients"
+          incomplete={false}
+        />
 
         {pools.length > 0 ? (
           <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-4">

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { readInChunks } from '@/lib/read-all-pages';
 import {
   admitRoomBookings,
   dedupe,
@@ -198,16 +199,22 @@ export async function fetchVendorRoomEvents(
   // `candidates` is already narrow — one shop's booked, unarchived rows — so the
   // rule lives in exactly one place: admitRoomBookings.
   const eventIds = [...new Set(candidates.map((r) => r.event_id))];
-  const [{ data: events, error: eventError }, { data: threads }] = await Promise.all([
-    admin
-      .from('events')
-      .select('event_id, display_name, event_date, event_date_precision')
-      .in('event_id', eventIds),
-    admin
-      .from('chat_threads')
-      .select('thread_id, event_id')
-      .eq('vendor_profile_id', vendorProfileId)
-      .in('event_id', eventIds),
+  // Chunked (`IN_LIST_CHUNK`): past ~600 ids one `in.()` is refused 400, which
+  // would drop arms 2 and 3 for exactly the busiest shops.
+  const [{ rows: events, error: eventError }, { rows: threads }] = await Promise.all([
+    readInChunks(eventIds, (part) =>
+      admin
+        .from('events')
+        .select('event_id, display_name, event_date, event_date_precision')
+        .in('event_id', part),
+    ),
+    readInChunks(eventIds, (part) =>
+      admin
+        .from('chat_threads')
+        .select('thread_id, event_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('event_id', part),
+    ),
   ]);
 
   if (eventError) {

@@ -4,6 +4,8 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftQuoteBasis } from '@/lib/setnayan-gift.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -83,6 +85,7 @@ import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
 import { affordancePanelId } from '@/lib/chat-box-tools';
+import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import {
   seedQuoteRevision,
   type QuoteRevisionSeed,
@@ -603,6 +606,51 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     />
   );
 
+  // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
+  // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
+  // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
+  // stage by definition, so there is no pipeline to derive yet. It must never
+  // regain an identity meaning — that was the token wallet's lock.
+  const threadIsPendingInquiry = thread.inquiry_status === 'pending';
+  const railStage = threadIsPendingInquiry
+    ? ('inquiry' as const)
+    : await deriveThreadStage({
+        supabase,
+        adminClient: paxAdmin,
+        eventId: thread.event_id,
+        vendorProfileId: profile.vendor_profile_id,
+        // Without this a declined, withdrawn, expired or displaced thread keeps
+        // reading as a live `Inquiry` — the pill said the conversation was
+        // still open long after it had ended.
+        inquiryStatus: thread.inquiry_status,
+      });
+  // ── DECISIONS · the two sources that are not messages ─────────────────────
+  // Payments and the guest-count change are page sections rendered around the
+  // stream, so the Decisions view can only get them from here. Both reads are
+  // graceful — a refusal costs those rows, never the conversation.
+  const [decisionPayments, liveQuoteTotalPhp] = await Promise.all([
+    fetchThreadPayments({
+      adminClient: paxAdmin,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+    // Under the supplier's OWN session — they read their own proposals.
+    fetchLiveQuoteTotalPhp({
+      supabase,
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    }),
+  ]);
+
+  // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read — the rung and the
+  // live quote total just above decide it, and they were moved up here only so
+  // the tool panels below can use them. Before a quote is out, the composer's
+  // 🧾 is "Send a quote" (#build-quote) and "Send a deal" is not offered.
+  const dealEntry = dealEntryFor({
+    side: 'vendor',
+    hasQuote: threadHasQuote({ stage: railStage, liveQuoteTotalPhp }),
+  });
+
   /**
    * THE TOOLS, MOUNTED ONCE AND CLOSED.
    *
@@ -692,6 +740,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     'deal-or-meeting': (
         <NegotiationComposerMenu
           embedded
+          entry={dealEntry}
           // `quote` is the Build-a-quote panel's mode, not this menu's.
           initialMode={composeMode === 'deal' ? 'deal' : null}
           threadId={threadId}
@@ -737,12 +786,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       </div>
     ) : null;
 
-  // ── Customer info rail (Customer Card respine PR-3) ──────────────────────
-  // The rail no longer hides anything (owner ruling 2026-09-08). This flag now
-  // means ONLY what its name says: a pending inquiry sits at the 'inquiry'
-  // stage by definition, so there is no pipeline to derive yet. It must never
-  // regain an identity meaning — that was the token wallet's lock.
-  const threadIsPendingInquiry = thread.inquiry_status === 'pending';
   // ⚠ ONE derivation of a couple's two letters, shared with the conversation
   // column. Two copies is how one screen comes to show `CI` beside another
   // showing `C`.
@@ -753,35 +796,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const railService = firstInterest
     ? (await interestLabeller(paxAdmin, [firstInterest]))(firstInterest)
     : null;
-  const railStage = threadIsPendingInquiry
-    ? ('inquiry' as const)
-    : await deriveThreadStage({
-        supabase,
-        adminClient: paxAdmin,
-        eventId: thread.event_id,
-        vendorProfileId: profile.vendor_profile_id,
-        // Without this a declined, withdrawn, expired or displaced thread keeps
-        // reading as a live `Inquiry` — the pill said the conversation was
-        // still open long after it had ended.
-        inquiryStatus: thread.inquiry_status,
-      });
-  // ── DECISIONS · the two sources that are not messages ─────────────────────
-  // Payments and the guest-count change are page sections rendered around the
-  // stream, so the Decisions view can only get them from here. Both reads are
-  // graceful — a refusal costs those rows, never the conversation.
-  const [decisionPayments, liveQuoteTotalPhp] = await Promise.all([
-    fetchThreadPayments({
-      adminClient: paxAdmin,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    }),
-    // Under the supplier's OWN session — they read their own proposals.
-    fetchLiveQuoteTotalPhp({
-      supabase,
-      eventId: thread.event_id,
-      vendorProfileId: profile.vendor_profile_id,
-    }),
-  ]);
   const decisionGuestCounts = paxProposalsToGuestCounts(paxProposals, Date.now());
 
   // PR-H · IS THE BOOKING BEHIND THIS THREAD BOOKED, OR MERELY ASKED?
@@ -794,6 +808,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     eventId: thread.event_id,
     vendorProfileId: profile.vendor_profile_id,
   });
+
+  // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
+  // ACCEPTED quote card as the same one-tap door the Overview's booking card
+  // carries. The shop's OWN profile id (proved above), never a param.
+  const payoutReadiness: PayoutReadiness = await readSupplierPayoutReadiness({
+    adminClient: paxAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    vendorUserId: profile.user_id,
+  }).catch((): PayoutReadiness => 'unreadable');
 
   /**
    * WHERE YOU STAND — the SAME derivation the couple's thread page and bench
@@ -1353,7 +1376,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   sendAction={sendChatMessage}
                   accessories={
                     <>
-                      {dealOpen ? <RevealToolButton affordance="deal" /> : null}
+                      {dealOpen ? <RevealToolButton affordance="deal" entry={dealEntry} /> : null}
                       <RevealToolButton affordance="call" label={`Call ${coupleLabel}`} />
                     </>
                   }
@@ -1522,6 +1545,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         >
           <ChatMessageStream
             flush
+            dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.
             reviseHref={`?compose=quote`}
@@ -1549,6 +1573,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               declineLock: vendorDeclineLock,
             }}
             lockHandshake={lockHandshake}
+            payoutReadiness={payoutReadiness}
           />
         </ChatBox>
       </section>

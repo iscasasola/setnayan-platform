@@ -51,6 +51,7 @@ import {
 } from './chat-amendment-card';
 import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
+import type { DealEntry } from '@/lib/deal-entry';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
   ThreadViewSwitch,
@@ -67,6 +68,8 @@ import {
 } from '@/lib/thread-decisions';
 import { buildSharedFiles } from '@/lib/chat-shared-files';
 import type { SupplierStanding } from '@/lib/supplier-standing';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -97,6 +100,13 @@ type ProposalCardData = {
 
 type Props = {
   threadId: string;
+  /**
+   * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
+   * chip opens the amendment builder, and a Deal amends a quote — so before
+   * one exists the chip is not offered on either side (owner, 2026-09-19: it
+   * rendered under the couple's own opening inquiry).
+   */
+  dealEntry: DealEntry;
   initialMessages: ChatMessageRow[];
   currentUserId: string;
   /**
@@ -191,12 +201,21 @@ type Props = {
    * conversation.test.ts` counts, and they must read the same in both modes.
    */
   flush?: boolean;
+  /**
+   * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
+   * On the live ACCEPTED quote card the supplier gets the same one-tap door
+   * the Overview's booking card carries (2026-09-19) — the couple's next step
+   * is to book and pay a deposit. A plain string (serialisable); the couple's
+   * page omits it, and `unreadable` renders nothing.
+   */
+  payoutReadiness?: PayoutReadiness;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
 const TYPING_IDLE_MS = 3000;
 
 export function ChatMessageStream({
+  dealEntry,
   threadId,
   initialMessages,
   currentUserId,
@@ -213,6 +232,7 @@ export function ChatMessageStream({
   reviseHref,
   lockTarget = null,
   flush = false,
+  payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -1039,6 +1059,11 @@ export function ChatMessageStream({
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
                       ) : null}
+                      {viewerRole === 'vendor' &&
+                      isLatestProposal &&
+                      card.status === 'accepted' ? (
+                        <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
+                      ) : null}
                       {items.length > 0 ? (
                         <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
                           {items.slice(0, 5).map((li, i) => (
@@ -1357,6 +1382,7 @@ export function ChatMessageStream({
                   creating new changes; existing change-order cards still
                   resolve). Opens the multi-item amendment builder. */}
               {negotiationOn &&
+              dealEntry.offerDeal &&
               ownsBubble(m, viewerRole) &&
               !m.proposal_id &&
               !m.appointment_id &&

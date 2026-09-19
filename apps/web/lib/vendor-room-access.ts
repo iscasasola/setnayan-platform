@@ -3,9 +3,12 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
-import { readInChunks } from '@/lib/read-all-pages';
+import {
+  readClaimedQrEventVendorIds,
+  readRoomBookingCandidates,
+  readRoomEventFacts,
+} from '@/lib/vendor-room-reads';
 import {
   admitRoomBookings,
   dedupe,
@@ -142,6 +145,18 @@ export async function fetchVendorRoomEvents(
   client: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorRoomEvent[]> {
+  return (await fetchVendorRoomEventsDetailed(client, vendorProfileId)).events;
+}
+
+/**
+ * `fetchVendorRoomEvents`, plus whether every read behind arms 2 and 3 reached
+ * the end. `complete: false` means some real bookings may be missing — a list
+ * that shows booked/not-booked says so on screen instead of reading as fewer.
+ */
+export async function fetchVendorRoomEventsDetailed(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ events: VendorRoomEvent[]; complete: boolean }> {
   const pool = await fetchVendorPoolBookings(client, vendorProfileId);
   const entries: VendorRoomEvent[] = pool.map((b) => ({
     ...b,
@@ -155,43 +170,41 @@ export async function fetchVendorRoomEvents(
   // status. `lock_request_state` decides arm 2; the token read below decides
   // arm 3. Both are asked of the SAME row set so a booking can only qualify
   // when the event_vendors row itself names this shop.
-  const { data: rows, error: bookingError } = await admin
-    .from('event_vendors')
-    .select('vendor_id, event_id, lock_request_state')
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
-    .is('archived_at', null);
-
-  if (bookingError) {
-    logQueryError('fetchVendorRoomEvents.event_vendors', bookingError, {
-      vendor_profile_id: vendorProfileId,
-    });
-    return dedupe(entries);
+  //
+  // ⚠ PAGED TO THE SERVER'S EXACT COUNT (`lib/vendor-room-reads.ts`). One
+  // un-ranged SELECT was capped at 1000 rows with `error: null`, so a busy
+  // shop's later bookings silently read as "not booked".
+  const candidateRead = await readRoomBookingCandidates(admin, vendorProfileId);
+  if (!candidateRead.complete) {
+    logQueryError(
+      'fetchVendorRoomEvents.event_vendors',
+      {
+        message:
+          candidateRead.error ??
+          `read ${candidateRead.rows.length} rows without reaching the server count`,
+      },
+      { vendor_profile_id: vendorProfileId },
+    );
+    // Refused: arm 1 only, as before. Short: the rows read still stand.
+    if (candidateRead.error) return { events: dedupe(entries), complete: false };
   }
+  let complete = candidateRead.complete;
 
-  const candidates = (rows ?? []) as BookingRow[];
-  if (candidates.length === 0) return dedupe(entries);
+  const candidates: BookingRow[] = candidateRead.rows;
+  if (candidates.length === 0) return { events: dedupe(entries), complete };
 
   // Arm 3's proof: tokens THIS shop issued that a couple actually claimed.
-  const { data: tokenRows, error: tokenError } = await admin
-    .from('vendor_locked_qr_tokens')
-    .select('claimed_event_vendor_id')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'claimed')
-    .not('claimed_event_vendor_id', 'is', null);
-
-  if (tokenError) {
+  const tokenRead = await readClaimedQrEventVendorIds(admin, vendorProfileId);
+  if (!tokenRead.complete) {
     // Arm 2 can still stand on its own; only arm 3 is lost. Logged, not silent.
-    logQueryError('fetchVendorRoomEvents.locked_qr_tokens', tokenError, {
-      vendor_profile_id: vendorProfileId,
-    });
+    logQueryError(
+      'fetchVendorRoomEvents.locked_qr_tokens',
+      { message: tokenRead.error ?? `read ${tokenRead.ids.size} ids without reaching the server count` },
+      { vendor_profile_id: vendorProfileId },
+    );
+    complete = false;
   }
-
-  const claimed = new Set(
-    ((tokenRows ?? []) as { claimed_event_vendor_id: string | null }[])
-      .map((t) => t.claimed_event_vendor_id)
-      .filter((v): v is string => Boolean(v)),
-  );
+  const claimed = tokenRead.ids;
 
   // ⚠ NO PRE-FILTER HERE, ON PURPOSE. An "only fetch events for rows an arm
   // admits" optimisation would be a SECOND copy of the admission rule, and the
@@ -201,27 +214,17 @@ export async function fetchVendorRoomEvents(
   const eventIds = [...new Set(candidates.map((r) => r.event_id))];
   // Chunked (`IN_LIST_CHUNK`): past ~600 ids one `in.()` is refused 400, which
   // would drop arms 2 and 3 for exactly the busiest shops.
-  const [{ rows: events, error: eventError }, { rows: threads }] = await Promise.all([
-    readInChunks(eventIds, (part) =>
-      admin
-        .from('events')
-        .select('event_id, display_name, event_date, event_date_precision')
-        .in('event_id', part),
-    ),
-    readInChunks(eventIds, (part) =>
-      admin
-        .from('chat_threads')
-        .select('thread_id, event_id')
-        .eq('vendor_profile_id', vendorProfileId)
-        .in('event_id', part),
-    ),
-  ]);
+  const { events, eventError, threads } = await readRoomEventFacts(
+    admin,
+    vendorProfileId,
+    eventIds,
+  );
 
   if (eventError) {
     logQueryError('fetchVendorRoomEvents.events', eventError, {
       vendor_profile_id: vendorProfileId,
     });
-    return dedupe(entries);
+    return { events: dedupe(entries), complete: false };
   }
 
   const eventById = new Map<string, RoomEventRow>(
@@ -243,6 +246,6 @@ export async function fetchVendorRoomEvents(
 
   entries.push(...admitRoomBookings(candidates, claimed, eventById, threadByEvent));
 
-  return dedupe(entries);
+  return { events: dedupe(entries), complete };
 }
 

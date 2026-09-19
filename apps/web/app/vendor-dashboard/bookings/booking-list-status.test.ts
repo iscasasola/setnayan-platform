@@ -61,7 +61,12 @@ test('the surface derives the tag from the booking facts, and no longer from cha
   assert.ok(src.length > 2000, 'read the real surface (an empty read is a green lie)');
   const statusAssign = [...src.matchAll(/status: bookingListStatus\(facts\)/g)].length;
   assert.equal(statusAssign, 1, `the row status must come from bookingListStatus — found ${statusAssign}`);
-  assert.equal([...src.matchAll(/fetchVendorRoomEvents\(/g)].length, 1, 'Booked must come from the room read');
+  // `…Detailed` is the same room read, plus whether it reached the end.
+  assert.equal(
+    [...src.matchAll(/fetchVendorRoomEvents(?:Detailed)?\(/g)].length,
+    1,
+    'Booked must come from the room read',
+  );
   assert.ok(!/THIRTY_DAYS_MS/.test(src), 'the 30-days-quiet timer is back');
   assert.ok(!/if \(unread\) status/.test(src), 'an unread notification is deciding the tag again');
   assert.ok(!/'stale'/.test(src), 'the chat-timing Stale bucket is back');

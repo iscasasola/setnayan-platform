@@ -15,7 +15,8 @@ import {
 import { previewFor } from '@/lib/conversation-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
+import { readUnreadChatThreadIds } from '@/lib/vendor-unread-threads';
 import { rowReadsCompleted } from '@/lib/vendor-thread-stage';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -101,18 +102,24 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
 
   // Vendor's unread chat-message notifications — match by related_url
   // suffix (the URL is /vendor-dashboard/messages/<threadId>).
-  const { data: unreadNotifs } = await supabase
-    .from('notifications')
-    .select('related_url')
-    .eq('user_id', user.id)
-    .eq('type', 'chat_message')
-    .is('read_at', null);
-  const unreadThreadIds = new Set<string>();
-  for (const n of unreadNotifs ?? []) {
-    const url = (n.related_url ?? '') as string;
-    const idx = url.lastIndexOf('/');
-    if (idx >= 0) unreadThreadIds.add(url.slice(idx + 1));
+  // ⚠ Paged to the server's count (`lib/vendor-unread-threads.ts`): one capped
+  // read dropped the "Unread" dot past 1,000 notifications, with no error.
+  const unreadRead = await readUnreadChatThreadIds(supabase, user.id);
+  if (!unreadRead.complete) {
+    logQueryError(
+      'VendorBookingsSurface.unread',
+      {
+        message:
+          unreadRead.error ??
+          `read ${unreadRead.threadIds.size} threads without reaching the server count`,
+      },
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
   }
+  const unreadThreadIds = unreadRead.threadIds;
+  // Every per-row fact that could not be read in full — said under the list.
+  let factsIncomplete = !unreadRead.complete;
 
   // ── THE BOOKING FACTS each row's tag is derived from ──────────────────────
   // Three batched reads, one per fact, over every event on this page. Each
@@ -127,7 +134,10 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     const [roomEvents, quotedRes, doneRes] = await Promise.all([
       // BOOKED — the room read (pool · agreed lock · claimed Locked QR), the
       // same answer the Clients list and Today's Upcoming give.
-      fetchVendorRoomEvents(supabase, profile.vendor_profile_id).catch(() => []),
+      fetchVendorRoomEventsDetailed(supabase, profile.vendor_profile_id).catch(() => ({
+        events: [],
+        complete: false,
+      })),
       // QUOTED — a proposal out with the couple (sent / viewed, not a draft).
       // Chunked (`IN_LIST_CHUNK`): past ~600 ids one `in.()` is refused 400,
       // and every row's tag fell back to "not yet" at once.
@@ -154,7 +164,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           .in('event_id', part),
       ),
     ]);
-    for (const b of roomEvents) bookedEventIds.add(b.eventId);
+    for (const b of roomEvents.events) bookedEventIds.add(b.eventId);
+    if (!roomEvents.complete) factsIncomplete = true;
     if (quotedRes.error) {
       logQueryError(
         'VendorBookingsSurface.quoted',
@@ -473,6 +484,20 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
         noun="bookings"
         incomplete={!threadsComplete}
       />
+      {factsIncomplete ? (
+        <p
+          role="status"
+          className="mt-2 rounded-xl border px-3 py-2 text-xs"
+          style={{
+            background: 'var(--sn-warning-soft)',
+            borderColor: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
+            color: 'var(--sn-warning-deep)',
+          }}
+        >
+          Some booking details couldn&rsquo;t load, so a few rows may be missing their
+          &ldquo;Unread&rdquo; dot or show the wrong stage. Reload the page to try again.
+        </p>
+      ) : null}
     </section>
   );
 }

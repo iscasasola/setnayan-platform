@@ -34,6 +34,22 @@ import { Sheet } from '@/app/_components/sheet';
  * to the trigger on close.
  */
 
+/** The query parameter a server action uses to reopen the sheet (see `read`). */
+export const SHEET_PARAM = 'sheet';
+
+/**
+ * Which anchor, if any, the URL asks the sheet to open at. A `#hash` wins over
+ * `?sheet=`; anything not in SETUP_ANCHORS opens nothing. Pure, so it is tested.
+ */
+export function sheetAnchorFrom(hash: string, search: string): (typeof SETUP_ANCHORS)[number] | null {
+  const fromHash = hash.replace(/^#/, '');
+  const fromQuery = new URLSearchParams(search).get(SHEET_PARAM) ?? '';
+  for (const raw of [fromHash, fromQuery]) {
+    if ((SETUP_ANCHORS as readonly string[]).includes(raw)) return raw as (typeof SETUP_ANCHORS)[number];
+  }
+  return null;
+}
+
 /** Anchors that open the sheet. `#setup` is the generic "open it" entry. */
 export const SETUP_ANCHORS = [
   'setup',
@@ -59,10 +75,15 @@ export function SetupSheet({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const read = () => {
-      const raw = window.location.hash.replace(/^#/, '');
-      if ((SETUP_ANCHORS as readonly string[]).includes(raw)) openTo(raw);
+      const raw = sheetAnchorFrom(window.location.hash, window.location.search);
+      if (raw) openTo(raw);
     };
-    read(); // deep-link on first paint (a server action can redirect with a hash)
+    // Deep-link on first paint. ⚠ A SERVER ACTION'S redirect() DROPS THE #HASH —
+    // measured in prod 2026-09-20: `redirect('…?screen_added=1#screens')` landed on
+    // `…?screen_added=1`, so the sheet stayed shut and the new screen's pairing code
+    // was hidden. Actions therefore say `?sheet=<anchor>`; a typed link may still
+    // use `#<anchor>`.
+    read();
     window.addEventListener('hashchange', read);
     return () => window.removeEventListener('hashchange', read);
   }, [openTo]);
@@ -87,8 +108,12 @@ export function SetupSheet({ children }: { children: ReactNode }) {
     // Drop the hash so the SAME anchor can be tapped again (a repeat hash fires
     // no hashchange event). replaceState, not pushState: re-opening the sheet is
     // not a history entry an operator should have to press Back through.
-    if (window.location.hash) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    const params = new URLSearchParams(window.location.search);
+    const hadSheet = params.has(SHEET_PARAM);
+    params.delete(SHEET_PARAM);
+    if (window.location.hash || hadSheet) {
+      const qs = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
     }
   }, []);
 

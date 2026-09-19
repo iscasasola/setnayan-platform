@@ -197,8 +197,13 @@ export function mirrorHasSource(embedUrl: string | null): boolean {
  * autoplays muted, loops nothing, and hides controls.
  */
 export function screenEmbedSrc(embedUrl: string): string {
-  const sep = embedUrl.includes('?') ? '&' : '?';
-  return `${embedUrl}${sep}autoplay=1&mute=1&controls=0&playsinline=1&rel=0`;
+  // Set, not append: the event embed already carries `rel=0`, and the prod check
+  // (2026-09-20) showed the naive append producing `rel=0…&rel=0`.
+  const url = new URL(embedUrl);
+  for (const [k, v] of Object.entries({ autoplay: '1', mute: '1', controls: '0', playsinline: '1', rel: '0' })) {
+    url.searchParams.set(k, v);
+  }
+  return url.toString();
 }
 
 /** Next free `screen_index`. Counts revoked rows too: the index is UNIQUE per event. */

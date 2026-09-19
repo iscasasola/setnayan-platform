@@ -144,6 +144,7 @@ export async function recordScan(
       ip_anon: anonymizeIp(scan.forwardedFor),
       context: { entry: scan.entry },
     });
+    if (insertError) console.error('[supabase-error] lib/scan-trail.ts · from:scan_events.insert', insertError);
     return insertError ? 'failed' : 'recorded';
   } catch {
     // Swallowed — triage only. See the contract above.

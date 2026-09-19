@@ -73,6 +73,7 @@
  * centavos column and is converted on the way in.
  */
 
+import { paidToVendorCentavos } from './paid-to-vendor';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -878,9 +879,12 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     //   ₱24,000 / ₱20,000 = ₱111,500) already exist as payment rows of exactly
     //   the same amount on exactly the same vendors. So the itemized log WINS
     //   whenever it exists; the legacy field is a fallback, never additive.
+    //   The rule itself lives in `lib/paid-to-vendor.ts` (DEPOSIT-TRUTH) so the
+    //   workspace, the vendor summary and the admin dispute queue ask the same
+    //   question this does instead of re-deriving it.
     const paymentsC = myPayments.reduce((acc, p) => acc + toCentavos(p.amount_php), 0);
     const depositC = toCentavos(v.deposit_paid_php);
-    const vendorPaidC = myPayments.length > 0 ? paymentsC : depositC;
+    const vendorPaidC = paidToVendorCentavos(myPayments, v.deposit_paid_php);
     if (myPayments.length > 0 && depositC > paymentsC) {
       warnings.push({
         code: 'unreconciled_deposit',

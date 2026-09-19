@@ -389,7 +389,11 @@ export async function fetchInviteToken(
     .select('token, revoked_at')
     .eq('community_id', communityId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error('[supabase-error] communities: community_invite_tokens', error);
+    return null;
+  }
+  if (!data) return null;
   const row = data as { token: string; revoked_at: string | null };
   return row.revoked_at ? null : row.token;
 }
@@ -574,6 +578,7 @@ export async function fetchSamahanMessages(
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(200);
+  if (error) console.error('[supabase-error] lib/communities.ts · from:samahan_messages.select', error);
   if (error || !data) return [];
   const rows = (data as Array<{
     message_id: string;

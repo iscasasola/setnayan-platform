@@ -128,7 +128,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, guest_list_edit_deadline, guest_count_locked_at',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -283,6 +283,12 @@ export const loadDayOfBroadcast = cache(
       .maybeSingle();
     // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
     // read error must never take the wedding page down on the day.
+    if (error) {
+      console.error(
+        '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
+        error,
+      );
+    }
     if (error || !data) return null;
     const row = data as { body: string; created_at: string };
     const body = row.body?.trim();
@@ -642,6 +648,7 @@ export const loadLiveLayer = cache(
         .select('rsvp_backdrop')
         .eq('event_id', event.event_id)
         .maybeSingle();
+      if (backdropError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select', backdropError);
       backdropConfig = backdropError
         ? null
         : parseRsvpBackdropConfig(
@@ -1117,6 +1124,7 @@ export const loadGuestContext = cache(
           .eq('guest_id', guest.guest_id)
           .is('revoked_at', null)
           .maybeSingle();
+        if (enrollError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:guest_face_enrollments.select', enrollError);
         // A FAILED READ MUST NOT ASK FOR A FACE SCAN AGAIN.
         //
         // The error was discarded, so a failed read produced `null` — the same
@@ -1303,6 +1311,7 @@ export const loadGuestContext = cache(
         .order('scanned_at', { ascending: true })
         .limit(1)
         .maybeSingle();
+      if (firstScanErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:scan_events.select', firstScanErr);
       // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR — check the error, or a lost
       // grant reads as "no scan ever" and greets every returning guest as new.
       if (!firstScanErr && firstScan?.scanned_at) {

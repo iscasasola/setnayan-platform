@@ -34,10 +34,14 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { eventNoun } from '@/lib/event-noun';
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { paidToVendorPhp } from '@/lib/paid-to-vendor';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -270,19 +274,6 @@ function formatPHP(value: number | string | null | undefined): string | null {
   }).format(n);
 }
 
-function formatMeetingDate(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat('en-PH', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Manila',
-  }).format(d);
-}
-
 function formatPaymentDate(iso: string): string {
   const d = new Date(iso);
   return new Intl.DateTimeFormat('en-PH', {
@@ -355,6 +346,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · from:event_vendors.select', error);
     if (error || !data) return null;
     const row = data as {
       deposit_declined_at: string | null;
@@ -623,6 +615,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
+  // The share text the couple sends an off-platform supplier says what the
+  // celebration IS — a debut's invite no longer reads "for our wedding".
+  const inviteEventWord = autoShareInvite
+    ? eventNoun((await resolveProfileByEvent(eventId)).eventType)
+    : 'wedding';
   const canOfferInvite =
     needsInvite &&
     !autoShareInvite &&
@@ -654,7 +651,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // fetches are gone.
   const [
     contractsRes,
-    meetingsRes,
     marketplaceProfileRes,
     chatThreadRes,
     marketplaceServicesData,
@@ -671,14 +667,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           .neq('status', 'draft')
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
-
-    // Upcoming meetings
-    supabase
-      .from('vendor_meetings')
-      .select('meeting_id, starts_at, ends_at, mode, title, location, agenda, notes')
-      .eq('event_id', eventId)
-      .eq('vendor_id', vendorId)
-      .order('starts_at', { ascending: true }),
 
     // Marketplace profile — logo, business name, city, slug. ADMIN read
     // (ownership proven above) so an unpublished claimed vendor still hydrates
@@ -750,6 +738,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             trusted_review_count: 0,
           },
           reviews: [],
+          // Nothing to read for an off-platform supplier — a true "none".
+          reviewsMeasured: true,
         }),
   ]);
 
@@ -857,17 +847,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const contractState = deriveBookingContractState(
     contracts.map((c) => c.status as ContractStatus),
   );
-
-  const meetings = (meetingsRes.data ?? []) as Array<{
-    meeting_id: string;
-    starts_at: string;
-    ends_at: string | null;
-    mode: string;
-    title: string;
-    location: string | null;
-    agenda: string | null;
-    notes: string | null;
-  }>;
 
   const marketplaceProfile = (marketplaceProfileRes.data ?? null) as {
     business_name: string;
@@ -1101,12 +1080,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // --------------------------------------------------------------------------
 
   const stage = inferStage(ev.status);
-  const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
-
-  const paidSoFarFormatted =
-    vendorBudgetSummary && vendorBudgetSummary.paidTotal > 0
-      ? formatPHP(vendorBudgetSummary.paidTotal)
-      : depositPaidFormatted;
+  // "Paid so far" through the ONE paid rule (`lib/paid-to-vendor.ts`): the
+  // summary's `paidTotal` already applies it (log wins, legacy
+  // `deposit_paid_php` only with no logged payment). Only when the summary
+  // itself could not be read does the page fall back — through the same rule,
+  // never a bare read of the column (DEPOSIT-TRUTH, 2026-09-19).
+  const paidSoFarPhp = vendorBudgetSummary
+    ? vendorBudgetSummary.paidTotal
+    : paidToVendorPhp([], ev.deposit_paid_php);
+  const paidSoFarFormatted = paidSoFarPhp > 0 ? formatPHP(paidSoFarPhp) : null;
 
   // 3-line total = Service + Transport + Food allowance (the Costing form).
   // `serviceCostNum` stays the HEADLINE: it is the value the Service price input
@@ -1415,20 +1397,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               gone, this page is always a third-party vendor relationship, so the
               affordance is always the right one. */}
           {(() => {
-            // Mirror the server-side downpaid signal from cancelBookingAsHost.
-            const downpaid =
-              ev.status === 'deposit_paid' ||
-              ev.status === 'delivered' ||
-              ev.status === 'complete';
-            const depositValueNumeric =
-              typeof ev.deposit_paid_php === 'string'
-                ? Number(ev.deposit_paid_php)
-                : ev.deposit_paid_php;
-            const hasDeposit =
-              Number.isFinite(depositValueNumeric) &&
-              (depositValueNumeric ?? 0) > 0;
-
-            if (downpaid || hasDeposit) {
+            // The SAME helper cancelBookingAsHost gates on — so a recorded
+            // deposit (deposit_recorded_at, no deposit_paid_php) offers the
+            // dispute, never a "Cancel booking" the server can only refuse.
+            if (bookingMoneyMoved(ev)) {
               return <DisputeLinkButton eventId={eventId} variant="cta" />;
             }
             if (ev.status === 'contracted') {
@@ -2029,7 +2001,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         />
   );
 
-  const schedulesSection = (
+  // The Schedules card used to list ad-hoc `vendor_meetings` rows — a table
+  // nothing ever wrote, so it said "No meetings scheduled yet" to every couple
+  // forever, including ones with confirmed appointments right below it. The
+  // table was dropped 2026-09-18 (S39). Appointments (below) are how a time
+  // with a Setnayan supplier gets booked; this card now appears ONLY for a
+  // supplier the couple added themselves, where there is no scheduler, and
+  // says so instead of implying one.
+  const schedulesSection = ev.marketplace_vendor_id ? null : (
         <section
           id="schedules"
           aria-labelledby="schedules-heading"
@@ -2048,33 +2027,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Schedules
             </h2>
           </header>
-
-          {meetings.length === 0 ? (
-            <p className="text-xs text-ink/55">
-              No meetings scheduled yet. Coordinate the next consult, tasting,
-              or fitting via Messages.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {meetings.map((m) => (
-                <li
-                  key={m.meeting_id}
-                  className="rounded-lg border border-ink/10 bg-cream/80 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-ink">{m.title}</p>
-                  <p className="text-[11px] text-ink/65">
-                    {formatMeetingDate(m.starts_at)}
-                    {m.mode ? ` · ${m.mode.replace(/_/g, ' ')}` : ''}
-                  </p>
-                  {m.location ? (
-                    <p className="mt-0.5 truncate text-[11px] text-ink/55">
-                      {m.location}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="text-xs text-ink/55">
+            You added {displayName} yourself, so there&rsquo;s no booking calendar with them
+            here. Arrange consults, tastings and fittings with them directly.
+          </p>
         </section>
   );
 
@@ -2273,9 +2229,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               {formatPHP(rolledTotalNum) ?? '₱0'}
             </span>
           </div>
+          {/* "PAID SO FAR", NOT "DEPOSIT PAID" (AREA-COUPLE, 2026-09-19). This
+              row read `deposit_paid_php`, which the couple's own "Record
+              deposit" never writes — the amount goes to the payment log. So a
+              recorded, supplier-confirmed ₱2,000 deposit read "Deposit paid —"
+              here while the header above said "Paid so far ₱2,000". One figure,
+              one source: the same `paidSoFarFormatted` the header shows. */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-ink/65">Deposit paid</span>
-            <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
+            <span className="text-ink/65">Paid so far</span>
+            <span className="font-medium text-ink">{paidSoFarFormatted ?? '—'}</span>
           </div>
 
           <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
@@ -2341,7 +2303,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <ClaimLinkShare
               claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
               shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our wedding. Claim your free vendor account here:`}
+              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free vendor account here:`}
             />
           </div>
 

@@ -7,9 +7,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import {
   fetchVendorBlocks,
-  fetchVendorPoolBookings,
   fetchVendorPools,
 } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -62,6 +62,20 @@ function fmtDate(iso: string): string {
 }
 
 /**
+ * What the Booked row names beside the date. A pool booking is named by its
+ * schedule; a booking the room read admitted WITHOUT a pool row (arm 2 · the
+ * shop agreed to the lock, arm 3 · a couple claimed its Locked QR) holds no
+ * schedule slot, so it says how it was booked instead of borrowing a pool name.
+ */
+function bookedLabel(
+  b: { poolId: string | null; via: 'schedule_pool' | 'lock_agreed' | 'locked_qr' },
+  poolLabel: Map<string, string>,
+): string {
+  if (b.poolId) return poolLabel.get(b.poolId) ?? 'Schedule';
+  return b.via === 'locked_qr' ? 'Booked with your Locked QR' : 'You agreed to lock';
+}
+
+/**
  * Small pipeline pill per row — the list-level echo of the Customer Card's
  * stage chip. Tones reuse the cream-card idioms from vendor-thread-stage.ts.
  */
@@ -87,9 +101,14 @@ export default async function VendorClientsPage({ searchParams }: Props) {
 
   const [pools, bookings, blocks, threads] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
-    // CAPACITY, not the room: this row is paired with the pool it belongs to and
-    // rendered under that pool's label — an agreed booking holds no pool.
-    fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
+    // S43 · OFF THE POOL READ, the same rule #5634 (SUP-8) gave Today's
+    // Upcoming list. The pool has one writer, reached by one booking path, so a
+    // shop that pressed Agree (`vendor_agree_to_lock`) or whose Locked QR a
+    // couple claimed held no pool row and was missing from its own "Booked via
+    // Setnayan" list — while the money had in some cases already moved. The
+    // room read is the pool PLUS those two arms. A row with no pool is labelled
+    // by the arm that admitted it (`bookedLabel` below), never a guessed pool.
+    fetchVendorRoomEvents(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     fetchVendorThreads(supabase, profile.vendor_profile_id),
   ]);
@@ -143,7 +162,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     };
     group.entries.push({
       date: b.bookedDate,
-      pool: poolLabel.get(b.poolId) ?? 'Schedule',
+      pool: bookedLabel(b, poolLabel),
     });
     bookedByEvent.set(b.eventId, group);
   }
@@ -263,8 +282,8 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No booked clients yet — one lands here the moment a couple&rsquo;s
-            downpayment is recorded. New leads are waiting in{' '}
+            No booked clients yet — one lands here the moment you agree to a
+            couple&rsquo;s lock or their downpayment is recorded. New leads are waiting in{' '}
             <Link
               href="/vendor-dashboard/bookings"
               className="font-medium text-mulberry underline"

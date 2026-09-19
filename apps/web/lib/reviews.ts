@@ -194,6 +194,54 @@ export async function fetchReviewsForVendorWithCouple(
 }
 
 /**
+ * ONE review, by id, scoped to the vendor it must belong to — with the couple
+ * name resolved the same way as the list. Exists for the Pro pinned review
+ * (S43 · 4): the public page loads only the newest few, so a review pinned from
+ * further back was silently dropped. `null` when the id is not this vendor's
+ * (a stale or foreign pin no-ops, exactly as before). Throws on a refused read
+ * so the caller can log it rather than mistake it for "no such review".
+ */
+export async function fetchReviewForVendorWithCouple(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  reviewId: string,
+): Promise<ReviewWithCouple | null> {
+  const { data, error } = await supabase
+    .from('vendor_reviews')
+    .select(REVIEW_COLUMNS)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('review_id', reviewId)
+    .maybeSingle();
+  if (error) throw new Error(`fetchReviewForVendorWithCouple failed: ${error.message}`);
+  if (!data) return null;
+  const row = data as ReviewRow;
+  const names = await resolveCoupleDisplayNames(supabase, [row.event_id]);
+  return {
+    ...row,
+    couple_display_name: row.event_id ? (names.get(row.event_id) ?? null) : null,
+  };
+}
+
+/**
+ * Put the pinned review first. `loaded` is the newest-first window the page
+ * fetched; `pinnedOutside` is the pinned review when it was NOT in that window
+ * (fetched on its own), else null. Pure, so the ordering is tested directly.
+ * The pinned review is never shown twice.
+ */
+export function pinReviewFirst<T extends { review_id: string }>(
+  loaded: T[],
+  pinnedId: string | null,
+  pinnedOutside: T | null,
+): T[] {
+  if (!pinnedId) return loaded;
+  const inWindow = loaded.filter((r) => r.review_id === pinnedId);
+  const rest = loaded.filter((r) => r.review_id !== pinnedId);
+  if (inWindow.length > 0) return [...inWindow, ...rest];
+  if (pinnedOutside && pinnedOutside.review_id === pinnedId) return [pinnedOutside, ...rest];
+  return loaded;
+}
+
+/**
  * Pulls the materialized view row for a vendor. Returns a zero-initialized
  * stats object when no row exists yet (e.g. vendor has zero reviews and the
  * view hasn't been refreshed since profile creation).
@@ -308,6 +356,7 @@ export async function fetchTrustedReviewStats(
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
   if (error || !data) return zero;
   return {
     vendor_profile_id: data.vendor_profile_id as string,
@@ -333,6 +382,7 @@ export async function fetchTrustedReviewStatsForMany(
     .from('vendor_trusted_review_stats')
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .in('vendor_profile_id', ids);
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
   if (error) return m;
   for (const row of data ?? []) {
     m.set(row.vendor_profile_id as string, {
@@ -373,6 +423,7 @@ export async function resolveBookedThroughSetnayan(
     p_event_id: eventId,
     p_vendor_profile_id: vendorProfileId,
   });
+  if (error) console.error('[supabase-error] lib/reviews.ts · rpc:review_is_booked_through_setnayan', error);
   if (error) return false;
   return data === true;
 }
@@ -396,6 +447,7 @@ export async function resolveViaVendorImport(
     p_event_id: eventId,
     p_vendor_profile_id: vendorProfileId,
   });
+  if (error) console.error('[supabase-error] lib/reviews.ts · rpc:review_via_vendor_import', error);
   if (error) return false;
   return data === true;
 }
@@ -459,6 +511,7 @@ export async function fetchOwnReviewForVendor(
     .eq('event_id', eventId)
     .eq('couple_user_id', coupleUserId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_reviews.select', error);
   if (error) return null;
   return (data ?? null) as ReviewRow | null;
 }
@@ -635,6 +688,7 @@ export async function fetchVendorCompletedEvents(
     .eq('vendor_profile_id', vendorProfileId)
     .order('completed_at', { ascending: false, nullsFirst: false })
     .limit(limit);
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_completed_events.select', error);
   if (error) return [];
   return (data ?? []) as VendorCompletedEventRow[];
 }

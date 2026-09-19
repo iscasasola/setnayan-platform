@@ -323,6 +323,45 @@ export function mergeBoardMemberships(
 }
 
 /**
+ * The launcher's landing rule: which event (if any) should `/dashboard` jump
+ * straight into, instead of showing the board?
+ *
+ * Returns the event_id to jump to, or NULL to land on the board.
+ *
+ * 🔑 OWNER 2026-09-19 (live, as the groom on one wedding who organises another):
+ * the rail said **Events 2**, and pressing it dropped him inside ONE wedding —
+ * *"shouldn't it let me pick which event first?"*. The rule decided the jump
+ * from the ORGANISER-only set (1 event) while the board and the rail counted
+ * every membership (2). The 2026-07-04 auto-jump was written for a person with
+ * ONE event; it is kept exactly for that person and nobody else:
+ *
+ *   • the WHOLE board — organiser AND invited, non-archived, with a stance —
+ *     holds exactly ONE card. Two cards means there is a choice to make, and
+ *     the board is where you make it. A finished second card counts: it is on
+ *     the board (the collection, owner 2026-08-11) and the rail counts it;
+ *   • that one card is the person's OWN (organiser): an invited card's door is
+ *     the public page, not a dashboard, and no jump ever went there;
+ *   • and it is still UPCOMING — a finished event is kept, not planned
+ *     (owner 2026-08-11), so they land on the collection.
+ *
+ * Put-away (archived) rows are off the board and do not count. Pure — no
+ * clock, no I/O — so the guard executes it rather than grepping for it.
+ */
+export function landingJumpTarget(
+  board: readonly EventWithRole[],
+  todayISO: string,
+): string | null {
+  const cards = board.filter(
+    (e) => !e.archived && eventStance(e.member_type) !== null,
+  );
+  if (cards.length !== 1) return null;
+  const only = cards[0]!;
+  if (eventStance(only.member_type) !== 'organiser') return null;
+  if (isFinishedEvent(only, todayISO)) return null;
+  return only.event_id;
+}
+
+/**
  * The FINISHED shelf, split by whether this account has turned the celebration
  * into a story yet (owner 2026-08-20: *"your story should be also integrated in
  * my events since we have a place there for finished. change it to unpublished

@@ -179,7 +179,12 @@ async function fetchPoolRungPrices(
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php, is_active')
       .in('service_code', codes as string[]);
-    if (error || !Array.isArray(data)) return out;
+    if (error) {
+      // No price shown rather than a guessed one — and the reason is kept.
+      console.error('[supabase-error] papic pack prices: platform_retail_catalog_v2', error);
+      return out;
+    }
+    if (!Array.isArray(data)) return out;
     for (const row of data) {
       if ((row as { is_active?: unknown }).is_active !== true) continue;
       const n = Number((row as { retail_price_php?: unknown }).retail_price_php ?? 0);

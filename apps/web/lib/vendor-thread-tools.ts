@@ -37,14 +37,21 @@ export type VendorThreadPanel = {
 
 export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
   {
-    id: 'send-proposal',
-    label: 'Send proposal',
-    hint: 'From a saved template',
-  },
-  {
+    /*
+      ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19). This list carried TWO
+      quote panels — `send-proposal` (a saved template, priced by its package)
+      and `build-quote` (line items, freebies, crew, transport) — and the rail
+      offered both as separate launchers, one of them marked primary. To a
+      supplier they were one job with two doors, and the doors led to
+      different tools: the client brief's "Quote" button opened the template
+      form, its "New quote" button opened the builder. Both composers still
+      mount, once each, INSIDE this one panel (the builder, then the template
+      shortcut under it — `page.tsx` `toolNodes['build-quote']`); the id is
+      kept because every deep link and `?compose=quote` name it.
+    */
     id: 'build-quote',
-    label: 'Build a quote',
-    hint: 'Line items, freebies, crew and transport',
+    label: 'Send a quote',
+    hint: 'Line by line, or from a saved template',
   },
   {
     id: 'offer-service',
@@ -198,13 +205,14 @@ export type VendorThreadTool = VendorThreadRevealTool | VendorThreadLinkTool;
  */
 export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
   {
+    // The ONE quote launcher (SUP-H) — the template shortcut lives inside the
+    // panel it opens, so there is no second entry for the same job.
     key: 'build-quote',
-    label: 'Build a quote',
+    label: 'Send a quote',
     icon: 'quote',
     reveal: ['build-quote'],
     primary: true,
   },
-  { key: 'send-proposal', label: 'Send proposal', icon: 'proposal', reveal: ['send-proposal'] },
   { key: 'log-payment', label: 'Log payment', icon: 'payment', reveal: ['pending-payments'] },
   {
     key: 'propose-schedule',

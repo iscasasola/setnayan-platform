@@ -5,9 +5,8 @@
 // (`getEventTypeVocab()` / `getCreatableEventTypes()`). Server components
 // fetch it and thread rows into the client pickers as props:
 //   - /dashboard/create-event page → EventTypePicker → EventTypePhotoPicker
-//   - the four chrome layouts → EventSwitcher → EventTypeCarousel
 //
-// This file keeps (a) the shared row shape both client pickers consume and
+// This file keeps (a) the shared row shape the client picker consumes and
 // (b) EVENT_TYPES_FALLBACK — the pre-cutover hardcoded roster, used ONLY when
 // the vocab read fails or returns empty (lib/event-types-db.ts SAFETY
 // contract, mirroring lib/taxonomy-db.ts). Do NOT add new types here: create

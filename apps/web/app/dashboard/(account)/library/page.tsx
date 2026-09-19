@@ -27,14 +27,14 @@ export const metadata = { title: 'Memories' };
  * used to carry was simply its older label (now retired — see
  * `apps/web/.retired-strings.json`). Two shipped nav surfaces already send
  * people here calling it Alaala: `(launcher)/_components/home-pill-nav.tsx`
- * (the phone tab literally reads "Alaala") and `home-board.tsx` (the dark
- * board tile reads "Alaala"). The page they landed on introduced itself as
+ * (the phone tab literally reads "Alaala") and the home's board tile (deleted
+ * with the board, 2026-09-18). The page they landed on introduced itself as
  * something else — the same two-names-for-one-idea defect the home fix
  * addressed, one level down.
  *
  * ── ONE VOCABULARY: THE FIVE LENSES ────────────────────────────────────────
- * The Alaala tile names five lenses (Recent · Owned · Attended · People · With
- * me — `(launcher)/_components/alaala-lenses.tsx`). This page used a SECOND,
+ * Alaala has five lenses (Recent · Owned · Attended · People · With me —
+ * declared once as `ALAALA_LENSES` in `lib/alaala-wall.ts`). This page used a SECOND,
  * unrelated axis: three tabs (Photos & Videos · Saved Vendors · Editorials).
  * The lenses are the page's primary navigation, and both surfaces now render
  * the SAME body (`app/_components/alaala/lens-body.tsx`) from the same read.

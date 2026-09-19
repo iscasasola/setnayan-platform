@@ -29,14 +29,17 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarHeart, ChevronRight, X } from 'lucide-react';
+import { eventNoun } from '@/lib/event-noun';
 
 type Props = {
   eventId: string;
+  /** The event's kind. A birthday reads "event"; a wedding stays byte-identical. */
+  eventType?: string | null;
 };
 
 const DISMISS_KEY = (eventId: string) => `setnayan:set-date-nudge-dismissed:${eventId}`;
 
-export function SetDateNudge({ eventId }: Props) {
+export function SetDateNudge({ eventId, eventType = null }: Props) {
   const [dismissed, setDismissed] = useState(false);
 
   // Hydrate dismiss state from localStorage on mount.
@@ -50,6 +53,7 @@ export function SetDateNudge({ eventId }: Props) {
     }
   }, [eventId]);
 
+  const noun = eventNoun(eventType);
   if (dismissed) return null;
 
   const handleDismiss = () => {
@@ -76,9 +80,11 @@ export function SetDateNudge({ eventId }: Props) {
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
           One more thing
         </p>
-        <p className="text-base font-semibold text-ink">Set your wedding date</p>
+        <p className="text-base font-semibold text-ink">Set your {noun} date</p>
         <p className="text-sm text-ink/65">
-          Lock it in to start the countdown and unlock your Save-the-Date and editorial pages.
+          {noun === 'wedding'
+            ? 'Lock it in to start the countdown and unlock your Save-the-Date and editorial pages.'
+            : 'Lock it in to start the countdown and open the pages of your site that wait for a date.'}
         </p>
         <a
           href={`/dashboard/${eventId}/date-selection`}

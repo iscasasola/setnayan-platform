@@ -2,6 +2,7 @@ import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { recordedDepositPhp } from '@/lib/paid-to-vendor';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { settleDepositDispute } from '../actions';
@@ -85,6 +86,37 @@ export async function DepositDisputesSection() {
     above — never a confident "no history".
   */
   const openIds = (rows ?? []).map((r) => r.vendor_id);
+
+  /*
+    THE AMOUNT UNDER DISPUTE comes from the payment log, through the one rule
+    (`recordedDepositPhp`, lib/paid-to-vendor.ts) — DEPOSIT-TRUTH, 2026-09-19.
+    This line used to print `deposit_paid_php`, which the couple's "Record
+    deposit" never writes, so EVERY deposit dispute read "Couple recorded —":
+    the one screen whose whole job is to judge that money could not see it.
+    NULL on a failed read, as everywhere on this page — never a confident "—".
+  */
+  const depositLogRes =
+    openIds.length > 0
+      ? await admin
+          .from('event_vendor_payments')
+          .select('vendor_id, amount_php, is_deposit_record')
+          .in('vendor_id', openIds)
+          .eq('is_deposit_record', true)
+      : { data: [], error: null };
+  if (depositLogRes.error) {
+    logQueryError('AdminDisputesPage (deposit amounts)', depositLogRes.error);
+  }
+  type DepositLogRow = { vendor_id: string; amount_php: number | string | null; is_deposit_record: boolean };
+  const depositLog = depositLogRes.error ? null : ((depositLogRes.data ?? []) as DepositLogRow[]);
+  const depositAmount = (r: OpenDepositDispute): string => {
+    if (depositLog === null) return '(amount could not be read)';
+    return peso(
+      recordedDepositPhp(
+        depositLog.filter((p) => p.vendor_id === r.vendor_id),
+        r.deposit_paid_php,
+      ),
+    );
+  };
   const since = new Date(Date.now() - RESENT_WINDOW_DAYS * 86_400_000).toISOString();
   const [earlierRes, resentRes] = await Promise.all([
     openIds.length > 0
@@ -149,7 +181,7 @@ export async function DepositDisputesSection() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-ink/70">
-                Couple recorded {peso(r.deposit_paid_php)}
+                Couple recorded {depositAmount(r)}
                 {r.deposit_method_label ? ` via ${r.deposit_method_label}` : ''}
                 {r.deposit_recorded_at ? ` · ${relativeTime(r.deposit_recorded_at)}` : ''}
                 {receiptUrls.get(r.vendor_id) ? (

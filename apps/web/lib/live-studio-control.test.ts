@@ -60,7 +60,6 @@ import {
   formatChannel,
   liveStudioDetailPath,
   liveStudioControlPath,
-  liveStudioControlLegacyPath,
   liveStudioControlLock,
   liveStudioControllerHref,
   liveStudioControllerHrefFor,
@@ -94,10 +93,6 @@ test('ROUTE — control paths use the renamed segment', () => {
   // (an App Router page cannot opt out of an ancestor layout). The detail/buy page
   // above is unchanged — it is a normal dashboard surface and keeps its chrome.
   assert.equal(liveStudioControlPath('S89E-abc'), '/panood/control/S89E-abc');
-  assert.equal(
-    liveStudioControlLegacyPath('S89E-abc'),
-    '/dashboard/S89E-abc/studio/live-studio-control/setup',
-  );
 });
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -119,11 +114,6 @@ test('WAVE 8 — it reuses the /panood namespace the program pop-out already esc
   // top-level chrome-less route, and `panood` is already a RESERVED top-level slug,
   // so this can never shadow a vendor or event slug.
   assert.match(liveStudioControlPath('S89E-abc'), /^\/panood\/control\//);
-});
-
-test('WAVE 8 — the OLD dashboard URL is still addressable, for the redirect only', () => {
-  // The stub at the old path redirects here. Nothing links to it.
-  assert.notEqual(liveStudioControlLegacyPath('E1'), liveStudioControlPath('E1'));
 });
 
 test('ROUTE — the internal data key is unchanged by the rename', () => {

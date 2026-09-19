@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { paidToVendorPhp } from './paid-to-vendor';
 import { VENDOR_CATEGORY_LABEL, type EventVendorRow } from './vendors';
 import {
   VENDOR_PACKAGE_ITEM_SELECT,
@@ -445,7 +446,9 @@ export async function buildVendorPricingLookup(
         'booking_id',
         packageBookings.map((b) => b.booking_id),
       );
-    if (!customRes.error) {
+    if (customRes.error) {
+      console.error('[supabase-error] budget: event_vendor_packages customizations', customRes.error);
+    } else {
       for (const row of (customRes.data ?? []) as Array<{
         booking_id: string;
         customizations_json: unknown;
@@ -634,7 +637,11 @@ export async function fetchVendorBudgetSummary(
     changes: sumAmountPhp(changes),
   });
   const itemizedTotal = agreed.agreed;
-  const paidTotal = myPayments.reduce((acc, p) => acc + Number(p.amount_php), 0);
+  // The ONE paid rule (`lib/paid-to-vendor.ts`, shared with computeEventMoney):
+  // the log wins, the legacy `deposit_paid_php` counts only for a booking with
+  // no logged payment. Only when the log was actually READ — a refused read
+  // must stay 0 + `paymentsMeasured: false`, never a partial figure.
+  const paidTotal = paymentsMeasured ? paidToVendorPhp(myPayments, vendor.deposit_paid_php) : 0;
 
   return {
     vendor,
@@ -781,7 +788,7 @@ export async function fetchBudgetSnapshot(
     });
     const itemizedTotal = agreed.agreed;
 
-    const paidTotal = myPayments.reduce((acc, p) => acc + Number(p.amount_php), 0);
+    const paidTotal = paidToVendorPhp(myPayments, vendor.deposit_paid_php);
     return {
       vendor,
       lineItems: myLineItems,

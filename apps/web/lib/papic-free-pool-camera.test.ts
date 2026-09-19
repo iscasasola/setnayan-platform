@@ -8,8 +8,8 @@
  *
  * Owner: *"free guests can shoot."* Paying buys MORE SHOTS, not more PEOPLE.
  * That is safe to give away because the bound was never the number of cameras —
- * it is the purse, and `papic_reserve_event_points_for_seat` already fails
- * CLOSED at zero.
+ * it is the purse, and `papic_reserve_capture_split` already fails CLOSED
+ * when the pool cannot cover a capture.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

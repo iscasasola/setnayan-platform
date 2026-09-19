@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase/server';
  * The reporter is a public visitor who may be signed OUT (an invitation page is
  * public), so this runs server-side with the service-role client rather than
  * relying on the authenticated-only INSERT RLS policy — the same shape the
- * guest-camera report path (report_guest_capture) uses. When the reporter IS
+ * guest-camera report path (report_guest_capture, dropped 2026-09-18) used. When the reporter IS
  * signed in we stamp reporter_user_id (and dedup their open reports); anonymous
  * reports land with a NULL reporter, exactly like a guest-filed photo report.
  */

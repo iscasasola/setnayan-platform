@@ -34,6 +34,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
+import { BoothStudioCard } from './_components/booth-studio-card';
+import { boothStudioEnabled } from '@/lib/booth-studio-flag';
+import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { BoothEventSection } from './_components/booth-event-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
@@ -102,6 +105,8 @@ import {
 } from './actions';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { BookingMoneySummary } from './_components/booking-money-summary';
+import { bookingMoney, type BookingMoney, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -550,7 +555,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // marketplace_vendor_id below.
       admin
         .from('event_vendor_booth_posters')
-        .select('poster_ref')
+        .select('poster_ref, poster_content')
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
@@ -763,8 +768,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flag-ON Payments tab can feed the live VendorPaymentLive surface exactly as
   // the thread page does. Unused on the flag-OFF path, so its render is unchanged.
   let planRowsAll: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
+  // AREA-VENDOR — the money on record for a booking with NO frozen plan (the
+  // only kind production has): logged payments + the balance, from the same
+  // ownership-gated timeline Today and /payday read. Empty when nothing is
+  // logged, or when the read is refused (logged, never shown as money).
+  let ledgerMoney: BookingMoney = { rows: [], receivedPhp: 0, expectedPhp: 0 };
   if (isBooked) {
-    const [plans, pending] = await Promise.all([
+    const [plans, pending, payday] = await Promise.all([
       fetchPlanProgressForVendor({
         adminClient: admin,
         eventId,
@@ -775,8 +785,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
+      supabase.rpc('vendor_payday_installments'),
     ]);
     planRowsAll = plans;
+    if (payday.error) {
+      logQueryError('VendorClientPage.paydayInstallments', payday.error, { eventId }, 'graceful_degrade');
+    } else if (plans.length === 0) {
+      ledgerMoney = bookingMoney(
+        (payday.data ?? []) as unknown as PaydayInstallmentRow[],
+        eventId,
+        eventVendorId,
+      );
+    }
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
@@ -931,6 +951,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
   // display URL for the preview — the same ref → URL step the 3D scenes do.
   const posterRef = (posterRow as { poster_ref?: string | null } | null)?.poster_ref ?? null;
+  // Booth Studio words, sanitized by the renderer's own rule so the composer
+  // opens on exactly what a guest would be shown.
+  const boothStudioContent = sanitizeBoothStudioContent(
+    (posterRow as { poster_content?: unknown } | null)?.poster_content ?? null,
+  );
   const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
@@ -1349,6 +1374,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       vendorProfileId={profile.vendor_profile_id}
       posterRef={posterRef}
       posterDisplayUrl={posterDisplayUrl}
+      boothStudioContent={boothStudioContent}
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
@@ -1417,6 +1443,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
+      ledgerMoney={ledgerMoney}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1574,9 +1601,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Payments
           </p>
+          <BookingMoneySummary money={ledgerMoney} />
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No payments to
-            confirm yet. When {eventName} logs a payment, confirm it here.
+            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
+            {ledgerMoney.rows.length > 0
+              ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
+              : `No payments to confirm yet. When ${eventName} logs a payment, confirm it here.`}
           </p>
         </div>
       ) : (
@@ -1847,7 +1877,8 @@ function VendorCompletionCard({
 //
 // Action bar: shortcut links only (no new call/quote logic). Chat + Call both
 // open the thread (the P2P call surface lands there per the Workspace spec);
-// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// Quote deep-links the thread's one quote panel (#build-quote — the builder
+// with the saved-template shortcut inside it, SUP-H); Files jumps to this
 // card's Files tab; Details is the current view (inert).
 // ===========================================================================
 function ReturningMarkerAndActions({
@@ -1913,7 +1944,7 @@ function ReturningMarkerAndActions({
         <Link
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              ? `/vendor-dashboard/messages/${threadId}#build-quote`
               : '/vendor-dashboard/proposals'
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
@@ -1965,6 +1996,8 @@ function OverviewTab(props: {
   posterRef: string | null;
   /** Resolved display URL for the poster preview, or null. */
   posterDisplayUrl: string | null;
+  /** This vendor's Booth Studio words for this event (sanitized), or null. */
+  boothStudioContent: BoothStudioContent | null;
   completion: {
     deposit_proof_url: string | null;
     /** The supplier's own words when they said it never reached them. */
@@ -2000,6 +2033,7 @@ function OverviewTab(props: {
     vendorProfileId,
     posterRef,
     posterDisplayUrl,
+    boothStudioContent,
     completion,
     eventVendorId,
     depositRecorded,
@@ -2526,6 +2560,13 @@ function OverviewTab(props: {
         />
       ) : null}
 
+      {/* Booth Studio — the words on the booth, drawn in the couple's palette.
+          Same reach as the poster (any BOOKED vendor, the RPC's own gate) and
+          dark behind the same flag the 3D renderer reads. */}
+      {isBooked && boothStudioEnabled() ? (
+        <BoothStudioCard eventId={eventId} initial={boothStudioContent} />
+      ) : null}
+
       {/* Papic Games — custom Photo Challenge authoring (booked-only). Self-gates
           on the flag + the vendor's Pro tier; renders nothing when off. */}
       {isBooked ? (
@@ -2553,6 +2594,8 @@ function QuoteTab(props: {
   planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
+  /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
+  ledgerMoney: BookingMoney;
   threadId: string | null;
   /**
    * "Ask for a payment" — passed in rather than built here so this component
@@ -2561,7 +2604,7 @@ function QuoteTab(props: {
    */
   askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, threadId, askPanel } =
+  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, ledgerMoney, threadId, askPanel } =
     props;
   const steps = planStepRows?.steps ?? null;
 
@@ -2701,6 +2744,8 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
+        ) : ledgerMoney.rows.length > 0 ? (
+          <BookingMoneySummary money={ledgerMoney} />
         ) : (
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule

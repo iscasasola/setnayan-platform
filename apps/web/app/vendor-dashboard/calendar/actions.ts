@@ -32,7 +32,7 @@ import {
 } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import {
-  notifyWaitlistForDate,
+  notifyWaitlistForFreedDate,
   notifyWaitlistForFreedRange,
 } from '@/lib/vendor-waitlist';
 
@@ -280,8 +280,10 @@ export async function removeBlock(formData: FormData): Promise<void> {
 
 /** Vendor one-click "a slot opened — notify them": flips every pending
  *  waitlist row for a (vendor, date) to notified + emails each couple. Date is
- *  validated to YYYY-MM-DD; the notify runs through the service-role client
- *  inside notifyWaitlistForDate. */
+ *  validated to YYYY-MM-DD; the notify runs through notifyWaitlistForFreedDate
+ *  so a stale click (the date got re-booked or manually blocked since the
+ *  vendor last looked at the calendar) is a silent no-op instead of a false
+ *  "your date opened up!" email. */
 export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
   const { profile } = await requireVendor();
   const requestedDate = str(formData, 'requested_date');
@@ -290,7 +292,7 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
   const vendorProfileId = profile.vendor_profile_id;
   // Run synchronously so the notice reflects the real outcome; emails inside
   // are best-effort (Promise.allSettled) so a slow provider can't hang us long.
-  await notifyWaitlistForDate(vendorProfileId, requestedDate).catch((e) => {
+  await notifyWaitlistForFreedDate(vendorProfileId, requestedDate).catch((e) => {
     console.error('[waitlist] one-click notify failed:', String(e));
   });
 

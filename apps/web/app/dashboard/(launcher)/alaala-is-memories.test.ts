@@ -44,8 +44,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..');
 
 const LAUNCHER = resolve(HERE, 'page.tsx');
-const TILE = resolve(HERE, '_components', 'alaala-tile.tsx');
-const WALL = resolve(HERE, '_components', 'alaala-wall.tsx');
 const BODY = resolve(WEB, 'app', '_components', 'alaala', 'lens-body.tsx');
 const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', 'page.tsx');
 const DATA = resolve(WEB, 'lib', 'alaala-wall-data.ts');
@@ -73,7 +71,7 @@ test('the memory wall is mounted where Alaala lives', () => {
   // mounts the same shared body the home used to.
   const s = src(ALAALA_PAGE);
   assert.equal(
-    count(s, /<AlaalaLensBody\b|<AlaalaWall\b/g) >= 1,
+    count(s, /<AlaalaLensBody\b/g) >= 1,
     true,
     'Alaala has no memory wall. Without it the five lenses have no surface and ' +
       'Alaala has no photographs.',
@@ -88,47 +86,6 @@ test('the home does not render the per-event album grid', () => {
     'The launcher renders PhotosTab — one card per event with a photo count. ' +
       'That is the board’s answer, not Alaala’s. The per-event albums ' +
       'live one tap deeper, under "Albums by event" in Alaala opened full.',
-  );
-});
-
-test('the obsidian tile carries Life-Flash and does NOT carry the lenses', () => {
-  const s = src(TILE);
-  // It still does its own job…
-  assert.ok(
-    /Play Life-Flash/.test(s),
-    'the Alaala tile lost its Life-Flash affordance',
-  );
-  // …and not the wall's.
-  assert.equal(
-    count(s, /<AlaalaLenses\b/g),
-    0,
-    'The lenses are back inside the obsidian tile. That slot is a caption: ' +
-      'it can only hold sentences about events, which is what made Alaala read ' +
-      'as a second list of events in the first place.',
-  );
-});
-
-test('the home wall DERIVES its lens bodies — the pairing is not hand-typed', () => {
-  const s = src(WALL);
-  // 🪤 THE PREVIOUS VERSION OF THIS TEST COULD NOT FAIL THE WAY THAT MATTERED.
-  // It scanned a hand-typed `{ owned: <AlaalaLensBody lens="owned" …> }` map for
-  // the record KEY. A mutation rewriting one entry to `lens="recent"` preserves
-  // the key, so 17/17 tests stayed green while the Owned chip rendered the
-  // Recent wall — measured, not supposed. `Record<K, ReactNode>` gives no
-  // key↔prop link, so no guard over hand-typed pairs can be trusted. The map is
-  // now derived from the one declared list, which makes the bug unexpressible.
-  assert.match(
-    s,
-    /ALAALA_LENSES\.map\(\s*\(\{\s*key\s*\}\)\s*=>\s*\[\s*key\s*,[\s\S]{0,160}?lens=\{key\}/,
-    'The home wall no longer derives its lens bodies from ALAALA_LENSES. A ' +
-      'hand-typed key/prop map lets a chip render another lens’s answer with ' +
-      'every test green — that is exactly how this guard was caught being ' +
-      'decoration.',
-  );
-  assert.equal(
-    count(s, /lens="(recent|owned|attended|people|with_me)"/g),
-    0,
-    'a hand-typed lens prop came back on the home wall',
   );
 });
 
@@ -215,16 +172,6 @@ test('"With me" is reachable at the account level, where it has to be', () => {
       'is every photo of you across six years and belongs to no single event — ' +
       'if it is not offered at the account level it cannot be offered at all.',
   );
-  // …and the home wall must still carry it too, or the two surfaces disagree.
-  const wall = /const LENSES: Array<\{ key: AlaalaLensKey; label: string \}> = \[([\s\S]*?)\];/
-    .exec(src(resolve(HERE, '_components', 'alaala-lenses.tsx')));
-  assert.ok(wall, 'no LENSES list in alaala-lenses.tsx — update this guard');
-  for (const lens of LENSES) {
-    assert.ok(
-      new RegExp(`'${lens}'`).test(wall[1]!),
-      `the home wall stopped offering the "${lens}" lens`,
-    );
-  }
 });
 
 test('the read budgets PER LENS and counts on the uncapped set', () => {

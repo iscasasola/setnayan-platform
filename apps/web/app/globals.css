@@ -961,7 +961,7 @@ html.subnav-docked [data-shell-main] {
  * "services must look like live/animated posters instead of cards."
  *
  * Three keyframe variants drive every poster on the add-ons grid. Each
- * service picks one variant via the ServicePoster `motion` prop:
+ * service picks one variant via its catalogue `poster.motion`:
  *   - poster-drift: slow radial gradient drift (calm services — Orders,
  *     Photo Delivery, Landing Page)
  *   - poster-pulse: centered scaling pulse (creative/generative services —
@@ -975,8 +975,8 @@ html.subnav-docked [data-shell-main] {
  * is already handled by the global block at line 114 — keyframe duration
  * collapses to 0.001ms so reduced-motion users see a still poster.
  *
- * Color-on-poster comes from per-service `style.background` inline on
- * the ServicePoster wrapper; this stylesheet only owns the motion
+ * Color-on-poster comes from the catalogue's per-service backgrounds, set
+ * inline by the Services tab (plan-budget-accordion.tsx); this stylesheet only owns the motion
  * primitives so adding a new service is one variant pick + one color
  * pair, never a CSS edit.
  */

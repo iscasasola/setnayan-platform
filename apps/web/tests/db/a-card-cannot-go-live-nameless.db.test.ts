@@ -165,7 +165,17 @@ test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2
 });
 
 test('a kind with no taxonomy row at all is HUMANISED, never printed as a key', async () => {
-  const id = await liveCard(SHOP_OPEN, 'a_kind_nobody_mapped', null);
+  // Since SUP-21 (migration 20271234232465) the database refuses a NEW row in no
+  // vocabulary, so this only happens to a row written before that fence. Stand one
+  // up by switching the fence off for this single insert. The naming fallback
+  // still has to hold for those rows.
+  await db.query('ALTER TABLE vendor_services DISABLE TRIGGER trg_before_vendor_services_kind_is_known');
+  let id: string;
+  try {
+    id = await liveCard(SHOP_OPEN, 'a_kind_nobody_mapped', null);
+  } finally {
+    await db.query('ALTER TABLE vendor_services ENABLE TRIGGER trg_before_vendor_services_kind_is_known');
+  }
   const title = await titleOf(id);
   assert.equal(title, 'A Kind Nobody Mapped by Saysay Live Band');
   assert.ok(!(title ?? '').includes('a_kind_nobody_mapped'), 'a raw database key reached a card title');

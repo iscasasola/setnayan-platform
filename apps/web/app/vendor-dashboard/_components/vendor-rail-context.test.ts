@@ -386,7 +386,7 @@ test('the shop content still stands on the warm ground, and not on the slide', (
   );
 });
 
-test('all five cron-free sweeps still ride on this layout', () => {
+test('all eight cron-free sweeps still ride on this layout', () => {
   const src = code(read(LAYOUT));
   // There is NO scheduler behind these. Drop one in a rewrite and the vendor
   // ghosting nudge, the creator-offer refund or the booking-fee notice simply
@@ -402,6 +402,8 @@ test('all five cron-free sweeps still ride on this layout', () => {
     // production is pre-launch-quiet: an admin-only mount would hang a
     // supplier's deadline on somebody opening /admin.
     'maybeRunLockRequestExpiry',
+    // S40. Same dual-mount reasoning as the lock-request nudge directly above.
+    'maybeRunDeletionRequestNudge',
     /*
       "Your credit is about to expire" (owner 2026-08-28). Registered here the
       moment it was added, because this list is the only thing standing between
@@ -414,6 +416,15 @@ test('all five cron-free sweeps still ride on this layout', () => {
       screen still looks correct.
     */
     'maybeSweepVendorCreditWarnings',
+    /*
+      The deposit-acknowledge catch-up (2026-09-18). A booking this supplier
+      acknowledged through the payment card had its fee and schedule effects
+      skipped entirely — the first real booking, 0 ledger rows, nothing logged.
+      This is the only thing that runs those effects for a booking whose
+      acknowledge already happened; drop it and every such booking stays
+      unbilled and unheld forever, with every screen still looking correct.
+    */
+    'maybeCatchUpAcknowledgedDeposits',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -422,7 +433,10 @@ test('all five cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    6,
+    // 8 since 2026-09-18: S6's deposit-acknowledge catch-up (#5615) and S40's
+    // deletion-request nudge (#5688) each added a sweep and named it in the list
+    // above; neither bumped this count. Every sweep is still asserted BY NAME.
+    8,
     'the count of post-response jobs changed',
   );
 });

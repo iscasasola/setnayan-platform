@@ -74,9 +74,11 @@ export async function saveStudioAction(formData: FormData): Promise<void> {
       monogram_custom_svg: svg,
       monogram_studio_config: config,
       // A studio mark is neither a cipher nor a bespoke-studio generation —
-      // drop those pointers so exactly one source owns monogram_custom_svg.
+      // drop that pointer so exactly one source owns monogram_custom_svg.
+      // (monogram_custom_generation_id — the bespoke-generation provenance
+      // column — was dropped in S40 alongside the retired
+      // bespoke_monogram_generations table; see that migration's comment.)
       monogram_cipher_config: null,
-      monogram_custom_generation_id: null,
       // Reclaim precedence from any earlier upload (gap audit 2026-07-17):
       // every surface resolves `uploaded ?? custom`, so a leftover
       // monogram_uploaded_svg would make this "Save as my monogram" a silent

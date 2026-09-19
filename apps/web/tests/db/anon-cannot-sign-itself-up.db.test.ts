@@ -55,25 +55,25 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 let replay: ReplayResult;
 let db: PGlite;
 
-/** The three doors migration 20271178066835 closes. */
+/** The doors migration 20271178066835 closes that still exist. It closed three;
+ *  the third, `couple_waitlist_signups`, was DROPPED on 2026-09-18 (migration
+ *  20271234094457 — the pre-launch waitlist, 0 rows ever), and a probe against
+ *  a missing table proves nothing, so it leaves this list. */
 const CLOSED = [
-  'couple_waitlist_signups',
   'couple_event_type_notify_signups',
   'couple_wedding_type_notify_signups',
 ] as const;
 
 /** A valid INSERT per closed table — valid so that a refusal is attributable to
- *  the policy and never to the data. Emails are real-shaped: two of the three
- *  carry a format CHECK, and a probe that trips one proves nothing.
+ *  the policy and never to the data. Emails are real-shaped: both carry a
+ *  format CHECK, and a probe that trips one proves nothing.
  *
- *  The address is parameterised because `couple_waitlist_signups` carries a
- *  UNIQUE on it: a second test reusing one address fails on the constraint and
- *  reads exactly like a refusal that never happened. */
+ *  The address is parameterised so no two tests share one: a second test
+ *  reusing an address would fail on a UNIQUE constraint and read exactly like a
+ *  refusal that never happened. */
 const insertFor = (table: (typeof CLOSED)[number], tag: string): string => {
   const email = `probe-${tag}@example.invalid`;
   switch (table) {
-    case 'couple_waitlist_signups':
-      return `INSERT INTO public.couple_waitlist_signups (email) VALUES ('${email}')`;
     case 'couple_event_type_notify_signups':
       return `INSERT INTO public.couple_event_type_notify_signups (email, event_type) VALUES ('${email}', 'wedding')`;
     case 'couple_wedding_type_notify_signups':
@@ -157,9 +157,9 @@ test('ANTI-VACUITY: every table and column this file names exists', async () => 
   await reset();
 });
 
-// ── 2 · THE THREE DOORS ARE SHUT ──────────────────────────────────────────
+// ── 2 · THE CLOSED DOORS ARE SHUT ──────────────────────────────────────────
 
-test('anon cannot insert into any of the three closed signup tables', async () => {
+test('anon cannot insert into any of the closed signup tables', async () => {
   await asAnon();
   for (const t of CLOSED) {
     const err = await tryQuery(insertFor(t, 'anon'));
@@ -173,7 +173,7 @@ test('anon cannot insert into any of the three closed signup tables', async () =
   await reset();
 });
 
-test('DIFFERENTIAL CONTROL: the service role still writes all three', async () => {
+test('DIFFERENTIAL CONTROL: the service role still writes every closed table', async () => {
   // This is what makes the refusals above attributable to the policy. Both
   // notify tables are written by server actions through the service role today;
   // if this test ever fails, the migration broke a live writer.
@@ -202,7 +202,7 @@ test('DIFFERENTIAL CONTROL: a SIGNED-IN caller can still sign up', async () => {
   await reset();
 });
 
-test('anon holds no privilege at all on the three', async () => {
+test('anon holds no privilege at all on the closed tables', async () => {
   await reset();
   for (const t of CLOSED) {
     for (const v of ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) {
@@ -214,7 +214,7 @@ test('anon holds no privilege at all on the three', async () => {
   }
 });
 
-test('no surviving policy on the three names anon or PUBLIC', async () => {
+test('no surviving policy on the closed tables names anon or PUBLIC', async () => {
   // The grant is one layer; a policy still naming anon means the NEXT grant
   // re-opens the door with nothing to notice it.
   await reset();

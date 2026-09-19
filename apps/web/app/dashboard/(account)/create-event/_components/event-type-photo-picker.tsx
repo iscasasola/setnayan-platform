@@ -17,8 +17,7 @@ import {
  * Columns scale with width so the whole roster stays visible without endless
  * scrolling as the type count grows: 2-up on phones, 3-up on tablets, 4-up on
  * desktop, 5-up on wide desktop. NO dots, NO arrows: the photos ARE the
- * affordance. The in-chrome add-event sheet uses event-type-carousel.tsx; only
- * this full-page surface is a grid.
+ * affordance.
  *
  * Types WITHOUT a hero photo (newly enabled / admin-created, no repo asset and
  * no upload) render a branded gradient + emoji placeholder — never a wrong

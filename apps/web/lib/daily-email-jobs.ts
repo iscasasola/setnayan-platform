@@ -27,6 +27,7 @@ import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
 import { runVerifiedBadgeDeadlineSweep } from '@/lib/verified-badge-sweep';
 import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * CRON-FREE daily email jobs — the anniversary digest, subscription-renewal
@@ -126,7 +127,17 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
       const { error: lockErr } = await admin
         .from('anniversary_email_log')
         .insert({ event_id: c.event_id, anniversary_year: anniversaryYear });
-      if (lockErr) continue;
+      if (lockErr) {
+        // 23505 = already sent this year (expected, the lock working as
+        // designed) — anything else is a genuinely dropped send and this
+        // log IS the audit trail for it, so it must not stay silent.
+        if (lockErr.code !== '23505') {
+          logQueryError('daily-email-jobs: anniversary_email_log lock insert', lockErr, {
+            event_id: c.event_id,
+          });
+        }
+        continue;
+      }
 
       const to = (c.couple_email ?? '').trim();
       if (!to) continue; // no reachable address; lock already claimed → no retry
@@ -205,7 +216,16 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
       const { error: lockErr } = await admin
         .from('anniversary_headsup_log')
         .insert({ event_id: c.event_id, anniversary_year: anniversaryYear });
-      if (lockErr) continue; // 23505 → already sent this year's heads-up
+      if (lockErr) {
+        if (lockErr.code !== '23505') {
+          // 23505 → already sent this year's heads-up (expected); anything
+          // else is a genuinely dropped send and must not stay silent.
+          logQueryError('daily-email-jobs: anniversary_headsup_log lock insert', lockErr, {
+            event_id: c.event_id,
+          });
+        }
+        continue;
+      }
 
       const to = (c.couple_email ?? '').trim();
       if (!to) continue;
@@ -313,7 +333,16 @@ export async function runGodchildBirthdayReminders(): Promise<{ scanned: number;
       const { error: lockErr } = await admin
         .from('godchild_reminder_log')
         .insert({ godparent_id: c.godparent_id, reminder_year: reminderYear });
-      if (lockErr) continue; // 23505 → already reminded for this birthday
+      if (lockErr) {
+        if (lockErr.code !== '23505') {
+          // 23505 → already reminded for this birthday (expected); anything
+          // else is a genuinely dropped reminder and must not stay silent.
+          logQueryError('daily-email-jobs: godchild_reminder_log lock insert', lockErr, {
+            godparent_id: c.godparent_id,
+          });
+        }
+        continue;
+      }
 
       const to = (c.godparent_email ?? '').trim();
       if (!to) continue;
@@ -389,7 +418,16 @@ export async function runRenewalReminders(): Promise<{ scanned: number; sent: nu
       const { error: lockErr } = await admin
         .from('renewal_reminder_log')
         .insert({ order_id: c.order_id, reminder_window: window });
-      if (lockErr) continue;
+      if (lockErr) {
+        // 23505 = already reminded this window (expected); anything else is
+        // a genuinely dropped reminder and must not stay silent.
+        if (lockErr.code !== '23505') {
+          logQueryError('daily-email-jobs: renewal_reminder_log lock insert', lockErr, {
+            order_id: c.order_id,
+          });
+        }
+        continue;
+      }
 
       const email = buildRenewalReminderEmail({
         name: c.buyer_name,
@@ -499,6 +537,7 @@ async function eventsApproachingTheirClock(
       p_retention_days: Math.max(0, retentionDaysMinusLead),
       p_post_event_days: Math.max(0, FULL_RES_POST_EVENT_GRACE_DAYS - WARN_LEAD_DAYS),
     });
+    if (error) console.error('[supabase-error] lib/daily-email-jobs.ts · rpc:papic_events_past_fullres_clock', error);
     if (error || !Array.isArray(data)) return null;
     return data
       .map((r) => String((r as { event_id?: unknown }).event_id ?? ''))

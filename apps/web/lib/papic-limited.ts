@@ -447,6 +447,7 @@ export async function syncGuestCameras(
       .from('paparazzi_seats')
       .update({ revoked_at: nowIso, updated_at: nowIso })
       .in('seat_id', toRevoke);
+    if (revErr) console.error('[supabase-error] lib/papic-limited.ts · from:paparazzi_seats.update', revErr);
     if (!revErr) revoked = toRevoke.length;
   }
   const revokeSet = new Set(toRevoke);
@@ -473,6 +474,7 @@ export async function syncGuestCameras(
         updated_at: nowIso,
       })
       .in('seat_id', toRetier);
+    if (retErr) console.error('[supabase-error] lib/papic-limited.ts · from:paparazzi_seats.update', retErr);
     if (!retErr) retiered = toRetier.length;
   }
 
@@ -522,6 +524,7 @@ export async function syncGuestCameras(
         onConflict: 'event_id,seat_index',
         ignoreDuplicates: true,
       });
+    if (insErr) console.error('[supabase-error] lib/papic-limited.ts · from:paparazzi_seats.upsert', insErr);
     if (!insErr) added = inserts.length;
   }
 

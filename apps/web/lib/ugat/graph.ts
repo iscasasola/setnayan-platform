@@ -1967,25 +1967,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
     claims: [
       { kind: 'table', table: 'papic_missions' },
       { kind: 'fk', table: 'papic_missions', column: 'vendor_id', references: 'event_vendors' },
-      { kind: 'table', table: 'papic_photo_challenge_sponsorships' },
-      {
-        kind: 'fk',
-        table: 'papic_photo_challenge_sponsorships',
-        column: 'vendor_profile_id',
-        references: 'vendor_profiles',
-      },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
-    title: 'Papic ↔ Vendor (missions + sponsorship)',
+    title: 'Papic ↔ Vendor (missions)',
     joint: 'papic_missions',
-    cardinality: 'Many missions per booked vendor · sponsorships per vendor org',
+    cardinality: 'Many missions per booked vendor',
     implementedBy:
-      'Two bonds at DIFFERENT grains. papic_missions.vendor_id references event_vendors — the BOOKING, not the vendor org (the same misleading column name as J7). papic_photo_challenge_sponsorships.vendor_profile_id references the org directly.',
-    writtenBy: 'Vendor mission authoring · sponsored-challenge purchase',
+      'papic_missions.vendor_id references event_vendors — the BOOKING, not the vendor org (the same misleading column name as J7). The per-event sponsorship table that bonded the org directly was dropped 2026-09-18 (20271234083820); the Challenge is now the 28-day subscription on vendor_profiles.papic_challenge_expires_at.',
+    writtenBy: 'Vendor mission authoring',
     guardedBy: 'current_vendor_ids() for the vendor side; event scope for the mission side',
     traps:
-      '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. The two vendor bonds are at different grains (booking vs org), so they are NOT interchangeable and a join written against the wrong one silently returns nothing.',
+      '🔴 papic_missions.vendor_id is named like a vendor reference but points at event_vendors — a BOOKING id, exactly the J7 trap repeated. A join written against the vendor ORG instead of the booking silently returns nothing.',
   },
   {
     /**

@@ -46,13 +46,18 @@ export function PreparationAgendaView({
   eventId,
   agenda,
   hasEventDate,
+  eventWord = 'wedding',
 }: {
   eventId: string;
   agenda: PreparationAgenda;
   hasEventDate: boolean;
+  /** eventNoun(event_type) — a birthday is not told to set its "wedding date". */
+  eventWord?: 'wedding' | 'event';
 }) {
   if (agenda.items.length === 0) {
-    return <PreparationEmptyState eventId={eventId} hasEventDate={hasEventDate} />;
+    return (
+      <PreparationEmptyState eventId={eventId} hasEventDate={hasEventDate} eventWord={eventWord} />
+    );
   }
 
   return (
@@ -230,9 +235,11 @@ const SOURCE_PLAIN_LABEL: Record<PreparationSource, string> = {
 function PreparationEmptyState({
   eventId,
   hasEventDate,
+  eventWord,
 }: {
   eventId: string;
   hasEventDate: boolean;
+  eventWord: 'wedding' | 'event';
 }) {
   return (
     <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
@@ -240,8 +247,8 @@ function PreparationEmptyState({
       <p className="text-sm font-medium text-ink">Nothing to prepare yet.</p>
       <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
         {hasEventDate
-          ? 'As you add vendor payment due dates, schedule vendor meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your wedding day. You can also add your own steps below.'
-          : 'Set your wedding date first, then add vendor payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.'}
+          ? `As you add vendor payment due dates, schedule vendor meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your ${eventWord} day. You can also add your own steps below.`
+          : `Set your ${eventWord} date first, then add vendor payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.`}
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <AddPreparationItem eventId={eventId} />

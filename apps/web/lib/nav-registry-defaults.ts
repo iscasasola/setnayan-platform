@@ -317,7 +317,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // (owner 2026-07-31). The slot KEY stays `customer.account.library` and the
     // ROUTE stays /dashboard/library — admin overrides key off the slot and
     // every shipped link points at that URL. Only the default LABEL changes,
-    // matching home-pill-nav.tsx and home-board.tsx, which already say "Alaala".
+    // matching home-pill-nav.tsx, which already says "Alaala".
     // ⚠ An explicit admin rename in `nav_slot_overrides` still wins over this.
     //
     // 🔁 RENAMED BACK TO "Memories" (owner 2026-08-21: *"My Memories (formerly
@@ -1736,7 +1736,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard/performance",
-    label: "Performance",
+    // 'Performance' (11 chars) truncated in the bottom bar's 10px label row —
+    // shortened to match the hardcoded fallback in vendor-bottom-nav.tsx.
+    label: "Insights",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "BarChart2",

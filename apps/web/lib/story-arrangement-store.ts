@@ -109,6 +109,7 @@ export async function loadRunOfShowMoments(
       .neq('visibility', 'coordinator_only')
       .order('start_at', { ascending: true })
       .order('sort_order', { ascending: true });
+    if (error) console.error('[supabase-error] lib/story-arrangement-store.ts · from:event_schedule_blocks.select', error);
     if (error) return { moments: [], failed: true };
     const moments: RunOfShowMoment[] = [];
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
@@ -188,6 +189,7 @@ export async function loadArrangementPool(
         .is('hidden_at', null)
         .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
         .in('photo_id', ids);
+      if (moreError) console.error('[supabase-error] lib/story-arrangement-store.ts · from:papic_photos.select', moreError);
       if (moreError) return empty;
       rows.push(...((more ?? []) as Array<Record<string, unknown>>));
     }
@@ -322,6 +324,7 @@ export async function loadStoryArrangement(
       .select('event_date, event_end_date')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/story-arrangement-store.ts · from:events.select', error);
     if (error) poolReadable = false;
     const ev = (data as Record<string, unknown> | null) ?? null;
     window = storyDayWindow(asString(ev?.event_date), asString(ev?.event_end_date));

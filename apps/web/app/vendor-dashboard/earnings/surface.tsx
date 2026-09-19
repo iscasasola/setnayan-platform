@@ -5,13 +5,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorServices } from '@/lib/vendor-services';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
 import {
   computeMonthlySubtotals,
-  fetchVendorEarnings,
+  fetchVendorLedgerEarnings,
 } from '@/lib/vendor-earnings';
 /* Retired 2026-05-28 V2 cutover: Setnayan Pay 5% convenience fee + 3-stage payout
  * model + BIR 0.5% withholding routing through Setnayan-as-rails all retire.
@@ -60,17 +59,11 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
     );
   }
 
-  // Categories the vendor offers (active or not — pricing history shouldn't
-  // disappear when they pause a service).
-  const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
-  const categories = Array.from(new Set(services.map((s) => s.category)));
-
-  // Orders RLS is owner-only. Use the admin client to read matched payments
-  // whose orders.service_key is in the vendor's categories. The vendor scope
-  // is enforced by the category filter, not RLS.
+  // The money couples paid THIS shop and the shop confirmed — the booking
+  // ledger, scoped by this shop's own booking rows (see the docblock on
+  // `fetchVendorLedgerEarnings` for the platform-orders read it replaced).
   const admin = createAdminClient();
-  const earnings =
-    categories.length > 0 ? await fetchVendorEarnings(admin, categories) : [];
+  const earnings = await fetchVendorLedgerEarnings(admin, profile.vendor_profile_id);
 
   const { ytdTotal, months } = computeMonthlySubtotals(earnings);
 
@@ -173,8 +166,8 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           <p className="font-medium text-ink">How earnings work now</p>
           <p className="text-sm text-ink/70">
             Couples pay you directly off-platform. Setnayan never sits between you
-            and your booking revenue. The rows below capture confirmed bookings on
-            your services so you have a single audit trail across events — your
+            and your booking revenue. The rows below are the payments couples logged
+            to you and you confirmed, so you have a single audit trail across events — your
             own books still rule for tax filings on these direct bookings.
           </p>
         </div>
@@ -184,7 +177,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         <Stat
           label="Year-to-date"
           value={formatPhp(ytdTotal)}
-          help={`${earnings.length} booking${earnings.length === 1 ? '' : 's'} logged`}
+          help={`${earnings.length} payment${earnings.length === 1 ? '' : 's'} confirmed`}
         />
         <Stat
           label="This month"
@@ -371,7 +364,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
               className="mx-auto mb-2 h-6 w-6 text-ink/30"
               strokeWidth={1.5}
             />
-            <p className="text-sm font-medium text-ink">No bookings logged yet.</p>
+            <p className="text-sm font-medium text-ink">No confirmed payments yet.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
               Add services on the{' '}
               {/* An empty ledger means no bookings, which usually means no
@@ -379,7 +372,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
               <Link href={SERVICE_MAKER_HREF} className="text-mulberry hover:underline">
                 Services
               </Link>{' '}
-              tab. Once couples lock you on their event, your booked work shows
+              tab. Once a couple books you and logs a payment you confirm, it shows
               up here for your own records.
             </p>
           </div>
@@ -403,7 +396,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                       </p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         {r.service_key ? displayServiceLabel(r.service_key) : '—'} ·{' '}
-                        Booked {r.paid_at}
+                        Paid {r.paid_at}
                       </p>
                       <p className="line-clamp-1 text-xs text-ink/65">{r.description}</p>
                     </div>

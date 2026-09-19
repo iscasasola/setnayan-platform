@@ -65,6 +65,7 @@ export async function fetchStageNotes(
     .eq('recipient_vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false })
     .limit(30);
+  if (error) console.error('[supabase-error] lib/stage-notes.ts · from:event_stage_notes.select', error);
 
   // A failed read returns nothing — but the CALLER must not render that as
   // "the coordinator has sent you nothing". See the surface: it says the notes

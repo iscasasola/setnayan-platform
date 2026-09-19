@@ -307,6 +307,7 @@ export async function fetchMarketplaceReviews(
             .from('events')
             .select('event_id, display_name')
             .in('event_id', eventIds);
+          if (eventsRes.error) console.error('[supabase-error] app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx · from:events.select', eventsRes.error);
           if (!eventsRes.error) {
             for (const row of eventsRes.data ?? []) {
               const name = (row.display_name as string | null) ?? null;

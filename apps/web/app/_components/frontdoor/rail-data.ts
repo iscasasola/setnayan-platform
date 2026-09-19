@@ -215,7 +215,7 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
     // caught. A phantom column here would otherwise render a signed-in person
     // a signed-out rail with nothing said about it.
     const [
-      { count: eventCount, error: eventErr },
+      { data: eventRows, error: eventErr },
       roles,
       { count: storyCount, error: storyErr },
     ] = await Promise.all([
@@ -229,11 +229,21 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
 
         `hidden_at` is matched here; archived is a property of the EVENT, not
         the membership, so it is excluded via the join rather than counted.
+
+        ⚠ AND THE SAME MEMBER TYPES (2026-09-19). The board holds only the
+        stances `couple` (organiser) and `guest` (invited) — see
+        STANCE_BY_MEMBER_TYPE in lib/event-board.ts — and de-duplicates an event
+        held under both. Counting every member_type let a coordinator row add a
+        card the board never shows (1 live prod account on 2026-09-19), and the
+        number here is what the owner reads before pressing the row: "Events 2"
+        must mean two cards to pick from, because the launcher now lands on the
+        board exactly when there is more than one.
       */
       supabase
         .from('event_members')
-        .select('event_id, events!inner(archived)', { count: 'exact', head: true })
+        .select('event_id, events!inner(archived)')
         .eq('user_id', user.id)
+        .in('member_type', ['couple', 'guest'])
         .is('hidden_at', null)
         .eq('events.archived', false),
       /*
@@ -271,7 +281,9 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
         (user.user_metadata?.full_name as string | undefined) ?? null,
       ),
       // null ⇒ "couldn't load". Never 0 for a failed read.
-      eventCount: eventErr ? null : (eventCount ?? 0),
+      eventCount: eventErr
+        ? null
+        : new Set((eventRows ?? []).map((r) => r.event_id)).size,
       // ⚠ DELIBERATELY UNDEFINED — not null, not 0. The Alaala total is a
       // cross-event photo count this page does not compute, and a number we
       // have not measured is worse than no number. The row renders without a

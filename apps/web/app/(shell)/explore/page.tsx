@@ -55,7 +55,16 @@ import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-fol
 import { countLiveShops } from '@/lib/live-shops';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
-import { toServiceCard } from '@/lib/service-card-view-model';
+import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
+import {
+  fetchCoveragesByIdPublic,
+  fetchDiscountsByServicePublic,
+  fetchInclusionsByService,
+  type VendorServiceCoverage,
+  type VendorServiceInclusion,
+} from '@/lib/vendor-service-public';
+import type { VendorServiceDiscount } from '@/lib/vendor-services';
+import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
@@ -1700,6 +1709,65 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         c.row.vendor_service_id,
         publicUrlForStoredAsset(c.row.primary_photo_r2_key),
       );
+    }
+  }
+  /*
+    ═ S43 · 5: THE REST OF THE CARD FACE — inclusions, discount, Serves, showcase ═
+    The shop page (`app/v/[slug]`) hands `toServiceCard` four things this grid
+    passed as `undefined`: the free inclusions, the discounts (so the best badge
+    can be picked), the Serves line and the showcase photos/clip. So the SAME
+    `ServiceCardView` drew a thinner card here than one click later on the shop
+    — no "Includes …", no "20% off", no photo strip.
+
+    Same readers as the shop page (`lib/vendor-service-public`, the shared
+    `buildServesLine`), batched over the 24 cards, each fail-soft to "nothing
+    extra" by its own contract — a failed read renders the card as it rendered
+    yesterday, never an empty grid.
+
+    ⚖ SHOWCASE URLS ARE PUBLIC, NOT PRESIGNED. The shop page presigns them
+    (`displayUrlForStoredAsset`); this grid resolves them the way it already
+    resolves the cover — `publicUrlForStoredAsset`, whose docblock names this
+    grid as the surface it exists for. A ref it cannot serve publicly resolves
+    to null and is dropped, so a card loses that photo, never the grid.
+    `coupleEventDate` stays null: the grid is anonymous, so the early-booking
+    ladder advertises "up to", exactly as the shop page does for a guest.
+  */
+  const serviceCardIds = serviceCards ? serviceCards.map((c) => c.row.vendor_service_id) : [];
+  const serviceCardCoverageIds = serviceCards
+    ? [
+        ...new Set(
+          serviceCards
+            .map((c) => c.row.coverage_id)
+            .filter((id): id is number => id !== null),
+        ),
+      ]
+    : [];
+  const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
+    ? await Promise.all([
+        fetchInclusionsByService(admin, serviceCardIds),
+        fetchDiscountsByServicePublic(admin, serviceCardIds),
+        fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
+      ])
+    : [
+        new Map<string, VendorServiceInclusion[]>(),
+        new Map<string, VendorServiceDiscount[]>(),
+        new Map<number, VendorServiceCoverage>(),
+      ];
+  const serviceCardServes = new Map<string, string>();
+  const serviceCardShowcase = new Map<string, ServiceShowcaseMedia>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      const id = c.row.vendor_service_id;
+      if (c.row.coverage_id !== null) {
+        const line = buildServesLine(serviceCardCoverages.get(c.row.coverage_id), eventTypeLabel);
+        if (line) serviceCardServes.set(id, line);
+      }
+      const photos = (c.row.showcase_photo_r2_keys ?? [])
+        .slice(0, 5)
+        .map((k) => publicUrlForStoredAsset(k))
+        .filter((u): u is string => Boolean(u));
+      const videoUrl = publicUrlForStoredAsset(c.row.showcase_video_r2_key) ?? null;
+      if (photos.length > 0 || videoUrl) serviceCardShowcase.set(id, { photos, videoUrl });
     }
   }
   const marketplaceIsEmpty = liveShopCount === 0;
@@ -3642,10 +3710,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 <ServiceCardView
                   card={toServiceCard(
                     c.row,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
+                    serviceCardInclusions.get(c.row.vendor_service_id),
+                    serviceCardDiscounts.get(c.row.vendor_service_id),
+                    serviceCardServes.get(c.row.vendor_service_id),
+                    serviceCardShowcase.get(c.row.vendor_service_id),
                     serviceCardHidingPrices.has(c.vendorProfileId),
                     null,
                     new Date(),

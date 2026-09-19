@@ -15,15 +15,23 @@
  * over one set of numbers, and the day they disagree the reader has no way to
  * know which is stale.
  *
- * WHAT SURVIVED IS THE METERING, UNCHANGED AND STILL LOAD-BEARING — the half
- * the new model is built ON TOP OF rather than the half it replaced:
+ * ⚠ AND ON 2026-09-18 (S37) THE PER-CAMERA GATE ITSELF WAS DROPPED —
+ * `papic_reserve_camera_points` and `papic_reserve_event_points_for_seat` had
+ * no caller since every capture path moved onto `papic_reserve_capture_split`
+ * (the "spend 2 and take 6" ruling: dedicated credits are a FLOOR, never a
+ * ceiling). Two assertions here tested the retired CEILING — "the 11th shot is
+ * refused" is exactly the defect that ruling fixed — and the split gate's own
+ * behaviour, including a refused 8-credit capture spending neither side, is
+ * owned by tests/db/papic-dedicated-is-a-floor.db.test.ts.
  *
- *   (1) DEDICATED MEANS UNSHARED. A camera holding a dedicated balance meters
- *       against its OWN bucket, refuses at its own zero, and its shots are
- *       invisible to the shared pool — which is also never charged for its
- *       captures. This is exactly what makes "hand 200 shots to this QR" mean
- *       anything at all; without it, handing out would be decoration.
- *   (2) A CLIP COSTS ITS FULL WEIGHT or nothing, never a part of it.
+ * WHAT SURVIVES HERE, STILL LOAD-BEARING:
+ *
+ *   (1) DEDICATED MEANS UNSHARED. A hand-out raises the camera's own bucket
+ *       and NEVER the shared pool, and while the camera can pay, the pool is
+ *       never charged for its captures.
+ *   (2) THE POOL PROBE does not bound a dedicated camera, and does bound a
+ *       pooled one (papic_event_points_remaining_for_seat, which the upload
+ *       presign still reads).
  *   (3) TOPPING UP IS ADDITIVE AND KEEPS THE QR. Granting the same camera again
  *       raises its balance without minting a second camera — the reason a
  *       reload never strands whoever is already holding the first QR.
@@ -37,7 +45,6 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from '../tests/db/replay-migrations';
-import { papicCaptureCost } from './papic-cameras';
 // PAPIC_ONE_SKU still appears here because the RELOAD test replays a real
 // pre-retirement camera order — the shape an event minted before 2026-08-11 and
 // the reason those activation hooks stay wired even though nobody can buy one.
@@ -101,18 +108,23 @@ const one = async <T>(sql: string, params: unknown[] = []): Promise<T> => {
   return Object.values(r.rows[0]!)[0] as T;
 };
 
-const reserveCamera = (seatId: string, eventId: string, cost: number) =>
-  one<boolean>(`SELECT public.papic_reserve_camera_points($1, $2, $3)`, [seatId, eventId, cost]);
+/** The ONE live capture gate. Returns how much each balance paid. */
+async function reserveSplit(
+  seatId: string,
+  eventId: string,
+  cost: number,
+): Promise<{ ok: boolean; d: number; p: number }> {
+  const r = await db.query<{ ok: boolean; dedicated_spent: number; pool_spent: number }>(
+    `SELECT ok, dedicated_spent, pool_spent FROM public.papic_reserve_capture_split($1, $2, $3)`,
+    [seatId, eventId, cost],
+  );
+  const row = r.rows[0]!;
+  return { ok: row.ok, d: Number(row.dedicated_spent), p: Number(row.pool_spent) };
+}
 const cameraRemaining = (seatId: string) =>
   one<number>(`SELECT public.papic_camera_points_remaining($1)`, [seatId]);
 const dedicated = (seatId: string) =>
   one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]);
-const reserveEventForSeat = (eventId: string, seatId: string, cost: number) =>
-  one<number>(`SELECT public.papic_reserve_event_points_for_seat($1, $2, $3)`, [
-    eventId,
-    seatId,
-    cost,
-  ]);
 const eventRemainingForSeat = (eventId: string, seatId: string) =>
   one<number>(`SELECT public.papic_event_points_remaining_for_seat($1, $2)`, [eventId, seatId]);
 
@@ -124,9 +136,9 @@ async function poolTotal(eventId: string): Promise<number> {
   return Number(r.rows[0]!.total_points);
 }
 
-// ── (2) dedicated means unshared ───────────────────────────────────────────
+// ── (1)+(2) dedicated means unshared ───────────────────────────────────────────
 
-test('a dedicated camera meters its OWN bucket and refuses at its own zero', async () => {
+test('a dedicated camera pays from its OWN bucket, and the pool is never charged', async () => {
   const eventId = await createEvent('Dedicated A'); // trigger seeds the shared free pool
   const seatId = await createSeat(eventId, 300);
   const poolBefore = await poolTotal(eventId);
@@ -135,15 +147,18 @@ test('a dedicated camera meters its OWN bucket and refuses at its own zero', asy
   assert.equal(Number(await dedicated(seatId)), 10);
 
   // The SHARED pool is completely unmoved by a dedicated grant. This is the
-  // whole promise: buying a camera must not raise everybody else's ceiling.
+  // whole promise: handing out a camera must not raise everybody else's ceiling.
   assert.equal(await poolTotal(eventId), poolBefore);
 
   assert.equal(Number(await cameraRemaining(seatId)), 10);
   for (let i = 1; i <= 10; i += 1) {
-    assert.equal(await reserveCamera(seatId, eventId, 1), true, `dedicated shot ${i}`);
+    assert.deepEqual(
+      await reserveSplit(seatId, eventId, 1),
+      { ok: true, d: 1, p: 0 },
+      `dedicated shot ${i} must come from the camera's own bucket`,
+    );
   }
   assert.equal(Number(await cameraRemaining(seatId)), 0);
-  assert.equal(await reserveCamera(seatId, eventId, 1), false, '11th shot refused');
 
   // Spending the camera's bucket never touched the shared pool's ledger.
   const poolUsed = await db.query<{ c: number }>(
@@ -153,44 +168,24 @@ test('a dedicated camera meters its OWN bucket and refuses at its own zero', asy
   assert.equal(Number(poolUsed.rows[0]!.c), 0, 'the shared pool was never charged');
 });
 
-test('a clip costs 8 against a dedicated bucket, never partially', async () => {
-  const eventId = await createEvent('Dedicated Clip B');
-  const seatId = await createSeat(eventId, 300);
-  const clip = papicCaptureCost('clip');
-  await grantToSeat(eventId, seatId, clip + 1);
-
-  assert.equal(await reserveCamera(seatId, eventId, clip), true, 'the clip fits exactly once');
-  assert.equal(Number(await cameraRemaining(seatId)), 1);
-  // 1 point left: a photo fits, a second clip does not — and the refused clip
-  // must not spend the leftover point.
-  assert.equal(await reserveCamera(seatId, eventId, clip), false, 'the second clip is refused');
-  assert.equal(Number(await cameraRemaining(seatId)), 1, 'a refused clip spends nothing');
-  assert.equal(await reserveCamera(seatId, eventId, 1), true, 'the last photo still fits');
-  assert.equal(Number(await cameraRemaining(seatId)), 0);
-});
-
-test('the shared pool stands DOWN for a dedicated camera, and binds for every other', async () => {
+test('the pool probe does not bound a dedicated camera, and binds every other', async () => {
   const eventId = await createEvent('Stand Down C');
   const dedicatedSeat = await createSeat(eventId, 300);
   const pooledSeat = await createSeat(eventId, 100);
   await grantToSeat(eventId, dedicatedSeat, 10);
 
-  // -1 = "not applicable, nothing booked". If this were a plain TRUE the caller
-  // could not tell it apart from a real booking, and an aborted upload would
-  // refund shared points that were never spent.
-  assert.equal(Number(await reserveEventForSeat(eventId, dedicatedSeat, 1)), -1);
   assert.equal(
     Number(await eventRemainingForSeat(eventId, dedicatedSeat)),
     2147483647,
     'the shared pool does not bound a dedicated camera',
   );
 
-  // A pooled camera is unaffected: 1 = booked against the shared pool.
-  assert.equal(Number(await reserveEventForSeat(eventId, pooledSeat, 1)), 1);
+  // A pooled camera is bounded, and ITS capture is what charges the pool.
+  assert.deepEqual(await reserveSplit(dedicatedSeat, eventId, 1), { ok: true, d: 1, p: 0 });
+  assert.deepEqual(await reserveSplit(pooledSeat, eventId, 1), { ok: true, d: 0, p: 1 });
   const remaining = Number(await eventRemainingForSeat(eventId, pooledSeat));
   assert.ok(remaining > 0 && remaining < 2147483647, 'a pooled camera IS bounded');
 
-  // …and the dedicated camera's captures never appear in the pool's usage.
   const used = await one<number>(
     `SELECT points_used FROM public.papic_event_pool_usage WHERE event_id = $1`,
     [eventId],

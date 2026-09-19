@@ -146,6 +146,7 @@ export async function fetchEntrance(
     .select('venue_entrance_x, venue_entrance_y')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/indoor-blueprint.ts · from:events.select', error);
 
   // Missing column (pre-migration) or any read error → conventional default.
   if (error) return DEFAULT_ENTRANCE;

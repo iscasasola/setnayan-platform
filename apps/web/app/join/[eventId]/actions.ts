@@ -249,6 +249,7 @@ async function admitAsUnlisted(
     })
     .select('guest_id')
     .single();
+  if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.insert', error);
 
   if (error || !inserted) return false;
 

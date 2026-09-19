@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Portion-rule CRUD — Vendor Portal data-link program ② (corpus
@@ -50,6 +51,11 @@ export async function addPortionRule(formData: FormData) {
     headcount_basis: BASES.includes(basisRaw) ? basisRaw : 'confirmed',
     waste_factor_pct: Number.isFinite(waste) ? Math.min(Math.max(waste, 0), 100) : 0,
   });
+  if (error) {
+    logQueryError('production-sheet/actions.ts: addPortionRule vendor_portion_rules', error, {
+      vendor_profile_id: profile.vendor_profile_id,
+    });
+  }
 
   revalidatePath(back);
   redirect(`${back}?rule=${error ? 'error' : 'added'}`);

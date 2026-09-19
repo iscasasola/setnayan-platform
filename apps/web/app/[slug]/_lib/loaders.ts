@@ -283,6 +283,12 @@ export const loadDayOfBroadcast = cache(
       .maybeSingle();
     // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
     // read error must never take the wedding page down on the day.
+    if (error) {
+      console.error(
+        '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
+        error,
+      );
+    }
     if (error || !data) return null;
     const row = data as { body: string; created_at: string };
     const body = row.body?.trim();
@@ -642,6 +648,7 @@ export const loadLiveLayer = cache(
         .select('rsvp_backdrop')
         .eq('event_id', event.event_id)
         .maybeSingle();
+      if (backdropError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select', backdropError);
       backdropConfig = backdropError
         ? null
         : parseRsvpBackdropConfig(
@@ -1117,6 +1124,7 @@ export const loadGuestContext = cache(
           .eq('guest_id', guest.guest_id)
           .is('revoked_at', null)
           .maybeSingle();
+        if (enrollError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:guest_face_enrollments.select', enrollError);
         // A FAILED READ MUST NOT ASK FOR A FACE SCAN AGAIN.
         //
         // The error was discarded, so a failed read produced `null` — the same
@@ -1303,6 +1311,7 @@ export const loadGuestContext = cache(
         .order('scanned_at', { ascending: true })
         .limit(1)
         .maybeSingle();
+      if (firstScanErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:scan_events.select', firstScanErr);
       // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR — check the error, or a lost
       // grant reads as "no scan ever" and greets every returning guest as new.
       if (!firstScanErr && firstScan?.scanned_at) {

@@ -39,12 +39,14 @@ test('the conversation has a floor it cannot be squeezed below', () => {
   // the conversation left it green — because the Files panel beside it has the
   // same shape and satisfied the pattern. A guard that finds *a* match instead
   // of *the* match is the oldest bug in this repo's toolkit.
-  const floored = s.match(/min-h-\[\d+rem\][^"]*flex-1[^"]*overflow-y-auto/g) ?? [];
+  // Bounded by the class string (no `"` and no backtick): unbounded, one match
+  // ran from the Decisions floor across to the Files scroller and counted two as one.
+  const floored = s.match(/min-h-\[\d+rem\][^"`]*flex-1[^"`]*overflow-y-auto/g) ?? [];
   assert.equal(
     floored.length,
-    2,
-    `expected BOTH scrollers to keep a floor (the conversation and the Files ` +
-      `panel); found ${floored.length}. The message list is the only flex-1 ` +
+    3,
+    `expected ALL THREE view scrollers to keep a floor (the conversation, ` +
+      `Decisions and Files — 2026-09-19 gave Files one too); found ${floored.length}. The message list is the only flex-1 ` +
       'child of a fixed-height column, so any sibling that grows takes the ' +
       'conversation with it — measured at 32px against 498px of content.',
   );

@@ -17,8 +17,8 @@ import { stanceClosedReason } from '@/lib/event-board';
 // app/dashboard/[eventId]/galleries/page.tsx.
 //
 // ── LENSES (2026-07-31) ─────────────────────────────────────────────────────
-// The Alaala tile on the home names five lenses (Recent · Owned · Attended ·
-// People · With me — see (launcher)/_components/alaala-lenses.tsx). Three of
+// Alaala has five lenses (Recent · Owned · Attended · People · With me —
+// declared as ALAALA_LENSES in lib/alaala-wall.ts). Three of
 // them are exactly this list, sliced: `Album.role` is already 'couple' | 'guest',
 // which IS Owned vs Attended. So the lens is a FILTER over albums we already
 // fetched, not a new read and not a new vocabulary. `lens` is optional and

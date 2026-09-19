@@ -386,8 +386,13 @@ async function CustomersPipeline({ searchParams }: Props) {
 
     🔑 THE NAME WAS ALREADY HERE. `eventNameByEvent` is filled from `rosterAdmin`
     above — the roster has always held the couple's real display name and threw
-    it away at render. Flipping the caller is the whole change; the masking
-    machinery in `customerLaneOf` is left intact and simply never asked for.
+    it away at render.
+
+    ⚠ FLIPPING THE CALLER WAS NOT THE WHOLE CHANGE, though this comment said so
+    for eleven days. `customerLaneOf` gated identity by LANE and never consulted
+    the flag for `waiting`, so a couple who had just asked to lock still read
+    "Customer" with a "·" mark (owner report 2026-09-19). The gate is gone; the
+    derivation now names every row that has a name.
   */
   const derived: PipelineCustomer[] = [];
   for (const eventId of rosterEventIds) {
@@ -401,9 +406,6 @@ async function CustomersPipeline({ searchParams }: Props) {
               threadId: t.thread_id,
               inquiryStatus: t.inquiry_status ?? null,
               createdAt: t.created_at ?? null,
-              // Always. See the ruling above — this is the one input that
-              // decided whether `customerLaneOf` showed a name.
-              revealed: true,
               // The LAST thing that happened, from either side — what separates
               // a live conversation from something the shop is holding.
               lastActivityAt: t.updated_at ?? null,
@@ -418,12 +420,11 @@ async function CustomersPipeline({ searchParams }: Props) {
               expiresAt: b.lock_request_expires_at,
             }
           : null,
-        // The name is SUPPLIED for every event; whether it is USED is decided by
-        // the pure derivation, never here.
+        // The name is supplied for every event and used on every lane.
         eventName:
           eventNameByEvent.get(eventId) ?? bookedByEvent.get(eventId)?.eventName ?? null,
-        // FALLBACK ONLY. With `revealed: true` this is reached solely when the
-        // event genuinely has no `display_name` — never to hide one.
+        // FALLBACK ONLY — reached solely when the event genuinely has no
+        // `display_name`, never to hide one.
         descriptor: 'Customer',
         eventDate: eventDateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
@@ -547,7 +548,10 @@ async function CustomersPipeline({ searchParams }: Props) {
           ).toString()}
         />
 
-        {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
+        {/* Sections 1 + 2 — filter row + month calendar (centrepiece).
+            `id="calendar"` is where every bare /vendor-dashboard/calendar link
+            lands (`customers/anchors.ts`). */}
+        <div id="calendar" className="scroll-mt-24">
         <CustomersCalendar
           initialDayStates={dayStates}
           initialWaitlist={waitlist}
@@ -578,6 +582,7 @@ async function CustomersPipeline({ searchParams }: Props) {
           agentsEnabled={agentsEnabled}
           agentCategories={agentCategories}
         />
+        </div>
 
         {/* Section 3 — three summary cards (glass `.sn-tile` bento). */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -895,7 +900,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
           (new inquiries), Payday = the cash-flow timeline (1 query, shown
           nowhere else). Rendered eagerly, not behind an accordion. */}
-      <div id="bookings">
+      <div id="bookings" className="scroll-mt-24">
         <BookingsSurface searchParams={Promise.resolve(sp) as never} />
       </div>
       <div id="payday">

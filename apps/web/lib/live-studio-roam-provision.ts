@@ -265,7 +265,13 @@ export async function checkoutPoolChannel(
         .eq('status', 'available') // lost-update guard: only if still free
         .select(SELECT)
         .maybeSingle();
-      if (claimErr) return null;
+      if (claimErr) {
+        console.error('[supabase-error] lib/live-studio-roam-provision.ts · from:live_studio_roam_channel_pool.update', claimErr, {
+          event_id: eventId,
+          channel_id: (free as RoamChannelRow).id,
+        });
+        return null;
+      }
       if (claimed) return claimed as RoamChannelRow;
       // Lost the race for THIS channel — loop and look for another.
     }
@@ -461,7 +467,13 @@ export async function getHeldChannelAccessToken(
       .eq('checked_out_event_id', eventId)
       .eq('status', 'checked_out')
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] lib/live-studio-roam-provision.ts · from:live_studio_roam_channel_pool.select', error, {
+        event_id: eventId,
+      });
+      return null;
+    }
+    if (!data) return null;
     const { getPoolChannelAccessToken } = await import('@/lib/live-studio-channel-grants');
     return await getPoolChannelAccessToken(admin, (data as { id: number }).id);
   } catch {

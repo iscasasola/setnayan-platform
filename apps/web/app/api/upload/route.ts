@@ -592,9 +592,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
             Today every one of the 23 production seats is on `free`, whose
             `points_per_day` is NULL, `papic_seat_day_usage` holds zero rows
-            ever, and the only two functions that read the daily budget
-            (`papic_camera_points_remaining`, `papic_reserve_camera_points`)
-            have no caller anywhere — not in apps/, not in a policy, a view, a
+            ever, and the only functions that read the daily budget
+            (`papic_camera_points_remaining`, and `papic_reserve_camera_points`
+            until it was dropped 2026-09-18) had no caller anywhere — not in apps/, not in a policy, a view, a
             CHECK or another function. So this reads false for everybody today
             and the copy says so; the day that changes, the copy changes with it
             and nobody has to remember.

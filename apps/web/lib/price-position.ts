@@ -114,11 +114,16 @@ export async function fetchVendorPricePosition(
 
   // 1 · Resolve the vendor's region (hq_region) + capacity (venues) via a soft
   // probe — neither is on the shared profile select.
-  const { data: vpRow } = await admin
+  const { data: vpRow, error: vpErr } = await admin
     .from('vendor_profiles')
     .select('hq_region, capacity_max, services')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
+  // ⚠ Every read below THROWS on error (S34 · 2026-09-18). Each one used to fall
+  // through to 'no_data', so a failed read rendered "Not enough market data yet"
+  // — a failure identical to an empty market. The caller catches and shows an
+  // honest "couldn't load" instead.
+  if (vpErr) throw new Error(`price-position: vendor_profiles read failed — ${vpErr.message}`);
 
   const hqRegion = (vpRow as { hq_region?: string | null } | null)?.hq_region ?? null;
   const capacityMax =
@@ -167,13 +172,14 @@ export async function fetchVendorPricePosition(
   }
 
   // 3 · Read the one band row.
-  const { data: bandRow } = await admin
+  const { data: bandRow, error: bandErr } = await admin
     .from('market_price_bands')
     .select('low_php, median_php, high_php, sample_n, computed_at')
     .eq('category', category)
     .eq('region_slug', regionSlug)
     .eq('pax_bucket', paxBucket)
     .maybeSingle();
+  if (bandErr) throw new Error(`price-position: market_price_bands read failed — ${bandErr.message}`);
 
   if (!bandRow) {
     // Suppressed / absent → not enough market data yet (the founder-only reality).
@@ -225,12 +231,13 @@ async function fetchOwnLowestPricePhp(
   const prices: number[] = [];
 
   // vendor_services.starting_price_php (PHP integer).
-  const { data: svc } = await admin
+  const { data: svc, error: svcErr } = await admin
     .from('vendor_services')
     .select('starting_price_php')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('category', category)
     .eq('is_active', true);
+  if (svcErr) throw new Error(`price-position: vendor_services read failed — ${svcErr.message}`);
   for (const r of (svc ?? []) as { starting_price_php: number | null }[]) {
     if (r.starting_price_php != null && r.starting_price_php > 0) {
       prices.push(Number(r.starting_price_php));
@@ -238,12 +245,13 @@ async function fetchOwnLowestPricePhp(
   }
 
   // vendor_packages.total_price_centavos (→ PHP), keyed by primary_canonical_service.
-  const { data: pkg } = await admin
+  const { data: pkg, error: pkgErr } = await admin
     .from('vendor_packages')
     .select('total_price_centavos')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('primary_canonical_service', category)
     .eq('is_active', true);
+  if (pkgErr) throw new Error(`price-position: vendor_packages read failed — ${pkgErr.message}`);
   for (const r of (pkg ?? []) as { total_price_centavos: number | null }[]) {
     if (r.total_price_centavos != null && r.total_price_centavos > 0) {
       prices.push(Math.round(Number(r.total_price_centavos) / 100));

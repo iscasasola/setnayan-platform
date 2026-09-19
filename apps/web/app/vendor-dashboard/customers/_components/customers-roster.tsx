@@ -298,10 +298,9 @@ export function CustomersRoster({
                     style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                   >
                     {/*
-                      A masked row has no name to take initials from, so it wears
-                      a neutral mark rather than the first two letters of "A
-                      couple planning a wedding" — which would print "AC" for
-                      every stranger and read like a name.
+                      Only a genuinely NAMELESS event wears the neutral mark —
+                      initials of the fallback word would read like a name.
+                      Nothing is masked any more (owner 2026-09-08, 2026-09-19).
                     */}
                     {r.identityRevealed ? initialsOf(r.title) : '·'}
                   </span>

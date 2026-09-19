@@ -21,6 +21,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type FirstLookConfig = {
   /** Hours within which a reply counts as "fast". Admin-managed; default 24. */
@@ -56,7 +57,11 @@ export async function fetchFirstLookConfig(
       .select('firstlook_sla_hours, firstlook_boost_weight')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data) return FIRSTLOOK_DEFAULTS;
+    if (error) {
+      logQueryError('firstlook: platform_settings', error);
+      return FIRSTLOOK_DEFAULTS;
+    }
+    if (!data) return FIRSTLOOK_DEFAULTS;
     const row = data as {
       firstlook_sla_hours: number | null;
       firstlook_boost_weight: number | null;

@@ -346,6 +346,7 @@ export async function fetchTraditionItems(
     .eq('ceremony_type', ceremonyType)
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
+  if (error) console.error('[supabase-error] lib/wedding-traditions.ts · from:wedding_tradition_items.select', error);
   if (error || !data || data.length === 0) return null;
   return data.map((r) => ({
     dimension: r.dimension as TraditionDimension,

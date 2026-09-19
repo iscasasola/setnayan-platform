@@ -154,7 +154,9 @@ export function excludedTables(): ReadonlyArray<{ table: string; why: string }> 
  */
 export const UNDECIDED_PERSON_KEYED_TABLES: ReadonlyArray<string> = [
   'account_deletion_requests',
-  'bespoke_monogram_generations',
+  // 'bespoke_monogram_generations' — REMOVED (S40, migration 20271233873951):
+  // the table itself is dropped (0 rows, the Bespoke AI Monogram Studio
+  // feature it backed was retired 2026-06-19). No longer in information_schema.
   'budget_builds',
   'chat_thread_reads',
   'communities',
@@ -173,7 +175,9 @@ export const UNDECIDED_PERSON_KEYED_TABLES: ReadonlyArray<string> = [
   'event_stage_notes',
   'event_vendor_working_notes',
   'founder_seats',
-  'founder_time_log',
+  // 'founder_time_log' — REMOVED (S40, migration 20271233873951): the table
+  // itself is dropped (0 rows, no dashboard ever shipped for it). No longer
+  // in information_schema.
   'fraud_enforcement_audit',
   'guest_qr_rotations',
   'guest_saved_vendors',

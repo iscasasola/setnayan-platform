@@ -32,6 +32,7 @@ import {
   eventBoardHref,
   eventStance,
   isFinishedEvent,
+  landingJumpTarget,
   manilaTodayISO,
   mergeBoardMemberships,
   splitEventBoard,
@@ -66,7 +67,6 @@ import { getAdminQueueDigest, ADMIN_QUEUE_META } from '@/lib/admin/queue-counts'
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
-import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
@@ -279,9 +279,9 @@ export default async function LauncherPage({
   // ⚠ `events` STAYS THE ORGANISER-ONLY SET, deliberately. Everything below it
   // — the landing auto-jump, the checklists, the "% planned" rings, the decision
   // counts, The Watch — is about running an event, and a person who was merely
-  // invited to one has none of that. Folding invited rows in here would silently
-  // reverse the owner's single-event auto-jump ruling the moment somebody scans
-  // an invitation. Only the BOARD reads the merged set (`boardEvents` below).
+  // invited to one has none of that. Only the BOARD — and, since 2026-09-19,
+  // the landing auto-jump, which must agree with the board it skips — reads the
+  // merged set (`boardEvents` below).
   const events = organiserEvents;
   const active = events.filter((e) => !e.archived);
   const hasConsole = roles.hasVendorAccess || roles.hasAdminAccess;
@@ -353,10 +353,18 @@ export default async function LauncherPage({
   // Deliberately NOT changed: the auto-jump itself. A couple mid-planning with
   // one wedding still wants to land in it, and reversing that would undo a
   // ruling the owner has never withdrawn.
+  //
+  // 🔑 OWNER 2026-09-19 — "shouldn't it let me pick which event first?" The
+  // jump used to be decided from `active` (ORGANISER-only) while the board and
+  // the rail's Events count read every membership, so a person who organises
+  // one wedding and is the groom on another saw "Events 2" and was dropped into
+  // one of them. The decision now reads the SAME set the board renders
+  // (`boardEvents`): it jumps only when the whole board is exactly one card,
+  // that card is their own, and it is still upcoming. See `landingJumpTarget`.
   const wantsHub = sp.hub === '1';
-  const soleUpcoming = active.length === 1 && !isPast(active[0]!);
-  if (soleUpcoming && !hasConsole && !wantsHub) {
-    redirect(`/dashboard/${active[0]!.event_id}`);
+  const jumpTo = landingJumpTarget(boardEvents, todayISO);
+  if (jumpTo && !hasConsole && !wantsHub) {
+    redirect(`/dashboard/${jumpTo}`);
   }
   // 🚨 AND THIS ONE HAD NO HUB ESCAPE, so the board was unreachable for a whole
   // persona. `active` is the ORGANISER-only set, so a supplier or admin who
@@ -563,6 +571,8 @@ export default async function LauncherPage({
     if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:creator_chapters.select', error);
     if (!error) {
       chapterCount = ((data ?? []) as unknown[]).length;
+    } else {
+      logQueryError('Launcher (creator_chapters count)', error, { user_id: user.id }, 'graceful_degrade');
     }
   } catch {
     // ⚠ 0, NOT null — AND THAT DIFFERS FROM ITS THREE NEIGHBOURS ON PURPOSE.

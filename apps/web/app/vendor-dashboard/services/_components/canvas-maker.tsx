@@ -61,6 +61,7 @@ import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
 import { commitVendorService } from '../actions';
 import { inclusionsAreSet } from '@/lib/service-publish-gate';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
   updateCoverageServesInPlace,
   type CoverageServesResult,
@@ -1411,8 +1412,7 @@ export function CanvasMaker({
             footer={passStep === 'intro' ? passFooter : null}
           >
             {/* A sample card, because three sentences about a card are not a
-                card. Somebody else's, plainly labelled — never a fake one of
-                theirs. */}
+                card. Plainly labelled a sample — never a fake one of theirs. */}
             <div
               className="overflow-hidden rounded-xl border"
               style={{ borderColor: line, background: paper }}
@@ -1424,20 +1424,31 @@ export function CanvasMaker({
                 <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
               </div>
               <div className="space-y-0.5 px-3 py-2.5">
+                {/* S43 · 6 — THE SAMPLE MAY ONLY SHOW WHAT A SUPPLIER CAN WRITE.
+                    It used to be a photographer's card promising a free
+                    "engagement mini-shoot", drawn as a Setnayan Exclusive — a
+                    free-text perk that was RETIRED on 2026-09-09 and that no
+                    supplier can author any more, pitched in one trade's words to
+                    every trade. Now: a trade-neutral card whose every line is a
+                    field the maker really has — title, starting price, what's
+                    included, and the ONE shared gift line (an optional yes/no). */}
                 <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Kuya Dan Photo &amp; Video — Full Day
+                  Casa Luna Events — Full-day service
                 </p>
                 <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
-                  from ₱44,999 per event
+                  from ₱25,000 per event
                 </p>
-                <p className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }}>
-                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                  Free engagement mini-shoot for Setnayan couples
+                <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
+                  Includes: A planning call · Travel within the city
                 </p>
+                <SetnayanGiftLine
+                  className="flex items-center gap-1.5 text-[12px]"
+                  style={{ color: 'var(--m-orange-2)' }}
+                />
               </div>
             </div>
             <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Another supplier&rsquo;s card — this is what couples browse.
+              A sample card — this is what couples browse.
             </p>
             <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
               <li className="flex gap-2">
@@ -1450,20 +1461,21 @@ export function CanvasMaker({
               <li className="flex gap-2">
                 <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
                 <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The price can wait.</span>{' '}
-                  Add it on the card afterwards, or leave it as quote-on-request.
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>A starting price and what&rsquo;s included.</span>{' '}
+                  Couples see &ldquo;from ₱&rdquo; and what comes with it. The final figure is still your quote in chat.
                 </span>
               </li>
               <li className="flex gap-2">
                 <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
                 <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Exclusive is why they book here.</span>{' '}
-                  One thing couples only get through Setnayan.
+                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Setnayan gift is optional.</span>{' '}
+                  Say yes and your card tells couples it comes with free Papic photos, sized to the booking.
                 </span>
               </li>
             </ul>
             <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Two answers and your card can go live. Everything else is optional, always.
+              A photo, a starting price and what&rsquo;s included, and your card can go live.
+              Everything else is optional, always.
             </p>
           </CanvasSheet>
         ) : null}

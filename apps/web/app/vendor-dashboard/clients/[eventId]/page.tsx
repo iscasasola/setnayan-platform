@@ -34,6 +34,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
+import { BoothStudioCard } from './_components/booth-studio-card';
+import { boothStudioEnabled } from '@/lib/booth-studio-flag';
+import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { BoothEventSection } from './_components/booth-event-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
@@ -552,7 +555,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // marketplace_vendor_id below.
       admin
         .from('event_vendor_booth_posters')
-        .select('poster_ref')
+        .select('poster_ref, poster_content')
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
@@ -948,6 +951,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
   // display URL for the preview — the same ref → URL step the 3D scenes do.
   const posterRef = (posterRow as { poster_ref?: string | null } | null)?.poster_ref ?? null;
+  // Booth Studio words, sanitized by the renderer's own rule so the composer
+  // opens on exactly what a guest would be shown.
+  const boothStudioContent = sanitizeBoothStudioContent(
+    (posterRow as { poster_content?: unknown } | null)?.poster_content ?? null,
+  );
   const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
@@ -1366,6 +1374,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       vendorProfileId={profile.vendor_profile_id}
       posterRef={posterRef}
       posterDisplayUrl={posterDisplayUrl}
+      boothStudioContent={boothStudioContent}
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
@@ -1754,7 +1763,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   return (
     <RelationshipTabShell
       tabs={tabs}
-      initialTabId="chat"
+      // The tab the URL names, painted on the SERVER. "chat" is a link tab and
+      // can never be active, so it fell through to the first panel (Quote) and
+      // the shell only switched to `?tab=details` after hydration — a door
+      // from the thread's ⋮ landed on the wrong section for one paint.
+      initialTabId={rawTab}
       contextRail={contextRail}
       header={
         <div>
@@ -1983,6 +1996,8 @@ function OverviewTab(props: {
   posterRef: string | null;
   /** Resolved display URL for the poster preview, or null. */
   posterDisplayUrl: string | null;
+  /** This vendor's Booth Studio words for this event (sanitized), or null. */
+  boothStudioContent: BoothStudioContent | null;
   completion: {
     deposit_proof_url: string | null;
     /** The supplier's own words when they said it never reached them. */
@@ -2018,6 +2033,7 @@ function OverviewTab(props: {
     vendorProfileId,
     posterRef,
     posterDisplayUrl,
+    boothStudioContent,
     completion,
     eventVendorId,
     depositRecorded,
@@ -2542,6 +2558,13 @@ function OverviewTab(props: {
           initialRef={posterRef}
           initialDisplayUrl={posterDisplayUrl}
         />
+      ) : null}
+
+      {/* Booth Studio — the words on the booth, drawn in the couple's palette.
+          Same reach as the poster (any BOOKED vendor, the RPC's own gate) and
+          dark behind the same flag the 3D renderer reads. */}
+      {isBooked && boothStudioEnabled() ? (
+        <BoothStudioCard eventId={eventId} initial={boothStudioContent} />
       ) : null}
 
       {/* Papic Games — custom Photo Challenge authoring (booked-only). Self-gates

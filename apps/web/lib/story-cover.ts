@@ -209,6 +209,7 @@ async function resolveCaptureCover(
       .is('hidden_at', null)
       .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .maybeSingle();
+    if (error) console.error('[supabase-error] lib/story-cover.ts · from:papic_photos.select', error);
     if (error || !data) return null;
 
     const row = data as Record<string, unknown>;

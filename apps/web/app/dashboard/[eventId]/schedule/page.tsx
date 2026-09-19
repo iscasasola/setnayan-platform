@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
@@ -449,6 +450,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           eventId={eventId}
           agenda={agenda}
           hasEventDate={eventDate !== null}
+          eventWord={eventNoun(eventRow?.event_type)}
         />
       ) : (
         <>

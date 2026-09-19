@@ -129,14 +129,6 @@ async function eventRemaining(eventId: string): Promise<number> {
   return Number(r.rows[0]!.v);
 }
 
-/** papic_reserve_camera_points(seat, event, cost) — the PER-SEAT gate. */
-async function reserveCamera(seatId: string, eventId: string, cost: number): Promise<boolean> {
-  const r = await db.query<{ ok: boolean }>(
-    `SELECT public.papic_reserve_camera_points($1, $2, $3) AS ok`,
-    [seatId, eventId, cost],
-  );
-  return r.rows[0]!.ok === true;
-}
 
 /** papic_camera_points_remaining(seat) — MAXINT means the seat has no per-seat cap. */
 async function cameraRemaining(seatId: string): Promise<number> {
@@ -365,23 +357,19 @@ test('free event: seats + guest phones share ONE 50-pt pool with no per-seat res
   const eventId = await createEvent('Free Shared Pool I'); // trigger seeds 50 pts
   const seatId = await createFreeSeat(eventId, 100);
 
-  // (1) NO per-seat reserve — free.points_per_day is now NULL, so the per-camera
-  // reserve is a pure passthrough: 30 reserves (WELL past the retired 20/day
-  // per-seat cap that would have refused the 21st) all succeed and the per-seat
-  // ledger stays empty. Under the pre-fix free=20 budget this loop fails at 21
-  // and writes a papic_seat_day_usage row — the exact contradiction Fix 1 removes.
-  for (let i = 1; i <= 30; i += 1) {
-    assert.equal(await reserveCamera(seatId, eventId, 1), true, `free camera reserve ${i} passes through`);
-  }
+  // (1) NO per-seat reserve. This used to loop 30 reserves through the
+  // per-camera gate (papic_reserve_camera_points) to prove the retired 20/day
+  // cap was gone. That gate was itself dropped 2026-09-18 (S37) — every capture
+  // path books through papic_reserve_capture_split — so what is left to pin is
+  // that nothing per-seat bounds a free camera and no per-seat ledger exists.
   assert.equal(await seatDayUsageRows(seatId), 0, 'no per-seat ledger row → no per-seat reserve');
   assert.equal(await cameraRemaining(seatId), 2147483647, 'free seat is per-seat-uncapped (pool is the only gate)');
 
-  // (2) A free seat and a guest phone draw the SAME 50-pt event pool. The
-  // per-camera passthrough above spent NOTHING from the event pool, so it still
-  // reads a full 50. A seat capture then books 1 EVENT point (its sole gate),
+  // (2) A free seat and a guest phone draw the SAME 50-pt event pool. Nothing
+  // above spent from the event pool, so it still reads a full 50. A seat capture then books 1 EVENT point (its sole gate),
   // which the guest phone immediately reads back as 49 — same pool, same ledger.
   assert.equal((await poolStatus(eventId)).total, 50, 'free pool total is 50');
-  assert.equal(await eventRemaining(eventId), 50, 'pool untouched by the per-seat passthrough');
+  assert.equal(await eventRemaining(eventId), 50, 'pool untouched before the first capture');
   assert.equal(await reserve(eventId, 1), true, 'seat capture books 1 event point');
   assert.equal(await eventRemaining(eventId), 49, 'guest phone reads the seat-decremented pool');
 

@@ -45,6 +45,11 @@
  * Measured with the tray OPEN (harness, 2026-09-18): the list holds 224px at
  * every width from 320 to 1440 — the floor — and the open panel scrolls inside
  * its own 55dvh cap while the column scrolls to reach the composer.
+ * ⚠ 2026-09-19: that 224px was the LIST'S OWN floor, read while its wrapper
+ * measured 0px — the list was overflowing, painted over the open "Send a quote"
+ * panel in production. A floor is a height, not proof of a position. The floor
+ * now reaches the frame; see `app/_components/chat/an-open-tool-cannot-flatten-
+ * the-stream.test.ts`.
  *
  * ⚠ SCOPE, STATED. This reads SOURCE: it proves the classes that produce the
  * measured layout are present, not that a browser paints them.

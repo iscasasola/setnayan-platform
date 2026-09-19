@@ -18,9 +18,15 @@
  * These tests pin two things per site: (1) the fallback value on a refused
  * read is unchanged, and (2) the refusal is actually logged — and, for a
  * couple of sites, that a GENUINE non-error read does NOT spuriously log.
- * The closing source-scan proves the count of log call-sites across every
- * touched file, not just their presence (a slid guard can pass a bare
- * "at least one" check while missing every other site in a file).
+ * The closing source-scan proves each NAMED log call-site individually (a
+ * slid guard can pass a bare "at least one" check while missing every other
+ * site in a file), with a per-file FLOOR rather than an exact total: this
+ * broke `main` once and PRs three times (2026-09-19) whenever a legitimate
+ * new, distinct log site was added to one of these files, because the old
+ * assertion was `assert.equal(n, expected)` on the file's total occurrence
+ * count of the bare `[supabase-error]` marker. Deleting a named site still
+ * fails — its own anchor's count drops to 0 — but adding a new one no longer
+ * does.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -159,10 +165,18 @@ test('vendor-earnings: getSetnayanFeePct on a REFUSED read stays the SETNAYAN_PA
   assert.match(String(calls[0]![0]), /\[supabase-error\] lib\/vendor-earnings\.ts · from:platform_settings\.select/);
 });
 
-// ── source-scan: every touched file's log-site COUNT, not just presence ─────
+// ── source-scan: every NAMED log site, individually anchored, with a
+//    per-file FLOOR ──────────────────────────────────────────────────────────
 // A file-level "at least one" check can pass while missing a second call site
 // in the same file (vendor-counts.ts and vendor-dayof-config.ts each have 2;
-// vendor-microsite.ts has 2). Count each file explicitly.
+// vendor-microsite.ts has 2). So every site the S26/S41c baseline named is
+// anchored by its own greppable call-site label (not a bare per-file total),
+// and each anchor's count is a FLOOR (>= current count), never an exact
+// match — this pinned an exact total per file until 2026-09-19, when it broke
+// `main` once and PRs three times as legitimate new, distinct log sites were
+// added to these same files. A floor still catches a deletion (that named
+// site's own count drops below its floor); it just stops catching an
+// unrelated addition as if it were a regression.
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -173,30 +187,86 @@ function countOccurrences(hay: string, needle: string): number {
   return n;
 }
 
-const LOG_SITE_COUNTS: { file: string; expected: number }[] = [
-  { file: 'lib/requirements-capture.ts', expected: 1 },
-  { file: 'lib/same-day-vendors.ts', expected: 1 },
-  { file: 'lib/service-merge-forward-db.ts', expected: 1 },
-  { file: 'lib/service-trade-aliases-db.ts', expected: 1 },
-  { file: 'lib/stage-notes-recipients.ts', expected: 1 },
-  { file: 'lib/supplier-night-before-email.ts', expected: 3 },
-  { file: 'lib/trusted-circle-recs.ts', expected: 1 },
-  { file: 'lib/vendor-branches.ts', expected: 2 },
-  { file: 'lib/vendor-card-copy.ts', expected: 1 },
-  { file: 'lib/vendor-corrections.ts', expected: 1 },
-  { file: 'lib/vendor-counts.ts', expected: 2 },
-  { file: 'lib/vendor-dayof-config.ts', expected: 2 },
-  { file: 'lib/vendor-deep-search-addon.ts', expected: 2 },
-  { file: 'lib/vendor-earnings.ts', expected: 1 },
-  { file: 'lib/vendor-first-steps.server.ts', expected: 2 },
-  { file: 'lib/vendor-microsite.ts', expected: 2 },
+const LOG_SITE_FLOORS: { file: string; sites: { label: string; floor: number }[] }[] = [
+  { file: 'lib/requirements-capture.ts', sites: [
+    { label: '[supabase-error] lib/requirements-capture.ts · from:canonical_service_schemas.select', floor: 1 },
+  ] },
+  { file: 'lib/same-day-vendors.ts', sites: [
+    { label: '[supabase-error] lib/same-day-vendors.ts · from:vendor_profiles.select', floor: 1 },
+  ] },
+  { file: 'lib/service-merge-forward-db.ts', sites: [
+    { label: '[supabase-error] lib/service-merge-forward-db.ts · from:canonical_service_taxonomy.select', floor: 1 },
+  ] },
+  { file: 'lib/service-trade-aliases-db.ts', sites: [
+    { label: '[supabase-error] lib/service-trade-aliases-db.ts · from:canonical_service_aliases.select', floor: 1 },
+  ] },
+  { file: 'lib/stage-notes-recipients.ts', sites: [
+    { label: '[supabase-error] lib/stage-notes-recipients.ts · from:vendor_services.select', floor: 1 },
+  ] },
+  { file: 'lib/supplier-night-before-email.ts', sites: [
+    { label: '[supabase-error] lib/supplier-night-before-email.ts · from:events.select', floor: 1 },
+    { label: '[supabase-error] lib/supplier-night-before-email.ts · from:event_vendors.select', floor: 1 },
+    { label: '[supabase-error] lib/supplier-night-before-email.ts · from:supplier_night_before_email_log.insert', floor: 1 },
+  ] },
+  { file: 'lib/trusted-circle-recs.ts', sites: [
+    { label: '[supabase-error] lib/trusted-circle-recs.ts · rpc:trusted_circle_vendor_signal', floor: 1 },
+  ] },
+  { file: 'lib/vendor-branches.ts', sites: [
+    { label: '[supabase-error] vendor-branches: branch fee (using fallback)', floor: 1 },
+    { label: '[supabase-error] lib/vendor-branches.ts · from:vendor_branches.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-card-copy.ts', sites: [
+    { label: '[supabase-error] lib/vendor-card-copy.ts · from:vendor_services.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-corrections.ts', sites: [
+    { label: '[supabase-error] lib/vendor-corrections.ts · from:vendor_profiles.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-counts.ts', sites: [
+    // Both call sites emit the identical string — anchored as one label with a floor of 2.
+    { label: '[supabase-error] lib/vendor-counts.ts · from:vendor_profiles.select', floor: 2 },
+  ] },
+  { file: 'lib/vendor-dayof-config.ts', sites: [
+    // Both call sites (fetchDayOfOverride + fetchSongRequestsPaused) emit the identical string.
+    { label: '[supabase-error] lib/vendor-dayof-config.ts · from:vendor_dayof_configs.select', floor: 2 },
+  ] },
+  { file: 'lib/vendor-deep-search-addon.ts', sites: [
+    { label: '[supabase-error] vendor-deep-search-addon: price (using fallback)', floor: 1 },
+    { label: '[supabase-error] lib/vendor-deep-search-addon.ts · from:vendor_deep_search_uses.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-earnings.ts', sites: [
+    { label: '[supabase-error] lib/vendor-earnings.ts · from:platform_settings.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-first-steps.server.ts', sites: [
+    { label: '[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_services.select', floor: 1 },
+    { label: '[supabase-error] lib/vendor-first-steps.server.ts · from:event_vendors.select', floor: 1 },
+  ] },
+  { file: 'lib/vendor-microsite.ts', sites: [
+    // The trailing quote disambiguates the plain select from the "(videos)" one below.
+    { label: "[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select'", floor: 1 },
+    { label: '[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select (videos)', floor: 1 },
+  ] },
 ];
 
-for (const { file, expected } of LOG_SITE_COUNTS) {
-  test(`source-scan: ${file} carries exactly ${expected} '[supabase-error]' log site(s)`, () => {
-    const n = countOccurrences(src(file), '[supabase-error]');
-    console.log(`# ${file}: ${n} log site(s)`);
-    assert.equal(n, expected, `expected ${expected} '[supabase-error]' occurrences in ${file}, found ${n}`);
+for (const { file, sites } of LOG_SITE_FLOORS) {
+  const totalFloor = sites.reduce((sum, s) => sum + s.floor, 0);
+  test(`source-scan: ${file} keeps every named [supabase-error] log site (floor, not exact)`, () => {
+    const text = src(file);
+    for (const { label, floor } of sites) {
+      const n = countOccurrences(text, label);
+      assert.ok(
+        n >= floor,
+        `expected at least ${floor} occurrence(s) of ${JSON.stringify(label)} in ${file}, found ${n}`,
+      );
+    }
+    // Aggregate floor as a backstop against a wholesale rewrite that keeps
+    // some labels' exact text but removes others not individually listed
+    // above — allowed to grow (a new, distinct site), never to shrink.
+    const totalNow = countOccurrences(text, '[supabase-error]');
+    console.log(`# ${file}: ${totalNow} log site(s) (floor ${totalFloor})`);
+    assert.ok(
+      totalNow >= totalFloor,
+      `expected at least ${totalFloor} '[supabase-error]' occurrences in ${file}, found ${totalNow}`,
+    );
   });
 }
 

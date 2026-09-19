@@ -35,13 +35,13 @@ registries excluded) · 971 component candidates · 803 Next.js entries · 5,960
 
 | class | candidates | with the other end | orphans inherited |
 |---|---|---|---|
-| `rpc-no-caller` | 571 | 272 called from the app, 293 from SQL | **42** |
-| `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **34** |
-| `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **4** |
-| `component-no-mount` | 971 | 3,747 files reachable from an entry | **25** |
-| `result-dropped-silently` | 5,960 calls | — | **104** sites |
+| `rpc-no-caller` | 571 | 272 called from the app, 293 from SQL | **20** |
+| `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **18** |
+| `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **3** |
+| `component-no-mount` | 971 | 3,747 files reachable from an entry | **24** |
+| `result-dropped-silently` | 5,960 calls | — | **66** sites |
 
-By tier: money 20 · booking 13 · couple 123 · supplier 16 · admin 6 · unclassified 31 — **209 lines**.
+By tier at merge: **131 lines** (20 RPCs · 18 tables · 3 notice types · 24 components · 66 silent-drop sites).
 
 ⚠ The first freeze on 2026-09-18 held 534 lines. The controller turned its top into build sessions the same
 day, and by the time this PR cleared the CI queue peers had paid down 326 of them on `main` — the guard
@@ -115,7 +115,13 @@ guard's rule (#5626's `{ status: 'unreadable' }`, fixed above). The other is rea
 into the baseline as inherited debt: `app/_components/thread-call-launcher-lazy.tsx` lost its last
 importer when #5614 (S18) stopped the client page embedding its own call tab. The lazy loader
 lives on with no mount — the residue shape this guard exists for; delete it or re-mount it.
-A third arrived later from #5680 (`lib/vendor-earnings.ts`, event names read after
+Five more arrived from the retirement PRs themselves — chiefly #5697 (`orphan-drops-bundle`): the
+token-wallet helpers `_apply_token_purchase_credit`, `consume_lead_token_hold` and
+`grant_admin_direct_tokens` whose outer RPCs were dropped, the trigger function
+`vendor_meetings_set_updated_at` whose table was dropped, and `papic_seat_day_usage` left with no
+writer. Deleting the outer end and leaving the inner one is precisely the class this guard exists
+for; it caught them the same day and they are inherited here for the controller to finish.
+A third silent drop arrived from #5680 (`lib/vendor-earnings.ts`, event names read after
 `if (!eventsError)` with no else and no record). Its own comment calls a missing name cosmetic,
 which is precisely what the `// supabase-error-ignored: <reason>` marker is for — inherited here,
 and the honest fix in that file is the marker, not a baseline line.

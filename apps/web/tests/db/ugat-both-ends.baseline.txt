@@ -9,64 +9,31 @@
 # Classes: rpc-no-caller · table-no-writer · notice-no-emitter · component-no-mount · result-dropped-silently.
 # Tiers:   money > booking lifecycle > couple-facing > supplier-facing > admin > unclassified — a keyword sort, not a verdict.
 
-# ══ MONEY — a payment, fee, price or ledger with a missing end (20) ══
-rpc-no-caller	approve_vendor_token_purchase	1	no 'approve_vendor_token_purchase' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+# ══ MONEY — a payment, fee, price or ledger with a missing end (10) ══
+rpc-no-caller	_apply_token_purchase_credit	1	no '_apply_token_purchase_credit' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	confirm_vendor_subscription_by_reference	1	no 'confirm_vendor_subscription_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	confirm_vendor_token_purchase_by_reference	1	no 'confirm_vendor_token_purchase_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	consume_lead_token_hold_for	1	no 'consume_lead_token_hold_for' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	create_vendor_token_purchase	1	no 'create_vendor_token_purchase' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	grant_member_purchased_tokens	1	no 'grant_member_purchased_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	grant_vendor_lifetime_tokens	1	no 'grant_vendor_lifetime_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	redeem_vendor_token_voucher	1	no 'redeem_vendor_token_voucher' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	reject_vendor_token_purchase	1	no 'reject_vendor_token_purchase' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	consume_lead_token_hold	1	no 'consume_lead_token_hold' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	grant_admin_direct_tokens	1	no 'grant_admin_direct_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_plan_templates	1	no .from('concierge_plan_templates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	supplier_vendor_sku_pricing	1	no .from('supplier_vendor_sku_pricing').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	supplier_vendor_skus	1	no .from('supplier_vendor_skus').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	supplies_order_line_items	1	no .from('supplies_order_line_items').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	supplies_orders	1	no .from('supplies_orders').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_token_boosters	1	no .from('vendor_token_boosters').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-notice-no-emitter	vendor_token_purchase_pending	1	in the NotificationType union, never passed as a type in any app file
-notice-no-emitter	vendor_tokens_credited	1	in the NotificationType union, never passed as a type in any app file
+notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
+notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
 component-no-mount	components/billing/ManualCheckoutModal.tsx	1	no runtime importer in any source file
 result-dropped-silently	lib/booking-fee-settings.server.ts · from:platform_settings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (13) ══
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (6) ══
 rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	get_pending_inquiry_basics	1	no 'get_pending_inquiry_basics' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	get_vendor_thread_summaries	1	no 'get_vendor_thread_summaries' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	list_vendor_delivery_bookings	1	no 'list_vendor_delivery_bookings' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	unlock_vendor_event	1	no 'unlock_vendor_event' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-table-no-writer	couple_waitlist_signups	1	no .from('couple_waitlist_signups').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	event_vendor_booth_placements	1	no .from('event_vendor_booth_placements').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_contract_signatures	1	no .from('vendor_contract_signatures').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 component-no-mount	app/_components/thread-call-launcher-lazy.tsx	1	no runtime importer in any source file
-# ══ COUPLE-FACING — guests, invitations, the celebration itself (123) ══
-rpc-no-caller	confirm_guest_delivery	1	no 'confirm_guest_delivery' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+# ══ COUPLE-FACING — guests, invitations, the celebration itself (72) ══
 rpc-no-caller	open_submit_song_request	1	no 'open_submit_song_request' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	papic_camera_remaining	1	no 'papic_camera_remaining' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	papic_release_camera_points	1	no 'papic_release_camera_points' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	papic_reserve_camera_capture	1	no 'papic_reserve_camera_capture' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	papic_reserve_camera_points	1	no 'papic_reserve_camera_points' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	papic_reserve_event_points_for_seat	1	no 'papic_reserve_event_points_for_seat' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	register_guest_claim_otp_attempt	1	no 'register_guest_claim_otp_attempt' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	release_event_lead_holds	1	no 'release_event_lead_holds' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	report_guest_capture	1	no 'report_guest_capture' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	sweep_ghosted_lead_holds	1	no 'sweep_ghosted_lead_holds' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	undo_guest_delivery	1	no 'undo_guest_delivery' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	user_holds_founder_seat	1	no 'user_holds_founder_seat' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-table-no-writer	couple_briefs	1	no .from('couple_briefs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	event_category_build_state	1	no .from('event_category_build_state').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	event_delegates	1	no .from('event_delegates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_feature_policy_override	1	no .from('event_feature_policy_override').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_scene_objects	1	no .from('event_scene_objects').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	papic_photo_challenge_sponsorships	1	no .from('papic_photo_challenge_sponsorships').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
+table-no-writer	papic_seat_day_usage	1	no .from('papic_seat_day_usage').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_guest_deliveries	1	no .from('vendor_guest_deliveries').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_papic_capture_grants	1	no .from('vendor_papic_capture_grants').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_release_history	1	no .from('vendor_release_history').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	wedding_season_factors	1	no .from('wedding_season_factors').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	guest_claim_rejected	1	in the NotificationType union, never passed as a type in any app file
 component-no-mount	app/_components/dashboard-placeholder.tsx	1	no runtime importer in any source file
@@ -99,26 +66,11 @@ result-dropped-silently	app/[slug]/_lib/loaders.ts · from:guest_face_enrollment
 result-dropped-silently	app/[slug]/_lib/loaders.ts · from:scan_events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/[slug]/_lib/your-own-day.server.ts · from:event_tables.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/[slug]/_lib/your-own-day.server.ts · from:papic_guest_captures.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/admin/event-deletions/page.tsx · from:event_deletion_requests.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/admin/pakanta/actions.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/admin/payments/page.tsx · from:events.select	2	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/admin/settings/_surfaces/compliance-surface.tsx · from:<table>.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/admin/settings/_surfaces/compliance-surface.tsx · from:guest_face_enrollments.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/api/std/view/route.ts · rpc:record_std_view	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/dashboard/[eventId]/delete-actions.ts · from:event_members.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/dashboard/[eventId]/vendors/build-3state-actions.ts · from:event_category_build_state.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/join/[eventId]/actions.ts · from:guests.insert	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/panood/control/[eventId]/page.tsx · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	app/papic/_components/papic-guest-buy-panel.tsx · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/vendor-dashboard/on-the-day/actions.ts · from:event_song_requests.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx · from:vendor_papic_captures.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx · from:vendor_papic_portfolio_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/account-autosurface.ts · from:event_members.insert	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/account-face-profile.ts · from:event_members.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/account-face-profile.ts · from:user_face_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/date-narrowing.server.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/date-narrowing.server.ts · from:events.update	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/entitlements.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/entitlements.ts · rpc:event_host_holds_founder_seat	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/entitlements.ts · rpc:event_host_is_internal	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
@@ -126,17 +78,8 @@ result-dropped-silently	lib/event-media-sweep.ts · from:events.select	1	error r
 result-dropped-silently	lib/event-media-sweep.ts · from:papic_guest_captures.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/event-media-sweep.ts · from:papic_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/event-media-sweep.ts · from:vendor_papic_captures.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/event-types-db.ts · from:event_type_vocab.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/face-data-retention.ts · from:guest_face_enrollments.update	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/face-enrolment-age.ts · from:guests.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/face-enrolment-age.ts · from:people.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/guest-membership-session.ts · from:event_members.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/guest-membership-session.ts · from:guests.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/indoor-blueprint.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/launch-save-the-date.ts · from:events.update	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/live-wall.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/live-wall.ts · rpc:papic_armed_challenge	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/nsfw-screen.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/papic-cameras.ts · from:paparazzi_seats.select	2	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/papic-cameras.ts · from:paparazzi_seats.upsert	2	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/papic-one.ts · from:papic_event_pool_config.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
@@ -144,46 +87,29 @@ result-dropped-silently	lib/papic-one.ts · from:papic_one_tiers.select	1	error 
 result-dropped-silently	lib/papic-one.ts · rpc:papic_ensure_free_one_camera	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/papic-one.ts · rpc:papic_seat_dedicated_points	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/photo-delivery-drain.ts · from:photo_delivery_jobs.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/scan-trail.ts · from:scan_events.insert	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/seating.ts · from:event_floor_booths.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/seating.ts · from:event_floor_signs.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/seating.ts · from:event_scene_objects.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/seating.ts · from:event_seating_constraints.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/slug-access.ts · from:guests.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/slug-access.ts · from:people.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/slug-forwarding.ts · from:slug_change_log.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/songs.ts · from:event_song_picks.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/songs.ts · from:vendor_songs.select	2	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/stage-notes.ts · from:event_stage_notes.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/story-arrangement-store.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/story-arrangement-store.ts · from:papic_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/story-cover.ts · from:papic_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/supplier-night-before-email.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-earnings.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/vendor-invites.ts · from:vendor_invites.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/vendor-lean-months.ts · from:wedding_season_factors.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_captures.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_portfolio_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-photo-challenge.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-seats.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/watch-live-links.ts · from:events.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/wedding-traditions.ts · from:wedding_tradition_items.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (16) ══
+# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (10) ══
 rpc-no-caller	consume_vendor_assets	1	no 'consume_vendor_assets' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	grant_verified_vendor_bonus	1	RETURNS trigger and no trigger is bound to it
 rpc-no-caller	grant_verified_vendor_bonus_on_insert	1	RETURNS trigger and no trigger is bound to it
 rpc-no-caller	handle_vendor_lead_report	1	no 'handle_vendor_lead_report' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	recompute_market_funnel_bands	1	no 'recompute_market_funnel_bands' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	rival_signals_for_vendor	1	no 'rival_signals_for_vendor' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	vendor_set_booth_studio_content	1	no 'vendor_set_booth_studio_content' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	vendor_meetings_set_updated_at	1	RETURNS trigger and no trigger is bound to it
 rpc-no-caller	vendors_worked_together	1	no 'vendors_worked_together' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	vendor_2307_filings	1	no .from('vendor_2307_filings').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_bid_submissions	1	no .from('vendor_bid_submissions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_meetings	1	no .from('vendor_meetings').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_self_comp_caps	1	no .from('vendor_self_comp_caps').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-table-no-writer	vendor_tool_bundles	1	no .from('vendor_tool_bundles').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 component-no-mount	app/_components/OfflineSyncProvider.tsx	1	no runtime importer in any source file
-result-dropped-silently	lib/upcoming-items.ts · from:vendor_meetings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/verification-checks-server.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 # ══ ADMIN / OPS — the console, jobs, tooling (6) ══
 rpc-no-caller	execute_manpower_telemetry_reward	1	no 'execute_manpower_telemetry_reward' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
@@ -192,7 +118,7 @@ table-no-writer	concierge_response_cache	1	no .from('concierge_response_cache').
 table-no-writer	render_jobs	1	no .from('render_jobs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	seo_suggestions	1	no .from('seo_suggestions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 result-dropped-silently	lib/platform-settings.ts · from:platform_settings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ UNCLASSIFIED — no tier keyword matched; read the name (31) ══
+# ══ UNCLASSIFIED — no tier keyword matched; read the name (27) ══
 rpc-no-caller	current_user_gallery_counts	1	no 'current_user_gallery_counts' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	hamming_distance	1	no 'hamming_distance' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	moderator_can_see_row	1	no 'moderator_can_see_row' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
@@ -200,18 +126,14 @@ table-no-writer	bespoke_monogram_generations	1	no .from('bespoke_monogram_genera
 table-no-writer	founder_time_log	1	no .from('founder_time_log').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	person_stewardships	1	no .from('person_stewardships').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	stewardship_transfers	1	no .from('stewardship_transfers').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-notice-no-emitter	kwento_flash_auto_walled	1	in the NotificationType union, never passed as a type in any app file
 component-no-mount	app/_components/bespoke-monogram-motion.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/category-filter-chips.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/ceremony-type-radio-group.tsx	1	no runtime importer in any source file
-component-no-mount	app/_components/live-studio/broadcast-readiness.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/nav/doorway-sidebar-header.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/nav/top-nav-utils.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/states/loading-skeleton.tsx	1	no runtime importer in any source file
 component-no-mount	app/_components/verification/application-progress.tsx	1	no runtime importer in any source file
 component-no-mount	app/(shell)/explore/_components/mega-column-tabs.tsx	1	no runtime importer in any source file
-result-dropped-silently	lib/nsfw-screen.ts · from:<opts.table>.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-result-dropped-silently	lib/nsfw-screen.ts · from:<table>.select	2	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/panood-broadcast.ts · from:panood_broadcasts.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/panood-moments.ts · from:panood_moments.insert	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/panood-moments.ts · from:panood_moments.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason

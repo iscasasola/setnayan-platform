@@ -361,6 +361,13 @@ export async function isDataPrivacyControlActiveWith(
       .select('status')
       .eq('control_key', key)
       .maybeSingle();
+    if (error) {
+      console.error(
+        '[supabase-error] lib/data-privacy-controls.ts · from:data_privacy_controls.select',
+        error,
+        { control_key: key },
+      );
+    }
     if (error || !data) return false;
     return (data as { status: string }).status === 'active';
   } catch {

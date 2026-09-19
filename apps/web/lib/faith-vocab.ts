@@ -75,6 +75,9 @@ export const getFaithVocab = cache(async (): Promise<FaithVocabItem[]> => {
       .select('faith_key, label_en')
       .eq('status', 'active')
       .order('sort_order', { ascending: true });
+    if (error) {
+      console.error('[supabase-error] lib/faith-vocab.ts · from:faith_vocab.select', error);
+    }
     if (error || !data || data.length === 0) return [...FALLBACK_ITEMS];
     return (data as { faith_key: string; label_en: string }[]).map((r) => ({
       key: r.faith_key,

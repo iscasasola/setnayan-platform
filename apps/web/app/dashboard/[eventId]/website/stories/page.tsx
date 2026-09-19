@@ -71,6 +71,11 @@ export default async function EventStoriesPage({
     .eq('event_id', eventId)
     .eq('status', 'published')
     .order('published_at', { ascending: false });
+  // The render below already tells `rowsError` apart from a genuine empty
+  // list (see the 🪤 comment there) — this keeps the reason in the logs too.
+  if (rowsError) {
+    logQueryError('WebsiteStoriesPage.chapters', rowsError, { eventId }, 'graceful_degrade');
+  }
 
   type Row = {
     chapter_id: string;

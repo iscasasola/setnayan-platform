@@ -42,7 +42,6 @@ import {
   fetchInclusionsByService,
   fetchDiscountsByServicePublic,
   pickBestDiscount,
-  type VendorServiceCoverage,
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import { getEventTypeVocab } from '@/lib/event-types-db';
@@ -50,7 +49,7 @@ import {
   toServiceCard,
   type ServiceShowcaseMedia,
 } from '@/lib/service-card-view-model';
-import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { buildServesLine } from '@/lib/service-serves-line';
 import {
   fetchTrustedByVendors,
   TRUSTED_BY_UNREADABLE,
@@ -781,38 +780,6 @@ async function resolveTileByCardKind(
     // Empty map — the translator's later rungs still land every card.
   }
   return out;
-}
-
-/** faithCol (Title-Case storage key) → couple-facing label, from the single
- *  faith registry ([[lib/faith-registry.ts]]). Unknown values pass through. */
-const FAITHCOL_TO_LABEL: ReadonlyMap<string, string> = new Map(
-  FAITH_REGISTRY.map((e) => [e.faithCol, e.label]),
-);
-
-/**
- * The card's "Serves" line from its coverage row — event types first, faiths
- * after an em-dash. EMPTY faiths = "All faiths" (the column contract: an empty
- * array means all faiths welcomed). No coverage row → null → no line rendered.
- * e.g. "Wedding · Debut — All faiths" / "Wedding — Catholic, Muslim".
- */
-function buildServesLine(
-  coverage: VendorServiceCoverage | undefined,
-  eventTypeLabelByKey: ReadonlyMap<string, string>,
-): string | null {
-  if (!coverage) return null;
-  const types = coverage.event_types
-    .map(
-      (t) =>
-        eventTypeLabelByKey.get(t) ??
-        t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    )
-    .filter((t) => t.length > 0);
-  const faiths =
-    coverage.faiths.length === 0
-      ? 'All faiths'
-      : coverage.faiths.map((f) => FAITHCOL_TO_LABEL.get(f) ?? f).join(', ');
-  if (types.length === 0) return faiths === 'All faiths' ? null : faiths;
-  return `${types.join(' · ')} — ${faiths}`;
 }
 
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can

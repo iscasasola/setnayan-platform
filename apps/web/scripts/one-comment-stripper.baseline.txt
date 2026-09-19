@@ -264,7 +264,6 @@ apps/web/lib/the-onboarding-discount-is-a-dial.test.ts
 apps/web/lib/the-qr-asks-for-what-is-owed.test.ts
 apps/web/lib/the-receipt-tells-the-truth.test.ts
 apps/web/lib/the-story-maker-is-simple.test.ts
-apps/web/lib/the-venue-respects-privacy.test.ts
 apps/web/lib/these-features-have-a-doorway.test.ts
 apps/web/lib/three-screens-still-spoke-in-the-present.test.ts
 apps/web/lib/token-economy-is-retired.test.ts

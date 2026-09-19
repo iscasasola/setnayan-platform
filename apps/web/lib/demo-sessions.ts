@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Generic scaffold behind the homepage dock-tile live demos (Papic today;
@@ -77,6 +78,15 @@ export async function createDemoSession(demoKind: DemoKind, boundRef?: string): 
       })
       .select('id, demo_kind, token_a, token_b, joined_a, joined_b, shot_count, expires_at, bound_ref')
       .single();
+    if (error) {
+      // Collision odds are negligible, so almost every hit here is a
+      // genuine failure, not the retry path working as designed — log it
+      // so a run of them is findable instead of just "please try again".
+      logQueryError('demo-sessions: demo_sessions insert', error, {
+        demo_kind: demoKind,
+        attempt,
+      });
+    }
     if (!error && data) {
       return {
         id: data.id,

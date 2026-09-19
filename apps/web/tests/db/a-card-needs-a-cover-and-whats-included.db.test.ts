@@ -279,11 +279,19 @@ test('a blank host card is named "Host / MC by …", not "Host Mc by …"', asyn
   );
   assert.equal((await row(r.rows[0]!.vendor_service_id)).title, 'Host / MC by Saysay Live Band');
   // A kind neither the schema table nor the tree knows still falls to the
-  // humanised key — never a raw database key.
-  const u = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO vendor_services (vendor_profile_id, category, title, is_active)
-     VALUES ($1, 'a_kind_nobody_mapped', NULL, false) RETURNING vendor_service_id`,
-    [VP],
-  );
+  // humanised key — never a raw database key. Since SUP-21 (migration
+  // 20271234232465) only a row written before that fence can hold such a kind,
+  // so the fence is switched off for this one insert to stand that row up.
+  await db.query('ALTER TABLE vendor_services DISABLE TRIGGER trg_before_vendor_services_kind_is_known');
+  let u;
+  try {
+    u = await db.query<{ vendor_service_id: string }>(
+      `INSERT INTO vendor_services (vendor_profile_id, category, title, is_active)
+       VALUES ($1, 'a_kind_nobody_mapped', NULL, false) RETURNING vendor_service_id`,
+      [VP],
+    );
+  } finally {
+    await db.query('ALTER TABLE vendor_services ENABLE TRIGGER trg_before_vendor_services_kind_is_known');
+  }
   assert.equal((await row(u.rows[0]!.vendor_service_id)).title, 'A Kind Nobody Mapped by Saysay Live Band');
 });

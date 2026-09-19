@@ -50,7 +50,12 @@ export async function fetchWindowAnchor(
       .select('first_live_at')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (error) return null;
+    if (error) {
+      console.error('[supabase-error] lib/live-studio-window-server.ts · from:panood_control_state.select', error, {
+        event_id: eventId,
+      });
+      return null;
+    }
     return (data as { first_live_at?: string | null } | null)?.first_live_at ?? null;
   } catch {
     return null;

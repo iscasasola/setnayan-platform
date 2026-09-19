@@ -33,7 +33,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
-import { poolRouteToAir } from '@/lib/live-studio-readiness';
+import { decideBroadcastReadiness, poolRouteToAir, type ReadinessDecision } from '@/lib/live-studio-readiness';
+import { BroadcastReadiness } from '@/app/_components/live-studio/broadcast-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import {
@@ -536,9 +537,19 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // rather than a one-tap button nobody can prove will work.
   // No flag guard here on purpose: this page already `notFound()`s above when
   // liveStudioRoamEnabled() is false, so a second check would be dead code.
+  //
+  // 📋 ONE READ, TWO READERS. The same facts also feed the Broadcast readiness card
+  // in the Setup sheet's Connect section (§ 4h). Deciding from THIS object — never a
+  // second `resolveLiveStudioReadiness` — means the one-tap button and the card can
+  // never disagree about whether a Setnayan channel is there, and costs no re-query.
+  // A thrown read leaves `readiness` null and the card unmounted: it has no facts to
+  // be honest with, and inventing pessimistic ones would name a false reason.
   let pooledRoute = false;
+  let readiness: ReadinessDecision | null = null;
   try {
-    pooledRoute = poolRouteToAir(await fetchReadinessFacts(admin, eventId));
+    const readinessFacts = await fetchReadinessFacts(admin, eventId);
+    pooledRoute = poolRouteToAir(readinessFacts);
+    readiness = decideBroadcastReadiness(readinessFacts);
   } catch (e) {
     console.error('[panood/control] pool readiness read refused', e);
   }
@@ -1633,6 +1644,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             Your YouTube channel
           </h2>
         </div>
+        {/* 📋 BROADCAST READINESS (§ 4h) — mounted HERE, in the Connect section,
+            because this is where the channel/connection status already lives, so
+            the two read as one status area. It is inside the Setup SHEET (an
+            overlay that scrolls its own body), so it adds ZERO height to the fixed,
+            scroll-free surface. The transport's "connect first" link already
+            deep-links here (`#connect`), which is exactly who needs the blockers. */}
+        {readiness ? <BroadcastReadiness readiness={readiness} /> : null}
         {!oauthReady ? (
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/60">
             <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />

@@ -96,6 +96,7 @@
  */
 
 import { computeBudgetOverspend, type OverspendResult } from './budget-overspend';
+import { computeBudgetAllocation, type AllocationConfig, type LeafInput } from './budget-allocation';
 import type { EventMoney, MoneyBucket, MoneyLine } from './budget-truth';
 
 /**
@@ -273,6 +274,58 @@ function plannedFrom(n: number | null | undefined): number | null {
   return whole > 0 ? whole : null;
 }
 
+/**
+ * SUP-65 · ONE ANSWER TO "WHAT DID WE PLAN FOR THIS CATEGORY?"
+ *
+ * The rule the ledger's Planned column has always used — the couple's SAVED
+ * figure wins, the engine's suggestion is the fallback, and zero is not a plan —
+ * lifted out so a second screen can print the same figure without re-deriving
+ * it. The Merkado's category rails (`vendors/page.tsx`) show this next to the
+ * suppliers the couple is weighing; `/budget` shows it in the ledger. Both call
+ * THIS, so one category can never read ₱120,000 on one page and ₱95,000 on the
+ * other.
+ */
+export function resolvePlanned(
+  bucketId: string,
+  savedPlanPhp: ReadonlyMap<string, number | null>,
+  suggestedPhp: ReadonlyMap<string, number | null>,
+): { plannedPhp: number; plannedSource: PlannedSource } | null {
+  // Saved wins: it is the couple's own number. The suggestion is what we
+  // would have proposed, and it must never overwrite what they decided.
+  const saved = plannedFrom(savedPlanPhp.get(bucketId));
+  if (saved !== null) return { plannedPhp: saved, plannedSource: 'saved' };
+  const suggested = plannedFrom(suggestedPhp.get(bucketId));
+  return suggested === null ? null : { plannedPhp: suggested, plannedSource: 'suggested' };
+}
+
+/**
+ * The engine's suggestion per category — the SAME unpinned
+ * `computeBudgetAllocation` run the "Suggested budget split" on `/budget`
+ * shows, from the couple's own typed budget only (never the band estimate: a
+ * figure derived from a feel is not something they budgeted).
+ *
+ * ⚠ WEDDING-ONLY. `budget_leaf_benchmarks` IS the wedding taxonomy; every other
+ * event type has no typical prices yet, so it gets an empty map and its
+ * categories read "no plan", which is the truth.
+ */
+export function suggestedPlanByBucket(args: {
+  isWedding: boolean;
+  budgetPhp: number | null;
+  leaves: LeafInput[];
+  config?: Partial<AllocationConfig>;
+}): Map<string, number | null> {
+  const out = new Map<string, number | null>();
+  if (!args.isWedding || args.budgetPhp == null) return out;
+  for (const leaf of computeBudgetAllocation({
+    budgetPhp: args.budgetPhp,
+    leaves: args.leaves,
+    config: args.config,
+  }).leaves) {
+    out.set(leaf.canonicalService, leaf.amountPhp);
+  }
+  return out;
+}
+
 const wholePhp = (n: number | null | undefined): number => {
   const v = Number(n ?? 0);
   return Number.isFinite(v) ? Math.round(v) : 0;
@@ -318,12 +371,9 @@ export function buildBudgetLedger(args: {
   for (const bucketId of ids) {
     const b = bucketById.get(bucketId) ?? null;
 
-    // Saved wins: it is the couple's own number. The suggestion is what we
-    // would have proposed, and it must never overwrite what they decided.
-    const savedPlan = plannedFrom(saved.get(bucketId));
-    const plannedPhp = savedPlan ?? plannedFrom(suggested.get(bucketId));
-    const plannedSource: PlannedSource | null =
-      plannedPhp === null ? null : savedPlan !== null ? 'saved' : 'suggested';
+    const planned = resolvePlanned(bucketId, saved, suggested);
+    const plannedPhp = planned?.plannedPhp ?? null;
+    const plannedSource: PlannedSource | null = planned?.plannedSource ?? null;
 
     const agreedPhp = wholePhp(b?.committedPhp);
     const delta = plannedPhp === null ? 0 : agreedPhp - plannedPhp;

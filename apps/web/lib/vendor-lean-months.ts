@@ -151,6 +151,7 @@ export async function deriveLeanMonths(
         .from('wedding_season_factors')
         .select('month, factor')
         .ilike('region', opts.regionHint.trim());
+      if (error) console.error('[supabase-error] lib/vendor-lean-months.ts · from:wedding_season_factors.select', error);
       if (!error && data && data.length > 0) {
         const rows = data as { month: number; factor: number }[];
         const ranked = rows

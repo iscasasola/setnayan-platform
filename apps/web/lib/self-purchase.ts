@@ -16,6 +16,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *
  * The 12-grants-per-quarter rate-limit is enforced inside the Postgres
  * BEFORE INSERT trigger on `comp_grants` (`enforce_vendor_self_comp_quota`).
+ * The cap is a fixed 12: the per-vendor override table (vendor_self_comp_caps)
+ * and its reader here (fetchSelfCompQuota) were deleted 2026-09-18 (S39) —
+ * nothing ever wrote an override, nothing called the reader, and no self-comp
+ * has ever been issued (comp_grants WHERE source='vendor_self_comp' = 0 in prod).
  */
 
 export type SelfPurchaseRole = {
@@ -37,7 +41,10 @@ export async function fetchSelfPurchaseRoles(
     .from('vendor_team_members')
     .select('vendor_profile_id, role, vendor_profile:vendor_profiles(business_name)')
     .eq('user_id', userId);
-  if (error) return [];
+  if (error) {
+    console.error('[supabase-error] self-purchase: vendor_team_members', error);
+    return [];
+  }
   type RawRow = {
     vendor_profile_id: string;
     role: 'owner' | 'admin' | 'agent' | 'viewer';
@@ -57,52 +64,4 @@ export async function fetchSelfPurchaseRoles(
       role: r.role,
     };
   });
-}
-
-/**
- * Snapshot of the current quarter's self-comp usage. Returns the cap (12 by
- * default, admin-raisable via vendor_self_comp_caps), the current count, and
- * whether the user can still issue a new self-comp this quarter.
- */
-export type SelfCompQuota = {
-  vendor_profile_id: string;
-  quarterly_cap: number;
-  quarter_used: number;
-  remaining: number;
-};
-
-export async function fetchSelfCompQuota(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<SelfCompQuota> {
-  const capRow = await supabase
-    .from('vendor_self_comp_caps')
-    .select('quarterly_cap')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const cap = (capRow.data?.quarterly_cap as number | undefined) ?? 12;
-
-  // Quarter boundary in PHT — use the server's NOW() via a select on the
-  // comp_grants table itself filtered to this quarter.
-  const now = new Date();
-  const quarter = Math.floor(now.getUTCMonth() / 3);
-  const quarterStartMonth = quarter * 3;
-  const quarterStart = new Date(
-    Date.UTC(now.getUTCFullYear(), quarterStartMonth, 1, 0, 0, 0),
-  );
-  const { count } = await supabase
-    .from('comp_grants')
-    .select('grant_id', { count: 'exact', head: true })
-    .eq('source', 'vendor_self_comp')
-    .eq('vendor_profile_id', vendorProfileId)
-    .is('revoked_at', null)
-    .gte('created_at', quarterStart.toISOString());
-
-  const used = count ?? 0;
-  return {
-    vendor_profile_id: vendorProfileId,
-    quarterly_cap: cap,
-    quarter_used: used,
-    remaining: Math.max(0, cap - used),
-  };
 }

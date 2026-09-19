@@ -24,6 +24,7 @@ import {
   type BlockKind,
 } from '@/lib/event-deletion-reasons';
 import { emitNotification } from '@/lib/notification-emit';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * delete-actions.ts — removing a celebration for good.
@@ -148,6 +149,7 @@ async function requireCoupleMember(
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/dashboard/[eventId]/delete-actions.ts · from:event_members.select', error);
 
   /*
     🪤 SUPABASE DOES NOT THROW. An RLS refusal and "no such row" are the same
@@ -304,6 +306,7 @@ export async function getEventDeletionImpact(
 
   if (orderErr) {
     // Unreadable order list ⇒ every money signal stays null ⇒ blocked.
+    logQueryError('delete-actions: event orders (delete stays blocked)', orderErr, { event_id: trimmed });
   } else {
     const orders = (orderRows ?? []) as {
       order_id: string;

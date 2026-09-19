@@ -9,12 +9,14 @@
  * cannot tell those two states apart; only a mount test can.
  *
  * 🔑 AND THE SECOND COMPOSER IS THE ONE THAT MATTERS MOST. Measured on
- * origin/main: every deep link in the product — the clients action bar, the
- * chat info rail — points at `#send-proposal` (SendProposalCard). `#build-quote`
- * (the fuller ProposalMaker) has ZERO inbound links anywhere in the repo. A
- * feature mounted only in ProposalMaker would be invisible to every supplier
- * who followed a Quote button, which is all of them — present and inert, the
- * exact disease this project keeps paying for.
+ * origin/main (2026-09-15): every deep link in the product — the clients action
+ * bar, the chat info rail — pointed at `#send-proposal` (SendProposalCard) and
+ * `#build-quote` (the fuller ProposalMaker) had ZERO inbound links. A feature
+ * mounted only in ProposalMaker would have been invisible to every supplier
+ * who followed a Quote button — present and inert, the exact disease this
+ * project keeps paying for. Since 2026-09-19 (SUP-H) both composers mount
+ * inside the ONE `build-quote` panel, and the count of 2 below is what keeps
+ * both halves carrying the line.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

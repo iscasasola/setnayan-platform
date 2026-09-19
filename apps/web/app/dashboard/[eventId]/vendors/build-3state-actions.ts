@@ -3,18 +3,14 @@
 /**
  * Build 3-State Solver — server actions (Phase 3d-A · Build_3State_Solver_2026-06-16.md).
  *
- * Backs `event_category_build_state` (migration 20261230000000 — ALREADY in prod):
- * one per-(event, plan_group_id) row holding Locked / Auto / Excluded + the
- * Locked taxonomy pick (`pinned_vendor_id`). Couple-own RLS (the migration's
- * policies scope every read to the couple's own event).
- *
- * ⚠ **READ-ONLY as of 2026-07-29.** The Lock/Auto/Hidden grid that WROTE these
- * rows is deleted (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §7), along
- * with `setCategoryBuildState` and `resetBuildStates`. Nothing writes the table
- * any more; the rows that exist are LEGACY and are still honored verbatim —
- * an explicit `'excluded'` stays excluded, a `'locked'` + pin still resolves to
- * its pin. New events simply have none, which is why `proposeBuildFromQuotes`
- * carries the absent-row pre-pass.
+ * ⚠ **THE STATE TABLE IS GONE (2026-09-18, S37).** `event_category_build_state`
+ * held one Locked / Auto / Excluded row per (event, plan group); the grid that
+ * WROTE it was deleted 2026-07-29 (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
+ * §7), and the table was dropped once production held nothing but four legacy
+ * `'auto'` rows — which read exactly like an absent row. "Not needed" and
+ * "✓ Covered" live in `event_category_decisions`; the solver's state map now
+ * starts empty and the FILLABLE pre-pass below proposes Auto for every group
+ * the couple has quotes for.
  *
  * Resolved picks STILL write to the existing `event_build_picks` table so the
  * Compare + Lock tabs are unchanged. No schema change here.
@@ -25,7 +21,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  isBuildState,
   resolveBuildPicks,
   withAbsentQuotedAsAuto,
   type BuildRankMode,
@@ -74,38 +69,9 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 }
 
 /**
- * Read the couple's 3-state control rows for an event into a
- * `Map<plan_group_id, { state, pinnedVendorId }>`. Rows absent from the table
- * are implicitly Excluded (the default), so the map only carries explicit
- * states. Fails soft → empty map (every row reads as Excluded) on any error.
- */
-export async function getCategoryBuildStates(eventId: string): Promise<BuildStateMap> {
-  const out: BuildStateMap = new Map();
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('event_category_build_state')
-    .select('plan_group_id, state, pinned_vendor_id')
-    .eq('event_id', eventId);
-  if (error || !data) return out;
-  for (const r of data as Array<{
-    plan_group_id: string;
-    state: string;
-    pinned_vendor_id: string | null;
-  }>) {
-    if (!isBuildState(r.state)) continue;
-    out.set(r.plan_group_id, {
-      state: r.state,
-      pinnedVendorId: r.pinned_vendor_id ?? null,
-    });
-  }
-  return out;
-}
-
-/**
  * **Fill the couple's build from the quotes they already hold.** Reads the state
  * map + quoted inquiries + budget, then reconciles `event_build_picks`:
  *   • FILLABLE groups with no stored row → proposed as AUTO (the pre-pass below).
- *   • LOCKED taxonomy rows → write the pinned vendor (legacy rows still honored).
  *   • AUTO rows → OFF solver: cheapest quoted vendor that fits the remaining
  *     budget (multi-pick groups may take several), reusing the shipped logic via
  *     the pure `resolveBuildPicks`.
@@ -118,16 +84,13 @@ export async function getCategoryBuildStates(eventId: string): Promise<BuildStat
  * couple never has to learn again; the action does one thing and now says it.
  *
  * ── The ONE behavioural change: the ABSENT-ROW PRE-PASS.
- * `event_category_build_state` rows only ever existed because the retired grid
- * wrote them, and an absent row defaults to `'excluded'` — so on a fresh event
- * this action resolved to NOTHING no matter how many quotes were in hand (spec
- * §1). `withAbsentQuotedAsAuto` synthesizes `'auto'` for FILLABLE groups only;
- * every explicit stored row still wins, so a category the couple excluded stays
- * excluded and a legacy lock+pin still resolves to its pin.
+ * An absent state defaults to `'excluded'` — so on a fresh event this action
+ * resolved to NOTHING no matter how many quotes were in hand (spec §1).
+ * `withAbsentQuotedAsAuto` synthesizes `'auto'` for FILLABLE groups only.
  *
  * FILLABLE (spec §4) = ≥1 quoted inquiry · no locked vendor · no existing build
  * pick · no `event_category_decisions` row in ('excluded','complete') for the
- * group or its tile · no explicit `event_category_build_state = 'excluded'`.
+ * group or its tile.
  * Resolved server-side here from the couple's own RLS-scoped rows — never from a
  * client-supplied list — so a forged request can't widen the set.
  */
@@ -144,7 +107,7 @@ export async function proposeBuildFromQuotes(input: {
   // `events_moderator_read` admits every accepted delegate. The AI-gate fields
   // (planning_mode / setnayan_ai_active) + reception coords are read alongside
   // the budget so the Auto rank mode can switch to compat when Setnayan AI is on.
-  const [evRes, vendorsRes, stateRes, pickRes, decisionRes] = await Promise.all([
+  const [evRes, vendorsRes, pickRes, decisionRes] = await Promise.all([
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -163,10 +126,6 @@ export async function proposeBuildFromQuotes(input: {
       .select(
         `vendor_id, category, status, total_cost_php, transport_php, food_allowance_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
       )
-      .eq('event_id', input.eventId),
-    supabase
-      .from('event_category_build_state')
-      .select('plan_group_id, state, pinned_vendor_id')
       .eq('event_id', input.eventId),
     // ── Fillable inputs (spec §4). Both are couple-own, RLS-scoped, and
     // column-explicit. A group that already holds a build pick is NOT fillable
@@ -311,15 +270,9 @@ export async function proposeBuildFromQuotes(input: {
     }
   }
 
+  // No stored states since the table was dropped (S37): every group starts
+  // absent, and the pre-pass below proposes Auto for the fillable ones.
   const states: BuildStateMap = new Map();
-  for (const r of (stateRes.data ?? []) as Array<{
-    plan_group_id: string;
-    state: string;
-    pinned_vendor_id: string | null;
-  }>) {
-    if (!isBuildState(r.state)) continue;
-    states.set(r.plan_group_id, { state: r.state, pinnedVendorId: r.pinned_vendor_id ?? null });
-  }
 
   // ── The FILLABLE pre-pass (spec §4). Everything below is derived from rows
   // already read above — no extra round-trip, no client input.
@@ -363,11 +316,7 @@ export async function proposeBuildFromQuotes(input: {
     (groupId) =>
       !lockedGroupIds.has(groupId) &&
       !pickedGroupIds.has(groupId) &&
-      !decidedGroupIds.has(groupId) &&
-      // 5. An explicit 'excluded' row is the couple saying no. `states` may also
-      //    hold 'auto'/'locked' rows here — those already resolve on their own,
-      //    and `withAbsentQuotedAsAuto` leaves every stored row untouched anyway.
-      states.get(groupId)?.state !== 'excluded',
+      !decidedGroupIds.has(groupId),
   );
 
   const budgetPhp =

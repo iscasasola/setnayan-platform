@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { getLifecyclePhase } from '@/lib/invitation-widgets';
+import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { EditorShell, done, todo, type RailGroup } from './_components/editor-shell';
 import { TextPanel } from './_components/text-panel';
@@ -35,8 +35,13 @@ import {
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import { OpenBrowsePanel, RsvpBackdropPanel } from './_components/media-panels';
-import { clearRsvpBackdrop, saveRsvpBackdrop, setOpenBrowse } from './actions';
+import {
+  LaunchPhasePanel,
+  OpenBrowsePanel,
+  RsvpBackdropPanel,
+  launchPhaseLabel,
+} from './_components/media-panels';
+import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } from './actions';
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
@@ -89,10 +94,10 @@ export default async function WebsiteEditorPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ open?: string }>;
+  searchParams: Promise<{ open?: string; pin?: string }>;
 }) {
   const { eventId } = await params;
-  const { open: openRow } = await searchParams;
+  const { open: openRow, pin: pinResult } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -101,7 +106,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -143,12 +148,18 @@ export default async function WebsiteEditorPage({
     typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
   const ourPhotos = Array.isArray(event.our_photos) ? event.our_photos : [];
 
-  // The phase the preview opens on = the phase the site is actually in today.
-  const initialPhase = getLifecyclePhase(
+  // The phase the preview opens on = the phase the site is actually in today:
+  // the couple's pin when they set one (DAY-33), the clock otherwise.
+  const pinnedPhase = manualLaunchPhase(
+    (event as { launch_mode?: string | null }).launch_mode,
+    (event as { manual_phase?: string | null }).manual_phase,
+  );
+  const clockPhase = getLifecyclePhase(
     (event.event_date as string | null) ?? null,
     ((event as { timezone?: string | null }).timezone) ?? undefined,
     (event as { event_end_date?: string | null }).event_end_date ?? null,
   );
+  const initialPhase = pinnedPhase ?? clockPhase;
 
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
@@ -303,6 +314,22 @@ export default async function WebsiteEditorPage({
               action={updateLandingPageVisibility}
               eventId={eventId}
               visibility={visibility}
+            />
+          ),
+        },
+        {
+          key: 'launch-phase',
+          label: 'Which version guests see',
+          blurb: 'Let the date decide, or keep one version up — like the RSVP.',
+          href: `${w}/editor?open=launch-phase`,
+          status: pinnedPhase ? done(`Always: ${launchPhaseLabel(pinnedPhase)}`) : todo('Automatic'),
+          panel: (
+            <LaunchPhasePanel
+              action={setLaunchPhase}
+              eventId={eventId}
+              pinned={pinnedPhase}
+              autoPhase={clockPhase}
+              refused={pinResult === 'refused'}
             />
           ),
         },

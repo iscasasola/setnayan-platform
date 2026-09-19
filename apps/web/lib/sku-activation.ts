@@ -1171,8 +1171,9 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     // `setnayan_ai_active_until` via extendUserAiSubscription(…, 1, …), so "this
     // event's NEXT purchase is a ₱799 renewal". That belonged to a RETIRED
     // intro/renewal model: `SETNAYAN_AI_RENEW` is is_active=false and its
-    // resolver (resolveSetnayanAiEventChargeCentavos) has NO callers — the live
-    // charge path is the event-TYPE ladder. So the stamp bought nothing and cost
+    // resolver (resolveSetnayanAiEventChargeCentavos) had NO callers and was
+    // deleted (SUP-97) — the live charge path is the event-TYPE ladder. So the
+    // stamp bought nothing and cost
     // everything: eventOwnsSetnayanAi treats a non-NULL window as AUTHORITATIVE,
     // so a couple paid once and lost AI 28 days later with no way to renew.
     //
@@ -1674,13 +1675,20 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!chargeId) return;
       // SEC-4b: the paying order must belong to the charge's own vendor.
       await assertOrderOwnsVendorTarget(ctx, await chargeOwnerVendorId(ctx, chargeId));
-      const settled = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
+      const { settled, error: settleError } = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
+      // `settle_error` separates "already settled, no-op" (null) from "the RPC
+      // failed and the fee is still open" (the reason) — S34, 2026-09-18.
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
         event_type: 'service_activated',
         actor_user_id: ctx.actorUserId,
         actor_role: 'admin',
-        metadata: { service_key: ctx.serviceKey, booking_fee_charge_id: chargeId, settled },
+        metadata: {
+          service_key: ctx.serviceKey,
+          booking_fee_charge_id: chargeId,
+          settled,
+          settle_error: settleError,
+        },
       });
       // THE OWNER'S FIRST DOOR (2026-09-05): "vendors get 5% of the amount they
       // paid for on booking fee … when we approve the payment." The fee is now

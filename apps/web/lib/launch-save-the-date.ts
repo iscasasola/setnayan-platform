@@ -80,6 +80,7 @@ export async function publishSaveTheDate(
     .eq('event_id', eventId)
     .select('slug')
     .single();
+  if (error) console.error('[supabase-error] lib/launch-save-the-date.ts · from:events.update', error);
   if (error || !data) return null;
   return { slug: (data.slug as string | null) ?? null };
 }

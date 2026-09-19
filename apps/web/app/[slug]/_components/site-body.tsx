@@ -1394,6 +1394,7 @@ export async function SiteBody({
                     blocks={scheduleBlocks}
                     eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                     nowTrigger={isGuestNowTriggerEnabled()}
+                    eventType={event.event_type}
                   />
                 </section>
               ) : null}

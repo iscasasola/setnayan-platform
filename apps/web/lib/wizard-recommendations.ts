@@ -895,6 +895,7 @@ export async function fetchBookedMarketplaceVendorIdsForDate(
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
       .not('marketplace_vendor_id', 'is', null)
       .neq('event_id', eventId);
+    if (error) console.error('[supabase-error] lib/wizard-recommendations.ts · from:event_vendors.select', error);
     if (error || !data) return [];
     const out = new Set<string>();
     for (const row of data as Array<{ marketplace_vendor_id: string | null }>) {

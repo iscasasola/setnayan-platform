@@ -33,7 +33,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
-import { poolRouteToAir } from '@/lib/live-studio-readiness';
+import { decideBroadcastReadiness, poolRouteToAir, type ReadinessDecision } from '@/lib/live-studio-readiness';
+import { BroadcastReadiness } from '@/app/_components/live-studio/broadcast-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import {
@@ -536,9 +537,19 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // rather than a one-tap button nobody can prove will work.
   // No flag guard here on purpose: this page already `notFound()`s above when
   // liveStudioRoamEnabled() is false, so a second check would be dead code.
+  //
+  // 📋 ONE READ, TWO READERS. The same facts also feed the Broadcast readiness card
+  // in the Setup sheet's Connect section (§ 4h). Deciding from THIS object — never a
+  // second `resolveLiveStudioReadiness` — means the one-tap button and the card can
+  // never disagree about whether a Setnayan channel is there, and costs no re-query.
+  // A thrown read leaves `readiness` null and the card unmounted: it has no facts to
+  // be honest with, and inventing pessimistic ones would name a false reason.
   let pooledRoute = false;
+  let readiness: ReadinessDecision | null = null;
   try {
-    pooledRoute = poolRouteToAir(await fetchReadinessFacts(admin, eventId));
+    const readinessFacts = await fetchReadinessFacts(admin, eventId);
+    pooledRoute = poolRouteToAir(readinessFacts);
+    readiness = decideBroadcastReadiness(readinessFacts);
   } catch (e) {
     console.error('[panood/control] pool readiness read refused', e);
   }
@@ -772,6 +783,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       .select('live_studio_guest_pick_enabled')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (gpErr) console.error('[supabase-error] app/panood/control/[eventId]/page.tsx · from:events.select', gpErr);
     if (!gpErr) {
       guestPickEnabled =
         (gpRow as { live_studio_guest_pick_enabled?: unknown } | null)
@@ -1516,25 +1528,19 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <span className="font-semibold text-ink">
                   That cut is rehearsal — your broadcast is still on {airLabel}.
                 </span>{' '}
-                {/* WAVE 7 · the copy forks on `entitled`, not on the capability. Telling
-                    a couple who ALREADY BOUGHT Live Studio that switching "is what the
-                    unlock buys" would be false — they bought it; their event-day ran
-                    out. The honest sentence names the day, and the window strip beside
-                    the transport carries the button. */}
-                {entitled ? (
-                  <>
-                    Your broadcast day has ended, so live switching is paused. Add another day
-                    {priceLabel ? ` (${priceLabel})` : ''} to cut between cameras on air again —
-                    until then, choose which single camera goes out with the ★ default control in
-                    Setup.
-                  </>
-                ) : (
-                  <>
-                    Switching cameras on air is what the unlock
-                    {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
-                    free broadcast carries with the ★ default control in Setup.
-                  </>
-                )}
+                {/* DAY-14 · `air.withheld` is only non-null when `decideProgramAir`
+                    was called with `owned: false` (live-studio-publish-pure.ts), and
+                    `entitled` (line ~677) is `broadcastWindow.reason !== 'not-owned'`
+                    — the same `owned` boolean, so it is always false wherever this
+                    paragraph renders at all. The per-event-DAY copy this used to fork
+                    to ("your broadcast day has ended") described a billing model LS6
+                    retired (owner 2026-09-02): Live Studio is now one unlock, for the
+                    life of the event, no clock. There is no "day" for a switching cut
+                    to have run out of, so that branch could never fire — confirmed 0
+                    of 12 measured (owned × channel-count × cut-vs-pinned) combinations. */}
+                Switching cameras on air is what the unlock
+                {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
+                free broadcast carries with the ★ default control in Setup.
               </span>
             </p>
           ) : null}
@@ -1639,6 +1645,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             Your YouTube channel
           </h2>
         </div>
+        {/* 📋 BROADCAST READINESS (§ 4h) — mounted HERE, in the Connect section,
+            because this is where the channel/connection status already lives, so
+            the two read as one status area. It is inside the Setup SHEET (an
+            overlay that scrolls its own body), so it adds ZERO height to the fixed,
+            scroll-free surface. The transport's "connect first" link already
+            deep-links here (`#connect`), which is exactly who needs the blockers. */}
+        {readiness ? <BroadcastReadiness readiness={readiness} /> : null}
         {!oauthReady ? (
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/60">
             <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />

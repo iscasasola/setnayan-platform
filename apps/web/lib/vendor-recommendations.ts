@@ -24,7 +24,11 @@ export async function countVendorRecommendingCouples(
     .from('vendor_recommendations')
     .select('recommendation_id, event_id')
     .eq('vendor_profile_id', vendorProfileId);
-  if (error || !data) return 0;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-recommendations.ts · from:vendor_recommendations.select (countVendorRecommendingCouples)', error);
+    return 0;
+  }
+  if (!data) return 0;
   /*
     🚨 `event_id` ALONE IS NOT THE DEDUPE KEY ANY MORE, AND READING IT AS ONE
     PRINTS A PLAUSIBLE WRONG NUMBER.
@@ -103,7 +107,11 @@ export async function fetchEventRecommendations(
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] lib/vendor-recommendations.ts · from:vendor_recommendations.select (fetchEventRecommendations)', error);
+    return [];
+  }
+  if (!data) return [];
 
   // Dedupe per vendor — keep the most-recent row (already ordered desc), but
   // upgrade to a row that has endorsement text if the first one had none.

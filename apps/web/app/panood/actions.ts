@@ -50,6 +50,12 @@ async function cameraClaimability(
       .select('claimer_user_id, revoked_at, status')
       .eq('claim_qr_token', token)
       .maybeSingle();
+    if (error) {
+      console.error(
+        '[supabase-error] app/panood/actions.ts · from:panood_camera_operators.select',
+        error,
+      );
+    }
     if (error || !cam) return 'invalid';
     if (cam.revoked_at || cam.status === 'revoked') return 'invalid';
     if (cam.claimer_user_id) return 'taken';

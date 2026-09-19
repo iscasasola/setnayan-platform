@@ -86,9 +86,34 @@ test('the quote asks for the gift and tells the couple PHOTOS, never pesos', () 
 test('the quote’s count comes from the shared derivation, not a local formula', () => {
   const src = code('lib/setnayan-gift.server.ts');
   assert.match(src, /rpc\('setnayan_gift_quote_applies'/);
-  assert.match(src, /if \(error \|\| applies !== 'applies'\) return null;/);
-  assert.match(src, /bookingFeePhp\(args\.amountCentavos \/ 100, schedule\)/);
-  assert.match(src, /setnayanGiftForFee\(feeCentavos, ladder\)/);
+
+  // Scope to quoteSetnayanGift itself — giftQuoteBasis (the composer's basis,
+  // a sibling function below it) repeats the same eligibility shape, and a
+  // match there must not stand in for this one.
+  const fnStart = src.indexOf('export async function quoteSetnayanGift');
+  assert.ok(fnStart > 0, 'quoteSetnayanGift no longer exists under this name');
+  const nextFn = src.indexOf('export async function', fnStart + 1);
+  assert.ok(nextFn > fnStart, 'there is a function after quoteSetnayanGift to bound the slice');
+  const body = src.slice(fnStart, nextFn);
+
+  // The PROPERTY, not the phrasing: a refused eligibility read must still
+  // return null — a logged reason in between is fine, a count is not. Allow
+  // an `if (error) { … return null; }` shape as well as the old one-liner.
+  assert.match(
+    body,
+    /if \(error\)[\s\S]{0,160}?return null;/,
+    'a refused eligibility read must still return null — an outage could now surface a stale or invented count',
+  );
+  // The not-applies branch is untouched by the logging change and must still
+  // return null on its own — this is what proves the assertion above is
+  // load-bearing rather than one regex accidentally swallowing both branches.
+  assert.match(
+    body,
+    /if \(applies !== 'applies'\) return null;/,
+    'a non-applying gift must still return null',
+  );
+  assert.match(body, /bookingFeePhp\(args\.amountCentavos \/ 100, schedule\)/);
+  assert.match(body, /setnayanGiftForFee\(feeCentavos, ladder\)/);
   // No rung price typed into the quote path.
-  assert.doesNotMatch(src, /15_?000|\b70\b|0\.7\b/);
+  assert.doesNotMatch(body, /15_?000|\b70\b|0\.7\b/);
 });

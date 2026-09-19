@@ -14,6 +14,8 @@ import {
   TEMP_PASSWORD_FLASH_COOKIE,
 } from '@/lib/account-erasure';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { emitNotification } from '@/lib/notification-emit';
+import { compGiftNoticeBody } from '@/lib/comp-gift-notice';
 
 // TTL of the temp-password flash cookie (see TEMP_PASSWORD_FLASH_COOKIE) — a
 // copy-it-now window, not a store.
@@ -177,9 +179,11 @@ export async function forceSignOutUser(formData: FormData) {
  *
  * ⚠ THE FOREIGN-KEY REASON FOR NOT DELETING IS GONE AS OF 2026-08-02, AND THIS
  * FUNCTION STILL DOES NOT DELETE — on purpose. Two sweeps gave all 48 refusing
- * FKs a written verdict, and exactly three still refuse (order_refunds,
- * supplies_orders, vendor_contract_signatures — see
- * tests/db/user-delete-refusing-fks.baseline.txt). So a hard delete would now
+ * FKs a written verdict, and exactly one still refuses (order_refunds
+ * — see tests/db/user-delete-refusing-fks.baseline.txt; vendor_contract_signatures
+ * and supplies_orders were the other two until both tables were DROPPED on
+ * 2026-09-18 — migrations 20271234094457 and
+ * 20271234329420_drop_retired_token_wallet_supplies_vertical). So a hard delete would now
  * succeed for most accounts. It is still the wrong operation: erasure's
  * obligation is to destroy the PERSONAL data, not the business records, and
  * anonymize-and-retain does exactly that while a DELETE would take the
@@ -675,6 +679,27 @@ export async function issueCompGrant(formData: FormData) {
   if (auditErr) {
     console.error('[issueCompGrant] audit log insert failed', auditErr.message);
   }
+
+  // 🎁 TELL THE COUPLE. The 'gift' notification type has existed in the
+  // database since 2026-06-23 (20270213450358) for exactly this moment, and
+  // nothing emitted it — PR #2027, which would have, closed unmerged. So a
+  // gifted couple's feature switched on silently and nobody said why. The grant
+  // is live the instant the row lands (eventHasCompGrant reads it at every
+  // gate), so the notice can say so. In-app only, as #2027 designed it — NOT on
+  // the email allowlist. emitNotification never throws and logs its own
+  // failure, so a notice that fails cannot undo the gift.
+  await emitNotification({
+    userId: targetUserId,
+    type: 'gift',
+    title: 'A gift from the Setnayan team',
+    body: compGiftNoticeBody({
+      allServices: scopeRaw === 'all_services',
+      serviceCount: scopedSkus?.length ?? 0,
+      eventDisplayName,
+      expiryIso: expiry,
+    }),
+    relatedUrl: eventId ? `/dashboard/${eventId}` : '/dashboard',
+  });
 
   // Re-render the page + expand the target user's panel so the new grant
   // shows up immediately.

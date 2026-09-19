@@ -298,6 +298,11 @@ export async function completeRoamBroadcasts(
       .eq('event_id', eventId)
       .not('status', 'in', '("complete","errored")')
       .select('zone_id');
+    if (error) {
+      console.error('[supabase-error] lib/live-studio-recordings.ts · from:live_studio_roam_streams.update', error, {
+        event_id: eventId,
+      });
+    }
     if (!error) completed = (data ?? []).length;
   } catch {
     // Leave completed at 0; the mirror below still runs and reports reality.

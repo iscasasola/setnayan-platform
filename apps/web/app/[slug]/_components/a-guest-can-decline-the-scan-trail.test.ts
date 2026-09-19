@@ -98,7 +98,11 @@ test('the control is wired to the action — a form with no action is a dead swi
   );
   assert.match(src, /action=\{toggle\}/, 'the form is not wired to the bound action');
   // It must offer the OPPOSITE of the stored value, or the button does nothing.
-  assert.match(src, /guestId,\s*!optedOut\)/, 'the toggle no longer flips the stored value');
+  // S41b: the flip moved into `scanOptOutTarget` (so a refused read — null —
+  // offers the protective value); its truth table is EXECUTED in
+  // `lib/guest-privacy-reads-are-honest.test.ts`, and this pins the wiring.
+  assert.match(src, /guestId,\s*scanOptOutTarget\(optedOut\)\)/, 'the toggle no longer flips the stored value');
+  assert.match(src, /return current !== true;/, 'scanOptOutTarget no longer returns the opposite of the stored value');
 });
 
 test('the control reads the stored value at render, so it cannot show the wrong position', () => {

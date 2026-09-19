@@ -34,6 +34,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
+import { BoothStudioCard } from './_components/booth-studio-card';
+import { boothStudioEnabled } from '@/lib/booth-studio-flag';
+import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { BoothEventSection } from './_components/booth-event-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
@@ -41,8 +44,6 @@ import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
   fetchVendorThreads,
   fetchReturningClientFlags,
-  fetchThreadById,
-  fetchMessages,
   type ReturningClientFlag,
 } from '@/lib/chat';
 import {
@@ -104,6 +105,8 @@ import {
 } from './actions';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { BookingMoneySummary } from './_components/booking-money-summary';
+import { bookingMoney, type BookingMoney, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -118,30 +121,13 @@ import {
 // Schedule · Call · Details) — a true two-sided mirror of the couple's Vendor
 // Workspace. Otherwise the current tabbed page renders byte-for-byte unchanged.
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import {
   RelationshipTabShell,
   type RelationshipTab,
 } from '@/app/_components/relationship-tab-shell';
-// Chat-tab embed — mirror the VENDOR thread page (Chat tab = the live thread with
-// the vendor accept/decline gate preserved). RLS-scoped session client ONLY for
-// these reads — never admin/service-role for chat content.
-import { getThreadBlockState } from '@/lib/chat-block';
-import {
-  sendChatMessage,
-  acceptInquiry,
-  declineInquiry,
-  markThreadRead,
-} from '@/lib/chat-actions';
-import { ChatMessageStream } from '@/app/_components/chat-message-stream';
-import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
-import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
-import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
-import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
-import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 // Payments tab — reuse the vendor thread's LIVE payment-confirm surface
 // (couple-logged payments awaiting confirmation + plan progress / "mark cleared").
 // Reused as-is; no payment logic is reimplemented here.
@@ -157,8 +143,6 @@ import {
 // The tree kit (W4-B): `Card` here IS ShopCard — the local definition this
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
-import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
-import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -571,7 +555,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // marketplace_vendor_id below.
       admin
         .from('event_vendor_booth_posters')
-        .select('poster_ref')
+        .select('poster_ref, poster_content')
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
@@ -668,6 +652,34 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const threadId = thread?.thread_id ?? null;
 
   /*
+    ── ONE CHAT BOX (owner, 2026-09-18: "why did the chatbox never change?") ──
+    #5586 made the two THREAD pages one Messenger-style frame. This page — the
+    one a supplier actually lands on from the Clients list and from every
+    notification about a client — still embedded its OWN copy of the chat
+    under the flag-on shell: two navigation rows above a conversation that
+    #5586 never touched. Owner's brief: "a single chat box with everything
+    inside it."
+
+    The copy is gone. Landing here on the conversation now lands on THE
+    conversation — the thread page, which is the one frame — and this page's
+    sections (Quote · Payments · Files · Schedule · Details) sit one tap away
+    behind that frame's ⋮ and stay reachable here by `?tab=`. The tab strip
+    keeps a "Chat" entry as a DOOR to the thread, never a second room.
+
+    🔑 A redirect, not a second mount of the frame. Two mounts of one frame
+    are two places for the conversation to be drawn, and this repo's recurring
+    disease is one fact rendered by two mechanisms that quietly stop agreeing
+    — which is precisely how this page came to show the old chat for a day
+    after the new one shipped. Flag-off keeps its "Open chat" button, which
+    already went to the thread page; the two shells now agree where chat lives.
+  */
+  const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
+  const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
+  if (relationshipShellEnabled && threadId && (!rawTab || rawTab === 'chat' || rawTab === 'call')) {
+    redirect(`/vendor-dashboard/messages/${threadId}`);
+  }
+
+  /*
     FILES THE COUPLE SENT IN THE CONVERSATION — the third source of the Files
     tab, and the one it was missing.
 
@@ -756,8 +768,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flag-ON Payments tab can feed the live VendorPaymentLive surface exactly as
   // the thread page does. Unused on the flag-OFF path, so its render is unchanged.
   let planRowsAll: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
+  // AREA-VENDOR — the money on record for a booking with NO frozen plan (the
+  // only kind production has): logged payments + the balance, from the same
+  // ownership-gated timeline Today and /payday read. Empty when nothing is
+  // logged, or when the read is refused (logged, never shown as money).
+  let ledgerMoney: BookingMoney = { rows: [], receivedPhp: 0, expectedPhp: 0 };
   if (isBooked) {
-    const [plans, pending] = await Promise.all([
+    const [plans, pending, payday] = await Promise.all([
       fetchPlanProgressForVendor({
         adminClient: admin,
         eventId,
@@ -768,8 +785,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
+      supabase.rpc('vendor_payday_installments'),
     ]);
     planRowsAll = plans;
+    if (payday.error) {
+      logQueryError('VendorClientPage.paydayInstallments', payday.error, { eventId }, 'graceful_degrade');
+    } else if (plans.length === 0) {
+      ledgerMoney = bookingMoney(
+        (payday.data ?? []) as unknown as PaydayInstallmentRow[],
+        eventId,
+        eventVendorId,
+      );
+    }
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
@@ -924,6 +951,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
   // display URL for the preview — the same ref → URL step the 3D scenes do.
   const posterRef = (posterRow as { poster_ref?: string | null } | null)?.poster_ref ?? null;
+  // Booth Studio words, sanitized by the renderer's own rule so the composer
+  // opens on exactly what a guest would be shown.
+  const boothStudioContent = sanitizeBoothStudioContent(
+    (posterRow as { poster_content?: unknown } | null)?.poster_content ?? null,
+  );
   const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
@@ -995,6 +1027,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   //   Delivered = completion handshake confirmed / auto_confirmed.
   //   Reviewed  = a vendor_reviews row exists (public-read; checked above).
   const isQuoted = proposals.some((p) => p.status !== 'draft');
+  // An ACCEPTED quote is still "quoted" on the ladder — a booking exists only
+  // once the supplier agrees to the couple's request — but it is a different
+  // next move and a different word on the strip (lib/supplier-next-move.ts).
+  const isAccepted = proposals.some((p) => p.status === 'accepted');
   const isDelivered = isBooked && isCompleteConfirmed;
   // `reached` = furthest reached index; `current` = highlighted stage.
   let reached = 0; // Inquiry
@@ -1152,7 +1188,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   clientTimer.flush();
 
-  const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
   const bodyPad = 'px-4 py-6 sm:px-6';
 
   // ------------------------------------------------------------------------
@@ -1309,7 +1344,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const pipelineBlock = (
     <div className="mt-3">
-      <PipelineStrip reached={reached} current={current} capAt={capAt} />
+      <PipelineStrip
+        reached={reached}
+        current={current}
+        capAt={capAt}
+        currentLabel={pipelineCurrentLabel({
+          isBooked,
+          lockRequested: Boolean(lockRequest),
+          isAccepted,
+        })}
+      />
     </div>
   );
 
@@ -1330,6 +1374,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       vendorProfileId={profile.vendor_profile_id}
       posterRef={posterRef}
       posterDisplayUrl={posterDisplayUrl}
+      boothStudioContent={boothStudioContent}
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
@@ -1398,6 +1443,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
+      ledgerMoney={ledgerMoney}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1535,171 +1581,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // couple's Vendor Workspace). Everything below runs ONLY on this branch, so
   // the flag-OFF path adds zero queries and stays untouched.
   //
-  // Chat tab: mirror the VENDOR thread page — privacy notice + interest chips +
-  // ChatMessageStream(viewerRole="vendor") + the vendor accept/decline GATE (a
-  // vendor must accept an inquiry before the composer opens). Falls back to a
-  // Messages link when there's no thread for this event.
+  // There is NO chat tab node and NO call tab node any more: the conversation
+  // — and the call button on its composer row — is the thread page's frame,
+  // and a chat landing already redirected there above. What this page still
+  // needs from the thread is one fact for the next-move tile.
   // ------------------------------------------------------------------------
-  let chatTabNode: React.ReactNode = null;
-  let callTabNode: React.ReactNode = null;
-  // Captured for the desktop context rail's next-action line — a pending inquiry
-  // means the vendor's next move is to accept/decline (in the Chat tab).
-  let inquiryStatus: string | null = null;
-  if (threadId) {
-    const fullThread = await fetchThreadById(supabase, threadId);
-    if (fullThread) {
-      inquiryStatus = fullThread.inquiry_status ?? null;
-      // Mark read only when Chat is the LANDING tab (no ?tab or ?tab=chat), so a
-      // server round-trip that lands on another tab (e.g. the header's ?tab=files
-      // quick-action, or a deep-link) doesn't clear the unread badge without the
-      // vendor actually viewing the chat. Read the RAW searchParam (the shell
-      // reads it client-side too — the server's normalizeTab only knows the old
-      // CardTabs set). RLS session client only; never admin for chat reads.
-      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
-      if (!rawTab || rawTab === 'chat') {
-        await markThreadRead(threadId).catch(() => undefined);
-      }
-      const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
-      const initialMessages = await fetchMessages(supabase, threadId);
-      // PR-H · booked, or merely asked? A supplier CANNOT read `event_vendors`
-      // through their own session — every policy on that table is couple- or
-      // moderator-scoped — so this is the admin client, scoped to this shop's
-      // own profile, the same shape as the customer-card read above.
-      const chatLockHandshake = await fetchThreadLockHandshake(admin, {
-        eventId,
-        vendorProfileId: profile.vendor_profile_id,
-      });
-      const declineReason = fullThread.decline_reason?.trim() || null;
-      // The per-date ceiling, said out loud before it refuses. Pending-only, read
-      // through the supplier's own session (the RPC is caller-scoped), null-safe:
-      // switched off, no date yet, or an unreadable answer all draw nothing.
-      const pipelinePressure =
-        fullThread.inquiry_status === 'pending'
-          ? await fetchPipelinePressure(supabase, threadId)
-          : null;
-      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
-      // locked here shows the vendor an upgrade nudge instead of the call button.
-      const callsEnabled = await resolveThreadCallsEnabled(profile.vendor_profile_id);
-
-      callTabNode =
-        fullThread.inquiry_status === 'accepted' ? (
-          <ThreadCallLauncherLazy
-            threadId={threadId}
-            currentUserId={user.id}
-            counterpartyLabel={eventName}
-            callsEnabled={callsEnabled}
-            viewerRole="vendor"
-            upgradeHref="/vendor-dashboard/subscription"
-          />
-        ) : (
-          <p className="text-xs text-ink/55">
-            Voice and video calls open once you accept {eventName}&rsquo;s inquiry.
-          </p>
-        );
-
-      chatTabNode = (
-        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
-          <div className="flex items-center justify-end">
-            <ChatThreadMenu
-              threadId={threadId}
-              returnTo={`/vendor-dashboard/clients/${eventId}?tab=chat`}
-              blockedByMe={blockState.blockedByMe}
-            />
-          </div>
-          <ChatPrivacyNotice />
-          <ThreadInterestChips supabase={supabase} threadId={threadId} />
-          <ChatMessageStream
-            threadId={threadId}
-            initialMessages={initialMessages}
-            currentUserId={user.id}
-            viewerRole="vendor"
-            counterpartyLabel={eventName}
-            lockHandshake={chatLockHandshake}
-          />
-          {/* Vendor accept-gate — replicate the thread page's exact branches: a
-              vendor cannot reply until they ACCEPT the inquiry. Do not loosen. */}
-          {blockState.blockedByMe || blockState.blockedByThem ? (
-            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
-              {blockState.blockedByMe
-                ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
-                : 'You can no longer message in this conversation.'}
-            </div>
-          ) : fullThread.inquiry_status === 'accepted' ? (
-            <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
-          ) : fullThread.inquiry_status === 'pending' ? (
-            <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
-              <p className="text-sm text-ink">
-                <span className="font-semibold">New inquiry.</span> Accept to open the
-                chat and reply, or decline if you&rsquo;re not available for this date.
-              </p>
-              <PipelinePressureLine pressure={pipelinePressure} />
-              <div className="flex flex-wrap gap-2">
-                <form action={acceptInquiry}>
-                  <input type="hidden" name="thread_id" value={threadId} />
-                  <input
-                    type="hidden"
-                    name="return_to"
-                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
-                  />
-                  <SubmitButton
-                    pendingLabel="Accepting…"
-                    className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-                  >
-                    Accept inquiry
-                  </SubmitButton>
-                </form>
-                <form action={declineInquiry}>
-                  <input type="hidden" name="thread_id" value={threadId} />
-                  <input
-                    type="hidden"
-                    name="return_to"
-                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
-                  />
-                  <SubmitButton
-                    pendingLabel="Declining…"
-                    className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
-                  >
-                    Decline
-                  </SubmitButton>
-                </form>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
-              <p>
-                You declined this inquiry. The couple has been notified and pointed to
-                other vendors.
-                {declineReason ? (
-                  <>
-                    {' '}
-                    <span className="font-semibold text-ink">Your reason:</span> &ldquo;
-                    {declineReason}&rdquo;
-                  </>
-                ) : null}
-              </p>
-            </div>
-          )}
-        </section>
-      );
-    }
-  }
-  if (!chatTabNode) {
-    // No thread for this event → a small empty state (not a blank panel).
-    chatTabNode = (
-      <ShopCard pad="roomy" className="space-y-3">
-        <p className="text-sm text-ink/70">
-          No conversation with {eventName} yet. When they message you (or you invite
-          them), the thread opens here.
-        </p>
-        <Link
-          href="/vendor-dashboard/messages"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-        >
-          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Go to Messages
-        </Link>
-      </ShopCard>
-    );
-  }
+  const inquiryStatus: string | null = thread?.inquiry_status ?? null;
 
   // Payments tab — the vendor's LIVE payment-confirm surface (couple-logged
   // payments awaiting confirmation + per-booking plan progress / "mark cleared").
@@ -1714,9 +1601,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Payments
           </p>
+          <BookingMoneySummary money={ledgerMoney} />
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No payments to
-            confirm yet. When {eventName} logs a payment, confirm it here.
+            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
+            {ledgerMoney.rows.length > 0
+              ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
+              : `No payments to confirm yet. When ${eventName} logs a payment, confirm it here.`}
           </p>
         </div>
       ) : (
@@ -1748,10 +1638,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const tabIconClass = 'h-3.5 w-3.5';
   const tabs: RelationshipTab[] = [
     {
+      // A DOOR, not a room. The one chat box is the thread page (#5586); this
+      // entry keeps its place in the strip so a supplier on the Files tab can
+      // still get to the conversation in one tap.
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      node: chatTabNode,
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages',
+      node: null,
     },
     {
       id: 'quote',
@@ -1776,19 +1670,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       label: 'Schedule',
       icon: <CalendarDays aria-hidden className={tabIconClass} />,
       node: scheduleNode,
-    },
-    {
-      id: 'call',
-      label: 'Call',
-      icon: <Phone aria-hidden className={tabIconClass} />,
-      // callTabNode is only set once a thread resolves. No thread → hide the tab
-      // (there's no marketplace/thread relationship to call through).
-      node: callTabNode ?? (
-        <p className="text-xs text-ink/55">
-          Voice and video calls open once you start a conversation with {eventName}.
-        </p>
-      ),
-      hidden: !threadId,
     },
     {
       id: 'details',
@@ -1823,30 +1704,23 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // queries). The shell hides this under lg, and the mobile header already
   // carries the pipeline strip, so this is purely additive on desktop.
   // ------------------------------------------------------------------------
-  let vRailTitle: string;
-  let vRailBody: string;
-  if (inquiryStatus === 'pending') {
-    vRailTitle = 'Respond to the inquiry';
-    vRailBody = `${eventName} reached out. Accept to open the chat, or decline if you’re not available.`;
-  } else if (awaitingPayments.length > 0) {
-    const n = awaitingPayments.length;
-    vRailTitle = `Confirm ${n} payment${n === 1 ? '' : 's'}`;
-    vRailBody = `${eventName} logged ${n === 1 ? 'a payment' : 'payments'} — confirm receipt to keep the plan on track.`;
-  } else if (isDelivered) {
-    vRailTitle = hasReview ? 'All wrapped up' : 'Awaiting confirmation';
-    vRailBody = hasReview
-      ? `${eventName} confirmed delivery and left a review.`
-      : `You marked this delivered. ${eventName} confirms receipt (auto-confirms after 7 days).`;
-  } else if (isBooked) {
-    vRailTitle = 'You’re booked';
-    vRailBody = `Coordinate the run-of-show and post deliverables as the day nears.`;
-  } else if (isQuoted) {
-    vRailTitle = 'Quote sent';
-    vRailBody = `Your quote is with ${eventName}. Follow up in chat while you wait.`;
-  } else {
-    vRailTitle = 'Send a quote';
-    vRailBody = `${eventName} is waiting. Reply in chat, then send a quote.`;
-  }
+  // Decided in lib/supplier-next-move.ts and EXECUTED by its test — the
+  // inline chain that lived here never knew a quote could be accepted or that
+  // a couple could ask to book, and told the owner "follow up while you wait"
+  // about a request with a fuse on it.
+  const nextMove = supplierNextMove(
+    {
+      inquiryStatus,
+      lockRequested: Boolean(lockRequest),
+      awaitingPaymentCount: awaitingPayments.length,
+      isDelivered,
+      hasReview,
+      isBooked,
+      isAccepted: isAccepted,
+      isQuoted,
+    },
+    eventName,
+  );
 
   const vQuickLinkClass =
     'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
@@ -1864,8 +1738,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {stagePill.label}
           </span>
         </div>
-        <h3 className="mt-2 text-sm font-semibold text-ink">{vRailTitle}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-ink/60">{vRailBody}</p>
+        <h3 className="mt-2 text-sm font-semibold text-ink">{nextMove.title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink/60">{nextMove.body}</p>
         {awaitingPayments.length > 0 ? (
           <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
             {awaitingPayments.length} awaiting confirmation
@@ -1873,7 +1747,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         ) : null}
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
-        <a href={`/vendor-dashboard/clients/${eventId}?tab=chat`} className={vQuickLinkClass}>
+        <a
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages'}
+          className={vQuickLinkClass}
+        >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
         </a>
         <a href={`/vendor-dashboard/clients/${eventId}?tab=payments`} className={vQuickLinkClass}>
@@ -1892,7 +1769,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <div>
           {backLink}
           {identityBlock}
-          {actionRow}
+          {/* No action row. Its six buttons were the FIRST of the two nav rows
+              the owner saw above the conversation; every one of them now has a
+              home in the thread's frame (New quote · Log payment · Call are
+              tools on it; Contract, Files and Schedule are in its ⋮ and in the
+              strip below). Flag-off keeps the row: there it is the only door. */}
           {pipelineBlock}
           {askBlock}
         </div>
@@ -1992,7 +1873,8 @@ function VendorCompletionCard({
 //
 // Action bar: shortcut links only (no new call/quote logic). Chat + Call both
 // open the thread (the P2P call surface lands there per the Workspace spec);
-// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// Quote deep-links the thread's one quote panel (#build-quote — the builder
+// with the saved-template shortcut inside it, SUP-H); Files jumps to this
 // card's Files tab; Details is the current view (inert).
 // ===========================================================================
 function ReturningMarkerAndActions({
@@ -2058,7 +1940,7 @@ function ReturningMarkerAndActions({
         <Link
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              ? `/vendor-dashboard/messages/${threadId}#build-quote`
               : '/vendor-dashboard/proposals'
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
@@ -2110,6 +1992,8 @@ function OverviewTab(props: {
   posterRef: string | null;
   /** Resolved display URL for the poster preview, or null. */
   posterDisplayUrl: string | null;
+  /** This vendor's Booth Studio words for this event (sanitized), or null. */
+  boothStudioContent: BoothStudioContent | null;
   completion: {
     deposit_proof_url: string | null;
     /** The supplier's own words when they said it never reached them. */
@@ -2145,6 +2029,7 @@ function OverviewTab(props: {
     vendorProfileId,
     posterRef,
     posterDisplayUrl,
+    boothStudioContent,
     completion,
     eventVendorId,
     depositRecorded,
@@ -2671,6 +2556,13 @@ function OverviewTab(props: {
         />
       ) : null}
 
+      {/* Booth Studio — the words on the booth, drawn in the couple's palette.
+          Same reach as the poster (any BOOKED vendor, the RPC's own gate) and
+          dark behind the same flag the 3D renderer reads. */}
+      {isBooked && boothStudioEnabled() ? (
+        <BoothStudioCard eventId={eventId} initial={boothStudioContent} />
+      ) : null}
+
       {/* Papic Games — custom Photo Challenge authoring (booked-only). Self-gates
           on the flag + the vendor's Pro tier; renders nothing when off. */}
       {isBooked ? (
@@ -2698,6 +2590,8 @@ function QuoteTab(props: {
   planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
+  /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
+  ledgerMoney: BookingMoney;
   threadId: string | null;
   /**
    * "Ask for a payment" — passed in rather than built here so this component
@@ -2706,7 +2600,7 @@ function QuoteTab(props: {
    */
   askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, threadId, askPanel } =
+  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, ledgerMoney, threadId, askPanel } =
     props;
   const steps = planStepRows?.steps ?? null;
 
@@ -2752,7 +2646,13 @@ function QuoteTab(props: {
           </ul>
         )}
         <Link
-          href="/vendor-dashboard/proposals"
+          // The quote is BUILT in the conversation (#5586's tray) — this opens
+          // that tool, with the proposals list only when there is no thread.
+          href={
+            threadId
+              ? `/vendor-dashboard/messages/${threadId}#build-quote`
+              : '/vendor-dashboard/proposals'
+          }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
@@ -2840,6 +2740,8 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
+        ) : ledgerMoney.rows.length > 0 ? (
+          <BookingMoneySummary money={ledgerMoney} />
         ) : (
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule

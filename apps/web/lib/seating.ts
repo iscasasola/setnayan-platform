@@ -230,6 +230,7 @@ export async function fetchSeatingConstraints(
     .select('guest_a_id,guest_b_id')
     .eq('event_id', eventId)
     .eq('kind', 'keep_apart');
+  if (error) console.error('[supabase-error] lib/seating.ts · from:event_seating_constraints.select', error);
   if (error) return [];
   return (data ?? []).map((r) => {
     const row = r as { guest_a_id: string; guest_b_id: string };
@@ -344,7 +345,11 @@ export async function fetchFloorPlan(
     .maybeSingle();
   // Graceful-degrade: a missing row (or a not-yet-migrated table) just yields
   // the defaults so the seating page never crashes on the floor-plan read.
-  if (error || !data) return { ...DEFAULT_FLOOR_PLAN };
+  if (error) {
+    console.error('[supabase-error] seating: event_floor_plan (using defaults)', error, { eventId });
+    return { ...DEFAULT_FLOOR_PLAN };
+  }
+  if (!data) return { ...DEFAULT_FLOOR_PLAN };
   const D = DEFAULT_FLOOR_PLAN;
   const num = (v: unknown, fb: number) => (v === null || v === undefined ? fb : Number(v));
   return {
@@ -1829,6 +1834,7 @@ export async function fetchBooths(
       .eq('event_id', eventId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
+    if (lean.error) console.error('[supabase-error] lib/seating.ts · from:event_floor_booths.select', lean.error);
     if (lean.error || !lean.data) return [];
     return (lean.data as Omit<FloorBoothRow, 'vendor'>[]).map((b) => ({
       ...b,
@@ -1911,6 +1917,7 @@ export async function fetchSigns(
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  if (error) console.error('[supabase-error] lib/seating.ts · from:event_floor_signs.select', error);
   // Graceful-degrade (same contract as fetchBooths): a not-yet-migrated table
   // or RLS hiccup renders a sign-less plan, never a crashed page.
   if (error || !data) return [];
@@ -1947,6 +1954,7 @@ export async function fetchSceneObjects(
     .select('object_id,event_id,kind,label,x_pct,y_pct,rotation_deg')
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });
+  if (error) console.error('[supabase-error] lib/seating.ts · from:event_scene_objects.select', error);
   // Graceful-degrade (same contract as fetchBooths/fetchSigns): a not-yet-
   // migrated table or RLS hiccup renders an object-less plan, never a crash.
   if (error || !data) return [];

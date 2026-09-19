@@ -138,6 +138,7 @@ export async function fetchActSongRequests(eventId: string): Promise<ActSongRequ
     .select('request_id, origin, requester_name, status, created_at, songs(title, artist)')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
+  if (error) console.error('[supabase-error] app/vendor-dashboard/on-the-day/actions.ts · from:event_song_requests.select', error);
   if (error || !data) return [];
 
   const rows = (data as unknown[]).flatMap((row) => {

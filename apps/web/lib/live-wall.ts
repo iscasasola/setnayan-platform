@@ -381,6 +381,7 @@ export async function guestWallMirrorActive(
     .select('live_photo_wall_visibility, archived')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/live-wall.ts · from:events.select', error);
   if (error || !data) return false;
 
   const row = data as {
@@ -485,6 +486,7 @@ export async function fetchWallArmedChallenge(
   const { data: missions, error: mErr } = await admin.rpc('papic_armed_challenge', {
     p_event_id: eventId,
   });
+  if (mErr) console.error('[supabase-error] lib/live-wall.ts · rpc:papic_armed_challenge', mErr);
 
   // Supabase resolves with { error }, it does not throw — treating a refused
   // read as "no challenges" is exactly how a wall ends up telling a party of
@@ -511,6 +513,7 @@ export async function fetchWallArmedChallenge(
     .eq('event_id', eventId)
     .eq('mission_id', mission.mission_id)
     .not('capture_id', 'is', null);
+  if (cErr) console.error('[supabase-error] lib/live-wall.ts · from:papic_mission_completions.select', cErr);
 
   if (cErr) return { measured: false, challenge: null };
 

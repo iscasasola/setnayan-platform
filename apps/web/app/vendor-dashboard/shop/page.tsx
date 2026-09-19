@@ -955,6 +955,9 @@ async function ShopHome({
         question="Shop information, verification, branches and team"
       >
         <ManageTiles
+          // The Instagram result is printed INSIDE the Website panel, so a page
+          // carrying one opens that panel on the server (no closed-fold flash).
+          initialOpen={igFlash ? 'website' : null}
           completionPct={data.completionPct}
           verifyLabel={
             data.completionPct >= 100

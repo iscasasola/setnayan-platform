@@ -673,6 +673,7 @@ export async function loadRoomFreeze(
       .select('room_snapshot')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:event_editorial.select', error);
     // A rejected query is an ABSENCE — it reads as "never frozen", which falls
     // back to the live plan. The freeze can be lost; the room cannot.
     if (error || !data) return { room: null, seats: null };
@@ -712,6 +713,7 @@ export async function loadLiveRoom(
       .select('enabled_surfaces, layer_mode')
       .eq('event_type', eventType)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:event_type_profiles.select', error);
     // A rejected query is an ABSENCE, not a thrown error. Treated as "no
     // seating surface", which withholds the plan rather than inventing one.
     if (error || !data) return room;
@@ -731,6 +733,7 @@ export async function loadLiveRoom(
       .select('public_id, table_label, table_type, x_pos, y_pos, created_at')
       .eq('event_id', eventId)
       .order('sort_order', { ascending: true });
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:event_tables.select', error);
     if (error) return room;
     let drawnAtMs: number | null = null;
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
@@ -763,6 +766,7 @@ export async function loadLiveRoom(
       .from('event_seat_assignments')
       .select('assignment_id', { count: 'exact', head: true })
       .eq('event_id', eventId);
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:event_seat_assignments.select', error);
     if (!error) room.seatsAssigned = (count ?? 0) > 0;
   } catch {
     /* a drawn room nobody was seated in is `designed`, which is the truth */
@@ -776,6 +780,7 @@ export async function loadLiveRoom(
       )
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] story spine-data: event_floor_plan', error);
     if (!error && data) {
       const r = data as Record<string, unknown>;
       const box = (x: unknown, y: unknown, w: unknown, h: unknown) => {
@@ -907,6 +912,7 @@ async function loadTableHeat(
       .is('hidden_at', null)
       .eq('moderation_state', 'clean')
       .or(clause);
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:papic_photos.select', error);
     if (error) return [];
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
       const id = asString(r.photo_id);
@@ -1085,6 +1091,7 @@ async function loadDialBins(
       p_window_end: window.endIso,
       p_bucket_minutes: bucketMinutes,
     });
+    if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · rpc:story_dial_bucket_counts', error);
     if (error) return [];
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
       const at = msOf(r.bucket_start);

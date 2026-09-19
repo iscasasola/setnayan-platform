@@ -184,7 +184,14 @@ export async function fetchPanoodMoments(
     .order('sort_order', { ascending: true });
 
   if (error) {
-    if (error.code === '42P01' || error.code === '42703') return [];
+    if (error.code === '42P01' || error.code === '42703') {
+      console.error(
+        '[supabase-error] lib/panood-moments.ts · from:panood_moments.select (pre-bootstrap, degraded to [])',
+        error,
+        { event_id: eventId },
+      );
+      return [];
+    }
     throw new Error(`Failed to read Panood moments: ${error.message}`);
   }
 
@@ -232,7 +239,14 @@ export async function provisionPanoodMomentsAdmin(
     }));
 
     const { error: insertError } = await admin.from('panood_moments').insert(rows);
-    if (insertError) return 0;
+    if (insertError) {
+      console.error(
+        '[supabase-error] lib/panood-moments.ts · from:panood_moments.insert (provisionPanoodMomentsAdmin)',
+        insertError,
+        { event_id: eventId },
+      );
+      return 0;
+    }
     return rows.length;
   } catch {
     return 0;

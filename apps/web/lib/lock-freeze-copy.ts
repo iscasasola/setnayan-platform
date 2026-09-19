@@ -48,6 +48,13 @@ export type LockFreezeLine = { tone: LockFreezeTone; text: string };
 export type ThreadLockHandshake = {
   state: LockRequestState;
   expiresAt: string | null;
+  /**
+   * `event_vendors.vendor_id` of the row this state was read from — the ONE id
+   * the supplier's Agree / Turn it down forms post (`vendorAgreeToLock` /
+   * `vendorDeclineLock` take nothing else). Optional so a caller that only
+   * needs the sentence need not carry it.
+   */
+  eventVendorId?: string | null;
 };
 
 export type LockFreezeInput = {

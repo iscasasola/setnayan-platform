@@ -68,6 +68,7 @@ export async function isKnownMinorGuest(
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
+    if (guestErr) console.error('[supabase-error] lib/face-enrolment-age.ts · from:guests.select', guestErr);
     if (guestErr || !guest) return false;
 
     const personId = (guest as { person_id: string | null }).person_id;
@@ -78,6 +79,7 @@ export async function isKnownMinorGuest(
       .select('birth_date')
       .eq('person_id', personId)
       .maybeSingle();
+    if (personErr) console.error('[supabase-error] lib/face-enrolment-age.ts · from:people.select', personErr);
     if (personErr || !person) return false;
 
     const birthDate = (person as { birth_date: string | null }).birth_date;

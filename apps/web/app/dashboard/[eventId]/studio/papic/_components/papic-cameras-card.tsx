@@ -168,7 +168,7 @@ export async function PapicCamerasCard({
  * Admin client on purpose: the grants, allocations and per-seat usage ledgers
  * all carry no read policy (service-role / SECURITY DEFINER only), exactly like
  * the pool meter's read. Display only — the fail-closed gate is
- * papic_reserve_camera_points.
+ * papic_reserve_capture_split.
  *
  * ⚠ DEDICATED = GRANTS + ALLOCATION, and both halves have to be read here.
  * Grants are what a pre-2026-08-11 Papic One purchase left behind; the

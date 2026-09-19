@@ -25,6 +25,10 @@ import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,
 } from '@/lib/inquiry-source';
+import {
+  fetchInquiryCustomerFacts,
+  INQUIRY_CUSTOMER_UNKNOWN,
+} from '@/lib/inquiry-customer.server';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -178,6 +182,19 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   // single .in() rather than N per-row queries. Graceful-degrades to empty.
   const quotedEventIds = new Set<string>();
   const acceptedEventIds = [...new Set(accepted.map((t) => t.event_id))];
+
+  /*
+    WHO EACH CONVERSATION IS WITH. `t.event?.display_name` is an RLS embed a
+    vendor can never read (a vendor holds no `events` RLS, even after
+    accepting), so it was null on every row and the list read "A Setnayan
+    event" for couples whose chat thread, one tap away, already named them
+    (owner report 2026-09-19). Same admin-scoped helper the inbox uses; the
+    ownership proof is `fetchVendorThreads(.., vendor_profile_id)` above.
+  */
+  const acceptedCustomers = await fetchInquiryCustomerFacts(
+    createAdminClient(),
+    threads.map((t) => t.event_id),
+  );
   if (acceptedEventIds.length > 0) {
     const { data: quoted, error: quotedError } = await supabase
       .from('vendor_proposals')
@@ -359,6 +376,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
             {accepted.map((t) => {
+              const who = acceptedCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN;
               // Same resolver, same ordering — the list cannot rank these
               // differently from the thread it opens.
               const stage = resolveThreadStage({
@@ -371,7 +389,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
+                      <p className="text-sm font-medium">{who.displayName ?? 'A Setnayan event'}</p>
                       <StageChip
                         tone={THREAD_STAGE_TONE[stage]}
                         // ⚖ The list says "In conversation" where the thread
@@ -395,7 +413,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                       ) : null}
                     </div>
                     <p className="text-xs text-ink/55">
-                      {t.event?.event_date ? fmtDate(t.event.event_date) : 'Date not set yet'}
+                      {who.eventDate ? fmtDate(who.eventDate) : 'Date not set yet'}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">

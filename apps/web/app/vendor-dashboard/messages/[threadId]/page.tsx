@@ -67,6 +67,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
+import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -126,7 +128,15 @@ export const metadata = { title: 'Thread · Vendor' };
 
 type Props = {
   params: Promise<{ threadId: string }>;
-  searchParams?: Promise<{ notice?: string; view?: string | string[]; compose?: string }>;
+  searchParams?: Promise<{
+    notice?: string;
+    view?: string | string[];
+    compose?: string;
+    /** The RPC status of a booking-ask answer given from this thread's quote card. */
+    lock_agree?: string;
+    lock_decline?: string;
+    competing?: string;
+  }>;
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
@@ -166,6 +176,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const composeMode =
     sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
+  // The answer to a booking ask given from the accepted quote card lands back
+  // HERE (`lockAnswerReturnTo`), so this page says what happened — the same
+  // sentences the Overview says. Without it a refusal would reload the thread
+  // with the Agree button still sitting on the card: a failure that looks
+  // exactly like a dead button.
+  const lockCompeting = Number.parseInt(sp?.lock_agree ? (sp?.competing ?? '') : '', 10);
+  const lockAnswer =
+    lockAgreeNotice(sp?.lock_agree, {
+      competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
+    }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {
     data: { user },
@@ -1085,6 +1105,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           strip and read as doing nothing. */}
       <ThreadToolHashReveal />
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        {lockAnswer ? (
+          <p
+            role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
+            className={`mb-2 rounded-xl border px-4 py-2.5 text-sm ${
+              lockAnswer.tone === 'refused'
+                ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
+                : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
+            }`}
+          >
+            {lockAnswer.text}
+          </p>
+        ) : null}
         <ChatBox
           header={
             <>
@@ -1511,6 +1543,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               refusePayment: refuseVendorPayment,
               applySurcharge: acceptPaxSurcharge,
               holdPrice: declinePaxSurcharge,
+              // The answer to a booking ask — the SAME two actions the Overview
+              // and the client page post (2026-09-19).
+              agreeLock: vendorAgreeToLock,
+              declineLock: vendorDeclineLock,
             }}
             lockHandshake={lockHandshake}
           />

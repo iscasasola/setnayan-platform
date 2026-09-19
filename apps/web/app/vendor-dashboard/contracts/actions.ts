@@ -195,8 +195,9 @@ export async function uploadVendorContract(formData: FormData) {
 // ----------------------------------------------------------------------------
 // publishContractToCouple — flips a draft to 'sent_for_signature' which
 // under the upload-only scope (owner lock later 2026-05-18) we treat as
-// "visible to couple". The DB column name is kept for forward
-// compatibility with the original dual-sig schema; no signing happens.
+// "visible to couple". The status vocabulary is kept from the original
+// dual-sig schema; no signing happens, and the signature table itself
+// (vendor_contract_signatures) was DROPPED on 2026-09-18 — never written to.
 // Idempotent (no-ops if already published or cancelled).
 // ----------------------------------------------------------------------------
 

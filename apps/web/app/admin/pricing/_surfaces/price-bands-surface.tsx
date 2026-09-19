@@ -8,7 +8,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { regionBySlug } from '@/lib/region-source';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { recomputePriceBands } from '@/app/admin/price-bands/actions';
+import { recomputeFunnelBands, recomputePriceBands } from '@/app/admin/price-bands/actions';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -48,10 +48,10 @@ function peso(n: number): string {
 export async function PriceBandsSurface({
   searchParams,
 }: {
-  searchParams: Promise<{ recomputed?: string }>;
+  searchParams: Promise<{ recomputed?: string; funnelRecomputed?: string }>;
 }) {
   await requireAdmin();
-  const { recomputed } = await searchParams;
+  const { recomputed, funnelRecomputed } = await searchParams;
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -67,6 +67,17 @@ export async function PriceBandsSurface({
   // below the min-N floor" — and that page said exactly the second thing when it
   // was the first. `?? []` is what made the two indistinguishable.
   const rows = data as BandRow[] | null;
+
+  // The FUNNEL bands (reply rate · reply time · inquiry→booking) — the other half
+  // of the peer benchmark suppliers see on My Performance. Only the count and the
+  // freshest computed_at are needed here; the values are the supplier's to read.
+  const funnel = await admin
+    .from('market_funnel_bands')
+    .select('computed_at')
+    .order('computed_at', { ascending: false });
+  if (funnel.error) logQueryError('AdminPriceBandsPage.funnel', funnel.error);
+  const funnelRows = funnel.error ? null : (funnel.data ?? []);
+  const funnelLast = funnelRows && funnelRows.length > 0 ? funnelRows[0]!.computed_at : null;
 
   const lastComputed =
     rows && rows.length > 0
@@ -136,6 +147,48 @@ export async function PriceBandsSurface({
           <SubmitButton className="button-secondary inline-flex items-center gap-1.5 text-xs" pendingLabel="Recomputing…">
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Recompute now
+          </SubmitButton>
+        </form>
+      </div>
+
+      {/* Funnel bands — the SAME recompute-now contract for the other half of
+          the supplier benchmark. Before this control existed nothing ever
+          wrote market_funnel_bands, so every supplier's funnel card said "not
+          enough peer data" regardless of the data. */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sn-tile px-4 py-3">
+        <div className="text-sm text-ink/70">
+          <span className="font-medium text-ink">Funnel bands</span>{' '}
+          <span className="text-ink/60">(reply rate · reply time · inquiry→booking)</span>
+          <br />
+          {funnelRows === null ? (
+            <>Could not read the funnel-band table, so this is not a count of zero.</>
+          ) : funnelLast ? (
+            <>
+              Last recomputed{' '}
+              <strong>
+                {new Date(funnelLast).toLocaleString('en-PH', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </strong>{' '}
+              · {funnelRows.length} band{funnelRows.length === 1 ? '' : 's'} above the floor
+            </>
+          ) : (
+            <>No funnel bands computed yet (or all suppressed below the min-N floor).</>
+          )}
+          {funnelRecomputed != null && (
+            <span className="ml-2 rounded-full border border-success-200 bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-900">
+              ✓ Recomputed · {funnelRecomputed} band{funnelRecomputed === '1' ? '' : 's'} written
+            </span>
+          )}
+        </div>
+        <form action={recomputeFunnelBands}>
+          <SubmitButton className="button-secondary inline-flex items-center gap-1.5 text-xs" pendingLabel="Recomputing…">
+            <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            Recompute funnel bands
           </SubmitButton>
         </form>
       </div>

@@ -92,8 +92,9 @@ test('the order records the minted camera, so activation needs no change', () =>
 
 test("🪤 the minted camera is 'unlimited' — the only tier with no daily cap", () => {
   // papic_tier_config: free 20 · mini 20 · roll 20 · ltd 70 · unlimited NULL.
-  // papic_reserve_camera_points spends a dedicated balance FIRST and falls
-  // through to the tier's DAILY budget once it is gone. The event-site camera
+  // The retired per-camera gate (papic_reserve_camera_points, dropped
+  // 2026-09-18) spent a dedicated balance FIRST and then fell through to the
+  // tier's DAILY budget; the tier still decides what any future daily cap reads. The event-site camera
   // has never had a daily cap, so any other tier here would mean a guest who
   // PAID ends up more limited than one who did not.
   const src = noComments(read('lib/papic-guest-own-camera.ts'));

@@ -161,6 +161,7 @@ async function loadShot(
       .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(60);
+    if (error) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:papic_guest_captures.select', error);
     if (error || !data) return [];
     return data.map((r) => ({
       key: `papic_guest_captures:${r.capture_id as string}`,
@@ -242,6 +243,7 @@ async function loadTable(
       .eq('event_id', eventId)
       .eq('table_id', data.table_id as string)
       .maybeSingle();
+    if (tableError) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:event_tables.select', tableError);
     if (tableError || !table?.table_label) return null;
     return String(table.table_label);
   } catch {

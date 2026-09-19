@@ -179,7 +179,7 @@ const LOG_SITE_COUNTS: { file: string; expected: number }[] = [
   { file: 'lib/service-merge-forward-db.ts', expected: 1 },
   { file: 'lib/service-trade-aliases-db.ts', expected: 1 },
   { file: 'lib/stage-notes-recipients.ts', expected: 1 },
-  { file: 'lib/supplier-night-before-email.ts', expected: 2 },
+  { file: 'lib/supplier-night-before-email.ts', expected: 3 },
   { file: 'lib/trusted-circle-recs.ts', expected: 1 },
   { file: 'lib/vendor-branches.ts', expected: 2 },
   { file: 'lib/vendor-card-copy.ts', expected: 1 },
@@ -200,12 +200,12 @@ for (const { file, expected } of LOG_SITE_COUNTS) {
   });
 }
 
-test('source-scan: lib/upcoming-items.ts · vendor_meetings.select is left untouched (moot — PR #5655 drops the read entirely)', () => {
+test('source-scan: lib/upcoming-items.ts no longer reads vendor_meetings (PR #5655, carried by the orphan-drops bundle #5697, dropped the table and its read)', () => {
   const s = src('lib/upcoming-items.ts');
-  // PR #5655 (still open at the time of this batch) deletes fetchVendorMeetings
-  // and its vendor_meetings.select outright, so this batch does not touch the
-  // file — there would be nothing left to log against once #5655 lands.
-  assert.match(s, /vendor_meetings/, 'sanity: the pre-#5655 read is still present on this branch');
+  // This batch deliberately left the read alone because #5655 was deleting it.
+  // #5655 has now landed via the bundle, so the stronger claim holds: the read
+  // is GONE (the table was dropped), not merely "untouched".
+  assert.doesNotMatch(s, /from\(\s*['"]vendor_meetings['"]\s*\)/, 'the dropped vendor_meetings table must not be read');
 });
 
 test('source-scan: the night-before email lock-insert only logs a GENUINE refusal, never the expected duplicate-claim (23505)', () => {

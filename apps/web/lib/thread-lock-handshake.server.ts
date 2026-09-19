@@ -39,7 +39,7 @@ export async function fetchThreadLockHandshake(
 
   const { data, error } = await client
     .from('event_vendors')
-    .select('status, lock_request_state, lock_request_expires_at, lock_requested_at')
+    .select('vendor_id, status, lock_request_state, lock_request_expires_at, lock_requested_at')
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId)
     // A covered cascade line carries no request of its own — only the anchor is
@@ -60,7 +60,12 @@ export async function fetchThreadLockHandshake(
   }
 
   const row = (data ?? [])[0] as
-    | { status: string | null; lock_request_state: string | null; lock_request_expires_at: string | null }
+    | {
+        vendor_id: string | null;
+        status: string | null;
+        lock_request_state: string | null;
+        lock_request_expires_at: string | null;
+      }
     | undefined;
   if (!row) return null;
 
@@ -70,5 +75,6 @@ export async function fetchThreadLockHandshake(
       isLockHandshakeEnabled(),
     ),
     expiresAt: row.lock_request_expires_at ?? null,
+    eventVendorId: row.vendor_id ?? null,
   };
 }

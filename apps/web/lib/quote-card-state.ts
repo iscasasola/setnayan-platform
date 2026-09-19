@@ -66,6 +66,16 @@ export type QuoteCardState = {
    */
   offerLock: boolean;
   /**
+   * Supplier only, live ACCEPTED quote, the couple HAS asked and nobody has
+   * answered: the supplier's Agree / Turn it down (`vendorAgreeToLock` /
+   * `vendorDeclineLock` — the same two actions the Overview and the client
+   * page post). Owner, live as the supplier, 2026-09-19: the card said "the
+   * couple has asked you to lock" and offered only "View proposal" — "there is
+   * no agree and confirm booking". A state that asks for an answer must carry
+   * the control that gives it.
+   */
+  offerLockAnswer: boolean;
+  /**
    * One short line under the price for a quote that is no longer pending:
    * "Accepted" · "Replaced by a newer quote" · the handshake state. Null when
    * the status line beside the price already says everything.
@@ -91,6 +101,7 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerCounter: false,
       offerRevise: false,
       offerLock: false,
+      offerLockAnswer: false,
       note: status === 'superseded' ? 'Replaced by a newer quote' : null,
       history: true,
     };
@@ -103,6 +114,7 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerCounter: couple,
       offerRevise: !couple,
       offerLock: false,
+      offerLockAnswer: false,
       note: null,
       history: false,
     };
@@ -131,6 +143,9 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerRevise: !couple && !asked,
       // Only offered when we KNOW no lock is asked: unknown (null) stays quiet.
       offerLock: couple && handshake === 'none',
+      // Only on a request still OPEN — never on a booked, declined or expired
+      // one, and never on an unknown (null) state.
+      offerLockAnswer: !couple && handshake === 'requested',
       note,
       history: false,
     };
@@ -142,6 +157,7 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
     offerCounter: false,
     offerRevise: false,
     offerLock: false,
+    offerLockAnswer: false,
     note: null,
     history: status === 'declined' || status === 'expired',
   };

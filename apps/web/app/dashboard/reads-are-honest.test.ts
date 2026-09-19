@@ -217,7 +217,6 @@ const KNOWN_UNBOUND: Record<string, number> = {
   'app/dashboard/(account)/profile/page.tsx::consentEvents': 1,
   'app/dashboard/(account)/profile/page.tsx::faceProfile': 1,
   'app/dashboard/(account)/profile/page.tsx::shareConsentRows': 1,
-  'app/dashboard/(launcher)/_components/creator-benefits.tsx::data': 1,
 };
 
 test('the couple tree is big enough that an empty sweep cannot pass', () => {

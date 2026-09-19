@@ -133,6 +133,7 @@ export async function requestRender(args: {
     'moodboard_render_caller_may_act',
     { p_event_id: eventId },
   );
+  if (mayActError) console.error('[supabase-error] app/dashboard/[eventId]/studio/mood-board/render-actions.ts · rpc:moodboard_render_caller_may_act', mayActError);
   if (mayActError || mayAct !== true) {
     return { status: 'failed', code: 'unavailable', renderId: null };
   }
@@ -208,6 +209,7 @@ export async function requestRender(args: {
     .in('slot_key', partId === 'whole_look' ? ['overall'] : slotFilter)
     .is('removed_at', null)
     .limit(MAX_REFERENCE_IMAGES);
+  if (inspirationError) console.error('[supabase-error] app/dashboard/[eventId]/studio/mood-board/render-actions.ts · from:event_inspiration_assets.select', inspirationError);
 
   // A FAILED read of the couple's references is not the same as their having
   // none, and it must not quietly produce a weaker render they still pay for.
@@ -234,6 +236,7 @@ export async function requestRender(args: {
     p_note: args.note ?? null,
     p_inspiration_asset_ids: inspirationAssetIds,
   });
+  if (beginError) console.error('[supabase-error] app/dashboard/[eventId]/studio/mood-board/render-actions.ts · rpc:moodboard_begin_render', beginError);
 
   if (beginError) {
     return { status: 'failed', code: 'unavailable', renderId: null };

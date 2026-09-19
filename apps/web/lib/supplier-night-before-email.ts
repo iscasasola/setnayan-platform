@@ -66,6 +66,7 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
     .select('event_id, display_name, event_date')
     .eq('event_date', tomorrow)
     .limit(NIGHT_BEFORE_MAX_BATCH);
+  if (eventsError) console.error('[supabase-error] lib/supplier-night-before-email.ts · from:events.select', eventsError);
   if (eventsError || !events || events.length === 0) return { scanned: 0, sent: 0 };
 
   const eventIds = events.map((e) => e.event_id as string);

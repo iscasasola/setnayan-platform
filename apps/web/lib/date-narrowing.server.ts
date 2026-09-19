@@ -94,6 +94,7 @@ export async function narrowEventDateAfterAgreement(
     .select('event_date, date_candidates, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (dateReadErr) console.error('[supabase-error] lib/date-narrowing.server.ts · from:events.select', dateReadErr);
   // 🪤 A REJECTED READ IS NOT A THROWN ERROR. Treating `error` as "no date set"
   // would send this function on to WRITE one off an empty candidate list.
   if (dateReadErr || !dateRow) return { status: 'no_op' };
@@ -178,6 +179,7 @@ export async function narrowEventDateAfterAgreement(
     .eq('event_id', eventId)
     .is('event_date', null)
     .select('event_id');
+  if (dateErr) console.error('[supabase-error] lib/date-narrowing.server.ts · from:events.update', dateErr);
   if (dateErr || (dateRows?.length ?? 0) === 0) return { status: 'lost_race' };
   return { status: 'locked', date: forced };
 }

@@ -129,7 +129,7 @@ test("'waiting' is the first lane in the shared order", async () => {
   );
 });
 
-// ── 3 · A WAITING ROW CARRIES NO IDENTITY ─────────────────────────────────
+// ── 3 · THE RENDERER TAKES THE NAME FROM THE DERIVATION ONLY ─────────────
 
 test('the roster never reaches for a name except behind identityRevealed', () => {
   // The derivation already nulls the name; this catches the OTHER direction —
@@ -156,9 +156,19 @@ test('the roster names its customers and invents no stand-in for a name', () => 
   // ⚠ `\b` IS STILL LOAD-BEARING on the positive assertion. Measured on the old
   // rule: renaming the call to `DISABLED_fetchInquiryMaskMeta(` left the
   // original as a SUBSTRING and the guard stayed green while the mask was gone.
+  // The 2026-09-08 form of this check pinned `revealed: true` on the page —
+  // and stayed green for eleven days while the derivation ignored that flag
+  // for every WAITING row (owner report 2026-09-19). The flag is gone; the
+  // behaviour is pinned where it is decided, in vendor-customer-pipeline.test.ts
+  // ("the fallback appears ONLY when the name is genuinely null"). Here: the
+  // page must hand the derivation the real name, from the admin-scoped read.
   assert.ok(
-    /\brevealed:\s*true\b/.test(stripComments(pageSrc)),
-    'the roster is masking its own customers again',
+    /eventName:\s*\n?\s*eventNameByEvent\.get\(eventId\)/.test(stripComments(pageSrc)),
+    'the roster no longer passes the event display_name into the derivation',
+  );
+  assert.ok(
+    !/\brevealed\s*:/.test(stripComments(pageSrc)),
+    'a reveal flag is back on the roster — the name is not a thing to be revealed',
   );
   for (const ghost of ['inquiryPlaceholderLabel', 'fetchInquiryMaskMeta', 'INQUIRY_MASK_UNKNOWN']) {
     assert.ok(

@@ -1219,6 +1219,7 @@ async function fetchOrderEventInfo(
     .from('events')
     .select('event_id, public_id, display_name, event_type, event_date')
     .in('event_id', ids);
+  if (error) console.error('[supabase-error] app/admin/payments/page.tsx · from:events.select', error);
   if (error || !Array.isArray(data)) return { byEventId, failed: true };
   for (const row of data) {
     const r = row as {
@@ -1651,6 +1652,7 @@ async function fetchSameDayOrderIds(
       .from('events')
       .select('event_id, event_date')
       .in('event_id', [...byEvent.keys()]);
+    if (error) console.error('[supabase-error] app/admin/payments/page.tsx · from:events.select', error);
     if (error || !Array.isArray(data)) return out;
     for (const row of data) {
       const date = (row as { event_date?: string | null }).event_date ?? null;

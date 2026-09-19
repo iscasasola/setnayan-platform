@@ -658,6 +658,117 @@ export async function buildCoupleConversationRows({
 }
 
 /**
+ * ── THE FACTS BESIDE THE RUNG (SUP-2 · CPL-1, 2026-09-19) ──────────────────
+ * A paid deposit and a confirmed meeting, per supplier, for the standing
+ * sentence. Both are rows the product already writes — `event_vendors.status`
+ * and `event_appointments.status` — so nothing is typed by hand and nothing new
+ * is stored.
+ *
+ * ONE reader for all three surfaces that say the sentence (the bench, the
+ * couple's thread page, the supplier's thread page), so "Deposit paid" cannot
+ * be true on the card and absent in the thread it opens.
+ *
+ * The count each supplier was asked with (`chat_threads.pax_at_inquiry`) rides
+ * along, so the bench can say "Guest count changed" without plumbing a column
+ * through every card type.
+ *
+ * ⚡ Three queries for any number of suppliers. Both graceful-degrade to "say
+ * nothing" — a missing clause is a shorter sentence, never a false one.
+ *
+ * 🔒 THE CLIENT IS THE CALLER'S. The couple passes their own session (both
+ * tables carry a couple-read policy). A supplier cannot read `event_vendors`
+ * through theirs, so their page passes the admin client it already holds,
+ * narrowed by the caller to (this event × their own profile).
+ */
+export type StandingExtras = {
+  depositPaid: boolean;
+  meeting: { atMs: number | null } | null;
+  /** `chat_threads.pax_at_inquiry` — the count this supplier was asked with. */
+  paxAtInquiry: number | null;
+};
+
+export async function readStandingExtras(
+  client: SupabaseClient,
+  eventId: string,
+  vendorProfileIds: string[],
+  nowMs: number,
+): Promise<Map<string, StandingExtras>> {
+  const out = new Map<string, StandingExtras>();
+  if (vendorProfileIds.length === 0) return out;
+  const get = (id: string): StandingExtras => {
+    let e = out.get(id);
+    if (!e) {
+      e = { depositPaid: false, meeting: null, paxAtInquiry: null };
+      out.set(id, e);
+    }
+    return e;
+  };
+
+  const [depRes, meetRes, paxRes] = await Promise.all([
+    client
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .eq('status', 'deposit_paid')
+      .in('marketplace_vendor_id', vendorProfileIds),
+    client
+      .from('event_appointments')
+      .select('vendor_profile_id, scheduled_at')
+      .eq('event_id', eventId)
+      .eq('status', 'confirmed')
+      .in('vendor_profile_id', vendorProfileIds),
+    client
+      .from('chat_threads')
+      .select('vendor_profile_id, pax_at_inquiry')
+      .eq('event_id', eventId)
+      .in('vendor_profile_id', vendorProfileIds),
+  ]);
+
+  if (paxRes.error) {
+    logQueryError('standingExtras.paxAtInquiry', paxRes.error, { eventId }, 'graceful_degrade');
+  }
+  for (const r of (paxRes.data ?? []) as Array<{
+    vendor_profile_id: string | null;
+    pax_at_inquiry: number | null;
+  }>) {
+    if (r.vendor_profile_id && r.pax_at_inquiry != null) {
+      get(r.vendor_profile_id).paxAtInquiry = r.pax_at_inquiry;
+    }
+  }
+
+  if (depRes.error) {
+    logQueryError('standingExtras.depositPaid', depRes.error, { eventId }, 'graceful_degrade');
+  }
+  for (const r of (depRes.data ?? []) as Array<{ marketplace_vendor_id: string | null }>) {
+    if (r.marketplace_vendor_id) get(r.marketplace_vendor_id).depositPaid = true;
+  }
+
+  if (meetRes.error) {
+    logQueryError('standingExtras.meeting', meetRes.error, { eventId }, 'graceful_degrade');
+  }
+  // The NEXT meeting per supplier: the soonest one not already behind us. A
+  // confirmed meeting with no time yet is kept only when there is no dated one
+  // — "Meeting confirmed for tomorrow" says more than "Meeting confirmed".
+  for (const r of (meetRes.data ?? []) as Array<{
+    vendor_profile_id: string | null;
+    scheduled_at: string | null;
+  }>) {
+    if (!r.vendor_profile_id) continue;
+    const e = get(r.vendor_profile_id);
+    const at = r.scheduled_at ? Date.parse(r.scheduled_at) : NaN;
+    if (!Number.isFinite(at)) {
+      if (!e.meeting) e.meeting = { atMs: null };
+      continue;
+    }
+    // Long past ⇒ not news; the module's own grace decides "today".
+    if (at < nowMs - 86_400_000) continue;
+    if (!e.meeting || e.meeting.atMs == null || at < e.meeting.atMs) e.meeting = { atMs: at };
+  }
+
+  return out;
+}
+
+/**
  * ── THE BENCH'S STANDINGS ───────────────────────────────────────────────────
  * The shortlist bench draws many supplier cards at once, and each one now
  * carries a sentence about where that supplier stands. The facts behind it are
@@ -695,6 +806,7 @@ export async function buildBenchStandings({
   eventId,
   vendors,
   nowMs,
+  livePax = null,
 }: {
   /** 🔒 The couple's own session, as everywhere on this side. */
   supabase: SupabaseClient;
@@ -702,6 +814,12 @@ export async function buildBenchStandings({
   vendors: BenchStandingInput[];
   /** Injected so the sentence is testable and the whole page agrees on "now". */
   nowMs: number;
+  /**
+   * The event's live headcount (`resolveLivePax`), read ONCE by the page — it
+   * is one number for the whole bench, compared against each thread's
+   * `pax_at_inquiry` (read by `readStandingExtras`).
+   */
+  livePax?: number | null;
 }): Promise<Map<string, SupplierStanding | null>> {
   const out = new Map<string, SupplierStanding | null>();
   const threadIds = vendors.map((v) => v.threadId).filter((id): id is string => id != null);
@@ -713,7 +831,7 @@ export async function buildBenchStandings({
     return out;
   }
 
-  const [facts, lastRes] = await Promise.all([
+  const [facts, lastRes, extras] = await Promise.all([
     readCoupleStageFacts(supabase, eventId),
     supabase
       .from('chat_messages')
@@ -721,6 +839,12 @@ export async function buildBenchStandings({
       .in('thread_id', threadIds)
       .order('created_at', { ascending: false })
       .limit(600),
+    readStandingExtras(
+      supabase,
+      eventId,
+      vendors.filter((v) => v.threadId != null).map((v) => v.vendorProfileId),
+      nowMs,
+    ),
   ]);
 
   if (lastRes.error) {
@@ -759,6 +883,9 @@ export async function buildBenchStandings({
         lastSpeaker: last ? (last.sender_role === 'vendor' ? 'vendor' : 'couple') : null,
         lastSaidAtMs: Number.isFinite(saidAt) ? saidAt : null,
         nowMs,
+        depositPaid: extras.get(v.vendorProfileId)?.depositPaid ?? false,
+        meeting: extras.get(v.vendorProfileId)?.meeting ?? null,
+        guestCounts: { live: livePax, atInquiry: extras.get(v.vendorProfileId)?.paxAtInquiry ?? null },
       }),
     );
   }

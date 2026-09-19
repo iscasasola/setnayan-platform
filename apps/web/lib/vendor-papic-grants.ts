@@ -161,7 +161,10 @@ export async function fetchVendorPapicCreditsGranted(
       .select('credits')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId);
-    if (error) return null; // unproven — never an uplift
+    if (error) {
+      console.error('[supabase-error] vendor-papic-grants: portfolio credit grants', error);
+      return null; // unproven — never an uplift
+    }
     return (data ?? []).reduce(
       (sum, r) => sum + Math.max(0, Math.floor(Number((r as { credits?: number }).credits) || 0)),
       0,
@@ -186,7 +189,11 @@ export async function fetchVendorPapicPackPricePhp(
       .select('price_php, is_active')
       .eq('sku_code', VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] vendor-papic-grants: portfolio pack price', error);
+      return null;
+    }
+    if (!data) return null;
     const row = data as { price_php?: number | string | null; is_active?: boolean | null };
     if (row.is_active !== true) return null;
     const price = Number(row.price_php);

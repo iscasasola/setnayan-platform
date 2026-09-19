@@ -262,6 +262,99 @@ export function OpenBrowsePanel({
 }
 
 
+/** The four faces, in the order the site lives through them. Same words the
+ *  owner ribbon on the live page uses for its preview links. */
+const LAUNCH_PHASE_CHOICES = [
+  { key: 'save_the_date', label: 'Save the Date', hint: 'The announcement. Asks nothing of guests yet.' },
+  { key: 'rsvp', label: 'Invitation', hint: 'The invitation guests reply to.' },
+  { key: 'event', label: 'On the day', hint: 'The page guests use at the celebration itself.' },
+  { key: 'editorial', label: 'After', hint: 'The page guests revisit afterwards. Replies are closed.' },
+] as const;
+
+export type LaunchPhaseKey = (typeof LAUNCH_PHASE_CHOICES)[number]['key'];
+
+export function launchPhaseLabel(key: LaunchPhaseKey): string {
+  return LAUNCH_PHASE_CHOICES.find((c) => c.key === key)?.label ?? key;
+}
+
+/**
+ * "Which version guests see" — Automatic, or pin one phase (DAY-33 · owner
+ * 2026-07-02). One radio group: picking a phase is picking manual, and picking
+ * Automatic clears the pin, so "activating one deactivates the other" holds by
+ * construction. `autoPhase` is what the clock says today, shown on the
+ * Automatic option so the couple can see what they would be handing back to.
+ */
+export function LaunchPhasePanel({
+  action,
+  eventId,
+  pinned,
+  autoPhase,
+  refused,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  eventId: string;
+  pinned: LaunchPhaseKey | null;
+  autoPhase: LaunchPhaseKey;
+  refused: boolean;
+}) {
+  const option = (checked: boolean) =>
+    `flex cursor-pointer gap-2.5 rounded-xl border p-2.5 transition ${
+      checked ? 'border-ink/40 bg-ink/[0.03]' : 'border-ink/10 hover:border-ink/25'
+    }`;
+  return (
+    <form action={action} className={PANEL}>
+      <input type="hidden" name="event_id" value={eventId} />
+      <ReturnTo eventId={eventId} rowKey="launch-phase" />
+      {refused ? (
+        <p role="alert" className="mb-2 rounded-lg bg-terracotta/10 px-2.5 py-1.5 text-xs text-terracotta-700">
+          That didn’t save — only the couple can change which version guests see.
+        </p>
+      ) : null}
+      <p className="text-xs text-ink/60">
+        {pinned
+          ? `Every guest sees the ${launchPhaseLabel(pinned)} version until you switch back to Automatic — the date no longer moves it.`
+          : 'Your site changes by itself as the day gets closer. Pin a version to keep it on one — for example, keep the Invitation up so guests can still RSVP.'}
+      </p>
+      <fieldset className="mt-2">
+        <legend className="sr-only">Which version guests see</legend>
+        <div className="grid gap-2">
+          <label className={option(pinned === null)}>
+            <input
+              type="radio"
+              name="launch_phase"
+              value="auto"
+              defaultChecked={pinned === null}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-ink"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-ink">Automatic</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">
+                Follows your date. Today that is: {launchPhaseLabel(autoPhase)}.
+              </span>
+            </span>
+          </label>
+          {LAUNCH_PHASE_CHOICES.map((c) => (
+            <label key={c.key} className={option(pinned === c.key)}>
+              <input
+                type="radio"
+                name="launch_phase"
+                value={c.key}
+                defaultChecked={pinned === c.key}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-ink"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-ink">Always show: {c.label}</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-ink/55">{c.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <SaveButton />
+    </form>
+  );
+}
+
 const INTENSITY_COPY: Record<SpatialIntensity, string> = {
   subtle: 'Barely there — a hint of depth behind the words.',
   standard: 'The intended look.',

@@ -74,7 +74,10 @@ export async function findSameDayVendors(
     .eq('same_day_available', true)
     .neq('tier_state', 'free')
     .limit(CANDIDATE_LIMIT);
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/same-day-vendors.ts · from:vendor_profiles.select', error);
+    return [];
+  }
 
   const haveVenueGeo =
     venue.lat != null &&

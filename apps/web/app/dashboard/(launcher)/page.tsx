@@ -560,6 +560,7 @@ export default async function LauncherPage({
       .from('creator_chapters')
       .select('event_id, status')
       .eq('user_id', user.id);
+    if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:creator_chapters.select', error);
     if (!error) {
       chapterCount = ((data ?? []) as unknown[]).length;
     }
@@ -606,6 +607,7 @@ export default async function LauncherPage({
       .from('event_editorial')
       .select('event_id, status')
       .eq('status', 'published');
+    if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:event_editorial.select', error);
     if (!error) {
       storyEventIds = new Set(
         ((data ?? []) as Array<{ event_id: string | null }>)
@@ -645,6 +647,7 @@ export default async function LauncherPage({
       const { count, error } = await supabase
         .from('dependents')
         .select('dependent_id', { count: 'exact', head: true });
+      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
       if (!error) alagaCount = count ?? 0;
     } catch {
       alagaCount = null;
@@ -662,6 +665,7 @@ export default async function LauncherPage({
         .select('connection_id', { count: 'exact', head: true })
         .eq('status', 'confirmed')
         .is('deleted_at', null);
+      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:person_connections.select', error);
       if (!error) connectionCount = count ?? 0;
     } catch {
       connectionCount = null;

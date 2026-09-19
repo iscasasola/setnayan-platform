@@ -115,7 +115,11 @@ export async function maybeSuggestCoverageFromWebsite(args: {
       })
       .select('id')
       .maybeSingle();
-    if (insErr || !row) return;
+    if (insErr) {
+      console.error('[supabase-error] lib/vendor-signup-coverage-suggest-server.ts · from:vendor_web_dossiers.insert', insErr);
+      return;
+    }
+    if (!row) return;
     const dossierId = (row as { id: number }).id;
 
     try {

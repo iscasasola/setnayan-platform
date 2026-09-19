@@ -43,6 +43,17 @@ const CONSUMERS = [
   'live-wall-block.tsx',
 ];
 
+/**
+ * The guest-page-borrowed surfaces — `VendorDoorway` and `SupplierDesk`. They
+ * do NOT call `useEventWords()`: `site-body.tsx` resolves `clientWords` from
+ * the event type ONCE, server-side, and hands it to them as a typed
+ * `words: ClientEventWords` prop — the same value the provider is mounted
+ * with, threaded a second way. So the missing-provider fallback test above
+ * does not apply to them (there is no context read to fall back from), but
+ * the hardcoded-noun regression it guards against does: SUP-49.
+ */
+const PROP_CONSUMERS = ['vendor-doorway.tsx', 'supplier-desk.tsx'];
+
 test('the provider is mounted, and above BOTH identity trees', () => {
   assert.ok(
     BODY.includes('<EventWordsProvider'),
@@ -127,7 +138,10 @@ test('the countdown label is a WEDDING VOW and only a wedding gets it', () => {
 test('no consumer went back to a hardcoded "the couple"', () => {
   // The whole point is that these sentences are no longer literals. A revert
   // would typecheck, pass every other test, and read fine on a wedding.
-  for (const file of CONSUMERS) {
+  // Covers both wiring shapes: the hook consumers AND the two guest-page-
+  // borrowed surfaces that get the same words via a prop instead (SUP-49) —
+  // a hardcoded "the couple" is the same defect either way it got there.
+  for (const file of [...CONSUMERS, ...PROP_CONSUMERS]) {
     const src = read(file)
       // strip comments — several of these files EXPLAIN the change, and prose
       // about the defect must not read as the defect
@@ -142,4 +156,32 @@ test('no consumer went back to a hardcoded "the couple"', () => {
         `text: ${hits.join(', ')}`,
     );
   }
+});
+
+test('the guest-page-borrowed surfaces take the resolved words as a prop, not a literal', () => {
+  // These two are rendered from site-body.tsx BEFORE the identity fork, off
+  // the same `clientWords` the provider is mounted with — so proving the prop
+  // is typed `ClientEventWords` and actually used downstream (not merely
+  // accepted and dropped) is what stands in for the hook-fallback check above.
+  for (const file of PROP_CONSUMERS) {
+    const src = read(file);
+    assert.match(
+      src,
+      /words:\s*ClientEventWords/,
+      `${file} no longer declares a typed words prop — SUP-49's coverage gap ` +
+        'would reopen if it silently went back to a hardcoded noun',
+    );
+  }
+  // vendor-doorway.tsx only FORWARDS the prop, to the desk it renders — the
+  // actual sentence lives in supplier-desk.tsx, which must read it.
+  assert.match(
+    read('vendor-doorway.tsx'),
+    /<SupplierDesk\s+desk=\{desk\}\s+words=\{words\}\s*\/>/,
+    'vendor-doorway.tsx no longer forwards the words it was handed to the desk',
+  );
+  assert.match(
+    read('supplier-desk.tsx'),
+    /\bwords\.(theOrganizer|TheOrganizer|theOrganizerPossessive|eventWord|occasion|twoPeople|solemn)\b/,
+    'supplier-desk.tsx accepts the words prop but never reads it',
+  );
 });

@@ -433,6 +433,9 @@ export async function updateDocUploadInline(
     .select('application_id,vendor_profile_id,status,doc_uploads')
     .eq('application_id', draft.applicationId)
     .maybeSingle();
+  if (readErr) {
+    console.error('[supabase-error] vendor-dashboard/shop/inline-docs-actions.ts · from:vendor_verification_applications.select', readErr);
+  }
   if (readErr || !app) return { ok: false, error: 'Could not load your application.' };
   if (app.vendor_profile_id !== auth.vendorProfileId || app.status !== 'draft') {
     return { ok: false, error: 'This application can no longer be edited.' };
@@ -636,6 +639,11 @@ export async function readContactStamps(
       .select('contact_email_confirmed_at,contact_phone_confirmed_at')
       .eq('application_id', applicationId)
       .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] vendor-dashboard/shop/inline-docs-actions.ts · from:vendor_verification_applications.select', error, {
+        application_id: applicationId,
+      });
+    }
     if (error || !data) return { emailConfirmedAt: null, phoneConfirmedAt: null };
     const row = data as {
       contact_email_confirmed_at?: string | null;

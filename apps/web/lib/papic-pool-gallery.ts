@@ -50,6 +50,11 @@ export type PoolPage = {
   tiles: PoolTile[];
   /** Feed the last tile's capturedAt back as `before` for the next page; null = no more. */
   nextCursor: string | null;
+  /**
+   * TRUE when the pool read was REFUSED — then `tiles` is empty because nothing
+   * was read, and the grid must not say "No photos yet" (S41b).
+   */
+  unreadable: boolean;
 };
 
 export async function getPoolGalleryPage(
@@ -62,9 +67,14 @@ export async function getPoolGalleryPage(
     p_before: before && !Number.isNaN(Date.parse(before)) ? before : 'infinity',
     p_limit: POOL_PAGE_SIZE,
   });
-  // Missing RPC (pre-migration · 42883) or any read trouble → empty pool, never
-  // a crash on a guest surface.
-  if (error || !Array.isArray(data)) return { tiles: [], nextCursor: null };
+  // Missing RPC (pre-migration · 42883) or any read trouble → no tiles, never a
+  // crash on a guest surface — but flagged UNREADABLE, so the grid says it could
+  // not load instead of "No photos yet" at a party that is mid-shoot (S41b).
+  if (error) {
+    console.error('[supabase-error] lib/papic-pool-gallery.ts · rpc:guest_pool_gallery', error);
+    return { tiles: [], nextCursor: null, unreadable: true };
+  }
+  if (!Array.isArray(data)) return { tiles: [], nextCursor: null, unreadable: false };
 
   const rows = data as PoolRpcRow[];
   const tiles = (
@@ -101,5 +111,6 @@ export async function getPoolGalleryPage(
   return {
     tiles,
     nextCursor: rows.length === POOL_PAGE_SIZE ? (rows[rows.length - 1]?.captured_at ?? null) : null,
+    unreadable: false,
   };
 }

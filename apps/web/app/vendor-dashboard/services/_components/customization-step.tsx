@@ -101,11 +101,18 @@ const field =
 export function CustomizationStep({
   categoryValue,
   categoryLabel,
+  initialItems,
 }: {
   categoryValue: string;
   categoryLabel: string;
+  /**
+   * The lines a card copied from another starts with (SUP-40). Already re-keyed
+   * on the server (`rekeyCopiedItems`), so they carry no id of the source's.
+   * Omitted everywhere else — a fresh card starts empty, exactly as before.
+   */
+  initialItems?: DraftItem[];
 }) {
-  const [items, setItems] = useState<DraftItem[]>([]);
+  const [items, setItems] = useState<DraftItem[]>(initialItems ?? []);
 
   // Every line this service authors sits under the service's OWN category —
   // the couple meets one card, so there is no per-line category picker here

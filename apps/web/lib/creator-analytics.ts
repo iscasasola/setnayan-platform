@@ -223,7 +223,10 @@ export async function fetchInfluencerAnalyticsForAdmin(): Promise<InfluencerAnal
     // The gate metric is derived from this read. A REFUSED read here would
     // otherwise produce a confident "0 of 25" — return unmeasured instead, so the
     // surface reports that it does not know rather than that nothing happened.
-    if (chapterErr) return EMPTY_ANALYTICS;
+    if (chapterErr) {
+      console.error('[supabase-error] lib/creator-analytics.ts · from:creator_chapters.select', chapterErr);
+      return EMPTY_ANALYTICS;
+    }
     const creatorIds = [
       ...new Set(
         ((chapterRows ?? []) as Array<{ user_id: string | null }>)

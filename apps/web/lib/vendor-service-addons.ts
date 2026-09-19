@@ -22,7 +22,10 @@ export async function fetchAddonsByService(
     .select('id,vendor_service_id,label,from_price_php,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-service-addons.ts · from:vendor_service_addons.select', error);
+    return out;
+  }
   for (const r of (data ?? []) as {
     id: number;
     vendor_service_id: string;

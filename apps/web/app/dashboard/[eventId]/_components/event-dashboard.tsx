@@ -36,6 +36,7 @@ import {
 } from '@/lib/plan-groups-by-event-type';
 import { PLAN_GROUPS, type EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { countUnlockedCategories, pickTodaysOneThing } from '@/lib/todays-one-thing';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import {
   buildCockpitModel,
   type CockpitDecision,
@@ -51,7 +52,7 @@ import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import {
   fetchScheduleBlocks,
   selectSchedulePreviewBlocks,
-  SCHEDULE_BLOCK_LABEL,
+  scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -371,7 +372,9 @@ export async function EventDashboard({
           // price the lock wrote. A refused embed refuses the whole read, which
           // `vendorsMeasured` below already reports honestly.
           .select(
-            `vendor_id, vendor_name, category, status, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+            // `lock_request_state` (SUP-69): an asked-and-waiting category is not
+            // a "go book" decision — see `hasOutstandingAsk`.
+            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
@@ -906,7 +909,13 @@ export async function EventDashboard({
   // overdue category — i.e. it hands a finished celebration a job to do.
   const topPriorityTask =
     marketplaceEnabled && !eventHasHappened && event.event_date && eventDatePrecision === 'day'
-      ? pickTodaysOneThing(vendorRowInputs, event.event_date, now, eventPlanGroups)
+      ? pickTodaysOneThing(
+          vendorRowInputs,
+          event.event_date,
+          now,
+          eventPlanGroups,
+          isLockHandshakeEnabled(),
+        )
       : null;
 
   const paperworkRows = (paperworkRes.data ?? []) as PaperworkRow[];
@@ -996,6 +1005,7 @@ export async function EventDashboard({
       vendors: vendorRowInputs,
       sponsors: sponsorRows,
       topPriorityTask,
+      lockHandshakeEnabled: isLockHandshakeEnabled(),
       paperwork: paperworkRows
         .filter((r) => r.status !== 'received' && r.status !== 'expired')
         .map((r) => ({
@@ -1717,20 +1727,31 @@ export async function EventDashboard({
         <Camera aria-hidden strokeWidth={1.75} />
         Papic
       </span>
+      {/* S41b — a REFUSED count is null, not 0. `preCapture` is only true on a
+          MEASURED zero, so an unreadable photo count lands here and says so,
+          instead of flipping back to "shots ready" on an event mid-shoot. */}
       <span className="mt-3 block font-mono text-[22px] font-bold leading-none text-ink">
-        <CountUp
-          value={papicHome.preCapture ? papicHome.shotsLeft : papicHome.photosGathered}
-          delayMs={700}
-        />
+        {papicHome.preCapture || papicHome.photosGathered !== null ? (
+          <CountUp
+            value={papicHome.preCapture ? papicHome.shotsLeft : (papicHome.photosGathered ?? 0)}
+            delayMs={700}
+          />
+        ) : (
+          '—'
+        )}
       </span>
       <span className="mt-0.5 block text-[11.5px] text-ink/55">
         {papicHome.preCapture
-          ? papicHome.cameras === 1
-            ? 'shots ready · 1 camera out'
-            : `shots ready · ${papicHome.cameras} cameras out`
-          : papicHome.shotsLeft > 0
-            ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
-            : 'photos gathered'}
+          ? papicHome.cameras === null
+            ? 'shots ready · couldn’t count cameras'
+            : papicHome.cameras === 1
+              ? 'shots ready · 1 camera out'
+              : `shots ready · ${papicHome.cameras} cameras out`
+          : papicHome.photosGathered === null
+            ? 'couldn’t count photos just now'
+            : papicHome.shotsLeft > 0
+              ? `photos gathered · ${papicHome.shotsLeft.toLocaleString('en-PH')} credits left`
+              : 'photos gathered'}
       </span>
       {/* The verdict rides UNDER the existing line rather than replacing it —
        *  the balance is still the fact; this is what it means. Silent on
@@ -2878,7 +2899,7 @@ export async function EventDashboard({
                         {block.label}
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {SCHEDULE_BLOCK_LABEL[block.block_type]}
+                        {scheduleBlockLabelFor(block.block_type, eventType)}
                       </span>
                     </div>
                   ))}

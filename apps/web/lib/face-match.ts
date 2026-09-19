@@ -112,6 +112,7 @@ export async function autoTagCapture(params: {
     const { error: insErr } = await admin
       .from('photo_tags')
       .upsert(rows, { onConflict: 'source_table,source_id,guest_id', ignoreDuplicates: true });
+    if (insErr) console.error('[supabase-error] lib/face-match.ts · from:photo_tags.upsert', insErr);
     if (insErr) return { autoTagged: 0 };
 
     return { autoTagged: rows.length };

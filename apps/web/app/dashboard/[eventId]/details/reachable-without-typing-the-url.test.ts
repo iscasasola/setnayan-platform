@@ -108,8 +108,26 @@ test('the pages people go to are linked from the event rail, not just addressabl
 });
 
 /**
- * 🔑 DERIVED FROM THE DEAD COMPONENT, NOT TYPED BY HAND.
+ * 🔑 CAPTURED FROM THE DEAD COMPONENT, NOT TYPED FROM MEMORY.
  *
+ * `app/_components/profile-menu.tsx` was deleted (S39 — it was mounted
+ * nowhere, see the test below). Before it existed, this test read the file
+ * itself and derived this list at run time; now that the file is gone the
+ * list has to be frozen, or the whole guard goes vacuous.
+ *
+ * Every `href={\`/dashboard/${eventId}/...\`}` the component held, captured
+ * with `git show 52c15f957965420da74f3c5820ba197791c09fe0:apps/web/app/_components/profile-menu.tsx`
+ * (origin/main, the last commit that touched the file before deletion) and
+ * `grep -n "href="` over that output. Re-run that command to re-verify this
+ * list — never re-type it from memory or shrink it because a segment now
+ * has a home; that is exactly what the derived check below still proves.
+ *
+ * DO NOT DROP AN ENTRY. If a listed page genuinely no longer needs a door,
+ * that is an owner-visible decision, not a quiet edit to this array.
+ */
+const RETIRED_MENU_EVENT_LINKS = ['hosts', 'details', 'refer'] as const;
+
+/**
  * When a menu is REPLACED, the rows the replacement forgot are what strand a
  * page. That has now happened three times from one component: Personalization,
  * Hosts, and — three weeks after the component had already stopped rendering —
@@ -117,22 +135,21 @@ test('the pages people go to are linked from the event rail, not just addressabl
  * life. A changelog note the same day recorded it as "reachable via direct link
  * / account", which is what stopped anyone from checking.
  *
- * So this reads `profile-menu.tsx` itself and requires every event-scoped link
- * it holds to exist somewhere a person can press. Adding a link to the dead
- * component can no longer create a silent orphan: it fails here instead.
+ * So this requires every event-scoped link the dead component used to hold
+ * (frozen above, since the file itself is gone) to exist somewhere a person
+ * can press. Adding a link back to a revived version of the component — or
+ * to any other retired surface — still has to widen this list by hand; it
+ * can no longer create a silent orphan, because the property under test
+ * ("every destination the retired menu used to offer is still reachable
+ * from a mounted surface") never depended on the file existing.
  */
 test('every event link in the retired menu has a home in a mounted surface', () => {
-  const dead = join(WEB, 'app/_components/profile-menu.tsx');
-  const code = stripComments(readFileSync(dead, 'utf8'));
-
-  const segments = [
-    ...code.matchAll(/href=\{`\/dashboard\/\$\{eventId\}\/([a-z0-9-]+)`\}/g),
-  ].map((m) => m[1]!);
+  const segments = RETIRED_MENU_EVENT_LINKS;
 
   assert.ok(
     segments.length >= 3,
-    `only ${segments.length} event links found in the retired menu — the pattern ` +
-      'stopped matching, so this test would pass while proving nothing',
+    `only ${segments.length} event links in the frozen retired-menu list — ` +
+      'the list was shrunk, so this test would pass while proving nothing',
   );
 
   const hrefs = buildCustomerNavGroups('EVT123', { websiteEnabled: true })
@@ -143,11 +160,11 @@ test('every event link in the retired menu has a home in a mounted surface', () 
   assert.deepEqual(
     stranded,
     [],
-    'The retired menu links these pages and the live event rail does not, so ' +
-      'they are reachable only by typing the address:\n  ' +
+    'The retired menu used to link these pages and the live event rail does ' +
+      'not, so they are reachable only by typing the address:\n  ' +
       stranded.join('\n  ') +
-      '\n\nEither give each a row, or delete it from the retired component — but ' +
-      'do not leave a link in a menu nobody mounts.',
+      '\n\nGive each a row in the mounted event rail — the retired component ' +
+      'is gone, so it cannot carry the link anymore.',
   );
 });
 

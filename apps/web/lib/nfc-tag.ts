@@ -56,18 +56,29 @@ export function nfcTagEligibility(payload: string | null | undefined): NfcEligib
 // ── Byte budget ────────────────────────────────────────────────────────────
 
 /**
- * NFC Forum URI Record Type Definition — the abbreviation table. The record's
- * first payload byte names a prefix, and the rest is the URL with that prefix
- * removed. Order matters: the longest matching prefix wins.
+ * NFC Forum URI Record Type Definition — the identifier-code table. The
+ * record's first payload byte is an INDEX into this list; the rest is the URL
+ * with that prefix removed. Index = code, so the order is fixed by the spec.
  */
-const URI_PREFIXES: readonly string[] = [
-  'https://www.',
-  'http://www.',
-  'https://',
-  'http://',
+export const NDEF_URI_PREFIXES: readonly string[] = [
+  '', 'http://www.', 'https://www.', 'http://', 'https://', 'tel:', 'mailto:',
+  'ftp://anonymous:anonymous@', 'ftp://ftp.', 'ftps://', 'sftp://', 'smb://',
+  'nfs://', 'ftp://', 'dav://', 'news:', 'telnet://', 'imap:', 'rtsp://', 'urn:',
+  'pop:', 'sip:', 'sips:', 'tftp:', 'btspp://', 'btl2cap://', 'btgoep://',
+  'tcpobex://', 'irdaobex://', 'file://', 'urn:epc:id:', 'urn:epc:tag:',
+  'urn:epc:pat:', 'urn:epc:raw:', 'urn:epc:', 'urn:nfc:',
 ];
 
 const TEXT_BYTES = (s: string): number => new TextEncoder().encode(s).length;
+
+/** The identifier code that abbreviates this URL best (longest prefix wins). */
+function uriPrefixCode(url: string): number {
+  let best = 0;
+  NDEF_URI_PREFIXES.forEach((p, code) => {
+    if (p && url.startsWith(p) && p.length > (NDEF_URI_PREFIXES[best] ?? '').length) best = code;
+  });
+  return best;
+}
 
 /**
  * Bytes the whole NDEF message occupies on a Type 2 tag (the NTAG family
@@ -75,7 +86,7 @@ const TEXT_BYTES = (s: string): number => new TextEncoder().encode(s).length;
  * terminator. Long-record and 3-byte-length forms kick in past 255 bytes.
  */
 export function ndefUrlTagBytes(url: string): number {
-  const prefix = URI_PREFIXES.find((p) => url.startsWith(p)) ?? '';
+  const prefix = NDEF_URI_PREFIXES[uriPrefixCode(url)] ?? '';
   const payloadBytes = 1 + TEXT_BYTES(url.slice(prefix.length)); // prefix id + rest
   // Record header: flags(1) + type length(1) + payload length(1 or 4) + type "U"(1)
   const recordBytes = (payloadBytes > 255 ? 7 : 4) + payloadBytes;
@@ -122,6 +133,7 @@ export type NfcFailureReason =
   | 'timed-out'
   | 'cancelled'
   | 'unsupported-browser'
+  | 'no-nfc'
   | 'mismatch'
   | 'unexpected';
 
@@ -183,6 +195,8 @@ export function nfcFailureCopy(reason: NfcFailureReason): string {
       return 'Cancelled. Nothing was written.';
     case 'unsupported-browser':
       return 'This browser cannot write NFC tags. Use Chrome on an Android phone, or copy the link and write it with a free NFC app.';
+    case 'no-nfc':
+      return 'This phone has no NFC reader, so it cannot write tags. Copy the link and write it from another phone.';
     case 'mismatch':
       return 'The tag holds something else. Hold it still and try again.';
     case 'unexpected':
@@ -204,6 +218,69 @@ export const NFC_READBACK_TIMEOUT_MS = 6_000;
  */
 export function readBackMatches(found: readonly string[], expected: string): boolean {
   return found.some((u) => u === expected);
+}
+
+// ── Raw records (the native app's plugin speaks bytes) ─────────────────────
+
+/** One NDEF record as the Capacitor NFC plugin passes it: every field is bytes. */
+export type RawNdefRecord = { tnf: number; type: number[]; id: number[]; payload: number[] };
+
+const TNF_WELL_KNOWN = 0x01;
+const TNF_ABSOLUTE_URI = 0x03;
+const RTD_URI = 0x55; // "U"
+
+/** The well-known URI record for `url`, abbreviated per the identifier table. */
+export function ndefUriRecord(url: string): RawNdefRecord {
+  const code = uriPrefixCode(url);
+  const rest = url.slice((NDEF_URI_PREFIXES[code] ?? '').length);
+  return {
+    tnf: TNF_WELL_KNOWN,
+    type: [RTD_URI],
+    id: [],
+    payload: [code, ...new TextEncoder().encode(rest)],
+  };
+}
+
+/**
+ * Every URL a tag's records hold, decoded. Unknown records are skipped rather
+ * than guessed at — a tag holding something else simply yields no match.
+ */
+export function decodeNdefUriRecords(records: readonly RawNdefRecord[] | null | undefined): string[] {
+  const out: string[] = [];
+  const dec = new TextDecoder();
+  for (const r of records ?? []) {
+    if (r.tnf === TNF_WELL_KNOWN && r.type.length === 1 && r.type[0] === RTD_URI && r.payload.length > 0) {
+      const prefix = NDEF_URI_PREFIXES[r.payload[0] ?? -1];
+      if (prefix === undefined) continue; // reserved code: not a URI we can read
+      out.push(prefix + dec.decode(Uint8Array.from(r.payload.slice(1))));
+    } else if (r.tnf === TNF_ABSOLUTE_URI && r.type.length > 0) {
+      out.push(dec.decode(Uint8Array.from(r.type)));
+    }
+  }
+  return out;
+}
+
+/**
+ * The plugin's rejections carry a `code` (NO_NFC, NFC_DISABLED) and a message
+ * written for developers. Fold them into the same reasons the web path uses.
+ */
+export function classifyNativeNfcError(err: unknown): NfcFailureReason {
+  const code = typeof err === 'object' && err && 'code' in err ? String((err as { code: unknown }).code) : '';
+  const message =
+    typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : String(err ?? '');
+  if (code === 'NFC_DISABLED' || /disabled/i.test(message)) return 'nfc-off';
+  if (code === 'NO_NFC' || /not available|hardware/i.test(message)) return 'no-nfc';
+  if (code === 'CANCELLED') return 'cancelled';
+  if (/does not support NDEF|not support/i.test(message)) return 'unsupported-tag';
+  if (/connect|connection lost|no active nfc session|no nfc tag/i.test(message)) return 'tag-moved';
+  return classifyNfcError(err);
+}
+
+/** How the app's NFC session ended without a tag, as a reason. */
+export function sessionEndReason(reason: string | null | undefined): NfcFailureReason {
+  if (reason === 'userCancelled') return 'cancelled';
+  if (reason === 'sessionTimeout') return 'timed-out';
+  return 'unexpected';
 }
 
 /**

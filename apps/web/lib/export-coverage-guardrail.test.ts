@@ -432,7 +432,8 @@ const KNOWN_GAPS: Record<string, string> = {
   feature_reviews: 'TODO(RA10173-backlog): the subject’s own feature feedback.',
   force_majeure_flags: 'TODO(RA10173-backlog): flags raised by or about the subject.',
   founder_seats: 'TODO(RA10173-backlog): the subject’s founder-seat grant — an entitlement record.',
-  founder_time_log: 'TODO(RA10173-backlog): the subject’s own logged hours.',
+  founder_time_log:
+    'TABLE DROPPED 2026-09-19 (S40 orphan sweep, migration 20271233873951) — the never-built weekly founder self-report; 0 rows, 0 readers, 0 writers in the 4 months it existed. Nothing to export. Entry stays because this guard’s parser unions every historical CREATE TABLE and does not read DROP TABLE (see docblock note 5); same pattern as user_ai_subscription below.',
   guest_checkins: 'TODO(RA10173-backlog): the subject’s own check-in events (time + place).',
   guest_claims: 'TODO(RA10173-backlog): the subject’s claim of a guest identity.',
   guest_saved_vendors:

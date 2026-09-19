@@ -107,9 +107,19 @@ const CLOSED_IN_BATCH_1 = [
  * `CREATE UNLOGGED TABLE`. A declaration check that misses that reads as drift;
  * `tests/db/schema-drift.db.test.ts` had already recorded the same false
  * positive. All 17 were confirmed present in the replay directly.
+ *
+ * ⚠ `bespoke_monogram_generations` WAS HERE AND IS DELIBERATELY REMOVED
+ * (S40, migration 20271233873951) — the TABLE itself was dropped (0 rows,
+ * the Bespoke AI Monogram Studio feature it backed was retired 2026-06-19).
+ * Opposite reason from the erasure-guardrail precedent: the META test below
+ * requires every name here to exist in `pg_class` post-replay ("fix the name,
+ * do not delete the line" is about a NAME TYPO, not a dropped table). This
+ * batch's floor moves 13→12 below (17→13 already accounted for
+ * vendor_contract_signatures + the three Supplies tables), and the combined
+ * `CLOSED_ALL`/`CLOSED` floors move 94→93 / 93→92, for this one entry — not
+ * "trimmed to go green".
  */
 const CLOSED_IN_BATCH_2 = [
-  'bespoke_monogram_generations',
   'booking_fee_ledger',
   'concierge_unanswered_questions',
   'demand_radar_rollups',
@@ -410,9 +420,10 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 1's list has shrunk to ${CLOSED_IN_BATCH_1.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    // 17 until 2026-09-18; vendor_contract_signatures (S36) and the three
-    // Supplies tables (S35) were DROPPED (see the list).
-    CLOSED_IN_BATCH_2.length >= 13,
+    // 17 until 2026-09-18: vendor_contract_signatures (S36) and the three
+    // Supplies tables (S35) were DROPPED (see the list), then
+    // bespoke_monogram_generations (S40, migration 20271233873951) — 17→13→12.
+    CLOSED_IN_BATCH_2.length >= 12,
     `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
   );
   assert.ok(
@@ -436,12 +447,14 @@ test('META · the replay has the anon role and these tables, so a pass means som
     // Supplies/token-wallet tables outright (verified against the DROP TABLE
     // statements in 20271234329420 and 20271234094457, not just the comment) —
     // a table gone from the schema can't be named here at all, since
-    // `has_table_privilege` throws rather than returning false on it.
-    CLOSED_ALL.length >= 94,
+    // `has_table_privilege` throws rather than returning false on it. 94→93
+    // for bespoke_monogram_generations (S40, migration 20271233873951),
+    // propagated through the combined list the same way.
+    CLOSED_ALL.length >= 93,
     `the combined closed list has shrunk to ${CLOSED_ALL.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 93,
+    CLOSED.length >= 92,
     `the still-live closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 

@@ -973,11 +973,19 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     column: 'user_id',
     why: 'CASCADE + NOT NULL — a founder seat is a per-person entitlement, not config. The row is the record that THIS person holds one.',
   },
-  {
-    table: 'founder_time_log',
-    column: 'user_id',
-    why: 'CASCADE + NOT NULL — hours logged BY this person. An internal-team member’s erasure request reaches their own timesheet like anyone else’s.',
-  },
+  /*
+    ⚠ `founder_time_log` WAS HERE AND IS DELIBERATELY REMOVED — the TABLE
+    itself was dropped 2026-09-19 (S40 orphan sweep: 0 rows, no dashboard ever
+    shipped in the 4 months since it was created, migration 20271233873951).
+
+    🔑 THIS LIST IS EXECUTABLE, SAME REASON AS THE `calendar_feed_tokens` NOTE
+    ABOVE. `erasure/purge.ts` issues a real `.delete().eq(column, userId)` for
+    every row in it; against a dropped table PostgREST errors and `step()`
+    stamps a permanent, meaningless FAILURE onto the audit trail instead of
+    throwing. `coverage-guardrail.test.ts` KEEPS an annotated entry for this
+    table (its parser unions every historical CREATE TABLE and never reads
+    DROP TABLE), for the same reason `calendar_feed_tokens` does there.
+  */
   {
     table: 'community_members',
     column: 'user_id',

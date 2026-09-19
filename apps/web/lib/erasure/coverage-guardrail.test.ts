@@ -271,6 +271,14 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   calendar_feed_tokens:
     'Table DROPPED 2026-08-22 — the retired all-events calendar subscription feed; prod held one token, never once read. Nothing left to erase.',
   user_ai_subscription: 'Table DROPPED 2026-08-01 — no rows ever existed; nothing to erase.',
+  // ⚠ TABLE DROPPED 2026-09-19 (S40 orphan sweep, migration 20271233873951)
+  // — the never-built weekly founder self-report; its own migration scoped
+  // "the dashboard React components" out and none ever shipped in the 4
+  // months it existed. 0 rows. Its executable purge rule was REMOVED from
+  // SUBJECT_ROW_DELETES in coverage.ts at the same time, for the same reason
+  // as calendar_feed_tokens above. Same reason this entry stays: the parser
+  // unions every historical CREATE TABLE and does not read DROP TABLE.
+  founder_time_log: 'Table DROPPED 2026-09-19 — the never-built weekly founder self-report; 0 rows, 0 readers, 0 writers in the 4 months it existed. Nothing left to erase.',
   // ⚠ TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — soft-hold
   // release audit whose writers never shipped. Its two SET NULL purge rules were
   // removed from coverage.ts in the same change (a rule against a dropped table

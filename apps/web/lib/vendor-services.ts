@@ -242,7 +242,10 @@ export async function fetchInclusionsByService(
     .select('vendor_service_id,label,worth_php,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
-  if (error) return out;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-services.ts · from:vendor_service_inclusions.select', error);
+    return out;
+  }
   for (const row of (data ?? []) as VendorServiceInclusion[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
@@ -375,7 +378,9 @@ export async function fetchBoothCardItems(
       .select('vendor_service_id,vendor_profile_id,category,package_inclusions,is_active')
       .in('vendor_profile_id', profileIds)
       .order('created_at', { ascending: true });
-    if (!svcRes.error) {
+    if (svcRes.error) {
+      console.error('[supabase-error] lib/vendor-services.ts · from:vendor_services.select', svcRes.error);
+    } else {
       for (const s of (svcRes.data ?? []) as SvcRow[]) {
         if (s.is_active === false) continue;
         const list = servicesByProfile.get(s.vendor_profile_id) ?? [];

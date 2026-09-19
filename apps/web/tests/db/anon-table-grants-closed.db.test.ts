@@ -295,8 +295,8 @@ const CLOSED_IN_BATCH_6 = [
  * constant — every caller passing the ADMIN client. Grep the REF, not just the
  * literal. (2026-09-05: that lib is RETIRED — the 3D Plan is free for couples,
  * so the vendor-unlock discount it recorded no longer exists. The table now
- * genuinely has no reader; it stays because migrations are never deleted, and
- * its grants stay closed for the same reason as every other row here.)
+ * genuinely has no reader. 2026-09-18 (S34): DROPPED by 20271234293820 — see
+ * DROPPED_SINCE below, which keeps it counted in this batch and asserts it gone.)
  *
  * Every gate re-run in prod 2026-08-24: anon held the grant on all 15 · no
  * policy admits anon · none is a base of the three security_invoker views · no
@@ -330,7 +330,19 @@ const CLOSED_IN_BATCH_7 = [
   'wall_feed',
 ] as const;
 
-const CLOSED = [
+/**
+ * Tables closed in a batch above and LATER DROPPED outright. A dropped table is
+ * strictly more closed than a revoked one, so it keeps its line in its batch
+ * (the batch floors stay honest) and is asserted ABSENT instead of asserted
+ * grant-less. The META test below fails if a name here is still a table, or is
+ * not in any batch — so this cannot become a place to hide a live one.
+ *
+ *   event_vendor_3d_plan_unlocks — dropped by 20271234293820 (S34): the 3D Plan
+ *   is free for couples (2026-09-05), the discount it recorded is retired, 0 rows.
+ */
+const DROPPED_SINCE = ['event_vendor_3d_plan_unlocks'] as const;
+
+const CLOSED_ALL = [
   ...CLOSED_IN_BATCH_1,
   ...CLOSED_IN_BATCH_2,
   ...CLOSED_IN_BATCH_3,
@@ -339,6 +351,9 @@ const CLOSED = [
   ...CLOSED_IN_BATCH_6,
   ...CLOSED_IN_BATCH_7,
 ];
+
+/** Every closed table that still exists — the ones whose grants are asserted. */
+const CLOSED = CLOSED_ALL.filter((t) => !(DROPPED_SINCE as readonly string[]).includes(t));
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
@@ -387,8 +402,8 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 7's list has shrunk to ${CLOSED_IN_BATCH_7.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    CLOSED.length >= 95,
-    `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
+    CLOSED_ALL.length >= 95,
+    `the combined closed list has shrunk to ${CLOSED_ALL.length} — did someone trim it to go green?`,
   );
 
   const { rows } = await db.query<{ n: number }>(
@@ -401,8 +416,22 @@ test('META · the replay has the anon role and these tables, so a pass means som
     rows[0]?.n,
     CLOSED.length,
     'a table in the batch list does not exist in the replayed schema — fix the name, ' +
-      'do not delete the line',
+      'do not delete the line (if it was deliberately DROPPED, add it to DROPPED_SINCE)',
   );
+
+  // A dropped table must be in a batch AND really gone.
+  for (const t of DROPPED_SINCE) {
+    assert.ok(
+      (CLOSED_ALL as readonly string[]).includes(t),
+      `${t} is in DROPPED_SINCE but in no batch — DROPPED_SINCE is only for tables a batch closed`,
+    );
+    const { rows: gone } = await db.query<{ r: string | null }>(
+      `SELECT to_regclass($1)::text AS r`,
+      [`public.${t}`],
+    );
+    assert.equal(gone[0]?.r ?? null, null, `${t} is in DROPPED_SINCE but still exists in the replay`);
+  }
+  assert.equal(CLOSED.length, CLOSED_ALL.length - DROPPED_SINCE.length);
 });
 
 test('anon holds NOTHING on any table closed so far (batches 1-7)', async () => {

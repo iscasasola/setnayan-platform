@@ -7,7 +7,9 @@ import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
+import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
+import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -314,6 +316,9 @@ export default async function VendorDashboardLayout({
   // way, and a gated sweep strands every in-flight request when the flag
   // goes back off.
   after(() => maybeRunLockRequestExpiry().catch(() => {}));
+  // S40 — the deletion-handshake reminder. Mounted here AND on the admin
+  // layout, same reasoning as the lock-request nudge directly above.
+  after(() => maybeRunDeletionRequestNudge().catch(() => {}));
   // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
   // fee-charge create path is a parallel lane we must NOT hook, the vendor's
   // "your booking fee is due" notification is DERIVED post-response from the
@@ -321,6 +326,14 @@ export default async function VendorDashboardLayout({
   // inside the helper, so it never double-notifies and no-ops when the fee
   // system is dark.
   after(() => maybeSweepVendorBookingFeeNotifications(user.id).catch(() => {}));
+
+  // Deposit-acknowledge catch-up (CRON-FREE · same shape as the sweep above).
+  // A booking this supplier acknowledged that carries no live fee charge is one
+  // whose acknowledge effects never ran — the 2026-09-18 first booking was
+  // acknowledged through the payment card, which stamped the row and ran
+  // nothing. The effects are idempotent, scoped to the caller's own bookings,
+  // flag-gated inside, and every run is recorded.
+  after(() => maybeCatchUpAcknowledgedDeposits(user.id).catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

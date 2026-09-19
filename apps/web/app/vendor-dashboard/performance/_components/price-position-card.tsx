@@ -3,11 +3,17 @@ import type { PricePositionResult } from '@/lib/price-position';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 
 /**
- * Price-Position Meter card (Wave 6 vendor benefit · the last "Soon" one).
+ * Price-Position Meter card (Wave 6 vendor benefit).
  * A server component (pure render): "your price sits in the Xth percentile for
  * {category} in {region}" with a low / median / high band rail.
- * (The Peso-per-lead card it once sat beside was removed 2026-07-22 when
- * answering became free — see migration 20270911189993.)
+ *
+ * 🔌 MOUNTED ON /vendor-dashboard/performance (S34 · 2026-09-18), inside the Pro
+ * market-intel section whose teaser has always promised "Demand Radar &
+ * Price-Position". It was taken off the subscription page in the 2026-07-02
+ * declutter ("files retained; only the render dropped") and nothing mounted it
+ * again, while the home page's vendor benefits kept selling it. It moved here
+ * from subscription/_components because this is the page that sells it.
+ * The "Soon" pill is gone: the meter reads real bands and is not coming — it is.
  *
  * BEHAVIORAL HONESTY: when the band was suppressed below the min-N sample floor
  * (founder-only market today), the result is { status: 'no_data' } and this card
@@ -21,7 +27,26 @@ function peso(n: number | null | undefined): string {
   return `₱${Number(n).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 }
 
-export function PricePositionCard({ result }: { result: PricePositionResult }) {
+/** A read failed. Distinct from 'no_data' so a failure never reads as an empty market. */
+export type PricePositionUnreadable = { status: 'unreadable' };
+
+export function PricePositionCard({
+  result,
+}: {
+  result: PricePositionResult | PricePositionUnreadable;
+}) {
+  if (result.status === 'unreadable') {
+    return (
+      <section className="sn-tile mt-8 p-6">
+        <p className="sn-eye">Price-position meter</p>
+        <h2 className="mt-1 text-xl font-extrabold tracking-[-0.015em]">Where your price sits</h2>
+        <p className="mt-3 flex items-center gap-2 rounded-lg border border-danger-300/60 bg-danger-50/80 px-4 py-3 text-sm text-danger-900">
+          <Gauge className="h-4 w-4" strokeWidth={2} aria-hidden />
+          We couldn&apos;t load your price position just now. This is on our side — refresh in a moment.
+        </p>
+      </section>
+    );
+  }
   const { key } = result;
   const regionText = key.regionLabel ?? 'your region';
   const catText = prettyCategory(key.category);
@@ -40,9 +65,6 @@ export function PricePositionCard({ result }: { result: PricePositionResult }) {
             {paxText}.
           </p>
         </div>
-        <span className="rounded-full border border-warn-300/70 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warn-800">
-          Soon
-        </span>
       </div>
 
       {result.status === 'no_data' && (

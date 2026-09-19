@@ -264,19 +264,35 @@ export const EMPTY_RADAR: DemandRadar = {
 // ---------------------------------------------------------------------------
 
 /**
+ * A REFUSED radar read is not "below the min-N floor" — both used to collapse
+ * to `EMPTY_RADAR`, which renders the identical "Not enough demand data yet"
+ * card to a vendor whose market genuinely has no signal AND to one whose read
+ * was denied. Distinct sentinel so the card can say which one happened.
+ */
+export const DEMAND_RADAR_UNREADABLE = 'unreadable' as const;
+
+/**
  * Vendor-facing radar, scoped to the caller's OWN vendor profile (the RPC
- * enforces ownership + region scope + min-N + the radar_enabled toggle). Any
- * RPC error degrades to the empty radar so the card stays calm — never throws
- * into the page.
+ * enforces ownership + region scope + min-N + the radar_enabled toggle). A
+ * genuinely empty/suppressed result degrades to the empty radar so the card
+ * stays calm; a REFUSED read returns `DEMAND_RADAR_UNREADABLE` instead so the
+ * card can say we couldn't check rather than "not enough data yet" — never
+ * throws into the page.
  */
 export async function getVendorDemandRadar(
   client: SupabaseClient,
   vendorProfileId: string,
-): Promise<DemandRadar> {
+): Promise<DemandRadar | typeof DEMAND_RADAR_UNREADABLE> {
   const { data, error } = await client.rpc('demand_radar_for_vendor', {
     p_vendor_profile_id: vendorProfileId,
   });
-  if (error || !Array.isArray(data)) return EMPTY_RADAR;
+  if (error) {
+    console.error('[supabase-error] lib/demand-radar.ts · rpc:demand_radar_for_vendor', error, {
+      vendor_profile_id: vendorProfileId,
+    });
+    return DEMAND_RADAR_UNREADABLE;
+  }
+  if (!Array.isArray(data)) return EMPTY_RADAR;
   return assembleRadar(data as DemandRadarBucket[]);
 }
 

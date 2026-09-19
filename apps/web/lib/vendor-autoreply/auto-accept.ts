@@ -357,7 +357,10 @@ async function probeTokenAvailability(
       .select('earned_tokens,purchased_tokens')
       .eq('vendor_id', args.vendorProfileId)
       .maybeSingle();
-    if (walletError) return null;
+    if (walletError) {
+      console.error('[supabase-error] auto-accept: vendor_wallets', walletError);
+      return null;
+    }
     const available =
       Number(wallet?.earned_tokens ?? 0) + Number(wallet?.purchased_tokens ?? 0);
 
@@ -367,7 +370,10 @@ async function probeTokenAvailability(
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('holder_user_id', args.founderUserId)
       .eq('status', 'held');
-    if (holdsError) return null;
+    if (holdsError) {
+      console.error('[supabase-error] auto-accept: lead_token_holds', holdsError);
+      return null;
+    }
     const heldSum = (holds ?? []).reduce(
       (sum: number, h: { tokens?: number | null }) => sum + Number(h.tokens ?? 0),
       0,

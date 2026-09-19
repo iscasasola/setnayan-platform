@@ -349,7 +349,12 @@ export async function fetchOverlaySettings(
       .select(OVERLAY_SELECT)
       .eq('event_id', eventId)
       .maybeSingle();
-    if (error) return DEFAULT_OVERLAY_SETTINGS;
+    if (error) {
+      console.error('[supabase-error] lib/live-studio-overlays.ts · from:live_studio_overlay_settings.select', error, {
+        event_id: eventId,
+      });
+      return DEFAULT_OVERLAY_SETTINGS;
+    }
     return mapOverlayRow(data as OverlayRow | null);
   } catch {
     return DEFAULT_OVERLAY_SETTINGS;
@@ -411,7 +416,12 @@ export async function fetchHighlights(
       .eq('event_id', eventId)
       .order('marked_at', { ascending: false })
       .limit(limit);
-    if (error) return [];
+    if (error) {
+      console.error('[supabase-error] lib/live-studio-overlays.ts · from:live_studio_highlights.select', error, {
+        event_id: eventId,
+      });
+      return [];
+    }
     return (data ?? []) as HighlightRow[];
   } catch {
     return [];

@@ -45,7 +45,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_end_date, venue_latitude, venue_longitude`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, ${INVITE_LOOK_COLUMNS}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -110,6 +110,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     profile: await resolveProfile(event.event_type as string),
     eventDate: event.event_date as string | null,
     eventEndDate: (event.event_end_date as string | null) ?? null,
+    // The couple's pin — the page this door opens honours it, so the door does.
+    launchMode: (event.launch_mode as string | null) ?? null,
+    manualPhase: (event.manual_phase as string | null) ?? null,
     venueTz: eventTimezoneFromCoords(
       event.venue_latitude as number | null,
       event.venue_longitude as number | null,

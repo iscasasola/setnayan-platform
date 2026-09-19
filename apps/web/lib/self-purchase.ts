@@ -37,7 +37,10 @@ export async function fetchSelfPurchaseRoles(
     .from('vendor_team_members')
     .select('vendor_profile_id, role, vendor_profile:vendor_profiles(business_name)')
     .eq('user_id', userId);
-  if (error) return [];
+  if (error) {
+    console.error('[supabase-error] self-purchase: vendor_team_members', error);
+    return [];
+  }
   type RawRow = {
     vendor_profile_id: string;
     role: 'owner' | 'admin' | 'agent' | 'viewer';

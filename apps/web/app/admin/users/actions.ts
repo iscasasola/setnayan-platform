@@ -14,6 +14,8 @@ import {
   TEMP_PASSWORD_FLASH_COOKIE,
 } from '@/lib/account-erasure';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { emitNotification } from '@/lib/notification-emit';
+import { compGiftNoticeBody } from '@/lib/comp-gift-notice';
 
 // TTL of the temp-password flash cookie (see TEMP_PASSWORD_FLASH_COOKIE) — a
 // copy-it-now window, not a store.
@@ -675,6 +677,27 @@ export async function issueCompGrant(formData: FormData) {
   if (auditErr) {
     console.error('[issueCompGrant] audit log insert failed', auditErr.message);
   }
+
+  // 🎁 TELL THE COUPLE. The 'gift' notification type has existed in the
+  // database since 2026-06-23 (20270213450358) for exactly this moment, and
+  // nothing emitted it — PR #2027, which would have, closed unmerged. So a
+  // gifted couple's feature switched on silently and nobody said why. The grant
+  // is live the instant the row lands (eventHasCompGrant reads it at every
+  // gate), so the notice can say so. In-app only, as #2027 designed it — NOT on
+  // the email allowlist. emitNotification never throws and logs its own
+  // failure, so a notice that fails cannot undo the gift.
+  await emitNotification({
+    userId: targetUserId,
+    type: 'gift',
+    title: 'A gift from the Setnayan team',
+    body: compGiftNoticeBody({
+      allServices: scopeRaw === 'all_services',
+      serviceCount: scopedSkus?.length ?? 0,
+      eventDisplayName,
+      expiryIso: expiry,
+    }),
+    relatedUrl: eventId ? `/dashboard/${eventId}` : '/dashboard',
+  });
 
   // Re-render the page + expand the target user's panel so the new grant
   // shows up immediately.

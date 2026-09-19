@@ -24,6 +24,17 @@ export const WATCH_POLL_INTERVAL_MS = 30_000;
  * early). A transient fetch failure keeps the last known-good link and tries
  * again next tick, never blanks the player.
  *
+ * S41c — a poll that comes back 'unknown' (the broadcast-status read was
+ * REFUSED, lib/live-watch-state.ts) is NOT a status. It never replaces
+ * `state`; it only raises `statusUnreadable`, which swaps the footer copy to
+ * "couldn't check". So the poll gate below is still decided by the LAST
+ * READABLE status: we only ever reach an 'unknown' poll while that status was
+ * 'live'/'reconnecting' (polling has already stopped otherwise), so reconnecting
+ * is still possible and polling continues — and the moment a readable
+ * 'ended'/'not_yet' arrives, `state` takes it and polling stops exactly as W1
+ * requires. An unreadable read can neither stop the poller (the shipped bug)
+ * nor keep it alive past a readable terminal status.
+ *
  * `watchUrl`/`embedUrl` are re-derived from the SAME parse the server already
  * ran (lib/panood-watch.ts's parseYouTubeVideoId/youTubeEmbedUrl — pure,
  * client-safe, no `server-only`), never trusted as pre-built HTML: belt and
@@ -44,7 +55,9 @@ export function WatchLiveEmbed({
 }) {
   const [watchUrl, setWatchUrl] = useState(initialWatchUrl);
   const [embedUrl, setEmbedUrl] = useState(initialEmbedUrl);
-  const [state, setState] = useState<GuestWatchState>('live');
+  // The last READABLE status — 'unknown' is never stored here (see docblock).
+  const [state, setState] = useState<Exclude<GuestWatchState, 'unknown'>>('live');
+  const [statusUnreadable, setStatusUnreadable] = useState(false);
 
   useEffect(() => {
     // Nothing left to poll for once the broadcast has ended or never started —
@@ -52,10 +65,10 @@ export function WatchLiveEmbed({
     // this condition is the ONLY gate on the reconnecting sentence below, so a
     // sabotage that widens it (e.g. to "state !== 'live'") would make 'ended'
     // show the reconnecting banner, which the W1 GUARD forbids.
-    // 'unknown' (the read was refused, not that nothing is happening — S41c)
-    // keeps polling exactly like 'reconnecting': a transient DB hiccup must
-    // never look like the stream permanently stopping.
-    if (!slug || (state !== 'live' && state !== 'reconnecting' && state !== 'unknown')) return;
+    // 'unknown' never reaches `state` (S41c — see docblock), so this gate is
+    // still decided by the last readable status: a refused read keeps polling
+    // only while reconnecting is still possible, never past 'ended'/'not_yet'.
+    if (!slug || (state !== 'live' && state !== 'reconnecting')) return;
 
     const id = setInterval(async () => {
       try {
@@ -64,6 +77,13 @@ export function WatchLiveEmbed({
         });
         if (!res.ok) return;
         const data = (await res.json()) as { watchUrl: string | null; state: GuestWatchState };
+        if (data.state === 'unknown') {
+          // Refused read — say so, keep the last readable status (and so the
+          // poll) as it was, and try again next tick.
+          setStatusUnreadable(true);
+          return;
+        }
+        setStatusUnreadable(false);
         setState(data.state);
         if (data.state === 'live' && data.watchUrl) {
           const videoId = parseYouTubeVideoId(data.watchUrl);
@@ -122,14 +142,14 @@ export function WatchLiveEmbed({
           allowFullScreen
         />
       </div>
-      {state === 'reconnecting' ? (
-        <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
-          The stream is reconnecting — this link will update on its own.
-        </p>
-      ) : state === 'unknown' ? (
+      {statusUnreadable ? (
         <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
           We couldn&rsquo;t check the stream status just now — this will
           refresh automatically.
+        </p>
+      ) : state === 'reconnecting' ? (
+        <p className="bg-ink px-4 pb-3 pt-1 text-xs leading-relaxed text-cream/60">
+          The stream is reconnecting — this link will update on its own.
         </p>
       ) : (
         // NOTHING HERE KNOWS WHETHER A STREAM IS RUNNING (2026-08-05, still true

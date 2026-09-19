@@ -143,20 +143,32 @@ test('2 · resolveMutualStoryDays logs a refused people.select yet still fails c
 //    check", when a poll comes back 'unknown'.
 // ─────────────────────────────────────────────────────────────────────────
 
-test('3 · watch-live-embed.tsx keeps polling and renders an honest message for state "unknown"', () => {
+test('3 · watch-live-embed.tsx keeps polling on "unknown" only while reconnecting is possible, and says so', () => {
   const src = read('../app/[slug]/_components/watch-live-embed.tsx');
-  // The guard that decides whether to keep polling must include 'unknown'
-  // alongside 'live' and 'reconnecting' — otherwise a transient DB hiccup
-  // permanently stops the poller, exactly like the shipped bug.
+  // 'unknown' is a refused read, not a status: it must never be stored as the
+  // state that gates the poll. The gate stays W1's own
+  // (watch-live-embed.test.ts: "polling stops once nothing is left to
+  // reconnect to") — so a refused read can neither stop the poller mid-
+  // reconnect (the shipped bug) nor keep it alive past a readable
+  // 'ended'/'not_yet'.
   assert.match(
     src,
-    /state !== 'live' && state !== 'reconnecting' && state !== 'unknown'/,
-    'the poll-continuation guard must keep polling on "unknown", not just "live"/"reconnecting"',
+    /if \(!slug \|\| \(state !== 'live' && state !== 'reconnecting'\)\) return;/,
+    'the poll gate must be decided by the last READABLE status only',
   );
+  assert.doesNotMatch(src, /state !== 'unknown'/, "'unknown' must not appear in the poll gate");
+  // The poll's 'unknown' branch raises the flag and returns BEFORE setState,
+  // so the last readable status (and so the poll) is untouched.
+  const branchAt = src.indexOf("if (data.state === 'unknown') {");
+  assert.ok(branchAt >= 0, "the poll no longer handles a refused ('unknown') read");
+  const setStateAt = src.indexOf('setState(data.state)');
+  assert.ok(setStateAt > branchAt, "setState(data.state) runs before the 'unknown' branch can return");
+  const branch = src.slice(branchAt, setStateAt);
+  assert.match(branch, /setStatusUnreadable\(true\);\s*return;/, "'unknown' must flag + return, not fall through to setState");
+  assert.match(src, /useState<Exclude<GuestWatchState, 'unknown'>>/, "the gating state's type must exclude 'unknown'");
   // And the render must say something distinct from both the reconnecting
-  // banner and the default "hasn't started" copy — never silently fall into
-  // either.
-  assert.match(src, /state === 'unknown'/);
+  // banner and the default "hasn't started" copy.
+  assert.match(src, /\{statusUnreadable \? \(/);
   assert.match(src, /couldn.{1,10}t check the stream status/i);
 });
 
@@ -167,11 +179,46 @@ test('3 · watch-live-embed.tsx keeps polling and renders an honest message for 
 
 test('4 · nsfw-screen.ts logs all three previously-silent capture-table reads', () => {
   const src = read('nsfw-screen.ts');
-  assert.equal(
-    countOf(src, '[supabase-error] lib/nsfw-screen.ts'),
-    3,
-    'expected exactly 3 logged sites: the opts.table row fetch + the two table-variable sweep reads',
-  );
+  // Anchored on each READ, not on a wording: inside the named function, the
+  // `.from(...)` call is followed (with no other `.from(` between) by
+  // `if (<errVar>) {`, and that brace-balanced branch must log the refusal.
+  // Main may enrich the message (e.g. extra context) — only the presence of a
+  // `[supabase-error]` / logQueryError inside THAT branch is pinned.
+  const sites: Array<[fn: string, from: string, errVar: string]> = [
+    ['screenCapture', '.from(opts.table)', 'rowError'],
+    ['reScreenStuckCaptures', '.from(table)', 'error'],
+    ['reScreenAllStuckCaptures', '.from(table)', 'error'],
+  ];
+  let logged = 0;
+  for (const [fn, from, errVar] of sites) {
+    const fnAt = src.indexOf(`function ${fn}(`);
+    assert.ok(fnAt >= 0, `${fn} not found`);
+    const fromAt = src.indexOf(from, fnAt);
+    assert.ok(fromAt >= 0, `${fn}: ${from} read not found`);
+    const ifNeedle = `if (${errVar}) {`;
+    const ifAt = src.indexOf(ifNeedle, fromAt);
+    assert.ok(ifAt >= 0, `${fn}: no \`${ifNeedle}\` error branch after the read`);
+    assert.equal(
+      src.slice(fromAt + from.length, ifAt).includes('.from('),
+      false,
+      `${fn}: the error branch found belongs to a different read`,
+    );
+    let depth = 0;
+    let end = -1;
+    for (let i = ifAt + ifNeedle.length - 1; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        end = i;
+        break;
+      }
+    }
+    assert.ok(end > ifAt, `${fn}: unbalanced error branch`);
+    const body = src.slice(ifAt, end);
+    const logs = /\[supabase-error\] lib\/nsfw-screen\.ts|logQueryError\(/.test(body);
+    assert.ok(logs, `${fn}: the ${from} error branch does not log the refusal`);
+    logged++;
+  }
+  assert.equal(logged, 3, `expected 3 logged capture-table reads, found ${logged}`);
 });
 
 test('5 · panood-moments.ts and panood-screens.ts log their degrade + provisioning-failure branches', () => {

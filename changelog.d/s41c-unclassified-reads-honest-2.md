@@ -58,3 +58,10 @@ Combined with batch F (also 15 rows), this closes out every UNCLASSIFIED-tier
 `result-dropped-silently` finding from the S26 baseline.
 
 SPEC IMPACT: None.
+
+**Fix-up (post-refresh onto main):** the guest poll no longer lists `'unknown'` in its gate —
+that contradicted W1's "polling stops once nothing is left to reconnect to". A refused read now
+raises a separate `statusUnreadable` flag (drives the "couldn't check" copy) and never replaces
+the last READABLE status, so polling continues only while that status is `live`/`reconnecting`
+and stops on the first readable `ended`/`not_yet`. Test 4 now anchors on each capture-table
+read's error branch instead of a total count (main added a fourth, unrelated log in the file).

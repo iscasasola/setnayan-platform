@@ -35,13 +35,18 @@ registries excluded) · 971 component candidates · 803 Next.js entries · 5,960
 
 | class | candidates | with the other end | orphans inherited |
 |---|---|---|---|
-| `rpc-no-caller` | 571 | 272 called from the app, 293 from SQL | **45** |
-| `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **35** |
-| `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **6** |
-| `component-no-mount` | 971 | 3,747 files reachable from an entry | **33** |
-| `result-dropped-silently` | 5,960 calls | — | **415** sites |
+| `rpc-no-caller` | 571 | 272 called from the app, 293 from SQL | **42** |
+| `table-no-writer` | 418 | 312 app-written, 135 SQL-written, 63 seeded | **34** |
+| `notice-no-emitter` | 87 union + 88 labels | 82 emitted | **4** |
+| `component-no-mount` | 971 | 3,747 files reachable from an entry | **25** |
+| `result-dropped-silently` | 5,960 calls | — | **104** sites |
 
-By tier: money 89 · booking 89 · couple 203 · supplier 86 · admin 19 · unclassified 48.
+By tier: money 20 · booking 13 · couple 123 · supplier 16 · admin 6 · unclassified 31 — **209 lines**.
+
+⚠ The first freeze on 2026-09-18 held 534 lines. The controller turned its top into build sessions the same
+day, and by the time this PR cleared the CI queue peers had paid down 326 of them on `main` — the guard
+reported each as "paid down" on every trial merge without failing. The file was re-frozen against the
+`main` it actually lands on, so the day-one debt is the debt that is still real.
 
 **The money-tier top of the list, excluding drops** (the controller's next build candidates):
 - `rpc-no-caller` · `approve_vendor_token_purchase`
@@ -73,10 +78,10 @@ By tier: money 89 · booking 89 · couple 203 · supplier 86 · admin 19 · uncl
 ⚠ Read the money tier with the decision log open: ten of its RPCs and four of its tables are
 the **retired token wallet** (2026-05-11 / 2026-07-21) and the **deferred supplies vertical**
 (iteration 0018). Those are orphans by retirement — the honest fix is to delete the end that
-remains, not to build a caller for it. The live-money rows are the other kind:
-`event_vendor_3d_plan_unlocks` and `vendor_ad_subscriptions` with no writer, `verify_and_activate_manual_payment`
-with no caller, `ManualCheckoutModal` and the pricing `fee-form` with no mount, and the three
-`booking_fee_*` RPC results in `lib/booking-fee-charge.ts` that return `null` on any error.
+remains, not to build a caller for it. The live-money rows the first freeze named — `event_vendor_3d_plan_unlocks`,
+`verify_and_activate_manual_payment`, the pricing `fee-form` and `price-position-card`, and the three
+`booking_fee_*` results in `lib/booking-fee-charge.ts` — were all paid down by peers before this merged.
+Still live: `vendor_ad_subscriptions` with no writer and `ManualCheckoutModal` with no mount.
 
 **Hand-verified by a second route** (git grep of `origin/main`, the migration corpus, and
 read-only SQL against production): 3+ random hits per class, all confirmed. Four detector gaps
@@ -110,6 +115,10 @@ guard's rule (#5626's `{ status: 'unreadable' }`, fixed above). The other is rea
 into the baseline as inherited debt: `app/_components/thread-call-launcher-lazy.tsx` lost its last
 importer when #5614 (S18) stopped the client page embedding its own call tab. The lazy loader
 lives on with no mount — the residue shape this guard exists for; delete it or re-mount it.
+A third arrived later from #5680 (`lib/vendor-earnings.ts`, event names read after
+`if (!eventsError)` with no else and no record). Its own comment calls a missing name cosmetic,
+which is precisely what the `// supabase-error-ignored: <reason>` marker is for — inherited here,
+and the honest fix in that file is the marker, not a baseline line.
 
 **Not done in this PR, by instruction:** none of the orphans are fixed. The baseline is
 the deliverable; its top is the next build list.

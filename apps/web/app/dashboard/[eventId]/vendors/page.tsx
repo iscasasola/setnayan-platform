@@ -1309,6 +1309,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <PlanBudgetAccordion
         model={model}
         eventId={eventId}
+        eventType={ev?.event_type ?? null}
         reviewStatusByVendorId={reviewStatusByVendorId}
       />
     </>

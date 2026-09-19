@@ -6,6 +6,7 @@ import {
   CameraOff,
   Check,
   CircleCheck,
+  Nfc,
   Search,
   Undo2,
   UserRound,
@@ -13,7 +14,10 @@ import {
 } from 'lucide-react';
 import { ROLE_LABELS, type GuestRole, type GuestSide } from '@/lib/guests';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
-import { checkInGuest, undoCheckIn } from '../actions';
+import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
+import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
+import { useNfcTagReader } from '@/app/_components/use-nfc-tag-reader';
+import { checkInGuest, undoCheckIn, type CheckinMethod } from '../actions';
 
 export type DeskGuest = {
   guestId: string;
@@ -59,6 +63,9 @@ export function CheckinDesk({
     () => new Map(initialCheckins.map((c) => [c.guestId, c.checkedInAt])),
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // HOW the selected guest was found — the audit trail's `method`. Set by the
+  // path that selected them, never inferred from whether the camera is on.
+  const [selectedVia, setSelectedVia] = useState<CheckinMethod>('manual_search');
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,10 +99,14 @@ export function CheckinDesk({
   }, []);
 
   const onToken = useCallback(
-    (token: string) => {
+    (token: string, via: 'qr_scan' | 'nfc_tap' = 'qr_scan') => {
       const guest = guestByToken.get(token);
       if (!guest) {
-        setNotice('That QR isn’t a guest on this event’s list.');
+        setNotice(
+          via === 'nfc_tap'
+            ? 'That tag isn’t a guest on this event’s list.'
+            : 'That QR isn’t a guest on this event’s list.',
+        );
         return;
       }
       // Debounce repeat frames of the same code held under the camera.
@@ -104,9 +115,31 @@ export function CheckinDesk({
       if (typeof navigator !== 'undefined') navigator.vibrate?.(80);
       setNotice(null);
       setQuery('');
+      setSelectedVia(via);
       setSelectedId(guest.guestId);
     },
     [guestByToken],
+  );
+
+  // ---- NFC tag reader (the guest's tag holds the same link as their QR) ----
+  const nfcDesk = useNfcEnabled();
+  const nfc = useNfcTagReader(
+    useCallback(
+      (urls: string[]) => {
+        const hit = guestTokenFromTag(urls, parseGuestQrPayload);
+        if (hit.token !== null) {
+          lastHitRef.current = null; // a deliberate tap is never a repeat frame
+          onToken(hit.token, 'nfc_tap');
+        } else {
+          setNotice(
+            hit.reason === 'empty'
+              ? 'That tag is blank — it holds no link.'
+              : 'That tag isn’t a Setnayan guest tag.',
+          );
+        }
+      },
+      [onToken],
+    ),
   );
 
   // Acquire the decoder + camera, then flip into scanning mode. The stream is
@@ -195,7 +228,7 @@ export function CheckinDesk({
 
   // ---- actions -----------------------------------------------------------
   const doCheckIn = useCallback(
-    async (guestId: string, method: 'qr_scan' | 'manual_search') => {
+    async (guestId: string, method: CheckinMethod) => {
       setBusy(true);
       setNotice(null);
       try {
@@ -308,6 +341,43 @@ export function CheckinDesk({
         ) : null}
       </section>
 
+      {/* NFC tag reader — shown only where this device can read tags */}
+      {nfcDesk && nfc.supported ? (
+        <section aria-label="NFC tag reader" className="overflow-hidden rounded-xl border border-ink/10">
+          {nfc.listening ? (
+            <div className="flex items-center justify-between gap-3 bg-cream px-4 py-3">
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-ink/80">
+                <span
+                  aria-hidden
+                  className="inline-block h-3 w-3 animate-pulse rounded-full bg-terracotta"
+                />
+                Listening — tap a guest&rsquo;s tag on this phone
+              </p>
+              <button
+                type="button"
+                onClick={nfc.stop}
+                className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
+              >
+                Stop
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void nfc.start()}
+              className="flex w-full items-center justify-center gap-2 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
+            >
+              <Nfc className="h-5 w-5" /> Read a guest&rsquo;s tag
+            </button>
+          )}
+          {nfc.failure ? (
+            <p role="alert" className="border-t border-ink/10 bg-warn-50 px-4 py-2 text-sm text-warn-800">
+              {nfcReadFailureCopy(nfc.failure)}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* manual search */}
       <section aria-label="Find a guest by name">
         <div className="relative">
@@ -329,6 +399,7 @@ export function CheckinDesk({
                   <button
                     type="button"
                     onClick={() => {
+                      setSelectedVia('manual_search');
                       setSelectedId(g.guestId);
                       setQuery('');
                       lastHitRef.current = null;
@@ -413,7 +484,7 @@ export function CheckinDesk({
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => doCheckIn(selected.guestId, scanning ? 'qr_scan' : 'manual_search')}
+                onClick={() => doCheckIn(selected.guestId, selectedVia)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-4 py-3 text-base font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
               >
                 <Check className="h-5 w-5" /> Check in

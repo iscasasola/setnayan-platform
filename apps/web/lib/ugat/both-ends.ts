@@ -63,6 +63,7 @@
  */
 
 import { stripComments } from '../security/source-text';
+import { stripSqlComments } from '../security/events-column-privileges';
 import { scanSourceDetailed } from '../supabase-unread-error-scan';
 
 export type OrphanClass =
@@ -182,10 +183,7 @@ export function indexLiterals(sources: readonly SourceFile[]): LiteralIndex {
   return { byLiteral, rpcUrl, files };
 }
 
-/** Blank `--` and `/* *\/` comments in SQL so prose cannot vouch for code. */
-export function stripSqlComments(sql: string): string {
-  return sql.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
-}
+export { stripSqlComments };
 
 const IDENT_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
 

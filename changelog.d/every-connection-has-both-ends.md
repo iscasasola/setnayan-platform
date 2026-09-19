@@ -123,4 +123,27 @@ and the honest fix in that file is the marker, not a baseline line.
 **Not done in this PR, by instruction:** none of the orphans are fixed. The baseline is
 the deliverable; its top is the next build list.
 
-SPEC IMPACT: None — no product behaviour changes; a guard and its inherited debt list.
+---
+
+## 2026-09-19 · fix(ugat): both-ends.ts's SQL comment stripper joins the shared one
+
+`lint-one-comment-stripper.mjs` flagged `both-ends.ts`'s own `stripSqlComments` — a
+two-replace regex (`/\*[\s\S]*?\*/` then `--[^\n]*`) that blanks SQL comments before
+`sqlWords`/`indexWriters`/`policiesOutsidePublic` scan for identifiers. Same hazard the
+guard exists for: an unclosed `/*`-looking token inside a string would eat everything up
+to the next real `*/`. Swapped it for the existing quote-aware `stripSqlComments` in
+`lib/security/events-column-privileges.ts` (already imported by
+`events-column-select-privileges.ts`, `events-private-details.ts`, and several db tests),
+re-exported from `both-ends.ts` so nothing importing it by that name breaks.
+
+That shared stripper only blanks `--` line comments, not `/* */` blocks — real migrations
+do use block-comment headers, so this is a narrower capability than the regex it replaces.
+Checked before swapping: every call site (`sqlWords` over `pg_proc.prosrc`/policy quals,
+`policiesOutsidePublic` over migration text) can only be pushed toward this module's own
+documented "safe direction" (missing a stale/commented-out reference makes something look
+*more* called, never less — the same bias the docblock already accepts for a dropped
+policy left in an old migration file). Neither unit fixture nor the db test pins
+block-comment behavior, and both suites (`lib/ugat/both-ends.test.ts`,
+`tests/db/ugat-both-ends.db.test.ts`) pass unchanged.
+
+SPEC IMPACT: None — CI-only fix, no product behaviour change.

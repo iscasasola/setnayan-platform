@@ -11,12 +11,15 @@ const pgFkMessage = (constraint: string, table: string) =>
   `update or delete on table "users" violates foreign key constraint "${constraint}" on table "${table}"`;
 
 test('a deliberate refusal is explained in terms of the record, not the constraint', () => {
+  // Was the signature FK, then supplies_orders, until 2026-09-18, when
+  // vendor_contract_signatures (S36) and the Supplies vertical (S35) were both
+  // DROPPED. order_refunds is the one deliberate refusal left.
   const msg = describeUserDeleteBlocker(
-    pgFkMessage('vendor_contract_signatures_signer_user_id_fkey', 'vendor_contract_signatures'),
+    pgFkMessage('order_refunds_refunded_by_admin_id_fkey', 'order_refunds'),
   );
-  assert.ok(msg, 'the strongest refusal in the schema went unrecognised');
-  assert.match(msg, /signed vendor contract/);
-  assert.match(msg, /RA 8792/);
+  assert.ok(msg, 'a deliberate refusal went unrecognised');
+  assert.match(msg, /refund they issued/);
+  assert.match(msg, /unauditable/);
   // The whole point is that the admin is told what to do instead.
   assert.match(msg, /Erase them instead/);
   // …and NOT handed the constraint name they were handed before.

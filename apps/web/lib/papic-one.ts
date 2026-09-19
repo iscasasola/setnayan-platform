@@ -360,7 +360,7 @@ export async function ensureFreePapicOneCameraAdmin(
 /**
  * A camera's DEDICATED balance, or null when the seat is not a One camera (i.e.
  * it draws the shared pool). Display only — the fail-closed gate is
- * papic_reserve_camera_points.
+ * papic_reserve_capture_split.
  */
 export async function fetchPapicOneDedicatedPoints(
   admin: SupabaseClient,

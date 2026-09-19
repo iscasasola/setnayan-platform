@@ -21,7 +21,6 @@ import {
 } from './papic-one';
 import {
   papicCaptureCost,
-  resolveEventPoolReserve,
   PAPIC_POINTS_PER_CLIP,
   PAPIC_POINTS_PER_PHOTO,
 } from './papic-cameras';
@@ -159,29 +158,6 @@ test('the order row snapshots the rung, and records which mode it was', () => {
     }).is_reload,
     false,
   );
-});
-
-// ── the shared-pool reserve's tri-state ────────────────────────────────────
-
-test('shared-pool reserve: booked · refused · not-applicable are three states', () => {
-  assert.deepEqual(resolveEventPoolReserve(null, 1), { gate: 'allow', booked: true });
-  assert.deepEqual(resolveEventPoolReserve(null, 0), { gate: 'exhausted', booked: false });
-  // -1 = a DEDICATED camera. It allows, but nothing was booked — and that half
-  // is the point: releasing points that were never booked would refund the
-  // couple's shared pool every time a One camera's upload aborted.
-  assert.deepEqual(resolveEventPoolReserve(null, -1), { gate: 'allow', booked: false });
-});
-
-test('shared-pool reserve fails CLOSED, except on function-not-found', () => {
-  assert.deepEqual(resolveEventPoolReserve('XX000', 1), { gate: 'blocked', booked: false });
-  assert.deepEqual(resolveEventPoolReserve('57014', null), { gate: 'blocked', booked: false });
-  // the seam-cutover carve-out: app code can briefly run ahead of the migration
-  assert.deepEqual(resolveEventPoolReserve('42883', null), { gate: 'allow', booked: false });
-  assert.deepEqual(resolveEventPoolReserve('PGRST202', null), { gate: 'allow', booked: false });
-  // an indeterminate shape is blocked, never a silent allow
-  assert.deepEqual(resolveEventPoolReserve(null, 'yes'), { gate: 'blocked', booked: false });
-  assert.deepEqual(resolveEventPoolReserve(null, null), { gate: 'blocked', booked: false });
-  assert.deepEqual(resolveEventPoolReserve(null, 7), { gate: 'blocked', booked: false });
 });
 
 // ── copy is DERIVED, both types ────────────────────────────────────────────

@@ -11,7 +11,8 @@
  * "nothing refills a seat, anywhere" — which is false as stated.
  * `papic_tier_config.points_per_day` minus `papic_seat_day_usage.points_used
  * WHERE usage_date = CURRENT_DATE` is a genuine daily allowance, read by
- * `papic_camera_points_remaining` and enforced by `papic_reserve_camera_points`.
+ * `papic_camera_points_remaining` and once enforced by `papic_reserve_camera_points`
+ * (dropped 2026-09-18, 20271234330879 — it had no caller).
  * It resets with no job at all: tomorrow is simply a different row.
  * 🔑 SEARCHING FOR A SCHEDULED JOB AND FINDING NONE IS NOT EVIDENCE THAT
  * NOTHING RESETS. That was the wrong mechanism, and its absence proved nothing.

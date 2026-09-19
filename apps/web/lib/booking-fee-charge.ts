@@ -71,8 +71,9 @@ export type SettleChargeResult = { settled: boolean; error: string | null };
 
 /**
  * Mark a pending charge paid + roll it into the ledger (from the gateway/admin
- * confirmation path — the twin of approve_vendor_token_purchase). Idempotent:
- * a non-pending charge is a no-op. Service-role only.
+ * confirmation path — the same shape as the retired token wallet's
+ * approve_vendor_token_purchase). Idempotent: a non-pending charge is a
+ * no-op. Service-role only.
  *
  * 🔑 `settled: false` MEANS TWO DIFFERENT THINGS, so the reason travels with it
  * (S34 · 2026-09-18). A no-op on an already-settled charge is correct; an RPC

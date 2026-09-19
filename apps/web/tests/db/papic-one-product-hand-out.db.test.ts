@@ -290,20 +290,19 @@ test('a hand-out makes the pool stand down for that camera, so a shot is never b
   const { eventId, seatId, startShared } = await seedEvent(1_000);
   await one(`SELECT public.papic_dedicate_shots($1, $2, 200)`, [eventId, seatId]);
 
-  // -1 = "not applicable, this seat is metered against its OWN balance".
-  // 1 would mean the shared pot was ALSO charged for a capture the camera paid
-  // for out of its dedicated shots — the double-spend this whole design exists
-  // to prevent, and one that leaves no trace anywhere.
-  // ⚠ (event, seat, cost) — in that order. Reversing them silently returns 1
-  // instead of -1, because the dedicated lookup is then handed an event id and
-  // finds nothing. Positional args on a two-UUID signature are a trap; the app
-  // calls this RPC by NAME, which is why it cannot hit this.
-  assert.equal(
-    await one<number>(`SELECT public.papic_reserve_event_points_for_seat($1, $2, 1)`, [
-      eventId,
-      seatId,
-    ]),
-    -1,
+  // The capture is booked through the ONE live gate, papic_reserve_capture_split
+  // (the -1-returning papic_reserve_event_points_for_seat this used to call was
+  // dropped 2026-09-18, S37). A shot the camera can pay for out of its own
+  // hand-out must come entirely from there: any pool_spent here is the
+  // double-spend this whole design exists to prevent, and one that leaves no
+  // trace anywhere.
+  const r = await db.query<{ ok: boolean; dedicated_spent: number; pool_spent: number }>(
+    `SELECT ok, dedicated_spent, pool_spent FROM public.papic_reserve_capture_split($1, $2, 1)`,
+    [seatId, eventId],
+  );
+  assert.deepEqual(
+    { ok: r.rows[0]!.ok, d: Number(r.rows[0]!.dedicated_spent), p: Number(r.rows[0]!.pool_spent) },
+    { ok: true, d: 1, p: 0 },
   );
   assert.equal(
     await sharedRemaining(eventId),

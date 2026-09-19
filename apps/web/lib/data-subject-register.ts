@@ -231,6 +231,11 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
   patiktok_music_tracks: 'A music track title.',
   service_catalog: 'The display name of a purchasable service.',
   setnayan_pay_methods: 'The display name of a payment rail ("GCash"), not a person.',
+  // TABLE DROPPED 2026-09-18 (migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical, the retired
+  // Supplies vertical). The entry STAYS for the same reason `people` etc. do
+  // in export-coverage-guardrail.test.ts: the scan unions every historical
+  // CREATE TABLE and does not read DROP TABLE, so this table is still "seen".
   supplier_vendor_skus: 'The display name of a supplier SKU.',
   vendor_event_sets: 'The name of a vendor-authored set of event offerings.',
   venue_directory: 'The name of a venue (a place).',
@@ -250,8 +255,13 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
 export const UNCLASSIFIED_PERSON_TABLES: Readonly<Record<string, string>> = {
   people:
     'The durable Person node (migration 20270513460125) and the largest person store on the platform: display_name, first_name, last_name, email, phone, profile photo and birth_date. The table\'s own comment says a Person exists with or without an account and that most stay unclaimed — "a guest, a relative, a lola who never signs up" — so this is a named third party who may never touch the app and whose record does not end when any event does. It was invisible to the scan until 2026-08-09 because its OPTIONAL claimed_by_user_id / created_by_user_id links made it look like an account holder. DPO: an unclaimed Person is not obviously any of the five categories; it needs its own, and birth_date makes the minors question live before Phase-2 connections ship.',
+  // ⚠ TABLE DROPPED 2026-09-18 (migration 20271234094457). The pre-launch
+  // waitlist: Setnayan went live for couples on 2026-07-24, the form's action
+  // was deleted, and prod held 0 rows. The key STAYS because the scan unions
+  // every historical CREATE TABLE and never reads DROP TABLE, so G3 would
+  // otherwise report a full_name column that no longer exists as unclassified.
   couple_waitlist_signups:
-    'A prospective customer who joined the pre-launch waitlist: full name + email, submitted from the public form before any account exists. Not a customer yet, and not covered by any of the five categories. DPO: declare, or fold into "customers".',
+    'Table DROPPED 2026-09-18 — the pre-launch couple waitlist (full name + email, no account). Never held a row in production. Nothing is stored; no DPO question remains.',
   dependents:
     'A guardian-held person — a child under 18 or an elder — whose birthdate, sex and religion a user stores. The most sensitive record on the platform and counsel-gated: the table exists but every write is held behind a default-OFF flag, so it is empty in production. DPO: this needs its own category and almost certainly its own DPIA before the flag is ever flipped.',
   event_sponsors:

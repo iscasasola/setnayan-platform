@@ -86,6 +86,7 @@ export default async function PapicPoolPage() {
         <PoolGrid
           initialTiles={firstPage.tiles}
           initialCursor={firstPage.nextCursor}
+          initialUnreadable={firstPage.unreadable}
           chapters={{
             eventDateIso: (ev.event_date as string | null) ?? null,
             mode: (ev.event_type as string | null) === 'travel' ? 'trip' : 'countdown',

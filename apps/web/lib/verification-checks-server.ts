@@ -169,6 +169,9 @@ export async function readPayoutNameFacts(
         .select('vendor_profile_id, method_type, label, provider, account_name')
         .in('vendor_profile_id', ids),
     ]);
+    if (profiles.error) {
+      console.error('[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (readPayoutNameFacts)', profiles.error);
+    }
     if (!profiles.error && profiles.data) {
       for (const p of profiles.data as Array<Record<string, unknown>>) {
         const f = out[String(p.vendor_profile_id)];
@@ -220,7 +223,11 @@ async function otherShopsHoldingNumber(
       .eq('registration_number_normalized', normalized)
       .neq('vendor_profile_id', vendorProfileId)
       .limit(5);
-    if (error || !data) return [];
+    if (error) {
+      console.error('[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (otherShopsHoldingNumber)', error);
+      return [];
+    }
+    if (!data) return [];
     return (data as Array<{ business_name?: string | null; vendor_profile_id: string }>).map(
       (r) => r.business_name?.trim() || r.vendor_profile_id,
     );

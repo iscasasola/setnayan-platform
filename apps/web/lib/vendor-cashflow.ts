@@ -210,3 +210,38 @@ export function buildPaydayTimeline(
 export function manilaTodayIso(now: Date = new Date()): string {
   return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 }
+
+/** One booking's money, as the supplier's customer page prints it. */
+export type BookingMoney = {
+  rows: PaydayInstallmentRow[];
+  /** Sum of confirmed (received) amounts. */
+  receivedPhp: number;
+  /** Sum of every resolvable amount — the booked total. */
+  expectedPhp: number;
+};
+
+/**
+ * AREA-VENDOR (2026-09-19) — one booking's slice of `vendor_payday_installments()`.
+ * The customer page's Payments and Quote tabs read only the frozen plan, which
+ * production has never held, so a supplier with a confirmed ₱2,000 deposit was
+ * told "No payments to confirm yet" and "No formal payment schedule". This is
+ * the same timeline Today and /payday read (plan, or — with no plan — the
+ * logged payments and the balance), cut to one event and one booking row.
+ */
+export function bookingMoney(
+  rows: PaydayInstallmentRow[],
+  eventId: string,
+  eventVendorId: string | null,
+): BookingMoney {
+  const mine = rows
+    .filter((r) => r.event_id === eventId && (eventVendorId == null || r.event_vendor_id === eventVendorId))
+    .sort((a, b) => a.seq - b.seq);
+  let receivedPhp = 0;
+  let expectedPhp = 0;
+  for (const r of mine) {
+    if (r.amount_php === null) continue;
+    expectedPhp += r.amount_php;
+    if (r.confirmed) receivedPhp += r.amount_php;
+  }
+  return { rows: mine, receivedPhp, expectedPhp };
+}

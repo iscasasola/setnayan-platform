@@ -71,6 +71,7 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
         .select('event_id')
         .eq('is_sample', true)
         .eq('event_type', 'wedding');
+      if (error) console.error('[supabase-error] lib/alaala-orb.ts · from:events.select', error);
       if (error) return [];
       eventIds = (data ?? [])
         .map((r) => (r as { event_id?: string }).event_id)
@@ -110,6 +111,7 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
       .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: false })
       .limit(limit);
+    if (error) console.error('[supabase-error] lib/alaala-orb.ts · from:papic_guest_captures.select', error);
     if (error) return [];
     rows = (data ?? []) as Array<{
       r2_object_key: string | null;

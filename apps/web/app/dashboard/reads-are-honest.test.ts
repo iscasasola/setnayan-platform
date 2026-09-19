@@ -524,12 +524,16 @@ test('an error that is bound is not allowed to be thrown away', () => {
 });
 
 /**
- * The three cards that carried `if (error) return null; // pre-migration
+ * The cards that carried `if (error) return null; // pre-migration
  * graceful-degrade (42P01)`. The COMMENT named one cause; the CODE swallowed
  * every cause. Each must now narrow to the cause it names.
+ *
+ * There were three. `thread-quotations-card.tsx` was DELETED on 2026-09-18: the
+ * quote moved INTO the conversation (#5584, owner: "place the quotation inside
+ * the chat box"), the card had no importer for a week, and the both-ends guard
+ * (#5625) listed it as an orphan. A deleted file cannot be read here.
  */
 const MUST_NARROW = [
-  '[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx',
   '[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx',
   '[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx',
 ];

@@ -273,6 +273,7 @@ export async function readEventPoolStatus(
     const { data, error } = await admin.rpc('papic_event_pool_status', {
       p_event_id: eventId,
     });
+    if (error) console.error('[supabase-error] lib/papic-event-pool.ts · rpc:papic_event_pool_status', error);
     if (error) return { ok: false, status: EVENT_POOL_ABSENT };
     // SETOF-returning plpgsql surfaces as an array through PostgREST.
     const row = Array.isArray(data)

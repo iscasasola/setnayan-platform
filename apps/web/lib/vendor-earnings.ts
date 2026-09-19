@@ -29,7 +29,10 @@ export async function getSetnayanFeePct(
       .select('setnayan_pay_fee_pct')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data) return SETNAYAN_PAY_FEE_PCT;
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/vendor-earnings.ts · from:platform_settings.select', error);
+      return SETNAYAN_PAY_FEE_PCT;
+    }
     const pct = (data as { setnayan_pay_fee_pct?: number | null })
       .setnayan_pay_fee_pct;
     if (pct == null || !Number.isFinite(Number(pct))) {

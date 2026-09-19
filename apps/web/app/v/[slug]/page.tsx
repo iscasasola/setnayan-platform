@@ -53,6 +53,7 @@ import {
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   fetchTrustedByVendors,
+  TRUSTED_BY_UNREADABLE,
   type TrustedByVendor,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
@@ -990,7 +991,11 @@ export async function renderVendorBySlug({
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
-  const trustedBy = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+  // A REFUSED read is not the same [] — say we couldn't check instead of
+  // silently reading as "nobody endorsed this shop" (S41, reads-are-honest).
+  const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+  const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
+  const trustedBy = trustedByUnreadable ? [] : trustedByRead;
 
   // Verified "typical price" (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
   // The median of this vendor's OWN locked-booking declared prices. Read ONLY
@@ -2998,7 +3003,11 @@ export async function renderVendorBySlug({
         />
 
         {showTrustedBy ? (
-          <TrustedBySection vendors={trustedBy} businessName={displayLabel} />
+          <TrustedBySection
+            vendors={trustedBy}
+            businessName={displayLabel}
+            unreadable={trustedByUnreadable}
+          />
         ) : null}
 
         <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
@@ -3626,10 +3635,26 @@ const FAVORITES_MIN_DISPLAY = 3;
 function TrustedBySection({
   vendors,
   businessName,
+  unreadable,
 }: {
   vendors: ReadonlyArray<TrustedByVendor>;
   businessName: string;
+  /** true = the vendor_profiles half of the read was refused; `vendors` is []
+   *  because nothing was read, not because nobody endorsed this shop. */
+  unreadable: boolean;
 }) {
+  if (unreadable) {
+    return (
+      <section className="space-y-1.5 border-b border-ink/10 py-8">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Trusted by
+        </h2>
+        <p className="text-sm text-ink/65">
+          We couldn&rsquo;t load {businessName}&rsquo;s vendor endorsements right now.
+        </p>
+      </section>
+    );
+  }
   if (vendors.length === 0) return null;
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">

@@ -337,7 +337,7 @@ export function WebsiteEditor({
           onChange={(e) => setAboutVal(e.target.value)}
           maxLength={MICROSITE_ABOUT_MAX}
           rows={3}
-          placeholder="Two or three sentences on who you are and the couples you shoot for."
+          placeholder="Two or three sentences on who you are and the couples you work with."
           className="input-field w-full"
           aria-label="About"
         />

@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
+import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -793,7 +794,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // this field, so this is the one place it is folded. Display only: no
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
-      deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
@@ -1643,6 +1643,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         supabase,
         eventId,
         nowMs: Date.now(),
+        // One headcount for the whole bench — each card compares it with the
+        // count that supplier was asked with ("Guest count changed", SUP-2).
+        livePax: await resolveLivePax(supabase, eventId),
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,
@@ -2554,6 +2557,7 @@ async function sweepRipeReviewRequests(
         .eq('vendor_id', v.vendor_id)
         .in('status', ['contracted', 'deposit_paid'])
         .select('vendor_id');
+      if (updErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/page.tsx · from:event_vendors.update', updErr);
       if (updErr || !updated || updated.length === 0) continue;
       await emitNotification({
         userId: coupleUserId,

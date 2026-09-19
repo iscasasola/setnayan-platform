@@ -97,7 +97,10 @@ export async function isPersistableCanonicalService(
     .select('canonical_service')
     .eq('canonical_service', key)
     .maybeSingle();
-  if (error) return false;
+  if (error) {
+    console.error('[supabase-error] lib/requirements-capture.ts · from:canonical_service_schemas.select', error);
+    return false;
+  }
   return Boolean(data?.canonical_service);
 }
 

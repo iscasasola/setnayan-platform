@@ -79,6 +79,11 @@ export const getOnboardingTiles = cache(async (eventType: string = 'wedding'): P
       .eq('tier', 2)
       .eq('status', 'active')
       .order('sort_order', { ascending: true });
+    if (error) {
+      console.error('[supabase-error] lib/onboarding-refinements.ts · from:service_categories.select', error, {
+        event_type: eventType,
+      });
+    }
     if (error || !data || data.length === 0) return [];
     const scoped = (data as TileRow[]).filter((t) => {
       // Admin-only tiles (tile-level marketplace_hidden) never surface in the

@@ -313,7 +313,11 @@ export async function fetchVendorBusinessStartDate(
       .select('in_business_since_date')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] lib/vendor-profile.ts · from:vendor_profiles.select (in_business_since_date)', error);
+      return null;
+    }
+    if (!data) return null;
     return (data as { in_business_since_date: string | null }).in_business_since_date ?? null;
   } catch {
     return null;
@@ -450,7 +454,11 @@ export async function fetchVendorCustomerSourceCounts(
   const { data, error } = await supabase.rpc('vendor_customer_source_counts', {
     p_vendor_profile_id: vendorProfileId,
   });
-  if (error || !data) return { inHouse: 0, imported: 0 };
+  if (error) {
+    console.error('[supabase-error] lib/vendor-profile.ts · rpc:vendor_customer_source_counts', error);
+    return { inHouse: 0, imported: 0 };
+  }
+  if (!data) return { inHouse: 0, imported: 0 };
   // RETURNS TABLE → supabase returns an array of rows; take the first.
   const row = (Array.isArray(data) ? data[0] : data) as
     | { in_house?: number | string; imported?: number | string }

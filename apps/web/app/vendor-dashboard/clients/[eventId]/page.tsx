@@ -105,6 +105,8 @@ import {
 } from './actions';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { BookingMoneySummary } from './_components/booking-money-summary';
+import { bookingMoney, type BookingMoney, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -766,8 +768,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flag-ON Payments tab can feed the live VendorPaymentLive surface exactly as
   // the thread page does. Unused on the flag-OFF path, so its render is unchanged.
   let planRowsAll: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
+  // AREA-VENDOR — the money on record for a booking with NO frozen plan (the
+  // only kind production has): logged payments + the balance, from the same
+  // ownership-gated timeline Today and /payday read. Empty when nothing is
+  // logged, or when the read is refused (logged, never shown as money).
+  let ledgerMoney: BookingMoney = { rows: [], receivedPhp: 0, expectedPhp: 0 };
   if (isBooked) {
-    const [plans, pending] = await Promise.all([
+    const [plans, pending, payday] = await Promise.all([
       fetchPlanProgressForVendor({
         adminClient: admin,
         eventId,
@@ -778,8 +785,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
+      supabase.rpc('vendor_payday_installments'),
     ]);
     planRowsAll = plans;
+    if (payday.error) {
+      logQueryError('VendorClientPage.paydayInstallments', payday.error, { eventId }, 'graceful_degrade');
+    } else if (plans.length === 0) {
+      ledgerMoney = bookingMoney(
+        (payday.data ?? []) as unknown as PaydayInstallmentRow[],
+        eventId,
+        eventVendorId,
+      );
+    }
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
@@ -1426,6 +1443,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
+      ledgerMoney={ledgerMoney}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1583,9 +1601,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Payments
           </p>
+          <BookingMoneySummary money={ledgerMoney} />
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No payments to
-            confirm yet. When {eventName} logs a payment, confirm it here.
+            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
+            {ledgerMoney.rows.length > 0
+              ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
+              : `No payments to confirm yet. When ${eventName} logs a payment, confirm it here.`}
           </p>
         </div>
       ) : (
@@ -1852,7 +1873,8 @@ function VendorCompletionCard({
 //
 // Action bar: shortcut links only (no new call/quote logic). Chat + Call both
 // open the thread (the P2P call surface lands there per the Workspace spec);
-// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// Quote deep-links the thread's one quote panel (#build-quote — the builder
+// with the saved-template shortcut inside it, SUP-H); Files jumps to this
 // card's Files tab; Details is the current view (inert).
 // ===========================================================================
 function ReturningMarkerAndActions({
@@ -1918,7 +1940,7 @@ function ReturningMarkerAndActions({
         <Link
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              ? `/vendor-dashboard/messages/${threadId}#build-quote`
               : '/vendor-dashboard/proposals'
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
@@ -2568,6 +2590,8 @@ function QuoteTab(props: {
   planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
+  /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
+  ledgerMoney: BookingMoney;
   threadId: string | null;
   /**
    * "Ask for a payment" — passed in rather than built here so this component
@@ -2576,7 +2600,7 @@ function QuoteTab(props: {
    */
   askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, threadId, askPanel } =
+  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, ledgerMoney, threadId, askPanel } =
     props;
   const steps = planStepRows?.steps ?? null;
 
@@ -2716,6 +2740,8 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
+        ) : ledgerMoney.rows.length > 0 ? (
+          <BookingMoneySummary money={ledgerMoney} />
         ) : (
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule

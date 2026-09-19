@@ -3,7 +3,7 @@ import { Users } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { setPapicGuestCaptureEarly } from '../guest-window-actions';
 import { SettingRow } from './setting-row';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -65,8 +65,39 @@ export async function GuestCamerasChoice({
   // Nothing to schedule if guest cameras are not on for this event. Uses the
   // admin client because the pass/pool check reads rows the couple's own client
   // is not entitled to — the same call the guest camera page makes.
-  const active = await eventPapicGuestActive(createAdminClient(), eventId);
-  if (!active) return null;
+  //
+  // 🔴 THREE STATES. 'off' hides the row. 'unknown' is a failed check, and it
+  // says so: hiding the switch on a failed read looks exactly like a
+  // celebration with no guest cameras, and the couple loses the control with
+  // no sign that anything went wrong.
+  const access = await eventPapicGuestAccess(createAdminClient(), eventId);
+  if (access === 'off') return null;
+  if (access !== 'on') {
+    const body = (
+      <p className="text-sm text-ink/65">
+        We couldn&rsquo;t check your guest cameras just now, so we can&rsquo;t show this
+        setting. Nothing you set before has changed. Reload the page to try again.
+      </p>
+    );
+    return variant === 'row' ? (
+      <SettingRow
+        icon={<Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+        label="When guests can shoot"
+        value="Couldn’t check"
+        sheetTitle="When guests can shoot"
+      >
+        {body}
+      </SettingRow>
+    ) : (
+      <section className="space-y-3 sn-tile p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Users aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
+          When guests can shoot
+        </h2>
+        {body}
+      </section>
+    );
+  }
 
   const row = data as {
     papic_guest_capture_early: boolean | null;

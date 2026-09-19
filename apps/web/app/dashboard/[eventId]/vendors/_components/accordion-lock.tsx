@@ -758,9 +758,9 @@ function DownpaymentModal({
         <div className="flex items-start gap-2.5 pr-6">
           <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
           <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">Pay the downpayment to lock</h3>
+            <h3 className="text-sm font-semibold text-ink">Pay the deposit to lock</h3>
             <p className="text-xs leading-snug text-ink/70">
-              To lock <strong>{vendorName}</strong>, pay the downpayment through one of
+              To lock <strong>{vendorName}</strong>, pay the deposit through one of
               their methods below, then attach a screenshot so they can confirm. Your
               date is held the moment you submit. Setnayan never touches the money — you
               pay {vendorName} directly.
@@ -864,7 +864,7 @@ function DownpaymentModal({
                   Locking…
                 </>
               ) : (
-                'Lock & submit downpayment'
+                'Lock & submit deposit'
               )}
             </button>
             <button

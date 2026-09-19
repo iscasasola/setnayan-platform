@@ -76,6 +76,7 @@ export function PublicHideableWidget({
             eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
             nowTrigger={isGuestNowTriggerEnabled()}
             estimated={scheduleEstimated}
+            eventType={event.event_type}
           />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>

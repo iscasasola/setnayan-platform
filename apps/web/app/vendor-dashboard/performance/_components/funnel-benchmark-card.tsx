@@ -49,10 +49,33 @@ function formatBandMid(metric: MetricBenchmark): string {
   return `${Math.round(metric.band.p50)}%`;
 }
 
-export function FunnelBenchmarkCard({ benchmark }: { benchmark: FunnelBenchmark }) {
+export function FunnelBenchmarkCard({
+  benchmark,
+  unreadable = false,
+}: {
+  benchmark: FunnelBenchmark;
+  /** true = the benchmark read was REFUSED, not below the min-N floor — say
+   *  we couldn't check, never "not enough shops like yours yet" (S41c). */
+  unreadable?: boolean;
+}) {
   /* Only metrics that have BOTH an own value and a band can be placed. Drawing a
      marker without one of them would be inventing a position. */
   const placed = benchmark.metrics.filter((m) => m.percentile !== null && m.band !== null);
+
+  if (unreadable) {
+    return (
+      <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
+        <TrendingUp aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
+        <p className="mt-3 text-sm font-medium text-ink">
+          We couldn&rsquo;t load your peer comparison right now
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
+          This is on our side, not a sign your category is quiet. Refresh in a
+          moment.
+        </p>
+      </div>
+    );
+  }
 
   if (!benchmark.hasBand || placed.length === 0) {
     return (

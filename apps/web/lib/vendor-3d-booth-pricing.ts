@@ -133,7 +133,11 @@ export async function fetchVendor3dBoothPricePhp(
       .eq('sku_code', VENDOR_3D_BOOTH_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return VENDOR_3D_BOOTH_FALLBACK_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-3d-booth-pricing: price (using fallback)', error);
+      return VENDOR_3D_BOOTH_FALLBACK_PHP;
+    }
+    if (!data) return VENDOR_3D_BOOTH_FALLBACK_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : VENDOR_3D_BOOTH_FALLBACK_PHP;
   } catch {

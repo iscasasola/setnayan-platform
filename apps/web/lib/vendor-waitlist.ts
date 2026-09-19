@@ -147,6 +147,7 @@ export async function notifyWaitlistIfBookingReleased(
     .select('marketplace_vendor_id, event_id')
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
+  if (bookingErr) console.error('[supabase-error] lib/vendor-waitlist.ts · from:event_vendors.select', bookingErr);
   // A hard-deleted row is the host-cancel path: the booking is gone, so there
   // is nothing left to resolve the vendor + date from here. That path passes
   // them explicitly via notifyWaitlistForFreedDate below.

@@ -61,6 +61,7 @@ import {
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
+import { anyAwaitingVendor } from '@/lib/lock-request-state';
 
 const CONFIRMED_SET = new Set<string>(
   CONFIRMED_VENDOR_STATUSES as readonly string[],
@@ -355,6 +356,13 @@ export function pickTodaysOneThing(
   now: Date = new Date(),
   /** See countUnlockedCategories — same contract, same default. */
   groups: ReadonlyArray<PlanGroup> = PLAN_GROUPS,
+  /**
+   * SUP-69 · `isLockHandshakeEnabled()`, passed IN — a pure core never reads
+   * the env. With it on, a category where the couple has ASKED a supplier and
+   * is waiting on the answer is not "today's one thing": there is nothing left
+   * for them to do there. Default `false` is byte-identical to before.
+   */
+  lockHandshakeEnabled = false,
 ): ResolvedTask | null {
   // No wedding date → caller's hero card shifts to the date-prompt
   // variant. Returning null signals that semantic.
@@ -379,6 +387,11 @@ export function pickTodaysOneThing(
     const picks = bucketed.get(group.id) ?? [];
     if (hasLockedPick(picks)) {
       // Already locked — skip. The host has nothing to do here today.
+      continue;
+    }
+    if (hasOutstandingAsk(picks, lockHandshakeEnabled)) {
+      // Asked, waiting on the supplier — nothing for the host to do either.
+      // Telling them to "Book your caterer" here reads as if the ask never went.
       continue;
     }
     const candidate = classify(group, weddingDateIso, now);
@@ -485,6 +498,24 @@ function hasLockedPick(picks: ReadonlyArray<PlanCardPick>): boolean {
     if (p.status === 'locked') return true;
   }
   return false;
+}
+
+/**
+ * SUP-69 · an outstanding lock ask in this group, decided by the ONE shared
+ * core (`lockRequestStateOf`) — never by reading `raw_lock_request_state`
+ * directly, which can carry a stale 'pending' on a promoted row. Catch-all rows
+ * are skipped for the same reason `hasLockedPick` skips them.
+ */
+export function hasOutstandingAsk(
+  picks: ReadonlyArray<PlanCardPick>,
+  lockHandshakeEnabled: boolean,
+): boolean {
+  return anyAwaitingVendor(
+    picks
+      .filter((p) => !p.bucketed_by_fallback)
+      .map((p) => ({ status: p.raw_status, lock_request_state: p.raw_lock_request_state ?? null })),
+    lockHandshakeEnabled,
+  );
 }
 
 function classify(

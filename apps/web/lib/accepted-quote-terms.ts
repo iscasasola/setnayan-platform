@@ -64,6 +64,8 @@ export type QuoteScheduleRow = {
   isFirstPayment: boolean;
   /** "on lock" · "14 days before the event (Oct 3, 2026)" · "on the event day". */
   dueText: string;
+  /** The calendar date alone ("Feb 27, 2027") when the event date is known, else null. */
+  dueOn: string | null;
 };
 
 export type AcceptedQuoteTerms = {
@@ -121,6 +123,22 @@ export function installmentDueText(
   return 'on lock';
 }
 
+/** The calendar date an installment falls due, when the event date is known. */
+export function installmentDueOn(
+  due: InstallmentDue,
+  offsetDays: number,
+  eventDate: string | null | undefined,
+): string | null {
+  if (due === 'on_lock') return null;
+  const at =
+    typeof eventDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(eventDate)
+      ? new Date(`${eventDate.slice(0, 10)}T00:00:00Z`)
+      : null;
+  if (!at || Number.isNaN(at.getTime())) return null;
+  const d = due === 'before_event' ? Math.max(0, int(offsetDays)) : 0;
+  return shortDate(new Date(at.getTime() - d * 86_400_000));
+}
+
 function readLines(raw: unknown): QuoteLine[] {
   if (!Array.isArray(raw)) return [];
   const out: QuoteLine[] = [];
@@ -164,6 +182,7 @@ export function acceptedQuoteTerms(
         offsetDays: Math.max(0, int(i.offset_days)),
         isFirstPayment: isFirst,
         dueText: installmentDueText(due, int(i.offset_days), eventDate),
+        dueOn: installmentDueOn(due, int(i.offset_days), eventDate),
       });
       if (isFirst && firstPaymentCentavos === null && amount > 0) firstPaymentCentavos = amount;
     }
@@ -304,4 +323,338 @@ export function supplierFirstPaymentStatus(args: {
     return { state: 'recorded_short', line: `You asked for ${asked}. They recorded ${got} — less than you asked for.` };
   }
   return { state: 'recorded', line: `You asked for ${asked}. They recorded ${got} — confirm below once it reaches you.` };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ONE FIRST PAYMENT, ONE DOOR (2026-09-20 · follow-ups to #5717).
+//
+// Two couple actions write `event_vendor_payments`: "Record deposit"
+// (`recordDeposit`) and "+ Log a payment" (`logPayment`). Only the first holds
+// the date, notifies the supplier, stamps `deposit_recorded_at`, and (through
+// `stamp_event_vendor_payment_deposit_record`) marks its row as THE deposit. A
+// first payment logged through the second door counted as Paid, held nothing,
+// and left the deposit card saying the deposit was still owed — and recording
+// it there afterwards counted the same money twice.
+//
+// The shipped design already has ONE place for the first payment: the deposit
+// card, with its own anchor and link (`depositStepHref`, lib/deposit-pay-step.ts
+// — "Pay your deposit" everywhere else in the app routes there). So the second
+// door ROUTES to it rather than hiding: the couple is told where the first
+// payment goes, and the log opens for later installments once it is recorded.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Which door "+ Log a payment" (the itemization card on the Payments tab and
+ * /budget) is for this booking:
+ *   • 'log'           — log a payment here. Off-platform suppliers: no one
+ *                       confirms a deposit and there is no shared calendar.
+ *   • 'amount_to_pay' — a Setnayan supplier. Their ONE visible door is the
+ *                       "Amount to pay" card (owner, 2026-09-20: "it is better
+ *                       to say amount to pay. since this is not just for the
+ *                       downpayment but also for the next payments"), which
+ *                       takes the first payment through `recordDeposit` and
+ *                       later ones through `logPayment` — `moneyStep` decides
+ *                       which. The log here points there instead of being a
+ *                       second way in.
+ *   • 'unknown'       — the booking row could not be read. NOT 'log': logging
+ *                       blind is exactly how a first payment slipped past the
+ *                       deposit.
+ */
+export type PaymentDoor = 'log' | 'amount_to_pay' | 'unknown';
+
+export function paymentDoor(args: {
+  isMarketplaceVendor: boolean;
+  /** `event_vendors.deposit_recorded_at`; undefined = not read. */
+  depositRecordedAt: string | null | undefined;
+}): PaymentDoor {
+  if (!args.isMarketplaceVendor) return 'log';
+  if (args.depositRecordedAt === undefined) return 'unknown';
+  return 'amount_to_pay';
+}
+
+export type LogPaymentInput = {
+  isMarketplaceVendor: boolean;
+  /** `event_vendors.deposit_recorded_at`; undefined = not read. */
+  depositRecordedAt: string | null | undefined;
+  /** Rows on this booking's ledger; null = the read was refused. */
+  paymentsOnLedger: number | null;
+};
+
+/** `logPayment`'s decision — the same rule the card draws, enforced on the server. */
+/**
+ * `logPayment`'s decision — enforced on the server whichever screen posted.
+ * A Setnayan supplier's FIRST payment (no deposit recorded, nothing on the
+ * ledger) may only go through `recordDeposit`: that is the write that holds
+ * the date, asks the supplier to confirm, and marks the row as THE deposit.
+ * Later payments, off-platform suppliers, and a booking that already has money
+ * on the ledger (which `decideDepositRecord` will not re-record) may log.
+ * A refused read refuses — it cannot tell a first payment from a later one.
+ */
+export function decideLogPayment(
+  args: LogPaymentInput & { vendorName?: string | null },
+): { ok: true } | { ok: false; reason: 'first_payment' | 'unknown'; message: string } {
+  if (!args.isMarketplaceVendor) return { ok: true };
+  const who = args.vendorName?.trim() || 'this supplier';
+  if (args.depositRecordedAt === undefined || (!args.depositRecordedAt && args.paymentsOnLedger === null)) {
+    return {
+      ok: false,
+      reason: 'unknown',
+      message: `We couldn't check your payments to ${who}, so nothing was logged. Please try again.`,
+    };
+  }
+  if (!args.depositRecordedAt && args.paymentsOnLedger === 0) {
+    return {
+      ok: false,
+      reason: 'first_payment',
+      message: `This is your first payment to ${who}. Record it under "Amount to pay" on their Payments tab, so your date is held and they're asked to confirm it.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * `recordDeposit`'s ledger decision. May this record stand, and does it add a
+ * ledger row?
+ *   • already recorded → yes, NO new row (a re-send keeps the one deposit row;
+ *     this was the inline `if (!ev.deposit_recorded_at)` guard).
+ *   • not recorded, ledger unreadable → refuse (fail closed).
+ *   • not recorded, money already logged → refuse: that money is already on
+ *     the ledger, and recording it here would count it twice. The couple is
+ *     told how to turn it into the deposit instead.
+ *   • not recorded, empty ledger → yes, one row.
+ */
+export function decideDepositRecord(args: {
+  depositRecordedAt: string | null;
+  paymentsOnLedger: number | null;
+  paymentsLoggedPhp?: number | null;
+  vendorName?: string | null;
+}): { ok: true; insertLedgerRow: boolean } | { ok: false; message: string } {
+  if (args.depositRecordedAt) return { ok: true, insertLedgerRow: false };
+  if (args.paymentsOnLedger === null) {
+    return {
+      ok: false,
+      message: "We couldn't check your payments to this supplier, so nothing was recorded. Please try again.",
+    };
+  }
+  if (args.paymentsOnLedger > 0) {
+    const who = args.vendorName?.trim() || 'this supplier';
+    const amount =
+      typeof args.paymentsLoggedPhp === 'number' && args.paymentsLoggedPhp > 0
+        ? ` (${pesoFromCentavos(Math.round(args.paymentsLoggedPhp * 100))})`
+        : '';
+    return {
+      ok: false,
+      message: `You've already logged a payment to ${who}${amount}, so recording a deposit now would count that money twice. If that payment was your deposit, delete it from your payments list, then record it here.`,
+    };
+  }
+  return { ok: true, insertLedgerRow: true };
+}
+
+export type NextQuoteInstallment = {
+  label: string;
+  /** What is still owed on THIS installment, after what is already paid. */
+  amountCentavos: number;
+  dueText: string;
+  dueOn: string | null;
+  isFirstPayment: boolean;
+};
+
+/**
+ * The next installment the accepted quote asks for, given what has been paid.
+ * Payments settle the schedule in order: ₱3,350 paid against [₱3,350 on lock,
+ * ₱13,400 before the event] → next is the ₱13,400 balance; ₱5,000 paid → ₱11,750
+ * of it. A PREFILL only — a partial payment is allowed (no rule in the code
+ * says otherwise; the minimum applies to the first payment alone).
+ * null = no schedule, all paid, or `paidCentavos` unknown (never prefill a
+ * guess from a refused read).
+ */
+export function nextQuoteInstallment(
+  terms: AcceptedQuoteTerms | null,
+  paidCentavos: number | null,
+): NextQuoteInstallment | null {
+  if (!terms || terms.schedule.length === 0 || paidCentavos === null) return null;
+  let cumulative = 0;
+  for (const row of terms.schedule) {
+    cumulative += row.amountCentavos;
+    if (paidCentavos < cumulative) {
+      return {
+        label: row.label,
+        amountCentavos: Math.min(row.amountCentavos, cumulative - paidCentavos),
+        dueText: row.dueText,
+        dueOn: row.dueOn,
+        isFirstPayment: row.isFirstPayment,
+      };
+    }
+  }
+  return null;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE NEXT MONEY STEP — one answer for every surface that shows a booked
+// supplier's money: the "Amount to pay" card on the Payments tab, the chat
+// quote card (both ends), and the public proposal page (owner, live,
+// 2026-09-20: "i do not see the confirmation here and the payment action?").
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MoneyStepInput = {
+  terms: AcceptedQuoteTerms | null;
+  /** The booking is locked (a CONFIRMED status). Before that nothing is owed. */
+  booked: boolean;
+  /** The booking's deposit markers; undefined = the row could not be read. */
+  deposit:
+    | { recordedAt: string | null; acknowledgedAt: string | null; declinedAt: string | null }
+    | undefined;
+  /**
+   * The booking's ledger; null = the read was refused. `paidCentavos` counts
+   * every logged row; `recordedFirstCentavos` is the `is_deposit_record` row.
+   */
+  ledger: { count: number; paidCentavos: number; recordedFirstCentavos: number | null } | null;
+};
+
+export type MoneyStep =
+  | { kind: 'not_booked' }
+  | { kind: 'unknown' }
+  /** Pay and record the first payment — `recordDeposit`, its minimum enforced. */
+  | {
+      kind: 'first_payment_due';
+      action: 'record_deposit';
+      label: string;
+      amountCentavos: number | null;
+      minimumCentavos: number | null;
+      /** The supplier said it never arrived; this is "send it again". */
+      resend: boolean;
+    }
+  /** Recorded; the supplier has not confirmed. Nothing more to pay yet. */
+  | { kind: 'first_payment_sent'; recordedCentavos: number | null }
+  /** A later installment — `logPayment`, prefilled, never a minimum. */
+  | {
+      kind: 'installment_due';
+      action: 'log_payment';
+      label: string;
+      amountCentavos: number | null;
+      firstConfirmed: boolean;
+    }
+  | { kind: 'paid_in_full'; paidCentavos: number };
+
+function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
+  const row = terms?.schedule.find((r) => r.isFirstPayment);
+  return `${row?.label || 'First payment'} · locks the date`;
+}
+
+function laterStep(
+  terms: AcceptedQuoteTerms | null,
+  paidCentavos: number | null,
+  firstConfirmed: boolean,
+): MoneyStep {
+  const next = nextQuoteInstallment(terms, paidCentavos);
+  if (next) {
+    return {
+      kind: 'installment_due',
+      action: 'log_payment',
+      label: `${next.label} · due ${next.dueOn ?? next.dueText}`,
+      amountCentavos: next.amountCentavos,
+      firstConfirmed,
+    };
+  }
+  if (terms && terms.schedule.length > 0 && paidCentavos !== null) {
+    return { kind: 'paid_in_full', paidCentavos };
+  }
+  // No schedule to read (or the ledger was refused): still a door, no prefill.
+  return { kind: 'installment_due', action: 'log_payment', label: 'Next payment', amountCentavos: null, firstConfirmed };
+}
+
+export function moneyStep(input: MoneyStepInput): MoneyStep {
+  if (!input.booked) return { kind: 'not_booked' };
+  const dep = input.deposit;
+  if (dep === undefined) return { kind: 'unknown' };
+  const paid = input.ledger ? input.ledger.paidCentavos : null;
+  if (dep.acknowledgedAt) return laterStep(input.terms, paid, true);
+  if (dep.recordedAt && dep.declinedAt) {
+    return {
+      kind: 'first_payment_due',
+      action: 'record_deposit',
+      label: firstPaymentLabel(input.terms),
+      amountCentavos: input.ledger?.recordedFirstCentavos ?? input.terms?.firstPaymentCentavos ?? null,
+      minimumCentavos: input.terms?.firstPaymentCentavos ?? null,
+      resend: true,
+    };
+  }
+  if (dep.recordedAt) {
+    return { kind: 'first_payment_sent', recordedCentavos: input.ledger?.recordedFirstCentavos ?? null };
+  }
+  if (!input.ledger) return { kind: 'unknown' };
+  // Money already logged with no deposit recorded (older rows, or the Budget
+  // page's "already paid"): `decideDepositRecord` will not record it again, so
+  // the next step is the next installment after it.
+  if (input.ledger.count > 0) return laterStep(input.terms, paid, false);
+  return {
+    kind: 'first_payment_due',
+    action: 'record_deposit',
+    label: firstPaymentLabel(input.terms),
+    amountCentavos: input.terms?.firstPaymentCentavos ?? null,
+    minimumCentavos: input.terms?.firstPaymentCentavos ?? null,
+    resend: false,
+  };
+}
+
+/**
+ * The one line each end reads about the step — the couple's and the
+ * supplier's ends of the same fact. null = nothing to say (not booked).
+ */
+export function moneyStepLine(
+  step: MoneyStep,
+  viewer: 'couple' | 'vendor',
+  otherName: string,
+): string | null {
+  const amt = (c: number | null) => (c === null ? 'the payment' : pesoFromCentavos(c));
+  const couple = viewer === 'couple';
+  switch (step.kind) {
+    case 'not_booked':
+      return null;
+    case 'unknown':
+      return couple
+        ? "We couldn't load your payments here. Open the Payments tab to see what is due."
+        : "We couldn't load this booking's payments here. Open the client to see them.";
+    case 'first_payment_due':
+      if (step.resend) {
+        return couple
+          ? `${otherName} says your first payment hasn't reached them. Your record is kept — send it again.`
+          : `You said the first payment hasn't reached you. Waiting for the couple to send it again.`;
+      }
+      return couple
+        ? `First payment ${amt(step.amountCentavos)} — due now`
+        : `Waiting for the ${amt(step.amountCentavos)} first payment`;
+    case 'first_payment_sent':
+      return couple
+        ? `${amt(step.recordedCentavos)} recorded — waiting for ${otherName} to confirm`
+        : `${amt(step.recordedCentavos)} recorded by the couple — confirm once it reaches you`;
+    case 'installment_due': {
+      const lead = step.firstConfirmed ? 'First payment confirmed. ' : '';
+      const what = step.amountCentavos === null ? step.label : `${step.label} · ${pesoFromCentavos(step.amountCentavos)}`;
+      return couple ? `${lead}Amount to pay: ${what}` : `${lead}Next from the couple: ${what}`;
+    }
+    case 'paid_in_full':
+      return `Paid in full — ${pesoFromCentavos(step.paidCentavos)}`;
+  }
+}
+
+/**
+ * The closing sentence of the note `lib/proposal-send.ts` writes when the
+ * supplier typed none — imported there, so the two cannot drift. True before a
+ * booking; FALSE after one (owner, live, 2026-09-20: the booked quote's page
+ * still said "nothing is booked or paid until you Lock").
+ */
+export const DEFAULT_QUOTE_NOTE_TAIL =
+  'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Lock.';
+
+/**
+ * The quote's note as the page should show it. A supplier's own words are
+ * always shown; the DEFAULT note's pre-booking sentence is dropped once the
+ * booking is real, because it is no longer true.
+ */
+export function quoteNoteShown(body: string | null | undefined, booked: boolean): string {
+  const text = (body ?? '').trim();
+  if (!booked || !text.endsWith(DEFAULT_QUOTE_NOTE_TAIL)) return text;
+  return text.slice(0, text.length - DEFAULT_QUOTE_NOTE_TAIL.length).trim();
 }

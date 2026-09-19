@@ -13,6 +13,7 @@ import {
   ACCEPTED_QUOTE_SELECT,
   acceptedQuoteTerms,
   decideDepositAmount,
+  decideDepositRecord,
   manualCostingEditorShown,
   type AcceptedQuoteRow,
 } from '@/lib/accepted-quote-terms';
@@ -706,6 +707,8 @@ export type FinalizeVendorResult =
       methods: CoupleFacingMethod[];
       /** The service's downpayment amount when resolvable (prefill), else null. */
       suggestedAmountPhp: number | null;
+      /** The accepted quote's on-lock first payment — the least the lock takes. null = none. */
+      minimumAmountPhp: number | null;
     }
   // Coordinator "propose a lock" (corpus spec § 4). When the caller is a
   // coordinator (a non-couple host) and NEXT_PUBLIC_COORDINATOR_PROPOSE_LOCK_ENABLED
@@ -1409,6 +1412,37 @@ export async function finalizeVendor(
   // the amount > 0, and the proof present. Invalid → return before committing.
   let dpChosen: CoupleFacingMethod | null = null;
   let dpAmountPhp: number | null = null;
+  // THE LOCK DOWNPAYMENT IS HELD TO THE SAME MINIMUM AS "Record deposit"
+  // (2026-09-20 · #5717 follow-up b). When the supplier's ACCEPTED quote names
+  // an on-lock first payment, less than it is refused — the one rule,
+  // `decideDepositAmount`, read the same way `recordDeposit` reads it: admin
+  // client, scoped to this booking's supplier, only after the RLS-gated
+  // `targetVendor` read proved the caller may act on it. Fails CLOSED: a
+  // refused read cannot tell "no minimum" from "₱3,350".
+  const readLockMinimum = async (): Promise<
+    { ok: true; minimumCentavos: number | null } | { ok: false }
+  > => {
+    if (!targetVendor.marketplace_vendor_id) return { ok: true, minimumCentavos: null };
+    const { data: quoteRows, error: quoteErr } = await createAdminClient()
+      .from('vendor_proposals')
+      .select(ACCEPTED_QUOTE_SELECT)
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+      .eq('status', 'accepted')
+      .limit(1);
+    if (quoteErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[finalizeVendor] accepted-quote read failed for vendor_id=${vendorId}:`, quoteErr.message);
+      return { ok: false };
+    }
+    const terms = acceptedQuoteTerms((quoteRows ?? []) as AcceptedQuoteRow[]);
+    // Only an ON-LOCK first payment is owed at the lock.
+    const first = terms?.schedule.find((r) => r.isFirstPayment) ?? null;
+    return {
+      ok: true,
+      minimumCentavos: first && first.due === 'on_lock' ? (terms?.firstPaymentCentavos ?? null) : null,
+    };
+  };
   if (dpWantGate && dpProvided) {
     const methods = await getDpMethods();
     dpChosen = methods.find((m) => m.payment_method_id === dpMethodIdRaw) ?? null;
@@ -1421,6 +1455,22 @@ export async function finalizeVendor(
     dpAmountPhp = parseMoney(formData.get('deposit_php'));
     if (dpAmountPhp === null || dpAmountPhp <= 0) {
       return { status: 'error', message: 'Enter the downpayment amount you paid.' };
+    }
+    const lockMinimum = await readLockMinimum();
+    if (!lockMinimum.ok) {
+      return {
+        status: 'error',
+        message:
+          "We couldn't check the payment terms on your accepted quote, so nothing was locked. Please try again.",
+      };
+    }
+    const dpDecision = decideDepositAmount({
+      amountPhp: dpAmountPhp,
+      minimumCentavos: lockMinimum.minimumCentavos,
+      vendorName: targetVendor.vendor_name as string | null,
+    });
+    if (!dpDecision.ok) {
+      return { status: 'error', message: dpDecision.message };
     }
     const proofEntry = formData.get('proof');
     if (!(proofEntry instanceof File) || proofEntry.size === 0) {
@@ -1442,12 +1492,19 @@ export async function finalizeVendor(
     if (!dpWantGate || dpProvided) return null;
     const methods = await getDpMethods();
     if (methods.length === 0) return null;
+    // The modal prefills the requested on-lock first payment and states it as
+    // the minimum. A refused read prefills nothing; the submit re-checks and
+    // refuses (above), so the prefill is never the only line of defence.
+    const lockMinimum = await readLockMinimum();
+    const minimumPhp =
+      lockMinimum.ok && lockMinimum.minimumCentavos ? lockMinimum.minimumCentavos / 100 : null;
     return {
       status: 'downpayment_required',
       vendorId,
       vendorName: targetVendor.vendor_name as string,
       methods,
-      suggestedAmountPhp: null,
+      suggestedAmountPhp: minimumPhp,
+      minimumAmountPhp: minimumPhp,
     };
   };
 
@@ -4541,6 +4598,40 @@ export async function recordDeposit(
     return { status: 'error', message: amountDecision.message };
   }
 
+  // ONE FIRST PAYMENT, ONE DOOR (2026-09-20). Money already logged through
+  // "+ Log a payment" before any deposit was recorded would be counted twice if
+  // this recorded it again; `decideDepositRecord` refuses that, and says how to
+  // turn the logged payment into the deposit. It also carries the old inline
+  // re-record guard: an already-recorded deposit adds NO second ledger row.
+  // Admin client, scoped to this booking, only after the RLS-gated read above —
+  // the ledger's RLS is couple-only, and a coordinator is held to the same rule.
+  let ledgerCount: number | null = null;
+  let ledgerPhp: number | null = null;
+  if (!ev.deposit_recorded_at) {
+    const { data: ledgerRows, error: ledgerErr } = await createAdminClient()
+      .from('event_vendor_payments')
+      .select('amount_php')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId);
+    if (ledgerErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] ledger read failed for vendor_id=${vendorId}:`, ledgerErr.message);
+    } else {
+      const rows = (ledgerRows ?? []) as { amount_php: number | string | null }[];
+      ledgerCount = rows.length;
+      ledgerPhp = rows.reduce((sum, r) => sum + (Number(r.amount_php) || 0), 0);
+    }
+  }
+  const depositRecord = decideDepositRecord({
+    depositRecordedAt: ev.deposit_recorded_at,
+    paymentsOnLedger: ledgerCount,
+    paymentsLoggedPhp: ledgerPhp,
+    vendorName: ev.vendor_name,
+  });
+  if (!depositRecord.ok) {
+    return { status: 'error', message: depositRecord.message };
+  }
+
   // Optional proof artifact — to the PRIVATE bucket under this event's deposit
   // folder, stored as a ref and read back only through a short-lived signed
   // link (lib/deposit-proof.server.ts). It used to go to the public media
@@ -4671,7 +4762,8 @@ export async function recordDeposit(
   // double-submit / retry keeps the original moment), so the ledger insert must
   // match — guarding on the PRE-update marker (ev.deposit_recorded_at) means a
   // second call lands NO duplicate payment row (which would overstate "paid").
-  if (!ev.deposit_recorded_at) {
+  // The decision is `decideDepositRecord` (above), executed by its test.
+  if (depositRecord.insertLedgerRow) {
     // A consent-authorized coordinator (flag ON, 'checkout' scope verified
     // above) writes the ledger through the admin client — the RLS policy is
     // couple-only and predates consent-scoped coordinator authority. Couples

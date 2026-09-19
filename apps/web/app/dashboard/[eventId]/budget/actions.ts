@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { decideLogPayment } from '@/lib/accepted-quote-terms';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import {
   fetchBudgetSnapshot,
   buildBudgetLiveSummary,
@@ -478,6 +480,43 @@ export async function logPayment(formData: FormData) {
     if (Number.isInteger(parsed) && parsed >= 0) scheduleInstanceSeq = parsed;
   }
 
+  // ONE FIRST PAYMENT, ONE DOOR (2026-09-20). While a Setnayan supplier's
+  // deposit is unrecorded and nothing is on the ledger, the first payment IS
+  // the deposit and goes through `recordDeposit` (date held, supplier asked to
+  // confirm, the row marked as THE deposit). The card routes there; this is the
+  // same rule (`decideLogPayment`, lib/accepted-quote-terms.ts) for a stale tab
+  // or a hand-built POST. Both reads are the couple's own RLS; a refused read
+  // refuses the log rather than guessing.
+  const [{ data: doorRow, error: doorErr }, { count: ledgerCount, error: ledgerErr }] =
+    await Promise.all([
+      supabase
+        .from('event_vendors')
+        .select('vendor_name, marketplace_vendor_id, deposit_recorded_at')
+        .eq('vendor_id', vendorId)
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      supabase
+        .from('event_vendor_payments')
+        .select('payment_id', { count: 'exact', head: true })
+        .eq('vendor_id', vendorId)
+        .eq('event_id', eventId),
+    ]);
+  if (!doorErr && !doorRow) throw new Error('Supplier not found on this event.');
+  const door = doorRow as {
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+    deposit_recorded_at: string | null;
+  } | null;
+  const logDecision = decideLogPayment({
+    // A refused booking read cannot tell a Setnayan supplier from an
+    // off-platform one — treat it as one, so the refusal below says so.
+    isMarketplaceVendor: doorErr ? true : Boolean(door?.marketplace_vendor_id),
+    depositRecordedAt: doorErr ? undefined : (door?.deposit_recorded_at ?? null),
+    paymentsOnLedger: ledgerErr ? null : (ledgerCount ?? 0),
+    vendorName: door?.vendor_name ?? null,
+  });
+  if (!logDecision.ok) throw new Error(logDecision.message);
+
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
     vendor_id: vendorId,
@@ -539,6 +578,28 @@ export async function logPayment(formData: FormData) {
   // row + recomputed totals on the next visit.
   revalidatePath(`/dashboard/${eventId}/budget`);
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+/**
+ * "Amount to pay" — a LATER installment, posted from the couple's Amount to pay
+ * card (Payments tab and the chat quote card). NOT a second writer: it runs
+ * `logPayment` itself, with every rule `logPayment` enforces (including
+ * `decideLogPayment`, which sends a first payment back to `recordDeposit`), and
+ * only turns its thrown refusal into a result the card can show in place.
+ */
+export async function logScheduledPayment(
+  formData: FormData,
+): Promise<{ status: 'ok' } | { status: 'error'; message: string }> {
+  try {
+    await logPayment(formData);
+    return { status: 'ok' };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    return {
+      status: 'error',
+      message: err instanceof Error && err.message ? err.message : 'Could not record that payment — please try again.',
+    };
+  }
 }
 
 export async function deletePayment(formData: FormData) {

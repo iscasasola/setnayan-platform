@@ -48,6 +48,7 @@ import {
   firstPaymentSentence,
   manualCostingEditorShown,
   paymentScheduleSource,
+  paymentDoor,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -101,6 +102,7 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
 import {
@@ -1234,6 +1236,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // dropping the requested amount.
   let acceptedQuote: AcceptedQuoteTerms | null = null;
   let acceptedQuoteUnreadable = false;
+  let acceptedQuoteEventDate: string | null = null;
   if (ev.marketplace_vendor_id) {
     const [{ data: aqRows, error: aqErr }, { data: aqEvent, error: aqEventErr }] = await Promise.all([
       supabase
@@ -1252,11 +1255,21 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     if (aqEventErr) {
       logQueryError('VendorWorkspacePage.acceptedQuoteEventDate', aqEventErr, { eventId }, 'graceful_degrade');
     }
-    acceptedQuote = acceptedQuoteTerms(
-      (aqRows ?? []) as AcceptedQuoteRow[],
-      (aqEvent as { event_date?: string | null } | null)?.event_date ?? null,
-    );
+    acceptedQuoteEventDate = (aqEvent as { event_date?: string | null } | null)?.event_date ?? null;
+    acceptedQuote = acceptedQuoteTerms((aqRows ?? []) as AcceptedQuoteRow[], acceptedQuoteEventDate);
   }
+  // THE NEXT MONEY STEP (owner, 2026-09-20 — "Amount to pay"): which payment
+  // is due now, from the one rule `moneyStep`. Read through the same helper
+  // the chat quote card and the proposal page use.
+  const bookedMoney = await readBookedMoney(supabase, {
+    eventId,
+    eventVendorId: ev.vendor_id,
+    eventDate: acceptedQuoteEventDate,
+  });
+  const itemizationDoor = paymentDoor({
+    isMarketplaceVendor: Boolean(ev.marketplace_vendor_id),
+    depositRecordedAt: ev.deposit_recorded_at,
+  });
   const showManualCosting = manualCostingEditorShown({
     isMarketplaceVendor: Boolean(ev.marketplace_vendor_id),
     acceptedQuote,
@@ -1843,6 +1856,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
             requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
             requestedTermsUnreadable={acceptedQuoteUnreadable}
+            step={bookedMoney.step}
           />
 
           {/*
@@ -1888,6 +1902,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               directPayMethods={directPayMethods}
               installments={paymentPlan}
               acceptedQuoteLines={acceptedQuote?.lines ?? null}
+              acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
+              paymentDoor={itemizationDoor}
             />
           ) : (
             <p className="text-xs text-ink/55">

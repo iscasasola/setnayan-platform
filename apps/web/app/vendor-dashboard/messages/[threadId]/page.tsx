@@ -4,6 +4,7 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { giftQuoteBasis } from '@/lib/setnayan-gift.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -468,7 +469,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     const { data: liveQuote, error: liveQuoteErr } = await supabase
       .from('vendor_proposals')
       .select(
-        'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids',
+        'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule',
       )
       .eq('event_id', thread.event_id)
       .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -793,6 +794,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const lockHandshake = await fetchThreadLockHandshake(paxAdmin, {
     eventId: thread.event_id,
     vendorProfileId: profile.vendor_profile_id,
+  });
+
+  // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
+  // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
+  // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
+  // and this page already refused anyone but this thread's supplier (notFound
+  // above); the read is scoped to their own profile on this event.
+  const bookedMoney = await readBookedMoney(paxAdmin, {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+    eventDate: event?.event_date ?? null,
   });
 
   /**
@@ -1549,6 +1561,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               declineLock: vendorDeclineLock,
             }}
             lockHandshake={lockHandshake}
+            bookedStep={bookedMoney.step}
+            supplierFirstPaymentRowId={bookedMoney.firstPaymentRowId}
           />
         </ChatBox>
       </section>

@@ -41,6 +41,11 @@ import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
 import { initialsFor } from '@/lib/conversation-list';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
+import { firstPaymentSentence } from '@/lib/accepted-quote-terms';
+import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 
 export const metadata = { title: 'Thread' };
 
@@ -268,6 +273,52 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         location_city: vendor.location_city ?? null,
       })
     : 'Vendor';
+
+  // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
+  // not see the confirmation here and the payment action?"). Read through the
+  // one helper (`readBookedMoney` → `moneyStep`) under the couple's own RLS;
+  // the card then MOUNTS the Payments tab's "Amount to pay" card with these
+  // props, so the thread records through the same `recordDeposit` (minimum
+  // enforced) and `logScheduledPayment`.
+  const bookedMoney = await readBookedMoney(supabase, {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+    eventDate,
+  });
+  let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
+  if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
+    let payMethods: CoupleFacingMethod[] = [];
+    let payMethodsState: CouplePayMethodsState = 'unreadable';
+    try {
+      const read = await readPublishedMethodsForCouple({
+        authedClient: supabase,
+        adminClient: createAdminClient(),
+        eventId: thread.event_id,
+        eventVendorId: bookedMoney.eventVendorId,
+      });
+      payMethods = read.methods;
+      payMethodsState = read.state;
+    } catch {
+      payMethodsState = 'unreadable';
+    }
+    couplePay = {
+      eventId: thread.event_id,
+      vendorId: bookedMoney.eventVendorId,
+      vendorName: vendorLabel,
+      depositRecordedAt: bookedMoney.deposit.recordedAt,
+      depositAcknowledgedAt: bookedMoney.deposit.acknowledgedAt,
+      depositProofUrl: null,
+      depositDeclinedAt: bookedMoney.deposit.declinedAt,
+      depositDeclineReason: bookedMoney.deposit.declineReason,
+      depositDisputeNote: null,
+      payMethods,
+      payMethodsState,
+      requestedFirstPaymentCentavos: bookedMoney.terms?.firstPaymentCentavos ?? null,
+      requestedFirstPaymentSentence: firstPaymentSentence(bookedMoney.terms),
+      requestedTermsUnreadable: bookedMoney.termsUnreadable,
+      step: bookedMoney.step,
+    };
+  }
 
   // One-follow-up gate (inquiry-followthrough 2026-06-16). Count only
   // COUPLE-authored rows. A `pending` thread is NOT couple-only: the Vendor
@@ -718,6 +769,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             decisionPayments={decisionPayments}
             initialView={initialView}
             lockHandshake={lockHandshake}
+            bookedStep={bookedMoney.step}
+            couplePay={couplePay}
           />
         </ChatBox>
       </section>

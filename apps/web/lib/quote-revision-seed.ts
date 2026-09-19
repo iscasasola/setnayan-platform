@@ -26,6 +26,56 @@
  * counted twice.
  */
 import type { ProposalLineItem } from './vendor-proposals';
+import {
+  isResolvedSchedule,
+  type AutoBalanceMeta,
+  type InstallmentDraft,
+} from './proposal-payment-schedule';
+
+/*
+ * ── THE SCHEDULE CARRIES FORWARD (2026-09-20 · #5717 follow-up d) ───────────
+ * PROVEN, not assumed: the builder's schedule state was initialised to a fixed
+ * default — `First payment · 20% · on lock` plus an auto `Final balance · 14
+ * days before` — with no reference to `revision`, and the seed read never
+ * selected `payment_schedule`. So "Update this quote" silently reset a
+ * supplier's own terms (say ₱5,000 on lock, 50% a month out) to 20% / 14 days,
+ * and sending it re-priced what the couple owes and when. The seed now carries
+ * the stored schedule back into the builder's own draft shape:
+ *   • a percent row whose basis points are a whole percent → that percent;
+ *   • any other row → FIXED at its pre-credit amount (`raw_centavos`), so a
+ *     fractional percent cannot drift by rounding;
+ *   • the auto "Final balance" row → the builder's auto-balance label and due.
+ * A malformed or absent schedule seeds null, and the builder keeps its default.
+ */
+export type QuoteRevisionSchedule = {
+  manual: InstallmentDraft[];
+  autoBalance: AutoBalanceMeta | null;
+};
+
+export function seedScheduleFromStored(raw: unknown): QuoteRevisionSchedule | null {
+  if (!isResolvedSchedule(raw)) return null;
+  const rows = [...raw.installments].sort((a, b) => Number(a.seq) - Number(b.seq));
+  const manual: InstallmentDraft[] = [];
+  let autoBalance: AutoBalanceMeta | null = null;
+  for (const r of rows) {
+    const due = r.due === 'before_event' || r.due === 'on_event' ? r.due : 'on_lock';
+    const offsetDays = Math.max(0, Math.round(Number(r.offset_days) || 0));
+    const label = String(r.label ?? '').trim();
+    if (r.is_auto_balance) {
+      autoBalance = { label: label || 'Final balance', due, offsetDays };
+      continue;
+    }
+    const bps = r.percent_bps == null ? null : Math.round(Number(r.percent_bps));
+    if (r.kind === 'percent' && bps !== null && Number.isFinite(bps) && bps % 100 === 0) {
+      manual.push({ label: label || 'Payment', kind: 'percent', amountPhp: null, percent: bps / 100, due, offsetDays });
+    } else {
+      const raw = Math.max(0, Math.round(Number(r.raw_centavos ?? r.amount_centavos) || 0));
+      manual.push({ label: label || 'Payment', kind: 'fixed', amountPhp: raw / 100, percent: null, due, offsetDays });
+    }
+  }
+  if (manual.length === 0) return null;
+  return { manual, autoBalance };
+}
 
 /** One seeded builder line — the builder's `QuoteSeedLine` shape, flat only. */
 export type QuoteRevisionLine = {
@@ -50,6 +100,8 @@ export type QuoteRevisionSeed = {
   note: string;
   validUntil: string;
   paymentMethodIds: string[];
+  /** The replaced quote's payment schedule, in the builder's draft shape; null = keep the default. */
+  schedule: QuoteRevisionSchedule | null;
 };
 
 export type QuoteRevisionSource = {
@@ -62,6 +114,7 @@ export type QuoteRevisionSource = {
   valid_until: string | null;
   line_items: unknown;
   payment_method_ids: unknown;
+  payment_schedule?: unknown;
 };
 
 const peso = (centavos: number) => Math.round(centavos) / 100;
@@ -116,5 +169,6 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     note: row.rendered_body ?? '',
     validUntil: /^\d{4}-\d{2}-\d{2}$/.test(row.valid_until ?? '') ? (row.valid_until as string) : '',
     paymentMethodIds: ids,
+    schedule: seedScheduleFromStored(row.payment_schedule),
   };
 }

@@ -149,8 +149,10 @@ import {
   firstPaymentSentence,
   pesoFromCentavos,
   supplierFirstPaymentStatus,
+  moneyStepLine,
   type SupplierFirstPaymentStatus,
 } from '@/lib/accepted-quote-terms';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -684,11 +686,28 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     declinedAt: completion?.deposit_declined_at ?? null,
   });
   const firstPaymentSentenceText = firstPaymentSentence(acceptedTerms);
+  // THE NEXT INSTALLMENT, THIS END (2026-09-20). The couple's "Amount to pay"
+  // names the next payment from `moneyStep`; the supplier reads the same step
+  // here, so both ends name the same payment. Only once the first is settled —
+  // before that the status line above says it all.
+  const supplierMoney = acceptedTerms
+    ? await readBookedMoney(admin, {
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+        eventDate: brief.event.event_date,
+      })
+    : null;
+  const supplierNextLine =
+    supplierMoney &&
+    (supplierMoney.step.kind === 'installment_due' || supplierMoney.step.kind === 'paid_in_full')
+      ? moneyStepLine(supplierMoney.step, 'vendor', 'the couple')
+      : null;
   const firstPayment =
     firstPaymentStatus && acceptedTerms && firstPaymentSentenceText
       ? {
           sentence: firstPaymentSentenceText,
           status: firstPaymentStatus,
+          nextLine: supplierNextLine,
           laterRows: acceptedTerms.schedule
             .filter((r) => !r.isFirstPayment)
             .map((r) => ({ label: r.label, amount: pesoFromCentavos(r.amountCentavos), dueText: r.dueText })),
@@ -2068,6 +2087,8 @@ function OverviewTab(props: {
   firstPayment: {
     sentence: string;
     status: SupplierFirstPaymentStatus;
+    /** The next installment from `moneyStep`, once the first is settled. */
+    nextLine: string | null;
     laterRows: { label: string; amount: string; dueText: string }[];
   } | null;
   isCompleteConfirmed: boolean;
@@ -2458,6 +2479,9 @@ function OverviewTab(props: {
           >
             {firstPayment.status.line}
           </p>
+          {firstPayment.nextLine ? (
+            <p className="mt-1 text-xs font-medium text-ink">{firstPayment.nextLine}</p>
+          ) : null}
           {firstPayment.laterRows.length > 0 ? (
             <ul className="mt-2 space-y-1 text-xs text-ink/65">
               {firstPayment.laterRows.map((r, i) => (

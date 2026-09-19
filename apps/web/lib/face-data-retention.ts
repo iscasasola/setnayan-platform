@@ -230,6 +230,7 @@ export async function runFaceDataRetention(
         .from('guest_face_enrollments')
         .update({ face_vector: null, vector_model: null })
         .eq('id', row.id);
+      if (vecErr) console.error('[supabase-error] lib/face-data-retention.ts · from:guest_face_enrollments.update', vecErr);
       if (vecErr) summary.failed += 1;
       console.warn('[face-data-retention] REFUSED a selfie ref outside the enrollment’s own folder — object and row kept, vector cleared', {
         eventId: row.event_id,

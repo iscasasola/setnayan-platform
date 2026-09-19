@@ -313,9 +313,9 @@ export async function startPapicGuestPurchase(formData: FormData) {
     // resolveGuestReloadTarget (a hard refusal for any other seat), a cookie
     // buyer through their signed guest session. What the old check actually
     // protected was the host's pool accounting, and that protects itself —
-    // papic_reserve_event_points_for_seat returns -1 only WHILE the seat has
-    // dedicated points, so a camera spends what its holder paid for first and
-    // rejoins the shared pool the moment those are gone.
+    // papic_reserve_capture_split spends the seat's dedicated points first and
+    // takes only the remainder from the shared pool, so a camera spends what its
+    // holder paid for first and rejoins the pool the moment those are gone.
   }
 
   // ── the price — catalog only, never the form ────────────────────────────

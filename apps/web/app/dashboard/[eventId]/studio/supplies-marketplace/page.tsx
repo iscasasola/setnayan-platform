@@ -33,16 +33,17 @@ type Props = { params: Promise<{ eventId: string }> };
 //
 // Current scaffold-level state (UI ships; data pipeline pending):
 //   - Static SUPPLY_PRODUCTS catalog in _data/products.ts is the OLD-model
-//     stand-in. It will be replaced by a Supabase query against
-//     supplier_vendor_skus + supplier_vendor_sku_pricing (schema shipped
-//     PR #143/#145) once supplier vendor agreements are signed and SKUs
-//     are seeded via the 0023 admin onboarding surface (PR 5).
-//   - resolveSuppliesPricing() at apps/web/lib/supplies/pricing.ts wraps
-//     the public.resolve_supplies_pricing() Postgres function (PR #146).
-//     PR 3b will swap the static catalog for dynamic queries.
-//   - Apply-then-pay cart hand-off still routes through public.orders;
-//     PR 4 ships supplies_orders table integration for the resale-model
-//     fulfillment + payout flow.
+//     stand-in.
+//   - ⚠ STALE as of 2026-09-18: the plan below to swap the static catalog for
+//     a Supabase query assumed `supplier_vendor_skus`, `supplier_vendor_sku_
+//     pricing` and `supplies_orders` (schema PR #143/#145) would still exist.
+//     They were DROPPED (migration
+//     20271234329420_drop_retired_token_wallet_supplies_vertical) — 0 rows,
+//     no caller, the whole 0018 pipeline stayed unbuilt. Reviving this
+//     vertical means re-cutting that schema, not resuming a paused PR 3b/4.
+//   - resolveSuppliesPricing() at apps/web/lib/supplies/pricing.ts still
+//     exists and wraps public.resolve_supplies_pricing() (PR #146), but that
+//     Postgres function now queries tables that no longer exist.
 //
 // Spec source of truth: ~/Documents/Claude/Projects/Setnayan/0018_supplies_marketplace/
 // Locked iteration scope: 5 categories (print fulfillment, equipment

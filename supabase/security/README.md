@@ -217,7 +217,9 @@ credentials, and it is the right trade, but it has two consequences worth knowin
   (`confirm_guest_delivery`, `list_vendor_delivery_bookings`,
   `undo_guest_delivery`, `get_vendor_mood_board`, `rls_auto_enable`) exist in
   production but are created by **no migration**. They were applied out of band.
-  Back-filling migrations for them would bring them under this guard.
+  Back-filling migrations for them would bring them under this guard — and did
+  (`20271115531329`); once under guard, the three delivery functions turned out
+  to have no caller at all and were **dropped** on 2026-09-18 (`20271234094457`).
   **This is no longer discovered by hand** — see "The companion guard" below.
 - **Everything else matched.** Views matched prod byte-for-byte, including
   `security_invoker` state. Every other difference was fully accounted for by

@@ -36,6 +36,7 @@ export async function PortfolioAlbumSection({
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(60);
+  if (error) console.error('[supabase-error] app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx · from:vendor_papic_portfolio_photos.select', error);
 
   // A read failure must not read as "you've imported nothing" — same posture
   // as own-captures-strip.tsx.

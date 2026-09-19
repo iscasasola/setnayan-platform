@@ -64,6 +64,7 @@ async function newestForwardingRow(
     .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/slug-forwarding.ts · from:slug_change_log.select', error);
   // ⚠ SUPABASE RESOLVES `{ error }` — IT DOES NOT THROW. An unreadable ledger
   // means "we don't know", and the caller's fallback is its existing 404. There
   // is deliberately no fail-closed here: unlike `findSlugConflict`, refusing

@@ -129,6 +129,7 @@ export async function fetchVendorSongs(
     .select('song_id, created_at, performance_url, songs(song_id, title, artist)')
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false });
+  if (error) console.error('[supabase-error] lib/songs.ts · from:vendor_songs.select', error);
   if (error || !data) return [];
   return (data as unknown[]).flatMap((row) => {
     const r = row as { songs: unknown; performance_url?: string | null };
@@ -361,6 +362,7 @@ export async function fetchEventSongRequests(
     .from('event_song_picks')
     .select('song_id, songs(song_id, title, artist)')
     .eq('event_id', eventId);
+  if (error) console.error('[supabase-error] lib/songs.ts · from:event_song_picks.select', error);
   if (error || !data) return [];
   return (data as unknown[])
     .flatMap((row) => {
@@ -431,6 +433,7 @@ export async function fetchVendorSongOverlaps(
     .select('vendor_profile_id, song_id')
     .in('vendor_profile_id', vendorIds as string[])
     .in('song_id', pickIds as number[]);
+  if (error) console.error('[supabase-error] lib/songs.ts · from:vendor_songs.select', error);
   if (error || !data) return out;
   for (const r of data as { vendor_profile_id: string }[]) {
     out.set(r.vendor_profile_id, (out.get(r.vendor_profile_id) ?? 0) + 1);

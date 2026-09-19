@@ -80,6 +80,7 @@ export async function deliverPakantaSong(input: {
         site_bg_music_r2_key: string | null;
         pakanta_song_adopted_as_site_music: boolean | null;
       }>();
+    if (readErr) console.error('[supabase-error] app/admin/pakanta/actions.ts · from:events.select', readErr);
     if (readErr) {
       // If only the new column is missing we still know site_bg_music; but a
       // hard read failure means we can't safely auto-adopt → record delivery

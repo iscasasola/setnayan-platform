@@ -30,9 +30,11 @@
  *                  lib/paperwork.ts completeByDate(document_type, event_date).
  *                  Received documents are dropped. Source: 2026-05-22
  *                  paperwork pipeline.
- *  3. Meeting    · vendor_meetings.starts_at — consultations, tastings,
- *                  fittings, site visits with vendors. Source: iteration
- *                  0006 meetings module.
+ *  3. Meeting    · CONFIRMED event_appointments.scheduled_at — tastings,
+ *                  fittings, site visits booked through the two-sided
+ *                  scheduler. (The ad-hoc vendor_meetings table this used to
+ *                  read alongside was never written and was dropped
+ *                  2026-09-18, S39.)
  *  4. Milestone  · computed statutory windows from events.event_date +
  *                  ceremony_type (PSA/CENOMAR opens −180d, marriage-license
  *                  window −120d, Pre-Cana cutoff −60d for Catholic). These
@@ -92,7 +94,7 @@ export const PREPARATION_SOURCE_LABEL: Record<PreparationSource, string> = {
  * The "kind" of a manual (`event_preparation_items`) row — drives which
  * autofill visual a hand-added item borrows. A vendor or couple can place a
  * generic `task`, a `meeting` schedule (renders with the Meeting tag/icon,
- * same as the autofilled vendor_meetings rows), or a `payment` schedule
+ * same as the confirmed-appointment rows), or a `payment` schedule
  * (renders with the Payment tag/icon + a ₱ amount, same as the autofilled
  * vendor payment milestones). Autofill rows leave this `undefined` — their
  * visual is driven by `source` alone. Defaults to 'task' when the
@@ -186,16 +188,6 @@ type PaperworkSourceRow = {
   status: string;
 };
 
-type VendorMeetingRow = {
-  meeting_id: string;
-  vendor_id: string;
-  starts_at: string;
-  ends_at: string | null;
-  mode: string;
-  title: string;
-  location: string | null;
-};
-
 type PreparationItemRow = {
   item_id: string;
   vendor_profile_id: string | null;
@@ -230,16 +222,6 @@ function toPhp(amount: string | number | null | undefined): number {
 function formatPhpShort(php: number): string {
   return `₱${Math.round(php).toLocaleString('en-PH')}`;
 }
-
-const MEETING_MODE_LABEL: Record<string, string> = {
-  in_person: 'In-person meeting',
-  video_call: 'Video call',
-  phone_call: 'Phone call',
-  site_visit: 'Site visit',
-  food_tasting: 'Food tasting',
-  fitting: 'Fitting',
-  consultation: 'Consultation',
-};
 
 /**
  * Graceful-degrade guard — when a table is missing on a stale deploy
@@ -368,68 +350,13 @@ async function fetchPaperworkItems(
 }
 
 // ----------------------------------------------------------------------------
-// Source 3 — vendor meetings (consultations, tastings, fittings, site visits)
-// ----------------------------------------------------------------------------
-
-async function fetchMeetingItems(
-  supabase: SupabaseClient,
-  eventId: string,
-  now: Date,
-): Promise<PreparationItem[]> {
-  const { data, error } = await supabase
-    .from('vendor_meetings')
-    .select('meeting_id, vendor_id, starts_at, ends_at, mode, title, location')
-    .eq('event_id', eventId)
-    .order('starts_at', { ascending: true });
-  if (error) {
-    if (isMissingRelation(error)) return [];
-    console.error('[preparation] meetings:', error.message);
-    return [];
-  }
-  const meetings = (data ?? []) as VendorMeetingRow[];
-  if (meetings.length === 0) return [];
-
-  const vendorIds = Array.from(new Set(meetings.map((m) => m.vendor_id)));
-  const { data: vendors } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name')
-    .in('vendor_id', vendorIds);
-  const vendorName = new Map<string, string>(
-    ((vendors as EventVendorNameRow[]) ?? []).map((v) => [v.vendor_id, v.vendor_name]),
-  );
-
-  return meetings.map((row) => {
-    const date = new Date(row.starts_at);
-    const name = vendorName.get(row.vendor_id) ?? 'Vendor';
-    const modeLabel = MEETING_MODE_LABEL[row.mode] ?? 'Meeting';
-    const fmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-    const timeLabel = row.ends_at
-      ? `${fmt.format(date)} – ${fmt.format(new Date(row.ends_at))}`
-      : fmt.format(date);
-    const subtitle = row.location
-      ? `${timeLabel} · ${modeLabel} · ${row.location}`
-      : `${timeLabel} · ${modeLabel} with ${name}`;
-    return {
-      id: `meeting:${row.meeting_id}`,
-      source: 'meeting' as const,
-      date,
-      daysFromNow: daysBetween(date, now),
-      title: row.title,
-      subtitle,
-      href: `/dashboard/${eventId}/vendors/${row.vendor_id}`,
-    };
-  });
-}
-
-// ----------------------------------------------------------------------------
 // Source 3b — confirmed vendor appointments (event_appointments)
 //
 // The two-sided Appointments scheduler (Relationship Workspace + Appointments)
 // writes event_appointments. A couple's CONFIRMED appointments — a food
 // tasting, a fitting, a pre-shoot call scheduled with their booked/shortlisted
-// vendors — are dated obligations that belong on the same runway as ad-hoc
-// vendor_meetings, so they render under the SAME 'meeting' source (one
-// vocabulary, no new chip). Only confirmed rows WITH a scheduled_at are shown;
+// vendors — are dated obligations on the runway, rendered under the
+// 'meeting' source (one vocabulary, no new chip). Only confirmed rows WITH a scheduled_at are shown;
 // proposed rows still awaiting a decision live in the vendor workspace, and
 // cancelled/done are not upcoming prep. Graceful-degrades to [] if the table is
 // missing on a stale deploy.
@@ -785,10 +712,9 @@ export async function fetchPreparationAgenda(
 ): Promise<PreparationAgenda> {
   const { supabase, eventId, eventDate, ceremonyType, now, statutory = true } = input;
 
-  const [payments, paperwork, meetingsRaw, manual, appointments] = await Promise.all([
+  const [payments, paperwork, manual, appointments] = await Promise.all([
     fetchPaymentItems(supabase, eventId, now),
     fetchPaperworkItems(supabase, eventId, eventDate, now),
-    fetchMeetingItems(supabase, eventId, now),
     // Source 5 — hybrid manual + vendor-added rows. Graceful-degrades to []
     // when event_preparation_items doesn't exist yet (pre-migration deploy).
     fetchManualItems(supabase, eventId, now),
@@ -796,8 +722,8 @@ export async function fetchPreparationAgenda(
     // into the 'meeting' source so they share the Meeting chip/vocabulary.
     fetchAppointmentItems(supabase, eventId, now),
   ]);
-  // Ad-hoc vendor_meetings + confirmed appointments are both "meeting" rows.
-  const meetings = [...meetingsRaw, ...appointments];
+  // Confirmed appointments are the "meeting" rows.
+  const meetings = appointments;
   // Iteration 0053 P4 Unit 1: PH-marriage statutory milestones only for events
   // whose profile has the statutory pack (weddings). statutory defaults TRUE so
   // weddings are byte-identical; non-weddings pass false → no milestones.

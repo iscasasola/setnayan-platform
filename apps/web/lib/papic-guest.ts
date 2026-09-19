@@ -91,7 +91,7 @@ export async function eventPapicGuestActive(
   // Owner's call: "free guests can shoot." Paying buys MORE SHOTS, not more
   // PEOPLE. That costs nothing to give away, because the bound was never the
   // number of cameras — it is the purse, and the purse is already fenced:
-  // papic_reserve_event_points_for_seat fails CLOSED at zero.
+  // papic_reserve_capture_split fails CLOSED when the pool is empty.
   //
   // ⚠ `applies`, deliberately NOT `remaining > 0`. An empty pool must still open
   // the camera: the capture screen explains "out of shots" far better than a

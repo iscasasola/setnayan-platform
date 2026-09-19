@@ -230,7 +230,8 @@ export async function sendChatMessageCore(
   // (tierCaps(tier).chat === 'none' → 'tier_free') has been REMOVED so a vendor
   // on ANY tier, verified or not, can answer a couple in-app once the thread is
   // accepted ("your inbox is never locked"). The parallel accept-side gate
-  // (unlock_vendor_event's TIER_FREE_NO_INAPP raise) is bypassed by routing
+  // (the former unlock_vendor_event's TIER_FREE_NO_INAPP raise — that function
+  // was DROPPED 2026-09-18 once nothing called it) is bypassed by routing
   // acceptInquiry to unlock_vendor_event_free (see lib/chat-actions.ts). This is
   // purely the answering path; couple-side spam is still held back upstream by
   // the inquiry velocity caps + Turnstile (lib/inquiry-gate.ts) — untouched here.

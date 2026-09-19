@@ -100,6 +100,7 @@ export async function readEventWatchUrls(
     .select('panood_watch_url')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (legacy.error) console.error('[supabase-error] lib/watch-live-links.ts · from:events.select', legacy.error);
   if (legacy.error) return { youtubeWatchUrl: null, facebookWatchUrl: null };
   const row = (legacy.data ?? null) as { panood_watch_url?: string | null } | null;
   return { youtubeWatchUrl: row?.panood_watch_url ?? null, facebookWatchUrl: null };

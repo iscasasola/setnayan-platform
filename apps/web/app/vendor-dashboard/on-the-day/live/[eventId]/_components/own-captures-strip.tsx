@@ -46,6 +46,7 @@ export async function OwnCapturesStrip({
     .eq('event_id', eventId)
     .order('captured_at', { ascending: false })
     .limit(60);
+  if (error) console.error('[supabase-error] app/vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx · from:vendor_papic_captures.select', error);
 
   // A read failure must not read as "you have taken nothing" — that is the same
   // value as an empty gallery and it would tell a vendor their work is gone.

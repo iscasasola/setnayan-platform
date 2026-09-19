@@ -11,6 +11,10 @@
  *                client page's answer panel), because agreeing is what makes
  *                the deposit the couple's next step;
  *   • `client` — on a booked client's page while their deposit is outstanding.
+ *   • `today`  — on the supplier's Today page once they hold ANY upcoming
+ *                booking (2026-09-19), so the door is one tap from home.
+ *   • the supplier's chat, on an ACCEPTED quote card, uses `lock` — the
+ *                couple's next step there is asking to book.
  *
  * Renders NOTHING for `ready` and for `unreadable`: telling a supplier they have
  * no payment method when the read merely failed would be a lie, and the cost of
@@ -18,21 +22,28 @@
  * lib/deposit-pay-step.ts, which shares its visibility rule with the couple's
  * own fetch — so "a couple can see it" means the same thing on both sides.
  *
- * Server component: a sentence and a link, no client JS.
+ * No hooks and no directive: a sentence and a link. It renders on the server
+ * (Overview, client page) and inside the client chat stream alike.
  */
 import Link from 'next/link';
 import { Wallet } from 'lucide-react';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 
-/** The payment-options surface lives in the My Shop hub (?tab=payments). */
-export const PAYMENT_OPTIONS_HREF = '/vendor-dashboard/shop?tab=payments';
+/**
+ * The payment-options surface lives in the My Shop hub's folds. `open` is the
+ * hub's canonical key (`tab` is its legacy alias) and `#shop-folds` is the
+ * anchor the fold sits under — without it the tap landed at the TOP of My
+ * Shop with the open fold several screens down (owner, 2026-09-19: "accessing
+ * where to upload payment options feels too deep").
+ */
+export const PAYMENT_OPTIONS_HREF = '/vendor-dashboard/shop?open=payments#shop-folds';
 
 export function PayoutMethodNudge({
   readiness,
   context,
 }: {
   readiness: PayoutReadiness;
-  context: 'lock' | 'client';
+  context: 'lock' | 'client' | 'today';
 }) {
   if (readiness === 'ready' || readiness === 'unreadable') return null;
 
@@ -41,7 +52,9 @@ export function PayoutMethodNudge({
     ? 'Your payment method is waiting for Setnayan’s review. Couples will see it as soon as it is approved.'
     : context === 'lock'
       ? 'Couples pay you directly, and you haven’t added a way to be paid yet. Add your bank, e-wallet or QR so they can send your deposit as soon as you agree.'
-      : 'This couple can’t see anywhere to pay you. Add your bank, e-wallet or QR so their deposit can reach you.';
+      : context === 'today'
+        ? 'You have bookings, and your couples can’t see anywhere to pay you yet. Add your bank, e-wallet or QR so their deposits can reach you.'
+        : 'This couple can’t see anywhere to pay you. Add your bank, e-wallet or QR so their deposit can reach you.';
 
   return (
     <div

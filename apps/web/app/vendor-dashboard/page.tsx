@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
 import { AlertTriangle, ArrowRight, EyeOff, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -281,7 +282,11 @@ export default async function VendorOverviewPage({
   // S19 · can a couple see anywhere to pay this shop? Asked ONLY when a booking
   // ask is on screen — that card is where the nudge sits, because agreeing is
   // what makes the deposit the couple's next step. `unreadable` renders nothing.
-  const payoutReadiness: PayoutReadiness = whatsNew.some((c) => c.kind === 'lock_request')
+  // 2026-09-19 · and whenever the shop holds ANY upcoming booking: a booked
+  // couple owes a deposit, and Today is the one screen every supplier opens.
+  const hasLockAsk = whatsNew.some((c) => c.kind === 'lock_request');
+  const hasBooking = upcoming.length > 0;
+  const payoutReadiness: PayoutReadiness = hasLockAsk || hasBooking
     ? await readSupplierPayoutReadiness({
         adminClient: createAdminClient(),
         vendorProfileId: profile.vendor_profile_id,
@@ -485,6 +490,15 @@ export default async function VendorOverviewPage({
             style={{ color: 'var(--sn-gold-700)' }}
           />
           <p>{depositAnswer}</p>
+        </div>
+      ) : null}
+
+      {/* The door to "How clients pay you" while a booked couple cannot see
+          anywhere to pay. Not when a booking ask is on screen: that card
+          carries the same nudge, and one screen says it once. */}
+      {hasBooking && !hasLockAsk ? (
+        <div className="mb-6">
+          <PayoutMethodNudge readiness={payoutReadiness} context="today" />
         </div>
       ) : null}
 

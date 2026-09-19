@@ -21,6 +21,7 @@ import {
   type VendorPaymentMethodRow,
 } from '@/lib/vendor-payment-methods';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   deletePaymentMethod,
   setPrimaryPaymentMethod,
@@ -288,26 +289,27 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                     </SubmitButton>
                   </form>
 
-                  <form
+                  {/* A SERVER component cannot hand a client button an
+                      onClick — React refuses to serialise the function and the
+                      whole console crashes the moment a shop has ONE saved
+                      option (prod 2026-09-19). The confirm lives in the client
+                      <ConfirmForm> instead. Guard: no-function-props-to-client.test.ts */}
+                  <ConfirmForm
                     action={deletePaymentMethod}
+                    title="Remove this payment option?"
+                    message="Clients will no longer see it."
+                    confirmLabel="Remove"
                     className="ml-auto"
                   >
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     <SubmitButton
                       pendingLabel="Removing…"
-                      // confirm() runs before the form submits; returning false
-                      // from a formAction isn't possible, so guard the click.
-                      onClick={(e) => {
-                        if (!confirm('Remove this payment option? Clients will no longer see it.')) {
-                          e.preventDefault();
-                        }
-                      }}
                       className="inline-flex items-center gap-1.5 rounded-md border border-transparent px-3 py-1.5 text-xs font-medium text-ink/55 transition-colors hover:border-danger-200 hover:bg-danger-50 hover:text-danger-700"
                     >
                       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Delete
                     </SubmitButton>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </article>
             );

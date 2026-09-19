@@ -276,7 +276,7 @@ export default async function VendorOverviewPage({
     );
   }
 
-  const { whatsNew, ongoing, upcoming } = data;
+  const { whatsNew, ongoing, upcoming, deskIncomplete } = data;
 
   // S19 · can a couple see anywhere to pay this shop? Asked ONLY when a booking
   // ask is on screen — that card is where the nudge sits, because agreeing is
@@ -492,6 +492,7 @@ export default async function VendorOverviewPage({
       {/* 1 · What's new — the decision feed (centrepiece) */}
       <WhatsNewFeed
         cards={whatsNew}
+        incomplete={deskIncomplete}
         acceptInquiry={acceptInquiry}
         declineInquiry={declineInquiry}
         confirmLock={vendorAcknowledgeDeposit}

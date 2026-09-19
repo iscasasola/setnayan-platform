@@ -640,8 +640,15 @@ export function WhatsNewFeed({
   postReviewReply,
   respondMeeting,
   payoutReadiness = 'unreadable',
+  incomplete = false,
 }: {
   cards: WhatsNewCard[];
+  /**
+   * A booking-ask or deposit read did not reach the end. Said above the list,
+   * and the "all caught up" empty state is never drawn on top of it — an empty
+   * desk that could not be read must not look like a desk with nothing waiting.
+   */
+  incomplete?: boolean;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
@@ -672,7 +679,13 @@ export function WhatsNewFeed({
         // to remove the affordance rather than to fake one. ("No fake doors.")
         action={null}
       />
-      {cards.length === 0 ? (
+      {incomplete ? (
+        <p role="status" className="sn-tile mb-3 p-4 text-sm text-ink/80">
+          Some booking asks and deposits couldn&rsquo;t load, so this list may be
+          missing some. Refresh the page to try again.
+        </p>
+      ) : null}
+      {cards.length === 0 && incomplete ? null : cards.length === 0 ? (
         <EmptyCard
           icon={<Star className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--sn-ink-400)' }} />}
           text="You're all caught up. Every answer you owe anybody — new inquiries, booking asks, replies, reviews, meeting times, quotes and contracts you haven't sent — lands here, the longest wait first."

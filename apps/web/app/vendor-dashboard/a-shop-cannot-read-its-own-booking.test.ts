@@ -175,7 +175,10 @@ test('the three repaired sites stay repaired', () => {
     // `/open-shop` seeds a founding admin seat. Proved end to end against
     // production in a rolled-back transaction before the gate was touched.
     'app/vendor-dashboard/clients/[eventId]/script-actions.ts',
-    'app/vendor-dashboard/manpower/surface.tsx',
+    // The manpower read moved into a pure, testable module (2026-09-20, paged
+    // past the 1,000-row cap). The surface's call passes `createAdminClient()`,
+    // pinned by `lib/the-four-small-lists-read-to-the-end.test.ts`.
+    'lib/vendor-manpower-reads.ts',
   ];
   for (const rel of repaired) {
     const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));

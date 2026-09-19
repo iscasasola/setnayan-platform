@@ -6,6 +6,11 @@ import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import {
+  GIG_COLUMNS,
+  readBookedEventIdsForGigs,
+  readOpenGigsForEvents,
+} from '@/lib/vendor-manpower-reads';
 
 /**
  * V2 Phase F · Vendor-side manpower surface.
@@ -92,16 +97,11 @@ export default async function VendorManpowerPage() {
   // CREATE TABLE IF NOT EXISTS no-op'd against a pre-existing table).
   // Reconciled by 20271011120000. Until then both 42703'd, so this whole
   // surface — my gigs AND open gigs — was permanently empty.
-  const [
-    { data: myGigs, error: myGigsError },
-    { data: eventLinks, error: eventLinksError },
-  ] = await Promise.all([
+  const [{ data: myGigs, error: myGigsError }, bookedRead] = await Promise.all([
     // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
     supabase
       .from('manpower_gigs')
-      .select(
-        'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
-      )
+      .select(GIG_COLUMNS)
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .order('posted_at', { ascending: false }),
     // 2. Events the vendor is BOOKED on (→ open gigs below).
@@ -115,12 +115,10 @@ export default async function VendorManpowerPage() {
     //
     // Admin client scoped by the caller's OWN profile id — the same shape the
     // Answers Desk and the customers roster use, and the only thing that works.
-    createAdminClient()
-      .from('event_vendors')
-      .select('event_id')
-      .eq('marketplace_vendor_id', vendor.vendor_profile_id)
-      .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])
-      .is('archived_at', null),
+    // PAGED to the server's exact count (`readBookedEventIdsForGigs`): one
+    // un-ranged read stopped at 1,000 rows and every gig past the cut was
+    // silently not offered.
+    readBookedEventIdsForGigs(createAdminClient(), vendor.vendor_profile_id),
   ]);
 
   if (myGigsError) {
@@ -129,7 +127,7 @@ export default async function VendorManpowerPage() {
     });
   }
 
-  // ⚠ THIS ONE IS INVISIBLE AND IT COSTS THE SUPPLIER MONEY. `eventLinks` is
+  // ⚠ THIS ONE IS INVISIBLE AND IT COSTS THE SUPPLIER MONEY. `bookedRead` is
   // ⚠ the list of events they are booked on, and it decides whether the open-gig
   // ⚠ read below RUNS AT ALL. Refused, `?? []` made it empty, the query was
   // ⚠ skipped entirely, and the panel said "No gigs yet · open gigs appear here
@@ -137,27 +135,23 @@ export default async function VendorManpowerPage() {
   // ⚠ reported as hosts not offering any. Nothing on screen looked broken.
   // ⚠ (The comment was right about the COST and wrong about the CAUSE: it
   // ⚠ handled the error case, and an RLS refusal is not an error. See above.)
-  if (eventLinksError) {
-    logQueryError('vendor-manpower:eventLinks', eventLinksError, {
+  if (bookedRead.error) {
+    logQueryError('vendor-manpower:eventLinks', { message: bookedRead.error }, {
       vendorProfileId: vendor.vendor_profile_id,
     });
   }
-  const eligibleMeasured = !eventLinksError && eventLinks !== null;
-  const eligibleEventIds = Array.from(
-    new Set((eventLinks ?? []).map((row) => row.event_id)),
-  );
+  // Refused OR short of the server's count: either way some booked events are
+  // missing, so some offers are, and the panel must say so.
+  const eligibleMeasured = bookedRead.complete;
+  const eligibleEventIds = bookedRead.ids;
 
   let openGigs: ManpowerGigRow[] = [];
   let openGigsMeasured = eligibleMeasured;
   if (eligibleEventIds.length > 0) {
-    const { data: openGigsRaw, error: openGigsError } = await supabase
-      .from('manpower_gigs')
-      .select(
-        'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
-      )
-      .eq('status', 'pending')
-      .in('event_id', eligibleEventIds)
-      .order('posted_at', { ascending: false });
+    // Chunked (`readOpenGigsForEvents`): one `in.()` of every booked event is
+    // refused 400 by the gateway past ~600 ids.
+    const { rows: openGigsRaw, error: openGigsError } =
+      await readOpenGigsForEvents<ManpowerGigRow>(supabase, eligibleEventIds);
     // ⚠ the claimable gigs themselves. Same cost, one step later.
     if (openGigsError) {
       logQueryError('vendor-manpower:openGigs', openGigsError, {
@@ -165,7 +159,7 @@ export default async function VendorManpowerPage() {
       });
       openGigsMeasured = false;
     }
-    openGigs = (openGigsRaw ?? []) as ManpowerGigRow[];
+    openGigs = openGigsRaw;
   }
 
   const accepted = (myGigs ?? []).filter(
@@ -207,6 +201,11 @@ export default async function VendorManpowerPage() {
                   : 'No open gigs right now. Check back later.'
             }
             gigs={openGigs}
+            note={
+              !openGigsMeasured && openGigs.length > 0
+                ? 'Some open gigs couldn’t load just now, so this list may be missing some. Reload in a moment.'
+                : null
+            }
           >
             {openGigs.map((gig) => (
               <li key={gig.gig_id}>
@@ -266,12 +265,15 @@ function Group({
   icon,
   empty,
   gigs,
+  note = null,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   empty: string;
   gigs: ManpowerGigRow[];
+  /** Said above a list that is shown but did not fully load. */
+  note?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -281,6 +283,11 @@ function Group({
         {title}
       </h2>
       <div className="mt-3">
+        {note ? (
+          <p role="status" className="mb-3 text-sm text-slate-700">
+            {note}
+          </p>
+        ) : null}
         {gigs.length > 0 ? (
           <ul className="space-y-3">{children}</ul>
         ) : (

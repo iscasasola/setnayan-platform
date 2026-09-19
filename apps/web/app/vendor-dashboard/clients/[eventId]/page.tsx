@@ -156,6 +156,7 @@ import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
+import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -907,15 +908,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     separately (`asksMeasured`) so the panel can say "we could not read this"
     instead of "there is nothing here", which are opposite sentences.
   */
-  const { data: askRows, error: askRowsError } = isBooked && eventVendorId
-    ? await supabase
-        .from('vendor_payment_asks')
-        .select('ask_id, amount_php, note, due_date, status, created_at')
-        .eq('event_vendor_id', eventVendorId)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(20)
-    : { data: null, error: null };
+  // Read to the END (`readOpenPaymentAsks`): it was `.limit(20)`, so a 21st
+  // open ask was hidden and the shop could bill the same thing twice.
+  const askRead = isBooked && eventVendorId
+    ? await readOpenPaymentAsks(supabase, eventVendorId)
+    : { rows: [] as OpenPaymentAskRow[], error: null, complete: true };
+  const askRowsError = askRead.error;
   // 🪤 SAME DEPLOY-WINDOW CARVE-OUT AS THE COUPLE'S SIDE. A relation this build
   // has not seen yet is a TRUE empty — nothing can have been written into a
   // table that does not exist — and reporting it as unmeasured would put the
@@ -930,8 +928,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const asksMeasured = !askRowsError || asksAbsent;
-  const paymentAsks = (askRows ?? []) as PaymentAskRow[];
+  // A read that stopped short of the server's count is NOT measured either —
+  // a shorter list of asks is exactly the double-bill this panel prevents.
+  const asksMeasured = asksAbsent || (!askRowsError && askRead.complete);
+  const paymentAsks = (asksMeasured ? askRead.rows : []) as PaymentAskRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.

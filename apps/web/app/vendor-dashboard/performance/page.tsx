@@ -29,6 +29,7 @@ import {
   getVendorDemandRadar,
   maybeRefreshDemandRadar,
   EMPTY_RADAR,
+  DEMAND_RADAR_UNREADABLE,
 } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
@@ -67,6 +68,7 @@ import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-
 import {
   EMPTY_FUNNEL_BENCHMARK,
   getVendorFunnelBenchmark,
+  FUNNEL_BENCHMARK_UNREADABLE,
 } from '@/lib/funnel-benchmark';
 import { regionLabel } from '@/lib/region-source';
 import {
@@ -219,8 +221,8 @@ export default async function PerformanceHome({
     services,
     vendorCatalog,
     funnelTotalsYear,
-    demandRadar,
-    funnelBenchmark,
+    demandRadarRead,
+    funnelBenchmarkRead,
     inquiryAnalytics,
     conversionAnalytics,
     funnelTotalsMonth,
@@ -263,7 +265,11 @@ export default async function PerformanceHome({
       EMPTY_FUNNEL_TOTALS,
       'funnel_totals',
     ),
-    safeRead(getVendorDemandRadar(supabase, profile.vendor_profile_id), EMPTY_RADAR, 'demand_radar'),
+    safeRead(
+      getVendorDemandRadar(supabase, profile.vendor_profile_id),
+      EMPTY_RADAR,
+      'demand_radar',
+    ),
     /* 🔴 THE FIRST READER THIS MODULE HAS EVER HAD. `lib/funnel-benchmark.ts`
        shipped with the SQL bands, the min-N privacy floor and the percentile
        math — and ZERO importers, so no vendor could reach any of it. Read on the
@@ -366,6 +372,15 @@ export default async function PerformanceHome({
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
   const marketLabel = hqRegion ? regionLabel(hqRegion) ?? hqRegion : null;
+
+  // A REFUSED radar read must not read as "not enough demand data yet" — that
+  // is what a genuinely below-floor market ALSO shows (lib/demand-radar.ts).
+  const demandRadarUnreadable = demandRadarRead === DEMAND_RADAR_UNREADABLE;
+  const demandRadar = demandRadarUnreadable ? EMPTY_RADAR : demandRadarRead;
+
+  // Same shape for the benchmark card (lib/funnel-benchmark.ts).
+  const funnelBenchmarkUnreadable = funnelBenchmarkRead === FUNNEL_BENCHMARK_UNREADABLE;
+  const funnelBenchmark = funnelBenchmarkUnreadable ? EMPTY_FUNNEL_BENCHMARK : funnelBenchmarkRead;
 
   // Cron-free, throttled opportunistic rebuild after the response flushes —
   // preserved from the retired /demand fold so the radar keeps refreshing on
@@ -800,9 +815,16 @@ export default async function PerformanceHome({
                     </p>
                   </div>
                 </div>
-                <DemandRadarCard radar={demandRadar} marketLabel={marketLabel} scope="vendor" />
+                <DemandRadarCard
+                  radar={demandRadar}
+                  marketLabel={marketLabel}
+                  scope="vendor"
+                  unreadable={demandRadarUnreadable}
+                />
                 <div className="mt-6">
-                  <FunnelBenchmarkCard benchmark={funnelBenchmark} />
+                  <FunnelBenchmarkCard benchmark={funnelBenchmark}
+                    unreadable={funnelBenchmarkUnreadable}
+                  />
                 </div>
                 {/* null = the shop lists no category yet, so there is nothing to band on. */}
                 {pricePosition && <PricePositionCard result={pricePosition} />}

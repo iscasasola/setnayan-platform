@@ -57,9 +57,13 @@ export async function countLiveShops(admin: {
       .from('vendor_profiles')
       .select('vendor_profile_id', { count: 'exact', head: true })
       .match(LIVE_SHOP_GATE);
-    if (res.error) return null;
+    if (res.error) {
+      console.error('[supabase-error] lib/live-shops.ts · from:vendor_profiles.select', res.error);
+      return null;
+    }
     return res.count ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[supabase-error] lib/live-shops.ts · from:vendor_profiles.select threw', err);
     return null;
   }
 }

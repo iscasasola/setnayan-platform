@@ -73,7 +73,11 @@ export async function quoteSetnayanGift(
     p_event_id: args.eventId,
     p_vendor_profile_id: args.vendorProfileId,
   });
-  if (error || applies !== 'applies') return null;
+  if (error) {
+    console.error('[supabase-error] setnayan-gift: setnayan_gift_quote_applies (quote)', error);
+    return null;
+  }
+  if (applies !== 'applies') return null;
 
   const [schedule, ladder] = await Promise.all([
     getBookingFeeSchedule(admin),
@@ -122,7 +126,11 @@ export async function giftQuoteBasis(
     p_vendor_profile_id: args.vendorProfileId,
   });
   // ⚠ Supabase RESOLVES with { error } — it does not throw.
-  if (error || applies !== 'applies') return null;
+  if (error) {
+    console.error('[supabase-error] setnayan-gift: setnayan_gift_quote_applies (ladder)', error);
+    return null;
+  }
+  if (applies !== 'applies') return null;
 
   const [schedule, ladder] = await Promise.all([
     getBookingFeeSchedule(admin),

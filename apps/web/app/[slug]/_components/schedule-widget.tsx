@@ -5,11 +5,11 @@ import { useEffect, useState } from 'react';
 import { eventDateToEpoch } from '@/lib/day-of-mode';
 import { MapPin } from 'lucide-react';
 import {
-  SCHEDULE_BLOCK_LABEL,
   formatBlockTimeRange,
   formatViewerTimeRange,
   wallClockToInstant,
   type ScheduleBlockRow,
+  scheduleBlockLabelFor,
 } from '@/lib/schedule';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
@@ -35,6 +35,8 @@ type Props = {
    * program, and is labeled "Estimated" per the owner directive.
    */
   estimated?: boolean;
+  /** events.event_type — a birthday's arrival is not "Pre-ceremony". */
+  eventType?: string | null;
 };
 
 /**
@@ -45,7 +47,13 @@ type Props = {
  *   • up next — first block whose start_at is in the future
  * Everything else is rendered in muted ink.
  */
-export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated = false }: Props) {
+export function ScheduleWidget({
+  blocks,
+  eventTz,
+  nowTrigger = false,
+  estimated = false,
+  eventType = null,
+}: Props) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -260,7 +268,7 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
               </div>
               <div className="min-w-0">
                 <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
-                  {SCHEDULE_BLOCK_LABEL[b.block_type]}
+                  {scheduleBlockLabelFor(b.block_type, eventType)}
                 </p>
                 <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">
                   {b.label}

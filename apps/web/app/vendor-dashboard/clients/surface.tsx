@@ -7,9 +7,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import {
   fetchVendorBlocks,
-  fetchVendorPoolBookings,
   fetchVendorPools,
 } from '@/lib/vendor-schedule';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -25,6 +25,10 @@ import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,
 } from '@/lib/inquiry-source';
+import {
+  fetchInquiryCustomerFacts,
+  INQUIRY_CUSTOMER_UNKNOWN,
+} from '@/lib/inquiry-customer.server';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -62,6 +66,20 @@ function fmtDate(iso: string): string {
 }
 
 /**
+ * What the Booked row names beside the date. A pool booking is named by its
+ * schedule; a booking the room read admitted WITHOUT a pool row (arm 2 · the
+ * shop agreed to the lock, arm 3 · a couple claimed its Locked QR) holds no
+ * schedule slot, so it says how it was booked instead of borrowing a pool name.
+ */
+function bookedLabel(
+  b: { poolId: string | null; via: 'schedule_pool' | 'lock_agreed' | 'locked_qr' },
+  poolLabel: Map<string, string>,
+): string {
+  if (b.poolId) return poolLabel.get(b.poolId) ?? 'Schedule';
+  return b.via === 'locked_qr' ? 'Booked with your Locked QR' : 'You agreed to lock';
+}
+
+/**
  * Small pipeline pill per row — the list-level echo of the Customer Card's
  * stage chip. Tones reuse the cream-card idioms from vendor-thread-stage.ts.
  */
@@ -87,9 +105,14 @@ export default async function VendorClientsPage({ searchParams }: Props) {
 
   const [pools, bookings, blocks, threads] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
-    // CAPACITY, not the room: this row is paired with the pool it belongs to and
-    // rendered under that pool's label — an agreed booking holds no pool.
-    fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
+    // S43 · OFF THE POOL READ, the same rule #5634 (SUP-8) gave Today's
+    // Upcoming list. The pool has one writer, reached by one booking path, so a
+    // shop that pressed Agree (`vendor_agree_to_lock`) or whose Locked QR a
+    // couple claimed held no pool row and was missing from its own "Booked via
+    // Setnayan" list — while the money had in some cases already moved. The
+    // room read is the pool PLUS those two arms. A row with no pool is labelled
+    // by the arm that admitted it (`bookedLabel` below), never a guessed pool.
+    fetchVendorRoomEvents(supabase, profile.vendor_profile_id),
     fetchVendorBlocks(supabase, profile.vendor_profile_id),
     fetchVendorThreads(supabase, profile.vendor_profile_id),
   ]);
@@ -143,7 +166,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     };
     group.entries.push({
       date: b.bookedDate,
-      pool: poolLabel.get(b.poolId) ?? 'Schedule',
+      pool: bookedLabel(b, poolLabel),
     });
     bookedByEvent.set(b.eventId, group);
   }
@@ -159,6 +182,19 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   // single .in() rather than N per-row queries. Graceful-degrades to empty.
   const quotedEventIds = new Set<string>();
   const acceptedEventIds = [...new Set(accepted.map((t) => t.event_id))];
+
+  /*
+    WHO EACH CONVERSATION IS WITH. `t.event?.display_name` is an RLS embed a
+    vendor can never read (a vendor holds no `events` RLS, even after
+    accepting), so it was null on every row and the list read "A Setnayan
+    event" for couples whose chat thread, one tap away, already named them
+    (owner report 2026-09-19). Same admin-scoped helper the inbox uses; the
+    ownership proof is `fetchVendorThreads(.., vendor_profile_id)` above.
+  */
+  const acceptedCustomers = await fetchInquiryCustomerFacts(
+    createAdminClient(),
+    threads.map((t) => t.event_id),
+  );
   if (acceptedEventIds.length > 0) {
     const { data: quoted, error: quotedError } = await supabase
       .from('vendor_proposals')
@@ -263,8 +299,8 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No booked clients yet — one lands here the moment a couple&rsquo;s
-            downpayment is recorded. New leads are waiting in{' '}
+            No booked clients yet — one lands here the moment you agree to a
+            couple&rsquo;s lock or their downpayment is recorded. New leads are waiting in{' '}
             <Link
               href="/vendor-dashboard/bookings"
               className="font-medium text-mulberry underline"
@@ -340,6 +376,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         ) : (
           <ul className="mt-3 divide-y divide-ink/10">
             {accepted.map((t) => {
+              const who = acceptedCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN;
               // Same resolver, same ordering — the list cannot rank these
               // differently from the thread it opens.
               const stage = resolveThreadStage({
@@ -352,7 +389,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
+                      <p className="text-sm font-medium">{who.displayName ?? 'A Setnayan event'}</p>
                       <StageChip
                         tone={THREAD_STAGE_TONE[stage]}
                         // ⚖ The list says "In conversation" where the thread
@@ -376,7 +413,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                       ) : null}
                     </div>
                     <p className="text-xs text-ink/55">
-                      {t.event?.event_date ? fmtDate(t.event.event_date) : 'Date not set yet'}
+                      {who.eventDate ? fmtDate(who.eventDate) : 'Date not set yet'}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">

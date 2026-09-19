@@ -46,6 +46,7 @@ export async function runPhotoDeliveryDrain(): Promise<{ events: number; uploade
     .in('status', ['queued', 'running', 'paused'])
     .order('started_at', { ascending: true })
     .limit(DRAIN_MAX_EVENTS * 8);
+  if (error) console.error('[supabase-error] lib/photo-delivery-drain.ts · from:photo_delivery_jobs.select', error);
   if (error || !Array.isArray(jobs)) return { events: 0, uploaded: 0 };
 
   const eventIds = Array.from(

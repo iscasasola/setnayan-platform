@@ -855,6 +855,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       )
       .eq('event_id', eventId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:events.select', error);
     if (!error && data) event = data as Record<string, unknown>;
   } catch {
     event = null;
@@ -1084,6 +1085,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .eq('event_id', eventId)
       .is('hidden_at', null)
       .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && typeof count === 'number') photos = count;
   } catch {
     photos = null;
@@ -1102,6 +1104,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
       .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && typeof count === 'number') clips = count;
   } catch {
     clips = null;
@@ -1129,6 +1132,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: false })
       .limit(EDITORIAL_PAPIC_GALLERY_CAP);
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && Array.isArray(rows)) {
       papicRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
@@ -1444,6 +1448,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .eq('event_id', eventId)
         .eq('source_table', 'papic_photos')
         .in('source_id', photoIds);
+      if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:photo_tags.select', error);
       if (!error && Array.isArray(tagRows) && tagRows.length > 0) {
         const counts = new Map<string, number>();
         for (const t of tagRows as Array<Record<string, unknown>>) {
@@ -1859,6 +1864,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           'source_id',
           timelinePhotoRows.map((r) => r.photoId),
         );
+      if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:photo_tags.select', error);
       if (!error && Array.isArray(tagRows)) {
         for (const t of tagRows as Array<Record<string, unknown>>) {
           const id = asString(t.source_id);
@@ -2213,6 +2219,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .not('capture_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);
+    if (cErr) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_mission_completions.select', cErr);
 
     if (!cErr && Array.isArray(completions) && completions.length > 0) {
       const captureIds = completions
@@ -2235,6 +2242,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .is('hidden_at', null)
         .eq('consent_to_public', true)
         .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+      if (capErr) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_guest_captures.select', capErr);
 
       // The prompt is read from the MISSION, never the completion — a completion
       // records that somebody answered, not what they were asked.
@@ -2242,6 +2250,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .from('papic_missions')
         .select('mission_id, prompt')
         .in('mission_id', missionIds);
+      if (mErr) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_missions.select', mErr);
 
       if (!capErr && !mErr && Array.isArray(caps) && Array.isArray(missions)) {
         const promptById = new Map(
@@ -2304,6 +2313,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .eq('author_publicly_hidden', false)
       .order('submitted_at', { ascending: true })
       .limit(EDITORIAL_KWENTO_CAP);
+    if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:photo_messages.select', error);
     const msgRows = !error && Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
     if (msgRows.length > 0) {
       // Resolve author display names in one read (guests.display_name, else the
@@ -2540,6 +2550,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         .eq('author_publicly_hidden', false)
         .order('submitted_at', { ascending: true })
         .limit(EDITORIAL_GUEST_COLUMN_CAP);
+      if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:guest_columns.select', error);
       const rows = !error && Array.isArray(colRows) ? (colRows as Array<Record<string, unknown>>) : [];
       if (rows.length > 0) {
         const colGuestIds = Array.from(
@@ -2678,6 +2689,12 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           .order('ended_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (broadcastErr) {
+          console.error(
+            '[supabase-error] app/[slug]/_components/editorial/data.ts · from:panood_broadcasts.select',
+            broadcastErr,
+          );
+        }
         if (!broadcastErr && broadcastRow) {
           const rawId = (broadcastRow as Record<string, unknown>).broadcast_id;
           if (isYouTubeVideoId(rawId)) videoId = rawId;

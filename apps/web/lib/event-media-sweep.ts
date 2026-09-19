@@ -77,6 +77,7 @@ export async function collectEventMediaRefs(
     .from('papic_photos')
     .select(PAPIC_KEYS.join(','))
     .eq('event_id', eventId);
+  if (photoErr) console.error('[supabase-error] lib/event-media-sweep.ts · from:papic_photos.select', photoErr);
   if (photoErr) return null;
 
   // A guest's own uploads at this celebration. Same cascade, same reason their
@@ -86,6 +87,7 @@ export async function collectEventMediaRefs(
     .from('papic_guest_captures')
     .select(['guest_id', ...GUEST_CAPTURE_KEYS].join(','))
     .eq('event_id', eventId);
+  if (guestErr) console.error('[supabase-error] lib/event-media-sweep.ts · from:papic_guest_captures.select', guestErr);
   if (guestErr) return null;
 
   // A supplier's own captures at this celebration — the FK cascade takes the
@@ -95,6 +97,7 @@ export async function collectEventMediaRefs(
     .from('vendor_papic_captures')
     .select(['vendor_profile_id', ...VENDOR_CAPTURE_KEYS].join(','))
     .eq('event_id', eventId);
+  if (captureErr) console.error('[supabase-error] lib/event-media-sweep.ts · from:vendor_papic_captures.select', captureErr);
   if (captureErr) return null;
 
   /* The couple's gift QRs. The FK cascade takes these rows with the event, so
@@ -106,13 +109,17 @@ export async function collectEventMediaRefs(
     .from('event_egift_methods')
     .select(EGIFT_KEYS.join(','))
     .eq('event_id', eventId);
-  if (egiftErr) return null;
+  if (egiftErr) {
+    console.error('[supabase-error] event-media-sweep: event_egift_methods', egiftErr, { eventId });
+    return null;
+  }
 
   const { data: ev, error: evErr } = await admin
     .from('events')
     .select([...EVENT_KEYS, ...EVENT_JSON_KEYS].join(','))
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evErr) console.error('[supabase-error] lib/event-media-sweep.ts · from:events.select', evErr);
   if (evErr) return null;
 
   const plan = planEventMediaDeletes({

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
-import { buildCoupleConversationRows } from '@/lib/conversation-list';
+import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -40,6 +40,7 @@ import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
 import { initialsFor } from '@/lib/conversation-list';
+import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
 
 export const metadata = { title: 'Thread' };
 
@@ -135,21 +136,35 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   });
 
   /**
-   * S5 · WHERE AN ACCEPTED QUOTE'S "ASK THEM TO LOCK" GOES. Accepting only
-   * shortlists the shop at a price; the couple's one booking action is Lock on
-   * that shop's workspace page (the same next step `/proposals/[publicId]`
-   * shows). Resolved the way accept wrote the row — (event_id,
-   * marketplace_vendor_id) — under the couple's own RLS. Null when there is no
-   * row yet or the read fails: the card then shows the accepted note and no
-   * button, never a guessed route.
+   * S5 · THE ACCEPTED QUOTE'S LOCK. Accepting only shortlists the shop at a
+   * price; the couple's one booking action is Lock, and the pick is resolved
+   * the way accept wrote the row — (event_id, marketplace_vendor_id), the anchor
+   * row the handshake read above also reads — under the couple's own RLS. Null
+   * when there is no row yet or the read fails: the card then shows the
+   * accepted note and no button, never a guessed target.
+   *
+   * ⚠ THE CARD LOCKS IN PLACE (owner, live, 2026-09-19: "the lock attempt was
+   * from the chat. it should also work there."). `quoteLockTarget` carries what
+   * the bench's own `AccordionLockButton` needs, so the card mounts THAT button
+   * and its `finalizeVendor` — one lock mechanism, now reachable from two
+   * rooms. Before this it was a link: first to the workspace (no Lock; after
+   * #5614 a loop back here), then to the bench (#5677), which moved the couple
+   * away from the conversation they pressed it in. `benchHref` survives only
+   * as the fallback for a category no plan group claims.
+   *
+   * `workspaceHref` is the shop's workspace — the ⋮ menu's sections, each
+   * reached WITH a `?tab=`, because a bare workspace landing redirects
+   * straight back to this frame (#5614).
    */
-  let quoteLockHref: string | null = null;
+  let workspaceHref: string | null = null;
+  let quoteLockTarget: CoupleLockTarget | null = null;
   if (thread.vendor_profile_id) {
     const { data: pick, error: pickErr } = await supabase
       .from('event_vendors')
-      .select('vendor_id')
+      .select('vendor_id, category')
       .eq('event_id', thread.event_id)
       .eq('marketplace_vendor_id', thread.vendor_profile_id)
+      .or('package_role.is.null,package_role.eq.anchor')
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -157,7 +172,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     if (pickErr) {
       console.error('[couple thread] lock workspace read refused', pickErr);
     } else if (pick?.vendor_id) {
-      quoteLockHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+      workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
+      quoteLockTarget = coupleLockTarget(
+        eventId,
+        pick.vendor_id,
+        (pick as { category?: string | null }).category ?? null,
+      );
     }
   }
 
@@ -198,6 +218,18 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     }),
   ]);
 
+  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
+  // so show the current count, matching what the vendor now sees. Read before
+  // the standing, which says when it has moved since the inquiry (SUP-2).
+  const livePax = await resolveLivePax(supabase, thread.event_id);
+  const headerPax = livePax ?? thread.pax_current;
+  // The facts beside the rung — the SAME reader the bench card uses, so the
+  // card and the thread it opens cannot disagree about a deposit or a meeting.
+  const standingNowMs = Date.now();
+  const standingExtras = (
+    await readStandingExtras(supabase, thread.event_id, [thread.vendor_profile_id], standingNowMs)
+  ).get(thread.vendor_profile_id);
+
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     stage: threadStage,
@@ -217,7 +249,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     lastSaidAtMs: lastThreadMessage
       ? Date.parse(lastThreadMessage.created_at) || null
       : null,
-    nowMs: Date.now(),
+    nowMs: standingNowMs,
+    depositPaid: standingExtras?.depositPaid ?? false,
+    meeting: standingExtras?.meeting ?? null,
+    guestCounts: { live: headerPax ?? null, atInquiry: thread.pax_at_inquiry ?? null },
   });
   const vendorLabel = vendor
     ? resolveVendorDisplayName({
@@ -233,11 +268,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         location_city: vendor.location_city ?? null,
       })
     : 'Vendor';
-
-  // Fresh live pax (Phase 5) — the couple's own client can read their guests,
-  // so show the current count, matching what the vendor now sees.
-  const livePax = await resolveLivePax(supabase, thread.event_id);
-  const headerPax = livePax ?? thread.pax_current;
 
   // One-follow-up gate (inquiry-followthrough 2026-06-16). Count only
   // COUPLE-authored rows. A `pending` thread is NOT couple-only: the Vendor
@@ -552,13 +582,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 // keyed by `event_vendors.vendor_id`, resolved above for the
                 // Lock button, and null on a thread with no row yet.
                 links={
-                  quoteLockHref
+                  workspaceHref
                     ? [
-                        { href: `${quoteLockHref}?tab=quote`, label: 'Quote' },
-                        { href: `${quoteLockHref}?tab=payments`, label: 'Payments' },
-                        { href: `${quoteLockHref}?tab=files`, label: 'Files' },
-                        { href: `${quoteLockHref}?tab=schedule`, label: 'Schedule' },
-                        { href: `${quoteLockHref}?tab=details`, label: 'Booking details' },
+                        { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
+                        { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
+                        { href: `${workspaceHref}?tab=files`, label: 'Files' },
+                        { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
+                        { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
                       ]
                     : []
                 }
@@ -667,15 +697,17 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             The quote lives HERE, in the conversation (owner, 2026-09-18: "i
             think it is better to place the quotation inside the chat box"),
             with its line items, Review & accept and Counter-offer; the two jump
-            pills sit OVER the scroller and cost no height. `ThreadQuotationsCard`
-            still exists and is still exported — unmounted, recorded in
-            scripts/port-control-baseline.json.
+            pills sit OVER the scroller and cost no height. The pinned
+            `ThreadQuotationsCard` that used to sit above the stream was deleted
+            on 2026-09-18 (S36) — unmounted since #5584, an orphan in the
+            both-ends baseline; lib/a-quote-card-does-not-crush-the-conversation
+            still asserts it is never mounted again.
           */}
           <ChatMessageStream
             flush
             counterHref={`?compose=deal`}
-            // S5 · an accepted quote points at the ONE action that books.
-            lockHref={quoteLockHref}
+            // S5 · an accepted quote mounts the ONE action that books.
+            lockTarget={quoteLockTarget}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}

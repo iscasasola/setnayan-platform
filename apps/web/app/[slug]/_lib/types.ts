@@ -177,6 +177,11 @@ export type EventRow = {
   // input. Dormant in prod (DEFAULT FALSE); flipped by the couple board (PR9) /
   // new-event default (PR11).
   website_open_browse?: boolean | null;
+  // The couple's phase pin (DAY-33 · owner 2026-07-02). `launch_mode='manual'`
+  // plus a `manual_phase` holds the site on that face for every visitor;
+  // resolved by `manualLaunchPhase` in lib/invitation-widgets.ts.
+  launch_mode?: string | null;
+  manual_phase?: string | null;
   // The guest-list edit deadline + its finalize stamp (Adaptive Pax Pricing,
   // owner decision ⑥ 2026-06-13). Together they answer "is the list closed?"
   // for the invitation half of the hub — see lib/guest-list-closed.ts. Absent

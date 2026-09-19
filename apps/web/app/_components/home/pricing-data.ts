@@ -2,7 +2,7 @@
  * Catalog-driven pricing data for the homepage + marketing-chrome nav overlays.
  *
  * WHAT IT SERVES TODAY: the Setnayan AI price line in the Prices overlay, the
- * Setnayan AI savings comparator (`setnayan-ai-story.tsx`), and the vendor tier
+ * Setnayan AI savings comparator, and the vendor tier
  * prices in the Vendors overlay. Every figure resolves from the live V2 catalog
  * by `service_code` and formats with `formatPeso`, falling back to a literal only
  * when the SKU is unreadable (a service-key-less CI build must degrade, not 500).

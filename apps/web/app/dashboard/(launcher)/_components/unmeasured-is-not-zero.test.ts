@@ -19,106 +19,19 @@
  * All three had to agree before the number was honest, and each was a plausible
  * "small tidy-up" away from breaking again.
  *
- * ⚠ THIS ASSERTS THE ACT, NOT A LITERAL. It runs the real derivation
- * (`buildHomeBoardTiles`) and the real digest semantics rather than grepping
- * for `?? 0` — a guard that matches a string is satisfied by a rename.
+ * ⚠ 2026-09-18 (S37): the half of this file that ran `buildHomeBoardTiles`
+ * went with `home-board.tsx`, which nothing had mounted since the account home
+ * became "Your events" (2026-08-19, changelog.d/the-home-is-your-events.md).
+ * A guard over an unmounted component protects nobody. What remains pins the
+ * launcher's OWN derivation of the admin total, which the page still computes.
  */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { buildHomeBoardTiles } from './home-board';
 
 const LAUNCHER = path.join(import.meta.dirname, '..', 'page.tsx');
-
-/**
- * The board input, with everything but the admin total held at a calm value.
- *
- * ⚠ TYPED, NOT CAST. A first cut ended `as Parameters<…>[0]` over a partial
- * object and typecheck refused it — correctly. Casting would have let the
- * fixture drift out of the real input shape while this guard kept passing, so
- * the field list is stated in full and a future field is a compile error here.
- */
-function input(
-  adminOpenTotal: number | null,
-): Parameters<typeof buildHomeBoardTiles>[0] {
-  return {
-    activeCount: 1,
-    needsTotal: 0,
-    nextEventLabel: null,
-    topWatchName: null,
-    hasVendorAccess: false,
-    shopNeedsTotal: 0,
-    shopCount: 0,
-    topShopName: null,
-    hasAdminAccess: true,
-    adminOpenTotal,
-    finishedCount: 0,
-  };
-}
-
-const hq = (adminOpenTotal: number | null) => {
-  const tile = buildHomeBoardTiles(input(adminOpenTotal)).find(
-    (t) => t.key === 'hq',
-  );
-  assert.ok(tile, 'the Admin HQ tile must exist for an admin');
-  return tile;
-};
-
-test('an unread queue count reaches the tile as null, not as 0', () => {
-  assert.equal(
-    hq(null).value,
-    null,
-    'null must survive to the tile — the moment it becomes 0 the board lies',
-  );
-});
-
-test('an unread queue count sorts WITH the tiles that want attention', () => {
-  assert.equal(
-    hq(null).needs,
-    true,
-    '"we could not check" is a reason to look, not a reason to relax',
-  );
-});
-
-test('a genuinely empty queue is NOT treated as unread', () => {
-  const clear = hq(0);
-  assert.equal(clear.value, 0, 'a measured zero is a real number, keep it');
-  assert.equal(
-    clear.needs,
-    false,
-    'a clear desk must stay quiet, or the unknown state means nothing',
-  );
-});
-
-test('a real backlog still surfaces', () => {
-  const busy = hq(7);
-  assert.equal(busy.value, 7);
-  assert.equal(busy.needs, true);
-});
-
-test('the tile RENDERS the unknown state instead of leaving a blank', () => {
-  /*
-    A tile with no numeral reads as calm — the same harm one notch quieter. The
-    component must say something for `value === null`, so assert the branch
-    exists AND that it emits words, not an empty fragment.
-  */
-  const src = readFileSync(
-    path.join(import.meta.dirname, 'home-board.tsx'),
-    'utf8',
-  );
-  const branch = src.slice(src.indexOf('t.value === null'));
-  assert.ok(
-    src.includes('t.value === null'),
-    'home-board must branch on a null value',
-  );
-  assert.match(
-    branch.slice(0, 600),
-    /couldn.{1,8}t load/i,
-    'the null branch must print a human sentence, not render nothing',
-  );
-});
 
 test('the launcher never re-seeds the admin total to 0 on a failed read', () => {
   /*

@@ -610,7 +610,7 @@ test('the ledger is capped at 6 and ordered newest-first', async () => {
     await db.query<{ vendor_service_id: string }>(
       `WITH s AS (
      INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, primary_photo_r2_key)
-     VALUES ($1, 'hair_makeup', 1000, 'Free extra hour', '${FIXTURE_COVER}')
+     VALUES ($1, 'makeup_artist', 1000, 'Free extra hour', '${FIXTURE_COVER}')
      RETURNING vendor_service_id, vendor_profile_id
    ), i AS (
      INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label)
@@ -652,7 +652,7 @@ test('the ledger is capped at 6 and ordered newest-first', async () => {
 
 test('below the min-N floor: the count survives, the mix and ledger are suppressed', async () => {
   for (const n of [1, 2]) {
-    const svc = await newCard(n === 1 ? 'coordination' : 'lights_sounds');
+    const svc = await newCard(n === 1 ? 'planner_coordinator' : 'lights_and_sound');
     for (let i = 0; i < n; i++) {
       const ev = await newEvent(`Floor ${n}-${i}`, 'wedding', `2025-0${i + 1}-10`, 120);
       await book(ev, svc, 'complete');
@@ -680,7 +680,7 @@ test('AT the min-N floor (3) the aggregates are released', async () => {
 });
 
 test('the floor counts ARM’S-LENGTH events — padding cannot buy you past it', async () => {
-  const svc = await newCard('florist_2');
+  const svc = await newCard('reception_decor');
   // Two genuine events...
   for (let i = 0; i < 2; i++) {
     const ev = await newEvent(`Genuine ${i}`, 'wedding', `2025-0${i + 1}-10`, 120);

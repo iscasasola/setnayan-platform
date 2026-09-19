@@ -115,7 +115,11 @@ export async function fetchVendorAiAddonPricePhp(
       .eq('sku_code', VENDOR_AI_ADDON_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return VENDOR_AI_ADDON_FALLBACK_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-addon-pricing: AI add-on price (using fallback)', error);
+      return VENDOR_AI_ADDON_FALLBACK_PHP;
+    }
+    if (!data) return VENDOR_AI_ADDON_FALLBACK_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0 ? price : VENDOR_AI_ADDON_FALLBACK_PHP;
   } catch {

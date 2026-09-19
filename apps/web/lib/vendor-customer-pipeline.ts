@@ -140,11 +140,6 @@ export type PipelineThread = {
   /** ISO timestamp the couple asked. */
   createdAt: string | null;
   /**
-   * `isInquiryRevealed(thread)` — resolved by the caller so this module stays
-   * free of the chat layer. False means the couple's identity is still masked.
-   */
-  revealed: boolean;
-  /**
    * `chat_threads.updated_at` — the last thing that happened on this thread,
    * from EITHER side. It is what separates a live conversation from something
    * the shop is holding.
@@ -174,14 +169,17 @@ export type PipelineInput = {
   thread: PipelineThread | null;
   booking: PipelineBooking | null;
   /**
-   * The event's own name. Supplied for every event the caller could resolve;
-   * whether it is USED is decided below, never by the caller.
+   * The event's own name (`events.display_name`). Used on EVERY lane whenever
+   * it exists — see "NO LANE HIDES A NAME" in `customerLaneOf`.
    */
   eventName: string | null;
-  /** Neutral, non-identifying placeholder ("A couple planning a wedding in …"). */
+  /**
+   * The fallback title, reached ONLY when `eventName` is genuinely null or
+   * blank. Never a mask.
+   */
   descriptor: string;
   eventDate: string | null;
-  /** Venue name — an identity-bearing fact, gated exactly like the name. */
+  /** Venue name. Shown on every lane, like the name. */
   place: string | null;
   /**
    * A LIVE, UNRELEASED reservation in this shop's own schedule pool
@@ -217,15 +215,16 @@ export type PipelineCustomer = {
    */
   quietDays: number | null;
   /**
-   * What the row is called. THE COUPLE'S OWN NAME ONLY WHERE IDENTITY IS
-   * ALREADY THEIRS TO SEE — see `identityRevealed` below. Otherwise the neutral
-   * descriptor, which carries no name, no title, no venue and no contact.
+   * What the row is called: the couple's own name whenever the event has one,
+   * on every lane. The descriptor only when there is genuinely no name.
    */
   title: string;
-  /** True only where the shop is entitled to the couple's identity. */
+  /**
+   * True when `title` IS the couple's own name (so it has initials worth
+   * drawing). False means only that the event has no name — nothing is hidden.
+   */
   identityRevealed: boolean;
   eventDate: string | null;
-  /** Venue. Null wherever `identityRevealed` is false — a venue names a couple. */
   place: string | null;
   threadId: string | null;
   eventVendorId: string | null;
@@ -331,25 +330,25 @@ export function customerLaneOf(
   if (lane === null) return null;
 
   /*
-    IDENTITY IS GATED BY THE LANE, NOT BY THE THREAD ALONE.
+    NO LANE HIDES A NAME (owner, 2026-09-19 — on a couple who had just asked to
+    lock showing as "Customer" with a "·" mark: "the information just became
+    customer instead of the full detail of the user. fix this.").
 
-    `waiting` NEVER carries a name — and that includes a booking ask, which is
-    the non-obvious half. Anonymisation-until-accept covers the enquiry; the
-    booking ask is covered by the same boundary PR-H drew for
-    `get_vendor_event_brief`, whose `'requested'` rung is given NO payload of
-    its own precisely so an asked-but-unanswered supplier learns nothing they
-    could still walk away from. The shipped Answers-Desk card agrees: it says
-    "A couple wants to book you", a date, and an age — no name, no venue.
+    🔑 THIS GATE OUTLIVED THE RULING THAT KILLED IT. On 2026-09-08 the owner
+    retired inquiry anonymisation ("we do not need to hide anything, since no
+    more tokens") and the roster page began passing `revealed: true` — but the
+    lane gate that used to live here ignored that input for `waiting`, citing
+    PR-H's "an asked-but-unanswered supplier learns nothing" boundary. So every
+    WAITING row — a booking ask AND an unaccepted enquiry — kept the mask for
+    eleven more days while the chat thread one tap away already said
+    "Ana & Miguel". The couple chose THIS shop by pressing Lock; there is nobody
+    left to hide them from.
 
-    `talking` reaches here only via an ACCEPTED thread, and `booked`/`finished`
-    mean the shop is party to the celebration. Both are entitled to the name.
+    The only thing that still produces the descriptor is a genuinely nameless
+    event.
   */
-  const identityRevealed =
-    lane === 'booked' ||
-    lane === 'finished' ||
-    // `holding` is a slice of `talking` — both reach here only through an
-    // ACCEPTED thread, so both are entitled to the name on the same grounds.
-    ((lane === 'talking' || lane === 'holding') && !!thread?.revealed);
+  const name = input.eventName?.trim() || null;
+  const identityRevealed = name !== null;
 
   return {
     eventId: input.eventId,
@@ -358,10 +357,10 @@ export function customerLaneOf(
     waitingSince,
     expiresAt,
     quietDays,
-    title: identityRevealed ? (input.eventName?.trim() || input.descriptor) : input.descriptor,
+    title: name ?? input.descriptor,
     identityRevealed,
     eventDate: input.eventDate,
-    place: identityRevealed ? input.place : null,
+    place: input.place,
     threadId: thread?.threadId ?? null,
     eventVendorId: booking?.eventVendorId ?? null,
   };

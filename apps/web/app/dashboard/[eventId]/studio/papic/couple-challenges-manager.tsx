@@ -324,6 +324,7 @@ export async function CoupleChallengesManager({
     .select('library_id')
     .eq('event_id', eventId)
     .not('library_id', 'is', null);
+  if (takenErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx · from:papic_missions.select', takenErr);
 
   // What kind of celebration this is (so a birthday is never offered a garter
   // toss) AND the word it uses for whoever is throwing it. Both come from the

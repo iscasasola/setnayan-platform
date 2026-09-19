@@ -235,7 +235,11 @@ export async function fetchVendorPhotoChallengePricePhp(
       .eq('sku_code', VENDOR_PHOTO_CHALLENGE_SKU_CODE)
       .eq('is_active', true)
       .maybeSingle();
-    if (error || !data) return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    if (error) {
+      console.error('[supabase-error] vendor-photo-challenge: price (using fallback)', error);
+      return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    }
+    if (!data) return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
     const price = Number((data as { price_php: number | string }).price_php);
     return Number.isFinite(price) && price > 0
       ? price
@@ -282,7 +286,7 @@ export async function fetchPhotoChallengeExpiry(
  * production ever, and — once the activation hook moved to stamping the 28-day
  * window — zero writers anywhere. **A read arm whose only writer is gone can
  * never be true**, and leaving it in made the gate say there were two ways to be
- * entitled when there is one.
+ * entitled when there is one. (The table itself was dropped 2026-09-18.)
  *
  * `eventId` is accepted and IGNORED, matching the SQL signature: a subscription
  * covers every celebration the shop is booked for, and the per-celebration

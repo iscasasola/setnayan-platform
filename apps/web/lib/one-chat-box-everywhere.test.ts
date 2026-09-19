@@ -146,9 +146,11 @@ test("6 · each frame's ⋮ carries the embedding page's sections", () => {
   }
   // A bare profile link would bounce straight back to the frame.
   assert.equal(count(supplierThread, /clients\/\$\{thread\.event_id\}`,/g), 0, "the supplier's ⋮ links the client page with no ?tab — that redirects back here");
+  // `workspaceHref`, not `quoteLockHref`: since 2026-09-19 the lock link opens
+  // the bench (lib/lock-door.ts) and the workspace route is the ⋮'s base only.
   for (const tab of ['quote', 'payments', 'files', 'schedule', 'details']) {
     assert.equal(
-      count(coupleThread, new RegExp(`\\$\\{quoteLockHref\\}\\?tab=${tab}`, 'g')),
+      count(coupleThread, new RegExp(`\\$\\{workspaceHref\\}\\?tab=${tab}`, 'g')),
       1,
       `the couple's ⋮ lost the workspace's ${tab} section`,
     );

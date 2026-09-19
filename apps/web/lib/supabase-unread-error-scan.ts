@@ -43,6 +43,20 @@ import ts from 'typescript';
  *   - a chain ending `.throwOnError()`, which really does throw.
  *   - Storage (`sb.storage.from(bucket)`), which is a different client.
  *
+ *   - `error-dropped-silently`  (ONLY with `silentDrops: true` — the both-ends
+ *                         guard, lib/ugat/both-ends.ts, S26) the error IS
+ *                         read, but only as a CONDITION, and the branch that
+ *                         condition selects records nothing: no call (log,
+ *                         capture, message), no throw, no reference to the
+ *                         reason. A return of a DISTINCT failure state
+ *                         (`return unreadable`, `{ ok: false, reason }`) IS a
+ *                         record — the caller can tell it from emptiness.
+ *                         `if (error) return null;` — the shape that
+ *                         let a booking fee skip with its reason discarded
+ *                         (#5615). Off by default so this guard's own sweep
+ *                         and baseline are unchanged; the both-ends sweep
+ *                         carries its own baseline for it.
+ *
  * ESCAPE HATCH: a comment on the line directly above the statement,
  *   // supabase-error-ignored: <why this failure is genuinely harmless>
  * with a reason of at least 12 characters. It is for a best-effort write whose
@@ -54,7 +68,13 @@ export type UnreadErrorKind =
   | 'discarded-in-try'
   | 'never-awaited'
   | 'write-error-dropped'
-  | 'error-unused';
+  | 'error-unused'
+  | 'error-dropped-silently';
+
+export type ScanOptions = {
+  /** Also report `error-dropped-silently` (see the docblock). Default false. */
+  silentDrops?: boolean;
+};
 
 export type UnreadErrorFinding = {
   kind: UnreadErrorKind;
@@ -175,8 +195,92 @@ function statementOf(node: ts.Node): ts.Node {
   return n;
 }
 
+/**
+ * Does this branch RECORD the failure — a call (log, capture, a message to the
+ * user), a throw, or any further reference to the error value? A branch that
+ * does none of these is where a reason goes to die.
+ */
+const FAILURE_SHAPED = /unreadable|unavailable|refused|denied|failed|failure|error|unknown/i;
+
+/**
+ * A returned value that is itself a DISTINCT failure state — `return unreadable`,
+ * `return 'refused'`, `return { ok: false, reason }` — is a record: the caller can
+ * tell it from emptiness, which is the whole point (the reads-are-honest pattern
+ * this repo built deliberately). `return null` / `[]` / `{ status: 'skipped' }`
+ * are not: they render identically to "nothing there".
+ */
+function returnsFailureShape(r: ts.ReturnStatement): boolean {
+  const e = r.expression;
+  if (!e) return false;
+  if (ts.isIdentifier(e) || ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return FAILURE_SHAPED.test(e.text);
+  if (ts.isPropertyAccessExpression(e)) return FAILURE_SHAPED.test(e.getText());
+  if (ts.isObjectLiteralExpression(e)) {
+    // `{ error }` / `{ reason }` carry the cause; `{ status: 'unreadable' }` names a
+    // distinct failure state. `{ ok: false }` / `{ status: 'skipped' }` say neither.
+    return e.properties.some((p) => {
+      const name = p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : '';
+      if (/^(error|message|reason|cause|failure)$/i.test(name)) return true;
+      const v = ts.isPropertyAssignment(p) ? p.initializer : null;
+      return !!v && (ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v) || ts.isIdentifier(v)) && FAILURE_SHAPED.test(v.text);
+    });
+  }
+  return false;
+}
+
+function branchRecords(branch: readonly ts.Node[], errName: string): boolean {
+  let found = false;
+  const visit = (n: ts.Node) => {
+    if (found) return;
+    if (ts.isCallExpression(n) || ts.isNewExpression(n) || ts.isThrowStatement(n) || ts.isAwaitExpression(n)) { found = true; return; }
+    if (ts.isIdentifier(n) && n.text === errName) { found = true; return; }
+    if (ts.isReturnStatement(n) && returnsFailureShape(n)) { found = true; return; }
+    ts.forEachChild(n, visit);
+  };
+  for (const b of branch) visit(b);
+  return found;
+}
+
+/** The statements after `stmt` in its own block — where a negated `if (!error)` with no else falls through to. */
+function fallThrough(stmt: ts.Statement): ts.Node[] {
+  const p = stmt.parent;
+  if (!p || !(ts.isBlock(p) || ts.isSourceFile(p))) return [];
+  const list = p.statements;
+  const ix = list.indexOf(stmt);
+  return ix < 0 ? [] : list.slice(ix + 1);
+}
+
+/**
+ * Is this reference of the error used ONLY to pick a branch that records
+ * nothing? Climbs through `!`, parentheses and `&&`/`||`/`??` to the nearest
+ * `if` or ternary; any other use (returned, passed, `.message`, assigned) is a
+ * real read and answers false.
+ */
+function dropsSilently(ref: ts.Node, errName: string): boolean {
+  let n: ts.Node = ref;
+  let negated = false;
+  for (;;) {
+    const p: ts.Node | undefined = n.parent;
+    if (!p) return false;
+    if (ts.isParenthesizedExpression(p)) { n = p; continue; }
+    if (ts.isPrefixUnaryExpression(p) && p.operator === ts.SyntaxKind.ExclamationToken) { negated = !negated; n = p; continue; }
+    if (ts.isBinaryExpression(p)) {
+      const k = p.operatorToken.kind;
+      if (k === ts.SyntaxKind.AmpersandAmpersandToken || k === ts.SyntaxKind.BarBarToken || k === ts.SyntaxKind.QuestionQuestionToken) { n = p; continue; }
+      return false;
+    }
+    if (ts.isIfStatement(p) && p.expression === n) {
+      const branch: ts.Node[] = negated ? (p.elseStatement ? [p.elseStatement] : fallThrough(p)) : [p.thenStatement];
+      return !branchRecords(branch, errName);
+    }
+    if (ts.isConditionalExpression(p) && p.condition === n) {
+      return !branchRecords([negated ? p.whenFalse : p.whenTrue], errName);
+    }
+    return false;
+  }
+}
+
 /** What happens to the awaited result — the decision proper. */
-function classify(chain: Chain): UnreadErrorKind | null {
+function classify(chain: Chain, opts: ScanOptions = {}): UnreadErrorKind | null {
   if (chain.throws || chain.escapes) return null;
   const isWrite = chain.op !== null && WRITE_OPS.has(chain.op);
   const outer = stripWrappers(chain.top);
@@ -226,7 +330,14 @@ function classify(chain: Chain): UnreadErrorKind | null {
     // `const res = await …` — read if ANY use is not `.data` / `.count`.
     const uses = referencesAfter(scope, binding.text, after);
     const onlyData = uses.every((u) => ts.isPropertyAccessExpression(u.parent) && u.parent.expression === u && (u.parent.name.text === 'data' || u.parent.name.text === 'count'));
-    if (!onlyData) return null;
+    if (!onlyData) {
+      if (!opts.silentDrops) return null;
+      // Every non-data use is `res.error` (plain or `?.`), and each such read only picks a silent branch.
+      const errReads = uses.filter((u) => ts.isPropertyAccessExpression(u.parent) && u.parent.expression === u && u.parent.name.text === 'error');
+      const other = uses.filter((u) => !errReads.includes(u) && !(ts.isPropertyAccessExpression(u.parent) && u.parent.expression === u && (u.parent.name.text === 'data' || u.parent.name.text === 'count')));
+      if (errReads.length > 0 && other.length === 0 && errReads.every((u) => dropsSilently(u.parent, binding.text))) return 'error-dropped-silently';
+      return null;
+    }
     if (uses.length === 0) return 'discarded';
     return isWrite ? 'write-error-dropped' : null;
   } else {
@@ -237,7 +348,10 @@ function classify(chain: Chain): UnreadErrorKind | null {
   const err = props.find((p) => p.key === 'error');
   if (!err) return isWrite ? 'write-error-dropped' : null;
   if (err.local === null) return null; // nested pattern — treat as read
-  return referencesAfter(scope, err.local, after).length === 0 ? 'error-unused' : null;
+  const refs = referencesAfter(scope, err.local, after);
+  if (refs.length === 0) return 'error-unused';
+  if (opts.silentDrops && refs.every((r) => dropsSilently(r, err.local as string))) return 'error-dropped-silently';
+  return null;
 }
 
 function isExempt(sf: ts.SourceFile, node: ts.Node, lines: string[]): boolean {
@@ -254,7 +368,7 @@ function isExempt(sf: ts.SourceFile, node: ts.Node, lines: string[]): boolean {
 /** Findings plus how many Supabase data calls were recognised at all — the
  *  second number is the sweep's floor, so a parser that silently stops seeing
  *  calls cannot read as "no findings". */
-export function scanSourceDetailed(src: string, fileName = 'file.ts'): { calls: number; findings: UnreadErrorFinding[] } {
+export function scanSourceDetailed(src: string, fileName = 'file.ts', opts: ScanOptions = {}): { calls: number; findings: UnreadErrorFinding[] } {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, fileName.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const lines = src.split('\n');
   const out: UnreadErrorFinding[] = [];
@@ -264,7 +378,7 @@ export function scanSourceDetailed(src: string, fileName = 'file.ts'): { calls: 
       const chain = describeChain(n);
       if (chain) {
         calls++;
-        const kind = classify(chain);
+        const kind = classify(chain, opts);
         if (kind && !isExempt(sf, chain.top, lines)) {
           out.push({ kind, target: chain.target, line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
         }
@@ -276,6 +390,6 @@ export function scanSourceDetailed(src: string, fileName = 'file.ts'): { calls: 
   return { calls, findings: out };
 }
 
-export function scanSource(src: string, fileName = 'file.ts'): UnreadErrorFinding[] {
-  return scanSourceDetailed(src, fileName).findings;
+export function scanSource(src: string, fileName = 'file.ts', opts: ScanOptions = {}): UnreadErrorFinding[] {
+  return scanSourceDetailed(src, fileName, opts).findings;
 }

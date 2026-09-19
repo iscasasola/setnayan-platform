@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -82,7 +82,10 @@ export default async function PapicModerationPage({
 
   const admin = createAdminClient();
 
-  const owns = await eventPapicGuestActive(admin, eventId);
+  // 🔴 THREE STATES. A failed check used to read as "Papic is not on", and the
+  // couple was told their guests' photos would appear "once Papic is on" for a
+  // celebration where it already was.
+  const guestAccess = await eventPapicGuestAccess(admin, eventId);
 
   // Kwento is FREE for every event (owner 2026-08-21: "kwento is free").
   // `eventKwentoEnabled` still runs — it routes through `eventSkuActive`, which
@@ -329,7 +332,15 @@ export default async function PapicModerationPage({
         </p>
       )}
 
-      {!owns ? (
+      {/* The capture list below is its own read, so it still renders when only
+          the camera check failed; this line says which part we could not see. */}
+      {guestAccess === 'unknown' ? (
+        <p role="status" className="sn-row px-4 py-3 text-sm text-ink/65">
+          We couldn&rsquo;t check whether guest cameras are on just now. Reload the page to try
+          again.
+        </p>
+      ) : null}
+      {guestAccess === 'off' ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">
           {/* ⚠ THE NAMING LOCK CITED HERE WAS SUPERSEDED. This used to quote the
               2026-07-30 rule that "the two Papic products are Papic Pool and

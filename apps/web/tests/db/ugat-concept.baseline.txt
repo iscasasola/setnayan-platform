@@ -37,8 +37,6 @@ platform_* | declined — platform ops config and internal registries; the map d
 admin_* | declined — internal admin queues and approval plumbing; the console is the surface, not a mapped entity
 concierge_* | declined — the retired "Concierge" naming (now Setnayan AI): trial-abuse tooling plus its knowledge-chunk store. Enforcement and retrieval plumbing, not a product entity.
 social_* | declined — outbound social scheduling and queue tooling; marketing ops, not a product entity
-supplies_orders | declined — the supplies marketplace is a DEFERRED third vertical (iteration 0018), not in V1 scope
-supplier_vendor_skus | declined — same deferred supplies vertical as supplies_orders
 
 # ══ MAP-BACKLOG — real product subsystems the map has never covered ═════════
 # Each line is a missing node, not a decision. Promote it by adding a node to
@@ -62,7 +60,6 @@ discount_code_* | map-backlog — discount code eligibility and redemption
 booking_fee_* | map-backlog — booking fee charges and ledger
 token_* | map-backlog — token burn bands and grant log; vendor wallet plumbing, dormant since the pack sale was retired 2026-07-21. The BILLING node covers subscriptions but not the token side.
 comp_grants | map-backlog — comp and unlimited-use grants issued by admin
-bespoke_monogram_* | map-backlog — monogram generation (iteration 0037)
 moodboard_* | map-backlog — mood board asset library
 creator_chapters | map-backlog — creator profile chapters
 couple_* | map-backlog — couple brief and intake records

@@ -589,6 +589,7 @@ export async function getConfirmedVendorCount(
     .select('vendor_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  if (error) console.error('[supabase-error] lib/events.ts · from:event_vendors.select', error);
   if (error) return 0;
   return count ?? 0;
 }
@@ -640,6 +641,7 @@ export async function resolveReceptionAnchor(
       .eq('event_id', eventId)
       .eq('category', RECEPTION_CATEGORY)
       .is('archived_at', null);
+    if (error) console.error('[supabase-error] lib/events.ts · from:event_vendors.select', error);
     if (error || !picks || picks.length === 0) return null;
 
     type Pick = {

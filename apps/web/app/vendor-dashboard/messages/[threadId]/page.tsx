@@ -67,6 +67,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
+import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -92,6 +94,7 @@ import {
   buildVendorConversationRows,
   initialsFor,
   isDateTagWorthShowing,
+  readStandingExtras,
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
@@ -125,7 +128,15 @@ export const metadata = { title: 'Thread · Vendor' };
 
 type Props = {
   params: Promise<{ threadId: string }>;
-  searchParams?: Promise<{ notice?: string; view?: string | string[]; compose?: string }>;
+  searchParams?: Promise<{
+    notice?: string;
+    view?: string | string[];
+    compose?: string;
+    /** The RPC status of a booking-ask answer given from this thread's quote card. */
+    lock_agree?: string;
+    lock_decline?: string;
+    competing?: string;
+  }>;
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
@@ -165,6 +176,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const composeMode =
     sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
+  // The answer to a booking ask given from the accepted quote card lands back
+  // HERE (`lockAnswerReturnTo`), so this page says what happened — the same
+  // sentences the Overview says. Without it a refusal would reload the thread
+  // with the Agree button still sitting on the card: a failure that looks
+  // exactly like a dead button.
+  const lockCompeting = Number.parseInt(sp?.lock_agree ? (sp?.competing ?? '') : '', 10);
+  const lockAnswer =
+    lockAgreeNotice(sp?.lock_agree, {
+      competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
+    }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {
     data: { user },
@@ -601,15 +622,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * the heavy tools live here, once, and the launchers open them by id.
    */
   const toolNodes: Record<string, React.ReactNode> = {
-    'send-proposal': (
-        <SendProposalCard
-          giftBasis={composerGiftBasis}
-          threadId={threadId}
-          templates={proposalTemplates}
-          packages={proposalPackages}
-        />
-    ),
     /*
+      ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19). `send-proposal` and
+      `build-quote` were two panels and two launchers for one job; a supplier
+      following the brief's "Quote" landed in the template form and following
+      its "New quote" landed in the builder. Both composers still mount — once
+      each, so the gift line, the anchors and the forms stay unique — inside
+      the ONE panel: the builder first (it works for every shop; production has
+      no proposal template on any shop), the saved-template shortcut under it.
+
       THE QUOTE OPENS AT THE LIVE COUNT (owner, 2026-09-09).
 
       Both numbers go in and the builder seeds itself from `livePax`, falling
@@ -624,6 +645,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       is.
     */
     'build-quote': (
+      <div className="space-y-3">
         <ProposalMaker
           threadId={threadId}
           giftBasis={composerGiftBasis}
@@ -642,6 +664,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               : null
           }
         />
+        <SendProposalCard
+          giftBasis={composerGiftBasis}
+          threadId={threadId}
+          templates={proposalTemplates}
+          packages={proposalPackages}
+        />
+      </div>
     ),
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
     'thread-call': (
@@ -780,6 +809,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * The rung is `railStage`, the one the header pill already shows, so the
    * pill and this line cannot contradict each other.
    */
+  // The facts beside the rung (SUP-2) — the SAME reader the couple's bench and
+  // thread page use. `paxAdmin` because a supplier cannot read `event_vendors`
+  // through their own session (see PR-H above); narrowed to this event × THIS
+  // shop's own profile, the pair the ownership check already proved.
+  const standingNowMs = Date.now();
+  const standingExtras = (
+    await readStandingExtras(paxAdmin, thread.event_id, [profile.vendor_profile_id], standingNowMs)
+  ).get(profile.vendor_profile_id);
+
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     viewer: 'vendor',
@@ -795,7 +833,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             ? 'couple'
             : null,
     lastSaidAtMs: lastThreadMessage ? Date.parse(lastThreadMessage.created_at) || null : null,
-    nowMs: Date.now(),
+    nowMs: standingNowMs,
+    depositPaid: standingExtras?.depositPaid ?? false,
+    meeting: standingExtras?.meeting ?? null,
+    // THE ONE guestCounts object this page reads its headcounts from.
+    guestCounts,
   });
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and
@@ -1063,6 +1105,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           strip and read as doing nothing. */}
       <ThreadToolHashReveal />
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        {lockAnswer ? (
+          <p
+            role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
+            className={`mb-2 rounded-xl border px-4 py-2.5 text-sm ${
+              lockAnswer.tone === 'refused'
+                ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
+                : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
+            }`}
+          >
+            {lockAnswer.text}
+          </p>
+        ) : null}
         <ChatBox
           header={
             <>
@@ -1489,6 +1543,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               refusePayment: refuseVendorPayment,
               applySurcharge: acceptPaxSurcharge,
               holdPrice: declinePaxSurcharge,
+              // The answer to a booking ask — the SAME two actions the Overview
+              // and the client page post (2026-09-19).
+              agreeLock: vendorAgreeToLock,
+              declineLock: vendorDeclineLock,
             }}
             lockHandshake={lockHandshake}
           />

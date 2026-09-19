@@ -39,6 +39,7 @@ import {
   buildBudgetLedger,
   BUDGET_LEDGER_COLUMNS,
   BUDGET_LEDGER_COLUMN_HINTS,
+  suggestedPlanByBucket,
 } from '@/lib/budget-ledger';
 import type { EventMoney, MoneyBucket, MoneyDue } from '@/lib/budget-truth';
 
@@ -353,20 +354,33 @@ test('the wedding-shaped suggestion never reaches a non-wedding event', () => {
    * renders for weddings only. Ungated, the ledger would print a ₱450,000
    * catering plan on a debut, out of a table that does not describe it.
    */
+  // SUP-65 moved the gate INTO `suggestedPlanByBucket` (the Merkado's category
+  // rails call it too), so the rule is now EXECUTED rather than grepped …
+  const leaves = [{ canonicalService: 'catering', benchmarkPhp: 450_000 }];
+  assert.equal(
+    suggestedPlanByBucket({ isWedding: false, budgetPhp: 1_000_000, leaves }).size,
+    0,
+    'a non-wedding event was handed a wedding-shaped suggestion',
+  );
+  assert.ok(
+    suggestedPlanByBucket({ isWedding: true, budgetPhp: 1_000_000, leaves }).size > 0,
+    'the wedding path suggests nothing — the negative case above proves nothing',
+  );
+  // … and the page must still hand it the real answer, not a constant `true`.
   const src = pageSrc();
   const detector = (s: string) =>
-    /\bsuggestedPlanPhp\b[\s\S]{0,200}?\bif\s*\(\s*isWeddingBudget\s*&&/.test(s);
+    /\bsuggestedPlanByBucket\(\{[\s\S]{0,200}?\bisWedding:\s*isWeddingBudget\b/.test(s);
   assert.ok(
-    detector('const suggestedPlanPhp = new Map();\n  if (isWeddingBudget && allocInputs.budgetPhp != null) {'),
+    detector('suggestedPlanByBucket({\n    isWedding: isWeddingBudget,\n    budgetPhp: x,'),
     'the wedding-gate detector cannot see the gate it exists to require',
   );
   assert.ok(
-    !detector('const suggestedPlanPhp = new Map();\n  if (allocInputs.budgetPhp != null) {'),
+    !detector('suggestedPlanByBucket({\n    isWedding: true,\n    budgetPhp: x,'),
     'the wedding-gate detector passes an UNGATED build — it proves nothing',
   );
   assert.ok(
     detector(src),
-    `${PAGE} fills the suggested plan without checking isWeddingBudget. Those ` +
+    `${PAGE} fills the suggested plan without passing isWeddingBudget. Those ` +
       `benchmarks are the wedding taxonomy; a debut would be shown a plan it ` +
       `never made. Leave Planned as "—" instead — that is the truth.`,
   );

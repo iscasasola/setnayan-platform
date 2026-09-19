@@ -33,7 +33,10 @@ export const getServiceMergeForwards = cache(async (): Promise<MergeForwardMap> 
       .from('canonical_service_taxonomy')
       .select('canonical_service,merged_into')
       .not('merged_into', 'is', null);
-    if (error || !data) return EMPTY;
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/service-merge-forward-db.ts · from:canonical_service_taxonomy.select', error);
+      return EMPTY;
+    }
     return forwardMapFromRows(
       data as { canonical_service: string; merged_into: string | null }[],
     );

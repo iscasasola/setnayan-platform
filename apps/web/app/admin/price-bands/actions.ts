@@ -39,3 +39,24 @@ export async function recomputePriceBands() {
   revalidatePath('/admin/pricing');
   redirect(`/admin/pricing?tab=price-bands&recomputed=${written}`);
 }
+
+/**
+ * The FUNNEL half of the same peer benchmark. `market_funnel_bands` is read by
+ * every supplier's My Performance page (funnel_benchmark_for_vendor → the
+ * FunnelBenchmarkCard) and written ONLY by recompute_market_funnel_bands() —
+ * which, until this action, nothing called. So the table was empty in
+ * production and every supplier was told "not enough peer data yet" whether
+ * or not there was: the card could never show a band, by construction.
+ *
+ * Same shape and same gate as recomputePriceBands above: admin-cadence,
+ * cron-free, the RPC re-checks is_console_admin() and applies the min-N floor.
+ */
+export async function recomputeFunnelBands() {
+  const supabase = await requireAdmin();
+  const { data, error } = await supabase.rpc('recompute_market_funnel_bands');
+  if (error) throw new Error(error.message);
+  const written = typeof data === 'number' ? data : 0;
+  revalidatePath('/admin/pricing');
+  revalidatePath('/vendor-dashboard/performance');
+  redirect(`/admin/pricing?tab=price-bands&funnelRecomputed=${written}`);
+}

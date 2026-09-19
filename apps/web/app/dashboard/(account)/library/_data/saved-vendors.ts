@@ -87,7 +87,13 @@ function fallbackCategoryLabel(category: string | null): string | null {
     .join(' ');
 }
 
-export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
+/**
+ * The saved-vendor read was REFUSED — distinct from `[]` so the Library never
+ * says "No saved vendors yet." to a couple whose plans hold suppliers (S41).
+ */
+export const SAVED_VENDORS_UNREADABLE = 'unreadable' as const;
+
+export async function fetchSavedVendors(): Promise<SavedVendorCard[] | typeof SAVED_VENDORS_UNREADABLE> {
   const supabase = await createClient();
 
   // RLS scopes this to every couple-event the user hosts — no .eq('event_id').
@@ -95,8 +101,12 @@ export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
     .from('event_vendors')
     .select('marketplace_vendor_id, event_id, status, vendor_name, category')
     .not('marketplace_vendor_id', 'is', null);
+  if (error) {
+    console.error('[supabase-error] app/dashboard/(account)/library/_data/saved-vendors.ts · from:event_vendors.select', error);
+    return SAVED_VENDORS_UNREADABLE;
+  }
 
-  if (error || !rows || rows.length === 0) return [];
+  if (!rows || rows.length === 0) return [];
 
   // Dedupe by marketplace_vendor_id; track distinct event_ids per vendor.
   const eventsByVendor = new Map<string, Set<string>>();

@@ -499,6 +499,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       // A REFUSED READ IS NOT "NO RECORD YET". Writing on a failed read would be
       // the duplicate this whole mechanism exists to prevent, so an unreadable
       // table skips the write entirely and the next save picks it up.
+      if (readErr) {
+        console.error(
+          '[supabase-error] app/open-shop/actions.ts · from:dependents.select',
+          readErr,
+        );
+      }
       if (!readErr && !already) {
         const { error: insErr } = await admin.from('dependents').insert(alaga);
         if (insErr && !isAlreadyRecorded(insErr)) {

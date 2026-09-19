@@ -3,13 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
-import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { collectBookingFeeAtLock, resolveFeeAnchorRowId } from '@/lib/booking-fee-lock.server';
-import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
+import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -161,54 +160,28 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
     // this single transition owns BOTH: the money and the reservation.
     //
     // Idempotency is FREE: `acknowledge_vendor_deposit` is single-winner and
-    // returns status:'already' on re-call, so this block runs at most once per
-    // booking. Everything inside is additionally fail-soft — the acknowledge
+    // returns status:'already' on re-call, so this runs at most once per
+    // booking from this door. It is additionally fail-soft — the acknowledge
     // has already COMMITTED and must never roll back or throw before the
     // redirect below. A vendor's confirmation is not allowed to fail because a
     // fee or a pool row misbehaved.
+    //
+    // 🔑 THE EFFECTS LIVE IN ONE MODULE, NOT HERE (2026-09-18). This used to be
+    // an inline block — resolve the anchor, collect the fee, acquire the pool —
+    // and it was the ONLY place those ran. The payment card's "Confirm"
+    // (`confirmVendorPayment`) acknowledges the same deposit through
+    // `confirm_vendor_payment`, and the first real booking went through THAT
+    // door: acknowledged, emailed, and never billed, with nothing logged. Every
+    // door now calls `runDepositAcknowledgedEffects`, which reads `event_id`
+    // off the row (never from this form) and records every outcome.
     // ────────────────────────────────────────────────────────────────────
-    {
-      try {
-        const admin = createAdminClient();
-
-        // Resolve the MONEY ROW first. A package's cascade rows can reach this
-        // path (nothing in the DB stops a covered row carrying deposit
-        // markers), and billing one would freeze a ledger ordinal on a row that
-        // must never carry money. NULL ⇒ bill nothing, acquire nothing.
-        const anchorId = await resolveFeeAnchorRowId(admin, eventVendorId);
-
-        if (anchorId && isBookingFeeEnabled()) {
-          const fee = await collectBookingFeeAtLock(createMoneyWriterClient(), {
-            eventVendorId: anchorId,
-          });
-          // `not_contracted` is the silent money leak: `recordDeposit` has no
-          // status precondition, so a deposit recorded on a `considering` row
-          // reaches acknowledge, the RPC skips it, and that booking is FREE
-          // FOREVER — the ordinal is computed once and never recovers. It is
-          // unreachable from today's call sites, which is exactly why it would
-          // go unnoticed if it ever became reachable. Say so, loudly.
-          if (fee.status === 'skipped' && fee.reason === 'not_contracted') {
-            console.error(
-              `[vendorAcknowledgeDeposit] BOOKING FEE SKIPPED as not_contracted — ` +
-                `event_vendor_id=${anchorId} event_id=${eventId}. This booking can ` +
-                `never be billed; the ledger ordinal is frozen. Investigate how a ` +
-                `deposit was acknowledged on a pre-contracted row.`,
-            );
-          }
-        }
-
-        // Reserve the schedule. Acquiring on the ANCHOR (not the row we were
-        // handed) is what stops a package double-consuming the vendor's daily
-        // capacity: occupancy counts every `event_vendor_id <> ours`, so an
-        // anchor-scoped acquire plus an earlier covered-row acquire would eat
-        // two slots for one booking and tell a real second couple the date is
-        // "fully booked". Re-acquiring the SAME id is idempotent.
-        if (anchorId) {
-          await acquireSchedulePoolsForBooking(admin, eventId, anchorId);
-        }
-      } catch (e) {
-        console.error('[vendorAcknowledgeDeposit] fee/pool at acknowledge failed:', e);
-      }
+    try {
+      await runDepositAcknowledgedEffects(createAdminClient(), {
+        eventVendorId,
+        door: 'clients_card',
+      });
+    } catch (e) {
+      console.error('[vendorAcknowledgeDeposit] acknowledge effects threw:', e);
     }
   }
 
@@ -872,6 +845,7 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
     p_change_order_id: changeOrderId,
   });
   const env = (data ?? {}) as { status?: string };
+  if (error) console.error('[supabase-error] clients/actions: withdraw_change_order', error, { change_order_id: changeOrderId });
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
@@ -1005,7 +979,12 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // Where the answer lands: the Overview, as always — or the supplier's own
+  // thread when the answer came from the accepted quote card there. Validated
+  // to that one shape (`lockAnswerReturnTo`); the thread page reads the status.
+  const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
   const flag = error ? 'error' : (env.status ?? 'ok');
   // `competing` rides along because the refusal it belongs to — "answer the
   // other couples waiting on you for that date first" — is only actionable if
@@ -1015,7 +994,7 @@ export async function vendorAgreeToLock(formData: FormData) {
     env.status === 'resolve_others_first' && typeof env.competing === 'number'
       ? `&competing=${env.competing}`
       : '';
-  redirect(`/vendor-dashboard?lock_agree=${flag}${competing}`);
+  redirect(`${back}?lock_agree=${flag}${competing}`);
 }
 
 /**
@@ -1080,9 +1059,11 @@ export async function vendorDeclineLock(formData: FormData) {
     }
   }
 
+  const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
   const flag = error ? 'error' : (env.status ?? 'ok');
-  redirect(`/vendor-dashboard?lock_decline=${flag}`);
+  redirect(`${back}?lock_decline=${flag}`);
 }
 
 /**

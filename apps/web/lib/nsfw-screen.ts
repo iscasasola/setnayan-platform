@@ -271,6 +271,7 @@ export async function screenCapture(opts: {
         .select('poster_r2_key')
         .eq('r2_object_key', opts.r2ObjectKey)
         .maybeSingle();
+      if (posterError) console.error(`[supabase-error] lib/nsfw-screen.ts · from:${opts.table}.select`, posterError);
       const posterRef =
         !posterError && typeof posterRow?.poster_r2_key === 'string'
           ? posterRow.poster_r2_key.trim()
@@ -388,6 +389,7 @@ export async function reScreenStuckCaptures(eventId: string): Promise<number> {
         .or(`${clipCol}.is.null,${clipCol}.neq.clip,poster_r2_key.not.is.null`)
         .order('created_at', { ascending: true })
         .limit(RESCREEN_LIMIT);
+      if (error) console.error(`[supabase-error] lib/nsfw-screen.ts · from:${table}.select`, error);
       // Pre-migration (missing column → 42703) or any read error → skip this
       // table, never the whole sweep.
       if (error || !stuck || stuck.length === 0) continue;
@@ -491,6 +493,7 @@ export async function reScreenAllStuckCaptures(): Promise<number> {
         .or(`${clipCol}.is.null,${clipCol}.neq.clip,poster_r2_key.not.is.null`)
         .order('created_at', { ascending: true })
         .limit(RESCREEN_SWEEP_SCAN_LIMIT);
+      if (error) console.error(`[supabase-error] lib/nsfw-screen.ts · from:${table}.select`, error);
       // Pre-migration (missing column → 42703) or any read error → skip this
       // table, never the whole sweep.
       if (error || !data) continue;
@@ -540,6 +543,11 @@ export async function screenEditorialVendorMedia(opts: {
       .select('media_id, moderation_state')
       .eq('media_id', opts.mediaId)
       .maybeSingle();
+    if (rowError) {
+      console.error('[supabase-error] lib/nsfw-screen.ts · from:editorial_vendor_media.select', rowError, {
+        media_id: opts.mediaId,
+      });
+    }
     if (rowError || !row) return; // row gone / pre-migration env
     if ((row as Record<string, unknown>).moderation_state !== 'unscreened') return;
 
@@ -758,6 +766,7 @@ export async function screenStdVideo(opts: {
       .select('std_media, std_media_nsfw')
       .eq('event_id', opts.eventId)
       .maybeSingle();
+    if (rowError) console.error('[supabase-error] lib/nsfw-screen.ts · from:events.select', rowError);
     if (rowError || !row) return; // event gone / pre-migration env
     const record = row as Record<string, unknown>;
     // Strict resolve — a ref that is not this event's own r2:// upload is not a

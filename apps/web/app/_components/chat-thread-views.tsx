@@ -178,6 +178,14 @@ export type SupplierReplyActions = {
   refusePayment: (formData: FormData) => Promise<void>;
   applySurcharge: (formData: FormData) => Promise<void>;
   holdPrice: (formData: FormData) => Promise<void>;
+  /**
+   * The answer to a booking ask, on the accepted quote card (2026-09-19) —
+   * `vendorAgreeToLock` / `vendorDeclineLock`, the same two actions the
+   * Overview's request card and the client page post. Optional: a mount that
+   * does not pass them draws no answer, never a dead button.
+   */
+  agreeLock?: (formData: FormData) => Promise<void>;
+  declineLock?: (formData: FormData) => Promise<void>;
 };
 
 /** Everything a reply form must post, identical to the stream's own cards. */

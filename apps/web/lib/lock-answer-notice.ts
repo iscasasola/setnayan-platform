@@ -153,3 +153,21 @@ export function lockDeclineNotice(
   if (!status) return null;
   return (DECLINE[status] ?? DECLINE.error!)(ctx);
 }
+
+/**
+ * WHERE AN ANSWER LANDS (2026-09-19). The Overview has always been the only
+ * reader of `?lock_agree=` / `?lock_decline=`; since the supplier can now answer
+ * from the accepted quote card in a thread, the thread page reads them too, and
+ * the forms there post `return_to` so the supplier stays in the conversation
+ * they answered from.
+ *
+ * 🔒 ONLY A SUPPLIER THREAD PATH IS HONOURED. `return_to` is posted by the
+ * browser; anything else — an absolute URL, a `//host`, a path with a query or a
+ * traversal — falls back to the Overview, which is where these actions have
+ * always gone. This is an allowlist of one shape, never a denylist.
+ */
+const THREAD_RETURN = /^\/vendor-dashboard\/messages\/[A-Za-z0-9_-]{1,80}$/;
+
+export function lockAnswerReturnTo(raw: unknown): string {
+  return typeof raw === 'string' && THREAD_RETURN.test(raw) ? raw : '/vendor-dashboard';
+}

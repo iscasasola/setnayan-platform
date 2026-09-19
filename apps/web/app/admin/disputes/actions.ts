@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
+import { recordedDepositPhp } from '@/lib/paid-to-vendor';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -244,6 +245,19 @@ export async function settleDepositDispute(formData: FormData) {
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
   if (!booking) throw new Error('Booking not found');
+  // The amount the ruling is about, from the payment log through the one rule
+  // (lib/paid-to-vendor.ts). `deposit_paid_php` alone is NULL on every
+  // couple-recorded deposit — the only kind that can be refused. Best-effort:
+  // a failed read records null, it never blocks the settlement.
+  const { data: depositRows } = await admin
+    .from('event_vendor_payments')
+    .select('amount_php, is_deposit_record')
+    .eq('vendor_id', eventVendorId)
+    .eq('is_deposit_record', true);
+  const depositPhp = recordedDepositPhp(
+    (depositRows ?? []) as { amount_php: number | string | null; is_deposit_record: boolean }[],
+    booking.deposit_paid_php,
+  );
 
   /*
     🔑 THE RPC GOES THROUGH THE ADMIN'S OWN SESSION, NOT `admin`.
@@ -285,7 +299,7 @@ export async function settleDepositDispute(formData: FormData) {
         // The supplier's own words, kept here because `payment_stands` clears
         // them from the row.
         supplier_claim: env.claim ?? booking.deposit_decline_reason,
-        deposit_paid_php: booking.deposit_paid_php,
+        deposit_php: depositPhp,
       },
       after_json: { deposit_dispute_outcome: outcome },
       reason: note,

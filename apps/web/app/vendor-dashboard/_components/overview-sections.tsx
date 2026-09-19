@@ -208,7 +208,7 @@ export function VendorTodayFocal({
         ? 'A lead is warm — answer first, win first.'
         : `${inquiries} leads are warm — answer first, win first.`
       : nextBooking
-        ? 'Your next shoot is on the books.'
+        ? 'Your next booking is on the books.'
         : 'Your shop is all set for now.';
 
   return (
@@ -351,7 +351,8 @@ export function VendorEnergyStats({
 
   return (
     <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {/* Countdown ring — nearest upcoming shoot (gold sweep). */}
+      {/* Countdown ring — nearest upcoming booking (gold sweep). Every supplier
+          reads this tile — a band, a caterer or a florist does not "shoot". */}
       <div className="sn-tile sn-reveal flex items-center gap-3.5">
         {nearest ? (
           <>
@@ -371,7 +372,7 @@ export function VendorEnergyStats({
             <div className="min-w-0">
               <p className="sn-eye">
                 <CalendarClock aria-hidden strokeWidth={1.75} />
-                Next shoot
+                Next booking
               </p>
               <p className="mt-1 truncate text-sm font-semibold text-ink">
                 {nearest.eventName}
@@ -386,7 +387,7 @@ export function VendorEnergyStats({
           <div>
             <p className="sn-eye">
               <CalendarClock aria-hidden strokeWidth={1.75} />
-              Next shoot
+              Next booking
             </p>
             <p className="mt-1.5 text-sm text-ink/55">No booked events yet.</p>
           </div>
@@ -399,6 +400,7 @@ export function VendorEnergyStats({
         <CashFlowTile
           confirmedPhp={earnings.confirmedPhp}
           expectedPhp={earnings.expectedPhp}
+          measured={earnings.paydayMeasured}
         />
       ) : null}
 
@@ -517,8 +519,8 @@ function EarnedTile({
       </span>
       <span className="mt-2 flex items-center gap-1 text-xs text-ink/60">
         {bookingCount === 0
-          ? 'Paid bookings roll up here.'
-          : `${bookingCount} booking${bookingCount === 1 ? '' : 's'} logged`}
+          ? 'Payments you confirm roll up here.'
+          : `${bookingCount} payment${bookingCount === 1 ? '' : 's'} confirmed`}
         <ArrowUpRight
           className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
           strokeWidth={1.75}
@@ -539,14 +541,27 @@ function EarnedTile({
 function CashFlowTile({
   confirmedPhp,
   expectedPhp,
+  measured,
 }: {
   confirmedPhp: number;
   expectedPhp: number;
+  /** false = the payday read was refused; ₱0 here is "unknown", not "none". */
+  measured: boolean;
 }) {
   const pct = expectedPhp > 0 ? (confirmedPhp / expectedPhp) * 100 : 0;
   return (
     <div className="sn-tile sn-reveal flex items-center gap-3.5">
-      {expectedPhp > 0 ? (
+      {!measured ? (
+        <div>
+          <p className="sn-eye">
+            <Wallet aria-hidden strokeWidth={1.75} />
+            Confirmed cash-flow
+          </p>
+          <p className="mt-1.5 text-sm text-ink/55">
+            Couldn&rsquo;t load your installments right now.
+          </p>
+        </div>
+      ) : expectedPhp > 0 ? (
         <>
           <ProgressRing
             pct={pct}
@@ -877,7 +892,7 @@ function LockRequestBody({
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">A couple wants to book you</p>
+      <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1282,7 +1297,7 @@ function LockRequestLapsedBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">
-        A couple asked to book you, and nobody answered in time
+        {card.coupleName} asked to book you, and nobody answered in time
       </p>
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {metaLine([

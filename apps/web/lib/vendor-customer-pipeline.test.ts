@@ -3,8 +3,10 @@
  * them that would be invisible if they broke.
  *
  * 🔑 THE TWO LOAD-BEARING ASSERTIONS, said up front so nobody weakens them:
- *   1. A `waiting` row NEVER carries the couple's name or venue — including a
- *      BOOKING ASK, which is the half a reader is most likely to "fix".
+ *   1. EVERY row carries the couple's name and venue when the event has them —
+ *      including a `waiting` BOOKING ASK, which is where a lane-gated mask
+ *      outlived its ruling (owner report 2026-09-19). The descriptor appears
+ *      ONLY when the name is genuinely null or blank.
  *   2. The four lanes still work with the handshake flag OFF. The register
  *      warned this page would render "two of four" while the flag is dark;
  *      measured, only the `booking_ask` KIND is unreachable, and these tests
@@ -44,11 +46,10 @@ const NOW = Date.parse('2026-08-20T00:00:00Z');
 const thread = (
   inquiryStatus: string | null,
   createdAt: string | null = '2026-08-01T00:00:00Z',
-  revealed = inquiryStatus === 'accepted',
   // Default:recent enough to stay `talking`, so every pre-existing test keeps
   // meaning what it meant before the fifth lane arrived.
   lastActivityAt: string | null = '2026-08-19T00:00:00Z',
-) => ({ threadId: 't1', inquiryStatus, createdAt, revealed, lastActivityAt });
+) => ({ threadId: 't1', inquiryStatus, createdAt, lastActivityAt });
 
 const booking = (
   status: string | null,
@@ -112,7 +113,7 @@ test('EVERY LANE WORKS WITH THE FLAG OFF — only the booking-ask kind does not'
       customerLaneOf(input({ thread: thread('pending') }), false, NOW),
       customerLaneOf(input({ thread: thread('accepted') }), false, NOW),
       customerLaneOf(
-        input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z') }),
+        input({ thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z') }),
         false,
         NOW,
       ),
@@ -154,20 +155,40 @@ test('an answered booking ask is not still waiting', () => {
 
 // ── 3 · IDENTITY — the assertion that matters most ─────────────────────────
 
-test('a WAITING row never carries the name, the venue, or anything but the mask', () => {
+test('a WAITING row carries the name and the venue — a booking ask above all', () => {
+  // The owner's report, reproduced: a couple who had just pressed Lock, whose
+  // event HAS a display_name, rendered as the fallback with a "·" mark.
   const enquiry = customerLaneOf(input({ thread: thread('pending') }), true);
-  const ask = customerLaneOf(input({ booking: booking('considering', 'pending') }), true);
-  for (const row of [enquiry, ask]) {
-    assert.ok(row, 'row should exist');
-    assert.equal(row.identityRevealed, false);
-    assert.equal(row.title, DESCRIPTOR);
-    assert.equal(row.place, null);
-    // Belt and braces: the couple's name must not appear ANYWHERE on the row.
-    assert.ok(
-      !JSON.stringify(row).includes('Ana & Marco'),
-      'the couple name reached a masked row',
-    );
-    assert.ok(!JSON.stringify(row).includes('Tagaytay'), 'the venue reached a masked row');
+  const ask = customerLaneOf(
+    input({ booking: booking('considering', 'pending'), eventName: 'Ana & Miguel' }),
+    true,
+  );
+  assert.equal(ask?.waitingKind, 'booking_ask');
+  assert.equal(ask?.title, 'Ana & Miguel');
+  assert.equal(ask?.identityRevealed, true);
+  assert.equal(ask?.place, 'Tagaytay Chapel');
+  assert.equal(enquiry?.waitingKind, 'inquiry');
+  assert.equal(enquiry?.title, 'Ana & Marco');
+  assert.equal(enquiry?.place, 'Tagaytay Chapel');
+});
+
+test('the fallback appears ONLY when the name is genuinely null or blank — on every lane', () => {
+  const shapes: Partial<PipelineInput>[] = [
+    { booking: booking('considering', 'pending') },
+    { thread: thread('pending') },
+    { thread: thread('accepted') },
+    { booking: booking('contracted') },
+    { booking: booking('complete') },
+  ];
+  for (const shape of shapes) {
+    for (const eventName of [null, '', '   ']) {
+      const row = customerLaneOf(input({ ...shape, eventName }), true, NOW);
+      assert.equal(row?.title, DESCRIPTOR, `nameless ${JSON.stringify(shape)} should fall back`);
+      assert.equal(row?.identityRevealed, false);
+    }
+    const named = customerLaneOf(input(shape), true, NOW);
+    assert.equal(named?.title, 'Ana & Marco', `named ${JSON.stringify(shape)} lost its name`);
+    assert.equal(named?.identityRevealed, true);
   }
 });
 
@@ -235,9 +256,7 @@ test('a live pool hold does NOT outrank an unanswered booking ask', () => {
   );
   assert.equal(row?.lane, 'waiting');
   assert.equal(row?.waitingKind, 'booking_ask');
-  // …and the mask still holds: a floor must not become a way past it.
-  assert.equal(row?.identityRevealed, false);
-  assert.equal(row?.title, DESCRIPTOR);
+  assert.equal(row?.title, 'Ana & Marco');
 });
 
 test('a live pool hold does not drag a finished celebration back to booked', () => {
@@ -249,7 +268,7 @@ test('a live pool hold does not drag a finished celebration back to booked', () 
 
 test('an answered enquiry that has gone quiet is HOLDING, not talking', () => {
   const row = customerLaneOf(
-    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-11T00:00:00Z') }),
+    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-08-11T00:00:00Z') }),
     true,
     NOW,
   );
@@ -266,7 +285,6 @@ test('the boundary is exercised from BOTH sides, in one process', () => {
         thread: thread(
           'accepted',
           '2026-08-01T00:00:00Z',
-          true,
           new Date(NOW - daysQuiet * 86_400_000).toISOString(),
         ),
       }),
@@ -283,7 +301,7 @@ test('an unreadable clock fails toward TALKING, never toward holding', () => {
   // them a cold one has.
   for (const bad of [null, 'not a date']) {
     const row = customerLaneOf(
-      input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, bad) }),
+      input({ thread: thread('accepted', '2026-08-01T00:00:00Z', bad) }),
       true,
       NOW,
     );
@@ -295,7 +313,7 @@ test('an unreadable clock fails toward TALKING, never toward holding', () => {
 test('a BOOKING outranks quietness — a booked customer is never "holding"', () => {
   const row = customerLaneOf(
     input({
-      thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-01-01T00:00:00Z'),
+      thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-01-01T00:00:00Z'),
       booking: booking('contracted'),
     }),
     true,
@@ -307,7 +325,7 @@ test('a BOOKING outranks quietness — a booked customer is never "holding"', ()
 
 test('a holding row is entitled to the name — it reaches there via an ACCEPTED thread', () => {
   const row = customerLaneOf(
-    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z') }),
+    input({ thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z') }),
     true,
     NOW,
   );
@@ -331,7 +349,7 @@ test('holdingByDate counts the shop\'s exposure per date', () => {
       input({
         eventId,
         eventDate,
-        thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z'),
+        thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'),
       }),
       true,
       NOW,
@@ -371,7 +389,7 @@ test('an UNDATED customer is never counted into a clash', () => {
       input({
         eventId,
         eventDate: null,
-        thread: thread('accepted', '2026-08-01T00:00:00Z', true, '2026-08-01T00:00:00Z'),
+        thread: thread('accepted', '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'),
       }),
       true,
       NOW,

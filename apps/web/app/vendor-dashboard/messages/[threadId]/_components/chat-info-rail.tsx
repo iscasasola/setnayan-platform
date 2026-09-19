@@ -324,10 +324,14 @@ function RailBody({
             </>
           ) : null}
 
-          {/* Full customer profile */}
+          {/* Full customer profile.
+              ⚠ `?tab=details`, never the bare client route: a bare landing on
+              the client page is a CHAT landing and redirects straight back to
+              this thread (#5614) — this button reloaded the page it sat on.
+              `details` is the shell tab that holds the full brief. */}
           <div className="px-3 pb-4 pt-2">
             <Link
-              href={`/vendor-dashboard/clients/${eventId}`}
+              href={`/vendor-dashboard/clients/${eventId}?tab=details`}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2.5 text-sm font-semibold text-cream hover:bg-ink/90"
             >
               <User aria-hidden className="h-4 w-4" strokeWidth={2} />

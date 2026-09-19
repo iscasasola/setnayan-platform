@@ -185,6 +185,7 @@ export async function countActiveBookings(
     .select('booking_id', { count: 'exact', head: true })
     .eq('package_id', packageId)
     .neq('status', 'released');
+  if (error) console.error('[supabase-error] lib/package-draft-loader.ts · from:event_vendor_packages.select', error);
   if (error || count === null || count === undefined) return null;
   return count;
 }

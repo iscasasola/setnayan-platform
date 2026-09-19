@@ -155,7 +155,10 @@ function activeSurface(
     case 'price-bands':
       return (
         <PriceBandsSurface
-          searchParams={Promise.resolve({ recomputed: first(search.recomputed) })}
+          searchParams={Promise.resolve({
+            recomputed: first(search.recomputed),
+            funnelRecomputed: first(search.funnelRecomputed),
+          })}
         />
       );
     case 'free-windows':

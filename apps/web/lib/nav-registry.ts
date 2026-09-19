@@ -40,6 +40,7 @@ const loadOverrides = unstable_cache(
       const { data, error } = await admin
         .from('nav_slot_override')
         .select('slot_key,label,icon_kind,lucide_name,custom_url,is_hidden');
+      if (error) console.error('[supabase-error] lib/nav-registry.ts · from:nav_slot_override.select', error);
       if (error || !data) return {};
       const map: Record<string, NavSlotOverrideRow> = {};
       for (const row of data as NavSlotOverrideRow[]) map[row.slot_key] = row;

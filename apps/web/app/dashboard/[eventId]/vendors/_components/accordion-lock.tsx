@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BookmarkCheck,
@@ -133,6 +134,13 @@ type LockState =
       acknowledgeReservationTerms: boolean;
     }
   | { kind: 'error'; message: string }
+  // PR-H · the press was an ASK (handshake on, marketplace supplier): nothing
+  // is booked, the supplier has 48 hours to agree. Until 2026-09-19 this
+  // result fell through the switch with no case, so the button sat idle and
+  // looked exactly like a press that did nothing — tolerable only on the
+  // bench, whose own revalidation swaps Lock for Withdraw. In the chat card
+  // (the second mount) nothing revalidated, so the ask was invisible.
+  | { kind: 'requested'; vendorName: string }
   // Coordinator proposed the lock (spec § 4) — the couple confirms it.
   | { kind: 'proposed'; vendorName: string };
 
@@ -166,6 +174,7 @@ export function AccordionLockButton({
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
   isVerified,
+  source = 'plan_budget_accordion',
 }: {
   eventId: string;
   groupId: PlanGroupId;
@@ -189,7 +198,10 @@ export function AccordionLockButton({
    * server gate + DB trigger are the real enforcement.
    */
   isVerified?: boolean;
+  /** Analytics only — which room the press came from. */
+  source?: string;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<LockState>({ kind: 'idle' });
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
@@ -312,6 +324,10 @@ export function AccordionLockButton({
               ? result.milestone
               : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null };
           setState({ kind: 'idle' });
+          // finalizeVendor revalidates the Vendors page only; a mount in any
+          // other room (the chat quote card) must re-read its own server
+          // props or it keeps offering a Lock that has already happened.
+          router.refresh();
           // Congrats + undo toast outlives the (now revalidated) card flip.
           setToast({
             kind: 'locked',
@@ -331,7 +347,7 @@ export function AccordionLockButton({
               vendor_id: vendorId,
               group_id: groupId,
               group_label: groupLabel,
-              source: 'plan_budget_accordion',
+              source,
             });
           } catch {
             // PostHog optional — never block UX.
@@ -439,6 +455,14 @@ export function AccordionLockButton({
         case 'not_signed_in':
           setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
           return;
+        case 'not_secured':
+          // A guest (anonymous) session cannot book. Like 'lock_requested', this
+          // had no case and rendered as nothing; found by the \`never\` below.
+          setState({
+            kind: 'error',
+            message: 'Save your account first to lock this vendor.',
+          });
+          return;
         case 'not_found':
           setState({
             kind: 'error',
@@ -453,6 +477,28 @@ export function AccordionLockButton({
           // recorded for the couple to confirm (spec § 4).
           setState({ kind: 'proposed', vendorName: result.vendorName });
           return;
+        case 'lock_requested':
+          // The ask is recorded. Say so on the button, and re-read the page so
+          // every surface built from the row (the bench's Withdraw, the chat
+          // card's "you have asked them to lock") catches up.
+          haptic('confirm');
+          setState({ kind: 'requested', vendorName: result.vendorName });
+          router.refresh();
+          return;
+        default: {
+          // 🔴 A RESULT THIS SWITCH DOES NOT NAME MUST NEVER RENDER AS NOTHING.
+          // 'lock_requested' did exactly that for its whole life. The `never`
+          // makes a new status a compile error here; the message covers a
+          // server that is newer than this bundle.
+          const unhandled: never = result;
+          setState({
+            kind: 'error',
+            message: `We couldn't confirm the lock (${
+              (unhandled as { status?: string }).status ?? 'unknown'
+            }). Refresh the page to see where it stands.`,
+          });
+          return;
+        }
       }
     });
   };
@@ -469,6 +515,19 @@ export function AccordionLockButton({
       });
     });
   };
+
+  if (state.kind === 'requested') {
+    return (
+      <div className={wrapperClassName}>
+        <p
+          role="status"
+          className="rounded-md border border-mulberry/30 bg-mulberry/[0.06] px-3 py-2 text-[11px] text-mulberry"
+        >
+          Lock requested — waiting for {state.vendorName} to agree.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={wrapperClassName}>
@@ -758,9 +817,9 @@ function DownpaymentModal({
         <div className="flex items-start gap-2.5 pr-6">
           <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
           <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">Pay the downpayment to lock</h3>
+            <h3 className="text-sm font-semibold text-ink">Pay the deposit to lock</h3>
             <p className="text-xs leading-snug text-ink/70">
-              To lock <strong>{vendorName}</strong>, pay the downpayment through one of
+              To lock <strong>{vendorName}</strong>, pay the deposit through one of
               their methods below, then attach a screenshot so they can confirm. Your
               date is held the moment you submit. Setnayan never touches the money — you
               pay {vendorName} directly.
@@ -864,7 +923,7 @@ function DownpaymentModal({
                   Locking…
                 </>
               ) : (
-                'Lock & submit downpayment'
+                'Lock & submit deposit'
               )}
             </button>
             <button

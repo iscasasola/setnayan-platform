@@ -11,7 +11,7 @@ import {
   Minus,
   Plus,
   Pencil,
-  // Aliased, following the repo's existing idiom (account-inline.tsx): a bare
+  // Aliased (the repo's idiom for this icon): a bare
   // `Infinity` import shadows the JS global inside this module.
   Infinity as InfinityIcon,
 } from 'lucide-react';

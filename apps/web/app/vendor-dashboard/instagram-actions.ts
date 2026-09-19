@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { decryptToken, encryptToken } from '@/lib/encryption';
 import { encodeR2Ref } from '@/lib/uploads';
 import { r2Upload, R2_BUCKETS } from '@/lib/r2';
@@ -211,7 +212,14 @@ export async function syncInstagramMedia(): Promise<SyncResult> {
       },
       { onConflict: 'vendor_profile_id,ig_media_id' },
     );
-    if (!upsertErr) synced += 1;
+    if (upsertErr) {
+      logQueryError('instagram-actions.ts: syncInstagramMedia vendor_ig_media upsert', upsertErr, {
+        vendor_profile_id: vendorProfileId,
+        ig_media_id: item.id,
+      });
+    } else {
+      synced += 1;
+    }
   }
 
   await admin

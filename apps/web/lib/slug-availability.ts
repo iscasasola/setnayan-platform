@@ -106,6 +106,7 @@ export async function isSlugForwarding(
     .eq('old_slug', lower)
     .gt('redirect_until', new Date().toISOString())
     .limit(50);
+  if (error) console.error('[supabase-error] lib/slug-availability.ts · from:slug_change_log.select', error);
 
   if (error) return true; // fail closed — we cannot prove the word is free
   const rows = (data ?? []) as { entity_id: string | null }[];
@@ -135,6 +136,7 @@ export async function findSlugConflict(
     .select('event_id')
     .ilike('slug', lower)
     .maybeSingle();
+  if (event.error) console.error('[supabase-error] lib/slug-availability.ts · from:events.select', event.error);
   if (event.error) return 'unverified';
   const eventId = (event.data as { event_id?: string } | null)?.event_id ?? null;
   if (eventId && !sameId(exclusions.eventId, eventId)) return 'taken';
@@ -144,11 +146,13 @@ export async function findSlugConflict(
     .select('vendor_profile_id')
     .ilike('business_slug', lower)
     .maybeSingle();
+  if (shop.error) console.error('[supabase-error] lib/slug-availability.ts · from:vendor_profiles.select', shop.error);
   if (shop.error) return 'unverified';
   const shopId = (shop.data as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
   if (shopId && !sameId(exclusions.vendorProfileId, shopId)) return 'taken_by_shop';
 
   const person = await admin.from('users').select('user_id').ilike('slug', lower).maybeSingle();
+  if (person.error) console.error('[supabase-error] lib/slug-availability.ts · from:users.select', person.error);
   if (person.error) return 'unverified';
   const personId = (person.data as { user_id?: string } | null)?.user_id ?? null;
   if (personId && !sameId(exclusions.userId, personId)) return 'taken_by_person';
@@ -170,6 +174,7 @@ export async function findSlugConflict(
     .eq('old_slug', lower)
     .gt('redirect_until', new Date().toISOString())
     .limit(50);
+  if (retired.error) console.error('[supabase-error] lib/slug-availability.ts · from:slug_change_log.select', retired.error);
   // Fails closed, like the forwarding probe beside it: an unreadable ledger
   // cannot prove the word is free, and handing out a held address is worse than
   // asking someone to try again.

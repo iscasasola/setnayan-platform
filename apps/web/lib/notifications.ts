@@ -81,8 +81,11 @@ export type NotificationType =
   | 'inquiry_no_response'
   | 'photo_delivery_complete'
   | 'photo_delivery_failed'
-  | 'vendor_token_purchase_pending'
-  | 'vendor_tokens_credited'
+  // 'vendor_token_purchase_pending' / 'vendor_tokens_credited' were the token
+  // wallet's notice types (RETIRED 2026-05-11). Removed from the union
+  // 2026-09-18 — no app file ever passed either as a type. The Postgres enum
+  // still carries both values (2 historical rows use the first); an enum
+  // value can't be cheaply dropped, so it is left as inert history.
   // Added 2026-06-10. Invite/Join v2 (2026-06-25) repurposed it: fired
   // (couple-recipient) from app/join/[eventId]/actions.ts (notifyCoupleUnlisted)
   // when an optimistically-admitted joiner didn't match the list and lands in the
@@ -275,6 +278,13 @@ export type NotificationType =
   // already have access to (get_vendor_mood_board RPC). Informational nudge —
   // NOT on the email/push allowlists.
   | 'mood_board_share'
+  // The enum value landed 2026-06-23 (20270213450358_gift_notification_type.sql)
+  // for PR #2027, which closed unmerged — so for three months the type existed
+  // in the database and nothing could emit it. Wired 2026-09-18 (S34): fired
+  // (COUPLE-recipient) from app/admin/users/actions.ts → issueCompGrant() when
+  // the Setnayan team gifts a couple a service. In-app only, as #2027 designed
+  // it — NOT on the email/push allowlists.
+  | 'gift'
   // Added 2026-06-30 (Phase 3b delivery polish · migration
   // 20270327434080_vendor_feature_suggested_notification_type.sql). Fired
   // (COUPLE-recipient) from
@@ -415,8 +425,6 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   inquiry_no_response: 'Vendor hasn’t replied',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
-  vendor_token_purchase_pending: 'Token purchase awaiting payment',
-  vendor_tokens_credited: 'Tokens credited',
   guest_claim_pending: 'Guest request to confirm',
   security_alert: 'Security alert',
   kwento_flagged: 'Guest story to review',
@@ -470,6 +478,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   subscription_activated: 'Plan active',
   // The couple shared their mood board with their booked vendors (2026-06-28).
   mood_board_share: 'Mood board shared',
+  // A comp grant from the Setnayan team (2026-09-18).
+  gift: 'A gift from Setnayan',
   vendor_feature_suggested: 'A vendor suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
@@ -520,10 +530,6 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   inquiry_no_response: 'bg-warn-100 text-warn-900',
   photo_delivery_complete: 'bg-success-100 text-success-800',
   photo_delivery_failed: 'bg-danger-100 text-danger-800',
-  // Pending purchase = admin action needed → amber (matches resubmit/awaiting).
-  vendor_token_purchase_pending: 'bg-warn-100 text-warn-900',
-  // Tokens credited = positive money-in confirmation → emerald (matches order_paid).
-  vendor_tokens_credited: 'bg-success-200 text-success-900',
   // Guest request awaiting the couple's confirmation = action needed → amber.
   guest_claim_pending: 'bg-warn-100 text-warn-900',
   // Security alert = the alarm register — rose, matching payment_rejected /
@@ -633,6 +639,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple sharing their mood board = a positive, informational arrival in
   // the vendor's tray → sky (matches editorial_decision / the informational register).
   mood_board_share: 'bg-sky-100 text-sky-800',
+  // A gift is good news arriving → the gold accent (`terracotta` IS gold here).
+  gift: 'bg-terracotta-100 text-terracotta-900',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
   // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
   // error" — amber, matching review_request / payment_logged. A payment coming

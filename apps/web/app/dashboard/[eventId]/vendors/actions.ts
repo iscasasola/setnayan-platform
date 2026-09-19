@@ -8,6 +8,7 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -3720,6 +3721,7 @@ export async function searchMarketplaceVendorsByName(
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('marketplace_vendor_id', profileIds);
+  if (alreadyErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/actions.ts · from:event_vendors.select', alreadyErr);
   // We don't graceful-degrade alreadyErr — if event_vendors can't be
   // read the autocomplete is unusable. Treat as no-matches.
   if (alreadyErr) {
@@ -4072,6 +4074,7 @@ async function refusalForLoggedPayments(
     .select('amount_php')
     .eq('vendor_id', vendorId);
   if (error) {
+    console.error('[supabase-error] vendors/actions: supplier payments before removal', error, { vendor_id: vendorId });
     return 'We could not check this supplier\'s payments, so nothing was removed. Please try again.';
   }
   const rows = (data ?? []) as { amount_php: number | string | null }[];
@@ -4136,7 +4139,7 @@ export async function cancelBookingAsHost(
   const { data: vendorRow, error: readErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, vendor_name, status, deposit_paid_php, marketplace_vendor_id, event_id',
+      'vendor_id, vendor_name, status, deposit_paid_php, deposit_recorded_at, marketplace_vendor_id, event_id',
     )
     .eq('vendor_id', vendorIdRaw)
     .eq('event_id', eventIdRaw)
@@ -4155,6 +4158,7 @@ export async function cancelBookingAsHost(
     vendor_name: string;
     status: VendorStatus;
     deposit_paid_php: number | string | null;
+    deposit_recorded_at: string | null;
     marketplace_vendor_id: string | null;
     event_id: string;
   };
@@ -4168,14 +4172,11 @@ export async function cancelBookingAsHost(
   //       enter a deposit figure via the inline contact form on the
   //       vendors list WITHOUT flipping the status pill. Real money
   //       has moved even if the enum lags behind.
-  if (DOWNPAID_STATUSES.has(ev.status)) {
-    return { status: 'downpaid_use_dispute_flow' };
-  }
-  const depositValue =
-    typeof ev.deposit_paid_php === 'string'
-      ? Number(ev.deposit_paid_php)
-      : ev.deposit_paid_php;
-  if (Number.isFinite(depositValue) && (depositValue ?? 0) > 0) {
+  //   (b2) deposit_recorded_at — the couple's own "Record deposit", which
+  //       writes the payment log and this marker but NEVER deposit_paid_php.
+  //       All three live in `bookingMoneyMoved`, the same helper the
+  //       workspace uses to pick its button, so the two cannot disagree.
+  if (bookingMoneyMoved(ev)) {
     return { status: 'downpaid_use_dispute_flow' };
   }
   //   (c) SUP-67 — ANY row in the payment log. The two signals above miss
@@ -4663,45 +4664,14 @@ export async function recordDeposit(
   return { status: 'ok' };
 }
 
-/**
- * acknowledgeDeposit — VENDOR side.
- *
- * Calls the single-winner acknowledge_vendor_deposit RPC (SELECT … FOR UPDATE +
- * deposit_acknowledged_at-IS-NULL precondition; idempotent). Ownership is
- * enforced inside the SECURITY DEFINER RPC (current_vendor_event_vendor_ids /
- * is_admin), so this wrapper just forwards. No money moves — acknowledge is a
- * signal.
- */
-export async function acknowledgeDeposit(
-  formData: FormData,
-): Promise<{ status: 'ok' | 'already' | 'not_recorded' | 'error' | 'not_signed_in'; message?: string }> {
-  const eventVendorId = formData.get('vendor_id');
-  const eventId = formData.get('event_id');
-  if (typeof eventVendorId !== 'string') {
-    return { status: 'error', message: 'Invalid input' };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: 'not_signed_in' };
-
-  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
-    p_event_vendor_id: eventVendorId,
-  });
-  if (error) return { status: 'error', message: error.message };
-
-  const env = (data ?? {}) as { status?: string };
-  if (typeof eventId === 'string' && eventId.length > 0) {
-    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
-    revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`, 'layout');
-  }
-  if (env.status === 'ok') return { status: 'ok' };
-  if (env.status === 'already') return { status: 'already' };
-  if (env.status === 'not_recorded') return { status: 'not_recorded' };
-  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
-}
+// `acknowledgeDeposit` — the VENDOR-side acknowledge that used to sit here — is
+// DELETED (2026-09-18), not moved. It had zero callers (`git grep acknowledgeDeposit`
+// finds only this note), and it was a third door onto `acknowledge_vendor_deposit`
+// that ran none of the acknowledge effects (fee + schedule). The two live doors
+// are `vendorAcknowledgeDeposit` (clients card) and `confirmVendorPayment`
+// (payment card), both routed through `lib/deposit-acknowledged-effects.server.ts`;
+// `lib/deposit-acknowledge-fires-from-every-door.test.ts` refuses a caller of that
+// RPC that does not run them, which is how this dead export was found.
 
 // ==========================================================================
 // Payment-gated lock (flag: NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).

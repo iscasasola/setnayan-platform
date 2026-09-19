@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   DEFAULT_LOADER_CONFIG,
   clampInt,
@@ -42,7 +43,11 @@ const loadLoaderSettings = unstable_cache(
         .select(SELECT)
         .eq('id', 1)
         .maybeSingle();
-      if (error || !data) return DEFAULT_LOADER_CONFIG;
+      if (error) {
+        logQueryError('loader-settings: platform_settings', error);
+        return DEFAULT_LOADER_CONFIG;
+      }
+      if (!data) return DEFAULT_LOADER_CONFIG;
       const r = data as Record<string, unknown>;
       return {
         variant: coerceVariant(r.loader_variant),

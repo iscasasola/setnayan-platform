@@ -284,6 +284,12 @@ export const loadDayOfBroadcast = cache(
     if (error) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select', error);
     // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
     // read error must never take the wedding page down on the day.
+    if (error) {
+      console.error(
+        '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
+        error,
+      );
+    }
     if (error || !data) return null;
     const row = data as { body: string; created_at: string };
     const body = row.body?.trim();

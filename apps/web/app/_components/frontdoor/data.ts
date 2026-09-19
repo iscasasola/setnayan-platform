@@ -38,6 +38,7 @@ import 'server-only';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayLogoUrl } from '@/lib/uploads';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import {
   publishedBlogArticles,
@@ -371,7 +372,10 @@ export async function searchLiveShops(
   // file's own rule — an unchecked `data ?? []` here would report "no shops
   // match" on a failed read, which is a different fact.
   const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
-  if (error) return [];
+  if (error) {
+    logQueryError('app/_components/frontdoor/data.ts: searchLiveShops vendor_profiles', error);
+    return [];
+  }
 
   const out: FrontDoorShop[] = [];
   for (const row of (data ?? []) as Record<string, unknown>[]) {
@@ -412,7 +416,13 @@ async function loadLiveShops(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (error) return { shops: [], count: counted.error ? null : (counted.count ?? null) };
+  if (counted.error) {
+    logQueryError('app/_components/frontdoor/data.ts: loadLiveShops count', counted.error);
+  }
+  if (error) {
+    logQueryError('app/_components/frontdoor/data.ts: loadLiveShops vendor_profiles', error);
+    return { shops: [], count: counted.error ? null : (counted.count ?? null) };
+  }
 
   const shops: FrontDoorShop[] = [];
   for (const row of (data ?? []) as Record<string, unknown>[]) {

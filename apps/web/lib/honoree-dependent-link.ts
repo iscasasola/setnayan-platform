@@ -159,6 +159,12 @@ export async function resolveHonoreeDependentId(
 
   // An unreadable table must not cost anyone their event — drop the link and
   // let the label key the cap, exactly as it did before this module existed.
+  if (error) {
+    console.error(
+      '[supabase-error] lib/honoree-dependent-link.ts · from:dependents.select',
+      error,
+    );
+  }
   if (error || !data) return null;
 
   const row = data as { dependent_id: string; name: string | null };

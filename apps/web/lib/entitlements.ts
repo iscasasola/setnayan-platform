@@ -557,6 +557,12 @@ export async function fetchBundleComponents(
     .select('bundle_sku_code, component_service_code');
   if (error) console.error('[supabase-error] lib/entitlements.ts · from:bundle_components.select', error);
 
+  if (error) {
+    console.error(
+      '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
+      error,
+    );
+  }
   // Pre-migration / drift / any error → const fallback. Never throw at a gate.
   if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
 

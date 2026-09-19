@@ -29,6 +29,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { regionLabel as resolveRegionLabel } from '@/lib/region-source';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { PAPIC_STYLES, type PapicStyle } from '@/lib/papic-photo-styles';
 
 // ---------------------------------------------------------------------------
@@ -304,7 +305,11 @@ export async function getAdminDemandRadar(
   client: SupabaseClient,
 ): Promise<DemandRadar> {
   const { data, error } = await client.rpc('demand_radar_admin');
-  if (error || !Array.isArray(data)) return EMPTY_RADAR;
+  if (error) {
+    logQueryError('demand-radar: demand_radar_admin', error);
+    return EMPTY_RADAR;
+  }
+  if (!Array.isArray(data)) return EMPTY_RADAR;
   return assembleRadar(data as DemandRadarBucket[]);
 }
 

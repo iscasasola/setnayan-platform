@@ -287,8 +287,11 @@ test('every remaining shape-1 site carries a [supabase-error] log naming its own
   }
 });
 
-test('live-studio-channel-grants: BOTH discarded live_studio_channel_grants.select call sites are logged (baseline count 2)', () => {
+test('live-studio-channel-grants: BOTH discarded live_studio_channel_grants.select call sites are logged (floor 2)', () => {
   const text = src('lib/live-studio-channel-grants.ts');
   const matches = text.match(/\[supabase-error\][^'"]*live_studio_channel_grants\.select/g) ?? [];
-  assert.equal(matches.length, 2, `expected 2 logged call sites, found ${matches.length}`);
+  // Floor, not exact — the S26 baseline named 2 call sites for this table;
+  // a legitimate third one added later must not flap this test. A deletion
+  // still fails because the count would drop below the floor.
+  assert.ok(matches.length >= 2, `expected at least 2 logged call sites, found ${matches.length}`);
 });

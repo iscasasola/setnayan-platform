@@ -244,6 +244,18 @@ test('verified-badge-sweep: the vendor_verification_applications count-refusal i
 
 test('verification-checks-server: BOTH vendor_profiles call sites now log their refusal', () => {
   const body = src('lib/verification-checks-server.ts');
-  const hits = (body.match(/\[supabase-error\] lib\/verification-checks-server\.ts · from:vendor_profiles\.select/g) ?? []).length;
-  assert.equal(hits, 2, 'readPayoutNameFacts and otherShopsHoldingNumber must EACH leave a distinct record');
+  // Anchored per named function, each with a floor of 1 (never an exact
+  // total) — a third, distinct vendor_profiles.select call site added later
+  // to this file must not flap this test; deleting either named site still
+  // fails because ITS OWN label drops to 0.
+  const sites = [
+    '[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (readPayoutNameFacts)',
+    '[supabase-error] lib/verification-checks-server.ts · from:vendor_profiles.select (otherShopsHoldingNumber)',
+  ];
+  for (const label of sites) {
+    const hits = (body.match(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length;
+    assert.ok(hits >= 1, `expected at least one occurrence of ${JSON.stringify(label)}`);
+  }
+  const total = (body.match(/\[supabase-error\] lib\/verification-checks-server\.ts · from:vendor_profiles\.select/g) ?? []).length;
+  assert.ok(total >= sites.length, `readPayoutNameFacts and otherShopsHoldingNumber must EACH leave a distinct record (floor ${sites.length}, found ${total})`);
 });

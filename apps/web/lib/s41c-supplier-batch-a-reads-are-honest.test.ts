@@ -90,7 +90,21 @@ test('website/stories/page.tsx: refused read renders distinctly from a genuine e
 
 test('frontdoor/data.ts: both vendor_profiles reads are logged on error (searchLiveShops + loadLiveShops)', () => {
   const s = src('app/_components/frontdoor/data.ts');
-  assert.equal(count(s, "logQueryError('app/_components/frontdoor/data.ts:"), 3, 'expected 3 logQueryError call sites: searchLiveShops, loadLiveShops count, loadLiveShops rows');
+  // Each named site anchored by its own call-site label — a floor (>= 1), not
+  // an exact count, so a legitimate fourth site never flaps this test; a
+  // deleted site still fails because ITS OWN label drops to 0.
+  const FRONTDOOR_LOG_SITES = [
+    "logQueryError('app/_components/frontdoor/data.ts: searchLiveShops vendor_profiles'",
+    "logQueryError('app/_components/frontdoor/data.ts: loadLiveShops count'",
+    "logQueryError('app/_components/frontdoor/data.ts: loadLiveShops vendor_profiles'",
+  ];
+  for (const site of FRONTDOOR_LOG_SITES) {
+    assert.ok(count(s, site) >= 1, `expected a logQueryError call site matching ${JSON.stringify(site)}`);
+  }
+  assert.ok(
+    count(s, "logQueryError('app/_components/frontdoor/data.ts:") >= FRONTDOOR_LOG_SITES.length,
+    `expected at least ${FRONTDOOR_LOG_SITES.length} logQueryError call sites in app/_components/frontdoor/data.ts (floor, not exact)`,
+  );
   const searchAt = indexAfter(s, 'export async function searchLiveShops');
   const searchQueryAt = indexAfter(s, "q.order('created_at'", searchAt);
   const searchLogAt = indexAfter(s, 'logQueryError(', searchQueryAt);
@@ -146,10 +160,20 @@ test('dashboard launcher + story desk-actions + vendors page: kept-reason logs s
   assert.ok(deskQueryAt < deskLogAt && deskLogAt < deskReturnAt);
 
   const vendors = src('app/dashboard/[eventId]/vendors/page.tsx');
-  assert.equal(
-    count(vendors, "logQueryError('dashboard/[eventId]/vendors/page.tsx:"),
-    2,
-    'expected 2 logQueryError call sites on vendor_market_stats: card enrichment + market pool count',
+  // Anchored per named site with a floor — this file also carries many
+  // unrelated `logQueryError('CoupleVendorsPage.…')` call sites, so the
+  // marker below is already scoped to THIS pair; a new, distinct third site
+  // sharing the same file-prefix must not flap this test.
+  const VENDORS_PAGE_LOG_SITES = [
+    "logQueryError('dashboard/[eventId]/vendors/page.tsx: card enrichment vendor_market_stats'",
+    "logQueryError('dashboard/[eventId]/vendors/page.tsx: fetchActiveCategoryMarketPool vendor_market_stats'",
+  ];
+  for (const site of VENDORS_PAGE_LOG_SITES) {
+    assert.ok(count(vendors, site) >= 1, `expected a logQueryError call site matching ${JSON.stringify(site)}`);
+  }
+  assert.ok(
+    count(vendors, "logQueryError('dashboard/[eventId]/vendors/page.tsx:") >= VENDORS_PAGE_LOG_SITES.length,
+    `expected at least ${VENDORS_PAGE_LOG_SITES.length} logQueryError call sites on vendor_market_stats (floor, not exact)`,
   );
 });
 
@@ -191,10 +215,20 @@ test('panood program + /v/[slug] + production-sheet + instagram + performance: k
 
 test('inline-docs-actions.ts: all three vendor_profiles(_self) reads are logged on error', () => {
   const docs = src('app/vendor-dashboard/shop/inline-docs-actions.ts');
-  assert.equal(
-    count(docs, 'logQueryError('),
-    3,
-    'expected 3 logQueryError call sites: vendor_profiles_self probe, draft-start vendor_profiles, loadVerificationIdentityFields vendor_profiles_self',
+  // Anchored per named site (not the bare, file-wide 'logQueryError(' needle,
+  // which would flap on any new, unrelated call site in this file), with a
+  // floor rather than an exact total.
+  const INLINE_DOCS_LOG_SITES = [
+    "logQueryError('inline-docs-actions.ts: fetchRegistrationNumberState vendor_profiles_self'",
+    "logQueryError('inline-docs-actions.ts: draft-start vendor_profiles'",
+    "logQueryError('inline-docs-actions.ts: loadVerificationIdentityFields vendor_profiles_self'",
+  ];
+  for (const site of INLINE_DOCS_LOG_SITES) {
+    assert.ok(count(docs, site) >= 1, `expected a logQueryError call site matching ${JSON.stringify(site)}`);
+  }
+  assert.ok(
+    count(docs, 'logQueryError(') >= INLINE_DOCS_LOG_SITES.length,
+    `expected at least ${INLINE_DOCS_LOG_SITES.length} logQueryError call sites in inline-docs-actions.ts (floor, not exact)`,
   );
   const selfAt = indexAfter(docs, "from('vendor_profiles_self')");
   const selfLogAt = indexAfter(docs, 'logQueryError(', selfAt);

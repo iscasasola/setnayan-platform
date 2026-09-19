@@ -16,6 +16,13 @@ nobody passes would change nothing, so the guard checks the mount too.
 Guard: `lib/a-debut-is-not-a-wedding-on-the-home-and-bench.test.ts` — per surface: the fixed
 phrase count is 0, the event's-word use count is 1, and the mounting page passes `eventType`.
 
+CI fix (typecheck): `eventType` was read at the empty-folder line inside `FolderSection`, a
+sibling function `PlanBudgetAccordion` defines below itself — not a closure over the parent's
+prop, so `tsc` failed with `Cannot find name 'eventType'` even though the test above (a source
+grep) read green. Threaded `eventType` through as an explicit `FolderSection` prop from its one
+call site (`model.folders.map(...)` in `PlanBudgetAccordion`), rather than defaulting it —
+`eventNoun(eventType)` behaves exactly as this fragment already describes.
+
 Also carried by this session, not in the diff: `build-sessions/S38-RUN-SHEET.md` — the click
 path for the birthday run with the SQL that confirms each step, and the pre-measured leak list
 (the supplier's client page never reads `event_type` and says "Wrapped up this wedding?";

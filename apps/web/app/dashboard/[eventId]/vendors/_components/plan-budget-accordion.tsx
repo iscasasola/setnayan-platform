@@ -911,6 +911,7 @@ export function PlanBudgetAccordion({
               onOpen={openService}
               lockHintKey={lockHintKey}
               reviewStatusByVendorId={reviewStatusByVendorId}
+              eventType={eventType}
             />
           ))}
           {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
@@ -1001,6 +1002,7 @@ function FolderSection({
   onOpen,
   lockHintKey,
   reviewStatusByVendorId,
+  eventType,
 }: {
   folder: AccordionFolder;
   eventId: string;
@@ -1016,6 +1018,8 @@ function FolderSection({
   onOpen: (href: string, label: string) => void;
   lockHintKey: string | null;
   reviewStatusByVendorId: ReadonlyMap<string, VendorReviewStatus>;
+  /** The event's kind — the empty-folder line names it. A wedding stays byte-identical. */
+  eventType?: string | null;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Single-open (owner 2026-06-09): the .cat-head is now a toggle button; only

@@ -177,6 +177,9 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
   const callers = [
     'app/vendor-dashboard/messages/surface.tsx',
     'app/vendor-dashboard/bookings/surface.tsx',
+    // Joined 2026-09-19: the Clients tab's "In conversation" list read the
+    // RLS-nulled `t.event` embed and said "A Setnayan event" for every couple.
+    'app/vendor-dashboard/clients/surface.tsx',
   ];
   for (const p of callers) {
     const src = read(p);
@@ -212,12 +215,17 @@ test('the customers roster still asks only for its own vendor’s events', () =>
     ) || src.includes('.in('),
     'the roster event read is no longer narrowed with .in(rosterEventIds)',
   );
-  // ⚠ CODE ONLY, and this one was caught by its own sabotage. The first draft
-  // matched /revealed: true/ against the raw file — which also matches the
-  // explanatory comment twenty lines below the call site, so flipping the real
-  // `revealed: true` to `false` left the test GREEN. A guard that reads prose
-  // is measuring the explanation of the fix, not the fix.
+  // ⚠ CODE ONLY (a guard that reads prose measures the explanation, not the
+  // fix). This used to pin `revealed: true` on the page — and stayed green for
+  // eleven days while `customerLaneOf` ignored that flag for every WAITING row,
+  // so a couple who had just asked to lock still read "Customer" (owner report
+  // 2026-09-19). The flag is gone; the name is simply passed and always used.
+  // The behaviour is pinned where it is decided: vendor-customer-pipeline.test.ts.
   const code = stripComments(src);
-  assert.match(code, /revealed: true/, 'the roster is masking its own customers again');
-  assert.doesNotMatch(code, /revealed: false/, 'a roster row is masked again');
+  assert.doesNotMatch(code, /\brevealed\s*:/, 'a reveal flag is back on the roster');
+  assert.match(
+    code,
+    /eventName:\s*eventNameByEvent\.get\(eventId\)/,
+    'the roster no longer hands the derivation the couple’s display_name',
+  );
 });

@@ -82,6 +82,12 @@ export type WhatsNewCard =
       id: string;
       eventId: string;
       eventVendorId: string;
+      /**
+       * WHO IS ASKING — `events.display_name`, admin-scoped via
+       * `fetchEventMeta`. "A couple" only when the event has no name (owner
+       * 2026-09-19: the asker shows their full detail, never a stand-in).
+       */
+      coupleName: string;
       eventDate: string | null;
       requestedAt: string;
       /** Materialized on the row by the guard trigger — shown AND enforced. */
@@ -126,6 +132,12 @@ export type WhatsNewCard =
       id: string;
       eventId: string;
       eventVendorId: string;
+      /**
+       * WHO IS ASKING — `events.display_name`, admin-scoped via
+       * `fetchEventMeta`. "A couple" only when the event has no name (owner
+       * 2026-09-19: the asker shows their full detail, never a stand-in).
+       */
+      coupleName: string;
       eventDate: string | null;
       requestedAt: string;
       expiresAt: string | null;
@@ -489,6 +501,7 @@ export async function fetchVendorOverviewData(
       id: `lockreq-${ar.eventVendorId}`,
       eventId: ar.eventId,
       eventVendorId: ar.eventVendorId,
+      coupleName: meta?.displayName ?? 'A couple',
       eventDate: meta?.eventDate ?? null,
       requestedAt: ar.requestedAt,
       expiresAt: ar.expiresAt,
@@ -547,6 +560,7 @@ export async function fetchVendorOverviewData(
       id: `lockreq-lapsed-${ar.eventVendorId}`,
       eventId: ar.eventId,
       eventVendorId: ar.eventVendorId,
+      coupleName: meta?.displayName ?? 'A couple',
       eventDate: meta?.eventDate ?? null,
       requestedAt: ar.requestedAt,
       expiresAt: ar.expiresAt,

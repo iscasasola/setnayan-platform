@@ -892,7 +892,7 @@ function LockRequestBody({
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">A couple wants to book you</p>
+      <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1297,7 +1297,7 @@ function LockRequestLapsedBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">
-        A couple asked to book you, and nobody answered in time
+        {card.coupleName} asked to book you, and nobody answered in time
       </p>
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {metaLine([

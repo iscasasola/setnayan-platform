@@ -36,7 +36,8 @@
       "overrides": "Security patches for transitive (+ direct postcss) CVEs surfaced by `pnpm audit` (2026-06-25). Each key is scoped to the vulnerable range WITHIN its major and bumped to the patched floor in the SAME major (caret), so no parent gets a breaking major bump. Drop an entry once the upstream parent bumps past it.",
       "uuid-9-exception": "`uuid@>=9.0.0 <10.0.0` is the ONE cross-major entry (2026-08-06). GHSA-w5hq-g745-h8pq has no patched 9.x line — the fix only exists at 11.1.1 — and the sole consumer of uuid 9 in this tree is @sentry/webpack-plugin, a BUILD-TIME plugin that does `import { v4 } from 'uuid'` / `require('uuid').v4`. uuid 11's export surface is a strict superset of uuid 9's (NIL, parse, stringify, v1, v3, v4, v5, validate, version all present), so the named import resolves identically. Verified by diffing `Object.keys()` of both packages, not by reading release notes.",
       "opentelemetry-core-1x-left-alone": "@opentelemetry/core@1.30.1 stays VULNERABLE on purpose (GHSA-8988-4f7v-96qf, medium). The advisory's only patched version is 2.8.0 and there is no 1.x line. Forcing 1.30.1 -> 2.8.0 removes 20 exports, two of which @sentry/node@8.55.2 imports by name — `VERSION` and `isWrapped` — so the override would break Sentry server-side instrumentation at import time. Verified by diffing the two packages' exports. The real fix is a @sentry/nextjs major upgrade (v9+ ships OTel 2.x); that is its own PR, not a lockfile bump.",
-      "sharp-next-copy": "`sharp@>=0.34.0 <0.35.0` collapses next@15.5.21's own optionalDependency copy (declared `^0.34.3`) onto the same 0.35.3 the web app uses. Without it pnpm keeps a SECOND sharp at 0.34.5 carrying the vulnerable libvips (GHSA-f88m-g3jw-g9cj), and it is reachable: next/image optimizes R2-hosted user uploads through that copy. Verified by calling next/dist/server/image-optimizer.js `optimizeImage()` directly for webp/avif/jpeg/png before and after the override — same dimensions, same formats, no API removed in 0.35 is used (the optimizer calls only concurrency/timeout/rotate/resize/avif/webp/png/jpeg/toBuffer). Drop this entry once Next widens its own range."
+      "sharp-next-copy": "`sharp@>=0.34.0 <0.35.0` collapses next@15.5.21's own optionalDependency copy (declared `^0.34.3`) onto the same 0.35.3 the web app uses. Without it pnpm keeps a SECOND sharp at 0.34.5 carrying the vulnerable libvips (GHSA-f88m-g3jw-g9cj), and it is reachable: next/image optimizes R2-hosted user uploads through that copy. Verified by calling next/dist/server/image-optimizer.js `optimizeImage()` directly for webp/avif/jpeg/png before and after the override — same dimensions, same formats, no API removed in 0.35 is used (the optimizer calls only concurrency/timeout/rotate/resize/avif/webp/png/jpeg/toBuffer). Drop this entry once Next widens its own range.",
+      "dependabot-2026-09-20": "Six entries added for the 2026-09-20 Dependabot sweep (13 open alerts). `js-yaml` widened from <4.3.1 to <4.3.2 (GHSA-2883-xcg3-v3hh; the prior override's own target, 4.3.1, was still inside the newly-disclosed vulnerable range — eslint/@eslint/eslintrc only, lint-time). `baseline-browser-mapping`, `browserslist` (covers both GHSA-c83g-rgw3-j3cx and GHSA-73wf-gq98-2v4g at once, same resolved version) and `postcss-selector-parser` are build-time-only (postcss/autoprefixer/babel target resolution during `next build`/`tailwindcss`; not imported by any runtime route — verified with `grep -rn \"from 'browserslist'\"` etc. across apps/web, zero hits) but bumped anyway since the patched versions are in-range, no-cost. `fflate` needed three separate range entries because three unrelated parents each pinned a different vulnerable minor (three-stdlib -> 0.6.10, posthog-js -> 0.4.8, @shuding/opentype.js/satori -> 0.7.4) for the same infinite-loop advisory GHSA-px8p-9vwx-vf98; 0.8.3 (the @types/three/@react-three chain) was already outside every vulnerable range. posthog-js ships to the browser and satori backs the live `/api/og/*` routes, so two of the three are real runtime paths, not just dev tooling."
     },
     "overrides": {
       "rollup@>=3.0.0 <3.30.0": "^3.30.0",
@@ -48,13 +49,19 @@
       "dompurify@>=3.0.0 <=3.4.11": "^3.4.12",
       "@opentelemetry/core@>=2.0.0 <2.8.0": "^2.8.0",
       "@babel/core@>=7.0.0 <=7.29.0": "^7.29.6",
-      "js-yaml@>=4.0.0 <4.3.1": "^4.3.1",
+      "js-yaml@>=4.0.0 <4.3.2": "^4.3.2",
       "nanoid@>=3.0.0 <3.3.18": "^3.3.18",
       "esbuild@>=0.27.3 <0.28.1": "^0.28.1",
       "brace-expansion@>=1.0.0 <1.1.18": "^1.1.18",
       "brace-expansion@>=2.0.0 <2.1.4": "^2.1.4",
       "brace-expansion@>=5.0.0 <5.0.9": "^5.0.9",
-      "sharp@>=0.34.0 <0.35.0": "^0.35.3"
+      "sharp@>=0.34.0 <0.35.0": "^0.35.3",
+      "baseline-browser-mapping@>=2.0.0 <2.11.0": "^2.11.0",
+      "browserslist@<=4.28.6": "^4.28.7",
+      "postcss-selector-parser@>=6.1.0 <6.1.3": "^6.1.3",
+      "fflate@>=0.4.5 <0.4.9": "^0.4.9",
+      "fflate@>=0.6.0 <0.6.11": "^0.6.11",
+      "fflate@>=0.7.0 <0.7.5": "^0.7.5"
     }
   }
 }

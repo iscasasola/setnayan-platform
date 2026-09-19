@@ -40,6 +40,7 @@ test('the bookings stub always lands on the Bookings list', () => {
   assert.match(src, /import \{ BOOKINGS_ANCHOR \} from '\.\.\/customers\/anchors'/);
   const redirects = [...src.matchAll(/redirect\(`[^`]*`\)/g)].map((m) => m[0]);
   assert.equal(redirects.length, 1, `one redirect expected, found ${redirects.length}`);
+  assert.ok(redirects[0], 'one redirect was asserted to exist above');
   assert.ok(redirects[0].endsWith('${BOOKINGS_ANCHOR}`)'), `the redirect drops the anchor: ${redirects[0]}`);
 });
 

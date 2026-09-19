@@ -190,6 +190,12 @@ export async function unfollowUser(
     .delete()
     .eq('follower_user_id', user.id)
     .eq('followed_user_id', followedUserId);
-  if (error) return { ok: false, following: true };
+  if (error) {
+    console.error(
+      '[supabase-error] app/u/_actions/audience-actions.ts · from:user_follows.delete',
+      error,
+    );
+    return { ok: false, following: true };
+  }
   return { ok: true, following: false };
 }

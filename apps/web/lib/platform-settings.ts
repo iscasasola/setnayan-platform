@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { openChannels } from '@/lib/payment-channels';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type PlatformSettingsRow = {
   id: 1;
@@ -187,7 +188,11 @@ export async function fetchPlatformSettings(
     .select(SELECT)
     .eq('id', 1)
     .maybeSingle();
-  if (error || !data) return FALLBACK;
+  if (error) {
+    logQueryError('platform-settings: fetchPlatformSettings', error);
+    return FALLBACK;
+  }
+  if (!data) return FALLBACK;
 
   // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
   // rails OPEN. Never let it take the core payment details down with it, and
@@ -252,7 +257,14 @@ export async function fetchVendorValidateContacts(
       .select('vendor_validate_email,vendor_validate_phone')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data) {
+    if (error) {
+      logQueryError('platform-settings: fetchVendorValidateContacts', error);
+      return {
+        vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
+        vendor_validate_phone: null,
+      };
+    }
+    if (!data) {
       return {
         vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
         vendor_validate_phone: null,

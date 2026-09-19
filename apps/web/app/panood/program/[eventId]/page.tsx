@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   isLiveStudioSetupHost,
   requirePanoodControlRoomMember,
@@ -189,6 +190,13 @@ async function fetchProgramChannels(
     .order('zone_index', { ascending: true });
   // Missing table/column (42P01/42703) → nothing to gate, same posture as the rest of
   // the Live Studio reads.
+  if (error) {
+    // A refused read skips the paywall gate entirely (see the caller's comment) —
+    // keep the reason so a live-event enforcement gap is never silent.
+    logQueryError('panood/program/[eventId]/page.tsx: fetchProgramChannels live_studio_roam_zones', error, {
+      event_id: eventId,
+    });
+  }
   if (error || !data) return [];
 
   const zones = data as {

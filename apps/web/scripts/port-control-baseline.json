@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1eaeaa8a34",
+  "generatedFromRef": "6020516e85",
   "routeCount": 428,
   "destinations": 917,
   "actions": 639,
-  "blocks": 4476,
+  "blocks": 4475,
   "routes": {
     "/": {
       "files": [
@@ -945,7 +945,6 @@
         "GuestHubCard",
         "GuestPreload",
         "GuestToHostCta",
-        "GuestWatchState",
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",

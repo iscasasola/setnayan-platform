@@ -19,6 +19,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import {
@@ -52,7 +53,7 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
   const admin = createAdminClient();
   const { data: pay } = await admin
     .from('event_vendor_payments')
-    .select('payment_id, event_id, vendor_id, amount_php, vendor_confirmed_at')
+    .select('payment_id, event_id, vendor_id, amount_php, vendor_confirmed_at, is_deposit_record')
     .eq('payment_id', paymentId)
     .maybeSingle();
   if (!pay) return;
@@ -76,6 +77,26 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
   if (error) {
     console.error('[pay-confirm] confirm_vendor_payment failed:', error.message);
     return;
+  }
+
+  // ── THIS DOOR ACKNOWLEDGES THE DEPOSIT TOO (H4), SO IT OWNS THE EFFECTS ──
+  // For the deposit's own row, `confirm_vendor_payment` calls
+  // `acknowledge_vendor_deposit` inside SQL. That stamped the acknowledgement
+  // and did nothing else: the booking fee and the schedule reservation lived
+  // only in `vendorAcknowledgeDeposit`'s TypeScript, one door over. The
+  // platform's first real booking (2026-09-18 13:51:44Z) was confirmed from
+  // THIS card — acknowledged, emailed, never billed, nothing logged.
+  //
+  // Run the shared effects whenever this was the deposit's row. Not gated on
+  // `wasUnconfirmed`: the effects are idempotent (one live charge per booking,
+  // one order per charge, re-acquiring a pool is a no-op), and a re-press is a
+  // second chance for a booking whose first attempt was skipped. Every outcome
+  // is recorded inside; this never throws.
+  if (pay.is_deposit_record) {
+    await runDepositAcknowledgedEffects(admin, {
+      eventVendorId: pay.vendor_id,
+      door: 'payment_card',
+    });
   }
 
   // Notify the couple — only on a transition (skip if it was already confirmed,

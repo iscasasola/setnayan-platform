@@ -22,6 +22,16 @@ export type TrustedByVendor = {
 };
 
 /**
+ * The `vendor_profiles` half of the read was REFUSED — distinct from `[]` so
+ * the "Trusted by" section never renders as "nobody endorsed this shop" for a
+ * shop that other vendors HAVE endorsed. This is a trust signal shown on a
+ * shop's own public profile (and their own dashboard, via callers of
+ * {@link fetchTrustedByVendors}) — a refused read must not read the same as a
+ * genuine zero (S41, reads-are-honest).
+ */
+export const TRUSTED_BY_UNREADABLE = 'unreadable' as const;
+
+/**
  * "Trusted by" — the vendors who have publicly endorsed THIS vendor through the
  * vendor↔vendor mutual-accept handshake (`vendor_partnerships`): another vendor
  * PROPOSED an endorsement and this vendor ACCEPTED it (status='accepted'). Only
@@ -36,7 +46,7 @@ export type TrustedByVendor = {
 export async function fetchTrustedByVendors(
   admin: SupabaseClient,
   recommendedVendorProfileId: string,
-): Promise<TrustedByVendor[]> {
+): Promise<TrustedByVendor[] | typeof TRUSTED_BY_UNREADABLE> {
   const { data: rows, error } = await admin
     .from('vendor_partnerships')
     .select('recommending_vendor_id, relationship_type')
@@ -77,7 +87,11 @@ export async function fetchTrustedByVendors(
       'vendor_profile_id,business_name,business_slug,location_city,services,name_revealed_at,screen_name,tier_state,verification_state',
     )
     .in('vendor_profile_id', [...relByVendor.keys()]);
-  if (profErr || !profiles) return [];
+  if (profErr) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_profiles.select', profErr);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  if (!profiles) return [];
 
   const out: TrustedByVendor[] = [];
   for (const p of profiles) {

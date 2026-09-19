@@ -115,7 +115,11 @@ export async function getSetnayanFeeBps(
       .select('setnayan_pay_fee_pct')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data) return DEFAULT_SETNAYAN_FEE_BPS;
+    if (error) {
+      console.error('[supabase-error] payouts: setnayan_pay_fee_pct (using default)', error);
+      return DEFAULT_SETNAYAN_FEE_BPS;
+    }
+    if (!data) return DEFAULT_SETNAYAN_FEE_BPS;
     const pct = (data as { setnayan_pay_fee_pct?: number | null })
       .setnayan_pay_fee_pct;
     if (pct == null || !Number.isFinite(Number(pct))) {

@@ -74,7 +74,10 @@ export function TeamSummaryChip({
 
   if (!mounted) return null;
 
-  const summary = `${lockedCount} locked, ${inBuildCount} in build, ${bufferText}`;
+  // "TO LOCK", NOT "IN BUILD" — the same rename the Still-to-lock tile got
+  // (S19). `inBuildCount` counts build picks NOT yet locked; right after a lock
+  // the chip read "1 locked · 0 in build", as though the build were empty.
+  const summary = `${lockedCount} locked, ${inBuildCount} to lock, ${bufferText}`;
 
   return createPortal(
     <button
@@ -111,7 +114,7 @@ export function TeamSummaryChip({
       <span className="flex min-w-0 items-center gap-1.5">
         <Hammer className="h-3.5 w-3.5 shrink-0 text-ink/55" strokeWidth={2} aria-hidden />
         <span className="whitespace-nowrap text-[12.5px] text-ink/70">
-          {inBuildCount} in build
+          {inBuildCount} to lock
         </span>
       </span>
       <span aria-hidden className="text-ink/25">

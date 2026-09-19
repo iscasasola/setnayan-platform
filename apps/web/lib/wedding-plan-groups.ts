@@ -929,7 +929,6 @@ export type PlanCardPick = {
    */
   raw_lock_request_state?: string | null;
   total_cost_php: number | null;
-  deposit_paid_php: number | null;
   notes: string | null;
   // 🚪 NO `contact_email` / `contact_phone` HERE, ON PURPOSE (2026-09-10).
   // Nothing that reads a pick ever used them, and this type is serialized into
@@ -1119,7 +1118,6 @@ export type EventVendorRowInput = {
    *  fuse the sweep enforces are one number. */
   lock_request_expires_at?: string | null;
   total_cost_php?: number | string | null;
-  deposit_paid_php?: number | string | null;
   notes?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
@@ -1367,7 +1365,6 @@ export function bucketVendorsByGroup(
       raw_status: v.status ?? null,
       raw_lock_request_state: v.lock_request_state ?? null,
       total_cost_php: toNum(v.total_cost_php ?? null),
-      deposit_paid_php: toNum(v.deposit_paid_php ?? null),
       notes: v.notes ?? null,
       host_inclusions: v.host_inclusions ?? null,
       compatibility_issue: computeCompatibilityIssue(

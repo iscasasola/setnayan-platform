@@ -28,7 +28,7 @@ import { Globe, ExternalLink, SquarePen, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { isPubliclyVisible } from '@/lib/vendor-visibility';
+import { isPubliclyVisible, isShopLive } from '@/lib/vendor-visibility';
 import { DomainManager } from './_domain-manager';
 import type { DomainRow } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -50,12 +50,31 @@ export default async function VendorWebsitePreview() {
 
   let slug: string | null = null;
   let visible = false;
+  // Couples see the page only when BOTH halves say so (`isShopLive`) — the
+  // owner sees it earlier, so "visible to me" was being printed as "live".
+  let live = false;
   let domains: DomainRow[] = [];
   let domainsMeasured = true;
   try {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     slug = profile?.business_slug ?? null;
     visible = isPubliclyVisible(profile?.public_visibility ?? 'coming_soon');
+    if (profile) {
+      // `verification_state` is not on the shared profile select.
+      const { data: stateRow, error: stateError } = await supabase
+        .from('vendor_profiles')
+        .select('verification_state')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      if (stateError) {
+        logQueryError('VendorWebsitePreview.verificationState', stateError, {}, 'graceful_degrade');
+      }
+      live = isShopLive({
+        public_visibility: profile.public_visibility,
+        verification_state: (stateRow as { verification_state?: string | null } | null)
+          ?.verification_state,
+      });
+    }
     // The vendor's own custom domains (RLS scopes this to their vendor profile).
     const { data: domainRows, error: domainRowsError } = await supabase
       .from('custom_domains')
@@ -78,6 +97,7 @@ export default async function VendorWebsitePreview() {
     // Degrade to the "not visible yet" state rather than crashing the tab.
     slug = null;
     visible = false;
+    live = false;
   }
 
   const previewable = Boolean(slug) && visible;
@@ -104,7 +124,7 @@ export default async function VendorWebsitePreview() {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href="/vendor-dashboard/shop"
+                href="/vendor-dashboard/shop#website"
                 className="button-secondary inline-flex items-center gap-2"
               >
                 <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -117,10 +137,28 @@ export default async function VendorWebsitePreview() {
                 className="button-primary inline-flex items-center gap-2"
               >
                 <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Open live
+                {live ? 'Open live' : 'Open preview'}
               </a>
             </div>
           </div>
+
+          {live ? null : (
+            <p
+              data-not-live-notice
+              className="mb-4 flex items-start gap-2 rounded-xl px-4 py-3 text-sm"
+              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
+            >
+              <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span>
+                Only you can see this page. Couples get a &ldquo;page not found&rdquo; until
+                your shop is verified and listed —{' '}
+                <Link href="/vendor-dashboard/shop#get-verified" className="font-semibold underline">
+                  see what&rsquo;s left
+                </Link>
+                .
+              </span>
+            </p>
+          )}
 
           {/* Faux browser frame around the live iframe so it reads as a
               preview, not part of the dashboard chrome. Same-origin iframe —
@@ -189,7 +227,7 @@ export default async function VendorWebsitePreview() {
               wording of a defect, not a real Pro benefit. */}
           <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate)' }}>
             {slug
-              ? 'Your page goes live once your profile is published and verification is underway. Until then it stays private to you.'
+              ? 'Your page goes live once your shop is verified and listed. Until then it stays private.'
               : `Add your shop name in My Shop and your page address — something like ${DISPLAY_HOST}/your-name — is set up for you. This tab then shows a live preview of exactly what couples see.`}
           </p>
           <div className="pt-1">

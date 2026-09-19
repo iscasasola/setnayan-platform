@@ -543,7 +543,11 @@ export async function screenEditorialVendorMedia(opts: {
       .select('media_id, moderation_state')
       .eq('media_id', opts.mediaId)
       .maybeSingle();
-    if (rowError) console.error('[supabase-error] lib/nsfw-screen.ts · from:editorial_vendor_media.select', rowError);
+    if (rowError) {
+      console.error('[supabase-error] lib/nsfw-screen.ts · from:editorial_vendor_media.select', rowError, {
+        media_id: opts.mediaId,
+      });
+    }
     if (rowError || !row) return; // row gone / pre-migration env
     if ((row as Record<string, unknown>).moderation_state !== 'unscreened') return;
 

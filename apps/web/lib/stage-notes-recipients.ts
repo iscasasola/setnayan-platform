@@ -123,6 +123,9 @@ export async function fetchEmceeRecipients(
     // A failed read must not read as "no extra roles" any louder than it has
     // to — it already degrades to the summary category, which is the shipped
     // answer. Nothing here may narrow.
+    if (svcErr) {
+      console.error('[supabase-error] lib/stage-notes-recipients.ts · from:vendor_services.select', svcErr);
+    }
     if (!svcErr && svc) {
       for (const s of svc as Array<Record<string, unknown>>) {
         if (typeof s.vendor_service_id === 'string' && typeof s.category === 'string') {

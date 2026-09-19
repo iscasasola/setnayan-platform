@@ -33,7 +33,7 @@ export type DepositEffectsFee = {
   status: string;
   reason?: string;
   chargeId?: string;
-  orderId?: string;
+  orderId?: string | null;
   amountPhp?: number;
   bookingOrdinal?: number;
 };
@@ -85,6 +85,9 @@ export const FEE_SETTLED_STATUSES: ReadonlySet<string> = new Set([
   'free',
   'zero_fee',
   'order_exists',
+  // The database refused a second bill for the same charge (23505 on the
+  // one-bill-per-charge index) — the bill exists; nothing more to do.
+  'already_billed',
 ]);
 
 /**

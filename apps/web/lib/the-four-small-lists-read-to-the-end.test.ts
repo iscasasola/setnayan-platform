@@ -32,6 +32,16 @@ import { fetchVendorBlocksDetailed } from './vendor-schedule';
 import { readUnreadChatThreadIds } from './vendor-unread-threads';
 import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from './vendor-earnings';
 import {
+  readDeclinedDepositIds,
+  readDeletionRequests,
+  readDepositsAwaitingAcknowledgement,
+  readLockAgreementRequests,
+} from './vendor-overview-desk-reads';
+import { readOpenPaymentAsks } from './vendor-payment-asks-read';
+import { readBookedEventIdsForGigs, readOpenGigsForEvents } from './vendor-manpower-reads';
+import { readVendorDisputes } from './vendor-disputes-read';
+import { paginate } from './paginate';
+import {
   readClaimedQrEventVendorIds,
   readRoomBookingCandidates,
   readRoomEventFacts,
@@ -74,6 +84,7 @@ function fakeServer(tables: Record<string, Row[]>, opts?: { failAtRequest?: numb
       },
       is: () => b,
       not: () => b,
+      or: () => b,
       order: () => b,
       range: (from: number, to: number) => {
         window = [from, to];
@@ -344,4 +355,213 @@ test('screens: the Earned tile and the payouts totals never print a short or unr
   const earn = read('app/vendor-dashboard/earnings/surface.tsx');
   assert.doesNotMatch(earn, /\.from\('vendor_payouts'\)[\s\S]{0,900}?\.limit\(/);
   assert.match(earn, /const payoutRows = payoutRead\.complete \? payoutRead\.rows : null;/);
+});
+
+// ═══ WHAT THE #5724 SWEEP LEFT ════════════════════════════════════════════
+// Four more supplier reads, driven past their old cap on the same fake server.
+
+// ─── 5 · THE OVERVIEW'S ANSWERS DESK (money + 7-day fuses) ─────────────────
+
+const deskRows = (n: number, extra: (i: number) => Row): Row[] =>
+  Array.from({ length: n }, (_, i) => ({
+    vendor_id: uuid('ev', i),
+    event_id: uuid('event', i),
+    marketplace_vendor_id: 'V1',
+    ...extra(i),
+  }));
+
+const DEPOSIT_COLS = 'vendor_id, event_id, deposit_recorded_at';
+
+test('desk: 1,340 deposits awaiting acknowledgement read in full — the 1,001st deposit gets its card', async () => {
+  const rows = deskRows(1_340, (i) => ({
+    vendor_name: 'Shop',
+    deposit_recorded_at: `2027-01-01T00:00:${String(i % 60).padStart(2, '0')}Z`,
+    deposit_acknowledged_at: null,
+    deposit_proof_url: null,
+  }));
+  const { client, requests } = fakeServer({ event_vendors: rows });
+  const read = await readDepositsAwaitingAcknowledgement(client, 'V1', DEPOSIT_COLS);
+  assert.equal(read.error, null);
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1_340);
+  assert.equal(new Set(read.rows.map((r) => r.vendor_id)).size, 1_340);
+  assert.ok(requests() >= 2, `paged: ${requests()} requests`);
+});
+
+test('desk: a refused deposit read is incomplete, never "no deposits waiting"', async () => {
+  const { client } = fakeServer({ event_vendors: [] }, { failAtRequest: 1 });
+  const read = await readDepositsAwaitingAcknowledgement(client, 'V1', DEPOSIT_COLS);
+  assert.equal(read.complete, false);
+  assert.equal(read.error, 'refused');
+});
+
+test('desk: 1,100 declined deposits read in full — an answered claim stays off the desk', async () => {
+  const rows = deskRows(1_100, () => ({ deposit_declined_at: '2027-01-02T00:00:00Z' }));
+  const { client } = fakeServer({ event_vendors: rows });
+  const read = await readDeclinedDepositIds(client, 'V1');
+  assert.equal(read.complete, true);
+  assert.equal(read.ids.size, 1_100);
+  assert.ok(read.ids.has(uuid('ev', 1_099)));
+});
+
+test('desk: 1,450 booking asks read in full — the oldest asks past row 1,000 are not dropped', async () => {
+  const rows = deskRows(1_450, () => ({
+    lock_request_state: 'pending',
+    lock_requested_at: '2027-01-01T00:00:00Z',
+    lock_request_expires_at: '2027-01-08T00:00:00Z',
+  }));
+  const { client } = fakeServer({ event_vendors: rows });
+  const read = await readLockAgreementRequests(client, 'V1');
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1_450);
+});
+
+test('desk: a refused booking-ask read REPORTS its error (it used to be discarded)', async () => {
+  const { client } = fakeServer({ event_vendors: [] }, { failAtRequest: 1 });
+  const read = await readLockAgreementRequests(client, 'V1');
+  assert.equal(read.complete, false);
+  assert.equal(read.error, 'refused');
+});
+
+test('desk: 1,050 deletion asks read in full', async () => {
+  const rows = deskRows(1_050, () => ({
+    delete_request_state: 'pending',
+    delete_requested_at: '2027-01-01T00:00:00Z',
+  }));
+  const { client } = fakeServer({ event_vendors: rows });
+  const read = await readDeletionRequests(client, 'V1');
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1_050);
+});
+
+// ─── 6 · OPEN PAYMENT ASKS ON ONE BOOKING (money) ──────────────────────────
+
+const asks = (n: number): Row[] =>
+  Array.from({ length: n }, (_, i) => ({
+    ask_id: uuid('ask', i),
+    event_vendor_id: 'EV1',
+    amount_php: '5000',
+    note: null,
+    due_date: null,
+    status: 'open',
+    created_at: '2027-01-01T00:00:00Z',
+  }));
+
+test('asks: 21 open asks — the 21st is shown (the read stopped at 20)', async () => {
+  const { client } = fakeServer({ vendor_payment_asks: asks(21) });
+  const read = await readOpenPaymentAsks(client, 'EV1');
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 21);
+  assert.ok(read.rows.some((r) => r.ask_id === uuid('ask', 20)));
+});
+
+test('asks: 1,205 open asks read in full past the server cap', async () => {
+  const { client } = fakeServer({ vendor_payment_asks: asks(1_205) });
+  const read = await readOpenPaymentAsks(client, 'EV1');
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1_205);
+});
+
+test('asks: a refused read keeps the raw error, so the panel says it could not load', async () => {
+  const { client } = fakeServer({ vendor_payment_asks: asks(3) }, { failAtRequest: 1 });
+  const read = await readOpenPaymentAsks(client, 'EV1');
+  assert.equal(read.complete, false);
+  assert.equal(read.error?.message, 'refused');
+});
+
+// ─── 7 · MANPOWER: WHICH GIG OFFERS APPEAR ─────────────────────────────────
+
+test('manpower: 1,300 booked events read in full, and their open gigs are chunked under the 700-id refusal', async () => {
+  const booked = deskRows(1_300, () => ({ status: 'contracted' }));
+  const gigs: Row[] = booked.map((b, i) => ({
+    gig_id: uuid('gig', i),
+    event_id: b.event_id,
+    status: 'pending',
+    posted_at: `2027-01-01T00:${String(Math.floor(i / 60) % 60).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}Z`,
+  }));
+  const { client } = fakeServer({ event_vendors: booked, manpower_gigs: gigs });
+  const bookedRead = await readBookedEventIdsForGigs(client, 'V1');
+  assert.equal(bookedRead.complete, true);
+  assert.equal(bookedRead.ids.length, 1_300);
+  const open = await readOpenGigsForEvents<{ gig_id: string; posted_at: string }>(client, bookedRead.ids);
+  assert.equal(open.error, null);
+  assert.equal(open.rows.length, 1_300, 'a gig on the 1,001st booked event is offered');
+  for (let i = 1; i < open.rows.length; i += 1) {
+    assert.ok(open.rows[i - 1]!.posted_at >= open.rows[i]!.posted_at, 'merged newest-first');
+  }
+});
+
+test('manpower: a refused booked read is incomplete, never "no hosts are offering"', async () => {
+  const { client } = fakeServer({ event_vendors: [] }, { failAtRequest: 1 });
+  const read = await readBookedEventIdsForGigs(client, 'V1');
+  assert.equal(read.complete, false);
+});
+
+// ─── 8 · DISPUTES: EVERY ONE REACHABLE ─────────────────────────────────────
+
+test('disputes: 1,234 disputes read in full, and the pager reaches the last one', async () => {
+  const rows: Row[] = Array.from({ length: 1_234 }, (_, i) => ({
+    dispute_id: uuid('d', i),
+    vendor_profile_id: 'V1',
+    status: i % 5 === 0 ? 'open' : 'withdrawn',
+    created_at: '2027-01-01T00:00:00Z',
+  }));
+  const { client } = fakeServer({ vendor_disputes: rows });
+  const read = await readVendorDisputes<{ dispute_id: string; status: string }>(client, 'V1');
+  assert.equal(read.complete, true);
+  assert.equal(read.rows.length, 1_234, 'the 201st dispute is read');
+  assert.equal(read.rows.filter((r) => r.status === 'open').length, 247, 'the open count is of all of them');
+  const last = paginate(read.rows, '62');
+  assert.equal(last.page, 62);
+  assert.equal(last.items.at(-1)?.dispute_id, uuid('d', 1_233));
+});
+
+// ─── THE SCREENS SAY IT (the sweep-left surfaces) ──────────────────────────
+
+test('screens: the Overview desk reads through the paged helpers and reports a short read', () => {
+  const lib = read('lib/vendor-overview.ts');
+  assert.equal((lib.match(/\.from\('event_vendors'\)/g) ?? []).length, 0, 'no un-paged event_vendors read left on the desk');
+  for (const fn of [
+    'readDepositsAwaitingAcknowledgement(',
+    'readDeclinedDepositIds(',
+    'readLockAgreementRequests(',
+    'readDeletionRequests(',
+  ]) {
+    assert.ok(lib.includes(fn), `vendor-overview.ts lost ${fn}`);
+  }
+  assert.match(
+    lib,
+    /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete;/,
+  );
+  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete \};/);
+  const page = read('app/vendor-dashboard/page.tsx');
+  assert.match(page, /<WhatsNewFeed\s+cards=\{whatsNew\}\s+incomplete=\{deskIncomplete\}/);
+});
+
+test('screens: the client page reads every open ask, and a short read is "could not load"', () => {
+  const src = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  assert.doesNotMatch(src, /\.from\('vendor_payment_asks'\)/);
+  assert.ok(src.includes('readOpenPaymentAsks(supabase, eventVendorId)'));
+  assert.match(src, /const asksMeasured = asksAbsent \|\| \(!askRowsError && askRead\.complete\);/);
+});
+
+test('screens: manpower pages the booked read and says when offers could not load', () => {
+  const src = read('app/vendor-dashboard/manpower/surface.tsx');
+  assert.doesNotMatch(src, /\.from\('event_vendors'\)/);
+  assert.ok(src.includes('readBookedEventIdsForGigs(createAdminClient(), vendor.vendor_profile_id)'));
+  assert.match(src, /const eligibleMeasured = bookedRead\.complete;/);
+  assert.match(src, /readOpenGigsForEvents<ManpowerGigRow>\(supabase, eligibleEventIds\)/);
+  assert.match(src, /!openGigsMeasured\s*\?\s*'We couldn’t read the open gigs/);
+  assert.match(src, /!openGigsMeasured && openGigs\.length > 0\s*\?\s*'Some open gigs couldn’t load/);
+  assert.match(src, /\{note \? \(\s*<p role="status"/);
+});
+
+test('screens: disputes page every dispute through the shared pager', () => {
+  const src = read('app/vendor-dashboard/disputes/page.tsx');
+  assert.doesNotMatch(src, /\.limit\(/);
+  assert.match(src, /const disputesPage = paginate\(rows, search\.dpage\);/);
+  assert.match(src, /\{disputesPage\.items\.map\(/);
+  assert.match(src, /<ListPager\s+paged=\{disputesPage\}\s+param="dpage"/);
+  assert.match(src, /\{incomplete \? \(\s*<ShopNotice[^>]*>\s*\{rows\.length === 0\s*\?\s*'Your disputes couldn\\u2019t load/);
+  assert.match(src, /\{rows\.length === 0 && !incomplete \? \(/);
 });

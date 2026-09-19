@@ -4,7 +4,7 @@ import { ArrowRight, ClipboardList } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  fetchVendorThreads,
+  fetchVendorThreadsDetailed,
   formatChatTimestamp,
   type VendorThreadWithEvent,
 } from '@/lib/chat';
@@ -30,6 +30,9 @@ import {
   type VendorPrepItem,
 } from './_components/vendor-prep-add';
 import { ShopEmpty } from '../_components/kit';
+import { ListPager, keepParamsFrom } from '../_components/list-pager';
+import { paginate } from '@/lib/paginate';
+import { readInChunks } from '@/lib/read-all-pages';
 
 export const metadata = { title: 'Bookings · Vendor' };
 
@@ -48,7 +51,13 @@ const STATUS_TONE: Record<BookingStatus, string> = {
 type Filter = 'all' | BookingStatus;
 
 type Props = {
-  searchParams: Promise<{ status?: string; upcoming?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    upcoming?: string;
+    /** This list's own page. The hub holds several lists on one URL. */
+    bkpage?: string;
+    [key: string]: string | string[] | undefined;
+  }>;
 };
 
 type BookingRow = VendorThreadWithEvent & {
@@ -83,64 +92,21 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   // independent — one parallel batch instead of two serial reads (owner perf
   // pass 2026-06-03). threadIds below still derives from `threads`, so the
   // unread/latest-message Promise.all stays sequential after this.
-  const [threads, vendorPrepByEvent] = await Promise.all([
-    fetchVendorThreads(supabase, profile.vendor_profile_id),
+  const [{ threads, complete: threadsComplete }, vendorPrepByEvent] = await Promise.all([
+    fetchVendorThreadsDetailed(supabase, profile.vendor_profile_id),
     // Hybrid Preparation (2026-06-03) — prep items THIS vendor has added,
     // keyed by event_id; graceful-degrades to an empty map pre-migration.
     fetchVendorPreparationItemsByEvent(supabase, profile.vendor_profile_id),
   ]);
 
-  // WHO IS ASKING, for every row. A vendor holds no `events` RLS, so the
-  // embedded `r.event.display_name` is null on EVERY thread of theirs — which
-  // is why the old revealed/unrevealed split rendered "Event" either way. One
-  // admin-scoped batch over all rows, gated by the vendor-scoped thread fetch
-  // above, is what actually names them.
-  const inquiryCustomers = await fetchInquiryCustomerFacts(
-    createAdminClient(),
-    threads.map((t) => t.event_id),
-  );
-
-  // Pull latest message per thread for preview + unread inference.
-  //
-  // ⚠ BOUNDED. Measured: this used to fetch EVERY message of EVERY thread on
-  // every load of this page, with no row cap — cheap on a fresh shop, and the
-  // exact query shape that gets expensive the first time one gets busy,
-  // because it grows with total messages ever sent, not with thread count.
-  // `.order + .limit(600)` mirrors the cap `VendorThreadPage` already accepts
-  // for the identical "latest message per thread" read (`conversation-list.ts`
-  // consumers) — the reducer below keeps the FIRST row it sees per thread
-  // (newest-first order), so the cap only ever costs the preview on a shop's
-  // OLDEST live conversations once a page holds more than 600 total messages
-  // across all its threads, never a thread's existence.
-  const threadIds = threads.map((t) => t.thread_id);
-  const [{ data: latestMessages }, { data: unreadNotifs }] = await Promise.all([
-    threadIds.length > 0
-      ? supabase
-          .from('chat_messages')
-          .select('thread_id,body,sender_role,created_at')
-          .in('thread_id', threadIds)
-          .order('created_at', { ascending: false })
-          .limit(600)
-      : Promise.resolve({ data: [] }),
-    // Vendor's unread chat-message notifications — match by related_url
-    // suffix (the URL is /vendor-dashboard/messages/<threadId>).
-    supabase
-      .from('notifications')
-      .select('related_url')
-      .eq('user_id', user.id)
-      .eq('type', 'chat_message')
-      .is('read_at', null),
-  ]);
-
-  const latestByThread = new Map<
-    string,
-    { body: string; sender_role: string; created_at: string }
-  >();
-  for (const m of latestMessages ?? []) {
-    if (!latestByThread.has(m.thread_id)) {
-      latestByThread.set(m.thread_id, m);
-    }
-  }
+  // Vendor's unread chat-message notifications — match by related_url
+  // suffix (the URL is /vendor-dashboard/messages/<threadId>).
+  const { data: unreadNotifs } = await supabase
+    .from('notifications')
+    .select('related_url')
+    .eq('user_id', user.id)
+    .eq('type', 'chat_message')
+    .is('read_at', null);
   const unreadThreadIds = new Set<string>();
   for (const n of unreadNotifs ?? []) {
     const url = (n.related_url ?? '') as string;
@@ -163,19 +129,30 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
       // same answer the Clients list and Today's Upcoming give.
       fetchVendorRoomEvents(supabase, profile.vendor_profile_id).catch(() => []),
       // QUOTED — a proposal out with the couple (sent / viewed, not a draft).
-      supabase
-        .from('vendor_proposals')
-        .select('event_id')
-        .eq('vendor_profile_id', profile.vendor_profile_id)
-        .in('event_id', eventIds)
-        .in('status', ['sent', 'viewed']),
+      // Chunked (`IN_LIST_CHUNK`): past ~600 ids one `in.()` is refused 400,
+      // and every row's tag fell back to "not yet" at once.
+      readInChunks<{ event_id: string }>(eventIds, (part) =>
+        supabase
+          .from('vendor_proposals')
+          .select('event_id')
+          .eq('vendor_profile_id', profile.vendor_profile_id)
+          .in('event_id', part)
+          .in('status', ['sent', 'viewed']),
+      ),
       // COMPLETED — admin client, scoped by this shop's own id: `event_vendors`
       // holds no supplier-side select policy, so the shop's session reads zero.
-      createAdminClient()
-        .from('event_vendors')
-        .select('event_id, completion_status, customer_confirmed_received_at, status')
-        .eq('marketplace_vendor_id', profile.vendor_profile_id)
-        .in('event_id', eventIds),
+      readInChunks<{
+        event_id: string;
+        completion_status: string | null;
+        customer_confirmed_received_at: string | null;
+        status: string | null;
+      }>(eventIds, (part) =>
+        createAdminClient()
+          .from('event_vendors')
+          .select('event_id, completion_status, customer_confirmed_received_at, status')
+          .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .in('event_id', part),
+      ),
     ]);
     for (const b of roomEvents) bookedEventIds.add(b.eventId);
     if (quotedRes.error) {
@@ -186,7 +163,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
         'graceful_degrade',
       );
     }
-    for (const r of (quotedRes.data ?? []) as { event_id: string }[]) quotedEventIds.add(r.event_id);
+    for (const r of quotedRes.rows) quotedEventIds.add(r.event_id);
     if (doneRes.error) {
       logQueryError(
         'VendorBookingsSurface.completed',
@@ -195,18 +172,13 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
         'graceful_degrade',
       );
     }
-    for (const r of (doneRes.data ?? []) as Array<{
-      event_id: string;
-      completion_status: string | null;
-      customer_confirmed_received_at: string | null;
-      status: string | null;
-    }>) {
+    for (const r of doneRes.rows) {
       if (rowReadsCompleted(r)) completedEventIds.add(r.event_id);
     }
   }
 
-  const rows: BookingRow[] = threads.map((t) => {
-    const last = latestByThread.get(t.thread_id) ?? null;
+  type FactRow = Omit<BookingRow, 'lastMessagePreview' | 'lastMessageAt'>;
+  const rows: FactRow[] = threads.map((t) => {
     const unread = unreadThreadIds.has(t.thread_id);
     const facts = {
       inquiryStatus: t.inquiry_status,
@@ -218,15 +190,6 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
       ...t,
       status: bookingListStatus(facts),
       pillLabel: bookingPillLabel(facts),
-      // 🔴 WAS: `last?.body ?? null` — the reader's own last word rendered
-      // identically to the couple's, so "Can we do a tasting first?" and
-      // "Deposit received" looked the same row. `previewFor` is the ONE
-      // preview builder (`lib/conversation-list.ts`, shared with the
-      // Conversations column) — it prefixes "You:" for this vendor's own
-      // messages and writes any card this app generated as a short,
-      // fact-first line instead of the full in-thread body.
-      lastMessagePreview: last ? previewFor(last, 'vendor') : null,
-      lastMessageAt: last?.created_at ?? null,
       unread,
     };
   });
@@ -263,6 +226,65 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     if (aFuture && !bFuture) return -1;
     if (!aFuture && bFuture) return 1;
     return da - db;
+  });
+
+  /*
+    PAGED (owner 2026-09-19). This list is ALWAYS ON under the roster, one row
+    per thread, so a shop with 1,000 enquiries pushed Payday and every folded
+    section a thousand rows down. Paged AFTER the filter and the sort, so page
+    1 is still the soonest events; the chip counts below stay whole-list.
+  */
+  const bookingsPage = paginate(visible, search.bkpage);
+
+  // WHO IS ASKING, for the rows on THIS page. A vendor holds no `events` RLS,
+  // so the embedded `r.event.display_name` is null on EVERY thread of theirs —
+  // which is why the old revealed/unrevealed split rendered "Event" either
+  // way. One admin-scoped batch, gated by the vendor-scoped thread fetch above,
+  // is what actually names them.
+  const inquiryCustomers = await fetchInquiryCustomerFacts(
+    createAdminClient(),
+    bookingsPage.items.map((t) => t.event_id),
+  );
+
+  // Latest message per thread, for the rows on THIS page only.
+  //
+  // ⚠ BOUNDED. This used to fetch the latest messages of EVERY thread in one
+  // `in.()` — a URL the gateway refuses past ~600 ids, and a read capped at 600
+  // messages, so a busy shop's previews went blank. Now it asks about at most
+  // one page of threads. The reducer keeps the FIRST row per thread
+  // (newest-first); the `.limit(600)` can still cost a preview if the threads
+  // on one page hold more than 600 messages between them — never a row.
+  const pageThreadIds = bookingsPage.items.map((t) => t.thread_id);
+  const { data: latestMessages } =
+    pageThreadIds.length > 0
+      ? await supabase
+          .from('chat_messages')
+          .select('thread_id,body,sender_role,created_at')
+          .in('thread_id', pageThreadIds)
+          .order('created_at', { ascending: false })
+          .limit(600)
+      : { data: [] as { thread_id: string; body: string; sender_role: string; created_at: string }[] };
+  const latestByThread = new Map<
+    string,
+    { body: string; sender_role: string; created_at: string }
+  >();
+  for (const m of latestMessages ?? []) {
+    if (!latestByThread.has(m.thread_id)) {
+      latestByThread.set(m.thread_id, m);
+    }
+  }
+  const pageRows: BookingRow[] = bookingsPage.items.map((r) => {
+    const last = latestByThread.get(r.thread_id) ?? null;
+    return {
+      ...r,
+      // 🔴 WAS: `last?.body ?? null` — the reader's own last word rendered
+      // identically to the couple's. `previewFor` is the ONE preview builder
+      // (`lib/conversation-list.ts`, shared with the Conversations column) —
+      // it prefixes "You:" for this vendor's own messages and writes any card
+      // this app generated as a short, fact-first line.
+      lastMessagePreview: last ? previewFor(last, 'vendor') : null,
+      lastMessageAt: last?.created_at ?? null,
+    };
   });
 
   const counts: Record<Filter, number> = {
@@ -357,7 +379,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
         </ShopEmpty>
       ) : (
         <ul className="space-y-2">
-          {visible.map((r) => {
+          {pageRows.map((r) => {
             const d = daysUntil(r.event?.event_date ?? null);
             const dateLabel = (() => {
               if (!r.event?.event_date) return 'No date set';
@@ -442,6 +464,15 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           })}
         </ul>
       )}
+
+      <ListPager
+        paged={bookingsPage}
+        param="bkpage"
+        keepParams={keepParamsFrom(search, ['bkpage'])}
+        hash="bookings"
+        noun="bookings"
+        incomplete={!threadsComplete}
+      />
     </section>
   );
 }

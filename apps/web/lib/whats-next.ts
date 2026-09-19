@@ -290,7 +290,14 @@ export async function writeAnnouncement(
     .select('draft_json')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (readError) return false;
+  if (readError) {
+    console.error(
+      `[supabase-error] lib/whats-next.ts · from:${ANNOUNCEMENT_WRITES_TO}.select`,
+      readError,
+      { event_id: eventId },
+    );
+    return false;
+  }
 
   const base =
     existing?.draft_json && typeof existing.draft_json === 'object'

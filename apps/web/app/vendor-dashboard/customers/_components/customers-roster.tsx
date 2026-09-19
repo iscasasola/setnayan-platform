@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import {
   CUSTOMER_LANES,
   waitingDays,
@@ -9,6 +9,8 @@ import {
 } from '@/lib/vendor-customer-pipeline';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { ShopEmpty } from '../../_components/kit';
+import { ListPager } from '../../_components/list-pager';
+import type { Paged } from '@/lib/paginate';
 
 /**
  * CUSTOMERS — the roster, opening on who is waiting.
@@ -154,6 +156,11 @@ function fuseLabel(r: RosterRow, now: Date): string | null {
 
 export function CustomersRoster({
   rows,
+  paged,
+  query,
+  incomplete,
+  pagerKeepParams,
+  searchKeepParams,
   activeLane,
   counts,
   nowMs,
@@ -172,6 +179,21 @@ export function CustomersRoster({
   nowMs: number;
   keepParams: string;
   holdingPerDate: Map<string, number>;
+  /**
+   * The page being shown. `rows` IS `paged.items` — the page slices, the
+   * counts above never do (owner 2026-09-19: "if they have 1000 inquiries,
+   * they can still manage all and still be able to see the lower parts of the
+   * page").
+   */
+  paged: Paged<RosterRow>;
+  /** The name search as typed (`?q=`), echoed back into the box. */
+  query: string;
+  /** The reads behind the roster could not prove they reached every customer. */
+  incomplete: boolean;
+  /** Every param but `page`, so paging keeps the lane, month, search and open section. */
+  pagerKeepParams: string;
+  /** Every param but `page` and `q`, carried by the search box as hidden fields. */
+  searchKeepParams: string;
 }) {
   const now = new Date(nowMs);
   const total = CUSTOMER_LANES.reduce((n, l) => n + counts[l], 0);
@@ -276,7 +298,55 @@ export function CustomersRoster({
         })}
       </div>
 
-      {rows.length === 0 ? (
+      {/*
+        NAME SEARCH — a plain GET form, so it works before any script loads and
+        the result is a link a shop can come back to. It resets to page 1 (the
+        `page` param is not carried) and keeps the lane, month and open section.
+      */}
+      {total > 0 ? (
+        <form method="get" action="#customers" role="search" className="mb-3 flex gap-2">
+          {[...new URLSearchParams(searchKeepParams).entries()].map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search customers by name</span>
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+              strokeWidth={1.75}
+              style={{ color: 'var(--m-slate-2)' }}
+            />
+            <input
+              type="search"
+              name="q"
+              defaultValue={query}
+              maxLength={80}
+              placeholder="Search by couple or event name"
+              className="w-full rounded-full border py-1.5 pl-9 pr-3 text-sm"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-ink)' }}
+            />
+          </label>
+          <button
+            type="submit"
+            className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold"
+            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }}
+          >
+            Search
+          </button>
+        </form>
+      ) : null}
+
+      {rows.length === 0 && query.trim() && total > 0 ? (
+        <ShopEmpty>
+          No customer here matches &ldquo;{query.trim()}&rdquo;.{' '}
+          <Link
+            href={searchKeepParams ? `?${searchKeepParams}#customers` : '#customers'}
+            className="font-semibold underline"
+          >
+            Clear the search
+          </Link>
+        </ShopEmpty>
+      ) : rows.length === 0 ? (
         <ShopEmpty>
           {total === 0
             ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
@@ -298,10 +368,9 @@ export function CustomersRoster({
                     style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
                   >
                     {/*
-                      A masked row has no name to take initials from, so it wears
-                      a neutral mark rather than the first two letters of "A
-                      couple planning a wedding" — which would print "AC" for
-                      every stranger and read like a name.
+                      Only a genuinely NAMELESS event wears the neutral mark —
+                      initials of the fallback word would read like a name.
+                      Nothing is masked any more (owner 2026-09-08, 2026-09-19).
                     */}
                     {r.identityRevealed ? initialsOf(r.title) : '·'}
                   </span>
@@ -369,6 +438,17 @@ export function CustomersRoster({
           </ul>
         </div>
       )}
+
+      {/* The pager: "1–20 of 1,000 · ‹ Prev · 1 2 … 50 · Next ›" — the shared
+          one, so this list pages exactly like every other supplier list. */}
+      <ListPager
+        paged={paged}
+        param="page"
+        keepParams={pagerKeepParams}
+        hash="customers"
+        noun="customers"
+        incomplete={incomplete}
+      />
     </div>
   );
 }

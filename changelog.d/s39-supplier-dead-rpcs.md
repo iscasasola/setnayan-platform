@@ -1,4 +1,5 @@
 ## 2026-09-18 · chore(db): six supplier-side functions nothing calls are dropped (S39)
+## 2026-09-20 · chore(db): a seventh — the caller-of-the-caller — joins the drop (owner-approved)
 
 From S26's orphan sweep (`rpc-no-caller`, supplier tier). Migration
 `20271233596518_supplier_rpcs_nobody_calls.sql`. Each re-measured on `origin/main` and
@@ -13,9 +14,22 @@ against production `pg_proc.prosrc` (no other function body names any of them). 
 | `rival_signals_for_vendor(uuid)` | the Shortlist Radar card was deleted (`8bdf1f63d`); `demand_radar_for_vendor` is the live demand feed |
 | `vendors_worked_together(uuid,uuid)` | the partnerships page uses the set-valued `vendor_worked_with_ids(uuid)`, which stays |
 
-The migration asserts all six are gone and that the two live siblings
-(`count_saves_for_vendor`, `vendor_worked_with_ids`) remain. Baselines trimmed:
-`exposure-surface.baseline.txt` (2 func lines), `anon-rpc-surface.baseline.txt` (1 line).
+**Added 2026-09-20 (owner-approved — "yes"):** dropping `handle_vendor_lead_report` above
+orphans `release_lead_token_hold(uuid,text)` — its only caller was the `PERFORM` inside that
+function's body. `sweep_ghosted_lead_holds` (the other place a hold gets released) inlines its
+own `UPDATE`/`DELETE` rather than calling it, so nothing else was ever going to call it either.
+`ugat-both-ends.db.test.ts` (new since S39 shipped) flags exactly this shape as a money-tier
+`rpc-no-caller` orphan and its message is explicit: don't baseline it, call it or drop it. It is
+dropped in the same migration as the caller that orphaned it, so it is now **seven**.
+
+The migration asserts all seven are gone and that the two live siblings
+(`count_saves_for_vendor`, `vendor_worked_with_ids`) remain. Baselines/registers moved:
+`exposure-surface.baseline.txt` (2 func lines from the original six — `release_lead_token_hold`
+was never exec-granted to anon/authenticated so it never appeared there),
+`anon-rpc-surface.baseline.txt` (1 line, original six), `ugat-both-ends.baseline.txt` (6 lines
+removed from the supplier-facing tier for the original six; `release_lead_token_hold` was never
+added, per the guard's own instruction).
 
 SPEC IMPACT: None — every one of these was already retired or superseded in the corpus
-(token economy retirement, 2026-06-17 verification-bonus removal).
+(token economy retirement, 2026-06-17 verification-bonus removal; `release_lead_token_hold` was
+infrastructure for that same retired token economy).

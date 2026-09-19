@@ -34,6 +34,10 @@ import {
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { quoteCardState } from '@/lib/quote-card-state';
+import type { CoupleLockTarget } from '@/lib/lock-door';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
+import { LockAnswerForms } from './lock-answer-forms';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -47,6 +51,7 @@ import {
 } from './chat-amendment-card';
 import type { ThreadLockHandshake } from '@/lib/lock-freeze-copy';
 import { AmendmentSuggestChip } from './amendment-suggest-chip';
+import type { DealEntry } from '@/lib/deal-entry';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
   ThreadViewSwitch,
@@ -63,6 +68,8 @@ import {
 } from '@/lib/thread-decisions';
 import { buildSharedFiles } from '@/lib/chat-shared-files';
 import type { SupplierStanding } from '@/lib/supplier-standing';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -93,6 +100,13 @@ type ProposalCardData = {
 
 type Props = {
   threadId: string;
+  /**
+   * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
+   * chip opens the amendment builder, and a Deal amends a quote — so before
+   * one exists the chip is not offered on either side (owner, 2026-09-19: it
+   * rendered under the couple's own opening inquiry).
+   */
+  dealEntry: DealEntry;
   initialMessages: ChatMessageRow[];
   currentUserId: string;
   /**
@@ -168,15 +182,16 @@ type Props = {
    */
   reviseHref?: string;
   /**
-   * S5 · Where "Ask them to lock" goes on the couple's live ACCEPTED quote —
-   * the supplier's workspace page, whose lock gate chain (date, impact,
-   * downpayment, slots) is the ONE way a couple books. The thread does not
-   * book a quote itself; duplicating that chain here is the second-mechanism
-   * mistake RULE 0 warns about. Resolved on the server from `event_vendors`
-   * (couple RLS), the same way `/proposals/[publicId]` resolves it. Omit it
-   * and the card shows the accepted note without a button.
+   * S5 · The couple's live ACCEPTED quote LOCKS IN PLACE (owner, live,
+   * 2026-09-19: "the lock attempt was from the chat. it should also work
+   * there."). This is the pick the bench's own `AccordionLockButton` needs —
+   * the card mounts THAT component, whose `finalizeVendor` gate chain (date,
+   * impact, reservation terms, downpayment, slots, conflict) is the ONE way a
+   * couple books. The thread does not grow a lock action of its own. Resolved
+   * on the server from `event_vendors` (couple RLS). Omit it and the card shows
+   * the accepted note without a button.
    */
-  lockHref?: string | null;
+  lockTarget?: CoupleLockTarget | null;
   /**
    * Inside the chat box (One Chat Box, 2026-09-18) the frame draws the border,
    * so the three scrollers drop their own card chrome — a box in a box is the
@@ -186,12 +201,21 @@ type Props = {
    * conversation.test.ts` counts, and they must read the same in both modes.
    */
   flush?: boolean;
+  /**
+   * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
+   * On the live ACCEPTED quote card the supplier gets the same one-tap door
+   * the Overview's booking card carries (2026-09-19) — the couple's next step
+   * is to book and pay a deposit. A plain string (serialisable); the couple's
+   * page omits it, and `unreadable` renders nothing.
+   */
+  payoutReadiness?: PayoutReadiness;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
 const TYPING_IDLE_MS = 3000;
 
 export function ChatMessageStream({
+  dealEntry,
   threadId,
   initialMessages,
   currentUserId,
@@ -206,8 +230,9 @@ export function ChatMessageStream({
   supplierReplyActions,
   counterHref,
   reviseHref,
-  lockHref = null,
+  lockTarget = null,
   flush = false,
+  payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -887,7 +912,7 @@ export function ChatMessageStream({
       />
 
       {view === 'decisions' ? (
-        <div className={`min-h-[14rem] flex-1 overflow-y-auto ${scrollerChrome}`}>
+        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <DecisionsPanel
             entries={decisions}
             standing={standing}
@@ -914,7 +939,7 @@ export function ChatMessageStream({
           />
         </div>
       ) : view === 'files' ? (
-        <div className={`flex-1 overflow-y-auto ${scrollerChrome}`}>
+        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
       ) : (
@@ -944,8 +969,15 @@ export function ChatMessageStream({
         still scrolls internally. When the column genuinely cannot fit
         everything, the page scrolls instead of crushing the conversation to
         nothing.
+
+        🔴 `basis-0` (2026-09-19) — the floor alone did not reach the frame:
+        every wrapper above this list is `min-h-0`, so with "Send a quote" open
+        the wrapper measured 0px tall and this list spilled over the quote
+        builder. The frame (`chat/chat-box.tsx`) now keeps its automatic
+        minimum, and `basis-0` makes that minimum count THIS FLOOR rather than
+        the whole thread. Same on the Decisions and Files scrollers above.
       */
-      className={`min-h-[14rem] flex-1 space-y-2 overflow-y-auto ${scrollerChrome}`}
+      className={`min-h-[14rem] flex-1 basis-0 space-y-2 overflow-y-auto ${scrollerChrome}`}
       aria-live="polite"
       aria-relevant="additions"
     >
@@ -1027,6 +1059,11 @@ export function ChatMessageStream({
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
                       ) : null}
+                      {viewerRole === 'vendor' &&
+                      isLatestProposal &&
+                      card.status === 'accepted' ? (
+                        <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
+                      ) : null}
                       {items.length > 0 ? (
                         <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
                           {items.slice(0, 5).map((li, i) => (
@@ -1063,18 +1100,61 @@ export function ChatMessageStream({
                           {quoteState.primary.label}
                         </Link>
                         {/*
-                          S5 · the couple's ONE next step on an accepted quote:
-                          ask the supplier to lock, on the workspace page that
-                          owns the lock gate. In shipped code the COUPLE asks
-                          and the SUPPLIER agrees; the thread never books.
+                          S5 · the couple's ONE next step on an accepted quote,
+                          performed HERE (owner 2026-09-19). The same component
+                          and server action as the bench, so the confirm step,
+                          the lock-impact text and every error arrive intact.
+                          On success the button reports what happened and
+                          refreshes the page, and the rule above re-reads the
+                          handshake: the card's note turns to "you have asked
+                          them to lock" and this button stops being offered. On
+                          failure the button's own role="alert" line renders.
                         */}
-                        {quoteState.offerLock && lockHref ? (
-                          <Link
-                            href={lockHref}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-                          >
-                            🔒 Ask {counterpartyLabel} to lock
-                          </Link>
+                        {quoteState.offerLock && lockTarget ? (
+                          lockTarget.groupId ? (
+                            <AccordionLockButton
+                              eventId={lockTarget.eventId}
+                              groupId={lockTarget.groupId}
+                              groupLabel={lockTarget.groupLabel}
+                              vendorId={lockTarget.vendorId}
+                              vendorName={counterpartyLabel}
+                              label={
+                                isLockHandshakeEnabled()
+                                  ? `🔒 Ask ${counterpartyLabel} to lock`
+                                  : `🔒 Lock ${counterpartyLabel}`
+                              }
+                              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Locking…'}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              wrapperClassName="flex w-full flex-col items-start"
+                              source="chat_quote_card"
+                            />
+                          ) : (
+                            <Link
+                              href={lockTarget.benchHref}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                            >
+                              🔒 Lock on your Vendors page
+                            </Link>
+                          )
+                        ) : null}
+                        {/*
+                          THE OTHER END OF THE SAME CONNECTION (owner, live as
+                          the supplier, 2026-09-19: "there is no agree and
+                          confirm booking"). The couple's ask above has exactly
+                          one answer: the supplier's Agree / Turn it down, the
+                          SAME two actions the Overview posts, handed in by the
+                          supplier's page. The couple's page never passes them.
+                        */}
+                        {quoteState.offerLockAnswer &&
+                        supplierReplyActions?.agreeLock &&
+                        supplierReplyActions?.declineLock &&
+                        lockHandshake?.eventVendorId ? (
+                          <LockAnswerForms
+                            eventVendorId={lockHandshake.eventVendorId}
+                            returnTo={`/vendor-dashboard/messages/${threadId}`}
+                            agreeLock={supplierReplyActions.agreeLock}
+                            declineLock={supplierReplyActions.declineLock}
+                          />
                         ) : null}
                         {/*
                           S5 · the supplier revises by sending a NEW quote that
@@ -1302,6 +1382,7 @@ export function ChatMessageStream({
                   creating new changes; existing change-order cards still
                   resolve). Opens the multi-item amendment builder. */}
               {negotiationOn &&
+              dealEntry.offerDeal &&
               ownsBubble(m, viewerRole) &&
               !m.proposal_id &&
               !m.appointment_id &&

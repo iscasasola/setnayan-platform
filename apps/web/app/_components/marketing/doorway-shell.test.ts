@@ -505,10 +505,10 @@ test('the doorway wordmark is not a login trap', () => {
   const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
   assert.match(
     shell,
-    /const homeHref = variant === 'app' \? '\/dashboard' : '\/'/,
-    "Only the signed-in app may point the wordmark at /dashboard. On a public " +
-      'doorway that 307s to /login — a stranger arriving from Google presses ' +
-      'the logo and lands on a sign-in screen.',
+    /const homeHref = '\/';/,
+    'The wordmark must go to / on every variant (owner 2026-08-13). /dashboard ' +
+      'on a public doorway 307s to /login — a stranger arriving from Google ' +
+      'presses the logo and lands on a sign-in screen.',
   );
 });
 

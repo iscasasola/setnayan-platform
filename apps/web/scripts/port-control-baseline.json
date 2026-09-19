@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e7a6cf0e24",
+  "generatedFromRef": "8706b7af4",
   "routeCount": 428,
-  "destinations": 921,
-  "actions": 639,
-  "blocks": 4485,
+  "destinations": 918,
+  "actions": 643,
+  "blocks": 4487,
   "routes": {
     "/": {
       "files": [
@@ -162,7 +162,6 @@
         "(shell)/explore/_components/filter-drawer.tsx",
         "(shell)/explore/_components/folder-vendors-section.tsx",
         "(shell)/explore/_components/icon-tile-folder-strip.tsx",
-        "(shell)/explore/_components/mega-column-tabs.tsx",
         "(shell)/explore/_components/review-carousel.tsx",
         "(shell)/explore/_components/save-vendor-button.tsx",
         "(shell)/explore/_components/sticky-marketplace-header.tsx",
@@ -945,7 +944,6 @@
         "GuestHubCard",
         "GuestPreload",
         "GuestToHostCta",
-        "GuestWatchState",
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -4213,7 +4211,6 @@
       "files": [
         "dashboard/(account)/create-event/_components/create-date-picker.tsx",
         "dashboard/(account)/create-event/_components/create-location-picker.tsx",
-        "dashboard/(account)/create-event/_components/event-type-carousel.tsx",
         "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
         "dashboard/(account)/create-event/_components/event-type-picker.tsx",
         "dashboard/(account)/create-event/_components/event-types.ts",
@@ -4240,10 +4237,8 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
-        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
-        "HeroCard",
         "Image",
         "InPlanningWedding",
         "Link",
@@ -4613,18 +4608,10 @@
     },
     "/dashboard/(launcher)": {
       "files": [
-        "dashboard/(launcher)/_components/account-inline.tsx",
-        "dashboard/(launcher)/_components/alaala-lenses.tsx",
-        "dashboard/(launcher)/_components/alaala-tile.tsx",
-        "dashboard/(launcher)/_components/alaala-wall.tsx",
-        "dashboard/(launcher)/_components/creator-benefits.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
-        "dashboard/(launcher)/_components/expandable.tsx",
-        "dashboard/(launcher)/_components/home-board.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/home-pill-nav.tsx",
-        "dashboard/(launcher)/_components/shop-logo.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
@@ -4636,31 +4623,23 @@
         "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/create-event",
-        "/dashboard/creator",
         "/dashboard/library",
-        "/dashboard/life-flash",
         "/dashboard/notifications",
         "/dashboard/people",
         "/dashboard/profile",
         "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
-        "/v/[seg]",
         "/vendor-dashboard"
       ],
       "actions": [],
       "blocks": [
         "AccountSwitcher",
-        "AlaalaLensBody",
-        "AlaalaLensKey",
-        "AlaalaLenses",
         "AppRailShell",
         "AttentionPill",
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
         "CardShell",
         "ClashNotice",
-        "CollabRow",
-        "ComingSoonNote",
         "CountUp",
         "DeletionImpact",
         "EmptyYear",
@@ -4668,7 +4647,6 @@
         "EventCardMenu",
         "EventMonogram",
         "EventScene",
-        "Facet",
         "GlassEventCard",
         "HTMLDialogElement",
         "HTMLDivElement",
@@ -4688,7 +4666,6 @@
         "RemoveDialog",
         "SectionLabel",
         "ShelfInfo",
-        "ShopLogo",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -6149,6 +6126,7 @@
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
+        "dashboard/[eventId]/schedule/_components/host-questions.tsx",
         "dashboard/[eventId]/schedule/_components/journey-view.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
@@ -6164,6 +6142,7 @@
         "dashboard/[eventId]/schedule/loading.tsx",
         "dashboard/[eventId]/schedule/page.tsx",
         "dashboard/[eventId]/schedule/prep-actions.ts",
+        "dashboard/[eventId]/schedule/question-answers-actions.ts",
         "dashboard/[eventId]/schedule/stage-note-actions.ts"
       ],
       "destinations": [
@@ -6180,6 +6159,7 @@
         "deleteScheduleBlock",
         "loadScheduleTemplate",
         "resolveScheduleSuggestion",
+        "saveHostAnswers",
         "sendStageNoteFromEvent",
         "setBlockPrepVisibility",
         "setBlockResponsibleParty",
@@ -6201,6 +6181,8 @@
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HostQuestions",
+        "HostQuestionsUnread",
         "Icon",
         "JourneyArc",
         "JourneyEmptyState",
@@ -6528,7 +6510,6 @@
     "/dashboard/[eventId]/studio": {
       "files": [
         "dashboard/[eventId]/studio/_components/addon-detail-view.tsx",
-        "dashboard/[eventId]/studio/_components/service-poster.tsx",
         "dashboard/[eventId]/studio/_components/service-tags.tsx",
         "dashboard/[eventId]/studio/_components/studio-app-row.tsx",
         "dashboard/[eventId]/studio/_components/studio-buy-hero.tsx",
@@ -9600,6 +9581,7 @@
         "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
+        "vendor-dashboard/_components/list-pager.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
         "vendor-dashboard/_components/payments-paused-note.tsx",
         "vendor-dashboard/_components/payout-method-nudge.tsx",
@@ -9748,19 +9730,25 @@
     "/vendor-dashboard/activities": {
       "files": [
         "vendor-dashboard/activities/actions.ts",
-        "vendor-dashboard/activities/page.tsx"
+        "vendor-dashboard/activities/page.tsx",
+        "vendor-dashboard/activities/question-actions.ts",
+        "vendor-dashboard/activities/questions-section.tsx"
       ],
       "destinations": [],
       "actions": [
         "addActivity",
+        "addQuestion",
         "reorderActivity",
         "toggleActivityOffered",
-        "updateActivity"
+        "toggleQuestionAsked",
+        "updateActivity",
+        "updateQuestion"
       ],
       "blocks": [
         "ActivityRow",
         "Icon",
-        "MoveButton"
+        "MoveButton",
+        "QuestionsSection"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -9839,6 +9827,7 @@
         "HTMLInputElement",
         "KindIcon",
         "Link",
+        "ListPager",
         "PrepKind",
         "PrepKindPicker",
         "ShopEmpty",
@@ -9929,6 +9918,7 @@
         "ConfirmForm",
         "Link",
         "ListPageSkeleton",
+        "ListPager",
         "StageChip",
         "SubmitButton"
       ]
@@ -9957,6 +9947,7 @@
       ],
       "destinations": [
         "/proposals/[seg]",
+        "/vendor-dashboard/activities",
         "/vendor-dashboard/clients",
         "/vendor-dashboard/clients/[seg]/calendar.ics[seg]",
         "/vendor-dashboard/clients/[seg]/challenge-photos",
@@ -10031,6 +10022,7 @@
         "ShopCard",
         "ShopEmpty",
         "SubmitButton",
+        "TheyToldYou",
         "VendorChallengeSection",
         "VendorCompletionCard",
         "VendorFinalizationResult",
@@ -10217,7 +10209,8 @@
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
-        "vendor-dashboard/customers/page.tsx"
+        "vendor-dashboard/customers/page.tsx",
+        "vendor-dashboard/customers/roster-view.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
@@ -10240,9 +10233,12 @@
         "FeatureAccordion",
         "FilterSelect",
         "Link",
+        "ListPager",
         "MessagesSurface",
         "PaydaySurface",
         "ProposalsSurface",
+        "R",
+        "RosterRow",
         "ShopEmpty",
         "Suspense",
         "VendorQrSection"
@@ -10429,6 +10425,7 @@
         "Icon",
         "InquiryOutcomesRollup",
         "Link",
+        "ListPager",
         "RevealList",
         "ShopEmpty",
         "ThreadArchiveToggle",
@@ -10453,7 +10450,6 @@
       "destinations": [
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
-        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -10846,6 +10842,7 @@
       ],
       "blocks": [
         "AddPaymentMethod",
+        "ConfirmForm",
         "FileUpload",
         "FormFlash",
         "Icon",
@@ -10962,6 +10959,7 @@
       "blocks": [
         "Link",
         "ListPageSkeleton",
+        "ListPager",
         "ReuseActionResult",
         "SubmitButton",
         "VendorReuseInbox"

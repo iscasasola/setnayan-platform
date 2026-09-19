@@ -177,6 +177,9 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
   const callers = [
     'app/vendor-dashboard/messages/surface.tsx',
     'app/vendor-dashboard/bookings/surface.tsx',
+    // Joined 2026-09-19: the Clients tab's "In conversation" list read the
+    // RLS-nulled `t.event` embed and said "A Setnayan event" for every couple.
+    'app/vendor-dashboard/clients/surface.tsx',
   ];
   for (const p of callers) {
     const src = read(p);
@@ -186,20 +189,45 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
     // The ids must come from `threads`, which upstream is
     // fetchVendorThreads(.., vendorProfileId) — never from a route param or a
     // broader query.
+    //
+    // ⚖ 2026-09-20 (paging): the lists now ask about the rows ON THE PAGE, so
+    // the argument is `<slice>.map((t) => t.event_id)` where the slice is
+    // `paginate(...)` over a filter of `threads`. The property is unchanged —
+    // the ids must TRACE BACK to `threads` — so the check now follows the
+    // `const` chain from the argument to `threads` instead of pinning the one
+    // spelling. A slice of anything else (a route param, a broader read) has
+    // no chain to `threads` and still fails.
     const args = src.slice(call, call + 220);
-    assert.match(
-      args,
-      /threads\.map\(\(t\) => t\.event_id\)/,
-      `${p} passes event ids that are not derived from this vendor's own threads`,
+    const arg = args.match(/([A-Za-z_][\w.]*)\.map\(\(t\) => t\.event_id\)/);
+    assert.ok(arg, `${p} does not pass event ids mapped from a list of threads`);
+    assert.ok(
+      tracesToThreads(stripComments(src), arg![1]!),
+      `${p} passes event ids (${arg![1]}) that are not derived from this vendor's own threads`,
     );
 
     assert.match(
       src,
-      /fetchVendorThreads\(/,
+      /fetchVendorThreads(Detailed)?\(/,
       `${p} no longer scopes its threads to one vendor`,
     );
   }
 });
+
+/**
+ * Does `expr` reach the vendor-scoped `threads` binding through the file's own
+ * `const`/`let` declarations? Follows every identifier in `expr` to its `const x =`
+ * right-hand side, depth-limited.
+ */
+function tracesToThreads(src: string, expr: string, depth = 0): boolean {
+  if (/(^|[^\w.])threads\b/.test(` ${expr}`)) return true;
+  if (depth > 8) return false;
+  for (const [, id] of expr.matchAll(/\b([A-Za-z_]\w*)\b/g)) {
+    if (id === 'items' || id === 'map' || id === 'filter') continue;
+    const def = src.match(new RegExp(`(?:const|let)\\s+${id}\\s*(?::[^=]+)?=\\s*([^;]+);`));
+    if (def && tracesToThreads(src, def[1]!, depth + 1)) return true;
+  }
+  return false;
+}
 
 test('the customers roster still asks only for its own vendor’s events', () => {
   const src = read('app/vendor-dashboard/customers/page.tsx');
@@ -212,12 +240,17 @@ test('the customers roster still asks only for its own vendor’s events', () =>
     ) || src.includes('.in('),
     'the roster event read is no longer narrowed with .in(rosterEventIds)',
   );
-  // ⚠ CODE ONLY, and this one was caught by its own sabotage. The first draft
-  // matched /revealed: true/ against the raw file — which also matches the
-  // explanatory comment twenty lines below the call site, so flipping the real
-  // `revealed: true` to `false` left the test GREEN. A guard that reads prose
-  // is measuring the explanation of the fix, not the fix.
+  // ⚠ CODE ONLY (a guard that reads prose measures the explanation, not the
+  // fix). This used to pin `revealed: true` on the page — and stayed green for
+  // eleven days while `customerLaneOf` ignored that flag for every WAITING row,
+  // so a couple who had just asked to lock still read "Customer" (owner report
+  // 2026-09-19). The flag is gone; the name is simply passed and always used.
+  // The behaviour is pinned where it is decided: vendor-customer-pipeline.test.ts.
   const code = stripComments(src);
-  assert.match(code, /revealed: true/, 'the roster is masking its own customers again');
-  assert.doesNotMatch(code, /revealed: false/, 'a roster row is masked again');
+  assert.doesNotMatch(code, /\brevealed\s*:/, 'a reveal flag is back on the roster');
+  assert.match(
+    code,
+    /eventName:\s*eventNameByEvent\.get\(eventId\)/,
+    'the roster no longer hands the derivation the couple’s display_name',
+  );
 });

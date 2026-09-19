@@ -1,6 +1,7 @@
 -- supplier_rpcs_nobody_calls
 -- ============================================================================
--- SIX SUPPLIER-SIDE FUNCTIONS THAT NOTHING CALLS ARE DROPPED (S39, 2026-09-18).
+-- SEVEN SUPPLIER-SIDE FUNCTIONS THAT NOTHING CALLS ARE DROPPED (S39, 2026-09-18;
+-- extended 2026-09-20 — owner-approved — for the seventh, below).
 --
 -- Source: S26's orphan sweep (`rpc-no-caller`, supplier tier). Each one was
 -- re-measured against origin/main (no app literal; no SQL body, policy,
@@ -45,6 +46,19 @@
 --     instead, which answers the same question for every pair at once. That
 --     one is LIVE and is NOT touched.
 --
+--   release_lead_token_hold(uuid, text)
+--     Not part of S26's original sweep — this one is a SECOND-ORDER orphan
+--     created by dropping handle_vendor_lead_report above. Its only caller
+--     anywhere in the tree (SQL or app) was the PERFORM in that function's
+--     body (20270727924018_handle_vendor_lead_report.sql:53); there is no TS
+--     caller, and sweep_ghosted_lead_holds (the other place a hold gets
+--     released) inlines its own UPDATE/DELETE rather than calling this
+--     function. `ugat-both-ends.db.test.ts` flags a function with no caller
+--     as a money-tier `rpc-no-caller` orphan and its guidance is explicit:
+--     don't baseline it, call it or drop it. There is nothing left to call it,
+--     so it is dropped in the same migration as the caller that orphaned it
+--     (owner-approved 2026-09-20, PR #5649).
+--
 -- Idempotent: DROP FUNCTION IF EXISTS with the exact signatures.
 -- ============================================================================
 
@@ -56,8 +70,9 @@ DROP FUNCTION IF EXISTS public.grant_verified_vendor_bonus_on_insert();
 DROP FUNCTION IF EXISTS public.handle_vendor_lead_report(uuid, uuid, uuid, text, integer);
 DROP FUNCTION IF EXISTS public.rival_signals_for_vendor(uuid);
 DROP FUNCTION IF EXISTS public.vendors_worked_together(uuid, uuid);
+DROP FUNCTION IF EXISTS public.release_lead_token_hold(uuid, text);
 
--- Post-condition: all six are gone; the two live siblings named above remain.
+-- Post-condition: all seven are gone; the two live siblings named above remain.
 DO $$
 DECLARE
   v_left int;
@@ -67,9 +82,10 @@ BEGIN
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.proname IN ('consume_vendor_assets', 'grant_verified_vendor_bonus',
                        'grant_verified_vendor_bonus_on_insert', 'handle_vendor_lead_report',
-                       'rival_signals_for_vendor', 'vendors_worked_together');
+                       'rival_signals_for_vendor', 'vendors_worked_together',
+                       'release_lead_token_hold');
   IF v_left <> 0 THEN
-    RAISE EXCEPTION 'supplier_rpcs_nobody_calls: % of the six functions survived', v_left;
+    RAISE EXCEPTION 'supplier_rpcs_nobody_calls: % of the seven functions survived', v_left;
   END IF;
 
   SELECT count(*) INTO v_kept

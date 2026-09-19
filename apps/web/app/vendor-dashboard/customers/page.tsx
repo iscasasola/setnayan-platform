@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
-import { countUnreadMessages, fetchVendorThreads } from '@/lib/chat';
+import { countUnreadMessages, fetchVendorThreadsDetailed } from '@/lib/chat';
+import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';
 import {
   fetchVendorBlocks,
@@ -33,15 +34,15 @@ import {
   customerLaneOf,
   groupByLane,
   holdingByDate,
-  CUSTOMER_LANES,
-  type CustomerLane,
   type PipelineCustomer,
 } from '@/lib/vendor-customer-pipeline';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { CustomersRoster, type RosterRow } from './_components/customers-roster';
+import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
+import { keepParamsFrom } from '../_components/list-pager';
 
 export const metadata = { title: 'My Customers · Vendor' };
 
@@ -65,7 +66,16 @@ export const metadata = { title: 'My Customers · Vendor' };
  */
 
 type Props = {
-  searchParams: Promise<{ m?: string; et?: string; cat?: string; lane?: string }>;
+  searchParams: Promise<{
+    m?: string;
+    et?: string;
+    cat?: string;
+    lane?: string;
+    /** The roster's page (1-based). Paged after the lane order, never before. */
+    page?: string;
+    /** Name search over the roster, applied before paging. */
+    q?: string;
+  }>;
 };
 
 /*
@@ -113,7 +123,7 @@ async function CustomersPipeline({ searchParams }: Props) {
     blocks,
     dayStates,
     waitlist,
-    threads,
+    threadsRead,
     unreadCount,
     services,
     teamRows,
@@ -129,7 +139,9 @@ async function CustomersPipeline({ searchParams }: Props) {
     // Waitlist for the visible month (the lib bounds by a from-date; a past
     // month simply returns nothing pending, which is correct).
     fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-    fetchVendorThreads(supabase, vendorProfileId),
+    // Detailed: the roster says so on screen when the read could not prove it
+    // reached every thread (`fetchVendorThreadsDetailed`).
+    fetchVendorThreadsDetailed(supabase, vendorProfileId),
     countUnreadMessages(supabase, user.id),
     fetchVendorServices(supabase, vendorProfileId),
     fetchVendorTeam(supabase, vendorProfileId),
@@ -143,6 +155,8 @@ async function CustomersPipeline({ searchParams }: Props) {
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(),
   ]);
+
+  const threads = threadsRead.threads;
 
   // Agent filtering is a subscription feature — enabled only when the tier
   // grants agent accounts (Pro+, agentAccounts > 0). A vendor who drops below
@@ -280,21 +294,36 @@ async function CustomersPipeline({ searchParams }: Props) {
     no clients — so the error is logged rather than swallowed by `?? []`.
   */
   const rosterAdmin = createAdminClient();
-  const { data: evRows, error: evRowsError } = await rosterAdmin
-    .from('event_vendors')
-    .select(
-      'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at',
-    )
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .is('archived_at', null)
-    // A covered cascade line carries no request of its own — only the anchor is
-    // asked — and folding one in would put the same celebration on the roster
-    // twice. Same filter the Answers Desk applies to the identical question.
-    .or('package_role.is.null,package_role.eq.anchor');
-  if (evRowsError) {
+  /*
+    ⚠ PAGED TO THE SERVER'S EXACT COUNT. One un-ranged SELECT here was capped by
+    PostgREST (Supabase default 1000 rows) with `error: null`, so past a
+    thousand bookings the rest silently left the roster.
+  */
+  const evRead = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await rosterAdmin
+        .from('event_vendors')
+        .select(
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at',
+          { count: 'exact' },
+        )
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .is('archived_at', null)
+        // A covered cascade line carries no request of its own — only the anchor is
+        // asked — and folding one in would put the same celebration on the roster
+        // twice. Same filter the Answers Desk applies to the identical question.
+        .or('package_role.is.null,package_role.eq.anchor')
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  );
+  const evRows = evRead.rows;
+  if (evRead.error || !evRead.complete) {
     logQueryError(
       'VendorCustomersPage.rosterBookings',
-      evRowsError,
+      { message: evRead.error ?? `read ${evRead.rows.length} rows without reaching the server count` },
       { vendor_profile_id: vendorProfileId },
       'graceful_degrade',
     );
@@ -341,11 +370,18 @@ async function CustomersPipeline({ searchParams }: Props) {
   const rosterEventIds = [
     ...new Set([...bookedByEvent.keys(), ...bookingByEvent.keys(), ...threadByEvent.keys()]),
   ];
+  let eventRowsErrorSeen = false;
   if (rosterEventIds.length > 0) {
-    const { data: eventRows, error: eventRowsError } = await rosterAdmin
-      .from('events')
-      .select('event_id, display_name, event_date, venue_name, event_type')
-      .in('event_id', rosterEventIds);
+    // Chunked: one `in.()` over every customer is a URL, and past ~600 UUIDs
+    // the gateway refuses it 400 — every name and date on the roster at once.
+    const { rows: eventRows, error: eventRowsError } = await readInChunks(
+      rosterEventIds,
+      (part) =>
+        rosterAdmin
+          .from('events')
+          .select('event_id, display_name, event_date, venue_name, event_type')
+          .in('event_id', part),
+    );
     // ⚠ THE EVENT DATE, VENUE AND TYPE for every booked client. Refused, all
     // ⚠ three go null: the date column empties, the venue disappears, and the
     // ⚠ list SORTS DIFFERENTLY — rows without a date fall to the bottom, so the
@@ -353,6 +389,7 @@ async function CustomersPipeline({ searchParams }: Props) {
     // ⚠ own client list. An absence that quietly re-orders is worse than one
     // ⚠ that empties, because nothing on screen looks missing.
     if (eventRowsError) {
+      eventRowsErrorSeen = true;
       logQueryError(
         'VendorCustomersPage.eventRows',
         eventRowsError,
@@ -386,8 +423,13 @@ async function CustomersPipeline({ searchParams }: Props) {
 
     🔑 THE NAME WAS ALREADY HERE. `eventNameByEvent` is filled from `rosterAdmin`
     above — the roster has always held the couple's real display name and threw
-    it away at render. Flipping the caller is the whole change; the masking
-    machinery in `customerLaneOf` is left intact and simply never asked for.
+    it away at render.
+
+    ⚠ FLIPPING THE CALLER WAS NOT THE WHOLE CHANGE, though this comment said so
+    for eleven days. `customerLaneOf` gated identity by LANE and never consulted
+    the flag for `waiting`, so a couple who had just asked to lock still read
+    "Customer" with a "·" mark (owner report 2026-09-19). The gate is gone; the
+    derivation now names every row that has a name.
   */
   const derived: PipelineCustomer[] = [];
   for (const eventId of rosterEventIds) {
@@ -401,9 +443,6 @@ async function CustomersPipeline({ searchParams }: Props) {
               threadId: t.thread_id,
               inquiryStatus: t.inquiry_status ?? null,
               createdAt: t.created_at ?? null,
-              // Always. See the ruling above — this is the one input that
-              // decided whether `customerLaneOf` showed a name.
-              revealed: true,
               // The LAST thing that happened, from either side — what separates
               // a live conversation from something the shop is holding.
               lastActivityAt: t.updated_at ?? null,
@@ -418,12 +457,11 @@ async function CustomersPipeline({ searchParams }: Props) {
               expiresAt: b.lock_request_expires_at,
             }
           : null,
-        // The name is SUPPLIED for every event; whether it is USED is decided by
-        // the pure derivation, never here.
+        // The name is supplied for every event and used on every lane.
         eventName:
           eventNameByEvent.get(eventId) ?? bookedByEvent.get(eventId)?.eventName ?? null,
-        // FALLBACK ONLY. With `revealed: true` this is reached solely when the
-        // event genuinely has no `display_name` — never to hide one.
+        // FALLBACK ONLY — reached solely when the event genuinely has no
+        // `display_name`, never to hide one.
         descriptor: 'Customer',
         eventDate: eventDateByEvent.get(eventId) ?? null,
         place: venueByEvent.get(eventId) ?? null,
@@ -440,28 +478,38 @@ async function CustomersPipeline({ searchParams }: Props) {
   }
 
   const lanes = groupByLane(derived);
-  const laneCounts = {
-    waiting: lanes.waiting.length,
-    holding: lanes.holding.length,
-    talking: lanes.talking.length,
-    booked: lanes.booked.length,
-    finished: lanes.finished.length,
-  } as Record<CustomerLane, number>;
   /*
-    Computed over EVERY derived customer, never over `rosterRows` — filtering to
-    a lane must not make a date clash disappear. That is the difference between
-    a warning and a decoration.
+    Computed over EVERY derived customer, never over the page on screen —
+    filtering to a lane must not make a date clash disappear. That is the
+    difference between a warning and a decoration.
   */
   const holdingPerDate = holdingByDate(derived);
-  const activeLane =
-    (CUSTOMER_LANES as readonly string[]).includes(search.lane ?? '')
-      ? (search.lane as CustomerLane)
-      : null;
-  // Waiting first, always — that is what "opens on who is waiting" means. The
-  // chip narrows the same list; it never reorders it.
-  const rosterRows: RosterRow[] = (
-    activeLane ? lanes[activeLane] : CUSTOMER_LANES.flatMap((l) => lanes[l])
-  ).map((r) => ({ ...r, note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null) }));
+
+  /*
+    COUNT, NARROW, SEARCH, PAGE — in that order, in one pure step
+    (`./roster-view.ts`, executed by `the-roster-pages.test.ts`).
+
+    🔑 THE CHIPS AND THE HEADING COUNT EVERYONE. `laneCounts` comes from the
+    whole `lanes`; only `roster.paged.items` — one page of 20 — reaches the
+    render (owner 2026-09-19: "if they have 1000 inquiries, they can still
+    manage all and still be able to see the lower parts of the page").
+  */
+  const roster = rosterView(lanes, {
+    lane: search.lane,
+    q: search.q,
+    page: search.page,
+    decorate: (r): RosterRow => ({
+      ...r,
+      note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null),
+    }),
+  });
+  const laneCounts = roster.laneCounts;
+  const activeLane = roster.activeLane;
+  const rosterPage = roster.paged;
+  // A read that could not prove it reached every row — said on screen, never
+  // shown as a shorter list.
+  const rosterIncomplete =
+    !threadsRead.complete || !evRead.complete || Boolean(evRead.error) || eventRowsErrorSeen;
 
   // Filter option sets (real data · presentational for now).
   const serviceOptions: FilterOption[] = [
@@ -535,13 +583,18 @@ async function CustomersPipeline({ searchParams }: Props) {
         </div>
 
         <CustomersRoster
-          rows={rosterRows}
+          rows={rosterPage.items}
+          paged={rosterPage}
+          query={search.q ?? ''}
+          incomplete={rosterIncomplete}
+          pagerKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page'])}
+          searchKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page', 'q'])}
           activeLane={activeLane}
           counts={laneCounts}
           nowMs={rosterNowMs}
           holdingPerDate={holdingPerDate}
           keepParams={new URLSearchParams(
-            Object.entries({ m: search.m, et: search.et, cat: search.cat }).filter(
+            Object.entries({ m: search.m, et: search.et, cat: search.cat, q: search.q }).filter(
               (e): e is [string, string] => typeof e[1] === 'string',
             ),
           ).toString()}
@@ -865,7 +918,7 @@ async function CustomerSectionBody({
   const pass = Promise.resolve(sp);
   switch (open) {
     case 'messages':
-      return <MessagesSurface />;
+      return <MessagesSurface searchParams={pass as never} />;
     case 'clients':
       return <ClientsSurface searchParams={pass as never} />;
     case 'availability':

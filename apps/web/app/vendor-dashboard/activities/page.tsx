@@ -5,6 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { SCHEDULE_BLOCK_LABEL, SCHEDULE_BLOCK_TYPES } from '@/lib/schedule';
 import { offeredCatalogue, totalMinutes, type VendorActivity } from '@/lib/vendor-activities';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { QuestionsSection } from './questions-section';
 import {
   addActivity,
   reorderActivity,
@@ -225,6 +226,9 @@ export default async function VendorActivitiesPage({
           </ul>
         </details>
       ) : null}
+
+      {/* DAY-7 · what only the couple can tell him — his reusable questions. */}
+      <QuestionsSection supabase={supabase} vendorProfileId={profile.vendor_profile_id} />
     </section>
   );
 }

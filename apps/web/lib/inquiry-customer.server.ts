@@ -2,6 +2,8 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { regionLabel } from '@/lib/region-source';
+import { readInChunks } from '@/lib/read-all-pages';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * inquiry-customer.server.ts — the customer facts behind a vendor inquiry.
@@ -80,10 +82,16 @@ export async function fetchInquiryCustomerFacts(
   const ids = Array.from(new Set(eventIds.filter(Boolean)));
   if (ids.length === 0) return out;
   try {
-    const { data } = await admin
-      .from('events')
-      .select('event_id, display_name, event_date, event_type, region')
-      .in('event_id', ids);
+    // Chunked (`IN_LIST_CHUNK`): one `in.()` of every event id is a URL, and
+    // past ~600 UUIDs the gateway refuses it 400 — every name on the supplier's
+    // inbox went back to "Event" at once. A failed chunk is logged, not hidden.
+    const { rows: data, error } = await readInChunks(ids, (part) =>
+      admin
+        .from('events')
+        .select('event_id, display_name, event_date, event_type, region')
+        .in('event_id', part),
+    );
+    if (error) logQueryError('fetchInquiryCustomerFacts', error, { ids: ids.length }, 'graceful_degrade');
     const rows = (data ?? []) as Array<{
       event_id: string;
       display_name: string | null;

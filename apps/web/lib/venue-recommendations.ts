@@ -143,6 +143,9 @@ export async function findPairedCeremonyVenues(
     .in('venue_type', CEREMONY_VENUE_TYPES as readonly string[])
     .limit(FETCH_WINDOW);
 
+  if (error) {
+    console.error('[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findPairedCeremonyVenues)', error);
+  }
   if (error || !data) return [];
 
   const rows = data as Row[];
@@ -274,6 +277,9 @@ export async function findCeremonyVenuesByFaith(
     .in('venue_type', CEREMONY_VENUE_TYPES as readonly string[])
     .order('name', { ascending: true });
 
+  if (error) {
+    console.error('[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findCeremonyVenuesByFaith)', error);
+  }
   if (error || !data) return [];
 
   const rows = data as Row[];
@@ -519,6 +525,7 @@ export async function findReceptionVenuesByVenueSetting(
         if (nerr || !narrow) return [];
         rows = narrow as unknown as Row[];
       } else {
+        console.error('[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findReceptionVenuesByVenueSetting)', error);
         return [];
       }
     } else {

@@ -5,9 +5,8 @@
  * (/dashboard/[eventId]/studio) and the Services tab vendor page
  * (/dashboard/[eventId]/vendors) can both import it without duplication.
  *
- * Each entry's `poster` field drives the cinema-style animated poster card in
- * the add-ons page (service-poster.tsx). The same data powers the compact grid
- * section inside the Services tab.
+ * Each entry's `poster` field drives the animated poster tiles in the Services
+ * tab's compact grid (plan-budget-accordion.tsx).
  *
  * When a new iteration ships, add one entry here. Never add a parallel list
  * in a page file.
@@ -35,10 +34,40 @@ import {
   Newspaper,
   type LucideIcon,
 } from 'lucide-react';
-import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { ProfileSurface } from '@/lib/event-type-profile';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+
+/**
+ * The cinema-poster look each add-on carries (motion + colours + badge tint).
+ * Lived beside the `ServicePoster` component until that component lost its
+ * last mount; the Services tab and the catalogue still read the shape.
+ */
+export type PosterMotion = 'drift' | 'pulse' | 'scan';
+
+export type PosterStyle = {
+  /** Which keyframe animation drives the motion layer. */
+  motion: PosterMotion;
+  /**
+   * CSS background for the base layer (behind the motion layer). Use a
+   * radial-gradient or linear-gradient. Per-service hue gives each
+   * poster its character; brand discipline keeps each gradient
+   * harmonious (warm → terracotta family · cool → ink family · earthy
+   * → cream/amber family).
+   */
+  baseBackground: string;
+  /**
+   * CSS background for the motion layer (transformed by the keyframe).
+   * Typically a lighter, smaller radial-gradient that drifts/pulses/
+   * sweeps across the base.
+   */
+  motionBackground: string;
+  /**
+   * Tone for the icon badge background tint. Sits in the top-left
+   * corner with a subtle ring for depth.
+   */
+  iconBadgeClass: string;
+};
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
 

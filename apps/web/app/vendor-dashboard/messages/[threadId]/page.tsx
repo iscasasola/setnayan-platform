@@ -4,6 +4,8 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftQuoteBasis } from '@/lib/setnayan-gift.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -795,6 +797,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     vendorProfileId: profile.vendor_profile_id,
   });
 
+  // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
+  // ACCEPTED quote card as the same one-tap door the Overview's booking card
+  // carries. The shop's OWN profile id (proved above), never a param.
+  const payoutReadiness: PayoutReadiness = await readSupplierPayoutReadiness({
+    adminClient: paxAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    vendorUserId: profile.user_id,
+  }).catch((): PayoutReadiness => 'unreadable');
+
   /**
    * WHERE YOU STAND — the SAME derivation the couple's thread page and bench
    * card use (S6), read in the supplier's voice.
@@ -1549,6 +1560,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               declineLock: vendorDeclineLock,
             }}
             lockHandshake={lockHandshake}
+            payoutReadiness={payoutReadiness}
           />
         </ChatBox>
       </section>

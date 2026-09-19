@@ -867,7 +867,14 @@ export async function loadVerificationIdentityFields(): Promise<{
   if (!auth) return empty;
   try {
     const { data, error } = await auth.supabase
-      .from('vendor_profiles')
+      // `vendor_profiles_self`, never the table: five of these six columns are
+      // off `authenticated`'s SELECT allowlist since 20271217955839, so the
+      // table refuses the WHOLE statement (42501) and every line beside every
+      // paper read "Not filled in yet" for a shop that had typed it (prod,
+      // 2026-09-19). The view is the shop's own-row door, like the sibling
+      // fetchRegistrationNumberState above. Guard:
+      // lib/security/shop-contact-is-not-session-readable.test.ts (tax identity).
+      .from('vendor_profiles_self')
       // ⚠ A LITERAL, not `PAIR_COLUMNS.join(',')` — Supabase's typed client
       // parses this string at compile time and a template literal defeats it.
       // `verification-pairs-wiring.test.ts` compares this literal against
@@ -882,7 +889,7 @@ export async function loadVerificationIdentityFields(): Promise<{
       // The docstring's degrade is for a MISSING COLUMN; a genuinely refused
       // read collapses to the identical "not sent yet" state — keep the
       // reason logged so the two never get confused from the outside.
-      logQueryError('inline-docs-actions.ts: loadVerificationIdentityFields vendor_profiles', error, {
+      logQueryError('inline-docs-actions.ts: loadVerificationIdentityFields vendor_profiles_self', error, {
         vendor_profile_id: auth.vendorProfileId,
       });
     }

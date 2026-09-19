@@ -69,6 +69,8 @@ import {
 } from '@/lib/thread-decisions';
 import { buildSharedFiles } from '@/lib/chat-shared-files';
 import type { SupplierStanding } from '@/lib/supplier-standing';
+import type { PayoutReadiness } from '@/lib/deposit-pay-step';
+import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -214,6 +216,14 @@ type Props = {
    * `confirm_vendor_payment` and runs the acknowledge effects.
    */
   supplierFirstPaymentRowId?: string | null;
+  /**
+   * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
+   * On the live ACCEPTED quote card the supplier gets the same one-tap door
+   * the Overview's booking card carries (2026-09-19) — the couple's next step
+   * is to book and pay a deposit. A plain string (serialisable); the couple's
+   * page omits it, and `unreadable` renders nothing.
+   */
+  payoutReadiness?: PayoutReadiness;
 };
 
 function statusLabelOf(status: string): string {
@@ -243,6 +253,7 @@ export function ChatMessageStream({
   bookedStep = null,
   couplePay = null,
   supplierFirstPaymentRowId = null,
+  payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -1071,6 +1082,11 @@ export function ChatMessageStream({
                       </p>
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
+                      ) : null}
+                      {viewerRole === 'vendor' &&
+                      isLatestProposal &&
+                      card.status === 'accepted' ? (
+                        <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
                       {items.length > 0 ? (
                         <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">

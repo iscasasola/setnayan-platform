@@ -20,6 +20,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { Maximize2, Printer, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { QrActions } from '@/app/_components/qr-actions';
+import { svgDataUri } from '@/lib/qr-download';
 
 export function GuestReviewQr({
   qrSvg,
@@ -109,6 +111,11 @@ export function GuestReviewQr({
               <Maximize2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Show fullscreen
             </button>
           </div>
+          <QrActions
+            url={reviewUrl}
+            download={{ href: svgDataUri(qrSvg), filename: 'setnayan-review-qr.svg' }}
+            className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start"
+          />
         </div>
       </div>
 

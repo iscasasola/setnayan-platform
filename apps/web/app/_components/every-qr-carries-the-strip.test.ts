@@ -97,20 +97,38 @@ test('"Tag written" is decided by the read-back, never by write() resolving', ()
   const src = read('app/_components/nfc-write-button.tsx');
   assert.ok(src.includes('Write failed'), 'the failure headline');
   assert.ok(src.includes('Tag written'), 'the success headline');
-  assert.ok(src.includes('Not confirmed'), 'the honest middle when the tag leaves before read-back');
-  // Every transition to the success state sits inside a branch that asked the
-  // read-back — the closest preceding call must be readBackMatches(...).
-  const successes = [...src.matchAll(/setState\(\{ kind: 'written' \}\)/g)].map((m) => m.index ?? -1);
-  assert.equal(successes.length, 2, 'write() path and Check tag path');
-  for (const at of successes) {
-    const before = src.slice(Math.max(0, at - 220), at);
-    assert.match(before, /readBackMatches\(/, `success at ${at} is not gated by the read-back`);
-    assert.doesNotMatch(before, /await reader\.write\(/, `success at ${at} follows write() directly`);
-  }
+  assert.ok(src.includes('Not confirmed'), 'the honest middle when no read-back arrives');
+  // ONE success point for all three writers (app, web, check). The union type
+  // names the state once; exactly one other place may produce it.
+  const producers = [...src.matchAll(/kind: 'written'/g)].map((m) => m.index ?? -1);
+  assert.equal(producers.length, 2, `'written' appears ${producers.length}× — a second producer is a second door to success`);
+  const at = producers[1] ?? -1;
+  const before = src.slice(Math.max(0, at - 160), at);
+  assert.match(before, /readBackMatches\(found, target\)/, 'the only success sits behind the read-back');
+  assert.doesNotMatch(before, /\.write\(/, 'success follows a write() directly');
+  // Both writers reach it only through settle(found, …) after a READ.
+  assert.equal(count(src, 'settle(found, target)'), 1);
+  assert.match(src, /found = await nativeReadOnce\(/);
+  assert.match(src, /found = await webReadOnce\(/);
   // The pure half reads no flag and no DOM.
   const pure = read('lib/nfc-tag.ts');
   assert.doesNotMatch(pure, /process\.env/);
   assert.doesNotMatch(pure, /\bwindow\b|\bdocument\b/);
   // And the button asks eligibility, so a non-link never gets an NFC button.
   assert.match(src, /nfcTagEligibility\(/);
+});
+
+test('the iOS app is allowed to write tags, and says why it asks', () => {
+  const ent = readFileSync(join(WEB, '..', 'mobile/ios/App/App/App.entitlements'), 'utf8');
+  assert.match(ent, /com\.apple\.developer\.nfc\.readersession\.formats<\/key>\s*<array>\s*<string>TAG<\/string>/);
+  // "NDEF" is refused by App Store upload (ITMS-90778) — TAG covers NDEF sessions.
+  assert.doesNotMatch(ent, /<string>NDEF<\/string>/);
+  const plist = readFileSync(join(WEB, '..', 'mobile/ios/App/App/Info.plist'), 'utf8');
+  assert.match(plist, /<key>NFCReaderUsageDescription<\/key>\s*<string>[^<]{20,}<\/string>/);
+  const pkg = JSON.parse(readFileSync(join(WEB, '..', 'mobile/package.json'), 'utf8'));
+  assert.ok(pkg.dependencies['@capgo/capacitor-nfc'], 'the native plugin ships in the app');
+  const spm = readFileSync(join(WEB, '..', 'mobile/ios/App/CapApp-SPM/Package.swift'), 'utf8');
+  assert.match(spm, /CapgoCapacitorNfc/, 'cap sync wired it into the iOS package');
+  const gradle = readFileSync(join(WEB, '..', 'mobile/android/capacitor.settings.gradle'), 'utf8');
+  assert.match(gradle, /capgo-capacitor-nfc/, 'cap sync wired it into the Android build');
 });

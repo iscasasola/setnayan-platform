@@ -7,8 +7,12 @@ import assert from 'node:assert/strict';
 import {
   NFC_TAG_CAPACITY_BYTES,
   NFC_WRITE_TIMEOUT_MS,
+  classifyNativeNfcError,
   classifyNfcError,
+  decodeNdefUriRecords,
+  ndefUriRecord,
   ndefUrlTagBytes,
+  sessionEndReason,
   nfcFailureCopy,
   nfcTagEligibility,
   nfcWriteSupported,
@@ -90,7 +94,7 @@ test('every thrown error becomes one named reason', () => {
 test('every reason has its own sentence, and none is generic', () => {
   const reasons: NfcFailureReason[] = [
     'permission-denied', 'nfc-off', 'tag-moved', 'tag-locked', 'tag-too-small',
-    'unsupported-tag', 'timed-out', 'cancelled', 'unsupported-browser', 'mismatch', 'unexpected',
+    'unsupported-tag', 'timed-out', 'cancelled', 'unsupported-browser', 'no-nfc', 'mismatch', 'unexpected',
   ];
   const seen = new Set<string>();
   for (const r of reasons) {
@@ -116,4 +120,50 @@ test('support is decided by the global, so it can be asked without a DOM', () =>
   assert.equal(nfcWriteSupported(null), false);
   assert.equal(nfcWriteSupported({}), false);
   assert.equal(nfcWriteSupported({ NDEFReader: class {} }), true);
+});
+
+test('the app writes a real NDEF URI record, abbreviated per the spec table', () => {
+  const r = ndefUriRecord('https://www.setnayan.com/v/abc');
+  assert.equal(r.tnf, 1);
+  assert.deepEqual(r.type, [0x55]);
+  assert.deepEqual(r.id, []);
+  assert.equal(r.payload[0], 0x02); // "https://www."
+  assert.equal(new TextDecoder().decode(Uint8Array.from(r.payload.slice(1))), 'setnayan.com/v/abc');
+  assert.equal(ndefUriRecord('https://setnayan-platform-web.vercel.app/x').payload[0], 0x04); // "https://"
+  assert.equal(ndefUriRecord('http://localhost:3000/x').payload[0], 0x03); // "http://"
+  // The byte budget and the record agree: payload + 4 header + 3 TLV bytes.
+  const url = 'https://www.setnayan.com/vendor-invite/saysay-live-band-and-hosting-fix';
+  assert.equal(ndefUrlTagBytes(url), ndefUriRecord(url).payload.length + 4 + 3);
+});
+
+test('what the app reads back decodes to the exact link it wrote', () => {
+  const urls = [
+    'https://www.setnayan.com/u/ana-miguel/ana-miguel-2026?invite=' + 'a1'.repeat(16),
+    'https://www.setnayan.com/v/saysay#reviews',
+    'http://localhost:3000/vendor/lock/tok_é',
+  ];
+  for (const url of urls) assert.deepEqual(decodeNdefUriRecords([ndefUriRecord(url)]), [url]);
+  // Other records are skipped, not guessed at; an absolute-URI record is read.
+  const text = { tnf: 1, type: [0x54], id: [], payload: [2, 101, 110, 104, 105] };
+  const abs = { tnf: 3, type: [...new TextEncoder().encode('https://x.com/a')], id: [], payload: [] };
+  const reserved = { tnf: 1, type: [0x55], id: [], payload: [0xfe, 97] };
+  assert.deepEqual(decodeNdefUriRecords([text, abs, reserved]), ['https://x.com/a']);
+  assert.deepEqual(decodeNdefUriRecords(null), []);
+  assert.deepEqual(decodeNdefUriRecords([]), []);
+});
+
+test("the plugin's rejections name the same reasons as the web path", () => {
+  assert.equal(classifyNativeNfcError({ code: 'NFC_DISABLED', message: 'NFC is currently disabled.' }), 'nfc-off');
+  assert.equal(classifyNativeNfcError({ code: 'NO_NFC', message: 'NFC is not available on the simulator.' }), 'no-nfc');
+  assert.equal(classifyNativeNfcError({ message: 'Tag is read only.' }), 'tag-locked');
+  assert.equal(classifyNativeNfcError({ message: 'Tag capacity is insufficient for the provided message.' }), 'tag-too-small');
+  assert.equal(classifyNativeNfcError({ message: 'Tag does not support NDEF.' }), 'unsupported-tag');
+  assert.equal(classifyNativeNfcError({ message: 'Failed to connect to tag.' }), 'tag-moved');
+  assert.equal(classifyNativeNfcError({ message: 'Tag connection lost.' }), 'tag-moved');
+  assert.equal(classifyNativeNfcError({ code: 'CANCELLED', message: 'superseded' }), 'cancelled');
+  assert.equal(classifyNativeNfcError({ message: 'Failed to write NDEF message.' }), 'unexpected');
+  assert.equal(sessionEndReason('userCancelled'), 'cancelled');
+  assert.equal(sessionEndReason('sessionTimeout'), 'timed-out');
+  assert.equal(sessionEndReason('invalidated'), 'unexpected');
+  assert.equal(sessionEndReason(undefined), 'unexpected');
 });

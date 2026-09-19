@@ -32,6 +32,7 @@ import {
 import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
+import { coupleLockDoorHref } from '@/lib/lock-door';
 
 export const metadata = { title: 'Proposal' };
 
@@ -242,11 +243,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
    * event_vendors already admits this reader (same membership the proposal
    * row itself required to reach this page).
    */
-  let lockWorkspaceHref: string | null = null;
+  /*
+    ⚠ THE DOOR IS THE BENCH, NOT THE WORKSPACE (AREA-CHAT, 2026-09-19). This
+    used to link `/vendors/${pick.vendor_id}/workspace`, a page that holds no
+    Lock control at all (the one lock path mounts on the Vendors page — see
+    `lib/lock-door.ts`), and since #5614 a bare workspace landing redirects to
+    the conversation. The pick row is still what gates the block: no row, no
+    "ask them to lock" — and the row's own category opens the bench on the
+    right tile.
+  */
+  let lockDoorHref: string | null = null;
   if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id) {
     const { data: pick, error: pickError } = await supabase
       .from('event_vendors')
-      .select('vendor_id')
+      .select('vendor_id, category')
       .eq('event_id', proposal.event_id)
       .eq('marketplace_vendor_id', proposal.vendor_profile_id)
       .maybeSingle();
@@ -256,7 +266,10 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         vendorProfileId: proposal.vendor_profile_id,
       });
     } else if (pick) {
-      lockWorkspaceHref = `/dashboard/${proposal.event_id}/vendors/${pick.vendor_id}/workspace`;
+      lockDoorHref = coupleLockDoorHref(
+        proposal.event_id,
+        (pick as { category?: string | null }).category ?? null,
+      );
     }
   }
 
@@ -560,14 +573,14 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       {/* The next-step block. Accepting only shortlists {businessName} at this
           price — it is not a booking. Say so, and point at the one action that
           books them: asking the shop to Lock. */}
-      {lockWorkspaceHref ? (
+      {lockDoorHref ? (
         <section className="rounded-xl border border-terracotta/30 bg-terracotta/[0.06] p-4 print:hidden">
           <p className="text-sm text-ink/80">
             You&rsquo;ve accepted. To book {businessName}, ask them to lock &mdash; once they
             confirm, it&rsquo;s booked.
           </p>
           <Link
-            href={lockWorkspaceHref}
+            href={lockDoorHref}
             className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             Go ask {businessName} to lock <ArrowRight aria-hidden className="h-4 w-4" />

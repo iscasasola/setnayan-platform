@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "88c4e130f",
+  "generatedFromRef": "1eaeaa8a34",
   "routeCount": 428,
-  "destinations": 918,
+  "destinations": 917,
   "actions": 639,
-  "blocks": 4475,
+  "blocks": 4476,
   "routes": {
     "/": {
       "files": [
@@ -4909,6 +4909,7 @@
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
+        "UpcomingItemSource",
         "UpdateMatchCriteriaResult",
         "VeilReveal",
         "VendorCategoryProgress",
@@ -10193,6 +10194,7 @@
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
+        "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx"
       ],
       "destinations": [
@@ -10429,7 +10431,6 @@
       "destinations": [
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
-        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",

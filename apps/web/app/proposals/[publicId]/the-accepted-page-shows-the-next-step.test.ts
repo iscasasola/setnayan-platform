@@ -33,14 +33,22 @@ test('the accepted couple-side state resolves a Lock link from event_vendors', (
   assert.match(src, /from\('event_vendors'\)/);
   assert.match(src, /eq\('event_id',\s*proposal\.event_id\)/);
   assert.match(src, /eq\('marketplace_vendor_id',\s*proposal\.vendor_profile_id\)/);
-  assert.match(src, /\/dashboard\/\$\{proposal\.event_id\}\/vendors\/\$\{pick\.vendor_id\}\/workspace/);
+  /* ✏️ EVOLVED 2026-09-19 (AREA-CHAT). This asserted the WORKSPACE route —
+     `/vendors/${pick.vendor_id}/workspace` — on the belief that Lock lives
+     there. It does not: the one lock path mounts on the Vendors page (bench +
+     "Your team"), and since #5614 a bare workspace landing redirects to the
+     conversation. The destination is now the shared rule in lib/lock-door.ts,
+     fed the pick's own category so the bench opens on the right tile. */
+  assert.match(src, /lockDoorHref = coupleLockDoorHref\(\s*proposal\.event_id,/);
+  assert.match(src, /\.select\('vendor_id, category'\)/, 'the pick is read without its category — the door cannot pick a tile');
+  assert.doesNotMatch(src, /lockDoorHref = `[^`]*\/workspace`/, 'the lock link points at the workspace, which holds no Lock');
 });
 
 test('the next-step block is gated to the couple, accepted, with an event', () => {
   const src = source();
-  const gate = src.match(/let lockWorkspaceHref[^;]*;\s*if \(([^)]*)\)/);
+  const gate = src.match(/let lockDoorHref[^;]*;\s*if \(([^)]*)\)/);
   const cond = gate?.[1];
-  assert.ok(cond, 'expected the lockWorkspaceHref resolution to be gated');
+  assert.ok(cond, 'expected the lockDoorHref resolution to be gated');
   assert.match(cond, /!isVendorSide/);
   assert.match(cond, /proposal\.status === 'accepted'/);
   assert.match(cond, /proposal\.event_id/);
@@ -48,9 +56,9 @@ test('the next-step block is gated to the couple, accepted, with an event', () =
 
 test('the next-step block only renders when a link was resolved, and only once', () => {
   const src = source();
-  const occurrences = src.match(/lockWorkspaceHref \?/g) ?? [];
+  const occurrences = src.match(/lockDoorHref \?/g) ?? [];
   // One to gate the JSX render; the read-error / not-found branches never see it.
-  assert.equal(occurrences.length, 1, 'expected exactly one render gate on lockWorkspaceHref');
+  assert.equal(occurrences.length, 1, 'expected exactly one render gate on lockDoorHref');
   assert.match(src, /You&rsquo;ve accepted\. To book \{businessName\}, ask them to lock/);
 });
 

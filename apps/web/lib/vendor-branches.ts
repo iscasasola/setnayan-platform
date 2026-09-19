@@ -395,7 +395,10 @@ export async function fetchPublicVendorBranches(
     .eq('parent_vendor_profile_id', vendorProfileId)
     .is('cancelled_at', null)
     .order('created_at', { ascending: true });
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/vendor-branches.ts · from:vendor_branches.select', error);
+    return [];
+  }
   const rows = data as Array<
     Pick<VendorBranchRow, 'branch_id' | 'branch_label' | 'branch_city' | 'cancelled_at'>
   >;

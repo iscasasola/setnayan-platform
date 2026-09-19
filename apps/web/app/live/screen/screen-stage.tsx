@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LIVE_SCREEN_POLL_MS } from '@/lib/live-screens';
+import { LIVE_SCREEN_POLL_MS, VENUE_SCREEN_LOCKED_TV_MESSAGE } from '@/lib/live-screens';
 import type { LoadedScreen } from '../_lib/load-screen';
 
 type Ready = Extract<LoadedScreen, { state: 'ready' }>;
@@ -18,20 +18,29 @@ type Ready = Extract<LoadedScreen, { state: 'ready' }>;
  * A BLIP KEEPS THE PICTURE. When the loader returns `down` (a refused read),
  * the stage keeps showing the last good picture with a small "reconnecting"
  * mark, rather than replacing a room's screen with an error.
+ *
+ * `locked` IS THE OPPOSITE ON PURPOSE (owner ruling 2026-09-20: screens come
+ * WITH the paid Live Studio unlock). It never falls through to `lastGood` —
+ * a screen must go dark the moment its event is not entitled, not keep
+ * showing content from when it was. Polling continues underneath, so the TV
+ * recovers on its own the moment the event unlocks; nobody has to touch it.
  */
-export function ScreenStage({ loaded }: { loaded: Extract<LoadedScreen, { state: 'ready' | 'down' }> }) {
+export function ScreenStage({ loaded }: { loaded: Extract<LoadedScreen, { state: 'ready' | 'down' | 'locked' }> }) {
   const router = useRouter();
   const [lastGood, setLastGood] = useState<Ready | null>(loaded.state === 'ready' ? loaded : null);
   useEffect(() => {
     if (loaded.state === 'ready') setLastGood(loaded);
   }, [loaded]);
-  const shown = loaded.state === 'ready' ? loaded : lastGood;
-  const reconnecting = loaded.state === 'down';
 
   useEffect(() => {
     const t = window.setInterval(() => router.refresh(), LIVE_SCREEN_POLL_MS);
     return () => window.clearInterval(t);
   }, [router]);
+
+  if (loaded.state === 'locked') return <Locked />;
+
+  const shown = loaded.state === 'ready' ? loaded : lastGood;
+  const reconnecting = loaded.state === 'down';
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-black text-[#F5EFE6]" data-testid="live-screen">
@@ -41,6 +50,18 @@ export function ScreenStage({ loaded }: { loaded: Extract<LoadedScreen, { state:
           Reconnecting…
         </p>
       ) : null}
+    </main>
+  );
+}
+
+function Locked() {
+  return (
+    <main
+      className="flex h-screen w-screen items-center justify-center bg-black px-8 text-center text-[#F5EFE6]"
+      data-testid="live-screen"
+      data-mode="locked"
+    >
+      <p className="max-w-lg text-2xl text-[#F5EFE6]/70">{VENUE_SCREEN_LOCKED_TV_MESSAGE}</p>
     </main>
   );
 }

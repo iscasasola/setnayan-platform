@@ -13,6 +13,7 @@ import {
   MAX_LIVE_SCREENS,
   MIRROR_DELAY_NOTICE,
   canAddScreen,
+  canUseVenueScreens,
   decideScreenPicture,
   isLiveScreenMode,
   nextScreenIndex,
@@ -144,4 +145,11 @@ test('a device token is honoured only for the live row it was minted for', () =>
   );
   assert.equal(liveScreenTokenMatchesRow(claim, { ...row, event_id: 'e2' }), false, 'another event');
   assert.equal(liveScreenTokenMatchesRow(claim, { ...row, id: 8 }), false, 'another screen');
+});
+
+/* ── VENUE SCREENS COME WITH LIVE STUDIO — owner ruling 2026-09-20 ────────── */
+
+test('canUseVenueScreens is the entitlement, and only the entitlement', () => {
+  assert.equal(canUseVenueScreens({ liveStudioActive: true }), true);
+  assert.equal(canUseVenueScreens({ liveStudioActive: false }), false);
 });

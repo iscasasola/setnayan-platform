@@ -33,6 +33,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import {
   buildCockpitModel,
   type CockpitModel,
@@ -108,7 +109,9 @@ export async function loadAiActivity(
       try {
         return await supabase
           .from('event_vendors')
-          .select('vendor_id, vendor_name, category, status, total_cost_php')
+          // `lock_request_state` (SUP-69) — same read the Overview makes, so the
+          // briefing's "N decisions need you" matches it.
+          .select('vendor_id, vendor_name, category, status, lock_request_state, total_cost_php')
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
@@ -177,7 +180,7 @@ export async function loadAiActivity(
   );
   const topPriorityTask =
     event.eventDate && precision === 'day'
-      ? pickTodaysOneThing(vendors, event.eventDate, now)
+      ? pickTodaysOneThing(vendors, event.eventDate, now, undefined, isLockHandshakeEnabled())
       : null;
 
   const cockpit = buildCockpitModel(
@@ -189,6 +192,7 @@ export async function loadAiActivity(
       vendors,
       sponsors,
       topPriorityTask,
+      lockHandshakeEnabled: isLockHandshakeEnabled(),
       paperwork: paperworkRows
         .filter((r) => r.status !== 'received' && r.status !== 'expired')
         .map((r) => ({

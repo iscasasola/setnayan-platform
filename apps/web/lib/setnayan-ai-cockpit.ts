@@ -30,7 +30,7 @@ import {
   type EventVendorRowInput,
   type PlanCardPick,
 } from './wedding-plan-groups';
-import type { ResolvedTask } from './todays-one-thing';
+import { hasOutstandingAsk, type ResolvedTask } from './todays-one-thing';
 
 /**
  * The event_vendors statuses that count as "locked" — mirrors
@@ -101,6 +101,13 @@ export type CockpitInput = {
   topPriorityTask: ResolvedTask | null;
   /** Paperwork pipeline rows, pre-reduced to label + due date. */
   paperwork: ReadonlyArray<{ id: string; label: string; dueIso: string | null }>;
+  /**
+   * SUP-69 · `isLockHandshakeEnabled()`, passed IN (pure core). With it on, a
+   * category where the couple has asked a supplier to lock and is waiting on
+   * the answer is NOT a decision — "Pick your caterer · Compare & lock" there
+   * tells them to do what they already did. Omitted ⇒ false ⇒ unchanged.
+   */
+  lockHandshakeEnabled?: boolean;
 };
 
 function hasLockedPick(picks: ReadonlyArray<PlanCardPick>): boolean {
@@ -158,6 +165,7 @@ export function buildCockpitModel(
     sponsors,
     topPriorityTask,
     paperwork,
+    lockHandshakeEnabled = false,
   } = input;
 
   const vendorsHref = `/dashboard/${eventId}/vendors`;
@@ -176,6 +184,12 @@ export function buildCockpitModel(
     const picks = (bucketed.get(group.id) ?? []).filter((p) => !p.bucketed_by_fallback);
     if (picks.length === 0) continue; // no vendor booked — handled by (b)
     if (hasLockedPick(picks)) continue; // already locked — done
+    if (hasOutstandingAsk(picks, lockHandshakeEnabled)) {
+      // Asked and waiting on the supplier — the couple has decided. Marked as
+      // decided so (b) cannot re-surface the same category as "Nothing booked".
+      decidedGroupIds.add(group.id);
+      continue;
+    }
     const n = picks.length;
     decisions.push({
       id: `pick:${group.id}`,

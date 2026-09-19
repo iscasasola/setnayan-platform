@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_BRAND_MARK_SVG,
@@ -68,7 +69,11 @@ const loadBrandSettings = unstable_cache(
         .select(SELECT)
         .eq('id', 1)
         .maybeSingle();
-      if (error || !data) return FALLBACK;
+      if (error) {
+        logQueryError('brand-settings: platform_settings', error);
+        return FALLBACK;
+      }
+      if (!data) return FALLBACK;
       const r = data as Record<string, unknown>;
       return {
         masterUrl: (r.brand_icon_master_url as string | null) ?? null,

@@ -76,7 +76,18 @@ export async function mintEncoderClaim(
     broadcast_id: active.id,
     requested_by: requestedBy,
   });
-  if (error) return null;
+  if (error) {
+    // The caller (claim API route) reads a null claim as "no_active_broadcast"
+    // (409) — true for the `!active` branch above, but an INSERT failure here
+    // would read as the same ordinary race instead of a server fault. Log the
+    // reason so the two are distinguishable in the trace even though the HTTP
+    // response is unchanged.
+    console.error('[supabase-error] lib/live-studio-encoder-claims.ts · from:live_studio_encoder_claims.insert', error, {
+      event_id: eventId,
+      broadcast_id: active.id,
+    });
+    return null;
+  }
 
   return {
     claimToken,

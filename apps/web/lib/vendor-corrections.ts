@@ -167,7 +167,10 @@ export async function fetchVerifiedLock(
       .select('public_visibility')
       .eq('user_id', userId)
       .maybeSingle();
-    if (error || !data) return false;
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/vendor-corrections.ts · from:vendor_profiles.select', error);
+      return false;
+    }
     return (
       (data as { public_visibility?: string | null }).public_visibility ===
       'verified'

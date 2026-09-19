@@ -116,7 +116,10 @@ export async function getTrustedCircleVendorSignal(
     p_event_id: eventId,
     p_vendor_profile_id: vendorProfileId,
   });
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/trusted-circle-recs.ts · rpc:trusted_circle_vendor_signal', error);
+    return null;
+  }
 
   // SETOF fn → array; the boundary check returns 0 rows (inert) for a caller who
   // isn't the host of this event. No row ⇒ no signal.

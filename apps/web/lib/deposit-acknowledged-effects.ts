@@ -54,6 +54,13 @@ export type DepositEffectsOutcome = {
   acknowledged: boolean;
   /** The money row (`resolveFeeAnchorRowId`); NULL means "bill nothing". */
   anchorId: string | null;
+  /**
+   * Set ONLY when `anchorId` is NULL because a read was REFUSED — the reason.
+   * Absent/NULL means the NULL was a ruling (archived · orphaned · anchor gone).
+   * The two bill the same (nothing), but only one of them is true to report as
+   * "not a sale" (FEE-HONEST, 2026-09-19).
+   */
+  anchorUnreadable?: string | null;
   /** `isBookingFeeEnabled()` at the time — a `null` fee is fine when this is off. */
   feeEnabled: boolean;
   fee: DepositEffectsFee | null;
@@ -110,6 +117,10 @@ export function judgeDepositEffects(o: DepositEffectsOutcome): DepositEffectsVer
     problems.push('booking row not found');
   } else if (!o.acknowledged) {
     problems.push('called before the acknowledgement landed');
+  } else if (!o.anchorId && o.anchorUnreadable) {
+    problems.push(
+      `money row UNREADABLE (${o.anchorUnreadable}) — billed nothing, held nothing; the next acknowledge re-attempts`,
+    );
   } else if (!o.anchorId) {
     problems.push(
       'no money row resolved (archived booking or orphaned cascade line) — billed nothing, held nothing',

@@ -3,6 +3,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { TelemetryEventType } from '@/lib/telemetry/track-error';
 import { redactPayload } from '@/lib/telemetry/redact';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Connection Logs · server-side write helpers for app_telemetry_logs.
@@ -73,7 +74,14 @@ export async function insertFaultLog(input: InsertFaultInput): Promise<string | 
     .select('id')
     .single();
 
-  if (error || !data) return null;
+  if (error) {
+    // This IS the audit trail for a caller's failure — a discarded error
+    // here is doubly silent: the caller's problem AND the mechanism meant
+    // to record it both vanish.
+    logQueryError('lib/telemetry/fault-log.ts: app_telemetry_logs insert', error);
+    return null;
+  }
+  if (!data) return null;
   return data.id as string;
 }
 
@@ -93,6 +101,12 @@ export async function resolveFaultsByFilePath(filePath: string): Promise<number>
     .eq('status', 'active')
     .select('id');
 
-  if (error || !data) return 0;
+  if (error) {
+    logQueryError('lib/telemetry/fault-log.ts: app_telemetry_logs update', error, {
+      file_path: filePath,
+    });
+    return 0;
+  }
+  if (!data) return 0;
   return data.length;
 }

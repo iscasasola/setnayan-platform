@@ -216,6 +216,7 @@ export async function isInvitedAccount(
     .select('person_id')
     .eq('claimed_by_user_id', userId)
     .is('deleted_at', null);
+  if (mineErr) console.error('[supabase-error] lib/slug-access.ts · from:people.select', mineErr);
   if (mineErr || !mine || mine.length === 0) return false;
 
   const personIds = mine.map((p) => (p as { person_id: string }).person_id);
@@ -227,6 +228,7 @@ export async function isInvitedAccount(
     .in('person_id', personIds)
     .is('deleted_at', null)
     .limit(1);
+  if (seatErr) console.error('[supabase-error] lib/slug-access.ts · from:guests.select', seatErr);
   // Fail CLOSED on the final read: by here nothing else can admit them, and
   // this decides who sees somebody's celebration.
   if (seatErr) return false;

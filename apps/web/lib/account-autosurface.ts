@@ -87,6 +87,7 @@ export async function maybeAutoSurfaceEventForGuest(
       guest_id: guestId,
       auto_surfaced: true,
     });
+    if (insErr) console.error('[supabase-error] lib/account-autosurface.ts · from:event_members.insert', insErr);
     // A race (the same (event_id,user_id) inserted concurrently) trips the UNIQUE
     // constraint → treat as already-surfaced, don't notify.
     if (insErr) return;

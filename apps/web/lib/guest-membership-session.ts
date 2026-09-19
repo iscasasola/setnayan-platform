@@ -147,6 +147,7 @@ export async function findGuestSeatForUser(
     .not('guest_id', 'is', null)
     .is('hidden_at', null)
     .maybeSingle();
+  if (membershipError) console.error('[supabase-error] lib/guest-membership-session.ts · from:event_members.select', membershipError);
 
   // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR. Supabase resolves with { error },
   // so without this check a phantom column or a lost grant would read as "this
@@ -162,6 +163,7 @@ export async function findGuestSeatForUser(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
+  if (seatError) console.error('[supabase-error] lib/guest-membership-session.ts · from:guests.select', seatError);
 
   if (seatError || !seat?.qr_token) return null;
 

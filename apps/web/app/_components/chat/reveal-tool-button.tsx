@@ -1,11 +1,12 @@
 'use client';
 
-import { Handshake, Phone } from 'lucide-react';
+import { Handshake, Phone, ReceiptText } from 'lucide-react';
 import {
   CHAT_BOX_AFFORDANCES,
   affordanceReveal,
   type ChatBoxAffordanceKey,
 } from '@/lib/chat-box-tools';
+import type { DealEntry } from '@/lib/deal-entry';
 import { revealThreadTool } from './reveal-thread-tool';
 
 /**
@@ -29,17 +30,25 @@ const ICON: Record<ChatBoxAffordanceKey, typeof Phone> = {
 export function RevealToolButton({
   affordance,
   label,
+  entry,
 }: {
   affordance: ChatBoxAffordanceKey;
   /** Overrides the registry label — e.g. "Call Hiraya Catering". */
   label?: string;
+  /**
+   * The deal slot only: what `dealEntryFor` decided this thread's 🧾 opens.
+   * Before any quote the supplier's icon is "Send a quote" (#build-quote) and
+   * the couple's is "Request a meeting" — see `lib/deal-entry.ts`.
+   */
+  entry?: DealEntry;
 }) {
-  const Icon = ICON[affordance];
-  const text = label ?? CHAT_BOX_AFFORDANCES[affordance].label;
+  const Icon = entry?.composer.icon === 'quote' ? ReceiptText : ICON[affordance];
+  const text = label ?? entry?.composer.label ?? CHAT_BOX_AFFORDANCES[affordance].label;
+  const reveal = entry ? entry.composer.reveal : affordanceReveal(affordance);
   return (
     <button
       type="button"
-      onClick={() => revealThreadTool(affordanceReveal(affordance))}
+      onClick={() => revealThreadTool(reveal)}
       aria-label={text}
       title={text}
       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] hover:text-ink"

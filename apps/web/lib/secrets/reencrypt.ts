@@ -151,6 +151,13 @@ async function sweepColumn(
         .update({ [valueColumn]: next })
         .eq(pkColumn, pk as string);
       if (updErr) {
+        // Never log ciphertext or plaintext — only the Postgres error shape —
+        // but the failure itself must be traceable: a silent re-bucket here
+        // used to look identical to "nothing needed rotating".
+        console.error(
+          `[supabase-error] lib/secrets/reencrypt.ts · from:${table}.update`,
+          { code: updErr.code, message: updErr.message, column: valueColumn },
+        );
         counts = {
           ...counts,
           reencrypted: counts.reencrypted - 1,

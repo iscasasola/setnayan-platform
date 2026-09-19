@@ -36,7 +36,12 @@ export async function enforceRateLimit(
       p_limit: opts.limit,
       p_window_secs: opts.windowSecs,
     });
-    if (error) return { ok: true, retryAfterSecs: 0, remaining: l1.remaining };
+    if (error) {
+      // FAILS OPEN on purpose (see docblock) — L1 already absorbed the cheap
+      // deny; logged only so an RPC outage is traceable, never silent.
+      console.error('[supabase-error] lib/with-rate-limit.ts · rpc:check_rate_limit', error, { bucket });
+      return { ok: true, retryAfterSecs: 0, remaining: l1.remaining };
+    }
     const row = (Array.isArray(data) ? data[0] : data) as
       | { allowed?: boolean; remaining?: number; retry_after_secs?: number }
       | null

@@ -47,6 +47,7 @@
 // its own pure module rather than re-typing the arithmetic here.
 import { collectStoredAssetRefs } from '@/lib/erasure/coverage';
 import { parseR2Ref } from '@/lib/nsfw-screen';
+import { readAllPages } from '@/lib/read-all-pages';
 
 /** One object in the verification bucket, as the admin page sees it. */
 export type VerificationDoc = {
@@ -424,36 +425,7 @@ export function collectReferencedKeys(sources: Iterable<unknown>): Set<string> {
  * `fetchPage` is injected so this is testable by behaviour rather than by
  * reading the server module's source.
  */
-export async function readAllPages(
-  fetchPage: (
-    from: number,
-    to: number,
-  ) => Promise<{ rows: unknown[] | null; error: string | null; total?: number | null }>,
-  opts?: { pageSize?: number; maxPages?: number },
-): Promise<{ rows: unknown[]; error: string | null; complete: boolean }> {
-  const pageSize = Math.max(1, opts?.pageSize ?? 500);
-  const maxPages = Math.max(1, opts?.maxPages ?? 200);
-  const rows: unknown[] = [];
-  let total: number | null = null;
-
-  for (let page = 0; page < maxPages; page += 1) {
-    // The next window starts at what has ACTUALLY been collected, never at
-    // `page * pageSize`. That is what makes a server cap below `pageSize`
-    // harmless instead of silent.
-    const from = rows.length;
-    const { rows: got, error, total: reported } = await fetchPage(from, from + pageSize - 1);
-    if (error) return { rows, error, complete: false };
-    if (typeof reported === 'number') total = reported;
-    const batch = got ?? [];
-    rows.push(...batch);
-    if (total !== null && rows.length >= total) return { rows, error: null, complete: true };
-    // No progress and the count not reached: a cap of zero, or the table moved
-    // under us. Either way this is not the end, and saying so is the point.
-    if (batch.length === 0) return { rows, error: null, complete: false };
-  }
-
-  return { rows, error: null, complete: false };
-}
+export { readAllPages };
 
 /**
  * WHERE THE REFERENCES LIVE — the two sources, as data.

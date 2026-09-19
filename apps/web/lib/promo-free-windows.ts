@@ -158,6 +158,12 @@ async function fetchLiveWindows(
     .gt('ends_at', nowIso)
     .order('ends_at', { ascending: true });
 
+  if (error) {
+    // Fails closed on purpose — an unreadable window list must never be
+    // treated as "nothing live" being granted anyway; log it so the gap is
+    // traceable instead of silently indistinguishable from a quiet promo day.
+    console.error('[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (couple audience)', error);
+  }
   if (error || !data) return [];
   return data.map((row) => mapWindow(row as Record<string, unknown>));
 }
@@ -401,6 +407,11 @@ export const getVendorDealWindows = cache(async (): Promise<PromoFreeWindow[]> =
     .in('audience_type', [...VENDOR_DEAL_AUDIENCES])
     .lte('starts_at', nowIso)
     .order('ends_at', { ascending: true });
+  if (error) {
+    // Fails closed on purpose — a refused read must never silently grant (or
+    // withhold) a vendor's promo tier; log it so the gap is traceable.
+    console.error('[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (vendor audience)', error);
+  }
   if (error || !data) return [];
   return data
     .map((row) => mapWindow(row as Record<string, unknown>))

@@ -171,6 +171,13 @@ export async function maybeAutoAccept(
         .eq('kind', 'inquiry_concentration')
         .eq('subject_vendor_id', ctx.vendorProfileId)
         .eq('status', 'open');
+      if (error) {
+        console.error(
+          '[supabase-error] lib/vendor-autoreply/auto-accept.ts · from:integrity_flags.select',
+          error,
+          { vendor_profile_id: ctx.vendorProfileId },
+        );
+      }
       trustFlagged = error ? null : (count ?? 0) > 0;
     } catch {
       trustFlagged = null;

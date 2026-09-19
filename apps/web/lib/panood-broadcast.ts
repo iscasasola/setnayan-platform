@@ -324,20 +324,27 @@ export async function markPanoodBroadcastReconnecting(eventId: string): Promise<
 }
 
 /**
+ * A REFUSED read of the broadcast history — distinct from `null` (no row has
+ * ever existed). `lib/live-watch-state.ts`'s decider used to fold both into
+ * `null` → `'not_yet'`, which told a guest mid-reconnect that the ceremony
+ * "hasn't started" AND stopped the client poller for good (S41c) — the
+ * `result-dropped-silently` disease: a refused read renders identically to a
+ * genuinely empty one.
+ */
+export const BROADCAST_STATUS_UNREADABLE = 'unreadable' as const;
+
+/**
  * W1 — the status of the MOST RECENT panood_broadcasts row for this event,
  * regardless of status (unlike getActivePanoodBroadcast, which excludes
  * 'complete'). This is what lets the guest-facing decider
  * (lib/live-watch-state.ts) tell "never started" (`null`, no row at all)
  * apart from "the last one finished" (`'complete'`) apart from "a broadcast's
- * lifecycle is still open but nothing resolves right now" (any other status).
- *
- * Fails open to `null` on any error (missing table, RLS, transient) — the
- * guest decider treats `null` as 'not_yet', the least alarming honest answer
- * when we genuinely cannot tell.
+ * lifecycle is still open but nothing resolves right now" (any other status)
+ * apart from "we could not check" (`BROADCAST_STATUS_UNREADABLE`).
  */
 export async function getLatestPanoodBroadcastStatus(
   eventId: string,
-): Promise<PanoodBroadcast['status'] | null> {
+): Promise<PanoodBroadcast['status'] | null | typeof BROADCAST_STATUS_UNREADABLE> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('panood_broadcasts')
@@ -346,6 +353,14 @@ export async function getLatestPanoodBroadcastStatus(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error(
+      '[supabase-error] lib/panood-broadcast.ts · from:panood_broadcasts.select (getLatestPanoodBroadcastStatus)',
+      error,
+      { event_id: eventId },
+    );
+    return BROADCAST_STATUS_UNREADABLE;
+  }
+  if (!data) return null;
   return data.status as PanoodBroadcast['status'];
 }

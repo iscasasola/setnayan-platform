@@ -11,6 +11,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 
 export type SchedulePool = {
   poolId: string;
@@ -306,12 +308,33 @@ export async function fetchVendorPoolBookings(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<PoolBookingEntry[]> {
-  const { data: rows } = await supabase
-    .from('vendor_schedule_pool_bookings')
-    .select('pool_booking_id, pool_id, event_id, booked_date')
-    .eq('vendor_profile_id', vendorProfileId)
-    .is('released_at', null)
-    .order('booked_date', { ascending: true });
+  // ⚠ PAGED TO THE SERVER'S COUNT, NOT ONE UN-RANGED SELECT. PostgREST caps a
+  // single response (Supabase default 1000), so a busy shop's later bookings
+  // fell off the calendar and the roster's booked floor with `error: null`.
+  // A read that cannot prove it finished is logged; the rows it did get stand.
+  const read = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await supabase
+        .from('vendor_schedule_pool_bookings')
+        .select('pool_booking_id, pool_id, event_id, booked_date', { count: 'exact' })
+        .eq('vendor_profile_id', vendorProfileId)
+        .is('released_at', null)
+        .order('booked_date', { ascending: true })
+        .order('pool_booking_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  );
+  if (!read.complete) {
+    logQueryError(
+      'fetchVendorPoolBookings',
+      { message: read.error ?? `read ${read.rows.length} rows without reaching the server count` },
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const rows = read.rows;
   const bookings = (rows ?? []) as {
     pool_booking_id: string;
     pool_id: string;
@@ -322,16 +345,19 @@ export async function fetchVendorPoolBookings(
 
   const eventIds = [...new Set(bookings.map((b) => b.event_id))];
   const admin = createAdminClient();
-  const [{ data: events }, { data: threads }] = await Promise.all([
-    admin
-      .from('events')
-      .select('event_id, display_name')
-      .in('event_id', eventIds),
-    admin
-      .from('chat_threads')
-      .select('thread_id, event_id')
-      .eq('vendor_profile_id', vendorProfileId)
-      .in('event_id', eventIds),
+  // Chunked: an `in.()` of ~700 UUIDs is refused 400 by the gateway, which
+  // blanked every booking's name at once (`IN_LIST_CHUNK`).
+  const [{ rows: events }, { rows: threads }] = await Promise.all([
+    readInChunks<{ event_id: string; display_name: string }>(eventIds, (part) =>
+      admin.from('events').select('event_id, display_name').in('event_id', part),
+    ),
+    readInChunks<{ thread_id: string; event_id: string }>(eventIds, (part) =>
+      admin
+        .from('chat_threads')
+        .select('thread_id, event_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('event_id', part),
+    ),
   ]);
   const nameByEvent = new Map(
     ((events ?? []) as { event_id: string; display_name: string }[]).map((e) => [

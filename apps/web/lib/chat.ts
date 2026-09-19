@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { readAllPages } from '@/lib/read-all-pages';
 
 /**
  * `'system'` is an AUTOMATED Setnayan message in the thread (e.g. the Build 3d-C
@@ -403,42 +404,124 @@ export async function fetchCoupleThreads(
   return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as CoupleThreadWithVendor[];
 }
 
+/**
+ * Every thread this shop has, newest first — and whether the read got them ALL.
+ *
+ * 🔴 IT DID NOT, PAST A THOUSAND. This was one un-ranged SELECT, and PostgREST
+ * caps what one request returns (Supabase's documented default is 1000 rows;
+ * the setting is project configuration no session can read). A capped read
+ * comes back `error: null` with the newest 1000 threads, so a shop with 1,200
+ * enquiries was shown 1,000 on My Customers, Bookings, Messages and Clients —
+ * the 200 oldest customers simply absent, with nothing on screen to say so
+ * (owner, 2026-09-19: "if they have 1000 inquiries, they can still manage all").
+ *
+ * 🔑 NOW PAGED UNTIL THE SERVER'S OWN EXACT COUNT IS REACHED (`readAllPages`),
+ * with `thread_id` as a tie-break so offset pages never overlap. `complete` is
+ * false when the count was not reached or a row repeated across a page
+ * boundary (a thread that moved mid-read) — the caller says so on screen.
+ */
+export async function fetchVendorThreadsDetailed(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ threads: VendorThreadWithEvent[]; complete: boolean }> {
+  const readAll = async (select: string) => {
+    // readAllPages carries the error as text; the raw one (with its code) is
+    // kept here so the missing-relation fallback below can still classify it.
+    let rawError: { message: string; code?: string } | null = null;
+    const result = await readAllPages(
+      async (from, to) => {
+        const { data, error, count } = await supabase
+          .from('chat_threads')
+          .select(select, { count: 'exact' })
+          .eq('vendor_profile_id', vendorProfileId)
+          .order('updated_at', { ascending: false })
+          .order('thread_id', { ascending: true })
+          .range(from, to);
+        if (error) rawError = error;
+        return {
+          rows: (data ?? null) as unknown[] | null,
+          error: error ? error.message : null,
+          total: count,
+        };
+      },
+      { pageSize: 1000 },
+    );
+    return { ...result, rawError: rawError as { message: string; code?: string } | null };
+  };
+
+  // One row per thread, first sighting kept (newest-first order).
+  const dedupe = (rows: unknown[]) => {
+    const seen = new Set<string>();
+    const out: Record<string, unknown>[] = [];
+    for (const r of rows as Record<string, unknown>[]) {
+      const id = String(r.thread_id ?? '');
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(r);
+    }
+    return out;
+  };
+
+  // Same archive-aware-with-graceful-degrade shape as fetchCoupleThreads.
+  const withArchive = await readAll(
+    `${THREAD_SELECT}, event:events(display_name, event_date, public_id), reads:chat_thread_reads(archived_at)`,
+  );
+  if (!withArchive.error) {
+    const rows = dedupe(withArchive.rows);
+    return {
+      threads: rows.map((row) => {
+        const { reads: _reads, ...rest } = row as Record<string, unknown> & {
+          reads?: { archived_at: string | null }[] | null;
+        };
+        return {
+          ...rest,
+          archived: computeArchived(row as never),
+        } as unknown as VendorThreadWithEvent;
+      }),
+      complete: withArchive.complete && rows.length === withArchive.rows.length,
+    };
+  }
+  logQueryError(
+    'fetchVendorThreads (archive embed)',
+    withArchive.rawError ?? { message: withArchive.error },
+    {
+      vendor_profile_id: vendorProfileId,
+      missing_relation: isMissingRelationError(withArchive.rawError),
+    },
+    'graceful_degrade',
+  );
+  const plain = await readAll(
+    `${THREAD_SELECT}, event:events(display_name, event_date, public_id)`,
+  );
+  if (plain.error) throw new Error(`fetchVendorThreads failed: ${plain.error}`);
+  const rows = dedupe(plain.rows);
+  return {
+    threads: rows.map(
+      (row) => ({ ...(row as object), archived: false }) as unknown as VendorThreadWithEvent,
+    ),
+    complete: plain.complete && rows.length === plain.rows.length,
+  };
+}
+
+/**
+ * Every thread this shop has, newest first. A read that could not prove it
+ * reached the end is LOGGED here; a list that renders these should call
+ * `fetchVendorThreadsDetailed` and say so on screen instead.
+ */
 export async function fetchVendorThreads(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorThreadWithEvent[]> {
-  // Same archive-aware-with-graceful-degrade shape as fetchCoupleThreads.
-  const withArchive = await supabase
-    .from('chat_threads')
-    .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id), reads:chat_thread_reads(archived_at)`)
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('updated_at', { ascending: false });
-  if (!withArchive.error) {
-    return (withArchive.data ?? []).map((row) => {
-      const { reads: _reads, ...rest } = row as Record<string, unknown> & {
-        reads?: { archived_at: string | null }[] | null;
-      };
-      return {
-        ...rest,
-        archived: computeArchived(row as never),
-      } as unknown as VendorThreadWithEvent;
-    });
+  const { threads, complete } = await fetchVendorThreadsDetailed(supabase, vendorProfileId);
+  if (!complete) {
+    logQueryError(
+      'fetchVendorThreads (incomplete)',
+      { message: `read ${threads.length} threads without reaching the server count` },
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
   }
-  logQueryError(
-    'fetchVendorThreads (archive embed)',
-    withArchive.error,
-    { vendor_profile_id: vendorProfileId, missing_relation: isMissingRelationError(withArchive.error) },
-    'graceful_degrade',
-  );
-  const { data, error } = await supabase
-    .from('chat_threads')
-    .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id)`)
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('updated_at', { ascending: false });
-  if (error) throw new Error(`fetchVendorThreads failed: ${error.message}`);
-  return (data ?? []).map(
-    (row) => ({ ...(row as object), archived: false }) as unknown as VendorThreadWithEvent,
-  );
+  return threads;
 }
 
 /**

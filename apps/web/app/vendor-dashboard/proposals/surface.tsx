@@ -16,6 +16,9 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { createProposal, deleteTemplate, saveTemplate } from './actions';
 import { VendorReuseInbox } from './_components/reuse-inbox';
 import { shopInputClass } from '../_components/kit';
+import { ListPager, keepParamsFrom } from '../_components/list-pager';
+import { pageWindowFor } from '@/lib/paginate';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Proposals · Vendor' };
 
@@ -70,7 +73,10 @@ function fmtDate(iso: string | null): string {
   });
 }
 
-type Props = { searchParams: Promise<{ notice?: string }> };
+type Props = {
+  /** `ppage` pages "Your proposals" — its own param on the shared hub URL. */
+  searchParams: Promise<{ notice?: string; ppage?: string; [key: string]: string | string[] | undefined }>;
+};
 
 export default async function VendorProposalsPage({ searchParams }: Props) {
   const search = await searchParams;
@@ -82,7 +88,28 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const [{ data: templateRows }, { data: proposalRows }, { data: packageRows }, bookings] =
+  /*
+    🔴 "YOUR PROPOSALS" WAS `.limit(50)`, SILENTLY. The 51st proposal and every
+    one after it simply did not exist on this screen, with no count and no way
+    to reach it. Now the database pages it: an exact count first (so an
+    out-of-range `?ppage=` clamps to the last page through the shared
+    `pageWindowFor`), then one `.range()` of that page.
+  */
+  const { count: proposalCount, error: proposalCountError } = await supabase
+    .from('vendor_proposals')
+    .select('proposal_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (proposalCountError) {
+    logQueryError(
+      'VendorProposalsSurface.count',
+      proposalCountError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const proposalWindow = pageWindowFor(proposalCount ?? 0, search.ppage);
+
+  const [{ data: templateRows }, { data: proposalRows, error: proposalRowsError }, { data: packageRows }, bookings] =
     await Promise.all([
       supabase
         .from('vendor_proposal_templates')
@@ -97,7 +124,8 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         )
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .order('proposal_id', { ascending: true })
+        .range(proposalWindow.start, proposalWindow.end),
       supabase
         .from('vendor_packages')
         .select('package_id, package_name, total_price_centavos')
@@ -112,6 +140,18 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
 
   const templates = (templateRows ?? []) as TemplateRow[];
   const proposals = (proposalRows ?? []) as ProposalRow[];
+  if (proposalRowsError) {
+    logQueryError(
+      'VendorProposalsSurface.rows',
+      proposalRowsError,
+      { vendorProfileId: profile.vendor_profile_id },
+      'graceful_degrade',
+    );
+  }
+  const proposalsPage = { ...proposalWindow, items: proposals };
+  // A count or a page that could not be read is said on screen — "Nothing
+  // generated yet" under a refused read would be the false empty.
+  const proposalsIncomplete = Boolean(proposalCountError || proposalRowsError);
   const packages = (packageRows ?? []) as PackageRow[];
 
   // One picker entry per booked event (a client can hold several dates).
@@ -216,11 +256,11 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
       </div>
 
       {/* Proposals list */}
-      <div className="sn-tile p-4 sm:p-6">
+      <div id="proposals-list" className="sn-tile scroll-mt-24 p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Your proposals</h2>
-        {proposals.length === 0 ? (
+        {proposals.length === 0 && !proposalsIncomplete ? (
           <p className="mt-2 text-sm text-ink/55">Nothing generated yet.</p>
-        ) : (
+        ) : proposals.length === 0 ? null : (
           <ul className="mt-3 divide-y divide-ink/10">
             {proposals.map((p) => (
               <li key={p.proposal_id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
@@ -252,6 +292,14 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
+        <ListPager
+          paged={proposalsPage}
+          param="ppage"
+          keepParams={keepParamsFrom(search, ['ppage'])}
+          hash="proposals-list"
+          noun="proposals"
+          incomplete={proposalsIncomplete}
+        />
       </div>
 
       {/* Templates */}

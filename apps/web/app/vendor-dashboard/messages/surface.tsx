@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchReturningClientFlags,
-  fetchVendorThreads,
+  fetchVendorThreadsDetailed,
   formatChatTimestamp,
 } from '@/lib/chat';
 import {
@@ -23,10 +23,21 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { InquiryOutcomesRollup } from './_components/inquiry-outcomes-rollup';
 import { ShopEmpty } from '../_components/kit';
+import { ListPager, keepParamsFrom } from '../_components/list-pager';
+import { paginate } from '@/lib/paginate';
 
 export const metadata = { title: 'Messages · Vendor' };
 
-export default async function VendorMessagesPage() {
+type Props = {
+  /**
+   * The hub's params. This list pages through its OWN `mpage` (and `mapage`
+   * for Archived) because every list on My Customers shares one URL.
+   */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function VendorMessagesPage({ searchParams }: Props = {}) {
+  const sp = (await searchParams) ?? {};
   const supabase = await createClient();
   const {
     data: { user },
@@ -36,7 +47,37 @@ export default async function VendorMessagesPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const threads = await fetchVendorThreads(supabase, profile.vendor_profile_id);
+  const { threads, complete: threadsComplete } = await fetchVendorThreadsDetailed(
+    supabase,
+    profile.vendor_profile_id,
+  );
+
+  // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
+  // deletes nothing; it moves a thread into the collapsible Archived section
+  // until a new message auto-un-archives it.
+  const returnTo = '/vendor-dashboard/messages';
+  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple booked
+  // another vendor in this hard-single group — is closed, so fold it into the
+  // Archived section here too (out of the active list). Only exists when the
+  // flag is on; inert otherwise.
+  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
+  // Removed (archive-not-delete): the couple withdrew the inquiry. The thread +
+  // messages are PRESERVED as the evidence record — fold it out of the active
+  // list into "Archived" on the vendor side too (mirrors the displaced fold).
+  const isRemoved = (t: (typeof threads)[number]) => t.archived_at != null;
+  const activeAll = threads.filter((t) => !t.archived && !isDisplaced(t) && !isRemoved(t));
+  const archivedAll = threads.filter((t) => t.archived || isDisplaced(t) || isRemoved(t));
+
+  /*
+    PAGED (owner 2026-09-19: "if they have 1000 inquiries, they can still
+    manage all"). Newest first, sliced by the shared `paginate()`; the
+    Archived count stays the whole-list count.
+  */
+  const activePage = paginate(activeAll, sp.mpage);
+  const archivedPage = paginate(archivedAll, sp.mapage);
+  const activeThreads = activePage.items;
+  const archivedThreads = archivedPage.items;
+  const onScreen = [...activeThreads, ...archivedThreads];
 
   // Returning-client badge (owner-locked 2026-06-12): for PENDING inquiries
   // only, flag threads whose couple previously CONFIRMED-booked this vendor on
@@ -45,7 +86,7 @@ export default async function VendorMessagesPage() {
   const returningFlags = await fetchReturningClientFlags(
     supabase,
     profile.vendor_profile_id,
-    threads.filter((t) => t.inquiry_status === 'pending').map((t) => t.event_id),
+    onScreen.filter((t) => t.inquiry_status === 'pending').map((t) => t.event_id),
   );
 
   // Won & Lost Reasons roll-up (Wave 6) — the vendor's own self-reported outcome
@@ -64,24 +105,8 @@ export default async function VendorMessagesPage() {
   // ownership proof is `fetchVendorThreads(.., vendorProfileId)` above.
   const inquiryCustomers = await fetchInquiryCustomerFacts(
     createAdminClient(),
-    threads.map((t) => t.event_id),
+    onScreen.map((t) => t.event_id),
   );
-
-  // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
-  // deletes nothing; it moves a thread into the collapsible Archived section
-  // until a new message auto-un-archives it.
-  const returnTo = '/vendor-dashboard/messages';
-  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple booked
-  // another vendor in this hard-single group — is closed, so fold it into the
-  // Archived section here too (out of the active list). Only exists when the
-  // flag is on; inert otherwise.
-  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
-  // Removed (archive-not-delete): the couple withdrew the inquiry. The thread +
-  // messages are PRESERVED as the evidence record — fold it out of the active
-  // list into "Archived" on the vendor side too (mirrors the displaced fold).
-  const isRemoved = (t: (typeof threads)[number]) => t.archived_at != null;
-  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t) && !isRemoved(t));
-  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t) || isRemoved(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     const returning =
@@ -158,7 +183,10 @@ export default async function VendorMessagesPage() {
   };
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <section
+      id="messages-list"
+      className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
+    >
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Conversations</h1>
         <p className="text-base text-ink/65">
@@ -198,13 +226,36 @@ export default async function VendorMessagesPage() {
               No active conversations — everything&rsquo;s tucked into Archived below.
             </ShopEmpty>
           )}
+          <ListPager
+            paged={activePage}
+            param="mpage"
+            keepParams={keepParamsFrom(sp, ['mpage'])}
+            hash="messages-list"
+            noun="conversations"
+            incomplete={!threadsComplete}
+          />
 
-          {archivedThreads.length > 0 ? (
-            <details className="sn-row mt-4">
+          {archivedPage.total > 0 ? (
+            <details
+              id="messages-archived"
+              className="sn-row mt-4"
+              // Opened when the viewer is paging through it, so a page link
+              // does not land on a closed box.
+              open={sp.mapage ? true : undefined}
+            >
               <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
-                Archived · {archivedThreads.length}
+                Archived · {archivedPage.total}
               </summary>
               <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
+              <div className="px-2 pb-3">
+                <ListPager
+                  paged={archivedPage}
+                  param="mapage"
+                  keepParams={keepParamsFrom(sp, ['mapage'])}
+                  hash="messages-archived"
+                  noun="archived conversations"
+                />
+              </div>
             </details>
           ) : null}
         </>

@@ -42,6 +42,17 @@ import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-dete
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import { paidToVendorPhp } from '@/lib/paid-to-vendor';
+import {
+  ACCEPTED_QUOTE_SELECT,
+  acceptedQuoteTerms,
+  firstPaymentSentence,
+  manualCostingEditorShown,
+  paymentScheduleSource,
+  paymentDoor,
+  pesoFromCentavos,
+  type AcceptedQuoteRow,
+  type AcceptedQuoteTerms,
+} from '@/lib/accepted-quote-terms';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -91,6 +102,7 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
 import {
@@ -1213,6 +1225,61 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     }
   }
 
+  // THE ACCEPTED QUOTE'S TERMS (owner, 2026-09-19: "i do not see the 3350
+  // downpayment"). The quote's frozen payment schedule and its priced lines
+  // had no reader on this page — the plan stepper reads
+  // `event_vendor_payment_plan`, which is frozen from the SERVICE template and
+  // is empty for a booking that locked through a quote. One read, one pure
+  // rule (lib/accepted-quote-terms.ts) — the same rule `recordDeposit`
+  // enforces as the minimum. A refused read is kept apart from "no quote":
+  // `acceptedQuoteUnreadable` says so on the deposit card instead of silently
+  // dropping the requested amount.
+  let acceptedQuote: AcceptedQuoteTerms | null = null;
+  let acceptedQuoteUnreadable = false;
+  let acceptedQuoteEventDate: string | null = null;
+  if (ev.marketplace_vendor_id) {
+    const [{ data: aqRows, error: aqErr }, { data: aqEvent, error: aqEventErr }] = await Promise.all([
+      supabase
+        .from('vendor_proposals')
+        .select(ACCEPTED_QUOTE_SELECT)
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .eq('status', 'accepted')
+        .limit(1),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    if (aqErr) {
+      logQueryError('VendorWorkspacePage.acceptedQuote', aqErr, { eventId }, 'graceful_degrade');
+      acceptedQuoteUnreadable = true;
+    }
+    if (aqEventErr) {
+      logQueryError('VendorWorkspacePage.acceptedQuoteEventDate', aqEventErr, { eventId }, 'graceful_degrade');
+    }
+    acceptedQuoteEventDate = (aqEvent as { event_date?: string | null } | null)?.event_date ?? null;
+    acceptedQuote = acceptedQuoteTerms((aqRows ?? []) as AcceptedQuoteRow[], acceptedQuoteEventDate);
+  }
+  // THE NEXT MONEY STEP (owner, 2026-09-20 — "Amount to pay"): which payment
+  // is due now, from the one rule `moneyStep`. Read through the same helper
+  // the chat quote card and the proposal page use.
+  const bookedMoney = await readBookedMoney(supabase, {
+    eventId,
+    eventVendorId: ev.vendor_id,
+    eventDate: acceptedQuoteEventDate,
+  });
+  const itemizationDoor = paymentDoor({
+    isMarketplaceVendor: Boolean(ev.marketplace_vendor_id),
+    depositRecordedAt: ev.deposit_recorded_at,
+  });
+  const showManualCosting = manualCostingEditorShown({
+    isMarketplaceVendor: Boolean(ev.marketplace_vendor_id),
+    acceptedQuote,
+  });
+  const scheduleSource = paymentScheduleSource({
+    planStepCount: planProgress.steps?.length ?? null,
+    planIsEstimate: Boolean(planProgress.isDefaultSeeded),
+    acceptedQuote,
+  });
+
   // Appointments (Relationship Workspace + Appointments, PR 12) — the two-sided
   // scheduler for THIS booked vendor. Only a connected (marketplace) vendor has
   // an "other side" to confirm, so the section is skipped for manual/off-platform
@@ -1654,7 +1721,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             "pay the vendor directly" guidance, unchanged. A locked-but-no-
             schedule booking ([] steps) still renders the banner once cleared.
           */}
-          {planProgress.steps !== null &&
+          {scheduleSource !== 'quote' &&
+          planProgress.steps !== null &&
           (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
             <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
               <p className="text-xs font-semibold text-ink">
@@ -1689,6 +1757,59 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             rewrite it). Only shows when the booking locked under a protected
             downpayment policy.
           */}
+          {/*
+            THE ACCEPTED QUOTE'S SCHEDULE — what is owed and when, from the
+            quote the couple accepted. Drawn only when no real per-booking plan
+            exists (`paymentScheduleSource`), so one booking never shows two
+            schedules with two different amounts.
+          */}
+          {scheduleSource === 'quote' && acceptedQuote ? (
+            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
+              <p className="text-xs font-semibold text-ink">Payment schedule</p>
+              <p className="text-[11px] text-ink/55">
+                From the quote you accepted
+                {acceptedQuote.publicId ? (
+                  <>
+                    {' '}
+                    (
+                    <Link
+                      href={`/proposals/${acceptedQuote.publicId}`}
+                      className="text-terracotta-700 underline-offset-2 hover:underline"
+                    >
+                      view it
+                    </Link>
+                    )
+                  </>
+                ) : null}
+                . Pay {displayName} directly; they confirm each payment as received.
+              </p>
+              <ol className="space-y-1.5">
+                {acceptedQuote.schedule.map((row, i) => (
+                  <li
+                    key={`${i}-${row.label}`}
+                    className="flex items-start justify-between gap-3 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium text-ink">{row.label}</span>
+                      <span className="block text-xs text-ink/60">Due {row.dueText}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-sm font-semibold text-ink">
+                      {pesoFromCentavos(row.amountCentavos)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <p className="flex items-center justify-between border-t border-ink/10 pt-2 text-xs text-ink/70">
+                <span>Total</span>
+                <span className="font-mono font-semibold text-ink">
+                  {pesoFromCentavos(
+                    acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0),
+                  )}
+                </span>
+              </p>
+            </div>
+          ) : null}
+
           {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
 
           {/*
@@ -1732,6 +1853,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             depositDisputeNote={depositRefusal?.settlementNote ?? null}
             payMethods={directPayMethods}
             payMethodsState={directPayState}
+            requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
+            requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
+            requestedTermsUnreadable={acceptedQuoteUnreadable}
+            step={bookedMoney.step}
           />
 
           {/*
@@ -1776,6 +1901,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               variant="embed"
               directPayMethods={directPayMethods}
               installments={paymentPlan}
+              acceptedQuoteLines={acceptedQuote?.lines ?? null}
+              acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
+              paymentDoor={itemizationDoor}
             />
           ) : (
             <p className="text-xs text-ink/55">
@@ -2106,7 +2234,113 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // InlineCheckoutDrawer). That arm was deleted 2026-07-26 on the owner ruling —
   // see the block comment above `const stage` — so Costing is now unconditional,
   // which is what it always was for every real row.
-  const paymentModeSection = (
+  // ONE "Paid so far" row, drawn by both Costing variants — the same
+  // `paidSoFarFormatted` the header shows (see the note in the manual editor).
+  const paidSoFarRow = (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-ink/65">Paid so far</span>
+            <span className="font-medium text-ink">{paidSoFarFormatted ?? '—'}</span>
+          </div>
+  );
+
+  // The crew this supplier brings — logistics, not price, so it stays editable
+  // whichever way the price is settled.
+  const crewFields = (
+        <>
+          {/* Crew-meal coverage (2026-07-09). On the crew-meal PROVIDER: the
+              derived meal count. On every OTHER vendor: its crew size + a toggle
+              to have the provider feed this crew (supersedes its food allowance,
+              so the cost is counted once — in the provider's package). */}
+          {ev.category === 'crew_meals' ? (
+            <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
+              Covering{' '}
+              <span className="font-medium text-ink">
+                {coveredCrewMeals} meal{coveredCrewMeals === 1 ? '' : 's'}
+              </span>{' '}
+              across the vendors you&rsquo;ve marked as crew-meal covered. Set the Service
+              price above to your per-meal rate × this count.
+            </p>
+          ) : (
+            <>
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-ink/65">Crew size on the day</span>
+                <input
+                  name="crew_size"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  defaultValue={thisVendorCrew ?? ''}
+                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                />
+              </label>
+              {hasCrewMealProvider ? (
+                <label className="flex items-start gap-2 rounded-md bg-cream/60 px-2 py-2 text-sm text-ink/75">
+                  <input
+                    type="checkbox"
+                    name="crew_meal_covered"
+                    defaultChecked={ev.crew_meal_covered ?? false}
+                    className="mt-0.5 h-4 w-4 accent-mulberry"
+                  />
+                  <span>
+                    Crew fed by your crew-meal provider
+                    <span className="block text-xs text-ink/50">
+                      Covers this crew&rsquo;s meals in that booking — its food allowance
+                      above won&rsquo;t be counted again.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+            </>
+          )}
+        </>
+  );
+
+  // 🔒 AN ACCEPTED QUOTE IS THE PRICE (controller ruling, 2026-09-19; owner:
+  // "i also do not get why there is this"). With an accepted marketplace quote
+  // the manual editor and its "Log as service price" bridge do not render —
+  // they were a second writer of `total_cost_php` beside the quote. What is
+  // left is one read-only line pointing at the quote, plus the crew fields.
+  // `updateVendorCosts` enforces the same rule server-side.
+  const quoteCostingSection = acceptedQuote ? (
+        <section
+          aria-labelledby="costing-heading"
+          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+        >
+          <h2 id="costing-heading" className="mb-1 font-display text-lg italic text-ink">
+            Costing
+          </h2>
+          <p className="mb-4 text-sm text-ink/70">
+            The price is set by the quote you accepted:{' '}
+            <span className="font-medium text-ink">{pesoFromCentavos(acceptedQuote.totalCentavos)}</span>
+            {acceptedQuote.publicId ? (
+              <>
+                {' '}
+                (
+                <Link
+                  href={`/proposals/${acceptedQuote.publicId}`}
+                  className="text-terracotta-700 underline-offset-2 hover:underline"
+                >
+                  view the quote
+                </Link>
+                )
+              </>
+            ) : null}
+            . To change it, ask {displayName} to send an updated quote.
+          </p>
+          <form action={updateVendorCosts} className="space-y-3">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            {crewFields}
+            {paidSoFarRow}
+            {ev.category === 'crew_meals' ? null : (
+              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+            )}
+          </form>
+        </section>
+      ) : null;
+
+  const paymentModeSection = !showManualCosting ? quoteCostingSection : (
         <section
           aria-labelledby="costing-heading"
           className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
@@ -2166,52 +2400,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </label>
           ))}
 
-          {/* Crew-meal coverage (2026-07-09). On the crew-meal PROVIDER: the
-              derived meal count. On every OTHER vendor: its crew size + a toggle
-              to have the provider feed this crew (supersedes its food allowance,
-              so the cost is counted once — in the provider's package). */}
-          {ev.category === 'crew_meals' ? (
-            <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
-              Covering{' '}
-              <span className="font-medium text-ink">
-                {coveredCrewMeals} meal{coveredCrewMeals === 1 ? '' : 's'}
-              </span>{' '}
-              across the vendors you&rsquo;ve marked as crew-meal covered. Set the Service
-              price above to your per-meal rate × this count.
-            </p>
-          ) : (
-            <>
-              <label className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-ink/65">Crew size on the day</span>
-                <input
-                  name="crew_size"
-                  type="number"
-                  min="0"
-                  step="1"
-                  inputMode="numeric"
-                  defaultValue={thisVendorCrew ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
-                />
-              </label>
-              {hasCrewMealProvider ? (
-                <label className="flex items-start gap-2 rounded-md bg-cream/60 px-2 py-2 text-sm text-ink/75">
-                  <input
-                    type="checkbox"
-                    name="crew_meal_covered"
-                    defaultChecked={ev.crew_meal_covered ?? false}
-                    className="mt-0.5 h-4 w-4 accent-mulberry"
-                  />
-                  <span>
-                    Crew fed by your crew-meal provider
-                    <span className="block text-xs text-ink/50">
-                      Covers this crew&rsquo;s meals in that booking — its food allowance
-                      above won&rsquo;t be counted again.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
-            </>
-          )}
+          {crewFields}
 
           {changesSinceLockNum !== 0 ? (
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -2235,10 +2424,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               recorded, supplier-confirmed ₱2,000 deposit read "Deposit paid —"
               here while the header above said "Paid so far ₱2,000". One figure,
               one source: the same `paidSoFarFormatted` the header shows. */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-ink/65">Paid so far</span>
-            <span className="font-medium text-ink">{paidSoFarFormatted ?? '—'}</span>
-          </div>
+          {paidSoFarRow}
 
           <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>

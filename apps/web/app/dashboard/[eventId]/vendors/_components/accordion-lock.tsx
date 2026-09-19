@@ -128,6 +128,8 @@ type LockState =
   | {
       kind: 'downpayment';
       methods: CoupleFacingMethod[];
+      /** The accepted quote's on-lock first payment — prefilled, and the least the lock takes. */
+      minimumAmountPhp: number | null;
       override: boolean;
       slotId: string | null;
       confirmDateLock: boolean;
@@ -436,6 +438,7 @@ export function AccordionLockButton({
           setState({
             kind: 'downpayment',
             methods: result.methods,
+            minimumAmountPhp: result.minimumAmountPhp ?? null,
             override,
             slotId,
             confirmDateLock,
@@ -659,6 +662,7 @@ export function AccordionLockButton({
           <DownpaymentModal
             vendorName={vendorName}
             methods={state.methods}
+            minimumAmountPhp={state.minimumAmountPhp}
             isPending={isPending}
             onSubmit={(dp) =>
               performLock(
@@ -762,12 +766,15 @@ function methodDetail(m: CoupleFacingMethod): string {
 function DownpaymentModal({
   vendorName,
   methods,
+  minimumAmountPhp = null,
   isPending,
   onSubmit,
   onCancel,
 }: {
   vendorName: string;
   methods: CoupleFacingMethod[];
+  /** finalizeVendor refuses less (`decideDepositAmount`); this only says so up front. */
+  minimumAmountPhp?: number | null;
   isPending: boolean;
   onSubmit: (dp: DownpaymentSubmission) => void;
   onCancel: () => void;
@@ -872,13 +879,21 @@ function DownpaymentModal({
               id="downpayment_php"
               name="deposit_php"
               type="number"
-              min="1"
+              min={minimumAmountPhp ?? 1}
               step="0.01"
               required
               inputMode="decimal"
+              defaultValue={minimumAmountPhp ?? undefined}
               placeholder="e.g. 10000"
+              aria-describedby={minimumAmountPhp ? 'downpayment_php_min' : undefined}
               className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
             />
+            {minimumAmountPhp ? (
+              <p id="downpayment_php_min" className="text-[11px] text-ink/55">
+                {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on lock in the
+                quote you accepted. At least that amount — you may pay more.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1">

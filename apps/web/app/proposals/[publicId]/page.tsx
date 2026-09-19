@@ -33,6 +33,9 @@ import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
 import { coupleLockDoorHref } from '@/lib/lock-door';
+import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
+import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
+import { depositStepHref } from '@/lib/deposit-pay-step';
 
 export const metadata = { title: 'Proposal' };
 
@@ -252,8 +255,25 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     "ask them to lock" — and the row's own category opens the bench on the
     right tile.
   */
+  /*
+    ONCE BOOKED, THE PAGE SAYS SO (owner, live, 2026-09-20). A booked quote's
+    page still read "nothing is booked or paid until you Lock" and offered "Go
+    ask … to lock". The one rule (`readBookedMoney` → `moneyStep`) decides: a
+    booked pick replaces the lock prompt with the next money step and a link to
+    "Amount to pay"; an unbooked pick keeps the lock prompt.
+  */
+  let bookedMoney: BookedMoney | null = null;
+  if (proposal.status === 'accepted' && proposal.event_id) {
+    const read = await readBookedMoney(isVendorSide ? createAdminClient() : supabase, {
+      eventId: proposal.event_id,
+      vendorProfileId: proposal.vendor_profile_id,
+    });
+    if (read.step.kind !== 'not_booked') bookedMoney = read;
+  }
+  const noteShown = quoteNoteShown(proposal.rendered_body, bookedMoney !== null);
+
   let lockDoorHref: string | null = null;
-  if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id) {
+  if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id && !bookedMoney) {
     const { data: pick, error: pickError } = await supabase
       .from('event_vendors')
       .select('vendor_id, category')
@@ -354,7 +374,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Body */}
       <section className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink/85">
-        {proposal.rendered_body || 'No proposal text.'}
+        {noteShown || 'No proposal text.'}
       </section>
 
       {/* Line items */}
@@ -573,7 +593,26 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       {/* The next-step block. Accepting only shortlists {businessName} at this
           price — it is not a booking. Say so, and point at the one action that
           books them: asking the shop to Lock. */}
-      {lockDoorHref ? (
+      {bookedMoney ? (
+        <section className="rounded-xl border border-success-300 bg-success-50 p-4 print:hidden">
+          <p className="text-sm font-semibold text-success-800">
+            {isVendorSide
+              ? 'Booked — this quote is your agreement with the couple.'
+              : `Booked — this quote is your agreement with ${businessName}.`}
+          </p>
+          <p className="mt-1 text-sm text-ink/80">
+            {moneyStepLine(bookedMoney.step, isVendorSide ? 'vendor' : 'couple', businessName)}
+          </p>
+          {!isVendorSide && bookedMoney.eventVendorId && proposal.event_id ? (
+            <Link
+              href={depositStepHref(proposal.event_id, bookedMoney.eventVendorId)}
+              className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+            >
+              Amount to pay <ArrowRight aria-hidden className="h-4 w-4" />
+            </Link>
+          ) : null}
+        </section>
+      ) : lockDoorHref ? (
         <section className="rounded-xl border border-terracotta/30 bg-terracotta/[0.06] p-4 print:hidden">
           <p className="text-sm text-ink/80">
             You&rsquo;ve accepted. To book {businessName}, ask them to lock &mdash; once they

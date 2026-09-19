@@ -130,6 +130,8 @@ import {
 } from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
+  fetchReviewForVendorWithCouple,
+  pinReviewFirst,
   fetchReviewStats,
   fetchTrustedReviewStats,
   fetchVendorCompletedEvents,
@@ -1226,16 +1228,32 @@ export async function renderVendorBySlug({
   const accentVars = canPersonalizePage
     ? micrositeAccentVars(microsite.accent)
     : undefined;
-  // Pro pinned review — float the chosen review to the top of the loaded set.
-  // Best-effort: if it's older than the loaded window it simply isn't surfaced
-  // (no extra fetch); a stale/foreign id no-ops.
-  const orderedReviews =
-    premiumLayout && microsite.pinnedReviewId
-      ? [
-          ...reviews.filter((r) => r.review_id === microsite.pinnedReviewId),
-          ...reviews.filter((r) => r.review_id !== microsite.pinnedReviewId),
-        ]
-      : reviews;
+  // Pro pinned review — the chosen review leads the list.
+  // 🔴 S43 · 4: this used to say "if it's older than the loaded window it simply
+  // isn't surfaced (no extra fetch)". The window is the newest 5, so pinning any
+  // older review — the whole point of pinning — changed nothing on the page the
+  // supplier was paying to customise. When the pin is outside the window it is
+  // now fetched on its own, scoped to THIS vendor (a stale/foreign id still
+  // no-ops). A refused read is logged and the list renders unpinned.
+  const pinnedReviewId = premiumLayout ? microsite.pinnedReviewId : null;
+  let pinnedOutsideWindow: (typeof reviews)[number] | null = null;
+  if (pinnedReviewId && !reviews.some((r) => r.review_id === pinnedReviewId)) {
+    try {
+      pinnedOutsideWindow = await fetchReviewForVendorWithCouple(
+        admin,
+        vendor.vendor_profile_id,
+        pinnedReviewId,
+      );
+    } catch (err) {
+      logQueryError(
+        'PublicVendorPage.pinnedReview',
+        err,
+        { slug },
+        'graceful_degrade',
+      );
+    }
+  }
+  const orderedReviews = pinReviewFirst(reviews, pinnedReviewId, pinnedOutsideWindow);
 
   // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
   // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being

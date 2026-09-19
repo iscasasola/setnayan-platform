@@ -1003,7 +1003,11 @@ export async function papicCameraOrderPaid(
       .select('status')
       .eq('order_id', orderId)
       .maybeSingle();
-    if (error || !data) return false;
+    if (error) {
+      console.error('[supabase-error] papic-cameras: order status', error, { orderId });
+      return false;
+    }
+    if (!data) return false;
     const status = (data as { status?: string }).status ?? '';
     return status === 'paid' || status === 'fulfilled';
   } catch {

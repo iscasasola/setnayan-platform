@@ -91,7 +91,7 @@ export async function PriceBandsSurface({
           The market low / median / high per{' '}
           <strong>category × region × guest-count bucket</strong>, computed from
           published vendor prices. Vendors see where their own price lands inside
-          their band (the Price-Position Meter on their subscription page). Values
+          their band (the Price-Position Meter on their My Performance page, Pro and up). Values
           are computed, never hand-set.
         </p>
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">

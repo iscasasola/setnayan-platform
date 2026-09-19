@@ -77,6 +77,7 @@ export async function runDepositAcknowledgedEffects(
     eventId: null,
     acknowledged: false,
     anchorId: null,
+    anchorUnreadable: null,
     feeEnabled: isBookingFeeEnabled(),
     fee: null,
     pool: null,
@@ -99,7 +100,9 @@ export async function runDepositAcknowledgedEffects(
       // path (nothing in the DB stops a covered row carrying deposit markers),
       // and billing one would freeze a ledger ordinal on a row that must never
       // carry money. NULL ⇒ bill nothing, acquire nothing.
-      outcome.anchorId = await resolveFeeAnchorRowId(admin, eventVendorId);
+      outcome.anchorId = await resolveFeeAnchorRowId(admin, eventVendorId, (why) => {
+        outcome.anchorUnreadable = why;
+      });
 
       if (outcome.anchorId && outcome.feeEnabled) {
         // ONE KEY, NOT TWO — see collectBookingFeeAtLock's own note. The manual

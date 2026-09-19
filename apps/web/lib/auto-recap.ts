@@ -33,6 +33,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type RecapStatus = 'draft' | 'published' | 'unpublished';
 
@@ -256,7 +257,9 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
         .not('output_object_key', 'is', null)
         .order('completed_at', { ascending: false })
         .limit(6);
-      if (error) console.error('[supabase-error] lib/auto-recap.ts · from:patiktok_render_jobs.select', error);
+      if (error) {
+        logQueryError('auto-recap: patiktok_render_jobs', error, { event_id: eventId });
+      }
       if (!error && data) {
         const rows = data as {
           output_bucket?: string | null;

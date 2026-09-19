@@ -157,6 +157,9 @@ export async function fetchVendorBoothEventOrderState(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('event_id', eventId)
     .eq('service_key', VENDOR_3D_BOOTH_EVENT_SKU_CODE);
-  if (error) return 'none';
+  if (error) {
+    console.error('[supabase-error] vendor-3d-booth-event-pricing: booth order state', error);
+    return 'none';
+  }
   return boothEventOrderState(((data ?? []) as { status: string | null }[]).map((r) => r.status));
 }

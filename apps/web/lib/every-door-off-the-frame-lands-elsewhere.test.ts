@@ -63,11 +63,14 @@ test('1 · the rail’s "Full customer profile" names a section, never the bare 
   assert.equal(count(client, /rawTab === 'chat'/g), 1);
 });
 
-test('2 · the couple’s "ask them to lock" goes through the one lock-door rule, never the workspace', () => {
-  assert.equal(count(coupleThread, /quoteLockHref = coupleLockDoorHref\(/g), 1, 'the thread page derives the lock door itself');
-  assert.equal(count(coupleThread, /quoteLockHref = `[^`]*workspace`/g), 0, 'the lock link points at the workspace again — it holds no Lock');
-  assert.equal(count(coupleThread, /lockHref=\{quoteLockHref\}/g), 1, 'the quote card is not handed the lock door');
-  // The pick row is read with its category, or the door cannot pick a tile.
+test('2 · the couple’s "ask them to lock" is built by the one lock-door rule, never the workspace', () => {
+  /* ✏️ EVOLVED 2026-09-19. The card no longer LINKS to lock — it mounts the
+     bench's own lock (lib/the-chat-card-locks-in-place.test.ts). What remains
+     a door is its fallback, `benchHref`, and both come from lib/lock-door.ts. */
+  assert.equal(count(coupleThread, /quoteLockTarget = coupleLockTarget\(/g), 1, 'the thread page derives the lock target itself');
+  assert.equal(count(coupleThread, /quoteLockTarget = `/g), 0, 'the lock target is a hand-built route again');
+  assert.equal(count(coupleThread, /lockTarget=\{quoteLockTarget\}/g), 1, 'the quote card is not handed the lock target');
+  // The pick row is read with its category, or the target cannot pick a group.
   assert.equal(count(coupleThread, /\.select\('vendor_id, category'\)/g), 1);
 });
 

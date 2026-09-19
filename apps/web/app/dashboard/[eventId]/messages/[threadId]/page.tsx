@@ -40,7 +40,7 @@ import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
 import { initialsFor } from '@/lib/conversation-list';
-import { coupleLockDoorHref } from '@/lib/lock-door';
+import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
 
 export const metadata = { title: 'Thread' };
 
@@ -136,29 +136,35 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   });
 
   /**
-   * S5 · WHERE AN ACCEPTED QUOTE'S "ASK THEM TO LOCK" GOES. Accepting only
-   * shortlists the shop at a price; the couple's one booking action is Lock,
-   * and the pick is resolved the way accept wrote the row — (event_id,
-   * marketplace_vendor_id) — under the couple's own RLS. Null when there is no
-   * row yet or the read fails: the card then shows the accepted note and no
-   * button, never a guessed route.
+   * S5 · THE ACCEPTED QUOTE'S LOCK. Accepting only shortlists the shop at a
+   * price; the couple's one booking action is Lock, and the pick is resolved
+   * the way accept wrote the row — (event_id, marketplace_vendor_id), the anchor
+   * row the handshake read above also reads — under the couple's own RLS. Null
+   * when there is no row yet or the read fails: the card then shows the
+   * accepted note and no button, never a guessed target.
    *
-   * ⚠ TWO DOORS FROM ONE ROW, AND THEY ARE NOT THE SAME PLACE (AREA-CHAT,
-   * 2026-09-19). `workspaceHref` is the shop's workspace — the ⋮ menu's
-   * sections, each reached WITH a `?tab=`, because a bare workspace landing
-   * redirects straight back to this frame (#5614). `quoteLockHref` is where
-   * the Lock control actually mounts: the bench, on this pick's category tile
-   * (`lib/lock-door.ts`). Until today it pointed at the workspace, which holds
-   * no Lock, and after #5614 it reloaded this very page.
+   * ⚠ THE CARD LOCKS IN PLACE (owner, live, 2026-09-19: "the lock attempt was
+   * from the chat. it should also work there."). `quoteLockTarget` carries what
+   * the bench's own `AccordionLockButton` needs, so the card mounts THAT button
+   * and its `finalizeVendor` — one lock mechanism, now reachable from two
+   * rooms. Before this it was a link: first to the workspace (no Lock; after
+   * #5614 a loop back here), then to the bench (#5677), which moved the couple
+   * away from the conversation they pressed it in. `benchHref` survives only
+   * as the fallback for a category no plan group claims.
+   *
+   * `workspaceHref` is the shop's workspace — the ⋮ menu's sections, each
+   * reached WITH a `?tab=`, because a bare workspace landing redirects
+   * straight back to this frame (#5614).
    */
   let workspaceHref: string | null = null;
-  let quoteLockHref: string | null = null;
+  let quoteLockTarget: CoupleLockTarget | null = null;
   if (thread.vendor_profile_id) {
     const { data: pick, error: pickErr } = await supabase
       .from('event_vendors')
       .select('vendor_id, category')
       .eq('event_id', thread.event_id)
       .eq('marketplace_vendor_id', thread.vendor_profile_id)
+      .or('package_role.is.null,package_role.eq.anchor')
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -167,7 +173,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       console.error('[couple thread] lock workspace read refused', pickErr);
     } else if (pick?.vendor_id) {
       workspaceHref = `/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`;
-      quoteLockHref = coupleLockDoorHref(eventId, (pick as { category?: string | null }).category ?? null);
+      quoteLockTarget = coupleLockTarget(
+        eventId,
+        pick.vendor_id,
+        (pick as { category?: string | null }).category ?? null,
+      );
     }
   }
 
@@ -696,8 +706,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
           <ChatMessageStream
             flush
             counterHref={`?compose=deal`}
-            // S5 · an accepted quote points at the ONE action that books.
-            lockHref={quoteLockHref}
+            // S5 · an accepted quote mounts the ONE action that books.
+            lockTarget={quoteLockTarget}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}

@@ -278,6 +278,13 @@ export type NotificationType =
   // already have access to (get_vendor_mood_board RPC). Informational nudge —
   // NOT on the email/push allowlists.
   | 'mood_board_share'
+  // The enum value landed 2026-06-23 (20270213450358_gift_notification_type.sql)
+  // for PR #2027, which closed unmerged — so for three months the type existed
+  // in the database and nothing could emit it. Wired 2026-09-18 (S34): fired
+  // (COUPLE-recipient) from app/admin/users/actions.ts → issueCompGrant() when
+  // the Setnayan team gifts a couple a service. In-app only, as #2027 designed
+  // it — NOT on the email/push allowlists.
+  | 'gift'
   // Added 2026-06-30 (Phase 3b delivery polish · migration
   // 20270327434080_vendor_feature_suggested_notification_type.sql). Fired
   // (COUPLE-recipient) from
@@ -471,6 +478,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   subscription_activated: 'Plan active',
   // The couple shared their mood board with their booked vendors (2026-06-28).
   mood_board_share: 'Mood board shared',
+  // A comp grant from the Setnayan team (2026-09-18).
+  gift: 'A gift from Setnayan',
   vendor_feature_suggested: 'A vendor suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
@@ -630,6 +639,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // The couple sharing their mood board = a positive, informational arrival in
   // the vendor's tray → sky (matches editorial_decision / the informational register).
   mood_board_share: 'bg-sky-100 text-sky-800',
+  // A gift is good news arriving → the gold accent (`terracotta` IS gold here).
+  gift: 'bg-terracotta-100 text-terracotta-900',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
   // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
   // error" — amber, matching review_request / payment_logged. A payment coming

@@ -108,7 +108,18 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
       const { error: lockErr } = await admin
         .from('supplier_night_before_email_log')
         .insert({ event_vendor_id: booking.vendor_id, event_date: tomorrow });
-      if (lockErr) continue;
+      if (lockErr) {
+        // 23505 = unique violation = this booking's night-before email for this
+        // date already went — the expected, silent case. Anything else is a
+        // genuine refusal and must leave a trace.
+        if (lockErr.code !== '23505') {
+          console.error(
+            '[supabase-error] lib/supplier-night-before-email.ts · from:supplier_night_before_email_log.insert',
+            lockErr,
+          );
+        }
+        continue;
+      }
 
       const { data: blocksRaw } = await admin
         .from('event_schedule_blocks')

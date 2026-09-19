@@ -39,6 +39,7 @@ import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { paidToVendorPhp } from '@/lib/paid-to-vendor';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -1072,12 +1073,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // --------------------------------------------------------------------------
 
   const stage = inferStage(ev.status);
-  const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
-
-  const paidSoFarFormatted =
-    vendorBudgetSummary && vendorBudgetSummary.paidTotal > 0
-      ? formatPHP(vendorBudgetSummary.paidTotal)
-      : depositPaidFormatted;
+  // "Paid so far" through the ONE paid rule (`lib/paid-to-vendor.ts`): the
+  // summary's `paidTotal` already applies it (log wins, legacy
+  // `deposit_paid_php` only with no logged payment). Only when the summary
+  // itself could not be read does the page fall back — through the same rule,
+  // never a bare read of the column (DEPOSIT-TRUTH, 2026-09-19).
+  const paidSoFarPhp = vendorBudgetSummary
+    ? vendorBudgetSummary.paidTotal
+    : paidToVendorPhp([], ev.deposit_paid_php);
+  const paidSoFarFormatted = paidSoFarPhp > 0 ? formatPHP(paidSoFarPhp) : null;
 
   // 3-line total = Service + Transport + Food allowance (the Costing form).
   // `serviceCostNum` stays the HEADLINE: it is the value the Service price input

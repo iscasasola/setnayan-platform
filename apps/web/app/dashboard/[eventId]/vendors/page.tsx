@@ -793,7 +793,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // this field, so this is the one place it is folded. Display only: no
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
-      deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).

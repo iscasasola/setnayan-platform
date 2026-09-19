@@ -48,7 +48,7 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
-import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
+import { fetchUpcomingItems, type UpcomingItem, type UpcomingItemSource } from '@/lib/upcoming-items';
 import {
   fetchScheduleBlocks,
   selectSchedulePreviewBlocks,
@@ -989,6 +989,13 @@ export async function EventDashboard({
           document_deadline: 0,
           recommended_deadline: 0,
         },
+        // A throw read nothing — every fetched source is unknown, not empty (S41b).
+        unreadableSources: [
+          'meeting',
+          'schedule_block',
+          'vendor_payment',
+          'setnayan_sku_expiry',
+        ] as ReadonlyArray<UpcomingItemSource>,
       };
     }
   })();
@@ -1155,28 +1162,48 @@ export async function EventDashboard({
   // The de-dup rule still holds: these are all "only you can resolve" items
   // (a payment falling due, a document deadline, a meeting). Nothing here is
   // inbox volume — unread still lives only on the Conversations tile.
+  //
+  // 🔑 A REFUSED SOURCE IS NOT "NOTHING DUE" (S41b). When a source could not be
+  // read, the group still renders — even with no other dates — and its first
+  // row says which dates could not load. Before, a refused payments read simply
+  // dropped every payment falling due from a list that looked complete.
+  const unreadableDates = upcoming.unreadableSources.length > 0;
+  const unreadableRow: DecisionItemView | null = unreadableDates
+    ? {
+        id: 'u:unreadable',
+        label: 'Some dates couldn’t load',
+        sub: `We couldn’t check your ${describeUnreadableSources(upcoming.unreadableSources)} just now — refresh to see them.`,
+        chip: null,
+        chipTone: 'warm',
+        ctaLabel: 'Refresh',
+        href: `${base}`,
+      }
+    : null;
   const deadlineGroup: DecisionGroupView | null =
-    aiActive && upcoming.items.length > 0
+    aiActive && (upcoming.items.length > 0 || unreadableDates)
       ? {
           id: 'deadline',
           title: 'Dates coming up',
           sub: 'In the order Sai would take them',
-          items: upcoming.items.slice(0, 6).map((item: UpcomingItem) => ({
-            id: `u:${item.id}`,
-            label: item.title,
-            sub: item.subtitle,
-            chip: shortDate.format(item.date),
-            // Urgency by how close it is — the same judgement the rail made
-            // with its coloured dot, now expressed in the board's own vocabulary
-            // so one row cannot look urgent in one place and calm in the other.
-            chipTone:
-              item.daysFromNow <= 3 ? 'hot' : item.daysFromNow <= 14 ? 'warm' : 'calm',
-            ctaLabel: 'Open',
-            // Every producer in lib/upcoming-items.ts sets an href; the fallback
-            // exists so a future one that forgets degrades to the event home
-            // rather than dropping the deadline out of the list silently.
-            href: item.href ?? `${base}`,
-          })),
+          items: [
+            ...(unreadableRow ? [unreadableRow] : []),
+            ...upcoming.items.slice(0, 6).map((item: UpcomingItem) => ({
+              id: `u:${item.id}`,
+              label: item.title,
+              sub: item.subtitle,
+              chip: shortDate.format(item.date),
+              // Urgency by how close it is — the same judgement the rail made
+              // with its coloured dot, now expressed in the board's own vocabulary
+              // so one row cannot look urgent in one place and calm in the other.
+              chipTone:
+                item.daysFromNow <= 3 ? 'hot' : item.daysFromNow <= 14 ? 'warm' : 'calm',
+              ctaLabel: 'Open',
+              // Every producer in lib/upcoming-items.ts sets an href; the fallback
+              // exists so a future one that forgets degrades to the event home
+              // rather than dropping the deadline out of the list silently.
+              href: item.href ?? `${base}`,
+            }) as DecisionItemView),
+          ],
         }
       : null;
   if (deadlineGroup) groupsUnordered.push(deadlineGroup);
@@ -2966,4 +2993,19 @@ export async function EventDashboard({
       inspector={inspectorBody}
     />
   );
+}
+
+/** "payments and appointments" — the refused sources, in the couple's words (S41b). */
+const UNREADABLE_SOURCE_WORDS: Record<UpcomingItemSource, string> = {
+  meeting: 'appointments',
+  schedule_block: 'schedule',
+  vendor_payment: 'payments',
+  setnayan_sku_expiry: 'renewals',
+  document_deadline: 'paperwork dates',
+  recommended_deadline: 'reminders',
+};
+function describeUnreadableSources(sources: ReadonlyArray<UpcomingItemSource>): string {
+  const words = sources.map((s) => UNREADABLE_SOURCE_WORDS[s]);
+  if (words.length <= 1) return words[0] ?? 'dates';
+  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 }

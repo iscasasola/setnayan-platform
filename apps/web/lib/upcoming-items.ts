@@ -196,7 +196,8 @@ async function fetchAppointments(
     .order('scheduled_at', { ascending: true })
     .limit(20);
   if (error) console.error('[supabase-error] lib/upcoming-items.ts · from:event_appointments.select', error);
-  if (error || !data || data.length === 0) return [];
+  if (error) return refusedSource();
+  if (!data || data.length === 0) return [];
   const rows = data as AppointmentUpcomingRow[];
 
   const profileIds = Array.from(
@@ -261,6 +262,27 @@ async function fetchAppointments(
  * are lifted at the point they enter the list. Comparing the two kinds here is
  * the bug this function exists to make testable.
  */
+// ----------------------------------------------------------------------------
+// A REFUSED SOURCE IS NOT AN EMPTY ONE (S41b)
+//
+// Each fetcher above used to return `[]` for a refused read, and the merged
+// stream simply went without it — so "What's next" could drop every payment
+// falling due and still render, calm and complete-looking, over the rest. A
+// refused source now returns an empty list TAGGED as refused; fetchUpcomingItems
+// lists those sources in `unreadableSources`, and the Home rail says some dates
+// could not load instead of pretending they do not exist.
+// ----------------------------------------------------------------------------
+
+const REFUSED_SOURCE = Symbol('upcoming-source-refused');
+
+function refusedSource(): UpcomingItem[] {
+  return Object.assign([] as UpcomingItem[], { [REFUSED_SOURCE]: true as const });
+}
+
+export function sourceWasRefused(items: ReadonlyArray<UpcomingItem>): boolean {
+  return (items as ReadonlyArray<UpcomingItem> & { [REFUSED_SOURCE]?: true })[REFUSED_SOURCE] === true;
+}
+
 export function mergeUpcoming<T extends { date: Date }>(items: T[], now: Date): T[] {
   return items
     .filter((item) => item.date.getTime() > now.getTime())
@@ -286,7 +308,8 @@ async function fetchScheduleBlockItems(
     .limit(20);
   if (error) console.error('[supabase-error] lib/upcoming-items.ts · from:event_schedule_blocks.select', error);
 
-  if (error || !data) return [];
+  if (error) return refusedSource();
+  if (!data) return [];
 
   return (data as ScheduleBlockRow[]).map((row) => {
     // ⚠ LIFTED TO A REAL INSTANT, and this is the whole point of the line.
@@ -354,7 +377,8 @@ async function fetchVendorPaymentItems(
     .limit(20);
   if (lineItemsErr) console.error('[supabase-error] lib/upcoming-items.ts · from:event_vendor_line_items.select', lineItemsErr);
 
-  if (lineItemsErr || !lineItems || lineItems.length === 0) return [];
+  if (lineItemsErr) return refusedSource();
+  if (!lineItems || lineItems.length === 0) return [];
 
   // Resolve vendor names via a single batched lookup. RLS already
   // restricts event_vendors to the current host's event so we don't
@@ -437,7 +461,7 @@ async function fetchSkuRenewalItems(
 
   if (error) {
     console.error('[supabase-error] upcoming-items: expiring subscription orders', error);
-    return [];
+    return refusedSource();
   }
   if (!data) return [];
 
@@ -566,6 +590,12 @@ export type FetchUpcomingItemsResult = {
   paymentItemsNext30d: ReadonlyArray<UpcomingItem>;
   /** Per-source diagnostic counts. Surfaced in PR body / debug logs. */
   sourceCounts: Record<UpcomingItemSource, number>;
+  /**
+   * Sources whose read was REFUSED — their items are missing from `items`
+   * because nothing was read, not because nothing is due (S41b). A surface that
+   * renders `items` must say so when this is non-empty.
+   */
+  unreadableSources: ReadonlyArray<UpcomingItemSource>;
 };
 
 // ----------------------------------------------------------------------------
@@ -756,5 +786,11 @@ export async function fetchUpcomingItems(
     recommended_deadline: recommendedDeadlines.length,
   };
 
-  return { items, paymentItemsNext30d, sourceCounts };
+  const unreadableSources: UpcomingItemSource[] = [];
+  if (sourceWasRefused(appointments)) unreadableSources.push('meeting');
+  if (sourceWasRefused(scheduleBlocks)) unreadableSources.push('schedule_block');
+  if (sourceWasRefused(vendorPayments)) unreadableSources.push('vendor_payment');
+  if (sourceWasRefused(skuRenewals)) unreadableSources.push('setnayan_sku_expiry');
+
+  return { items, paymentItemsNext30d, sourceCounts, unreadableSources };
 }

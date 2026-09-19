@@ -46,7 +46,11 @@ export async function readMoodboardRenderConfig(
     .select('credits_per_part, credits_whole_look, credits_per_pack, pack_service_code, max_note_chars, is_active')
     .eq('config_key', 'default')
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error('[supabase-error] moodboard-render-credits: moodboard_render_config', error);
+    return null;
+  }
+  if (!data) return null;
   const row = data as ConfigRow;
   if (!row.is_active) return null;
   return {
@@ -77,7 +81,11 @@ export async function readMoodboardRenderBalance(
   eventId: string,
 ): Promise<MoodboardRenderBalance | null> {
   const { data, error } = await supabase.rpc('moodboard_render_balance', { p_event_id: eventId });
-  if (error || !data || !Array.isArray(data) || data.length === 0) return null;
+  if (error) {
+    console.error('[supabase-error] moodboard-render-credits: moodboard_render_balance', error, { eventId });
+    return null;
+  }
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
   const row = data[0] as { credits_granted: number; credits_used: number; credits_left: number };
   return {
     creditsGranted: row.credits_granted,

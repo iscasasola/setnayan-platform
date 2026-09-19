@@ -24,6 +24,7 @@ import {
   type BlockKind,
 } from '@/lib/event-deletion-reasons';
 import { emitNotification } from '@/lib/notification-emit';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * delete-actions.ts — removing a celebration for good.
@@ -304,6 +305,7 @@ export async function getEventDeletionImpact(
 
   if (orderErr) {
     // Unreadable order list ⇒ every money signal stays null ⇒ blocked.
+    logQueryError('delete-actions: event orders (delete stays blocked)', orderErr, { event_id: trimmed });
   } else {
     const orders = (orderRows ?? []) as {
       order_id: string;

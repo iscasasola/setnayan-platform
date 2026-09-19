@@ -7,7 +7,7 @@ import {
   type ChecklistPhaseGroup,
   type ChecklistChrome,
 } from '@/lib/checklist';
-import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import type { ChecklistBudgetHealth, BUDGET_HEALTH_UNREADABLE } from '@/lib/checklist-budget';
 import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
 import type { LeafSuggestion } from '@/lib/leaf-suggestions';
 import type { VendorCategoryProgress } from '@/lib/vendor-category-progress';
@@ -37,7 +37,8 @@ type Props = {
   /** The celebration has already happened — the list stops being a countdown. */
   eventIsOver?: boolean;
   /** Live budget health-check — null when no budget is set (card hidden). */
-  budgetHealth?: ChecklistBudgetHealth | null;
+  /** `'unreadable'` = a read behind the check was REFUSED — not "no budget set" (S41b). */
+  budgetHealth?: ChecklistBudgetHealth | null | typeof BUDGET_HEALTH_UNREADABLE;
   /** Relevance-gated "you might also want" service suggestions (may be empty). */
   leafSuggestions?: ReadonlyArray<LeafSuggestion>;
   /** Per-category vendor progress states (may be empty → card hidden). */
@@ -175,6 +176,34 @@ function BudgetHealthCard({ eventId, health }: { eventId: string; health: Checkl
           <p className="mt-1.5 text-[11px] text-ink/50">
             Budget {formatPeso(health.totalBudgetCentavos)} · buffer {lo} to {hi}
           </p>
+        </div>
+        <ArrowRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * The budget check could not be read. Before S41b this card simply vanished —
+ * the same pixels as "you haven't set a budget" — or was drawn from market
+ * ranges as if no supplier were booked. It now says so and still opens /budget.
+ */
+function BudgetHealthUnreadable({ eventId }: { eventId: string }) {
+  return (
+    <Link
+      href={`/dashboard/${eventId}/budget`}
+      className="block rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 transition hover:brightness-[0.98]"
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <Wallet aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={1.75} />
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">Budget health</p>
+          </div>
+          <p className="mt-0.5 text-sm font-semibold text-terracotta-700">
+            We couldn&rsquo;t check your budget just now
+          </p>
+          <p className="mt-0.5 text-xs text-ink/65">Refresh to try again, or open your budget.</p>
         </div>
         <ArrowRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />
       </div>
@@ -331,7 +360,11 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
               </Link>
             ) : null}
 
-            {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
+            {budgetHealth === 'unreadable' ? (
+              <BudgetHealthUnreadable eventId={eventId} />
+            ) : budgetHealth ? (
+              <BudgetHealthCard eventId={eventId} health={budgetHealth} />
+            ) : null}
 
             {vendorProgress && vendorProgress.length > 0 ? (
               <VendorProgress eventId={eventId} progress={vendorProgress} />

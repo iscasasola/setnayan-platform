@@ -76,6 +76,11 @@ const JOBS = [
   // per window, and an admin-only mount would leave a supplier's fuse waiting on
   // somebody opening /admin.
   { fn: 'maybeRunLockRequestExpiry', what: 'the lock-request nudge + 7-day expiry' },
+  // S40. Same dual-mount reasoning as the lock-request nudge directly above.
+  {
+    fn: 'maybeRunDeletionRequestNudge',
+    what: 'the day-3 reminder to a supplier sitting on a deletion request',
+  },
 ] as const;
 
 test('ANCHOR — the layout source was actually read, and stripping left code behind', () => {

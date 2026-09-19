@@ -92,6 +92,7 @@ import {
   buildVendorConversationRows,
   initialsFor,
   isDateTagWorthShowing,
+  readStandingExtras,
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
@@ -601,15 +602,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * the heavy tools live here, once, and the launchers open them by id.
    */
   const toolNodes: Record<string, React.ReactNode> = {
-    'send-proposal': (
-        <SendProposalCard
-          giftBasis={composerGiftBasis}
-          threadId={threadId}
-          templates={proposalTemplates}
-          packages={proposalPackages}
-        />
-    ),
     /*
+      ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19). `send-proposal` and
+      `build-quote` were two panels and two launchers for one job; a supplier
+      following the brief's "Quote" landed in the template form and following
+      its "New quote" landed in the builder. Both composers still mount — once
+      each, so the gift line, the anchors and the forms stay unique — inside
+      the ONE panel: the builder first (it works for every shop; production has
+      no proposal template on any shop), the saved-template shortcut under it.
+
       THE QUOTE OPENS AT THE LIVE COUNT (owner, 2026-09-09).
 
       Both numbers go in and the builder seeds itself from `livePax`, falling
@@ -624,6 +625,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       is.
     */
     'build-quote': (
+      <div className="space-y-3">
         <ProposalMaker
           threadId={threadId}
           giftBasis={composerGiftBasis}
@@ -642,6 +644,13 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               : null
           }
         />
+        <SendProposalCard
+          giftBasis={composerGiftBasis}
+          threadId={threadId}
+          templates={proposalTemplates}
+          packages={proposalPackages}
+        />
+      </div>
     ),
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
     'thread-call': (
@@ -780,6 +789,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * The rung is `railStage`, the one the header pill already shows, so the
    * pill and this line cannot contradict each other.
    */
+  // The facts beside the rung (SUP-2) — the SAME reader the couple's bench and
+  // thread page use. `paxAdmin` because a supplier cannot read `event_vendors`
+  // through their own session (see PR-H above); narrowed to this event × THIS
+  // shop's own profile, the pair the ownership check already proved.
+  const standingNowMs = Date.now();
+  const standingExtras = (
+    await readStandingExtras(paxAdmin, thread.event_id, [profile.vendor_profile_id], standingNowMs)
+  ).get(profile.vendor_profile_id);
+
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     viewer: 'vendor',
@@ -795,7 +813,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             ? 'couple'
             : null,
     lastSaidAtMs: lastThreadMessage ? Date.parse(lastThreadMessage.created_at) || null : null,
-    nowMs: Date.now(),
+    nowMs: standingNowMs,
+    depositPaid: standingExtras?.depositPaid ?? false,
+    meeting: standingExtras?.meeting ?? null,
+    // THE ONE guestCounts object this page reads its headcounts from.
+    guestCounts,
   });
 
   // THE CUSTOMER SUMMARY (owner 2026-09-08). One builder, so the sentence and

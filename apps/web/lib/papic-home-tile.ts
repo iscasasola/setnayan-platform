@@ -77,10 +77,16 @@ export type PapicHomeTile = {
   shotsLeft: number;
   /** Shots the event has ever held (free grant + every top-up). */
   shotsTotal: number;
-  /** Live (non-revoked) cameras handed out — the free One camera counts. */
-  cameras: number;
-  /** Photos + clips captured so far, crew and guests together. */
-  photosGathered: number;
+  /**
+   * Live (non-revoked) cameras handed out — the free One camera counts.
+   * `null` = the count was REFUSED: not measured, never "0 cameras out" (S41b).
+   */
+  cameras: number | null;
+  /**
+   * Photos + clips captured so far, crew and guests together.
+   * `null` = a count was REFUSED: not measured, never "nothing shot yet" (S41b).
+   */
+  photosGathered: number | null;
   /**
    * TRUE while nothing has been shot yet. This is the single signal that splits
    * the two surfaces' jobs, and it is why they share a reader:
@@ -94,56 +100,70 @@ export type PapicHomeTile = {
   preCapture: boolean;
 };
 
-/** Live cameras on the event. A missing/legacy table is a clean zero, not a throw. */
+/**
+ * Live cameras on the event. A REFUSED count is `null` (not measured) — never a
+ * zero, which the tile would print as "0 cameras out" (S41b).
+ */
 async function countLiveCameras(
   db: SupabaseClient,
   eventId: string,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { count, error } = await db
       .from('paparazzi_seats')
       .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('revoked_at', null);
-    return error ? 0 : count ?? 0;
+    if (error) {
+      console.error('[supabase-error] lib/papic-home-tile.ts · from:paparazzi_seats.select', error);
+      return null;
+    }
+    return count ?? 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
-/** Crew captures. Mirrors the galleries hub's own `countPapicPhotos`. */
+/** Crew captures. Mirrors the galleries hub's own `countPapicPhotos`. `null` = refused. */
 async function countCrewPhotos(
   db: SupabaseClient,
   eventId: string,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { count, error } = await db
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('event_id', eventId);
-    return error ? 0 : count ?? 0;
+    if (error) {
+      console.error('[supabase-error] lib/papic-home-tile.ts · from:papic_photos.select', error);
+      return null;
+    }
+    return count ?? 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
 /**
  * Crew + guest captures on this event, together. The one number both the tile
  * and the nudge pivot on.
+ *
+ * 🔑 `null` WHEN EITHER HALF WAS REFUSED (S41b). This used to choose the zero,
+ * and a zero is exactly the signal that says "nothing shot yet": it flipped the
+ * tile back to "shots ready" and mounted the "your free camera is ready" nudge
+ * on an event that could be hours into its shoot. Not measured is not none.
  */
 export async function countPapicCaptures(
   db: SupabaseClient,
   eventId: string,
-): Promise<number> {
+): Promise<number | null> {
   if (!eventId) return 0;
   const [crew, guest] = await Promise.all([
     countCrewPhotos(db, eventId),
-    // The home tile has one number and nowhere to put a caveat, so it keeps
-    // choosing the zero — but now it CHOOSES it here, visibly, instead of
-    // being handed one that had already swallowed the error upstream.
     countEventGuestCaptures(db, eventId).catch(() => null),
   ]);
-  return crew + (guest ?? 0);
+  if (crew === null || guest === null) return null;
+  return crew + guest;
 }
 
 /**
@@ -171,6 +191,7 @@ export async function papicNudgeShouldShow(
 ): Promise<boolean> {
   if (!canViewPapicCounts) return false;
   try {
+    // `null` (a refused count) is not 0 — the nudge stays off (S41b).
     return (await countPapicCaptures(admin, eventId)) === 0;
   } catch {
     return false;

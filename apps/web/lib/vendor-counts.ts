@@ -56,7 +56,10 @@ const loadVerifiedVendorMarketplaceCount = unstable_cache(
         .or('is_demo.is.null,is_demo.eq.false')
         .not('business_name', 'is', null)
         .neq('business_name', '');
-      if (error || count == null) return 0;
+      if (error || count == null) {
+        if (error) console.error('[supabase-error] lib/vendor-counts.ts · from:vendor_profiles.select', error);
+        return 0;
+      }
       return count;
     } catch {
       return 0;
@@ -128,6 +131,7 @@ export async function fetchVendorCountsByService(
   if (error) {
     // Soft-fail to an empty map so the catalog still renders every tile
     // labeled "Recruiting" — better UX than a 500 on the marketplace.
+    console.error('[supabase-error] lib/vendor-counts.ts · from:vendor_profiles.select', error);
     return new Map();
   }
 

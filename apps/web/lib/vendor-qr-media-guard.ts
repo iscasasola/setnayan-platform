@@ -328,7 +328,11 @@ export async function scanAllVendorMediaForQr(): Promise<{
         },
         { onConflict: 'vendor_profile_id,r2_ref', ignoreDuplicates: true },
       );
-      if (!error) flagsUpserted++;
+      if (error) {
+        console.error('[supabase-error] lib/vendor-qr-media-guard.ts · from:vendor_qr_media_flags.upsert', error);
+      } else {
+        flagsUpserted++;
+      }
     } catch (err) {
       Sentry.captureException(err, {
         tags: { feature: 'vendor-qr-media-guard' },

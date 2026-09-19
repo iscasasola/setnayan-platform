@@ -303,6 +303,9 @@ const PBA_CSS = `
 .pbacc .leaf-head .lh-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .pbacc .lh-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
 .pbacc .lh-svc{color:var(--gold-deep);font-size:13px;line-height:1}
+.pbacc .lh-plan{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--ink-soft);white-space:nowrap}
+.pbacc .leaf-plan{margin:0 20px 8px;font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
+.pbacc .leaf-plan a{color:var(--mulberry);text-decoration:underline;text-underline-offset:2px}
 .pbacc .lh-zero{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
 /* Category-satisfaction badge (2026-06-12) — an empty category another
    committed pick "comes with". */
@@ -1160,6 +1163,16 @@ function ChildRail({
       >
         <span className="lh-nm">{child.label}</span>
         <span className="lh-right">
+          {/* SUP-65 · the category's Planned figure, the same one `/budget`'s
+              ledger prints. Absent when there is no plan — never ₱0. */}
+          {child.planned ? (
+            <span
+              className="lh-plan"
+              aria-label={`${child.planned.source === 'saved' ? 'Your plan' : 'Suggested'}: ${formatPhp(child.planned.php)}`}
+            >
+              {formatPhp(child.planned.php)}
+            </span>
+          ) : null}
           {child.personalizationEnabled ? (
             <DeadlineChip
               status={child.timelineStatus}
@@ -1200,6 +1213,19 @@ function ChildRail({
       )}
 
       {child.dependency ? <DependencyNudge dep={child.dependency} label={child.label} /> : null}
+
+      {child.planned ? (
+        /* SUP-65 · says WHICH plan it is: the couple's own saved split, or our
+           suggestion from their budget. A suggestion printed as "your plan"
+           would be a number they never chose. */
+        <p className="leaf-plan">
+          {child.planned.source === 'saved' ? 'Your plan for ' : 'Suggested for '}
+          {child.label}: <strong>{formatPhp(child.planned.php)}</strong>
+          {child.planned.source === 'saved' ? '' : ' from your budget split'}
+          {' · '}
+          <Link href={`/dashboard/${eventId}/budget#budget-allocate`}>Adjust</Link>
+        </p>
+      ) : null}
 
       {empty ? (
         <>

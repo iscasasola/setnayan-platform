@@ -717,6 +717,7 @@ export function EventCardMenu({
             */
             <>
               <PermanenceWarning />
+              <SupplierRecordsNote />
               <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] leading-snug text-ink/55">
                 <span>
                   {reasonCode
@@ -999,6 +1000,40 @@ function PermanenceWarning() {
         Your photos and everything about this celebration are deleted for good
       </strong>{' '}
       — you can’t bring any of it back, and neither can we.
+    </p>
+  );
+}
+
+/**
+ * SUP-106 · WHAT HAPPENS ON THE SUPPLIERS' SIDE — described, not changed.
+ *
+ * The dialog listed only what the couple loses. Suppliers the couple worked
+ * with lose things too, and keep others, and a couple deciding to remove a
+ * celebration should know both. This is TODAY's behaviour, stated plainly; the
+ * owner has not ruled on changing it (DATA-01), so the copy describes it.
+ *
+ * Every clause is a measured fact, not an intention:
+ *   • KEPT — a payment the supplier CONFIRMED: amount and date only, with the
+ *     couple's rail, reference, note and screenshot scrubbed
+ *     (`the-money-outlives-the-event.db.test.ts`).
+ *   • KEPT — the proposals and contracts the supplier sent, and reviews:
+ *     `vendor_proposals` / `vendor_contracts` / `vendor_reviews` → events are
+ *     ON DELETE SET NULL.
+ *   • REMOVED — the conversation (`chat_threads`, `chat_messages`), the
+ *     payment schedule (`event_vendor_payment_plan`) and deliveries
+ *     (`vendor_guest_deliveries`): ON DELETE CASCADE.
+ * `tests/db/the-delete-dialog-tells-the-truth-about-suppliers.db.test.ts`
+ * reads those rules out of the replayed schema, so if anyone changes what
+ * happens, this sentence goes red instead of quietly becoming untrue.
+ */
+function SupplierRecordsNote() {
+  return (
+    <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
+      <strong className="font-semibold text-ink">Suppliers you worked with</strong> keep a
+      record of payments they confirmed (the amount and date, never your bank details,
+      notes or screenshots), plus the proposals and contracts they sent you. Your
+      conversations with them, their payment schedules and their deliveries for this
+      celebration are removed with it.
     </p>
   );
 }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bb3cfb185",
+  "generatedFromRef": "238eafae8c",
   "routeCount": 428,
-  "destinations": 919,
-  "actions": 636,
-  "blocks": 4477,
+  "destinations": 921,
+  "actions": 638,
+  "blocks": 4483,
   "routes": {
     "/": {
       "files": [
@@ -4690,6 +4690,7 @@
         "ShopLogo",
         "StanceChip",
         "StartPlanningLink",
+        "SupplierRecordsNote",
         "Tile",
         "UnreadBellBadge",
         "YearMomentsList",
@@ -4802,6 +4803,7 @@
         "Blob",
         "BottomNav",
         "BudgetHealthCard",
+        "BudgetHealthUnreadable",
         "Card",
         "ChannelToggle",
         "ChecklistItemView",
@@ -5033,6 +5035,8 @@
         "dashboard/[eventId]/budget/page.tsx"
       ],
       "destinations": [
+        "/api/budget/[seg]/export",
+        "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]",
         "/dashboard/[seg]/vendors"
@@ -5874,15 +5878,13 @@
     },
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
-        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/proposals/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "withdrawInquiry"
@@ -5896,7 +5898,6 @@
         "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
-        "ReadRefusedNotice",
         "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
@@ -7059,6 +7060,7 @@
       "blocks": [
         "ActionResult",
         "AddToLibrary",
+        "AllotmentsCouldNotLoad",
         "Blob",
         "CaptureDefaultsSection",
         "ChallengeRow",
@@ -8012,6 +8014,7 @@
         "moveDownAction",
         "moveUpAction",
         "saveAction",
+        "setLaunchPhase",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
@@ -8031,6 +8034,7 @@
         "HeroPhotoPanel",
         "HexField",
         "Icon",
+        "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
         "OpenBrowsePanel",
@@ -8969,6 +8973,7 @@
         "/",
         "/[seg]",
         "/papic/guest",
+        "/papic/me/[seg]",
         "/terms"
       ],
       "actions": [],
@@ -9931,6 +9936,7 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
@@ -9992,6 +9998,7 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "BookingMoneySummary",
         "BoothEventActionState",
         "BoothEventBuyForm",
         "BoothEventSection",
@@ -10831,6 +10838,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
+        "routes.vendorDashboard.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],
@@ -10839,6 +10847,8 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "Link",
+        "LockedState",
         "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"
@@ -11209,6 +11219,7 @@
         "vendor-dashboard/shop/_components/autoreply-card.tsx",
         "vendor-dashboard/shop/_components/docs-body.tsx",
         "vendor-dashboard/shop/_components/editable-row.tsx",
+        "vendor-dashboard/shop/_components/manage-tiles-hash.ts",
         "vendor-dashboard/shop/_components/manage-tiles.tsx",
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
         "vendor-dashboard/shop/_components/public-line-card.tsx",

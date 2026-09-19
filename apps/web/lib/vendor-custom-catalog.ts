@@ -115,6 +115,7 @@ export async function fetchCustomUnitPrices(
       .select('sku_code, price_php')
       .in('sku_code', wanted)
       .eq('is_active', true);
+    if (error) console.error('[supabase-error] vendor-custom-catalog: prices (using fallbacks)', error);
     if (!error && data) {
       priceBySku = new Map(
         (data as { sku_code: string; price_php: number | string }[]).map((r) => [

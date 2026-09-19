@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
-import { fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
+import { BROADCASTS_UNREADABLE, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
 
 /**
  * The guest's authorized read of the latest day-of announcement.
@@ -39,6 +39,10 @@ export async function latestAnnouncementForGuest(
 
   const admin = createAdminClient();
   const items = await fetchLatestBroadcasts(admin, eventId, 1);
+  // A refused read is a dropped hint, not a "nothing was said" — the caller's
+  // own poll timer asks again next cycle (see the docstring above), so there
+  // is nothing more to do here than decline to report a false absence.
+  if (items === BROADCASTS_UNREADABLE) return null;
   const latest = items[0];
   if (!latest) return null;
   return { body: latest.body, createdAt: latest.createdAt };

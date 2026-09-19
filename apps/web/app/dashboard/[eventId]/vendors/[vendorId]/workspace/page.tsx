@@ -34,6 +34,8 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { eventNoun } from '@/lib/event-noun';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
@@ -613,6 +615,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
+  // The share text the couple sends an off-platform supplier says what the
+  // celebration IS — a debut's invite no longer reads "for our wedding".
+  const inviteEventWord = autoShareInvite
+    ? eventNoun((await resolveProfileByEvent(eventId)).eventType)
+    : 'wedding';
   const canOfferInvite =
     needsInvite &&
     !autoShareInvite &&
@@ -2296,7 +2303,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <ClaimLinkShare
               claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
               shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our wedding. Claim your free vendor account here:`}
+              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free vendor account here:`}
             />
           </div>
 

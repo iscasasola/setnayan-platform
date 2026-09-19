@@ -557,6 +557,12 @@ export async function getKnownHashIntegrationStatus(): Promise<KnownHashIntegrat
       .from('media_hash_checks')
       .select('status')
       .limit(STATUS_SCAN_LIMIT);
+    if (error) {
+      console.error(
+        '[supabase-error] lib/known-hash-match.ts · from:media_hash_checks.select',
+        error,
+      );
+    }
     if (!error && data) {
       const tally = tallyHashCheckRows(data as Array<{ status?: string | null }>);
       counts = tally.counts;

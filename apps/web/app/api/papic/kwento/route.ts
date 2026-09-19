@@ -5,6 +5,7 @@ import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { emitNotification } from '@/lib/notification-emit';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // POST /api/papic/kwento — a zero-account guest writes the story behind one
 // of their captures (Kwento P1, 0012 § Kwento; owner-locked: text-only, free
@@ -31,6 +32,15 @@ export const dynamic = 'force-dynamic';
 // Notification debounce: skip kwento_story_batch email if one was sent in the
 // last 10 minutes for this event (avoids per-message spam during a live reception).
 const STORY_NOTIFY_DEBOUNCE_MS = 10 * 60 * 1000;
+
+// Same window, but NO events column: the debounce reads the notification rows
+// this notice itself writes (type + related_url + created_at). A reception can
+// auto-wall dozens of clean Flash captures in minutes, and
+// kwento_flash_auto_walled is an in-app audit-trail notice (never emailed —
+// not on the EMAIL allowlist), not a per-message alert. A stamp column on
+// `events` would have needed its own grant + events_host rebuild for a value
+// only the admin client ever reads.
+const FLASH_WALL_NOTIFY_DEBOUNCE_MS = 10 * 60 * 1000;
 
 const FRIENDLY: Record<string, { status: number; error: string }> = {
   'kwento:blocked': { status: 403, error: 'messaging_disabled' },
@@ -153,6 +163,58 @@ export async function POST(req: Request) {
         if (!msg || msg.hide_from_wall || msg.status === 'rejected') return;
 
         await admin.rpc('wall_approve_caption', { p_message_id: messageId });
+
+        // Audit-trail notice, debounced (never emailed — see notifications.ts
+        // on kwento_flash_auto_walled: "informational coordinator-only count
+        // shown in the live console... Logged as a notification row for the
+        // audit trail"). Best-effort: a notify hiccup must not undo the wall.
+        try {
+          const flashUrl = `/dashboard/${session.event_id}/live`;
+          const since = new Date(Date.now() - FLASH_WALL_NOTIFY_DEBOUNCE_MS).toISOString();
+          const { data: recent, error: recentErr } = await admin
+            .from('notifications')
+            .select('notification_id')
+            .eq('type', 'kwento_flash_auto_walled')
+            .eq('related_url', flashUrl)
+            .gte('created_at', since)
+            .limit(1);
+          if (recentErr) {
+            // Fallback direction kept: an unreadable debounce still sends —
+            // an extra audit-trail row beats a silently missing one.
+            logQueryError('kwento flash auto-wall: debounce read', recentErr, {
+              event_id: session.event_id,
+            });
+          }
+
+          if (recentErr || !recent || recent.length === 0) {
+            const { data: flashMembers, error: membersErr } = await admin
+              .from('event_members')
+              .select('user_id')
+              .eq('event_id', session.event_id)
+              .eq('member_type', 'couple');
+            if (membersErr) {
+              logQueryError('kwento flash auto-wall: couple members', membersErr, {
+                event_id: session.event_id,
+              });
+            }
+
+            const flashSeen = new Set<string>();
+            for (const m of (flashMembers ?? []) as Array<{ user_id?: string }>) {
+              const uid = m.user_id;
+              if (!uid || flashSeen.has(uid)) continue;
+              flashSeen.add(uid);
+              await emitNotification({
+                userId: uid,
+                type: 'kwento_flash_auto_walled',
+                title: 'Flash moments are appearing on your live wall',
+                body: 'Guest Flash captures are being auto-approved and posted to the live wall — turn this off any time from the live console.',
+                relatedUrl: flashUrl,
+              });
+            }
+          }
+        } catch {
+          // never let the notify undo or block the wall approval above
+        }
       } catch {
         // never fail the guest's send
       }

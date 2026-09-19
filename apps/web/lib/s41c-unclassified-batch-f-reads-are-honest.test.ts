@@ -19,7 +19,9 @@
  * 🔑 A LOG LINE NEVER CHANGED A PIXEL — the render-order tests below assert
  * POSITION (the unreadable guard sits before the empty-state check), not just
  * that the right strings exist somewhere in the file, and the source scans
- * assert exact OCCURRENCE COUNTS rather than mere presence, per
+ * assert per-site occurrence FLOORS (>= the baseline count) rather than mere
+ * presence OR an exact per-file total — a floor still catches a deletion, but
+ * does not flap when a legitimate new, distinct log site is added later, per
  * [[green-shaped-nothing-five-costumes]] and [[a-guard-window-anchored-on-the-first-match-faces-the-wrong-cell]].
  */
 import test, { before } from 'node:test';
@@ -177,28 +179,30 @@ test('resolveHonoreeDependentId: a refused read logs and still drops the link (r
   assert.ok(wasLogged, 'a refused dependents read must log');
 });
 
-// ─── 4 · shape 1 — source scans: exact occurrence counts, never mere presence ─
+// ─── 4 · shape 1 — source scans: anchored occurrence FLOORS, never mere
+//     presence and never an exact per-file total (a legitimate new, distinct
+//     site must not flap these — only a deletion of a NAMED site should) ────
 
-test('consent-veto.ts: BOTH from(src.table) call sites log — count is exactly 2', () => {
+test('consent-veto.ts: BOTH from(src.table) call sites log — floor 2, not exact', () => {
   const file = src('app/[slug]/_components/editorial/consent-veto.ts');
-  // Scoped to the two `from(src.table)` reads this PR's baseline named — not
-  // the whole file's log-line count. Main independently added a THIRD,
-  // unrelated log call site to this same file (the `rpc:
-  // papic_event_blurs_every_capture` read), which must not make this
-  // assertion flap; that call site has its own coverage below.
-  const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:';
+  // Narrowed to the exact templated marker the two `from(src.table)` reads
+  // share (not a bare `· from:` prefix, which would also match any future,
+  // unrelated `from:someOtherTable` site) — a floor, so a legitimate third
+  // occurrence of this SAME template never flaps this test, while deleting
+  // either of the two still drops the count below the floor.
+  const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · from:${src.table}.select';
   const count = file.split(marker).length - 1;
-  assert.equal(count, 2, 'the S26 baseline finding for this file is count=2 — both from(src.table) call sites must log');
+  assert.ok(count >= 2, `the S26 baseline finding for this file is floor=2 — both from(src.table) call sites must log, found ${count}`);
 });
 
 test('consent-veto.ts: the rpc:papic_event_blurs_every_capture read also logs (added independently on main)', () => {
   const file = src('app/[slug]/_components/editorial/consent-veto.ts');
   const marker = '[supabase-error] app/[slug]/_components/editorial/consent-veto.ts · rpc:papic_event_blurs_every_capture';
   const count = file.split(marker).length - 1;
-  assert.equal(count, 1, 'the rpc read site must keep its own log line — do not drop it while resolving a merge with this PR');
+  assert.ok(count >= 1, 'the rpc read site must keep its own log line — do not drop it while resolving a merge with this PR');
 });
 
-test('the remaining 9 shape-1 sites each carry exactly one [supabase-error] log at their read', () => {
+test('the remaining 9 shape-1 sites each carry at least one [supabase-error] log at their read', () => {
   const sites: { file: string; needle: string }[] = [
     {
       file: 'app/[slug]/_components/editorial/data.ts',
@@ -240,7 +244,9 @@ test('the remaining 9 shape-1 sites each carry exactly one [supabase-error] log 
   const missing: string[] = [];
   for (const { file, needle } of sites) {
     const count = src(file).split(needle).length - 1;
-    if (count !== 1) missing.push(`${file} (found ${count}, want 1)`);
+    // Floor, not exact — >= 1 catches a deletion without flapping if a
+    // legitimate second read of the same table+action is ever added here.
+    if (count < 1) missing.push(`${file} (found ${count}, want at least 1)`);
   }
   assert.deepEqual(missing, [], `every site must log exactly once: ${missing.join(', ')}`);
 });

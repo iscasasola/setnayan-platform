@@ -43,11 +43,12 @@
  *      `lib/erasure/coverage.ts`. A key typed inline into a `.update({ … })`
  *      literal in `purge.ts` is INVISIBLE here — the db test is the backstop.
  *   3. ⚠ THE ENFORCED TIER IS NOT A SUPERSET OF WHAT ERASURE MUST COVER.
- *      Eight tables this purge reaches carry NO subject column at all and are
+ *      Seven tables this purge reaches carry NO subject column at all and are
  *      therefore invisible to the detector: guest_face_enrollments,
- *      vendor_push_tokens, vendor_verification_applications,
- *      couple_waitlist_signups and the four *_oauth_state tables. They are keyed
- *      by event_id / vendor_profile_id / guest_id / email. So a future table
+ *      vendor_push_tokens, vendor_verification_applications and the four
+ *      *_oauth_state tables (couple_waitlist_signups was an eighth until it was
+ *      DROPPED on 2026-09-18). They are keyed by event_id / vendor_profile_id /
+ *      guest_id / email. So a future table
  *      shaped like the old `oauth_grants` — personal data hung off an event with
  *      no user FK — will NOT be flagged by G3. That is the residual blind spot,
  *      it is structural, and no amount of regex fixes it.
@@ -138,7 +139,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // for its entire uncovered life. Purged as of 2026-07-26
   // (purgeVendorVerificationDocuments); pinned so the blind spot stays counted.
   'vendor_verification_applications',
-  'couple_waitlist_signups', // keyed by email only — no FK at all
+  // 'couple_waitlist_signups' (keyed by email only — no FK at all) sat here
+  // until 2026-09-18, when the table was DROPPED (migration 20271234094457) and
+  // its OWN_ROW_DELETES_BY_EMAIL rule removed with it. G7 measures PURGED minus
+  // in-scope, so the pin had to leave in the same change.
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',
@@ -246,6 +250,15 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // prune them all at once and is deliberately NOT bundled into this change.
   homepage_hero_config:
     'Table DROPPED 2026-08-06 — the retired sign-in hero config; nothing left to erase.',
+  // ⚠ TABLES DROPPED 2026-09-18 (migration 20271234122426, S39) — no writer
+  // ever shipped for either, 0 rows in prod. Their SET NULL purge rules were
+  // removed from coverage.ts in the same change (a rule against a dropped table
+  // records an erasure FAILURE on every request). Listed only because the
+  // migration parser cannot see a DROP — same reason as the entries above.
+  vendor_meetings:
+    'Table DROPPED 2026-09-18 — ad-hoc meetings table nothing wrote; appointments replaced it. Nothing left to erase.',
+  vendor_self_comp_caps:
+    'Table DROPPED 2026-09-18 — per-store comp-cap override nothing wrote; the cap is a fixed 12. Nothing left to erase.',
   // ⚠ TABLE DROPPED 2026-08-22 (migration 20271157440480) with the all-events
   // calendar subscription — owner: "block delete." Its executable purge rule
   // was REMOVED from OWN_ROW_DELETES in coverage.ts at the same time (a DELETE
@@ -266,13 +279,29 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // as calendar_feed_tokens above. Same reason this entry stays: the parser
   // unions every historical CREATE TABLE and does not read DROP TABLE.
   founder_time_log: 'Table DROPPED 2026-09-19 — the never-built weekly founder self-report; 0 rows, 0 readers, 0 writers in the 4 months it existed. Nothing left to erase.',
+  // ⚠ TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — soft-hold
+  // release audit whose writers never shipped. Its two SET NULL purge rules were
+  // removed from coverage.ts in the same change (a rule against a dropped table
+  // records an erasure FAILURE on every request). Listed only because the
+  // parser cannot see a DROP — same reason as calendar_feed_tokens above.
+  vendor_release_history:
+    'Table DROPPED 2026-09-18 — writers never shipped, 0 rows in prod ever. Nothing left to erase.',
+  // Same parser limit. Their purge rules left coverage.ts in the same change.
+  event_delegates:
+    'Table DROPPED 2026-09-18 (S37) — superseded by event_moderators, no writer ever, 0 rows. Nothing left to erase.',
   vendor_subscriptions: 'Subscription billing record.',
   vendor_ad_subscriptions: 'Subscription billing record.',
 
   // ── lawful retention: contracts under RA 8792 ──
   vendor_contracts: 'Executed contract — retained for the limitation period.',
+  // ⚠ TABLE DROPPED 2026-09-18 (migration 20271234094457). Contracts are
+  // upload-only by owner lock (2026-05-18: "we will not make contracts for
+  // them"); no signature row was ever written (prod: 0). The entry STAYS for
+  // the same reason as calendar_feed_tokens above — the parser unions every
+  // historical CREATE TABLE and never reads DROP TABLE, so G3 still sees the
+  // table's signer_user_id and would call it unclassified.
   vendor_contract_signatures:
-    'E-signature evidence under RA 8792 (signer name + IP + signature image). Erasing it voids the contract’s enforceability. ⚠ Flagged to the DPO: a signature image + IP is a heavier retention than a receipt and may warrant a shorter period.',
+    'Table DROPPED 2026-09-18 — the dual e-signature evidence table from the retired in-app signing flow; never written to. Nothing left to erase. (Had it lived, the DPO note stands: a signature image + IP is a heavier retention than a receipt.)',
 
   // ── accountability: audit trails ──
   admin_data_access_log: 'Record of ADMIN access to an account. Erasing the subject id destroys the accountability trail that protects that same subject.',

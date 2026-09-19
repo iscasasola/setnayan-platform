@@ -60,7 +60,8 @@ const BROAD_REVALIDATE =
 // file) ONLY when a new use is genuinely intentional — the diff makes it visible.
 const BASELINE = {
   'apps/web/app/admin/settings/actions.ts': 3, // global-settings change → nuke all caches (3rd: brand-icon removal busts the root-layout icon on every page — d33be3582 landed it without the bump; healed here)
-  'apps/web/app/admin/pricing/actions.ts': 1, // pricing edit → vendors must see new prices
+  // apps/web/app/admin/pricing/actions.ts: 1 → 0 (S34 · 2026-09-18) — its only broad bust was in
+  // saveFeeSetting, deleted with the unmounted platform-fee form. Default 0 now holds it.
   'apps/web/lib/tour-actions.ts': 2, // guided-tour completion refreshes vendor nav state
 };
 

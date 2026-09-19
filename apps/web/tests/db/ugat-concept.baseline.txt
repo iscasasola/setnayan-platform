@@ -37,8 +37,6 @@ platform_* | declined — platform ops config and internal registries; the map d
 admin_* | declined — internal admin queues and approval plumbing; the console is the surface, not a mapped entity
 concierge_* | declined — the retired "Concierge" naming (now Setnayan AI): trial-abuse tooling plus its knowledge-chunk store. Enforcement and retrieval plumbing, not a product entity.
 social_* | declined — outbound social scheduling and queue tooling; marketing ops, not a product entity
-supplies_orders | declined — the supplies marketplace is a DEFERRED third vertical (iteration 0018), not in V1 scope
-supplier_vendor_skus | declined — same deferred supplies vertical as supplies_orders
 
 # ══ MAP-BACKLOG — real product subsystems the map has never covered ═════════
 # Each line is a missing node, not a decision. Promote it by adding a node to

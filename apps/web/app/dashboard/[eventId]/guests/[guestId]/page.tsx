@@ -454,7 +454,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               <div className="space-y-1.5">
                 <Select
                   id="role"
-                  label="Role in wedding"
+                  label={hasSides ? 'Role in wedding' : 'Role'}
                   defaultValue={guest.role}
                   options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
                 />

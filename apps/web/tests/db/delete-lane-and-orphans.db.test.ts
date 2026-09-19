@@ -13,10 +13,14 @@
  *     NO foreign key. Prod already held **17 orphan rows** — a pointer to a
  *     celebration that no longer exists, with nothing to notice it.
  *
- * 3 · `couple_briefs` takes SET NULL rather than CASCADE, because
- *     `vendor_bid_submissions` cascades off the brief: a cascade would destroy
- *     SUPPLIERS' BIDS when a couple deletes a celebration, which is the exact
- *     inverse of the owner's 2026-08-21 rule.
+ * 3 · `couple_briefs` took SET NULL rather than CASCADE, because
+ *     `vendor_bid_submissions` cascaded off the brief: a cascade would have
+ *     destroyed SUPPLIERS' BIDS when a couple deleted a celebration.
+ *
+ * ⚠ 2026-09-18 (S37): both bid tables were DROPPED (20271234083820) — the
+ *     retired RFP marketplace, no reader, no writer, 0 prod rows. Rule 3 went
+ *     with them; the assertions below now pin that they stay gone, so a revival
+ *     has to come back through this file and restate rule 3.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,14 +66,14 @@ test('service_role keeps DELETE — every real path uses it', async () => {
   assert.equal(rows[0]!.can, true, 'the revoke took service_role with it');
 });
 
-test('both dangling event columns now have a real key', async () => {
+test('the dangling event column now has a real key', async () => {
   const { rows } = await db.query<{ tbl: string; rule: string }>(
     `SELECT c.relname AS tbl, con.confdeltype::text AS rule
        FROM pg_constraint con
        JOIN pg_class c ON c.oid = con.conrelid
       WHERE con.contype = 'f'
         AND con.confrelid = 'public.events'::regclass
-        AND c.relname IN ('event_software_activations_v2', 'couple_briefs')
+        AND c.relname = 'event_software_activations_v2'
       ORDER BY 1`,
   );
   const byTable = new Map(rows.map((r) => [r.tbl, r.rule]));
@@ -79,16 +83,9 @@ test('both dangling event columns now have a real key', async () => {
     'event_software_activations_v2 has no CASCADE key — deleting an event ' +
       'leaves its rows pointing at nothing, as 17 prod rows already did',
   );
-  assert.equal(
-    byTable.get('couple_briefs'),
-    'n',
-    'couple_briefs must be SET NULL, never CASCADE: vendor_bid_submissions ' +
-      'cascades off the brief, so CASCADE would destroy suppliers’ bids when a ' +
-      'couple deletes their celebration',
-  );
 });
 
-test('deleting an event takes the activation row and spares the bids', async () => {
+test('deleting an event takes the activation row', async () => {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (slug, event_type, display_name)
      VALUES ('orphan-probe', 'birthday', 'Orphan Probe') RETURNING event_id`,
@@ -104,17 +101,6 @@ test('deleting an event takes the activation row and spares the bids', async () 
      VALUES ($1, $2, (SELECT service_code FROM public.platform_retail_catalog_v2 LIMIT 1))`,
     [eventId, vend.rows[0]!.vendor_profile_id],
   );
-  await db.query(
-    `INSERT INTO public.couple_briefs
-       (event_id, brief_title, brief_body, category, estimated_budget_range,
-        brief_valuation_tier, token_cost_per_submission)
-     -- ⚠ 'under_20k' is load-bearing: derive_brief_token_cost() is a CASE with
-     -- no ELSE, so any unlisted budget range raises "case not found". A latent
-     -- defect in a dead table (no reader, no writer) — noted, not fixed here.
-     VALUES ($1, 'Orphan probe brief', 'A brief body long enough to clear the thirty character minimum.', 'catering', 'under_20k', 1, 0)`,
-    [eventId],
-  );
-
   await db.query(`DELETE FROM public.events WHERE event_id = $1`, [eventId]);
 
   assert.equal(
@@ -127,12 +113,15 @@ test('deleting an event takes the activation row and spares the bids', async () 
     0,
     'the activation row survived, still pointing at a deleted celebration',
   );
-  const briefs = await db.query<{ event_id: string | null }>(
-    `SELECT event_id FROM public.couple_briefs`,
+  // The retired bid tables stay gone (S37). If they come back, rule 3 above
+  // (SET NULL, never CASCADE) has to come back with them.
+  const bidTables = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace
+      WHERE ns.nspname = 'public'
+        AND c.relname IN ('couple_briefs', 'vendor_bid_submissions')`,
   );
-  assert.equal(briefs.rows.length, 1, 'the brief row was destroyed — a cascade ' +
-    'here would take suppliers’ bids with it');
-  assert.equal(briefs.rows[0]!.event_id, null, 'the brief kept a dangling event id');
+  assert.equal(bidTables.rows[0]!.n, 0, 'a retired bid table is back — restate rule 3 before reviving it');
 });
 
 test('the orphan cleanup runs BEFORE the constraint is added', () => {

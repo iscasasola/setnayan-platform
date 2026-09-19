@@ -1,4 +1,5 @@
 import { formatPhp } from '@/lib/vendors';
+import { guestCountChangeLabel, type GuestCounts } from '@/lib/guest-count-provenance';
 import {
   THREAD_STAGE_LABEL,
   resolveThreadStage,
@@ -111,6 +112,29 @@ export type SupplierStandingFacts = {
    * failure this module exists to prevent.
    */
   viewer?: StandingViewer;
+  /*
+   * ── THE FACTS BESIDE THE RUNG (SUP-2 · CPL-1, 2026-09-19) ─────────────────
+   * The rung says how far the conversation has got; it cannot say what has
+   * HAPPENED in it. "Booked · Replied yesterday" was the whole line for a
+   * supplier whose deposit is paid and whose food tasting is on Saturday, and
+   * for a caterer who quoted 150 guests to a couple now planning 170. All three
+   * are already rows the product writes — none is typed here, and each is
+   * optional so a caller that has not read it says nothing rather than "no".
+   */
+  /** `event_vendors.status = 'deposit_paid'` for this supplier on this event. */
+  depositPaid?: boolean;
+  /**
+   * The next CONFIRMED appointment (`event_appointments.status = 'confirmed'`)
+   * — `atMs` null when it was confirmed without a time. Absent/null ⇒ none.
+   */
+  meeting?: { atMs: number | null } | null;
+  /**
+   * The two headcounts the thread carries — what the couple asked with and what
+   * they plan for now. Only a DIFFERENCE is said; the wording is
+   * `guestCountChangeLabel`'s, so this line and the supplier's header can never
+   * word the same change two ways.
+   */
+  guestCounts?: GuestCounts;
 };
 
 /** Who is reading the sentence. */
@@ -145,6 +169,13 @@ type StageVoice = {
   saysReplyClause: boolean;
   /** On this rung, a supplier who spoke last has left the ball with the couple. */
   answerIsOwedByCouple: boolean;
+  /**
+   * The facts beside the rung (deposit · meeting · guest count) belong here. A
+   * finished or abandoned conversation gets none, for the same reason it gets
+   * no reply clause: "Cancelled · Meeting confirmed for tomorrow" is a meeting
+   * nobody should drive to.
+   */
+  saysFacts: boolean;
 };
 
 /**
@@ -159,19 +190,20 @@ type StageVoice = {
  */
 const STAGE_VOICE: Record<ThreadStage, StageVoice> = {
   // A bare inquiry: the reply clause carries the whole sentence.
-  inquiry: { carriesAmount: false, saysReplyClause: true, answerIsOwedByCouple: false },
+  inquiry: { carriesAmount: false, saysReplyClause: true, answerIsOwedByCouple: false, saysFacts: true },
   // The one rung where a number is the news, and the one where the couple owes
   // the answer — "Quoted ₱187,500 · waiting on you".
-  quoted: { carriesAmount: true, saysReplyClause: true, answerIsOwedByCouple: true },
+  quoted: { carriesAmount: true, saysReplyClause: true, answerIsOwedByCouple: true, saysFacts: true },
   // ⚖ BOOKED CARRIES NO AMOUNT. The card already prints the price two lines up;
   // repeating it under the booking is noise, and the news on a booked card is
   // whether anything is still waiting.
-  booked: { carriesAmount: false, saysReplyClause: true, answerIsOwedByCouple: false },
-  completed: { carriesAmount: false, saysReplyClause: false, answerIsOwedByCouple: false },
-  cancelled: { carriesAmount: false, saysReplyClause: false, answerIsOwedByCouple: false },
+  booked: { carriesAmount: false, saysReplyClause: true, answerIsOwedByCouple: false, saysFacts: true },
+  completed: { carriesAmount: false, saysReplyClause: false, answerIsOwedByCouple: false, saysFacts: false },
+  cancelled: { carriesAmount: false, saysReplyClause: false, answerIsOwedByCouple: false, saysFacts: false },
 };
 
 const DAY_MS = 86_400_000;
+const MEETING_GRACE_MS = 6 * 3_600_000;
 
 /**
  * How long ago, in a couple's words. Whole days only — an hours-precise
@@ -182,6 +214,21 @@ function agoLabel(days: number): string {
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   return `${days} days ago`;
+}
+
+/**
+ * When a confirmed meeting is, in the same whole-day words. Null for a meeting
+ * already behind us — a confirmed tasting from last week is not news, and
+ * "Meeting confirmed 6 days ago" would be a sentence nobody could act on.
+ */
+function meetingWhen(atMs: number, nowMs: number): string | null {
+  // A few hours' grace so a tasting that started this afternoon still reads
+  // "today" while it is on; anything older is behind the couple.
+  if (atMs < nowMs - MEETING_GRACE_MS) return null;
+  const days = Math.max(0, Math.floor((atMs - nowMs) / DAY_MS));
+  if (days === 0) return 'for today';
+  if (days === 1) return 'for tomorrow';
+  return `in ${days} days`;
 }
 
 /** Whole days between two instants, floored, never negative. */
@@ -256,6 +303,24 @@ export function buildSupplierStanding(facts: SupplierStandingFacts): SupplierSta
         text: days === 0 ? 'Sent today' : `No reply · ${days} ${days === 1 ? 'day' : 'days'}`,
       });
     }
+  }
+
+  // THE FACTS, after the reply clause so "Quoted ₱187,500 · waiting on you"
+  // stays one thought. Subject-neutral on purpose: a paid deposit, a confirmed
+  // meeting and a changed headcount read true from either side of the thread,
+  // so `viewer` does not touch them.
+  if (voice.saysFacts) {
+    if (facts.depositPaid) segments.push({ kind: 'quiet', text: 'Deposit paid' });
+    if (facts.meeting) {
+      if (facts.meeting.atMs == null) {
+        segments.push({ kind: 'said', text: 'Meeting confirmed' });
+      } else {
+        const when = meetingWhen(facts.meeting.atMs, facts.nowMs);
+        if (when) segments.push({ kind: 'said', text: `Meeting confirmed ${when}` });
+      }
+    }
+    const changed = facts.guestCounts ? guestCountChangeLabel(facts.guestCounts) : null;
+    if (changed) segments.push({ kind: 'said', text: changed });
   }
 
   // ⚠ A STANDING IS NEVER AN EMPTY LINE. A card that renders the label "Where

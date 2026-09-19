@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 239 single-column FKs onto auth.users / public.users
-# CASCADE=59  RESTRICT=3  SET NULL=177
+# 229 single-column FKs onto auth.users / public.users
+# CASCADE=58  RESTRICT=1  SET NULL=170
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -65,7 +65,6 @@ event_action_log.performed_by_user_id                     SET NULL     nullable 
 event_bench_arrangement.set_by                            SET NULL     nullable  -> auth.users
 event_blocked_users.blocked_by_user_id                    SET NULL     nullable  -> users
 event_build_picks.picked_by                               SET NULL     nullable  -> auth.users
-event_category_build_state.set_by                         SET NULL     nullable  -> auth.users
 event_cluster_members.linked_by                           SET NULL     nullable  -> auth.users
 event_clusters.owner_user_id                              CASCADE      NOT NULL  -> auth.users
 event_colour_changes.actor_user_id                        SET NULL     nullable  -> users
@@ -75,9 +74,6 @@ event_colour_grants_coordinator.granted_by_user_id        SET NULL     nullable 
 event_costs.created_by_user_id                            SET NULL     nullable  -> auth.users
 event_day_requests.author_user_id                         SET NULL     nullable  -> auth.users
 event_day_requests.resolved_by_user_id                    SET NULL     nullable  -> auth.users
-event_delegates.delegate_user_id                          CASCADE      NOT NULL  -> users
-event_delegates.granted_by_user_id                        SET NULL     nullable  -> users
-event_delegates.revoked_by_user_id                        SET NULL     nullable  -> users
 event_deletion_requests.reviewed_by                       SET NULL     nullable  -> auth.users
 event_deletion_requests.user_id                           CASCADE      NOT NULL  -> auth.users
 event_egift_methods.created_by_user_id                    SET NULL     nullable  -> auth.users
@@ -193,7 +189,6 @@ social_posts.created_by                                   SET NULL     nullable 
 stewardship_transfers.created_by_user_id                  SET NULL     nullable  -> users
 stewardship_transfers.from_user_id                        SET NULL     nullable  -> users
 stewardship_transfers.to_user_id                          SET NULL     nullable  -> users
-supplies_orders.buyer_user_id                             RESTRICT     NOT NULL  -> users
 thread_calls.started_by_user_id                           SET NULL     nullable  -> users
 user_devices.user_id                                      CASCADE      NOT NULL  -> users
 user_face_profiles.user_id                                CASCADE      NOT NULL  -> users
@@ -210,7 +205,6 @@ vendor_admin_motion_votes.voter_user_id                   CASCADE      NOT NULL 
 vendor_admin_motions.proposed_by                          SET NULL     nullable  -> auth.users
 vendor_admin_motions.target_user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_billing_catalog.retired_by_admin_id                SET NULL     nullable  -> auth.users
-vendor_contract_signatures.signer_user_id                 RESTRICT     NOT NULL  -> users
 vendor_contracts.cancelled_by_user_id                     SET NULL     nullable  -> users
 vendor_contracts.uploaded_by_user_id                      SET NULL     nullable  -> users
 vendor_correction_requests.resolved_by                    SET NULL     nullable  -> users
@@ -229,22 +223,18 @@ vendor_invites.claimed_by_user_id                         SET NULL     nullable 
 vendor_invites.invited_by_user_id                         SET NULL     nullable  -> auth.users
 vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable  -> auth.users
 vendor_lock_proposals.resolved_by_user_id                 SET NULL     nullable  -> auth.users
-vendor_meetings.created_by_user_id                        SET NULL     nullable  -> auth.users
 vendor_member_token_wallets.user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_payment_asks.asked_by_user_id                      SET NULL     nullable  -> auth.users
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
 vendor_profiles.user_id                                   CASCADE      nullable  -> users
 vendor_qr_media_flags.reviewed_by                         SET NULL     nullable  -> users
 vendor_recommendations.recommended_by_user_id             SET NULL     nullable  -> auth.users
-vendor_release_history.host_user_id                       SET NULL     nullable  -> auth.users
-vendor_release_history.vendor_user_id                     SET NULL     nullable  -> auth.users
 vendor_reuse_requests.requested_by_user_id                SET NULL     nullable  -> users
 vendor_review_appeals.decided_by_admin                    SET NULL     nullable  -> users
 vendor_review_appeals.reviewer_user_id                    CASCADE      NOT NULL  -> users
 vendor_review_flags.reviewed_by_admin_id                  SET NULL     nullable  -> auth.users
 vendor_reviews.couple_user_id                             SET NULL     nullable  -> auth.users
 vendor_reviews.override_admin_id                          SET NULL     nullable  -> users
-vendor_self_comp_caps.raised_by_admin                     SET NULL     nullable  -> users
 vendor_subscriptions.holder_user_id                       SET NULL     nullable  -> auth.users
 vendor_team_members.user_id                               CASCADE      NOT NULL  -> auth.users
 vendor_tier_history.admin_user_id                         SET NULL     nullable  -> users

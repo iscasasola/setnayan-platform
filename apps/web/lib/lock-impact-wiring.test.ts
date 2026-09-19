@@ -188,7 +188,9 @@ test('the modal never claims a day is held, and never says a plan is deleted', (
 test('a date-setting lock still says exactly what it always said', () => {
   // The wiring must not have rewritten the shipped date sentence out from under
   // a couple mid-flow.
-  assert.match(MODAL, /This locks your wedding date\./);
+  // AREA-COUPLE 2026-09-19: "wedding" dropped deliberately — the same modal
+  // confirms a debut's or birthday's date (lib/a-debut-is-not-a-wedding-…).
+  assert.match(MODAL, /This locks your date\./);
   assert.match(MODAL, /leaves only one of your\s+candidate dates open/);
   assert.match(MODAL, /Lock \$\{dateLabel\}/, 'the date confirm keeps its own label');
 });

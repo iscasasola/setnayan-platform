@@ -64,14 +64,36 @@ name: supabase-migrations
 # Until then: manual `supabase db push --db-url "$SUPABASE_DB_URL"` post-merge,
 # or Actions → supabase-migrations → Run workflow (also no-ops without secrets).
 on:
-  # ARMED 2026-06-17 but DORMANT until the 3 secrets are set (the `gate` step
-  # below green no-ops while they're unset, so this never spams red on a normal
-  # migration merge). Setting the secrets is the single "flip on" action —
-  # supersedes the 2026-05-24 commented-out disable.
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/migrations/**'
+  # ── THE `push` TRIGGER IS RETIRED (2026-09-19) — deploy-prod.yml is the one deployer ──
+  #
+  # This used to also fire on `push: branches: [main]` (paths: supabase/migrations/**),
+  # ARMED 2026-06-17. deploy-prod.yml's own docblock, step 3 of the cutover, has said
+  # since then: "Retire supabase-migrations.yml (this workflow subsumes its db push)".
+  # It was never retired, and on 2026-09-18 that cost production every deploy for
+  # the evening:
+  #
+  #   Both workflows fire on the same push to main and share the concurrency group
+  #   below. GitHub keeps ONE pending run per group and cancels the other. With the
+  #   runner queue 200+ deep, no run ever started before the next push arrived, so
+  #   each new push cancelled the previous pending deploy — and when a push touched
+  #   supabase/migrations/**, THIS workflow's run was the one kept and the deploy
+  #   for that very commit was cancelled one second after it was created
+  #   (ad0634875, 23:06:36Z → cancelled 23:06:37Z; zero deploys pending for main's
+  #   head). Measured: 38 cancelled deploy-prod runs that day, last success 19:39Z,
+  #   production frozen at 7ce7913 while ~40 merges landed. Vercel's native
+  #   auto-deploy for main is OFF (apps/web/vercel.json), so the deploy hook in
+  #   deploy-prod is the ONLY way code reaches production — and this workflow, when
+  #   it wins the group, applies migrations and deploys NOTHING.
+  #
+  # deploy-prod.yml runs `supabase db push --include-all --yes` on EVERY push to main
+  # (no paths filter) BEFORE it fires the deploy hook, fail-closed. Nothing this
+  # push trigger did is lost; only the race is. `workflow_dispatch` stays: it is the
+  # named retry in scripts/migration-doctor.mjs ("gh workflow run
+  # supabase-migrations.yml --ref main") and still serializes with deploy-prod
+  # through the shared group.
+  #
+  # 🔑 Two push-triggered workflows in one concurrency group are not "serialized";
+  # under load they are a coin toss for which one runs at all.
   workflow_dispatch:
   # ── The 30-min safety-net cron was REMOVED 2026-07-30. ──────────────────
   #

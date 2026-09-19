@@ -408,7 +408,13 @@ export async function reissueChannelCamera(
     .eq('id', cameraId)
     // Event-scoped: a zone id from this event can only reach a seat on this event.
     .eq('event_id', eventId);
-  if (error) return false;
+  if (error) {
+    console.error('[supabase-error] lib/live-studio-channel-cameras.ts · from:panood_camera_operators.update', error, {
+      camera_id: cameraId,
+      event_id: eventId,
+    });
+    return false;
+  }
 
   await admin
     .from('live_studio_roam_zones')

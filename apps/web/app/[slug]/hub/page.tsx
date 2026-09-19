@@ -762,6 +762,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           estimated={
             guestNowTrigger && (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
           }
+          eventType={event.event_type}
         />
       ) : (
         <article className="rounded-2xl border border-ink/10 bg-cream p-6 text-center">

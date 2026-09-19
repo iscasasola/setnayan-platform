@@ -17,16 +17,18 @@
  *  ┌────┬─────────────────────────────────────┬─────────────────────────┐
  *  │ #  │ Source                               │ Table / column          │
  *  ├────┼─────────────────────────────────────┼─────────────────────────┤
- *  │ 1  │ Vendor meetings                      │ vendor_meetings          │
+ *  │ 1  │ Vendor appointments (confirmed)      │ event_appointments       │
  *  │ 2  │ Day-of schedule blocks               │ event_schedule_blocks    │
  *  │ 3  │ Vendor payment milestones            │ event_vendor_line_items  │
  *  │ 4  │ Setnayan SKU subscription renewals   │ orders.expires_at        │
  *  │ 5  │ Statutory document deadlines         │ computed from events.event_date │
  *  └────┴─────────────────────────────────────┴─────────────────────────┘
  *
- * `vendor_meetings` shipped via migration 20260604060000 (PR following
- * PR #336 to close the table gap that left source #1 returning empty).
- * Spec source: iteration 0006 § "Meetings module" — locked 2026-05-09.
+ * Source #1 was the ad-hoc `vendor_meetings` table (20260604060000). Nothing
+ * ever wrote a row to it — the two-sided Appointments scheduler
+ * (`event_appointments`) is how a meeting with a supplier gets on the
+ * calendar — so the table was DROPPED 2026-09-18 (S39) and source #1 is now
+ * the confirmed appointments alone.
  *
  * Document deadlines are PURE COMPUTED — no table read. The host's
  * `events.event_date` + `events.ceremony_type` are the only inputs.
@@ -138,16 +140,6 @@ type SubscriptionOrderRow = {
   expires_at: string | null;
 };
 
-type VendorMeetingRow = {
-  meeting_id: string;
-  vendor_id: string;
-  starts_at: string;
-  ends_at: string | null;
-  mode: string;
-  title: string;
-  location: string | null;
-};
-
 // ----------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
@@ -168,102 +160,12 @@ function toCentavos(amountPhp: string | number | null | undefined): number {
 }
 
 // ----------------------------------------------------------------------------
-// Source 1 — vendor_meetings (couple ⋈ vendor scheduled meetings)
-//
-// Reads from public.vendor_meetings (migration 20260604060000). The table
-// links each meeting to one event_vendors row (couple's per-event vendor
-// record), NOT vendor_profiles — see migration header for the
-// architectural rationale. Display name flows from event_vendors.vendor_name
-// in the same pattern as fetchVendorPaymentItems.
-//
-// Past meetings (starts_at <= now) are skipped — Home surfaces future
-// obligations only. The merged-stream's final filter would also catch
-// these, but cutting them at the DB layer keeps the result set small
-// for events with long meeting histories.
-// ----------------------------------------------------------------------------
-
-async function fetchVendorMeetings(
-  supabase: SupabaseClient,
-  eventId: string,
-  now: Date,
-): Promise<UpcomingItem[]> {
-  const { data: meetings, error } = await supabase
-    .from('vendor_meetings')
-    .select('meeting_id, vendor_id, starts_at, ends_at, mode, title, location')
-    .eq('event_id', eventId)
-    .gt('starts_at', now.toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(20);
-
-  if (error || !meetings || meetings.length === 0) return [];
-
-  // Batched vendor-name lookup — same pattern as fetchVendorPaymentItems.
-  // RLS on event_vendors already scopes to the current host's event, so
-  // no need to constrain by event_id in the IN-clause.
-  const vendorIds = Array.from(
-    new Set((meetings as VendorMeetingRow[]).map((row) => row.vendor_id)),
-  );
-  const { data: vendors } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name')
-    .in('vendor_id', vendorIds);
-  const vendorName = new Map<string, string>(
-    ((vendors as EventVendorNameRow[]) ?? []).map((v) => [v.vendor_id, v.vendor_name]),
-  );
-
-  return (meetings as VendorMeetingRow[]).map((row) => {
-    const date = new Date(row.starts_at);
-    const name = vendorName.get(row.vendor_id) ?? 'Vendor';
-    return {
-      id: `meeting:${row.meeting_id}`,
-      source: 'meeting' as const,
-      category: 'meeting' as const,
-      date,
-      daysFromNow: daysBetween(date, now),
-      title: row.title,
-      subtitle: formatMeetingSubtitle(date, row.ends_at, row.mode, row.location, name),
-      vendorBusinessName: name,
-      href: `/dashboard/${eventId}/vendors/${row.vendor_id}`,
-    };
-  });
-}
-
-function formatMeetingSubtitle(
-  start: Date,
-  endIso: string | null,
-  mode: string,
-  location: string | null,
-  vendorName: string,
-): string {
-  const fmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-  const startLabel = fmt.format(start);
-  const timeLabel = endIso ? `${startLabel} – ${fmt.format(new Date(endIso))}` : startLabel;
-  const modeLabel = MEETING_MODE_LABEL[mode] ?? 'meeting';
-  // Pattern: "3:00 PM – 4:30 PM · Food tasting with Casa Manila Catering"
-  // Or when location is set: "3:00 PM · Site visit at Casa Manila"
-  if (location) {
-    return `${timeLabel} · ${modeLabel} · ${location}`;
-  }
-  return `${timeLabel} · ${modeLabel} with ${vendorName}`;
-}
-
-const MEETING_MODE_LABEL: Record<string, string> = {
-  in_person: 'In-person meeting',
-  video_call: 'Video call',
-  phone_call: 'Phone call',
-  site_visit: 'Site visit',
-  food_tasting: 'Food tasting',
-  fitting: 'Fitting',
-  consultation: 'Consultation',
-};
-
-// ----------------------------------------------------------------------------
 // Source 1b — confirmed vendor appointments (event_appointments)
 //
 // Future CONFIRMED appointments from the two-sided scheduler (a tasting, a
 // fitting, a pre-shoot call the couple locked in with a shortlisted / booked
-// vendor) belong on Home "Upcoming" next to ad-hoc vendor_meetings — rendered
-// under the SAME 'meeting' source/category. Only confirmed rows with a FUTURE
+// vendor) belong on Home "Upcoming" — rendered under the 'meeting'
+// source/category. Only confirmed rows with a FUTURE
 // scheduled_at; proposed rows (still awaiting a decision) live in the vendor
 // workspace, and cancelled/done are not upcoming. Appointments carry the
 // marketplace vendor_profile_id, so the name + couple-side workspace link
@@ -533,7 +435,11 @@ async function fetchSkuRenewalItems(
     .order('expires_at', { ascending: true })
     .limit(20);
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] upcoming-items: expiring subscription orders', error);
+    return [];
+  }
+  if (!data) return [];
 
   return (data as SubscriptionOrderRow[])
     .filter((row) => row.expires_at !== null)
@@ -793,9 +699,8 @@ export async function fetchUpcomingItems(
   const statutory = input.statutory ?? true;
   const limit = input.limit ?? 10;
 
-  const [meetingsRaw, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines, appointments] =
+  const [scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines, appointments] =
     await Promise.all([
-      fetchVendorMeetings(supabase, eventId, now),
       fetchScheduleBlockItems(supabase, eventId, now),
       fetchVendorPaymentItems(supabase, eventId, now),
       fetchSkuRenewalItems(supabase, eventId, now),
@@ -806,8 +711,9 @@ export async function fetchUpcomingItems(
       // Source 1b — confirmed appointments, folded into the 'meeting' source.
       fetchAppointments(supabase, eventId, now),
     ]);
-  // Ad-hoc vendor_meetings + confirmed appointments are both "meeting" items.
-  const meetings = [...meetingsRaw, ...appointments];
+  // Confirmed appointments are the "meeting" items (the ad-hoc vendor_meetings
+  // table they used to be merged with was never written, and is dropped).
+  const meetings = appointments;
 
   // Source 5 — pure-computed, no fetch. Iteration 0053 P4 Unit 1: PH-marriage
   // statutory deadlines only for events whose profile has the statutory pack

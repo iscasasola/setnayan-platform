@@ -77,13 +77,15 @@ const CLOSED_IN_BATCH_1 = [
   'guest_qr_rotations',
   'papic_mission_completions',
   'seo_suggestions',
-  'supplies_order_line_items',
   'token_grants_log',
   'token_rewards_log',
   'vendor_bid_submissions',
   'vendor_guest_deliveries',
   'vendor_screen_name_sequences',
-  'vendor_token_boosters',
+  // 'supplies_order_line_items' and 'vendor_token_boosters' DROPPED 2026-09-18
+  // (migration 20271234329420_drop_retired_token_wallet_supplies_vertical) —
+  // a dropped table can't be named here at all, `has_table_privilege` throws
+  // rather than returning false on a missing relation (see the META test).
 ];
 
 /**
@@ -111,9 +113,11 @@ const CLOSED_IN_BATCH_1 = [
  * the Bespoke AI Monogram Studio feature it backed was retired 2026-06-19).
  * Opposite reason from the erasure-guardrail precedent: the META test below
  * requires every name here to exist in `pg_class` post-replay ("fix the name,
- * do not delete the line" is about a NAME TYPO, not a dropped table). Floor
- * dropped 17→16 below, and the combined `CLOSED` floor 95→94, for this one
- * entry — not "trimmed to go green".
+ * do not delete the line" is about a NAME TYPO, not a dropped table). This
+ * batch's floor moves 13→12 below (17→13 already accounted for
+ * vendor_contract_signatures + the three Supplies tables), and the combined
+ * `CLOSED_ALL`/`CLOSED` floors move 94→93 / 93→92, for this one entry — not
+ * "trimmed to go green".
  */
 const CLOSED_IN_BATCH_2 = [
   'booking_fee_ledger',
@@ -125,13 +129,18 @@ const CLOSED_IN_BATCH_2 = [
   'rate_limit_hits',
   'render_jobs',
   'seating_editor_locks',
-  'supplier_vendor_sku_pricing',
-  'supplier_vendor_skus',
-  'supplies_orders',
   'vendor_2307_filings',
-  'vendor_contract_signatures',
+  // 'vendor_contract_signatures' was closed in this batch and DROPPED on
+  // 2026-09-18 (migration 20271234094457 — contracts are upload-only by owner
+  // lock, 0 rows ever). The META test below asserts every name exists in the
+  // replay, so a dropped table cannot stay listed; the batch floor moves 17→16
+  // for that one reason and no other.
   'vendor_member_token_wallets',
   'vendor_release_history',
+  // 'supplier_vendor_sku_pricing', 'supplier_vendor_skus' and 'supplies_orders'
+  // DROPPED 2026-09-18 (migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical) — see the note
+  // on CLOSED_IN_BATCH_1 above.
 ];
 
 /**
@@ -303,8 +312,8 @@ const CLOSED_IN_BATCH_6 = [
  * constant — every caller passing the ADMIN client. Grep the REF, not just the
  * literal. (2026-09-05: that lib is RETIRED — the 3D Plan is free for couples,
  * so the vendor-unlock discount it recorded no longer exists. The table now
- * genuinely has no reader; it stays because migrations are never deleted, and
- * its grants stay closed for the same reason as every other row here.)
+ * genuinely has no reader. 2026-09-18 (S34): DROPPED by 20271234293820 — see
+ * DROPPED_SINCE below, which keeps it counted in this batch and asserts it gone.)
  *
  * Every gate re-run in prod 2026-08-24: anon held the grant on all 15 · no
  * policy admits anon · none is a base of the three security_invoker views · no
@@ -338,7 +347,19 @@ const CLOSED_IN_BATCH_7 = [
   'wall_feed',
 ] as const;
 
-const CLOSED = [
+/**
+ * Tables closed in a batch above and LATER DROPPED outright. A dropped table is
+ * strictly more closed than a revoked one, so it keeps its line in its batch
+ * (the batch floors stay honest) and is asserted ABSENT instead of asserted
+ * grant-less. The META test below fails if a name here is still a table, or is
+ * not in any batch — so this cannot become a place to hide a live one.
+ *
+ *   event_vendor_3d_plan_unlocks — dropped by 20271234293820 (S34): the 3D Plan
+ *   is free for couples (2026-09-05), the discount it recorded is retired, 0 rows.
+ */
+const DROPPED_SINCE = ['event_vendor_3d_plan_unlocks'] as const;
+
+const CLOSED_ALL = [
   ...CLOSED_IN_BATCH_1,
   ...CLOSED_IN_BATCH_2,
   ...CLOSED_IN_BATCH_3,
@@ -347,6 +368,24 @@ const CLOSED = [
   ...CLOSED_IN_BATCH_6,
   ...CLOSED_IN_BATCH_7,
 ];
+
+/** Every closed table that still exists — the ones whose grants are asserted. */
+const CLOSED = CLOSED_ALL.filter((t) => !(DROPPED_SINCE as readonly string[]).includes(t));
+
+/**
+ * Closed here FIRST, then DROPPED outright by a later migration. They stay in
+ * their batch lists (so no floor above is trimmed) and are checked the other
+ * way round: they must be ABSENT. A table cannot leave a batch list without
+ * either existing (and being closed) or being proven gone.
+ */
+const DROPPED_AFTER_CLOSING: Record<string, string> = {
+  couple_briefs: '20271234083820 — retired RFP marketplace (S37)',
+  vendor_bid_submissions: '20271234083820 — retired RFP marketplace (S37)',
+  vendor_release_history: '20271234083820 — soft-hold release audit, writers never shipped (S37)',
+  event_category_build_state: '20271234098872 — the retired build-grid state; writer deleted 2026-07-29 (S37)',
+};
+
+const CLOSED_LIVE = CLOSED.filter((t) => !(t in DROPPED_AFTER_CLOSING));
 
 /** Every verb PostgREST can reach, plus the one RLS does not cover. */
 const VERBS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const;
@@ -370,14 +409,21 @@ test('META · the replay has the anon role and these tables, so a pass means som
   // 2's seventeen entries outright would have passed the anti-vacuity check
   // while silently un-guarding all of them. Each batch also has its own floor,
   // so emptying either one is caught rather than absorbed by the other.
+  //
+  // Floors for batches 1 and 2 lowered 2026-09-18 (14→12, 17→14): 'supplies_
+  // order_line_items' + 'vendor_token_boosters' (batch 1) and 'supplier_
+  // vendor_sku_pricing' + 'supplier_vendor_skus' + 'supplies_orders' (batch 2)
+  // were DROPPED, not un-guarded — see migration
+  // 20271234329420_drop_retired_token_wallet_supplies_vertical.
   assert.ok(
-    CLOSED_IN_BATCH_1.length >= 14,
+    CLOSED_IN_BATCH_1.length >= 12,
     `batch 1's list has shrunk to ${CLOSED_IN_BATCH_1.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    // 17→16 (S40, migration 20271233873951): bespoke_monogram_generations
-    // was DROPPED, not trimmed — see the batch-2 docblock above.
-    CLOSED_IN_BATCH_2.length >= 16,
+    // 17 until 2026-09-18: vendor_contract_signatures (S36) and the three
+    // Supplies tables (S35) were DROPPED (see the list), then
+    // bespoke_monogram_generations (S40, migration 20271233873951) — 17→13→12.
+    CLOSED_IN_BATCH_2.length >= 12,
     `batch 2's list has shrunk to ${CLOSED_IN_BATCH_2.length} — did someone trim it to go green?`,
   );
   assert.ok(
@@ -397,29 +443,74 @@ test('META · the replay has the anon role and these tables, so a pass means som
     `batch 7's list has shrunk to ${CLOSED_IN_BATCH_7.length} — did someone trim it to go green?`,
   );
   assert.ok(
-    // 95→94 (S40, migration 20271233873951): same one-entry drop as batch 2
-    // above, propagated through the combined list.
-    CLOSED.length >= 94,
-    `the combined closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
+    // 95 until 2026-09-18, when this merge's own batch-1/2 edits dropped six
+    // Supplies/token-wallet tables outright (verified against the DROP TABLE
+    // statements in 20271234329420 and 20271234094457, not just the comment) —
+    // a table gone from the schema can't be named here at all, since
+    // `has_table_privilege` throws rather than returning false on it. 94→93
+    // for bespoke_monogram_generations (S40, migration 20271233873951),
+    // propagated through the combined list the same way.
+    CLOSED_ALL.length >= 93,
+    `the combined closed list has shrunk to ${CLOSED_ALL.length} — did someone trim it to go green?`,
+  );
+  assert.ok(
+    CLOSED.length >= 92,
+    `the still-live closed list has shrunk to ${CLOSED.length} — did someone trim it to go green?`,
   );
 
   const { rows } = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM pg_class c
        JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
       WHERE c.relname = ANY($1)`,
-    [CLOSED],
+    [CLOSED_LIVE],
   );
   assert.equal(
     rows[0]?.n,
-    CLOSED.length,
+    CLOSED_LIVE.length,
     'a table in the batch list does not exist in the replayed schema — fix the name, ' +
-      'do not delete the line',
+      'do not delete the line (if it was deliberately DROPPED, add it to DROPPED_SINCE)',
+  );
+
+  // A dropped table must be in a batch AND really gone.
+  for (const t of DROPPED_SINCE) {
+    assert.ok(
+      (CLOSED_ALL as readonly string[]).includes(t),
+      `${t} is in DROPPED_SINCE but in no batch — DROPPED_SINCE is only for tables a batch closed`,
+    );
+    const { rows: gone } = await db.query<{ r: string | null }>(
+      `SELECT to_regclass($1)::text AS r`,
+      [`public.${t}`],
+    );
+    assert.equal(gone[0]?.r ?? null, null, `${t} is in DROPPED_SINCE but still exists in the replay`);
+  }
+  assert.equal(CLOSED.length, CLOSED_ALL.length - DROPPED_SINCE.length);
+});
+
+test('a table dropped after closing is really gone, and was in a batch', async () => {
+  const names = Object.keys(DROPPED_AFTER_CLOSING);
+  for (const t of names) {
+    assert.ok(
+      (CLOSED as readonly string[]).includes(t),
+      `${t} is marked dropped but was never in a batch list — it cannot be a batch exemption`,
+    );
+  }
+  const { rows } = await db.query<{ relname: string }>(
+    `SELECT c.relname FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+      WHERE c.relname = ANY($1)`,
+    [names],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.relname),
+    [],
+    'a table marked DROPPED_AFTER_CLOSING still exists — it is no longer checked as ' +
+      'closed, so its grants are unguarded. Remove it from DROPPED_AFTER_CLOSING.',
   );
 });
 
 test('anon holds NOTHING on any table closed so far (batches 1-7)', async () => {
   const open: string[] = [];
-  for (const table of CLOSED) {
+  for (const table of CLOSED_LIVE) {
     for (const verb of VERBS) {
       const { rows } = await db.query<{ ok: boolean }>(
         `SELECT has_table_privilege('anon', $1, $2) AS ok`,
@@ -470,9 +561,12 @@ test('the supplier written-off count stays closed to BOTH principals', async () 
  * the same five-gate scan that already picked them once.
  */
 test('anon KEEPS the grants that a security_invoker view reads on its behalf', async () => {
+  // `vendor_tool_bundles` → `vendor_active_tools` was the second pair here. Both
+  // were DROPPED 2026-09-18 (S39, migration 20271234122426): the V1 tool SKUs
+  // they recorded were retired and no page read the view. The test below proves
+  // they are gone, so this pair cannot quietly come back as a grant-less table.
   const viewBacked: [string, string][] = [
     ['vendor_ad_subscriptions', 'vendor_active_ads → vendor_market_stats (the public marketplace listing)'],
-    ['vendor_tool_bundles', 'vendor_active_tools'],
   ];
   for (const [table, chain] of viewBacked) {
     const { rows } = await db.query<{ ok: boolean }>(
@@ -489,6 +583,21 @@ test('anon KEEPS the grants that a security_invoker view reads on its behalf', a
         `to revoke and is wrong.`,
     );
   }
+});
+
+test('the retired V1 tool entitlement is gone — table AND the view that read it', async () => {
+  const { rows } = await db.query<{ relname: string }>(
+    `SELECT c.relname FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+      WHERE c.relname IN ('vendor_tool_bundles', 'vendor_active_tools')`,
+  );
+  assert.deepEqual(
+    rows.map((r) => r.relname),
+    [],
+    'vendor_tool_bundles / vendor_active_tools exist again. They were removed from the ' +
+      'view-backed list above because they were dropped; if one is back, it needs its anon ' +
+      'grant decision made again, not inherited silently.',
+  );
 });
 
 test('the PUBLIC supplier figures are untouched — this must not break a shop page', async () => {

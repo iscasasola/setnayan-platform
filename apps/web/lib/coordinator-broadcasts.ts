@@ -54,6 +54,12 @@ export type BroadcastCardData = {
   callTimeCount: number;
   /** Resend configured? False renders the email button disabled with a hint. */
   emailConfigured: boolean;
+  /**
+   * FALSE when the broadcast-list read was refused — then `items` is `[]`
+   * because nothing was read, and the card must not say "No broadcast yet"
+   * (S41c, reads-are-honest).
+   */
+  broadcastsMeasured: boolean;
 };
 
 /**

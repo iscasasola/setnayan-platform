@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cadc10532",
+  "generatedFromRef": "06c2151a0f",
   "routeCount": 428,
-  "destinations": 919,
-  "actions": 636,
-  "blocks": 4470,
+  "destinations": 921,
+  "actions": 638,
+  "blocks": 4484,
   "routes": {
     "/": {
       "files": [
@@ -2939,7 +2939,6 @@
         "admin/pricing/_components/ai-bands-editor.tsx",
         "admin/pricing/_components/booking-fee-form.tsx",
         "admin/pricing/_components/catalog-editor.tsx",
-        "admin/pricing/_components/fee-form.tsx",
         "admin/pricing/_components/legacy-catalog.tsx",
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
@@ -4691,6 +4690,7 @@
         "ShopLogo",
         "StanceChip",
         "StartPlanningLink",
+        "SupplierRecordsNote",
         "Tile",
         "UnreadBellBadge",
         "YearMomentsList",
@@ -4803,6 +4803,7 @@
         "Blob",
         "BottomNav",
         "BudgetHealthCard",
+        "BudgetHealthUnreadable",
         "Card",
         "ChannelToggle",
         "ChecklistItemView",
@@ -5034,6 +5035,8 @@
         "dashboard/[eventId]/budget/page.tsx"
       ],
       "destinations": [
+        "/api/budget/[seg]/export",
+        "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]",
         "/dashboard/[seg]/vendors"
@@ -5875,15 +5878,13 @@
     },
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
-        "dashboard/[eventId]/messages/[threadId]/_components/thread-quotations-card.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/proposals/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "withdrawInquiry"
@@ -5897,7 +5898,6 @@
         "ConversationColumn",
         "Link",
         "NegotiationComposerMenu",
-        "ReadRefusedNotice",
         "RevealToolButton",
         "SubmitButton",
         "ThreadCallLauncher",
@@ -7060,6 +7060,7 @@
       "blocks": [
         "ActionResult",
         "AddToLibrary",
+        "AllotmentsCouldNotLoad",
         "Blob",
         "CaptureDefaultsSection",
         "ChallengeRow",
@@ -7680,7 +7681,6 @@
         "BuildFallbackResult",
         "BuildLocked",
         "BuildPickResult",
-        "BuildStateMap",
         "CancelBookingAsHostResult",
         "CardDateBlock",
         "CardStanding",
@@ -7840,6 +7840,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/payment-asks-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts",
@@ -7888,6 +7889,7 @@
         "RelationshipTabShell",
         "ReservationTermsAck",
         "Result",
+        "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
         "TrustedCircleBadge",
@@ -8011,6 +8013,7 @@
         "moveDownAction",
         "moveUpAction",
         "saveAction",
+        "setLaunchPhase",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
@@ -8030,6 +8033,7 @@
         "HeroPhotoPanel",
         "HexField",
         "Icon",
+        "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
         "OpenBrowsePanel",
@@ -8637,7 +8641,6 @@
         "onboarding/wedding/_components/song-preview-list.tsx",
         "onboarding/wedding/_components/weave-story.ts",
         "onboarding/wedding/_components/welcome-moments.tsx",
-        "onboarding/wedding/_components/welcome-parallax.tsx",
         "onboarding/wedding/actions.ts",
         "onboarding/wedding/loading.tsx",
         "onboarding/wedding/page.tsx",
@@ -8661,10 +8664,8 @@
         "FreeValueSlider",
         "HTMLAudioElement",
         "HTMLButtonElement",
-        "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLElement",
-        "HTMLImageElement",
         "HeroImg",
         "Link",
         "LocationStep",
@@ -8968,6 +8969,7 @@
         "/",
         "/[seg]",
         "/papic/guest",
+        "/papic/me/[seg]",
         "/terms"
       ],
       "actions": [],
@@ -9591,7 +9593,6 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
-        "vendor-dashboard/_components/eager-disclosure.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
         "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
@@ -9930,6 +9931,7 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
@@ -9991,6 +9993,7 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "BookingMoneySummary",
         "BoothEventActionState",
         "BoothEventBuyForm",
         "BoothEventSection",
@@ -10576,7 +10579,8 @@
         "vendor-dashboard/on-the-day/_components/shot-list.tsx",
         "vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx",
         "vendor-dashboard/on-the-day/actions.ts",
-        "vendor-dashboard/on-the-day/page.tsx"
+        "vendor-dashboard/on-the-day/page.tsx",
+        "vendor-dashboard/on-the-day/shot-list-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/customers",
@@ -10593,6 +10597,7 @@
         "CaptureCard",
         "CompactDayOf",
         "ConfigureEventView",
+        "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
         "EventPicker",
@@ -10607,10 +10612,14 @@
         "ModuleReadout",
         "NonPhotoConsole",
         "RequestsInbox",
+        "ServerRead",
         "SetActionResult",
         "ShopEmpty",
         "ShotList",
         "ShotListSection",
+        "ShotListSource",
+        "ShotListStatus",
+        "ShotListWriteResult",
         "SongDeskGate",
         "Tag",
         "VendorStatusUpdates"
@@ -10824,6 +10833,7 @@
       "actions": [
         "addPaymentMethod",
         "deletePaymentMethod",
+        "routes.vendorDashboard.subscription",
         "setPrimaryPaymentMethod",
         "togglePaymentMethodShown"
       ],
@@ -10832,6 +10842,8 @@
         "FileUpload",
         "FormFlash",
         "Icon",
+        "Link",
+        "LockedState",
         "PageMasthead",
         "PaymentMethodType",
         "SubmitButton"
@@ -10852,11 +10864,11 @@
         "vendor-dashboard/performance/_components/momentum-window-toggle.tsx",
         "vendor-dashboard/performance/_components/perf-links.ts",
         "vendor-dashboard/performance/_components/performance-controls.tsx",
+        "vendor-dashboard/performance/_components/price-position-card.tsx",
         "vendor-dashboard/performance/_components/reanimate.tsx",
         "vendor-dashboard/performance/_components/reply-claim-card.tsx",
         "vendor-dashboard/performance/_components/reputation-card.tsx",
         "vendor-dashboard/performance/_components/roi-attribution-card.tsx",
-        "vendor-dashboard/performance/_components/scope-note.tsx",
         "vendor-dashboard/performance/_components/service-scope-select-client.tsx",
         "vendor-dashboard/performance/_components/service-scope-selector.tsx",
         "vendor-dashboard/performance/_components/verified-median-card.tsx",
@@ -10868,6 +10880,7 @@
       "actions": [],
       "blocks": [
         "AttributionBar",
+        "BandRail",
         "BookingsBars",
         "CapacityCard",
         "ChartCaption",
@@ -10889,6 +10902,9 @@
         "MomentumWindowToggle",
         "PerformanceControls",
         "PillarBar",
+        "PositionHeadline",
+        "PricePositionCard",
+        "PricePositionResult",
         "Reanimate",
         "ReanimateCtx.Provider",
         "ReplyClaimCard",
@@ -11160,6 +11176,7 @@
         "ServiceCardView",
         "ServicesManagerSearch",
         "SetnayanGiftField",
+        "SetnayanGiftLine",
         "SheetKey",
         "ShowcaseMediaFields",
         "SlotEditor",
@@ -11201,6 +11218,7 @@
         "vendor-dashboard/shop/_components/autoreply-card.tsx",
         "vendor-dashboard/shop/_components/docs-body.tsx",
         "vendor-dashboard/shop/_components/editable-row.tsx",
+        "vendor-dashboard/shop/_components/manage-tiles-hash.ts",
         "vendor-dashboard/shop/_components/manage-tiles.tsx",
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
         "vendor-dashboard/shop/_components/public-line-card.tsx",
@@ -11382,7 +11400,6 @@
         "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
-        "vendor-dashboard/subscription/_components/price-position-card.tsx",
         "vendor-dashboard/subscription/_components/subscription-cards.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
@@ -11404,7 +11421,6 @@
       ],
       "blocks": [
         "AiAddonCard",
-        "BandRail",
         "BoothAddonCard",
         "CycleLink",
         "GridPageSkeleton",
@@ -11415,7 +11431,6 @@
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",
-        "PositionHeadline",
         "SubmitButton",
         "SubscriptionCards",
         "SubscriptionCycleToggle",

@@ -26,7 +26,10 @@ export async function fetchDayOfOverride(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/vendor-dayof-config.ts · from:vendor_dayof_configs.select', error);
+    return null;
+  }
   const raw = (data as { enabled_modules: unknown }).enabled_modules;
   if (!Array.isArray(raw)) return null;
   return raw.filter((x): x is DayOfModuleId => typeof x === 'string' && VALID_IDS.has(x));
@@ -62,7 +65,10 @@ export async function fetchSongRequestsPaused(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error || !data) return false;
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/vendor-dayof-config.ts · from:vendor_dayof_configs.select', error);
+    return false;
+  }
   // The column means "not paused", so paused is its inverse. Only an explicit
   // FALSE is a pause; anything else (TRUE, NULL from a partial row) is flowing.
   return (data as { song_requests_open: boolean | null }).song_requests_open === false;

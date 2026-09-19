@@ -550,16 +550,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Nulling anonymises the review; deleting it would silently move a vendor’s public star rating, which is a third party’s commercial record erasure does not reach.',
   },
   {
-    table: 'event_delegates',
-    column: 'granted_by_user_id',
-    why: 'SET NULL + nullable ⇒ an actor stamp. Deleting a delegation because the subject GRANTED it would revoke the coordinator’s access — someone else’s row.',
-  },
-  {
-    table: 'event_delegates',
-    column: 'revoked_by_user_id',
-    why: 'Same table, the revocation side. Also an actor stamp.',
-  },
-  {
     table: 'event_vendors',
     column: 'lock_requested_by_user_id',
     why: 'Who ASKED the vendor to hold the date (lock handshake, 2026-08-04). SET NULL + nullable ⇒ an actor stamp. The row’s subject is the BOOKING between a couple and a vendor; deleting it because one member of the couple requested the lock would erase the vendor’s commercial record and the other partner’s booking.',
@@ -638,11 +628,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'to_user_id',
     why: 'The incoming steward, same shape as from_user_id. Nulling one side never touches the other.',
   },
-  {
-    table: 'vendor_meetings',
-    column: 'created_by_user_id',
-    why: 'Who booked the meeting. The meeting is a two-party record read by the vendor; the booker’s identity goes and the slot stays.',
-  },
 
   // ── batch 5, settled 2026-08-02 · mostly STAFF stamps on platform content ──
   {
@@ -682,16 +667,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
   },
   // ── final batch, settled 2026-08-02 · closes the 78-table backlog ──
   {
-    table: 'vendor_release_history',
-    column: 'host_user_id',
-    why: 'The host side of a release record. Both parties are SET NULL stamps on a two-party event; the purge is subject-scoped so only the leaver’s own side is cleared.',
-  },
-  {
-    table: 'vendor_release_history',
-    column: 'vendor_user_id',
-    why: 'The vendor side of the same record. The release itself — reason, notes, snapshots — is the counterparty’s business history and stays.',
-  },
-  {
     table: 'photo_delivery_jobs',
     column: 'triggered_by_user_id',
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
@@ -725,11 +700,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'site_widgets',
     column: 'updated_by_admin_id',
     why: 'Staff stamp on a homepage widget slug.',
-  },
-  {
-    table: 'vendor_self_comp_caps',
-    column: 'raised_by_admin',
-    why: 'Which admin raised a store’s quarterly comp ceiling. The cap belongs to the store.',
   },
   {
     table: 'vendor_recommendations',
@@ -900,11 +870,6 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_web_dossiers',
     column: 'requested_by',
     why: 'A verbatim snapshot of the subject’s own vendor profile, taken at their request. The row is ABOUT them, so it goes with them.',
-  },
-  {
-    table: 'event_delegates',
-    column: 'delegate_user_id',
-    why: 'CASCADE + NOT NULL — the schema’s own verdict that the row dies with the account. It is the record of THIS person’s access; erasure just never issued the delete that would have fired it. ⚠ Only this column: granted_by/revoked_by are actor stamps and are nulled instead.',
   },
   {
     table: 'person_stewardships',
@@ -1432,10 +1397,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
  * step 1 tombstones it.
  */
 export const OWN_ROW_DELETES_BY_EMAIL: ReadonlyArray<{ table: string; why: string }> = [
-  {
-    table: 'couple_waitlist_signups',
-    why: 'Pre-signup capture holding full_name, partner_name, ip_address and user_agent, with no user FK.',
-  },
+  // couple_waitlist_signups was the first entry until 2026-09-18 — DROPPED by
+  // migration 20271234094457 (the pre-launch waitlist; Setnayan has been live
+  // for couples since 2026-07-24 and the table held 0 rows). A DELETE against a
+  // dropped table is recorded by purge.ts as an erasure audit FAILURE, not
+  // thrown, so leaving the rule would have failed every erasure request forever.
   {
     table: 'couple_event_type_notify_signups',
     why: 'Notify-me capture; user_id is nullable and often unset, so email is the only reliable key.',

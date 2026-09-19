@@ -233,10 +233,20 @@ export function assembleFunnelBenchmark(
 // ---------------------------------------------------------------------------
 
 /**
+ * A REFUSED benchmark read is not "below the min-N floor" — both used to
+ * collapse to `EMPTY_FUNNEL_BENCHMARK`, which renders the identical "Not
+ * enough shops like yours yet" card to a vendor whose category genuinely has
+ * no peers AND to one whose read was denied. Distinct sentinel so the card
+ * can say which one happened.
+ */
+export const FUNNEL_BENCHMARK_UNREADABLE = 'unreadable' as const;
+
+/**
  * Vendor-facing category benchmark, scoped to the caller's OWN vendor profile
- * (the RPC enforces ownership + min-N; the band table is RLS-locked). Any RPC
- * error degrades to the empty benchmark so the card stays calm — never throws
- * into the page.
+ * (the RPC enforces ownership + min-N; the band table is RLS-locked). A
+ * genuinely empty/suppressed result degrades to the empty benchmark so the
+ * card stays calm; a REFUSED read returns `FUNNEL_BENCHMARK_UNREADABLE`
+ * instead so the card can say we couldn't check — never throws into the page.
  *
  * @param category optional — benchmark a specific one of the vendor's
  *   categories; omit to use the vendor's primary (most-listed) category.
@@ -245,12 +255,18 @@ export async function getVendorFunnelBenchmark(
   client: SupabaseClient,
   vendorProfileId: string,
   category?: string,
-): Promise<FunnelBenchmark> {
+): Promise<FunnelBenchmark | typeof FUNNEL_BENCHMARK_UNREADABLE> {
   const { data, error } = await client.rpc('funnel_benchmark_for_vendor', {
     p_vendor_profile_id: vendorProfileId,
     p_category: category ?? null,
   });
-  if (error || !Array.isArray(data) || data.length === 0) {
+  if (error) {
+    console.error('[supabase-error] lib/funnel-benchmark.ts · rpc:funnel_benchmark_for_vendor', error, {
+      vendor_profile_id: vendorProfileId,
+    });
+    return FUNNEL_BENCHMARK_UNREADABLE;
+  }
+  if (!Array.isArray(data) || data.length === 0) {
     return EMPTY_FUNNEL_BENCHMARK;
   }
   return assembleFunnelBenchmark(data[0] as FunnelBenchmarkRow);

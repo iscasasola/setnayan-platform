@@ -42,17 +42,20 @@ let replay: ReplayResult;
 let db: PGlite;
 
 /**
- * The six functions that existed ONLY in production until 20271115531329.
- * Names are spelled out rather than derived, because the point of the file is
- * that a derived list is exactly what missed them.
+ * The functions that existed ONLY in production until 20271115531329 and are
+ * still meant to exist. Names are spelled out rather than derived, because the
+ * point of the file is that a derived list is exactly what missed them.
+ *
+ * Six were back-filled. Three of them — confirm_guest_delivery,
+ * list_vendor_delivery_bookings, undo_guest_delivery (the per-guest delivery
+ * roster) — had no caller anywhere in the app and were DROPPED on 2026-09-18
+ * by migration 20271234094457, which is the other half of "bring it under
+ * guard": once the guard could see them, it could see nothing used them.
  */
 const BACK_FILLED_FUNCTIONS = [
-  'confirm_guest_delivery',
   'get_vendor_mood_board',
-  'list_vendor_delivery_bookings',
   'notify_chat_message_webhook',
   'rls_auto_enable',
-  'undo_guest_delivery',
 ] as const;
 
 /** Fake, test-only value. Never a real credential — see the header. */
@@ -159,7 +162,7 @@ test('META: the replay is real — migrations applied and the catalog is populat
 
 /* ── 1 · THE OBJECTS EXIST AFTER A REAL REPLAY ────────────────────────────── */
 
-test('all six prod-only functions now exist in the replayed schema', async () => {
+test('the back-filled prod-only functions still under guard exist in the replayed schema', async () => {
   const r = await db.query<{ proname: string }>(
     `SELECT DISTINCT p.proname
        FROM pg_proc p

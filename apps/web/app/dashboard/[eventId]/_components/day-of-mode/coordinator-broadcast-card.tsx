@@ -109,7 +109,17 @@ function LiveBroadcastCard({
         </p>
       </header>
 
-      {broadcast.items.length === 0 ? (
+      {!broadcast.broadcastsMeasured ? (
+        <div className="rounded-md bg-cream/60 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            Last broadcast
+          </p>
+          <p className="mt-1 text-sm text-ink/55">
+            We couldn&rsquo;t load recent broadcasts right now. Refresh in a
+            moment.
+          </p>
+        </div>
+      ) : broadcast.items.length === 0 ? (
         <div className="rounded-md bg-cream/60 p-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
             Last broadcast

@@ -7,6 +7,7 @@ import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { setnayanGiftBillClause } from '@/lib/setnayan-gift';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -115,12 +116,21 @@ export async function collectBookingFeeAtLock(
 
   // Idempotency: one order per charge. A re-lock returns the same chargeId →
   // same serviceKey → skip re-issuing (belt over the RPC's own one-live-charge).
-  const { data: existingOrder } = await admin
+  //
+  // ⚠ A REFUSED read here is NOT "no order yet" (FEE-HONEST, 2026-09-19). Read
+  // as absence it minted a SECOND bill for a charge that already had one —
+  // `orders.service_key` carries no unique index to stop it. Fail-safe
+  // invariant #1: an unanswered question bills NOTHING; the next acknowledge
+  // re-asks. The charge stays pending, so nothing is lost by waiting.
+  const { data: existingOrder, error: existingOrderError } = await admin
     .from('orders')
     .select('order_id')
     .eq('service_key', serviceKey)
     .limit(1)
     .maybeSingle();
+  if (existingOrderError) {
+    return { status: 'skipped', reason: `existing-order check unreadable: ${existingOrderError.message}` };
+  }
   if (existingOrder) {
     return { status: 'order_exists', chargeId, orderId: (existingOrder as { order_id: string }).order_id };
   }
@@ -153,11 +163,17 @@ export async function collectBookingFeeAtLock(
 
   let payerUserId: string | null = null;
   if (vendorProfileId) {
-    const { data: vp } = await admin
+    // A refused read is a SKIP with its reason, never `no_payer` — that status
+    // tells ops "unclaimed supplier profile, go resolve it", a false cause for a
+    // read that simply failed (FEE-HONEST). Both mint nothing; only the words differ.
+    const { data: vp, error: vpError } = await admin
       .from('vendor_profiles')
       .select('user_id')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    if (vpError) {
+      return { status: 'skipped', reason: `payer read failed: ${vpError.message}` };
+    }
     payerUserId = (vp as { user_id?: string | null } | null)?.user_id ?? null;
   }
   // Unclaimed (admin-owned) vendor profile → no payer. Charge stays pending for
@@ -226,8 +242,15 @@ export async function collectBookingFeeAtLock(
   if (pErr) {
     // Roll back the just-created order so a retry re-mints cleanly (the charge
     // stays live; the next lock re-issues). Best-effort.
-    await admin.from('orders').delete().eq('order_id', orderId);
-    return { status: 'skipped', reason: pErr.message };
+    // A failed rollback leaves an order with no payment row — say so in the
+    // reason rather than let the orphan pass unrecorded.
+    const { error: rollbackError } = await admin.from('orders').delete().eq('order_id', orderId);
+    return {
+      status: 'skipped',
+      reason: rollbackError
+        ? `${pErr.message}; rollback of order ${orderId} ALSO failed: ${rollbackError.message}`
+        : pErr.message,
+    };
   }
 
   return { status: 'ordered', chargeId, orderId, referenceCode, amountPhp, giftCredits };
@@ -293,12 +316,24 @@ export async function collectBookingFeeAtLock(
  * session reads nothing. The second query here is index-served by
  * `event_vendors_package_idx`.
  *
+ * ⚠ NULL HAS TWO CAUSES, AND ONLY ONE IS A RULING (FEE-HONEST, 2026-09-19).
+ * "This booking is not a sale" (archived · orphaned · anchor gone) and "the
+ * database refused to answer" both return NULL — the direction is identical and
+ * correct (bill nothing). But the second used to leave no trace, and the
+ * acknowledge verdict then explained it as "archived booking or orphaned
+ * cascade line": a confident, wrong cause for a booking that simply went
+ * unbilled. A refused read now (a) is logged via `logQueryError` and (b) is
+ * handed to `onUnreadable` so the caller can say WHICH null it got.
+ *
  * @param admin MUST be the service-role client — `event_vendor_packages` and
  *              the anchor lookup are couple-scoped under RLS.
+ * @param onUnreadable called with the reason when a read FAILED (never for a
+ *              genuine "not a sale"). The return value is NULL either way.
  */
 export async function resolveFeeAnchorRowId(
   admin: SupabaseClient,
   eventVendorId: string,
+  onUnreadable?: (reason: string) => void,
 ): Promise<string | null> {
   const { data: row, error } = await admin
     .from('event_vendors')
@@ -306,8 +341,14 @@ export async function resolveFeeAnchorRowId(
     .eq('vendor_id', eventVendorId)
     .maybeSingle();
 
-  // Row vanished, or the read failed → bill nothing.
-  if (error || !row) return null;
+  // The read failed → bill nothing, but keep the reason.
+  if (error) {
+    logQueryError('booking-fee-lock.resolveFeeAnchorRowId.booking', error, { eventVendorId });
+    onUnreadable?.(`booking row unreadable: ${error.message}`);
+    return null;
+  }
+  // Row vanished → bill nothing.
+  if (!row) return null;
 
   const r = row as {
     vendor_id: string;
@@ -325,13 +366,23 @@ export async function resolveFeeAnchorRowId(
   // Orphaned cascade row — the FK is ON DELETE SET NULL, so this is reachable.
   if (!r.event_vendor_package_id) return null;
 
-  const { data: anchor } = await admin
+  const { data: anchor, error: anchorError } = await admin
     .from('event_vendors')
     .select('vendor_id')
     .eq('event_vendor_package_id', r.event_vendor_package_id)
     .eq('package_role', 'anchor')
     .is('archived_at', null)
     .maybeSingle();
+
+  // The anchor lookup failed → bill nothing (never the covered row), keep the reason.
+  if (anchorError) {
+    logQueryError('booking-fee-lock.resolveFeeAnchorRowId.anchor', anchorError, {
+      eventVendorId,
+      eventVendorPackageId: r.event_vendor_package_id,
+    });
+    onUnreadable?.(`package anchor unreadable: ${anchorError.message}`);
+    return null;
+  }
 
   // Anchor gone → bill nothing. Never the covered row's own id.
   return (anchor as { vendor_id: string } | null)?.vendor_id ?? null;

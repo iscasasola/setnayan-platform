@@ -129,7 +129,7 @@ test('META · public.users is in scope too, and cascades from auth.users', async
   );
 });
 
-test('the 17 fixed on 2026-08-01 no longer refuse a user delete', async () => {
+test('the 2026-08-01 fixes (17 then; one table dropped since) no longer refuse a user delete', async () => {
   // Named individually rather than left to the baseline: each was a real
   // blocker, and a regression here is "this specific one reopened".
   // 'bespoke_monogram_generations.created_by' — REMOVED (S40, migration
@@ -139,7 +139,8 @@ test('the 17 fixed on 2026-08-01 no longer refuse a user delete', async () => {
     'budget_allocation_decisions.recorded_by',
     'budget_builds.created_by',
     'event_build_picks.picked_by',
-    'event_category_build_state.set_by',
+    // (event_category_build_state.set_by was here; the table was dropped
+    // 2026-09-18, S37 — a dropped table cannot refuse anything.)
     'event_egift_methods.created_by_user_id',
     'event_manual_vendors.created_by_user_id',
     'event_moderators.invited_by_user_id',
@@ -190,7 +191,9 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
   // Named individually, like the 17 above, so a regression reads as "THIS one
   // reopened" rather than "the count changed". The split is the interesting part:
   // an ACTOR stamp survives its author (SET NULL), a row whose SUBJECT is the
-  // user does not (CASCADE). Two tables carry BOTH, deliberately.
+  // user does not (CASCADE). concierge_abuse_flags carries BOTH, deliberately.
+  // (event_delegates was the second; it was dropped 2026-09-18, S37 —
+  // superseded by event_moderators, no writer ever shipped.)
   const expected: Record<string, 'n' | 'c'> = {
     // ── actor / authorship stamp → SET NULL ──────────────────────────────
     'concierge_abuse_flags.reviewed_by': 'n',
@@ -201,8 +204,6 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
     'discount_code_eligible_users.added_by_admin_id': 'n',
     'discount_codes.created_by_admin_id': 'n',
     'event_action_log.performed_by_user_id': 'n',
-    'event_delegates.granted_by_user_id': 'n',
-    'event_delegates.revoked_by_user_id': 'n',
     'event_inspiration_assets.added_by_user_id': 'n',
     'event_playlist_picks.created_by_user_id': 'n',
     'founder_seats.granted_by': 'n',
@@ -219,7 +220,8 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
     // ── the user is the row's SUBJECT → CASCADE ──────────────────────────
     'concierge_abuse_flags.flagged_user_id': 'c',
     'discount_code_redemptions.couple_user_id': 'c',
-    'event_delegates.delegate_user_id': 'c',
+    // 'event_delegates.delegate_user_id': 'c' — REMOVED (S37, migration
+    // 20271234083820): the table is dropped, nothing left to CASCADE.
     // 'founder_time_log.user_id': 'c' — REMOVED (S40, migration
     // 20271233873951): the table is dropped, nothing left to CASCADE.
   };
@@ -245,7 +247,7 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
   );
 });
 
-test('the 13 columns that traded NOT NULL for a nullable author are nullable', async () => {
+test('the columns that traded NOT NULL for a nullable author are nullable (13 in 2026-08; event_delegates dropped since)', async () => {
   // SET NULL against a NOT NULL column does NOT fail when the migration runs. It
   // fails at DELETE time, turning a cleanly-refused delete into a runtime 500 —
   // strictly worse than the bug being fixed. So the nullability is asserted
@@ -255,7 +257,6 @@ test('the 13 columns that traded NOT NULL for a nullable author are nullable', a
     ['discount_code_eligible_users', 'added_by_admin_id'],
     ['discount_codes', 'created_by_admin_id'],
     ['event_action_log', 'performed_by_user_id'],
-    ['event_delegates', 'granted_by_user_id'],
     ['event_inspiration_assets', 'added_by_user_id'],
     ['event_playlist_picks', 'created_by_user_id'],
     ['kwento_assignments', 'assigned_by_user_id'],
@@ -373,12 +374,6 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
      VALUES ($1, ARRAY[$2::uuid], 0.91, '{}'::jsonb, $2) RETURNING flag_id`,
     [other, leaver],
   );
-  // …and a delegation's granter is a stamp while its holder is the subject.
-  await db.query(
-    `INSERT INTO public.event_delegates (event_id, delegate_user_id, role, granted_by_user_id)
-     VALUES ($1, $2, 'coordinator', $3)`,
-    [eventId, other, leaver],
-  );
   // Self-referential: a ban must not lift because the admin who issued it left.
   await db.query(`UPDATE public.users SET concierge_banned_by = $1 WHERE user_id = $2`, [
     leaver,
@@ -392,13 +387,9 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
      VALUES ($1, ARRAY[$2::uuid], 0.77, '{}'::jsonb, $2) RETURNING flag_id`,
     [leaver, other],
   );
-  await db.query(
-    `INSERT INTO public.event_delegates (event_id, delegate_user_id, role, granted_by_user_id)
-     VALUES ($1, $2, 'planner', $3)`,
-    [eventId, leaver, other],
-  );
-  // founder_time_log insert REMOVED (S40, migration 20271233873951): the
-  // table is dropped -- nothing left to seed or assert against.
+  // event_delegates insert REMOVED (S37, migration 20271234083820) and
+  // founder_time_log insert REMOVED (S40, migration 20271233873951): both
+  // tables are dropped -- nothing left to seed or assert against.
 
   // ── THE DELETE ────────────────────────────────────────────────────────────
   // Before this migration this line threw a foreign-key violation, which is the
@@ -448,15 +439,6 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
     null,
     'users.concierge_banned_by: the self-referential stamp was not nulled',
   );
-  assert.equal(
-    (await one(
-      `SELECT count(granted_by_user_id)::int AS n FROM public.event_delegates
-        WHERE event_id = $1 AND delegate_user_id = $2`,
-      [eventId, other],
-    ))!.n,
-    0,
-    'event_delegates.granted_by_user_id: the surviving grant still names the deleted granter',
-  );
 
   // 3 · SUBJECT rows are gone.
   const gone: Array<[string, string, string]> = [
@@ -469,13 +451,4 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
       `${table}: a row whose SUBJECT is the deleted user outlived them`,
     );
   }
-  assert.equal(
-    (await one(
-      `SELECT count(*)::int AS n FROM public.event_delegates
-        WHERE event_id = $1 AND delegate_user_id = $2`,
-      [eventId, leaver],
-    ))!.n,
-    0,
-    'event_delegates: the access grant TO the deleted user survived — a dangling delegation is a security bug, not untidiness',
-  );
 });

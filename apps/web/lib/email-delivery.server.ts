@@ -106,6 +106,11 @@ export async function runEmailDeliveryCheck(now: number = Date.now()): Promise<n
       .update(patch)
       .eq('delivery_id', row.delivery_id)
       .select('delivery_id');
+    if (upErr) {
+      console.error('[supabase-error] lib/email-delivery.server.ts · from:email_deliveries.update', upErr, {
+        delivery_id: row.delivery_id,
+      });
+    }
     if (!upErr && (written?.length ?? 0) > 0) updated += 1;
   }
   return updated;

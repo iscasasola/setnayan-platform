@@ -7,6 +7,7 @@ import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
+import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { countUnread } from '@/lib/notifications';
@@ -315,6 +316,9 @@ export default async function VendorDashboardLayout({
   // way, and a gated sweep strands every in-flight request when the flag
   // goes back off.
   after(() => maybeRunLockRequestExpiry().catch(() => {}));
+  // S40 — the deletion-handshake reminder. Mounted here AND on the admin
+  // layout, same reasoning as the lock-request nudge directly above.
+  after(() => maybeRunDeletionRequestNudge().catch(() => {}));
   // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
   // fee-charge create path is a parallel lane we must NOT hook, the vendor's
   // "your booking fee is due" notification is DERIVED post-response from the

@@ -18,6 +18,14 @@ import { DESKTOP_ENCODER_READINESS_NOTICE, type ReadinessDecision } from '@/lib/
  * `resolveLiveStudioReadiness` returns null when the Live Studio flag is off, so
  * the mount site needs no flag check of its own.
  *
+ * ✅ MOUNTED (2026-09-19) — in `app/panood/control/[eventId]/page.tsx`, inside the
+ * Setup sheet's Connect section (where the channel status lives), fed by
+ * `decideBroadcastReadiness` over the SAME `fetchReadinessFacts` object the page
+ * already reads for `poolRouteToAir` — one read, two readers, so the Go live
+ * button and this card cannot disagree. The page `notFound()`s when the flag is
+ * off, so the flag gate there is the page's own. Pinned by
+ * `readiness-card-is-mounted.test.ts` beside that page.
+ *
  * ── THE COPY RULE THIS COMPONENT EXISTS TO ENFORCE ─────────────────────────
  * Wave 9 lets a couple stream WITHOUT a YouTube account — a genuine removal, and
  * one that makes it tempting to render a green "You're all set". It would not be

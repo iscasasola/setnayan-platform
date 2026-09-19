@@ -15,6 +15,16 @@ import {
 import { previewFor } from '@/lib/conversation-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { rowReadsCompleted } from '@/lib/vendor-thread-stage';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  BOOKING_LIST_LABEL,
+  bookingListStatus,
+  bookingPillLabel,
+  parseBookingFilter,
+  type BookingListStatus,
+} from './booking-list-status';
 import {
   VendorPrepForBooking,
   type VendorPrepItem,
@@ -23,18 +33,16 @@ import { ShopEmpty } from '../_components/kit';
 
 export const metadata = { title: 'Bookings · Vendor' };
 
-type BookingStatus = 'new' | 'in_progress' | 'stale';
+type BookingStatus = BookingListStatus;
 
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  new: 'New',
-  in_progress: 'In progress',
-  stale: 'Stale',
-};
+// The tag is derived from the BOOKING (`./booking-list-status.ts`), not from
+// chat activity — see that file for what it replaced.
+const STATUS_LABEL = BOOKING_LIST_LABEL;
 
 const STATUS_TONE: Record<BookingStatus, string> = {
   new: 'bg-terracotta text-cream',
   in_progress: 'bg-sky-100 text-sky-800',
-  stale: 'bg-ink/10 text-ink/65',
+  closed: 'bg-ink/10 text-ink/65',
 };
 
 type Filter = 'all' | BookingStatus;
@@ -45,12 +53,11 @@ type Props = {
 
 type BookingRow = VendorThreadWithEvent & {
   status: BookingStatus;
+  pillLabel: string;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
   unread: boolean;
 };
-
-const THIRTY_DAYS_MS = 30 * 86_400_000;
 
 function daysUntil(eventDate: string | null): number | null {
   if (!eventDate) return null;
@@ -141,19 +148,76 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     if (idx >= 0) unreadThreadIds.add(url.slice(idx + 1));
   }
 
-  const now = Date.now();
+  // ── THE BOOKING FACTS each row's tag is derived from ──────────────────────
+  // Three batched reads, one per fact, over every event on this page. Each
+  // degrades toward "not yet" (the conservative direction — a live booking
+  // shown as a conversation is a stale label; a live one shown as Closed tells
+  // a supplier to stop working) and each failure is LOGGED, never swallowed.
+  const eventIds = [...new Set(threads.map((t) => t.event_id))];
+  const bookedEventIds = new Set<string>();
+  const quotedEventIds = new Set<string>();
+  const completedEventIds = new Set<string>();
+  if (eventIds.length > 0) {
+    const [roomEvents, quotedRes, doneRes] = await Promise.all([
+      // BOOKED — the room read (pool · agreed lock · claimed Locked QR), the
+      // same answer the Clients list and Today's Upcoming give.
+      fetchVendorRoomEvents(supabase, profile.vendor_profile_id).catch(() => []),
+      // QUOTED — a proposal out with the couple (sent / viewed, not a draft).
+      supabase
+        .from('vendor_proposals')
+        .select('event_id')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .in('event_id', eventIds)
+        .in('status', ['sent', 'viewed']),
+      // COMPLETED — admin client, scoped by this shop's own id: `event_vendors`
+      // holds no supplier-side select policy, so the shop's session reads zero.
+      createAdminClient()
+        .from('event_vendors')
+        .select('event_id, completion_status, customer_confirmed_received_at, status')
+        .eq('marketplace_vendor_id', profile.vendor_profile_id)
+        .in('event_id', eventIds),
+    ]);
+    for (const b of roomEvents) bookedEventIds.add(b.eventId);
+    if (quotedRes.error) {
+      logQueryError(
+        'VendorBookingsSurface.quoted',
+        quotedRes.error,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    for (const r of (quotedRes.data ?? []) as { event_id: string }[]) quotedEventIds.add(r.event_id);
+    if (doneRes.error) {
+      logQueryError(
+        'VendorBookingsSurface.completed',
+        doneRes.error,
+        { vendorProfileId: profile.vendor_profile_id },
+        'graceful_degrade',
+      );
+    }
+    for (const r of (doneRes.data ?? []) as Array<{
+      event_id: string;
+      completion_status: string | null;
+      customer_confirmed_received_at: string | null;
+      status: string | null;
+    }>) {
+      if (rowReadsCompleted(r)) completedEventIds.add(r.event_id);
+    }
+  }
+
   const rows: BookingRow[] = threads.map((t) => {
     const last = latestByThread.get(t.thread_id) ?? null;
     const unread = unreadThreadIds.has(t.thread_id);
-    const lastTime = last ? new Date(last.created_at).getTime() : new Date(t.updated_at).getTime();
-    const stale = now - lastTime > THIRTY_DAYS_MS;
-    let status: BookingStatus;
-    if (unread) status = 'new';
-    else if (stale) status = 'stale';
-    else status = 'in_progress';
+    const facts = {
+      inquiryStatus: t.inquiry_status,
+      booked: bookedEventIds.has(t.event_id),
+      quoted: quotedEventIds.has(t.event_id),
+      completed: completedEventIds.has(t.event_id),
+    };
     return {
       ...t,
-      status,
+      status: bookingListStatus(facts),
+      pillLabel: bookingPillLabel(facts),
       // 🔴 WAS: `last?.body ?? null` — the reader's own last word rendered
       // identically to the couple's, so "Can we do a tasting first?" and
       // "Deposit received" looked the same row. `previewFor` is the ONE
@@ -167,13 +231,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     };
   });
 
-  const filter: Filter =
-    search.status === 'new' ||
-    search.status === 'in_progress' ||
-    search.status === 'stale' ||
-    search.status === 'all'
-      ? (search.status as Filter)
-      : 'all';
+  const filter: Filter = parseBookingFilter(search.status);
   const upcoming = search.upcoming !== '0';
 
   let visible = rows;
@@ -211,7 +269,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
     all: rows.length,
     new: rows.filter((r) => r.status === 'new').length,
     in_progress: rows.filter((r) => r.status === 'in_progress').length,
-    stale: rows.filter((r) => r.status === 'stale').length,
+    closed: rows.filter((r) => r.status === 'closed').length,
   };
 
   return (
@@ -233,7 +291,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
         aria-label="Booking filters"
         className="sn-tile flex flex-wrap items-center gap-2 p-3"
       >
-        {(['all', 'new', 'in_progress', 'stale'] as Filter[]).map((f) => {
+        {(['all', 'new', 'in_progress', 'closed'] as Filter[]).map((f) => {
           const params = new URLSearchParams();
           if (f !== 'all') params.set('status', f);
           if (!upcoming) params.set('upcoming', '0');
@@ -336,8 +394,14 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[r.status]}`}
                       >
-                        {STATUS_LABEL[r.status]}
+                        {r.pillLabel}
                       </span>
+                      {r.unread ? (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-terracotta" />
+                          Unread
+                        </span>
+                      ) : null}
                       <p className="truncate text-sm font-semibold text-ink">
                         {(inquiryCustomers.get(r.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN)
                           .displayName ?? 'Event'}

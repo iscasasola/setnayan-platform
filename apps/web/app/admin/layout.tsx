@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
+import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
@@ -177,6 +178,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // way, and a gated sweep strands every in-flight request when the flag
   // goes back off.
   after(() => maybeRunLockRequestExpiry().catch(() => {}));
+  // S40 — the deletion-handshake reminder. Mounted here AND on the vendor
+  // layout, same reasoning as the lock-request nudge directly above: an
+  // admin-only mount would leave a supplier's reminder waiting on somebody
+  // opening /admin.
+  after(() => maybeRunDeletionRequestNudge().catch(() => {}));
   // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
   // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
   // feed /admin/seo; a skipped day only leaves the dashboard a day stale.

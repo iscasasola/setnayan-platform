@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
+import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -112,7 +113,6 @@ import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
 import type { FillableCategory } from './_components/quote-fill';
-import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -545,6 +545,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       next_renewal_due_at: string | null;
     };
 
+    if (statsRes.error) {
+      // A refused read strips the card to typed-name + initials — the same
+      // shape as a genuinely off-platform pick (see the comment above this
+      // Promise.all) — so at least keep the reason in the logs.
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: card enrichment vendor_market_stats', statsRes.error, {
+        event_id: eventId,
+      });
+    }
     const statsByProfile = new Map<string, StatsRow>();
     for (const s of (statsRes.data as StatsRow[] | null) ?? []) {
       statsByProfile.set(s.vendor_profile_id, s);
@@ -793,7 +801,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // this field, so this is the one place it is folded. Display only: no
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
-      deposit_paid_php: v.deposit_paid_php,
       notes: v.notes,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
@@ -1643,6 +1650,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         supabase,
         eventId,
         nowMs: Date.now(),
+        // One headcount for the whole bench — each card compares it with the
+        // count that supplier was asked with ("Guest count changed", SUP-2).
+        livePax: await resolveLivePax(supabase, eventId),
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,
@@ -2082,11 +2092,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const buildChildren = model.folders.flatMap((f) => f.children);
 
     // ── The quote-fill row's input (`Explore_Integration_BUILD_SPEC_2026-07-29.md`
-    // §4). The Lock/Auto/Hidden grid this used to feed is DELETED; the state map
-    // is now read-only legacy (nothing writes it) and only an explicit
-    // `'excluded'` row still speaks — the `stateOf` / `dimensionStates` wiring is
-    // gone with the grid it drove (spec §7).
-    const buildStates = await getCategoryBuildStates(eventId);
+    // §4). The Lock/Auto/Hidden grid and its state table are both gone (the
+    // table was dropped 2026-09-18, S37); "Not needed" / "✓ Covered" below is
+    // the couple's only way to take a category out.
 
     // Categories the couple REMOVED ("Not needed") or FINISHED ("✓ Covered").
     // Rows key on EITHER grain — plan_group_id for complete, tile for excluded —
@@ -2133,8 +2141,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     })();
 
     // FILLABLE = ≥1 quoted inquiry (total_cost_php != null) · no locked vendor ·
-    // no existing build pick · not decided above · no explicit 'excluded' state.
-    // `proposeBuildFromQuotes` re-derives the SAME five conditions server-side
+    // no existing build pick · not decided above.
+    // `proposeBuildFromQuotes` re-derives the SAME four conditions server-side
     // before it writes — this list only decides what the row SAYS.
     const quoteFillable: FillableCategory[] = !isExploreReplanEnabled()
       ? []
@@ -2156,8 +2164,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                 (p) => p.raw_status && LOCKED_VENDOR_STATUSES.includes(p.raw_status),
               ) &&
               child.buildPickVendorIds.length === 0 &&
-              !decidedGroupIds.has(child.groupId as string) &&
-              buildStates.get(child.groupId as string)?.state !== 'excluded',
+              !decidedGroupIds.has(child.groupId as string),
           )
           .map(({ child, options }) => ({
             groupId: child.groupId as string,
@@ -2334,6 +2341,9 @@ async function fetchActiveCategoryMarketPool(
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);
+    if (error) {
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: fetchActiveCategoryMarketPool vendor_market_stats', error);
+    }
     if (error || count == null) return 0;
     return count;
   } catch (e) {

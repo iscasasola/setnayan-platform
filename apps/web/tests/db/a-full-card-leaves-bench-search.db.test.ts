@@ -86,11 +86,11 @@ before(async () => {
   card.C = await createService(vendorProfileId, 'florist');
   // D · mapped to an INACTIVE pool that is already full. The acquire skips
   //     inactive pools entirely, so nothing about it can refuse D.
-  card.D = await createService(vendorProfileId, 'caterer');
+  card.D = await createService(vendorProfileId, 'cake_maker');
   pool.D = await createPool(vendorProfileId, 1, false);
-  await mapCategory(vendorProfileId, 'caterer', pool.D);
+  await mapCategory(vendorProfileId, 'cake_maker', pool.D);
   // E · a NAMED calendar, capacity 1, and no category mapping of its own.
-  card.E = await createService(vendorProfileId, 'hair_and_makeup');
+  card.E = await createService(vendorProfileId, 'makeup_artist');
   pool.E = await createPool(vendorProfileId, 1, true);
   await db.query(
     `INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id)

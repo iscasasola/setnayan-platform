@@ -37,6 +37,7 @@ import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
 import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
 import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
+import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
 import { initialsFor } from '@/lib/conversation-list';
@@ -217,6 +218,14 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       vendorProfileId: thread.vendor_profile_id,
     }),
   ]);
+
+  // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
+  // live quote total above already say whether there is a quote to amend.
+  // Before one arrives the couple has no "Send a deal" anywhere — menu or chip.
+  const dealEntry = dealEntryFor({
+    side: 'couple',
+    hasQuote: threadHasQuote({ stage: threadStage, liveQuoteTotalPhp }),
+  });
 
   // Fresh live pax (Phase 5) — the couple's own client can read their guests,
   // so show the current count, matching what the vendor now sees. Read before
@@ -507,6 +516,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     'deal-or-meeting': (
       <NegotiationComposerMenu
         embedded
+        entry={dealEntry}
         initialMode={composeMode}
         threadId={threadId}
         returnPath={`/dashboard/${eventId}/messages/${threadId}`}
@@ -618,7 +628,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   sendAction={sendChatMessage}
                   accessories={
                     <>
-                      {dealOpen ? <RevealToolButton affordance="deal" /> : null}
+                      {dealOpen ? <RevealToolButton affordance="deal" entry={dealEntry} /> : null}
                       {callsOpen ? (
                         <RevealToolButton affordance="call" label={`Call ${vendorLabel}`} />
                       ) : null}
@@ -705,6 +715,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
           */}
           <ChatMessageStream
             flush
+            dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
             lockTarget={quoteLockTarget}

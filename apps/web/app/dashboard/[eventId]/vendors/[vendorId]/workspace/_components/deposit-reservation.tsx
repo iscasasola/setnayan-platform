@@ -63,17 +63,6 @@ type Props = {
    */
   payMethods: CoupleFacingMethod[];
   payMethodsState: CouplePayMethodsState;
-  /**
-   * The first payment the accepted quote requested, in centavos — the MINIMUM
-   * the deposit may be (`recordDeposit` refuses less, via
-   * `decideDepositAmount`). null = no accepted quote / no schedule: the form
-   * behaves as it always did.
-   */
-  requestedFirstPaymentCentavos?: number | null;
-  /** "First payment requested: ₱3,350 — due on lock" (`firstPaymentSentence`). */
-  requestedFirstPaymentSentence?: string | null;
-  /** The accepted-quote read was refused — say so rather than show no request. */
-  requestedTermsUnreadable?: boolean;
 };
 
 function fmtDate(iso: string | null): string {
@@ -101,14 +90,7 @@ export function DepositReservation({
   depositDisputeNote,
   payMethods,
   payMethodsState,
-  requestedFirstPaymentCentavos = null,
-  requestedFirstPaymentSentence = null,
-  requestedTermsUnreadable = false,
 }: Props) {
-  const minimumPhp =
-    requestedFirstPaymentCentavos && requestedFirstPaymentCentavos > 0
-      ? requestedFirstPaymentCentavos / 100
-      : null;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -191,21 +173,6 @@ export function DepositReservation({
         </p>
       )}
 
-      {/* THE REQUESTED FIRST PAYMENT (owner, 2026-09-19: "i do not see the
-          3350 downpayment"). From the accepted quote's schedule; it is the
-          minimum the form below accepts. */}
-      {owed && requestedFirstPaymentSentence ? (
-        <p className="rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink">
-          {requestedFirstPaymentSentence}
-        </p>
-      ) : null}
-      {owed && requestedTermsUnreadable ? (
-        <p role="status" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
-          We couldn&rsquo;t load the payment terms from your accepted quote, so the
-          first payment {vendorName} asked for isn&rsquo;t shown. Refresh to try again.
-        </p>
-      ) : null}
-
       {/* STEP 1 · PAY THEM — the supplier's own destinations, first in the
           reading order, only while a deposit is still owed. The disclosure
           rides inside VendorDirectPay (always-on line + the sheet's locked copy). */}
@@ -283,21 +250,13 @@ export function DepositReservation({
               id="deposit_php"
               name="deposit_php"
               type="number"
-              min={minimumPhp ?? 1}
+              min="1"
               step="0.01"
               required
               inputMode="decimal"
-              defaultValue={minimumPhp ?? undefined}
-              placeholder={minimumPhp ? undefined : 'e.g. 10000'}
-              aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
+              placeholder="e.g. 10000"
               className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
-            {minimumPhp ? (
-              <p id="deposit_php_min" className="text-[11px] text-ink/55">
-                At least ₱{minimumPhp.toLocaleString('en-PH', { maximumFractionDigits: 2 })} — the
-                first payment {vendorName} asked for. You may pay more.
-              </p>
-            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-2">

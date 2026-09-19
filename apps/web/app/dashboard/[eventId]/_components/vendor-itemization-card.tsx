@@ -79,11 +79,6 @@ import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_compo
 import { splitVendorLines } from '@/lib/agreed-total-and-its-changes';
 import { pesoLabel } from '@/lib/proposal-amendments';
 import {
-  lineItemsPanelLead,
-  pesoFromCentavos,
-  type QuoteLine,
-} from '@/lib/accepted-quote-terms';
-import {
   addLineItem,
   deleteLineItem,
   deletePayment,
@@ -117,14 +112,6 @@ export type VendorItemizationCardProps = {
    * host logs a generic payment, exactly as before.
    */
   installments?: PlanInstance[] | null;
-  /**
-   * The ACCEPTED quote's priced lines (`acceptedQuoteTerms(...).lines`). When
-   * present they lead the LINE ITEMS panel — read-only, the supplier's own
-   * figures — in place of the catalogue and the "hasn't shared pricing" empty
-   * state (`lineItemsPanelLead`). Display only: the money strip's totals are
-   * unchanged. null = not loaded / no accepted quote.
-   */
-  acceptedQuoteLines?: QuoteLine[] | null;
 };
 
 export function VendorItemizationCard({
@@ -133,7 +120,6 @@ export function VendorItemizationCard({
   variant = 'card',
   directPayMethods = [],
   installments = null,
-  acceptedQuoteLines = null,
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -239,7 +225,6 @@ export function VendorItemizationCard({
           vendorId={vendor.vendor_id}
           suggestTotalPhp={itemizedTotal}
           agreedBeforeChangesPhp={agreedBeforeChanges}
-          acceptedQuoteLines={acceptedQuoteLines}
         />
         <PaymentSection
           payments={payments}
@@ -546,9 +531,7 @@ function LineItemSection({
   vendorId,
   suggestTotalPhp,
   agreedBeforeChangesPhp,
-  acceptedQuoteLines = null,
 }: {
-  acceptedQuoteLines?: QuoteLine[] | null;
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
   lineItems: LineItemRow[];
@@ -559,15 +542,7 @@ function LineItemSection({
   /** The agreed price before any change — `agreedBeforeChanges`. */
   agreedBeforeChangesPhp: number;
 }) {
-  const lead = lineItemsPanelLead({
-    priceSource,
-    hasVendorControlled: vendorControlledItems.length > 0,
-    quoteLines: acceptedQuoteLines,
-  });
-  // The catalogue block keeps its old meaning ("vendor-controlled lines are on
-  // screen") for the manual-lines subheading below; with a quote leading, the
-  // quote's lines are the vendor-controlled lines on screen.
-  const hasVendorControlled = lead === 'catalogue' || lead === 'quote';
+  const hasVendorControlled = vendorControlledItems.length > 0;
   // ── A CHANGE IS SHOWN SEPARATELY (owner 2026-09-09) ──────────────────────
   // "Both, shown separately" — the agreed total updates AND the change stays
   // visible as its own line. A settled change-order delta shares this table
@@ -586,34 +561,7 @@ function LineItemSection({
         </h3>
       </header>
 
-      {lead === 'quote' && acceptedQuoteLines ? (
-        <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
-            From the quote you accepted
-          </p>
-          <ul className="space-y-1.5">
-            {acceptedQuoteLines.map((line, i) => (
-              <li
-                key={`${i}-${line.label}`}
-                className="flex items-center justify-between gap-2 rounded-md border border-terracotta/15 bg-terracotta/[0.04] px-3 py-2 text-sm"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-ink">{line.label}</p>
-                  {line.detail ? <p className="text-xs text-ink/55">{line.detail}</p> : null}
-                </div>
-                <span className="font-mono text-sm font-semibold text-ink">
-                  {pesoFromCentavos(line.amountCentavos)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-ink/55">
-            To change these, ask the supplier to send an updated quote.
-          </p>
-        </div>
-      ) : null}
-
-      {lead === 'catalogue' ? (
+      {hasVendorControlled ? (
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
             From the vendor&rsquo;s catalog
@@ -645,7 +593,7 @@ function LineItemSection({
         </div>
       ) : null}
 
-      {lead === 'pending' ? (
+      {priceSource === 'pending' && !hasVendorControlled ? (
         <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
           <p className="text-ink/75">
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear

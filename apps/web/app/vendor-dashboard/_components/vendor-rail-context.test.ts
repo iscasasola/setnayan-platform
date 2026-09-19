@@ -386,7 +386,7 @@ test('the shop content still stands on the warm ground, and not on the slide', (
   );
 });
 
-test('all seven cron-free sweeps still ride on this layout', () => {
+test('all eight cron-free sweeps still ride on this layout', () => {
   const src = code(read(LAYOUT));
   // There is NO scheduler behind these. Drop one in a rewrite and the vendor
   // ghosting nudge, the creator-offer refund or the booking-fee notice simply
@@ -433,7 +433,10 @@ test('all seven cron-free sweeps still ride on this layout', () => {
   }
   assert.equal(
     (src.match(/\bafter\(/g) ?? []).length,
-    7,
+    // 8 since 2026-09-18: S6's deposit-acknowledge catch-up (#5615) and S40's
+    // deletion-request nudge (#5688) each added a sweep and named it in the list
+    // above; neither bumped this count. Every sweep is still asserted BY NAME.
+    8,
     'the count of post-response jobs changed',
   );
 });

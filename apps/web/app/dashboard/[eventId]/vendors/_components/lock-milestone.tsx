@@ -114,12 +114,12 @@ export function LockConfirmModal({
           )}
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-ink">
-              {dateLabel ? 'This locks your wedding date.' : copy?.headline}
+              {dateLabel ? 'This locks your date.' : copy?.headline}
             </h3>
             {dateLabel ? (
               <p className="text-xs leading-snug text-ink/70">
                 Locking <strong>{vendorName}</strong> leaves only one of your
-                candidate dates open. Continuing will finally set your wedding
+                candidate dates open. Continuing will finally set your
                 date to <strong>{dateLabel}</strong>. You can still change
                 vendors, but the date becomes official.
               </p>
@@ -211,7 +211,7 @@ export function LockMilestoneToast({
             Congratulations! You have picked a {milestone.pickedLabel}!
           </p>
           {milestone.dateLocked ? (
-            <p className="text-[11px] text-ink/60">Your wedding date is now locked in. 🎉</p>
+            <p className="text-[11px] text-ink/60">Your date is now locked in. 🎉</p>
           ) : null}
           {milestone.finalizeReady ? (
             <div className="pt-1">

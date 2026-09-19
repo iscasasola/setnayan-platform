@@ -58,10 +58,12 @@ function Picture({ screen }: { screen: Ready }) {
           className="h-full w-full border-0"
         />
         {/* Owner ruling 2026-09-20: the mirror may run in the room only if it
-            SAYS it is behind. Always rendered with the mirror — never optional. */}
+            SAYS it is behind. Always rendered with the mirror — never optional.
+            BOTTOM-left: YouTube draws its own title bar across the top-left and
+            "Watch on YouTube" bottom-right (seen in the prod check, 2026-09-20). */}
         <p
           data-testid="mirror-delay-notice"
-          className="pointer-events-none absolute left-6 top-6 rounded-full bg-black/70 px-4 py-2 text-base font-medium text-[#F5EFE6]"
+          className="pointer-events-none absolute bottom-6 left-6 rounded-full bg-black/70 px-4 py-2 text-base font-medium text-[#F5EFE6]"
         >
           {picture.notice}
         </p>

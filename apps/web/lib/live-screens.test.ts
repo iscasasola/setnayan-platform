@@ -145,3 +145,13 @@ test('a device token is honoured only for the live row it was minted for', () =>
   assert.equal(liveScreenTokenMatchesRow(claim, { ...row, event_id: 'e2' }), false, 'another event');
   assert.equal(liveScreenTokenMatchesRow(claim, { ...row, id: 8 }), false, 'another screen');
 });
+
+test('the screen embed sets each player parameter once, whatever the event link already carries', () => {
+  const src = new URL(decideScreenPicture({ mode: 'mirror', embedUrl: `${EMBED}?rel=0` }).kind === 'mirror'
+    ? (decideScreenPicture({ mode: 'mirror', embedUrl: `${EMBED}?rel=0` }) as { embedUrl: string }).embedUrl
+    : '');
+  for (const k of ['autoplay', 'mute', 'controls', 'playsinline', 'rel']) {
+    assert.equal(src.searchParams.getAll(k).length, 1, `${k} appears exactly once`);
+  }
+  assert.equal(src.searchParams.get('mute'), '1');
+});

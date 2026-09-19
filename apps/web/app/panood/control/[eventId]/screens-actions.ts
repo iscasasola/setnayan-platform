@@ -41,7 +41,9 @@ import {
  * missing row is reported to the operator instead of a green banner.
  */
 
-const SCREENS = (eventId: string, qs: string) => `${liveStudioControlPath(eventId)}?${qs}#screens`;
+// `?sheet=screens`, not `#screens`: redirect() from a server action drops the hash,
+// which left the sheet shut and the new screen's code hidden (prod, 2026-09-20).
+const SCREENS = (eventId: string, qs: string) => `${liveStudioControlPath(eventId)}?${qs}&sheet=screens`;
 
 async function gate(formData: FormData): Promise<string> {
   const raw = formData.get('event_id');

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   DEFAULT_PRIVATE_VISIBILITY,
   parseVisibility,
@@ -910,6 +911,13 @@ async function resolveDeepSearchInputs(
     .select('business_name, website, location_city, services')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (vendorErr) {
+    // "Vendor not found." at the call site otherwise reads identically for a
+    // refused read and a deleted profile — keep the real reason in the logs.
+    logQueryError('app/admin/verify/actions.ts: resolveDeepSearchInputs vendor_profiles', vendorErr, {
+      vendor_profile_id: vendorProfileId,
+    });
+  }
   if (vendorErr || !vendorRow) return null;
 
   let socialUrl: string | null = null;

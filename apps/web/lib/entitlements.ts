@@ -106,7 +106,11 @@ export async function eventHasCompGrant(
     p_event_id: eventId,
     p_service_key: serviceKey,
   });
-  if (error) return false;
+  if (error) {
+    // Fails closed (no comp) — right for a gate — but leaves the reason.
+    console.error('[supabase-error] entitlements: event_has_comp_for_sku', error, { serviceKey });
+    return false;
+  }
   return data === true;
 }
 
@@ -177,7 +181,11 @@ export async function eventCompActiveSkus(
   const { data, error } = await supabase.rpc('event_comp_active_skus', {
     p_event_id: eventId,
   });
-  if (error || !Array.isArray(data)) return [];
+  if (error) {
+    console.error('[supabase-error] entitlements: event_comp_active_skus', error);
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
   return data.filter((s): s is string => typeof s === 'string');
 }
 
@@ -545,6 +553,12 @@ export async function fetchBundleComponents(
     .from('bundle_components')
     .select('bundle_sku_code, component_service_code');
 
+  if (error) {
+    console.error(
+      '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
+      error,
+    );
+  }
   // Pre-migration / drift / any error → const fallback. Never throw at a gate.
   if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
 

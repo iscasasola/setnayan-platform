@@ -36,6 +36,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SLUG_ROOT = join(HERE, '..', 'app', '[slug]');
@@ -49,13 +50,9 @@ const SLUG_ROOT = join(HERE, '..', 'app', '[slug]');
  */
 const DOORS = ['venue', 'find-seat', 'pabuya', 'hub', 'recap'];
 
-function strip(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-}
-
 function doorSource(door: string): string | null {
   const p = join(SLUG_ROOT, door, 'page.tsx');
-  return existsSync(p) ? strip(readFileSync(p, 'utf8')) : null;
+  return existsSync(p) ? stripComments(readFileSync(p, 'utf8')) : null;
 }
 
 test('every guest door asks who is looking before it renders', () => {

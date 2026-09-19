@@ -355,7 +355,9 @@ export async function acceptInquiry(formData: FormData) {
     //
     // We always route to unlock_vendor_event_free, the no-tier-gate variant of
     // unlock_vendor_event (migration 20270917330128) that drops exactly two
-    // blocks — the TIER_FREE_NO_INAPP raise (free-tier block) and the
+    // blocks (the gated original itself was DROPPED on 2026-09-18, migration
+    // 20271234094457 — with every vendor routed here it had no caller left)
+    // — the TIER_FREE_NO_INAPP raise (free-tier block) and the
     // VERIFIED_WEEKLY_LIMIT raise (10/rolling-week cap) — while preserving every
     // other invariant: the answering-member ownership check (FORBIDDEN), the
     // idempotent per-(vendor,event) unlock, founder-seat comp, and the 0-token

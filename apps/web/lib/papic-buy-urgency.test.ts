@@ -110,8 +110,8 @@ test('the panel renders the wait, and takes it from the shared resolver', () => 
 });
 
 test('the "this camera only" copy admits the fallback to the shared pool', () => {
-  // papic_reserve_event_points_for_seat returns -1 only WHILE dedicated > 0, so
-  // a bought balance is spent first and the camera then rejoins the pool. A
+  // papic_reserve_capture_split spends a dedicated balance first and the pool
+  // only for the remainder, so the camera then rejoins the pool. A
   // guest who is not told that will read "nobody else can spend them" as a
   // promise that their camera is private forever.
   const shell = read('app/papic/_components/papic-buy-shell.tsx');

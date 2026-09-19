@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
+import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
+import { boothStudioEnabled } from '@/lib/booth-studio-flag';
 
 /**
  * Vendor cocktail-area write actions — thin wrappers over the SECURITY DEFINER
@@ -37,6 +39,8 @@ function rpcError(message: string | undefined): string {
       return 'Booth designs lock 24 hours before the event, so nothing changes under the couple on the day.';
     case 'poster_ref_too_long':
       return 'That upload reference is too long. Please re-upload the poster.';
+    case 'poster_content_too_large':
+      return 'That poster text is too long. Shorten it and try again.';
     default:
       return 'That change didn’t save. Please try again.';
   }
@@ -191,6 +195,39 @@ export async function setBoothPoster(
   const { error } = await supabase.rpc('vendor_set_booth_poster', {
     p_event_id: eventId,
     p_poster_ref: posterRef,
+  });
+  return error ? { ok: false, error: rpcError(error.message) } : { ok: true };
+}
+
+/**
+ * Set (or clear, with null) the vendor's Booth Studio poster for THIS event —
+ * the structured headline / offer / price / accent that renders on their 3D
+ * booth in the couple's own palette. This is the WRITER the Booth Studio read
+ * path (public_venue_scene → resolveBoothStudioContent → BoothMesh) had been
+ * waiting on since 20270928120000: vendor_set_booth_studio_content existed and
+ * nothing called it, so no supplier could ever put words on a booth.
+ *
+ * Content is sanitized with the SAME function the renderer uses before it is
+ * stored, so what a supplier saves is exactly what a guest can be shown — a
+ * field the renderer would drop is never persisted. Content that sanitizes to
+ * nothing (all three text lines blank) is a CLEAR, not an empty object.
+ *
+ * Dark behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED, same as the renderer: with the
+ * flag off this refuses rather than writing content nothing will draw. The RPC
+ * carries the real gate (is a vendor AND is BOOKED on this event).
+ */
+export async function setBoothStudioContent(
+  eventId: string,
+  content: BoothStudioContent | null,
+): Promise<Result> {
+  if (!boothStudioEnabled()) {
+    return { ok: false, error: 'Booth Studio is not switched on yet.' };
+  }
+  const clean = content ? sanitizeBoothStudioContent(content) : null;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('vendor_set_booth_studio_content', {
+    p_event_id: eventId,
+    p_content: clean,
   });
   return error ? { ok: false, error: rpcError(error.message) } : { ok: true };
 }

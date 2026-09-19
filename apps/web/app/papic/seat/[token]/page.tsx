@@ -138,10 +138,10 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   //
   // The old note warned that granting a pool seat dedicated points "silently
   // moves it off the pool the host is watching". True, and it is the intended
-  // behaviour rather than a hazard: `papic_reserve_event_points_for_seat`
-  // returns -1 only WHILE `papic_seat_dedicated_points(seat) > 0`, so a camera
-  // spends what its holder paid for FIRST and falls back to the shared pool the
-  // moment those run out. The host is never billed for shots a guest bought,
+  // behaviour rather than a hazard: `papic_reserve_capture_split` spends
+  // `papic_seat_dedicated_points(seat)` FIRST and takes only the remainder from
+  // the shared pool, so a camera spends what its holder paid for first and falls
+  // back to the pool the moment those run out. The host is never billed for shots a guest bought,
   // and the guest is never stranded once they are spent.
   //
   // Entitlement is still decided in app/papic/buy/actions.ts from the

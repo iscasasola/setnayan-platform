@@ -191,47 +191,22 @@ test('THERE IS ONE WAY IN — a legacy per-event row entitles nothing', async ()
   // window. **A read arm whose only writer is gone can never be true**; keeping
   // it made the gate say there were two ways to be entitled when there is one.
   //
-  // The test stays, inverted, because it is the guard that the rule is EXACT: if
-  // a second door is ever reintroduced, this goes red.
-  const shop = await newVendor('legacy', 'pro');
-  const paidEvent = await newBookedEvent('legacy-paid', shop.vendorProfileId);
-  await db.query(
-    `INSERT INTO public.papic_photo_challenge_sponsorships (event_id, vendor_profile_id)
-     VALUES ($1, $2)`,
-    [paidEvent, shop.vendorProfileId],
+  // ⚠ 2026-09-18 (S37): the retired table itself was DROPPED
+  // (20271234083820), so a per-event row can no longer even be written. The
+  // guard that the rule is EXACT is now that the second door does not exist.
+  const t = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+      WHERE c.relname = 'papic_photo_challenge_sponsorships'`,
   );
-  assert.match(
-    String(await tryAuthor(shop.userId, paidEvent)),
-    /PAPIC_CHALLENGE_NOT_SUBSCRIBED/,
-    'a per-event row is not a way in — the subscription is the only one',
+  assert.equal(t.rows[0]!.n, 0, 'the retired per-event sponsorship table is back — a second way in');
+  // …and nothing in the gate still names it.
+  const fn = await db.query<{ src: string }>(
+    `SELECT string_agg(prosrc, ' ') AS src FROM pg_proc
+      WHERE proname = 'vendor_papic_challenge_entitled'`,
   );
-});
-
-test('no ORDINARY signed-in caller can mint a legacy sponsorship', async () => {
-  // The reason the arm above is safe to remove, asserted rather than argued.
-  //
-  // ⚠ MY FIRST VERSION OF THIS ASSERTION WAS WRONG AND THE SUITE SAID SO: it
-  // demanded ZERO write policies, and the table carries a `FOR ALL TO
-  // authenticated` policy gated on `is_admin()`. That is ordinary and correct —
-  // most tables have one. The claim worth pinning is narrower and is the real
-  // one: no policy lets a VENDOR or a stranger write a row, so nobody can hand
-  // themselves the retired second door through PostgREST.
-  const r = await db.query<{ policyname: string; qual: string | null; wc: string | null }>(
-    `SELECT policyname, qual, with_check AS wc
-       FROM pg_policies
-      WHERE schemaname = 'public'
-        AND tablename = 'papic_photo_challenge_sponsorships'
-        AND cmd IN ('INSERT', 'UPDATE', 'DELETE', 'ALL')`,
-  );
-  assert.ok(r.rows.length > 0, 'the write policies must be enumerable, or this proves nothing');
-  for (const row of r.rows) {
-    const text = `${row.qual ?? ''} ${row.wc ?? ''}`;
-    assert.match(
-      text,
-      /is_admin/,
-      `${row.policyname} can write this retired table without being an admin`,
-    );
-  }
+  assert.ok(fn.rows[0]!.src && fn.rows[0]!.src.length > 40, 'the entitlement gate was not found — update this guard');
+  assert.doesNotMatch(fn.rows[0]!.src, /papic_photo_challenge_sponsorships/);
 });
 
 test('BOOKED is still checked FIRST — a subscription is not a way in', async () => {

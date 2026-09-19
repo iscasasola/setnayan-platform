@@ -83,6 +83,7 @@ export async function accountSeedsForEvent(
       .eq('event_id', eventId)
       .not('user_id', 'is', null)
       .not('guest_id', 'is', null);
+    if (memErr) console.error('[supabase-error] lib/account-face-profile.ts · from:event_members.select', memErr);
     if (memErr || !members || members.length === 0) return [];
 
     const guestByUser = new Map<string, string>();
@@ -101,6 +102,7 @@ export async function accountSeedsForEvent(
       .is('revoked_at', null)
       .not('consent_granted_at', 'is', null)
       .not('face_vector', 'is', null);
+    if (profErr) console.error('[supabase-error] lib/account-face-profile.ts · from:user_face_profiles.select', profErr);
     if (profErr || !profiles || profiles.length === 0) return [];
 
     const seeds: AccountFaceSeed[] = [];

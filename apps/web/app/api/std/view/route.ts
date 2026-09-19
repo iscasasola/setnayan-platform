@@ -122,6 +122,7 @@ export async function POST(req: Request) {
     p_event_id: event.event_id,
     p_date: today,
   });
+  if (error) console.error('[supabase-error] app/api/std/view/route.ts · rpc:record_std_view', error);
   if (error) return ok; // counting is best-effort; never block the page
 
   // Mark this device as counted for this event today (so refreshes are no-ops).

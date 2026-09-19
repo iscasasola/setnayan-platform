@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a83cb6b4a5",
+  "generatedFromRef": "88c4e130f",
   "routeCount": 428,
   "destinations": 918,
-  "actions": 637,
-  "blocks": 4473,
+  "actions": 639,
+  "blocks": 4475,
   "routes": {
     "/": {
       "files": [
@@ -2969,6 +2969,7 @@
         "formAction",
         "ladderFormAction",
         "reactivateFormAction",
+        "recomputeFunnelBands",
         "recomputePriceBands",
         "removeFormAction",
         "retireFormAction",
@@ -7659,7 +7660,6 @@
         "BuildFallbackResult",
         "BuildLocked",
         "BuildPickResult",
-        "BuildStateMap",
         "CancelBookingAsHostResult",
         "CardDateBlock",
         "CardStanding",
@@ -7992,6 +7992,7 @@
         "moveDownAction",
         "moveUpAction",
         "saveAction",
+        "setLaunchPhase",
         "setModeAction",
         "setOpenBrowse",
         "toggleAction",
@@ -8011,6 +8012,7 @@
         "HeroPhotoPanel",
         "HexField",
         "Icon",
+        "LaunchPhasePanel",
         "LaunchStdButton",
         "Link",
         "OpenBrowsePanel",
@@ -8793,6 +8795,7 @@
       ],
       "blocks": [
         "Banner",
+        "BroadcastReadiness",
         "BroadcastWindowStrip",
         "CachedRead",
         "CameraFeedsContext.Provider",
@@ -9798,6 +9801,7 @@
       "files": [
         "vendor-dashboard/bookings/_components/vendor-prep-add.tsx",
         "vendor-dashboard/bookings/actions.ts",
+        "vendor-dashboard/bookings/booking-list-status.ts",
         "vendor-dashboard/bookings/loading.tsx",
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
@@ -9912,6 +9916,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
@@ -9975,6 +9980,7 @@
         "BoothEventBuyForm",
         "BoothEventSection",
         "BoothPosterCard",
+        "BoothStudioCard",
         "Card",
         "CardTabs",
         "ClientNotes",
@@ -10841,6 +10847,7 @@
         "vendor-dashboard/performance/_components/momentum-window-toggle.tsx",
         "vendor-dashboard/performance/_components/perf-links.ts",
         "vendor-dashboard/performance/_components/performance-controls.tsx",
+        "vendor-dashboard/performance/_components/price-position-card.tsx",
         "vendor-dashboard/performance/_components/reanimate.tsx",
         "vendor-dashboard/performance/_components/reply-claim-card.tsx",
         "vendor-dashboard/performance/_components/reputation-card.tsx",
@@ -10856,6 +10863,7 @@
       "actions": [],
       "blocks": [
         "AttributionBar",
+        "BandRail",
         "BookingsBars",
         "CapacityCard",
         "ChartCaption",
@@ -10877,6 +10885,9 @@
         "MomentumWindowToggle",
         "PerformanceControls",
         "PillarBar",
+        "PositionHeadline",
+        "PricePositionCard",
+        "PricePositionResult",
         "Reanimate",
         "ReanimateCtx.Provider",
         "ReplyClaimCard",

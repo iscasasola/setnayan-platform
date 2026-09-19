@@ -74,6 +74,7 @@ export const getEventTypeVocab = cache(async (): Promise<EventTypeRow[]> => {
       )
       .eq('status', 'active')
       .order('sort_order', { ascending: true });
+    if (error) console.error('[supabase-error] lib/event-types-db.ts · from:event_type_vocab.select', error);
     if (error || !data || data.length === 0) return [...EVENT_TYPES_FALLBACK];
     return (data as VocabRow[]).map(toRow);
   } catch {

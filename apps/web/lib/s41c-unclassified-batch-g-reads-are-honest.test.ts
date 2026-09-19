@@ -201,6 +201,7 @@ test('7 · secrets/reencrypt.ts logs an update failure without ever passing ciph
   const m = src.match(/console\.error\(\s*`\[supabase-error\][^`]*`,\s*\{([^}]*)\}/);
   assert.ok(m, 'expected a console.error call with a structured context object');
   const contextArgs = m![1];
+  assert.ok(contextArgs, 'regex must capture the context object arguments');
   // Only the Postgres error shape + which column — never the resealed value.
   assert.match(contextArgs, /updErr\.code/);
   assert.match(contextArgs, /updErr\.message/);

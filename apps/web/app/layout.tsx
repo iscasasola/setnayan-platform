@@ -695,8 +695,9 @@ export default async function RootLayout({
         <NativeBridge />
         {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
             it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
-            itself only on the two Live Studio surfaces where it would be
-            broadcast or cover the on-air controls — see
+            itself only on the Live Studio surfaces where it would be
+            broadcast, cover the on-air controls, or sit on a venue screen a
+            room is watching (/live/screen) — see
             _components/capture-safe-routes.ts. Every other route, including
             '/', still gets the ask. (The old note here claimed a '/' self-hide
             for a bespoke HomeReskin pill; no such pill exists — the only consent

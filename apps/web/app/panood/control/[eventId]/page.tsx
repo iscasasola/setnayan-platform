@@ -116,6 +116,8 @@ import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import { ProgramBridgeHost } from './_components/program-bridge';
 import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
+import { VenueScreensSection } from './_components/venue-screens-section';
+import { fetchPanoodScreens, PANOOD_SCREEN_PAIR_PATH, type PanoodScreenRow } from '@/lib/panood-screens';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
 import { IngestHealthStrip } from './_components/ingest-health-strip';
@@ -320,6 +322,12 @@ type Props = {
     highlight_error?: string;
     camera_link?: string;
     camera_error?: string;
+    screen_added?: string;
+    screen_mode?: string;
+    screen_renamed?: string;
+    screen_code?: string;
+    screen_removed?: string;
+    screen_error?: string;
   }>;
 };
 
@@ -350,6 +358,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     highlight_error,
     camera_link,
     camera_error,
+    screen_added,
+    screen_mode,
+    screen_renamed,
+    screen_code,
+    screen_removed,
+    screen_error,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -436,6 +450,25 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const cameras = await fetchChannelCameras(admin, eventId, zoneBase, appUrl).catch(
     () => new Map<number, ChannelCameraView>(),
   );
+
+  // ── DAY-12 · VENUE SCREENS. Service-role for the same reason as the camera seats
+  // above: `panood_screens` RLS is couple + coordinator only, and a moderator is a
+  // legitimate host here. `null` = the read was refused, which the section says out
+  // loud rather than rendering as "No screens yet".
+  const screens: PanoodScreenRow[] | null = await fetchPanoodScreens(admin, eventId).catch((err) => {
+    console.error('[supabase-error] panood/control/page.tsx · screens read', err);
+    return null;
+  });
+  const screensBanner =
+    screen_added ? 'Screen added. Type its code on the TV to connect it.'
+    : screen_mode ? 'Screen updated. It changes within a few seconds.'
+    : screen_renamed ? 'Screen renamed.'
+    : screen_code ? 'New code issued. The old device is disconnected.'
+    : screen_removed ? 'Screen removed. It is disconnected within a few seconds.'
+    : screen_error === 'cap' ? 'That is the most screens one event can hold.'
+    : screen_error === 'missing' ? 'That screen is no longer connected to this event. Reload to see the current list.'
+    : screen_error ? 'Couldn’t save that — please try again.'
+    : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood § 6) on the surface that SURVIVES the flag
   // flip. The legacy /studio/panood/setup page carries the same card; which one a
@@ -2329,6 +2362,17 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           error={Boolean(facebook_url_error)}
         />
       </section>
+
+      {/* DAY-12 · VENUE SCREENS. After the watch link on purpose: a mirroring screen
+          plays exactly that link, so the thing it depends on sits directly above it. */}
+      <VenueScreensSection
+        eventId={eventId}
+        screens={screens}
+        hasWatchUrl={!!youtubeWatchUrl}
+        pairUrlBase={`${appUrl}${PANOOD_SCREEN_PAIR_PATH}`}
+        nowMs={Date.now()}
+        banner={screensBanner}
+      />
 
       {/* Going live note (owner-OAuth gated). */}
       <section aria-labelledby="golive-note-heading" className="sn-tile space-y-3 p-5 sm:p-6">

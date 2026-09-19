@@ -34,6 +34,10 @@ import {
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { quoteCardState } from '@/lib/quote-card-state';
+import type { CoupleLockTarget } from '@/lib/lock-door';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
+import { LockAnswerForms } from './lock-answer-forms';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -168,15 +172,16 @@ type Props = {
    */
   reviseHref?: string;
   /**
-   * S5 · Where "Ask them to lock" goes on the couple's live ACCEPTED quote —
-   * the supplier's workspace page, whose lock gate chain (date, impact,
-   * downpayment, slots) is the ONE way a couple books. The thread does not
-   * book a quote itself; duplicating that chain here is the second-mechanism
-   * mistake RULE 0 warns about. Resolved on the server from `event_vendors`
-   * (couple RLS), the same way `/proposals/[publicId]` resolves it. Omit it
-   * and the card shows the accepted note without a button.
+   * S5 · The couple's live ACCEPTED quote LOCKS IN PLACE (owner, live,
+   * 2026-09-19: "the lock attempt was from the chat. it should also work
+   * there."). This is the pick the bench's own `AccordionLockButton` needs —
+   * the card mounts THAT component, whose `finalizeVendor` gate chain (date,
+   * impact, reservation terms, downpayment, slots, conflict) is the ONE way a
+   * couple books. The thread does not grow a lock action of its own. Resolved
+   * on the server from `event_vendors` (couple RLS). Omit it and the card shows
+   * the accepted note without a button.
    */
-  lockHref?: string | null;
+  lockTarget?: CoupleLockTarget | null;
   /**
    * Inside the chat box (One Chat Box, 2026-09-18) the frame draws the border,
    * so the three scrollers drop their own card chrome — a box in a box is the
@@ -206,7 +211,7 @@ export function ChatMessageStream({
   supplierReplyActions,
   counterHref,
   reviseHref,
-  lockHref = null,
+  lockTarget = null,
   flush = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -1063,18 +1068,61 @@ export function ChatMessageStream({
                           {quoteState.primary.label}
                         </Link>
                         {/*
-                          S5 · the couple's ONE next step on an accepted quote:
-                          ask the supplier to lock, on the workspace page that
-                          owns the lock gate. In shipped code the COUPLE asks
-                          and the SUPPLIER agrees; the thread never books.
+                          S5 · the couple's ONE next step on an accepted quote,
+                          performed HERE (owner 2026-09-19). The same component
+                          and server action as the bench, so the confirm step,
+                          the lock-impact text and every error arrive intact.
+                          On success the button reports what happened and
+                          refreshes the page, and the rule above re-reads the
+                          handshake: the card's note turns to "you have asked
+                          them to lock" and this button stops being offered. On
+                          failure the button's own role="alert" line renders.
                         */}
-                        {quoteState.offerLock && lockHref ? (
-                          <Link
-                            href={lockHref}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-                          >
-                            🔒 Ask {counterpartyLabel} to lock
-                          </Link>
+                        {quoteState.offerLock && lockTarget ? (
+                          lockTarget.groupId ? (
+                            <AccordionLockButton
+                              eventId={lockTarget.eventId}
+                              groupId={lockTarget.groupId}
+                              groupLabel={lockTarget.groupLabel}
+                              vendorId={lockTarget.vendorId}
+                              vendorName={counterpartyLabel}
+                              label={
+                                isLockHandshakeEnabled()
+                                  ? `🔒 Ask ${counterpartyLabel} to lock`
+                                  : `🔒 Lock ${counterpartyLabel}`
+                              }
+                              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Locking…'}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              wrapperClassName="flex w-full flex-col items-start"
+                              source="chat_quote_card"
+                            />
+                          ) : (
+                            <Link
+                              href={lockTarget.benchHref}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                            >
+                              🔒 Lock on your Vendors page
+                            </Link>
+                          )
+                        ) : null}
+                        {/*
+                          THE OTHER END OF THE SAME CONNECTION (owner, live as
+                          the supplier, 2026-09-19: "there is no agree and
+                          confirm booking"). The couple's ask above has exactly
+                          one answer: the supplier's Agree / Turn it down, the
+                          SAME two actions the Overview posts, handed in by the
+                          supplier's page. The couple's page never passes them.
+                        */}
+                        {quoteState.offerLockAnswer &&
+                        supplierReplyActions?.agreeLock &&
+                        supplierReplyActions?.declineLock &&
+                        lockHandshake?.eventVendorId ? (
+                          <LockAnswerForms
+                            eventVendorId={lockHandshake.eventVendorId}
+                            returnTo={`/vendor-dashboard/messages/${threadId}`}
+                            agreeLock={supplierReplyActions.agreeLock}
+                            declineLock={supplierReplyActions.declineLock}
+                          />
                         ) : null}
                         {/*
                           S5 · the supplier revises by sending a NEW quote that

@@ -8,6 +8,7 @@ import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effect
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
+import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -978,7 +979,12 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // Where the answer lands: the Overview, as always — or the supplier's own
+  // thread when the answer came from the accepted quote card there. Validated
+  // to that one shape (`lockAnswerReturnTo`); the thread page reads the status.
+  const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
   const flag = error ? 'error' : (env.status ?? 'ok');
   // `competing` rides along because the refusal it belongs to — "answer the
   // other couples waiting on you for that date first" — is only actionable if
@@ -988,7 +994,7 @@ export async function vendorAgreeToLock(formData: FormData) {
     env.status === 'resolve_others_first' && typeof env.competing === 'number'
       ? `&competing=${env.competing}`
       : '';
-  redirect(`/vendor-dashboard?lock_agree=${flag}${competing}`);
+  redirect(`${back}?lock_agree=${flag}${competing}`);
 }
 
 /**
@@ -1053,9 +1059,11 @@ export async function vendorDeclineLock(formData: FormData) {
     }
   }
 
+  const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
   const flag = error ? 'error' : (env.status ?? 'ok');
-  redirect(`/vendor-dashboard?lock_decline=${flag}`);
+  redirect(`${back}?lock_decline=${flag}`);
 }
 
 /**

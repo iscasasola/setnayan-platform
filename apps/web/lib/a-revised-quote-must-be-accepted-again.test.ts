@@ -96,6 +96,7 @@ test('a superseded quote — or any earlier quote — is history: view only, no 
     assert.equal(s.offerCounter, false, `${label}: offers Counter-offer`);
     assert.equal(s.offerRevise, false, `${label}: offers Update this quote`);
     assert.equal(s.offerLock, false, `${label}: offers Lock`);
+    assert.equal(s.offerLockAnswer, false, `${label}: offers Agree/Decline on history`);
     checked += 1;
   }
   assert.ok(checked >= 100, `checked ${checked} history combinations`);
@@ -122,6 +123,8 @@ test('the live pending quote: the couple reviews & accepts or counters; the supp
       assert.equal(vendor.offerRevise, true, `${status}/${handshake}: supplier cannot update their own live quote`);
       assert.equal(vendor.offerCounter, false);
       assert.equal(vendor.offerLock, false);
+      assert.equal(vendor.offerLockAnswer, false, 'a pending quote offers the supplier Agree');
+      assert.equal(couple.offerLockAnswer, false);
     }
   }
 });
@@ -134,6 +137,10 @@ test('the live accepted quote: the couple is pointed at Lock only when no lock i
     // Lock is offered on exactly one known state: 'none'. Unknown stays quiet.
     assert.equal(couple.offerLock, handshake === 'none', `couple/accepted/${handshake}: offerLock`);
     assert.equal(vendor.offerLock, false, `vendor/accepted/${handshake}: a supplier is offered Lock`);
+    // 2026-09-19 · BOTH ENDS OF ONE CONNECTION. The couple's ask is answered
+    // only by the supplier, only while it is open; unknown stays quiet.
+    assert.equal(vendor.offerLockAnswer, handshake === 'requested', `vendor/accepted/${handshake}: offerLockAnswer`);
+    assert.equal(couple.offerLockAnswer, false, `couple/accepted/${handshake}: the couple is offered the supplier's answer`);
     // Update is withdrawn the moment the couple has asked to lock, or it is booked.
     assert.equal(vendor.offerRevise, !asked.has(handshake), `vendor/accepted/${handshake}: offerRevise`);
     assert.equal(couple.offerRevise, false);
@@ -226,9 +233,10 @@ test('the card draws its label from the rule — the literal "Review & accept" i
   assert.ok(branch.length > 1000, `proposal branch window is ${branch.length} chars — slid?`);
   assert.equal(count(branch, /quoteState\.offerCounter \?/g), 1, 'Counter-offer is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerRevise && reviseHref \?/g), 1, 'Update this quote is not gated on the rule');
-  assert.equal(count(branch, /quoteState\.offerLock && lockHref \?/g), 1, 'Lock is not gated on the rule');
+  assert.equal(count(branch, /quoteState\.offerLock && lockTarget \?/g), 1, 'Lock is not gated on the rule');
+  assert.equal(count(branch, /quoteState\.offerLockAnswer &&/g), 1, 'the supplier’s answer is not gated on the rule');
   assert.equal(count(branch, /Update this quote/g), 1);
-  assert.equal(count(branch, /to lock/g), 1, 'the couple’s lock pointer must render once');
+  assert.equal(count(branch, /to lock`/g), 1, 'the couple’s lock label must render once');
   assert.match(branch, /handshake: lockHandshake\?\.state \?\? null/, 'the rule is not told the handshake');
   assert.match(branch, /isLatest: isLatestProposal/, 'the rule is not told which card is the live one');
   // And the old cards repaint: every quote id is refetched on every message change.
@@ -247,21 +255,22 @@ test('the supplier’s page sends the revise destination, opens the panel for it
   assert.equal(count(read(COUPLE), /reviseHref/g), 0, 'the couple page passes reviseHref');
 });
 
-test('the couple’s page resolves the Lock destination from event_vendors and passes it', () => {
+test('the couple’s page resolves the Lock target from event_vendors and passes it', () => {
   const c = read(COUPLE);
-  assert.equal(count(c, /lockHref=\{quoteLockHref\}/g), 1);
+  assert.equal(count(c, /lockTarget=\{quoteLockTarget\}/g), 1);
   assert.match(c, /eq\('marketplace_vendor_id', thread\.vendor_profile_id\)/, 'resolved by a guessed key');
-  /* ✏️ EVOLVED 2026-09-19 (AREA-CHAT). This asserted "the workspace route" —
-     a page with no Lock control, which #5614 then made redirect back to this
-     very thread. The lock door is now the shared rule (lib/lock-door.ts): the
-     bench, on the pick's category tile. The workspace route survives here
-     only as the ⋮ menu's base, every use of it carrying a ?tab=. */
-  assert.match(c, /quoteLockHref = coupleLockDoorHref\(eventId,/, 'the lock door is not the shared rule');
-  assert.doesNotMatch(c, /quoteLockHref = `[^`]*\/workspace`/, 'the lock link is the workspace again');
-  // The thread NEVER books a quote itself: no lockDeal form is mounted on the card.
+  /* ✏️ EVOLVED 2026-09-19 (twice). First this asserted the workspace route (no
+     Lock there; after #5614 a loop), then the bench link (#5677). The owner:
+     "the lock attempt was from the chat. it should also work there." The card
+     now MOUNTS the bench's own lock, so the page hands it a target, built by
+     the shared rule in lib/lock-door.ts. */
+  assert.match(c, /quoteLockTarget = coupleLockTarget\(/, 'the lock target is not the shared rule');
+  // The thread NEVER books a quote through a lock of its own: no lockDeal form
+  // on the card, and the one lock it does mount is the bench's.
   const s = read(STREAM);
   const branch = s.slice(s.indexOf('if (m.proposal_id) {'), s.indexOf('if (negotiationOn && m.appointment_id)'));
   assert.equal(count(branch, /action=\{lockDeal\}/g), 0, 'the quote card mounts a Lock form — a second lock mechanism');
+  assert.equal(count(branch, /<AccordionLockButton\b/g), 1, 'the quote card does not mount the bench’s lock exactly once');
 });
 
 test('the builder opens expanded and seeded when given a revision, and says what sending does', () => {

@@ -10,6 +10,7 @@ import type {
   CoordinatorBroadcastItem,
 } from '@/lib/coordinator-broadcasts';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Coordinator P3 — server half of lib/coordinator-broadcasts.ts (which stays
@@ -30,15 +31,23 @@ export async function isCoordinatorP3Enabled(): Promise<boolean> {
 }
 
 /**
- * Latest broadcasts for the day-of card, newest first. Best-effort: any error
- * (including "relation does not exist" before migration 20270825364600 is
- * pushed) returns [] — the card just shows its "No broadcast yet" state.
+ * The broadcast read was REFUSED — distinct from `[]` so a card never says
+ * "No broadcast yet" over a read that was never actually answered (S41c,
+ * reads-are-honest: `coordinator-broadcast-card.tsx` used to render the exact
+ * same "No broadcast yet" copy for both).
+ */
+export const BROADCASTS_UNREADABLE = 'unreadable' as const;
+
+/**
+ * Latest broadcasts for the day-of card, newest first. Best-effort: a missing
+ * relation (before migration 20270825364600 is pushed) or any other read
+ * error returns `BROADCASTS_UNREADABLE`, kept distinct from a genuine `[]`.
  */
 export async function fetchLatestBroadcasts(
   supabase: SupabaseClient,
   eventId: string,
   limit = 3,
-): Promise<CoordinatorBroadcastItem[]> {
+): Promise<CoordinatorBroadcastItem[] | typeof BROADCASTS_UNREADABLE> {
   try {
     const { data, error } = await supabase
       .from('coordinator_broadcasts')
@@ -46,7 +55,13 @@ export async function fetchLatestBroadcasts(
       .eq('event_id', eventId)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error || !data) return [];
+    if (error) {
+      logQueryError('lib/coordinator-broadcasts-server.ts: fetchLatestBroadcasts', error, {
+        event_id: eventId,
+      });
+      return BROADCASTS_UNREADABLE;
+    }
+    if (!data) return [];
     return (
       data as Array<{
         broadcast_id: string;
@@ -60,8 +75,11 @@ export async function fetchLatestBroadcasts(
       senderRole: (row.sender_role === 'couple' ? 'couple' : 'coordinator') as BroadcastSenderRole,
       createdAt: row.created_at,
     }));
-  } catch {
-    return [];
+  } catch (err) {
+    logQueryError('lib/coordinator-broadcasts-server.ts: fetchLatestBroadcasts threw', err, {
+      event_id: eventId,
+    });
+    return BROADCASTS_UNREADABLE;
   }
 }
 

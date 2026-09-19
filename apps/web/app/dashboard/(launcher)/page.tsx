@@ -67,7 +67,6 @@ import { getAdminQueueDigest, ADMIN_QUEUE_META } from '@/lib/admin/queue-counts'
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { EventMonogram } from '@/app/_components/event-monogram';
-import { ShopLogo } from './_components/shop-logo';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
 import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';

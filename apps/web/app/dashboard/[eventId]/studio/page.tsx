@@ -40,10 +40,6 @@ import { redirect } from 'next/navigation';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-// The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
-// type that the catalog + Services tab consume, so it is intentionally kept.
-export type { PosterStyle } from './_components/service-poster';
-
 export const metadata = { title: 'Studio' };
 
 // Cookie-scoped auth already makes this render dynamic; the explicit flag keeps

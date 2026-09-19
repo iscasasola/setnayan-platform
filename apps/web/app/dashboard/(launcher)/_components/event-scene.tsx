@@ -36,7 +36,7 @@ import { eventCardTreatment } from '@/lib/event-card-art';
  *
  * The type gradient is painted UNDER everything rather than instead of it, so
  * a 404 (`onError`) reveals an on-brand tile with no layout shift and no
- * flash — the same client-side fallback idiom as `event-type-carousel.tsx`,
+ * flash — the same client-side fallback idiom as `event-type-photo-picker.tsx`,
  * which is why this is a client island: `onError` has no server equivalent.
  *
  * Purely decorative (`aria-hidden`): every fact the band carries — type badge,

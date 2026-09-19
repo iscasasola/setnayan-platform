@@ -47,8 +47,11 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // type-only below) because the `tabs` const at the catalog-mode return path
 // still consumes that shape verbatim — IconTileFolderStrip accepts the same
 // structural type so the const passes through unchanged.
-import type { FolderTab } from './_components/mega-column-tabs';
-import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
+// mega-column-tabs.tsx (the retired FolderTabs component itself) was deleted
+// S40 (0 runtime importers, confirmed dead); IconTileFolderStrip.tsx defines
+// its own `FolderTab` type (structurally identical, per the comment above),
+// so the type import now points there instead.
+import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';

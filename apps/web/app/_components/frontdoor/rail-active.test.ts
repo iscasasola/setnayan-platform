@@ -504,9 +504,9 @@ test('mounting the rail did not strand the doors the surfaces already had', () =
   /*
     ⚠ THE WORDMARK CHECK MOVED TO THE SHELL ON 2026-08-14 — it is no longer
     drawn by this layout. That is not the door being dropped: the shared bar
-    draws one wordmark for all five signed-in trees and points it at
-    `/dashboard` inside the app, which is the same destination this layout's
-    own `<Wordmark />` had. Asserting it HERE after the move would demand a
+    draws one wordmark for all five signed-in trees. (It pointed at
+    `/dashboard` from 2026-08-14 until 2026-09-19, when the owner's 08-13 lock
+    — the wordmark is the way OUT, to `/` — was restored.) Asserting it HERE after the move would demand a
     SECOND wordmark in a second bar — the very thing the owner reported.
 
     🔑 SO THE ASSERTION FOLLOWS THE DOOR RATHER THAN THE FILE. It is checked
@@ -517,8 +517,9 @@ test('mounting the rail did not strand the doors the surfaces already had', () =
   */
   assert.ok(
     /<Link href=\{homeHref\} className="fd-wordmark fd-wordmark-app">/.test(SHELL) &&
-      /const homeHref = variant === 'app' \? '\/dashboard' : '\/'/.test(SHELL),
-    'the wordmark home link is gone from the shared bar — inside the app it ' +
-      'is the only one-press home, and no spoke draws its own any more',
+      /const homeHref = '\/';/.test(SHELL),
+    'the wordmark is gone from the shared bar, or no longer goes to the front ' +
+      'door (owner 2026-08-13: "The WORDMARK is the way out of the app, still ' +
+      'signed in."). The one-press way home is pinned in seam-invariants.test.ts.',
   );
 });

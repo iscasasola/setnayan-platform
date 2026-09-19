@@ -85,8 +85,10 @@
  * mask-image instead of inlining it, it should — an image context has no
  * script execution and no external fetches at all, so it does not depend on
  * this list being complete. That is already the house pattern
- * (BespokeMonogramMark, BespokeMonogramMotion, EventMonogram,
- * GoldMonogramReveal). This gate exists for the surfaces that genuinely need
+ * (BespokeMonogramMark, EventMonogram, GoldMonogramReveal — BespokeMonogramMotion
+ * was deleted S40, 0 runtime importers: the 2026-06-23 reveal unification chose
+ * StudioRevealPlayer for bespoke/studio marks, not monogram_motion_key). This
+ * gate exists for the surfaces that genuinely need
  * the live DOM (stroke-tracing reveals, PDF embedding) and as a second layer
  * under the ones that don't.
  */

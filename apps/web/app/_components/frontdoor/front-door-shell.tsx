@@ -396,12 +396,13 @@ type Props = {
    *
    * 🔑 THE THIRD VARIANT EXISTS BECAUSE THE OTHER TWO ARE EACH WRONG HERE IN A
    * DIFFERENT WAY, and both wrongs are silent:
-   *   `app` would point the wordmark at /dashboard, which 307s to /login: a
-   *         login trap for a stranger arriving from Google.
+   *   `app` used to point the wordmark at /dashboard, which 307s to /login:
+   *         a login trap for a stranger arriving from Google. Since
+   *         2026-09-19 every variant's wordmark is `/` (owner 2026-08-13, see
+   *         `homeHref`), so that half of this note is history.
    *         ⚠ IT USED TO DROP THE HAMBURGER TOO, and that was the louder half
    *         of this note until 2026-08-29. It no longer does — every variant
-   *         renders the button now (owner: *"keep it visible across"*) — so
-   *         the wordmark is the whole of the difference on this axis. Do not
+   *         renders the button now (owner: *"keep it visible across"*). Do not
    *         re-derive "the app variant has no menu button" from an older
    *         comment; several still say it and applied comments are not edited.
    *   `front-door` would bring a second <main> and a second <h1> to a page
@@ -698,10 +699,25 @@ export function FrontDoorShell({
     condition still lives in CSS (`fd-only-narrow`), which is a real mount
     condition — see the button below.
   */
-  /** Home means a different room depending on where you stand — but ONLY the
-   *  signed-in app may point at /dashboard, which redirects a stranger to
-   *  /login. */
-  const homeHref = variant === 'app' ? '/dashboard' : '/';
+  /**
+   * 🔒 THE WORDMARK IS THE WAY OUT OF THE APP — `/` for EVERY variant.
+   * Owner, verbatim, `DECISION_LOG.md` 2026-08-13 (SESSION 6, the seam):
+   * *"The WORDMARK is the way out of the app, still signed in."* Pressing it
+   * inside the app opens the public front door with the session intact; the
+   * one-press way back in is the rail's "Your events" row and the account
+   * panel's Home link (both → /dashboard), never the wordmark.
+   *
+   * ⚠ From 2026-08-14 (cf58418b48, "one top bar") until 2026-09-19 the app
+   * variant pointed here at /dashboard, citing "the launcher's own shipped
+   * grammar" — no owner statement. That was an unrecorded regression of the
+   * 08-13 lock and was restored in PR #5679. The 2026-07-16 "Wordmark-as-Home"
+   * council verdict is the one-line alternative IF the owner asks for it back.
+   *
+   * It also keeps the 08-15 constraint for free: a stranger must never be
+   * sent to /dashboard (it 307s to /login), and no variant does.
+   * `seam-invariants.test.ts` pins all of this.
+   */
+  const homeHref = '/';
   /** The stylesheet's one switch. A doorway wears the front door's chrome. */
   const chrome = variant === 'app' ? 'app' : 'front-door';
   /**
@@ -1019,7 +1035,7 @@ export function FrontDoorShell({
               <span className="fd-wordmark-text">Setnayan</span>
             </Link>
           ) : (
-            <Link href="/" className="fd-wordmark">
+            <Link href={homeHref} className="fd-wordmark">
               Setnayan
             </Link>
           )}

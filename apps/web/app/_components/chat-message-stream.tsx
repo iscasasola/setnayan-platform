@@ -40,6 +40,8 @@ import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_componen
 import { LockAnswerForms } from './lock-answer-forms';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
+import { PaymentHistoryList } from '@/app/_components/payment-history-list';
+import type { PaymentHistory } from '@/lib/payment-history';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -225,6 +227,13 @@ type Props = {
    */
   supplierFirstPaymentRowId?: string | null;
   /**
+   * THE SUPPLIER'S END of "show the current payments done as well" (owner,
+   * 2026-09-20). Same `readBookedMoney().history` the couple's card mounts —
+   * the couple gets it inside `DepositReservation`, so it is rendered here for
+   * the vendor only and the two ends read one shape.
+   */
+  bookedHistory?: PaymentHistory | null;
+  /**
    * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
    * On the live ACCEPTED quote card the supplier gets the same one-tap door
    * the Overview's booking card carries (2026-09-19) — the couple's next step
@@ -262,6 +271,7 @@ export function ChatMessageStream({
   bookedStep = null,
   couplePay = null,
   supplierFirstPaymentRowId = null,
+  bookedHistory = null,
   payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -1264,6 +1274,12 @@ export function ChatMessageStream({
                                 Confirm it reached you
                               </button>
                             </form>
+                          ) : null}
+                          {/* WHAT THE COUPLE HAS ALREADY PAID — the supplier's
+                              end. The couple's end rides inside the mounted
+                              DepositReservation above, from the same helper. */}
+                          {viewerRole === 'vendor' ? (
+                            <PaymentHistoryList history={bookedHistory} className="pt-1" />
                           ) : null}
                         </div>
                       ) : null}

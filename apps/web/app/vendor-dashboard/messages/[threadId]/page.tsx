@@ -819,6 +819,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     eventId: thread.event_id,
     vendorProfileId: profile.vendor_profile_id,
     eventDate: event?.event_date ?? null,
+    viewer: 'vendor',
+    otherName: 'the couple',
   });
   // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
   // ACCEPTED quote card as the same one-tap door the Overview's booking card
@@ -1586,6 +1588,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}
             supplierFirstPaymentRowId={bookedMoney.firstPaymentRowId}
+            bookedHistory={bookedMoney.history}
             payoutReadiness={payoutReadiness}
           />
         </ChatBox>

@@ -293,6 +293,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
     eventDate,
+    viewer: 'couple',
+    otherName: vendorLabel,
   });
   let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
   if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
@@ -326,6 +328,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       requestedFirstPaymentSentence: firstPaymentSentence(bookedMoney.terms),
       requestedTermsUnreadable: bookedMoney.termsUnreadable,
       step: bookedMoney.step,
+      history: bookedMoney.history,
     };
   }
 

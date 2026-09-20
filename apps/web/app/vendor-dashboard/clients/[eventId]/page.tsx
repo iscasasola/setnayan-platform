@@ -164,6 +164,19 @@ import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
+import {
+  fetchDueFeeBills,
+  FEE_BILLS_UNREADABLE,
+  forecastForBooking,
+} from '@/lib/booking-fee-disclosure.server';
+import {
+  billsForSurface,
+  feeDueCopy,
+  type DueFeeBill,
+  type FeeDisclosure,
+} from '@/lib/booking-fee-disclosure';
+import { BookingFeeBills, BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 
 export const metadata = { title: 'Customer Card · Vendor' };
@@ -664,6 +677,32 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }).catch((): PayoutReadiness => 'unreadable')
     : 'unreadable';
   const eventVendorId = completion?.vendor_id ?? null;
+
+  // ── THE BOOKING FEE, BOTH HALVES ────────────────────────────────────────
+  // BEFORE they agree: what agreeing will cost them, priced by the same
+  // `bookingFeePhp` the SQL charge is pinned against. Owner, 2026-09-20: "as a
+  // vendor i do not know i have to pay."
+  // AFTER it is billed: the unpaid bill FOR THIS COUPLE, with the door to pay.
+  //
+  // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
+  // sentence that belongs beside the Agree button, and nowhere else on this
+  // page is a decision being made about money.
+  const feeForecast: FeeDisclosure | null = lockRequest?.event_vendor_id
+    ? await forecastForBooking(admin, {
+        vendorProfileId: profile.vendor_profile_id,
+        eventVendorId: lockRequest.event_vendor_id,
+      })
+    : null;
+  // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
+  // couple's fee can never appear on another couple's page.
+  const clientFeeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
+    () => FEE_BILLS_UNREADABLE,
+  );
+  const clientFeeBills: DueFeeBill[] =
+    clientFeeBillsRead === FEE_BILLS_UNREADABLE
+      ? []
+      : billsForSurface(clientFeeBillsRead, 'client', { eventId });
+
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
     completion?.completion_status === 'auto_confirmed' ||
@@ -1345,10 +1384,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             eventVendorId={lockRequest.event_vendor_id}
             expiresAt={lockRequest.expires_at}
             payoutReadiness={payoutReadiness}
+            feeForecast={feeForecast}
           />
         ) : isBooked && !depositAcked ? (
           <PayoutMethodNudge readiness={payoutReadiness} context="client" />
         ) : null}
+        {/* The bill for THIS couple, where the supplier already is. Not inside
+            the ask panel: by the time a fee exists the ask has been answered. */}
+        <BookingFeeBills
+          bills={clientFeeBills}
+          copyFor={(b) => feeDueCopy(b, manilaToday())}
+        />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -3721,11 +3767,17 @@ function LockRequestAnswer({
   eventVendorId,
   expiresAt,
   payoutReadiness,
+  feeForecast,
 }: {
   eventVendorId: string;
   expiresAt: string | null;
   /** S19 — asked HERE because agreeing makes the deposit the couple's next step. */
   payoutReadiness: PayoutReadiness;
+  /**
+   * What agreeing will cost them, named BEFORE the button. `null` when the fee
+   * system is dark or this booking carries none — silence, never a "₱0".
+   */
+  feeForecast: FeeDisclosure | null;
 }) {
   // Server-rendered, so "now" is the render instant. The deadline is the one the
   // DATABASE stamped and the sweep enforces — never a window recomputed here.
@@ -3751,6 +3803,9 @@ function LockRequestAnswer({
         day-of run-of-show open the moment you agree.
       </p>
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
+      {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
+          receipt, not a disclosure. */}
+      <BookingFeeNotice disclosure={feeForecast} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={vendorAgreeToLock}>
           <input type="hidden" name="vendor_id" value={eventVendorId} />

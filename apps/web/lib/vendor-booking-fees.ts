@@ -99,28 +99,20 @@ export function selectDueFeeOrders<
   );
 }
 
-const PHP = new Intl.NumberFormat('en-PH', {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-/**
- * The in-app + email notification copy for a due fee order. Pure so the exact
- * wording is testable and identical across the in-app row and the email body.
- * `eventName` falls back to a neutral phrase when the event has no display_name.
+/*
+ * 🪦 `bookingFeeNotificationCopy` LIVED HERE AND IS GONE (2026-09-20).
+ *
+ * It formatted with `maximumFractionDigits: 0`, so it titled a ₱837.50 bill
+ * "Booking fee due — ₱838" — measured on production notification 5b5882bc, the
+ * one the owner received. A supplier who pays the number they were shown pays
+ * the wrong number. Its replacement is `bookingFeeNoticeCopy` in
+ * `lib/booking-fee-disclosure.ts`, which formats to the centavo through
+ * `feePesos` and also names the due date the old copy never carried.
+ *
+ * Deleted rather than fixed in place: the point of the disclosure module is
+ * that there is ONE place a fee figure is formatted, and leaving a second
+ * formatter here is how the two come to disagree again.
  */
-export function bookingFeeNotificationCopy(args: {
-  amountPhp: number;
-  eventName: string | null | undefined;
-}): { title: string; body: string } {
-  const name = (args.eventName ?? '').trim() || 'a booking';
-  return {
-    title: `Booking fee due — ₱${PHP.format(args.amountPhp)}`,
-    body: `Your ₱${PHP.format(
-      args.amountPhp,
-    )} Setnayan booking fee for ${name} is due. Pay it on the manual GCash/BDO rail — it clears once our team confirms your payment (within 24 hours).`,
-  };
-}
 
 /** Longest reference we store. Bank/e-wallet ids are far shorter; this is a cap, not a shape. */
 export const BOOKING_FEE_REFERENCE_MAX = 64;

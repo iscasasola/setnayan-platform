@@ -1,7 +1,7 @@
-import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
+import { ProofImage } from '@/app/_components/proof-image';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -835,30 +835,19 @@ function PaymentsList({
               </p>
             ) : null}
 
+            {/* ⬆ THIS MARKUP MOVED OUT (2026-09-20) and is now
+                app/_components/proof-image.tsx. It was correct here and nowhere
+                else: four other screens that show a payment receipt — the
+                couple's "Amount to pay", the supplier's Confirm card, the
+                deposit-dispute queue, force-majeure — each offered a text link.
+                One component so none of them can drift back to a 48px thumbnail.
+                `screenshotUrlMap` is presigned server-side under
+                `paymentProofPolicy`; nothing about this render is public. */}
             {p.screenshot_url && screenshotUrlMap[p.payment_id] ? (
-              <div className="space-y-1">
-                <a
-                  href={screenshotUrlMap[p.payment_id]}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={screenshotUrlMap[p.payment_id]}
-                    alt="Payment screenshot"
-                    className="max-h-64 w-auto rounded-md border border-ink/10 object-contain"
-                  />
-                </a>
-                <a
-                  href={screenshotUrlMap[p.payment_id]}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-mulberry hover:underline"
-                >
-                  Open full size
-                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                </a>
-              </div>
+              <ProofImage
+                url={screenshotUrlMap[p.payment_id] as string}
+                alt="Payment screenshot"
+              />
             ) : null}
 
             <ReceiptReadCard

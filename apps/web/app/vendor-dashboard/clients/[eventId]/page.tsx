@@ -144,6 +144,13 @@ import {
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import { ProofImage } from '@/app/_components/proof-image';
+import {
+  MONEY_TAB,
+  VENDOR_CLIENT_TABS,
+  vendorClientTabHref,
+  type VendorClientTab,
+} from '@/lib/vendor-client-return';
 import {
   acceptedQuoteTerms,
   firstPaymentSentence,
@@ -756,6 +763,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (relationshipShellEnabled && threadId && (!rawTab || rawTab === 'chat' || rawTab === 'call')) {
     redirect(`/vendor-dashboard/messages/${threadId}`);
   }
+
+  /*
+    ⚖ WHERE A MONEY ANSWER COMES BACK TO (owner, live, 2026-09-20: "clicked
+    confirmed and it just bounced to the chat page"). Past this line the tab is
+    known and is never `chat` — the redirect above has already taken that case
+    away — so this is the honest "the page they pressed it on". The deposit
+    forms post it; the actions re-validate it (lib/vendor-client-return.ts) and
+    never trust it as given. Without it those actions redirect here WITHOUT a
+    tab, which this very gate then forwards to the thread.
+  */
+  const depositReturnTo = vendorClientTabHref(
+    eventId,
+    (VENDOR_CLIENT_TABS as readonly string[]).includes(rawTab ?? '')
+      ? (rawTab as VendorClientTab)
+      : MONEY_TAB,
+  );
 
   /*
     FILES THE COUPLE SENT IN THE CONVERSATION — the third source of the Files
@@ -1472,6 +1495,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       isVendorMarked={isVendorMarked}
       hideCompletion={relationshipShellEnabled}
       search={search}
+      depositReturnTo={depositReturnTo}
     />
   );
 
@@ -2099,9 +2123,17 @@ function OverviewTab(props: {
    *  Flag OFF: false → the card renders inline exactly as before. */
   hideCompletion: boolean;
   search: { deposit_ack?: string; deposit_reject?: string };
+  /**
+   * The tab this page is showing, as a path the deposit forms post back.
+   * Resolved by the PAGE (past its chat-redirect gate, so it is never `chat`)
+   * and re-validated by the action — see lib/vendor-client-return.ts and the
+   * owner's 2026-09-20 "clicked confirmed and it just bounced to the chat page".
+   */
+  depositReturnTo: string;
 }) {
   const {
     eventId,
+    depositReturnTo,
     brief,
     threadId,
     returningFlag,
@@ -2480,25 +2512,30 @@ function OverviewTab(props: {
             </p>
           ) : null}
           {depositAcked ? (
-            <div className="flex items-center gap-3 text-sm">
-              <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">Deposit confirmed.</span> You&rsquo;ve confirmed
-                you received the couple&rsquo;s deposit — their date is locked in.
-                {completion?.deposit_proof_url ? (
-                  <>
-                    {' '}
-                    <a
-                      href={completion.deposit_proof_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
-                    >
-                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View proof
-                    </a>
-                  </>
-                ) : null}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
+                <span className="text-ink/75">
+                  <span className="font-medium text-ink">Deposit confirmed.</span> You&rsquo;ve confirmed
+                  you received the couple&rsquo;s deposit — their date is locked in.
+                </span>
+              </div>
+              {/* ── THE RECEIPT, BIG ENOUGH TO JUDGE (owner, live, 2026-09-20) ──
+                  This was the words "View proof" and nothing else, on the one
+                  screen where a supplier decides whether a couple's money
+                  arrived. You cannot check a reference number against your bank
+                  app through a link you have to open in another tab — and on a
+                  phone that tab replaces the Confirm button you were reaching
+                  for. `deposit_proof_url` here is ALREADY a short-lived signed
+                  link (depositProofDisplayUrl, resolved above) — never the
+                  stored ref, never public. */}
+              {completion?.deposit_proof_url ? (
+                <ProofImage
+                  url={completion.deposit_proof_url}
+                  alt="The payment proof this couple sent"
+                  className="pl-8"
+                />
+              ) : null}
             </div>
           ) : depositDeclined ? (
             /*
@@ -2521,24 +2558,27 @@ function OverviewTab(props: {
                     Your words: &ldquo;{completion.deposit_decline_reason}&rdquo;
                   </>
                 ) : null}
+              {/* ── THE RECEIPT, BIG ENOUGH TO JUDGE (owner, live, 2026-09-20) ──
+                  This was the words "View proof" and nothing else, on the one
+                  screen where a supplier decides whether a couple's money
+                  arrived. You cannot check a reference number against your bank
+                  app through a link you have to open in another tab — and on a
+                  phone that tab replaces the Confirm button you were reaching
+                  for. `deposit_proof_url` here is ALREADY a short-lived signed
+                  link (depositProofDisplayUrl, resolved above) — never the
+                  stored ref, never public. */}
                 {completion?.deposit_proof_url ? (
-                  <>
-                    {' '}
-                    <a
-                      href={completion.deposit_proof_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
-                    >
-                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View what
-                      they sent
-                    </a>
-                  </>
+                  <ProofImage
+                    url={completion.deposit_proof_url}
+                    alt="What this couple sent as proof"
+                    className="mt-2"
+                  />
                 ) : null}
               </div>
               <form action={vendorAcknowledgeDeposit}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="vendor_id" value={eventVendorId} />
+                <input type="hidden" name="return_to" value={depositReturnTo} />
                 <SubmitButton
                   className="button-secondary w-full shrink-0 sm:w-auto"
                   pendingLabel="Confirming…"
@@ -2552,24 +2592,28 @@ function OverviewTab(props: {
               <div className="text-sm text-ink/70">
                 <span className="font-medium text-ink">A couple recorded a deposit.</span> The date is
                 held for you. Confirm you received it to lock it in.
+              {/* ── THE RECEIPT, BIG ENOUGH TO JUDGE (owner, live, 2026-09-20) ──
+                  This was the words "View proof" and nothing else, on the one
+                  screen where a supplier decides whether a couple's money
+                  arrived. You cannot check a reference number against your bank
+                  app through a link you have to open in another tab — and on a
+                  phone that tab replaces the Confirm button you were reaching
+                  for. `deposit_proof_url` here is ALREADY a short-lived signed
+                  link (depositProofDisplayUrl, resolved above) — never the
+                  stored ref, never public. */}
                 {completion?.deposit_proof_url ? (
-                  <>
-                    {' '}
-                    <a
-                      href={completion.deposit_proof_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-mulberry underline-offset-2 hover:underline"
-                    >
-                      <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> View proof
-                    </a>
-                  </>
+                  <ProofImage
+                    url={completion.deposit_proof_url}
+                    alt="The payment proof this couple sent"
+                    className="mt-2"
+                  />
                 ) : null}
               </div>
               <div className="flex flex-col items-stretch gap-2 sm:items-end">
                 <form action={vendorAcknowledgeDeposit}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="vendor_id" value={eventVendorId} />
+                  <input type="hidden" name="return_to" value={depositReturnTo} />
                   <SubmitButton className="button-primary w-full shrink-0 sm:w-auto" pendingLabel="Confirming…">
                     Confirm deposit received
                   </SubmitButton>
@@ -2584,6 +2628,7 @@ function OverviewTab(props: {
                   <form action={vendorRejectDeposit} className="mt-2 flex flex-col gap-2 text-left">
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="vendor_id" value={eventVendorId} />
+                    <input type="hidden" name="return_to" value={depositReturnTo} />
                     <input
                       type="text"
                       name="reason"

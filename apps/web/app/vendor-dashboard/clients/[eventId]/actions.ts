@@ -9,6 +9,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { depositAnswerReturnTo } from '@/lib/vendor-client-return';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -187,7 +188,21 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
-  redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
+  /*
+    ── LAND WHERE THEY PRESSED IT (owner, live, 2026-09-20: "clicked confirmed
+       and it just bounced to the chat page") ─────────────────────────────────
+    This redirected to `/vendor-dashboard/clients/<id>?deposit_ack=ok`, which
+    carries a notice but NO `?tab=` — and a tab-less landing on that page is a
+    landing on the conversation, which it forwards to the thread (#5614). The
+    confirm had worked, the fee had opened, and the supplier was moved to a
+    screen that mentions none of it. `depositAnswerReturnTo` always names a
+    tab, and honours the form's `return_to` only for this supplier's own thread
+    or this event's own client page — see lib/vendor-client-return.ts.
+  */
+  const back = depositAnswerReturnTo(formData.get('return_to'), eventId, {
+    deposit_ack: flag,
+  });
+  redirect(back);
 }
 
 /**
@@ -277,7 +292,11 @@ export async function vendorRejectDeposit(formData: FormData) {
     revalidatePath('/vendor-dashboard');
     redirect(`/vendor-dashboard?deposit_answer=${flag}`);
   }
-  redirect(`/vendor-dashboard/clients/${eventId}?deposit_reject=${flag}`);
+  // The same tab-less bounce as the confirm above, on the refusal arm — a
+  // supplier who says "this never reached me" was moved to the chat too.
+  redirect(
+    depositAnswerReturnTo(formData.get('return_to'), eventId, { deposit_reject: flag }),
+  );
 }
 
 // ==========================================================================

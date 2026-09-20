@@ -258,7 +258,17 @@ export function DepositReservation({
               {noMethods}
             </p>
           ) : (
-            <VendorDirectPay vendorName={vendorName} methods={payMethods} />
+            /* 🔑 THE FIGURE THE SUPPLIER ASKED FOR RIDES INTO THE CODE.
+               `minimumPhp` is the accepted quote's first payment — the same
+               number the form below defaults to and refuses to go under — so
+               the QR in the sheet carries exactly what the couple is being
+               asked for. Null when the quote's terms could not be read, and
+               then the sheet says the amount must be typed. */
+            <VendorDirectPay
+              vendorName={vendorName}
+              methods={payMethods}
+              amountPhp={minimumPhp}
+            />
           )}
           <p className="pt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             2 · Record it here

@@ -362,7 +362,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                 </div>
                 <div className="flex items-center gap-4">
                   <Link
-                    href={`/vendor-dashboard/clients/${eventId}`}
+                    href={`/vendor-dashboard/clients/${eventId}?tab=details`}
                     className="text-sm font-medium text-mulberry underline"
                   >
                     Customer card
@@ -451,7 +451,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
                   </div>
                   <div className="flex items-center gap-4">
                     <Link
-                      href={`/vendor-dashboard/clients/${t.event_id}`}
+                      href={`/vendor-dashboard/clients/${t.event_id}?tab=details`}
                       className="text-sm font-medium text-mulberry underline"
                     >
                       Customer card

@@ -76,3 +76,15 @@ Twelve tests, each sabotage-proven; both formatters are *executed* on ₱837.50,
 
 SPEC IMPACT: None. Display formatting and a repo guard; no schema, price, SKU or copy decision
 changes. The peso rendering rule is unchanged from the one PR #5744 already standardised on.
+
+### CI follow-up · a stale test outlived the fix it was guarding
+
+`lib/the-installment-keeps-its-centavos.test.ts` failed after merging past
+main: it pinned `overview-sections.tsx`'s never-sent-quote card to the literal
+`Math.round(card.totalCentavos) / 100` — exactly the caller-side rounding this
+PR's docblock explains was inert (`formatPhp` in that file also rounded, a
+name collision hiding the real bug). This PR correctly replaced that call with
+`formatCentavosPhp(card.totalCentavos)` from `lib/php.ts`; the test's regex
+just hadn't been told. Updated the assertion to match the new, better call
+site rather than reintroducing the caller-side rounding to satisfy a stale
+regex — `formatCentavosPhp` IS the named helper the test's own title asks for.

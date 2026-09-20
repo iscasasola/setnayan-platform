@@ -14,6 +14,7 @@ import {
   bookingFeeForecast,
   type BookingFeeStanding,
   type DueFeeBill,
+  type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -76,7 +77,13 @@ export async function resolveBookingFeeStanding(
   }
 
   // The frozen ordinal for THIS booking, if the ledger already holds one.
+  // ⚠ THE LEDGER IS ASKED FIRST, ALWAYS (owner, 2026-09-20: the position must
+  // come from the real ordinal, not a count derived here). The count below is
+  // reached ONLY when no ledger row exists yet — i.e. the booking has not been
+  // agreed, so there is no real ordinal to read — and what it produces is
+  // flagged as a projection, which the copy words differently.
   let ordinal: number | null = null;
+  let ordinalIsFrozen = false;
   if (args.eventId) {
     const { data: row, error } = await admin
       .from('booking_fee_ledger')
@@ -89,7 +96,10 @@ export async function resolveBookingFeeStanding(
       return { kind: 'unreadable' };
     }
     const n = (row as { booking_ordinal?: number | null } | null)?.booking_ordinal;
-    if (typeof n === 'number' && Number.isFinite(n)) ordinal = n;
+    if (typeof n === 'number' && Number.isFinite(n)) {
+      ordinal = n;
+      ordinalIsFrozen = true;
+    }
   }
 
   // No frozen ordinal → this booking would take the NEXT one.
@@ -106,8 +116,14 @@ export async function resolveBookingFeeStanding(
     ordinal = count + 1;
   }
 
-  if (isFreeBooking(ordinal)) return { kind: 'free', ordinal };
-  return { kind: 'billable', ordinal, schedule: await getBookingFeeSchedule(admin) };
+  // ⚠ THE SCHEDULE IS READ FOR THE FREE ARM TOO. A waived booking must still
+  // NAME the amount it would have cost (owner 2026-09-20), and without the live
+  // schedule that figure cannot be computed — the copy would fall back to a
+  // bare "Free", which is what the ruling forbids.
+  const schedule = await getBookingFeeSchedule(admin);
+  return isFreeBooking(ordinal)
+    ? { kind: 'free', ordinal, ordinalIsFrozen, schedule }
+    : { kind: 'billable', ordinal, ordinalIsFrozen, schedule };
 }
 
 /**
@@ -192,6 +208,150 @@ export async function forecastsForBookings(
     out[id] = results[i] ?? null;
   });
   return out;
+}
+
+/**
+ * EVERY WAIVED BOOKING FEE THIS SHOP HAS HAD — the free-5 charges, with the
+ * amount each WOULD have cost and the position the RPC stamped.
+ *
+ * 🔴 THESE HAD NO SUPPLIER SURFACE AT ALL. A waived charge mints no `orders`
+ * row, and every fee surface read orders — so a shop's free bookings appeared
+ * nowhere, and "free" was something the supplier had to infer from silence.
+ *
+ * ⚠ THE ORDINAL COMES OFF THE LEDGER, by join, never by counting rows here.
+ * ⚠ `computed_fee_centavos` is the recorded "would have been" (prod's waived
+ *   charge carries 50850 against `amount_charged_centavos` 0); a row whose
+ *   column is missing or non-finite carries `computedPhp: null`, and the copy
+ *   then prints no number rather than ₱0.
+ *
+ * Service-role read, explicitly scoped to this shop's `vendor_profile_id` —
+ * `booking_fee_charges` is not readable from a supplier session. The caller has
+ * already proven the profile is theirs (`fetchOwnVendorProfile`).
+ */
+/**
+ * ONE select string for every waived-charge read. The `!inner` join is what
+ * makes `booking_ordinal` come off `booking_fee_ledger` rather than from a
+ * count computed on this side (owner, 2026-09-20).
+ */
+const WAIVED_CHARGE_SELECT =
+  'charge_id,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)';
+
+type WaivedChargeRow = {
+  charge_id: string;
+  event_id: string | null;
+  computed_fee_centavos: number | string | null;
+  created_at: string | null;
+  ledger: { booking_ordinal: number | null } | Array<{ booking_ordinal: number | null }> | null;
+};
+
+/**
+ * Row → `WaivedFeeCharge`. Shared by the list read (the fee hub) and the single
+ * read (the receipt), so the notification a supplier is emailed carries the
+ * SAME amount and the SAME ordinal the hub will show them.
+ */
+function toWaivedFeeCharge(r: WaivedChargeRow, coupleName: string | null): WaivedFeeCharge {
+  // PostgREST returns an embedded to-one as an object, but as an ARRAY when it
+  // cannot prove the relationship is to-one. Both shapes are handled so the
+  // ordinal does not silently vanish into `undefined`.
+  const led = Array.isArray(r.ledger) ? r.ledger[0] : r.ledger;
+  const ord = led?.booking_ordinal;
+  const centavos = Number(r.computed_fee_centavos);
+  return {
+    chargeId: r.charge_id,
+    eventId: r.event_id ?? null,
+    coupleName,
+    // ⚠ A NON-FINITE COLUMN IS NULL, NEVER 0. The copy then prints no number.
+    computedPhp: Number.isFinite(centavos) ? centavos / 100 : null,
+    ordinal: typeof ord === 'number' && Number.isFinite(ord) ? ord : null,
+    waivedOn: r.created_at ? r.created_at.slice(0, 10) : null,
+  };
+}
+
+export async function fetchWaivedFeeCharges(
+  admin: SupabaseClient,
+  vendorProfileId: string | null | undefined,
+): Promise<WaivedFeeCharge[] | typeof FEE_BILLS_UNREADABLE> {
+  if (!isBookingFeeEnabled()) return [];
+  if (!vendorProfileId) return [];
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select(WAIVED_CHARGE_SELECT)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'waived_free5')
+    .order('created_at', { ascending: false });
+  if (error) {
+    logQueryError('booking-fee-disclosure: waived charges', error);
+    return FEE_BILLS_UNREADABLE;
+  }
+  const rows = (data ?? []) as WaivedChargeRow[];
+  if (rows.length === 0) return [];
+
+  const eventIds = Array.from(
+    new Set(rows.map((r) => r.event_id).filter((id): id is string => !!id)),
+  );
+  const nameByEvent = new Map<string, string | null>();
+  if (eventIds.length > 0) {
+    const { data: events, error: eErr } = await admin
+      .from('events')
+      .select('event_id,display_name')
+      .in('event_id', eventIds);
+    if (eErr) logQueryError('booking-fee-disclosure: waived event names', eErr);
+    for (const e of (events ?? []) as Array<{ event_id: string; display_name: string | null }>) {
+      nameByEvent.set(e.event_id, e.display_name);
+    }
+  }
+
+  return rows.map((r) =>
+    toWaivedFeeCharge(r, r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null),
+  );
+}
+
+/**
+ * ONE waived charge, by id — what the RECEIPT is composed from at the moment
+ * the charge is opened waived (`collectBookingFeeAtLock`, the 'free' arm).
+ *
+ * 🔑 IT READS WHAT THE HUB READS. The same select, the same ledger join, the
+ * same mapper — so the emailed receipt and the "Waived — your first 5" row
+ * cannot disagree about the amount or the position. The RPC does return a
+ * `booking_ordinal` in its response, and using THAT would have been a second
+ * source for one fact; the ledger is the one the supplier's screen quotes.
+ *
+ * ⚠ NULL HAS TWO CAUSES AND THE CALLER IS TOLD WHICH. A refused read is logged
+ * and returns `FEE_BILLS_UNREADABLE`; a charge that genuinely is not a waived
+ * one returns `null`. Both mean "send no receipt", but only one is a fault —
+ * and a receipt built from a failed read would print a number nobody measured.
+ */
+export async function fetchWaivedFeeCharge(
+  admin: SupabaseClient,
+  chargeId: string,
+): Promise<WaivedFeeCharge | null | typeof FEE_BILLS_UNREADABLE> {
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select(WAIVED_CHARGE_SELECT)
+    .eq('charge_id', chargeId)
+    .eq('status', 'waived_free5')
+    .maybeSingle();
+  if (error) {
+    logQueryError('booking-fee-disclosure: waived charge', error, { chargeId });
+    return FEE_BILLS_UNREADABLE;
+  }
+  const row = data as WaivedChargeRow | null;
+  if (!row) return null;
+
+  let coupleName: string | null = null;
+  if (row.event_id) {
+    const { data: ev, error: eErr } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', row.event_id)
+      .maybeSingle();
+    // A refused name read costs the receipt the couple's NAME, not the receipt.
+    // Logged rather than swallowed (FEE-HONEST) — the copy already handles a
+    // null name by dropping the "for <couple>" clause.
+    if (eErr) logQueryError('booking-fee-disclosure: waived charge event name', eErr);
+    coupleName = (ev as { display_name?: string | null } | null)?.display_name ?? null;
+  }
+  return toWaivedFeeCharge(row, coupleName);
 }
 
 /**

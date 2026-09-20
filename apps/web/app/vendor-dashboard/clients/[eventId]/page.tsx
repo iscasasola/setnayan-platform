@@ -166,6 +166,7 @@ import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import {
   fetchDueFeeBills,
+  fetchWaivedFeeCharges,
   FEE_BILLS_UNREADABLE,
   forecastForBooking,
 } from '@/lib/booking-fee-disclosure.server';
@@ -174,8 +175,13 @@ import {
   feeDueCopy,
   type DueFeeBill,
   type FeeDisclosure,
+  type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
-import { BookingFeeBills, BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import {
+  BookingFeeBills,
+  BookingFeeNotice,
+  WaivedFeeRows,
+} from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 
@@ -702,6 +708,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []
       : billsForSurface(clientFeeBillsRead, 'client', { eventId });
+  // …and the WAIVED charge for this booking, if it was one of the free five.
+  // Owner 2026-09-20: a free booking must still name the fee it would have
+  // carried, so the first payable one is not a surprise.
+  const clientWaivedRead = await fetchWaivedFeeCharges(
+    admin,
+    profile.vendor_profile_id,
+  ).catch(() => FEE_BILLS_UNREADABLE);
+  const clientWaived: WaivedFeeCharge[] =
+    clientWaivedRead === FEE_BILLS_UNREADABLE
+      ? []
+      : clientWaivedRead.filter((c) => c.eventId === eventId);
 
   const isCompleteConfirmed =
     completion?.completion_status === 'confirmed' ||
@@ -1395,6 +1412,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           bills={clientFeeBills}
           copyFor={(b) => feeDueCopy(b, manilaToday())}
         />
+        <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}

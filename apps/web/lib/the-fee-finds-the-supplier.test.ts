@@ -35,7 +35,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
@@ -47,18 +47,38 @@ import {
   bookingFeeForecast,
   bookingFeeJoinDisclosure,
   bookingFeeNoticeCopy,
+  waivedFeeCopy,
   feeDueCopy,
   feeDueStage,
   feePesos,
   freeBookingsLeftAfter,
   totalDuePhp,
   type DueFeeBill,
+  type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
+
+/** Every non-test source under app/ and lib/, comments stripped. */
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next') continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) sourceFiles(full, out);
+    else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) out.push(full);
+  }
+  return out;
+}
+const SOURCES: ReadonlyMap<string, string> = new Map(
+  ['app', 'lib'].flatMap((d) =>
+    sourceFiles(join(WEB, d)).map(
+      (f) => [f.slice(WEB.length + 1), stripComments(readFileSync(f, 'utf8'))] as const,
+    ),
+  ),
+);
 
 /** The owner's own bill, to the centavo. */
 const OWNERS_BILL: DueFeeBill = {
@@ -169,7 +189,20 @@ test('every surface in BOOKING_FEE_BILL_SURFACES really mounts the bill', () => 
 // SABOTAGE: return `[]` instead of FEE_BILLS_UNREADABLE on a refused read → RED.
 test('an unreadable fee read is not an empty one', () => {
   const server = read('lib/booking-fee-disclosure.server.ts');
-  assert.equal(count(server, /return FEE_BILLS_UNREADABLE;/), 1);
+  // ⚠ ANCHORED PER FUNCTION, NOT COUNTED FILE-WIDE. A whole-file count of
+  // `return FEE_BILLS_UNREADABLE` cannot say WHICH read is honest — it stayed
+  // green at 1 while a second fetch was added, and would stay green if the two
+  // swapped which one had it.
+  for (const fn of ['fetchDueFeeBills', 'fetchWaivedFeeCharges']) {
+    const body = server.slice(server.indexOf(`export async function ${fn}(`));
+    const scoped = body.slice(0, body.indexOf('\n}') + 2);
+    assert.ok(scoped.length > 100, `${fn} was not found`);
+    assert.equal(
+      count(scoped, /return FEE_BILLS_UNREADABLE;/),
+      1,
+      `${fn} no longer distinguishes a refused read from an empty one`,
+    );
+  }
   for (const file of Object.values(BILL_MOUNTS).map((m) => m.file)) {
     assert.ok(
       /FEE_BILLS_UNREADABLE/.test(read(file)),
@@ -241,7 +274,7 @@ test('every printed fee comes from bookingFeePhp — no surface types a rate', (
 
   // And the sentence agrees with the arithmetic on the owner's real booking.
   const billable = bookingFeeForecast(
-    { kind: 'billable', ordinal: 6, schedule: BOOKING_FEE },
+    { kind: 'billable', ordinal: 6, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     16_750,
   );
   assert.ok(billable);
@@ -269,21 +302,216 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
   assert.match(bookingFeeJoinDisclosure(BOOKING_FEE).detail, /5% of the first/);
 });
 
-// SABOTAGE: make the free arm return null → RED.
-test('a free booking SAYS it is free, and counts what is left', () => {
-  const free = bookingFeeForecast({ kind: 'free', ordinal: 3 }, 16_750);
-  assert.ok(free, 'silence on a free booking is the old defect');
-  assert.match(free.headline, new RegExp(`booking 3 of your first ${FREE_BOOKING_LIMIT}`));
-  assert.match(free.detail, /2 more free bookings/);
-  assert.equal(freeBookingsLeftAfter(FREE_BOOKING_LIMIT), 0);
-  assert.match(
-    bookingFeeForecast({ kind: 'free', ordinal: FREE_BOOKING_LIMIT }, 1)!.detail,
-    /last of your free bookings/,
+/**
+ * 🔑 OWNER, 2026-09-20: *"still tell them that there should be a booking fee.
+ * but this will be considered free. or something like this."*
+ *
+ * A free booking that says only "Free" teaches the supplier there is no fee,
+ * and the sixth arrives as a surprise charge — the very defect this lane
+ * exists to remove, deferred by five bookings. So a waived booking must NAME
+ * the amount and then say it is waived, and why.
+ *
+ * SABOTAGE: drop the amount from the free headline ("Booking fee — waived.")
+ * → RED on the amount assertion. SABOTAGE: return the old bare
+ * "Free — booking 3 of your first 5" → RED on BOTH the amount and the bare-Free
+ * scan below.
+ */
+test('a waived booking names the amount it would have cost, and why it is free', () => {
+  const free = bookingFeeForecast(
+    { kind: 'free', ordinal: 3, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    10_170,
   );
-  // An imported client is free forever and says so.
+  assert.ok(free, 'silence on a free booking is the old defect');
+  // The amount is the SAME number the charge records (prod's waived row carries
+  // computed_fee_centavos 50850 against a ₱10,170 booking).
+  assert.equal(bookingFeePhp(10_170, BOOKING_FEE), 508.5);
+  assert.match(free.headline, /₱508\.50/, 'the waived line did not name the amount');
+  assert.match(free.headline, /waived/i, 'the waived line did not say it was waived');
+  assert.match(free.detail, /booking 3 of your first 5/, 'the reason is missing the position');
+  assert.match(free.detail, /which are free/, 'the reason is missing WHY it is waived');
+  assert.match(free.detail, /2 more free bookings/);
+
+  // The last free one says so, and the next is payable.
+  const last = bookingFeeForecast(
+    { kind: 'free', ordinal: FREE_BOOKING_LIMIT, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    10_170,
+  )!;
+  assert.match(last.detail, /last of them/);
+
+  // 🔑 SAME LINE SHAPE once the free five are used up — the first payable fee
+  // is the same sentence with a different verdict, not a new kind of news.
+  const payable = bookingFeeForecast(
+    { kind: 'billable', ordinal: 6, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    10_170,
+  )!;
+  for (const line of [free.headline, payable.headline]) {
+    assert.match(line, /^Booking fee ₱508\.50/, `"${line}" broke the shared line shape`);
+  }
+  assert.match(payable.headline, /payable/i);
+
+  // A projection is worded as one — before the booking is agreed there is no
+  // ledger row, so "this is booking 3" would be stating a fact we do not have.
+  const projected = bookingFeeForecast(
+    { kind: 'free', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    10_170,
+  )!;
+  assert.match(projected.detail, /would be booking 3/);
+
+  // No amount ⇒ no number, and still no bare "Free".
+  const noTotal = bookingFeeForecast(
+    { kind: 'free', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    null,
+  )!;
+  assert.match(noTotal.headline, /waived/i);
+  assert.doesNotMatch(noTotal.headline, /₱/, 'it printed a figure it could not compute');
+
+  // An imported client is free forever and says so; only a dark fee system is silent.
   assert.match(bookingFeeForecast({ kind: 'not_sourced' }, 50_000)!.headline, /No Setnayan booking fee/);
-  // Only a dark fee system is silent.
   assert.equal(bookingFeeForecast({ kind: 'silent' }, 50_000), null);
+});
+
+/**
+ * The same rule for a charge that ALREADY EXISTS. These had NO supplier surface
+ * at all: a waived charge mints no `orders` row and every fee surface read
+ * orders, so a shop's free bookings appeared nowhere.
+ *
+ * SABOTAGE: drop `computedPhp` from the headline → RED. SABOTAGE: make the
+ * null-amount branch print `feePesos(0)` → RED on the ₱0 scan.
+ */
+test('a waived CHARGE names its recorded amount, and never degrades to ₱0', () => {
+  const charge: WaivedFeeCharge = {
+    chargeId: '44f2b06b-f583-4a23-a81f-b21310e3c843',
+    eventId: '2d4f1144-7816-4367-9c99-6ff0f9a6de10',
+    coupleName: 'Rosa & Ben',
+    computedPhp: 508.5, // prod: computed_fee_centavos 50850, amount_charged 0
+    ordinal: 1,
+    waivedOn: '2026-09-19',
+  };
+  const copy = waivedFeeCopy(charge);
+  assert.match(copy.headline, /₱508\.50/);
+  assert.match(copy.headline, /waived/i);
+  assert.match(copy.headline, /Rosa & Ben/);
+  assert.match(copy.detail, /booking 1 of your first 5/);
+  assert.match(copy.detail, /which are free/);
+
+  // An unreadable computed amount prints NO number — never ₱0, which would say
+  // the fee was nothing rather than that it was waived.
+  const unread = waivedFeeCopy({ ...charge, computedPhp: null });
+  assert.match(unread.headline, /could not read the amount/);
+  assert.doesNotMatch(`${unread.headline} ${unread.detail}`, /₱/);
+
+  // The position is only claimed when the ledger gave one.
+  const noOrdinal = waivedFeeCopy({ ...charge, ordinal: null });
+  assert.doesNotMatch(noOrdinal.detail, /booking \d+ of/);
+  assert.match(noOrdinal.detail, /inside your first 5/);
+});
+
+/**
+ * THE BARE "Free" SCAN — across every producer and every mount.
+ *
+ * SABOTAGE: add `headline: 'Free'` to any arm → RED.
+ */
+test('nothing anywhere renders a bare "Free" with no amount', () => {
+  const produced = [
+    bookingFeeForecast({ kind: 'free', ordinal: 1, ordinalIsFrozen: true, schedule: BOOKING_FEE }, 10_170),
+    bookingFeeForecast({ kind: 'free', ordinal: 5, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 200),
+    bookingFeeForecast({ kind: 'free', ordinal: 2, ordinalIsFrozen: true, schedule: BOOKING_FEE }, null),
+    waivedFeeCopy({
+      chargeId: 'c', eventId: null, coupleName: null,
+      computedPhp: 508.5, ordinal: 2, waivedOn: null,
+    }),
+  ];
+  for (const d of produced) {
+    assert.ok(d);
+    assert.doesNotMatch(
+      d.headline,
+      /^Free\b|^\s*Free\s*$/,
+      `"${d.headline}" is a bare Free — owner 2026-09-20: name the fee, then say it is waived`,
+    );
+    assert.match(
+      d.headline,
+      /Booking fee/,
+      `"${d.headline}" does not name the booking fee at all`,
+    );
+  }
+
+  // And the FREE arm must be able to compute a figure at all: the standing has
+  // to carry the schedule. Without it the copy can only say "Free".
+  const server = read('lib/booking-fee-disclosure.server.ts');
+  assert.match(
+    server,
+    /kind: 'free', ordinal, ordinalIsFrozen, schedule/,
+    'the free standing lost its schedule — the waived amount becomes uncomputable',
+  );
+});
+
+/**
+ * The position must be the REAL ordinal the RPC stamped, read off
+ * `booking_fee_ledger.booking_ordinal` — not a count derived on this side
+ * (owner's instruction, 2026-09-20).
+ *
+ * SABOTAGE: delete the `.eq('event_id', ...)` ledger-row read so every standing
+ * falls through to the count → RED (nothing is ever frozen).
+ */
+test('the free-5 position comes off the ledger, not a local count', () => {
+  const server = read('lib/booking-fee-disclosure.server.ts');
+  const standing = server.slice(
+    server.indexOf('export async function resolveBookingFeeStanding'),
+    server.indexOf('export async function feeBaseTotalPhp'),
+  );
+  // ⚠ ANCHOR ON WHAT DISTINGUISHES THE TWO READS, NOT ON THE TABLE.
+  // This assertion first used `indexOf("from('booking_fee_ledger')")` — and BOTH
+  // blocks read that table, so the first match was whichever came first and the
+  // comparison was vacuous. Reordering the two blocks kept it GREEN. The real
+  // ordinal is the one that SELECTS `booking_ordinal` for this event; the
+  // projection is the one that asks for a COUNT.
+  const ledgerRow = standing.indexOf("select('booking_ordinal')");
+  const countFallback = standing.indexOf("count: 'exact'");
+  assert.ok(ledgerRow > 0, 'the real ordinal is no longer selected at all');
+  assert.ok(countFallback > 0, 'the projection fallback vanished');
+  assert.ok(
+    ledgerRow < countFallback,
+    'the derived count is consulted BEFORE the real ordinal — the position would be a guess',
+  );
+  assert.equal(count(standing, /ordinalIsFrozen = true;/), 1, 'nothing marks the real ordinal as real');
+
+  // The waived list takes its ordinal by JOIN, never by counting.
+  assert.match(
+    server,
+    /ledger:booking_fee_ledger!inner\(booking_ordinal\)/,
+    'the waived charges stopped joining the ledger for the ordinal',
+  );
+});
+
+/**
+ * A waived charge is shown wherever a supplier reads their fees.
+ *
+ * SABOTAGE: delete <WaivedFeeRows> from the fee hub → RED, named.
+ */
+test('every waived charge surface really mounts it', () => {
+  const WAIVED_MOUNTS = [
+    'app/vendor-dashboard/booking-fees/page.tsx',
+    'app/vendor-dashboard/clients/[eventId]/page.tsx',
+    'app/vendor-dashboard/earnings/surface.tsx',
+  ];
+  for (const file of WAIVED_MOUNTS) {
+    const src = read(file);
+    assert.equal(
+      count(src, /<WaivedFeeRows\b/),
+      1,
+      `${file} must show the waived fee exactly once — a free booking priced at nothing is the old defect`,
+    );
+    assert.ok(
+      /fetchWaivedFeeCharges\(/.test(src),
+      `${file} mounts the rows without reading any waived charge`,
+    );
+  }
+  // The client page shows only ITS OWN couple's waived charge.
+  assert.match(
+    read('app/vendor-dashboard/clients/[eventId]/page.tsx'),
+    /clientWaivedRead\.filter\(\(c\) => c\.eventId === eventId\)/,
+    'the client page would show another couple’s waived fee',
+  );
 });
 
 /* ═══ 4 · BOTH ENDS ═════════════════════════════════════════════════════════ */
@@ -338,8 +566,24 @@ test('a ₱837.50 bill never reads ₱838 — anywhere', () => {
 // SABOTAGE: delete the emitNotification call from collectBookingFeeAtLock → RED.
 test('the bill notifies at the moment it opens, not on the next dashboard visit', () => {
   const lock = read('lib/booking-fee-lock.server.ts');
-  assert.equal(count(lock, /emitNotification\(\{/), 1, 'the charge path stopped notifying');
-  assert.match(lock, /type: 'order_quoted'/, "the type must stay on EMAIL_ENABLED_TYPES");
+  // ⚠ SCOPED TO THE BILLABLE FUNCTION, NOT TO THE FILE. This file now holds TWO
+  // emitters and they are deliberately different notices: the BILL below
+  // (`order_quoted`, inside collectBookingFeeAtLock) and the free-5 RECEIPT
+  // (`booking_fee_waived`, in sendWaivedFeeReceipt above it — see
+  // `the-waived-fee-sends-a-receipt.test.ts`). A file-level count of 1 was the
+  // right assertion while there was one emitter and now fails on a correct
+  // tree; a file-level count of 2 would be satisfied by two BILLS, which is the
+  // sabotage this test exists to catch. So count inside the bill's own body.
+  const bill = lock.slice(lock.indexOf('export async function collectBookingFeeAtLock'));
+  assert.ok(bill.length > 2000, `billable-function slice floor: ${bill.length} chars`);
+  assert.equal(count(bill, /emitNotification\(\{/), 1, 'the charge path stopped notifying');
+  assert.equal(count(bill, /type: 'order_quoted'/), 1, "the type must stay on EMAIL_ENABLED_TYPES");
+  assert.equal(
+    count(bill, /type: 'booking_fee_waived'/),
+    0,
+    'the BILLABLE path sends the waived receipt — a supplier who owes money would be told ' +
+      'that nothing is owed',
+  );
   assert.match(lock, /relatedUrl: vendorBookingFeePayPath\(orderId\)/, 'the deep link is the idempotency key');
   // …and the type really is on the allowlist, so the email actually sends.
   const emit = read('lib/notification-emit.ts');
@@ -414,5 +658,45 @@ test('the overdue warning promises no consequence the code does not implement', 
     access,
     /booking_fee|bookingFee/,
     'access now consults the fee — the overdue copy must be rewritten to say so',
+  );
+});
+
+/**
+ * ⏱ CROSS-LANE TRIPWIRE — the overdue sentence has an expiry date it cannot see.
+ *
+ * `feeDueCopy` tells an overdue supplier *"your booking is not affected"*, and
+ * the test above proves that is TRUE TODAY by checking that
+ * `vendor-room-access-rule.ts` never reads the fee. But a parallel lane
+ * (`claude/fee-unlocks-the-event`) is building enforcement in NEW modules —
+ * `lib/event-access-stage.ts` and `lib/vendor-event-fee-access.server.ts`,
+ * behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, default OFF — which the access-rule
+ * check cannot see. When that flag flips, my sentence becomes a LIE and nothing
+ * above would go red: the two lanes would be two voices on one subject, each
+ * passing its own suite.
+ *
+ * 🔑 That is the exact failure this repo keeps re-learning (MEMORY: "two
+ * mechanisms that disagree about one fact each pass their own suite"), so the
+ * tripwire is armed NOW, while it costs nothing: today the flag name appears
+ * nowhere and this passes trivially. The moment enforcement lands, it fails and
+ * names what has to change.
+ *
+ * SABOTAGE: add the flag name to any non-test source → RED (verified).
+ */
+const FEE_ENFORCEMENT_FLAG = 'NEXT_PUBLIC_FEE_UNLOCKS_EVENT';
+
+test('if fee enforcement lands, the overdue copy must stop saying "not affected"', () => {
+  // ANCHOR: a walker that found nothing would pass this vacuously.
+  assert.ok(SOURCES.size > 500, `only ${SOURCES.size} sources walked — the walker is broken`);
+
+  const enforcers = [...SOURCES]
+    .filter(([f, src]) => src.includes(FEE_ENFORCEMENT_FLAG) && f !== 'lib/booking-fee-disclosure.ts')
+    .map(([f]) => f);
+  if (enforcers.length === 0) return; // enforcement has not landed — nothing to reconcile.
+
+  assert.ok(
+    SOURCES.get('lib/booking-fee-disclosure.ts')?.includes(FEE_ENFORCEMENT_FLAG),
+    `${FEE_ENFORCEMENT_FLAG} is now live in ${enforcers.join(', ')}, so an overdue booking CAN ` +
+      'lose access — but feeDueCopy still tells the supplier "your booking is not affected". ' +
+      'Make that sentence read the same flag, so the promise and the enforcement cannot disagree.',
   );
 });

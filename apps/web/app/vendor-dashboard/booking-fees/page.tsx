@@ -16,6 +16,14 @@ import {
   FEE_ORDERS_UNREADABLE,
 } from '@/lib/vendor-booking-fees.server';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  fetchWaivedFeeCharges,
+  FEE_BILLS_UNREADABLE,
+} from '@/lib/booking-fee-disclosure.server';
+import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
+import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 
 export const metadata = { title: 'Booking fees · Vendor' };
 
@@ -49,6 +57,18 @@ export default async function VendorBookingFeesPage() {
   const unreadable = read === FEE_ORDERS_UNREADABLE;
   const orders = unreadable ? [] : read;
   const { due, settled, closed } = bucketFeeOrders(orders);
+
+  // THE FREE BOOKINGS BELONG ON THE FEE LIST TOO (owner 2026-09-20). A waived
+  // charge mints no `orders` row, so until now this page — the one place a
+  // supplier goes to read their fees — showed nothing at all for the first five
+  // and then a bill for the sixth. Unreadable renders nothing, never an implied
+  // "you have had no free bookings".
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  const waivedRead = await fetchWaivedFeeCharges(
+    createAdminClient(),
+    profile?.vendor_profile_id,
+  ).catch(() => FEE_BILLS_UNREADABLE);
+  const waived: WaivedFeeCharge[] = waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
 
   const totalDue = due.reduce(
     (acc, o) => acc + Number(o.confirmed_total_php ?? o.requested_total_php ?? 0),
@@ -100,10 +120,10 @@ export default async function VendorBookingFeesPage() {
             strokeWidth={1.5}
             aria-hidden
           />
-          <p className="mt-3 text-sm font-medium text-ink">No booking fees yet.</p>
+          <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-            Your first 5 booked customers are free. When a 6th booking locks in,
-            its fee will show up here to pay.
+            Your first 5 booked customers are free — each one still shows the fee
+            it would have carried, so the 6th is no surprise.
           </p>
         </div>
       ) : (
@@ -119,6 +139,17 @@ export default async function VendorBookingFeesPage() {
           ) : null}
         </div>
       )}
+
+      {/* THE FREE FIVE, PRICED. Outside the orders branch on purpose: a shop
+          with no bill at all still has free bookings worth naming, and the
+          "Nothing to pay yet" empty state above is about ORDERS, not about
+          whether any fee has ever been computed for this shop. */}
+      {waived.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="sn-eye">Waived — your first 5</h2>
+          <WaivedFeeRows charges={waived} />
+        </section>
+      ) : null}
     </main>
   );
 }

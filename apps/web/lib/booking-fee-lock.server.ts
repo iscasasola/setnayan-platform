@@ -9,8 +9,12 @@ import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { setnayanGiftBillClause } from '@/lib/setnayan-gift';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { emitNotification } from '@/lib/notification-emit';
-import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
-import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import { bookingFeeNoticeCopy, waivedFeeReceiptCopy } from '@/lib/booking-fee-disclosure';
+import {
+  fetchWaivedFeeCharge,
+  FEE_BILLS_UNREADABLE,
+} from '@/lib/booking-fee-disclosure.server';
+import { vendorBookingFeePayPath, vendorWaivedFeePath } from '@/lib/vendor-booking-fees';
 
 /**
  * `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unreadable.
@@ -60,6 +64,108 @@ async function readEventDisplayName(
     return null;
   }
   return (data as { display_name?: string | null } | null)?.display_name ?? null;
+}
+
+/**
+ * THE RECEIPT FOR A FEE NOBODY WAS CHARGED — owner, 2026-09-20: *"yes, add the
+ * email receipt for waived bookings."*
+ *
+ * ─── WHY IT EXISTS ─────────────────────────────────────────────────────────
+ * A billable booking fee leaves marks everywhere: an `orders` row, a `payments`
+ * row, the /admin/payments queue, a bill on three supplier surfaces and (since
+ * the block at the end of `collectBookingFeeAtLock`) a notification + email.
+ * A WAIVED one used to leave exactly one mark — a `booking_fee_charges` row
+ * nothing read — because this function's caller returns 'free' before the order
+ * insert. PR #5737 gave the charge in-app surfaces; this is the half that
+ * reaches a shop who is not at a console.
+ *
+ * ─── WHY NOT `order_quoted` ────────────────────────────────────────────────
+ * 🔑 IT IS A RECEIPT, NOT A BILL. `order_quoted` means "you have an order to
+ * pay" and is on EMAIL_ENABLED_TYPES — pointing it at a waived charge would
+ * EMAIL A SUPPLIER A FEE THEY DO NOT OWE. That is why #5737 deliberately left
+ * this notification unbuilt rather than reuse a type that was already wired:
+ * a wrong sentence delivered reliably is worse than no sentence.
+ * `booking_fee_waived` is its own enum label (20271235690341) and its own
+ * allowlist entry; both halves, or neither works.
+ *
+ * ─── IDEMPOTENCE ───────────────────────────────────────────────────────────
+ * ONE receipt per waived charge, even though the lock path can run again. The
+ * RPC returns the SAME charge on a re-lock (reused:true, same frozen ordinal),
+ * so `vendorWaivedFeePath(chargeId)` is stable — and the house pattern is to key
+ * on `related_url`, exactly as `maybeSweepVendorBookingFeeNotifications` does
+ * for the billable side. The existence check is the whole mechanism.
+ *
+ * ⚠ AND A REFUSED EXISTENCE CHECK SENDS NOTHING. Read as "no receipt yet" it
+ * would mail a second receipt every time the read failed. An unanswered question
+ * sends nothing; the next lock re-asks. Same fail-safe as the order path's
+ * `existing-order check unreadable` skip one screen down.
+ *
+ * ⚠ AND AN UNREADABLE CHARGE SENDS NOTHING EITHER. The amount and the ordinal
+ * are the receipt; composing it from a failed read would print a figure nobody
+ * measured — or a "₱0 waived", which tells a shop their booking was worthless.
+ *
+ * Fully fail-soft: the lock and the charge are already committed. Nothing here
+ * may roll either back.
+ */
+async function sendWaivedFeeReceipt(admin: SupabaseClient, chargeId: string): Promise<void> {
+  try {
+    const charge = await fetchWaivedFeeCharge(admin, chargeId);
+    // Unreadable, or not a waived charge at all → no receipt. Never a guess.
+    if (charge === FEE_BILLS_UNREADABLE || charge === null) return;
+
+    // Who to tell: the shop that owns the charge. `fetchWaivedFeeCharge` does
+    // not carry the payer, so the profile → user hop happens here, the same way
+    // the billable arm resolves `payerUserId`.
+    const { data: chargeOwner, error: ownerError } = await admin
+      .from('booking_fee_charges')
+      .select('vendor_profile_id')
+      .eq('charge_id', chargeId)
+      .maybeSingle();
+    if (ownerError) {
+      logQueryError('booking-fee-lock.sendWaivedFeeReceipt.owner', ownerError, { chargeId });
+      return;
+    }
+    const vendorProfileId =
+      (chargeOwner as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+    if (!vendorProfileId) return;
+
+    const { data: vp, error: vpError } = await admin
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (vpError) {
+      logQueryError('booking-fee-lock.sendWaivedFeeReceipt.payer', vpError, { chargeId });
+      return;
+    }
+    const userId = (vp as { user_id?: string | null } | null)?.user_id ?? null;
+    // An unclaimed (admin-owned) profile has nobody to tell. Not a fault.
+    if (!userId) return;
+
+    const relatedUrl = vendorWaivedFeePath(chargeId);
+
+    // ONE RECEIPT PER WAIVED CHARGE. A refused read is NOT "none yet" — see the
+    // docblock; it sends nothing and the next lock re-asks.
+    const { data: already, error: alreadyError } = await admin
+      .from('notifications')
+      .select('notification_id')
+      .eq('user_id', userId)
+      .eq('related_url', relatedUrl)
+      .limit(1)
+      .maybeSingle();
+    if (alreadyError) {
+      logQueryError('booking-fee-lock.sendWaivedFeeReceipt.existing', alreadyError, { chargeId });
+      return;
+    }
+    if (already) return;
+
+    const { title, body } = waivedFeeReceiptCopy(charge);
+    await emitNotification({ userId, type: 'booking_fee_waived', title, body, relatedUrl });
+  } catch (err) {
+    // The charge is committed and the fee is waived either way. A Resend or
+    // PostgREST hiccup must never surface as a failed lock.
+    console.warn(`[booking-fee-lock] waived receipt failed for charge ${chargeId}:`, err);
+  }
 }
 
 /**
@@ -175,6 +281,7 @@ export async function collectBookingFeeAtLock(
 
   // Free-5 / ₱0 booking → a charge row exists for audit, but no money, no order.
   if (res.status === 'waived_free5') {
+    await sendWaivedFeeReceipt(admin, chargeId);
     return { status: 'free', chargeId, bookingOrdinal: res.booking_ordinal ?? 0 };
   }
   if (res.status !== 'pending' || !res.amount_charged_centavos || res.amount_charged_centavos <= 0) {

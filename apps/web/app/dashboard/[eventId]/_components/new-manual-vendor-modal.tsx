@@ -11,8 +11,7 @@ import {
 } from 'react';
 import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
 import {
-  createManualVendor,
-  attachManualVendorToCategory,
+  addManualSupplier,
   attachMarketplaceVendorToCategory,
   createManualVendorInvite,
   searchMarketplaceVendorsByName,
@@ -28,6 +27,10 @@ import {
   manualVendorNeedsAddress,
 } from '@/lib/manual-venue-address';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { AddressPinField } from './address-pin-field';
+import { ServicesCoveredPicker } from './services-covered-picker';
+import { PaymentPlanRows } from './payment-plan-rows';
+import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import { useSaveLoader } from '@/components/sd-loader';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
@@ -102,6 +105,17 @@ export function NewManualVendorModal({
      2026-09-20). The same predicate `createManualVendor` re-asks server-side —
      this only decides the label, the hint and the `required` attribute. */
   const addressRequired = manualVendorNeedsAddress(category);
+  /* The price drives the payment plan's running total, so it is controlled
+     here rather than left uncontrolled like the other text fields. */
+  const [priceInput, setPriceInput] = useState('');
+  const priceNumber = (() => {
+    const n = Number(priceInput.replace(/,/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
+  /* Every plan group, with the booking's own one passed separately so the
+     picker can render it locked. Same set the workspace editor offers. */
+  const ownGroupId = planGroupForCategory(category as VendorCategory);
+  const coverOptions = PLAN_GROUPS.map((g) => ({ id: g.id as string, label: g.label }));
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -113,6 +127,8 @@ export function NewManualVendorModal({
   // Marketplace-link mode skips it (already on Setnayan, price comes from
   // their listing).
   const [created, setCreated] = useState<{ eventVendorId: string; name: string } | null>(null);
+  /** Set when the supplier saved but one of the later fields did not. */
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
   // route through onCreated so the parent refreshes the page — the row is
   // real even if the host skips the quick options.
@@ -287,8 +303,15 @@ export function NewManualVendorModal({
       return;
     }
 
-    // Manual-mode branch (existing two-step path; success now lands on the
-    // post-save quick-options step instead of closing).
+    // ── Manual-mode branch: ONE call for the whole sheet (2026-09-20) ────
+    // This was a two-step (`createManualVendor` → `attachManualVendorToCategory`)
+    // with price arriving later from the post-save panel. With eight fields on
+    // one screen that would have become four or five sequential server calls
+    // from the browser, where a failure on the third leaves a supplier who
+    // exists, is attached, has no price and no plan — beside a success screen.
+    // `addManualSupplier` runs the sequence server-side and reports partial
+    // failure as a WARNING against a real supplier, never as a failed add:
+    // a couple told "failed" adds them again and gets a duplicate.
     const fd = new FormData(e.currentTarget);
     const nameEntry = fd.get('business_name');
     const savedName =
@@ -296,42 +319,23 @@ export function NewManualVendorModal({
         ? nameEntry.trim()
         : 'Your vendor';
     startTransition(async () => {
-      const createResult = await createManualVendor(fd);
-      if (createResult.status === 'not_signed_in') {
+      const result = await addManualSupplier(fd);
+      if (result.status === 'not_signed_in') {
         const next = encodeURIComponent(
           window.location.pathname + window.location.search,
         );
         window.location.href = `/login?next=${next}`;
         return;
       }
-      if (createResult.status === 'error') {
-        setErrorMsg(createResult.message ?? 'Could not save.');
-        return;
-      }
-      // Manual vendor created — now wire it into the current category.
-      const attachFd = new FormData();
-      attachFd.set('event_id', eventId);
-      attachFd.set('manual_vendor_id', createResult.manualVendorId);
-      attachFd.set('category', category);
-      const attachResult = await attachManualVendorToCategory(attachFd);
-      if (attachResult.status === 'not_signed_in') {
-        const next = encodeURIComponent(
-          window.location.pathname + window.location.search,
-        );
-        window.location.href = `/login?next=${next}`;
-        return;
-      }
-      if (attachResult.status === 'error') {
-        // Manual vendor was saved successfully but attach failed. The
-        // host can re-pick from the dropdown without re-entering the
-        // contact info — surface that gracefully.
-        setErrorMsg(
-          `${attachResult.message} (Saved the contact — pick them from the list to attach.)`,
-        );
+      if (result.status === 'error') {
+        setErrorMsg(result.message ?? 'Could not save.');
         return;
       }
       setErrorMsg(null);
-      setCreated({ eventVendorId: attachResult.eventVendorId, name: savedName });
+      // A warning is shown ON the success step, not instead of it — the
+      // supplier is real and the sentence says exactly what to finish.
+      setSaveWarning(result.warning ?? null);
+      setCreated({ eventVendorId: result.eventVendorId, name: savedName });
     });
   }
 
@@ -380,6 +384,7 @@ export function NewManualVendorModal({
 
         {created ? (
           <PostSaveStep
+            warning={saveWarning}
             eventId={eventId}
             eventVendorId={created.eventVendorId}
             vendorName={created.name}
@@ -537,35 +542,79 @@ export function NewManualVendorModal({
                 />
               </Field>
 
-              {/* Exact address (owner 2026-09-20). Present for EVERY category —
-                  a caterer's commissary is worth keeping — but only demanded
-                  for the two that ARE a place, because those are the addresses
-                  guests and suppliers are sent to. `manualVendorNeedsAddress`
-                  is the same predicate `createManualVendor` re-asks server-side:
-                  the `required` attribute below is a courtesy, never the gate. */}
+              {/* Address + PIN (owner 2026-09-20 — the sheet carries an "Address
+                  Pin", not an address). Required for the two categories that
+                  ARE a place; the pin itself is always optional, because a
+                  wrong pin routes guests somewhere real and incorrect. */}
+              <div className="sn-addman-field" style={{ animationDelay: '255ms' }}>
+                <AddressPinField required={addressRequired} disabled={pending} />
+              </div>
+
+              {/* ── The four fields that used to live on two other tabs ──────
+                  Owner 2026-09-20: "how about we keep it simple?" — one sheet
+                  carrying Vendor Name · Contact Person · Contact Number ·
+                  Address Pin · Services Covered · Inclusions · Price ·
+                  Payment Plan. Services and inclusions were on the workspace
+                  Details tab, price and the plan on Payments; the couple who
+                  reported this was standing on a Quote tab that rendered
+                  nothing while all four sat one tab away. */}
+              <div className="sn-addman-field space-y-1" style={{ animationDelay: '300ms' }}>
+                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
+                  What services does this cover
+                </p>
+                <ServicesCoveredPicker
+                  options={coverOptions}
+                  ownGroupId={ownGroupId}
+                  ownGroupLabel={categoryLabel}
+                  initialSelected={[]}
+                  disabled={pending}
+                />
+              </div>
+
               <Field
-                label={addressRequired ? MANUAL_VENUE_ADDRESS_LABEL : 'Address'}
-                htmlFor="manual-vendor-address"
-                required={addressRequired}
-                step={3}
-                hint={
-                  addressRequired
-                    ? MANUAL_VENUE_ADDRESS_HINT
-                    : 'Optional — handy for a commissary, showroom or studio.'
-                }
+                label="Inclusions"
+                htmlFor="manual-vendor-inclusions"
+                hint="One per line — what the price covers."
+                step={5}
+              >
+                <textarea
+                  id="manual-vendor-inclusions"
+                  name="inclusions"
+                  rows={3}
+                  disabled={pending}
+                  placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
+                  className="w-full resize-y rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                />
+              </Field>
+
+              <Field
+                label="Price"
+                htmlFor="manual-vendor-price"
+                hint="What you agreed, in pesos. The payment plan below has to add up to it."
+                step={6}
               >
                 <input
-                  id="manual-vendor-address"
-                  name="address"
+                  id="manual-vendor-price"
+                  name="total_cost_php"
                   type="text"
-                  required={addressRequired}
-                  maxLength={MANUAL_VENUE_ADDRESS_MAX}
+                  inputMode="decimal"
                   disabled={pending}
-                  autoComplete="street-address"
-                  placeholder={MANUAL_VENUE_ADDRESS_PLACEHOLDER}
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  placeholder="80000"
                   className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
                 />
               </Field>
+
+              <div className="sn-addman-field space-y-1" style={{ animationDelay: '435ms' }}>
+                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
+                  Payment plan
+                </p>
+                {/* The running total reads the price field live, so the couple
+                    sees "₱80,000 of ₱80,000" as they type rather than only
+                    when the server refuses the save. */}
+                <PaymentPlanRows totalPhp={priceNumber} disabled={pending} />
+              </div>
 
               {/* Owner 2026-07-01: note to couples that a self-added vendor is
                   NOT Setnayan-verified. Friendly framing — we add them free so
@@ -647,18 +696,17 @@ function PostSaveStep({
   eventVendorId,
   vendorName,
   categoryLabel,
+  warning,
   onDone,
 }: {
   eventId: string;
   eventVendorId: string;
   vendorName: string;
   categoryLabel: string;
+  /** Set when the supplier saved but a later field did not — see addManualSupplier. */
+  warning: string | null;
   onDone: () => void;
 }) {
-  const [pricePending, startPrice] = useTransition();
-  const [priceInput, setPriceInput] = useState('');
-  const [priceSavedPhp, setPriceSavedPhp] = useState<number | null>(null);
-  const [priceErr, setPriceErr] = useState<string | null>(null);
 
   const [invitePending, startInvite] = useTransition();
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -668,30 +716,6 @@ function PostSaveStep({
   const save = useSaveLoader();
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-
-  function savePrice() {
-    const n = Number.parseFloat(priceInput);
-    if (!Number.isFinite(n) || n <= 0) {
-      setPriceErr('Enter their package price in pesos.');
-      return;
-    }
-    setPriceErr(null);
-    startPrice(async () => {
-      try {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('vendor_id', eventVendorId);
-        fd.set('total_cost_php', String(Math.round(n)));
-        await save.run(() => updateVendorCosts(fd), {
-          steps: ['Saving the price'],
-          hint: 'Saving',
-        });
-        setPriceSavedPhp(Math.round(n));
-      } catch {
-        setPriceErr('Could not save — you can add the price from the vendor page.');
-      }
-    });
-  }
 
   function getInvite() {
     setInviteErr(null);
@@ -736,50 +760,20 @@ function PostSaveStep({
         </span>
       </p>
 
-      {/* Quick price — unlocks "Add to build" without opening the workspace. */}
-      <div className="rounded-xl border border-ink/10 bg-paper p-3">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-          Their package price <span className="font-normal normal-case text-ink/45">(optional)</span>
+      {/* ⚠ THE PRICE INPUT THAT WAS HERE IS GONE (2026-09-20). The sheet
+          above now carries Price and Payment Plan, so a second input here
+          would be a second writer of `total_cost_php` — and the couple has
+          already answered the question. What remains is the one thing that
+          genuinely only makes sense AFTER the supplier exists: their invite. */}
+      {warning ? (
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-warn-300/60 bg-warn-50/70 px-3 py-2 text-xs leading-snug text-warn-900"
+        >
+          <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span>{warning}</span>
         </p>
-        {priceSavedPhp != null ? (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-success-800">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-            ₱{priceSavedPhp.toLocaleString('en-PH')} saved — ready for your build.
-          </p>
-        ) : (
-          <>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
-                placeholder="e.g. 45000"
-                aria-label="Package price in pesos"
-                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-                disabled={pricePending}
-              />
-              <button
-                type="button"
-                onClick={savePrice}
-                disabled={pricePending || priceInput.trim().length === 0}
-                className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60"
-              >
-                {pricePending ? <Spinner /> : 'Save price'}
-              </button>
-            </div>
-            <p className="mt-1.5 text-[10px] text-ink/45">
-              With a price, this service can join your build right away.
-            </p>
-          </>
-        )}
-        {priceErr ? (
-          <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
-            {priceErr}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* Invite — the claim link the vendor uses to join + auto-link. */}
       <div className="rounded-xl border border-ink/10 bg-paper p-3">

@@ -116,6 +116,32 @@ function escapeXml(s: string): string {
 }
 
 /**
+ * The label under the icon.
+ *
+ * 🔴 SEEN IN PRODUCTION, 2026-09-20, minutes after this shipped: a plain
+ * 12-character slice turned "Indalecio & Claire" into **"Indalecio & "** —
+ * clipped mid-phrase, ending on an ampersand and a space. A home screen shows
+ * about a dozen characters, so the label has to be CHOSEN, not cut.
+ *
+ * In order: the whole name when it fits; else the first partner's name, which
+ * is what a person would say out loud; else a hard cut with trailing
+ * punctuation and whitespace removed, so it can never end on "&" or a comma.
+ */
+export function homeScreenLabel(raw: string | null | undefined, max = 12): string {
+  const name = (raw ?? '').trim().replace(/\s+/g, ' ');
+  if (name.length === 0) return 'Invitation';
+  if (name.length <= max) return name;
+  // Trailing punctuation is stripped on EVERY path, not just the hard cut:
+  // "Maria, Jose, and everyone else" splits to "Maria, Jose," which fits but
+  // still ends on a comma.
+  const tidy = (v: string) => v.replace(/[\s&+,.;:·-]+$/, '').trim();
+  const firstPartner = tidy(name.split(/\s*(?:&|\+|\band\b)\s*/i)[0]?.trim() ?? '');
+  if (firstPartner.length > 0 && firstPartner.length <= max) return firstPartner;
+  const cut = tidy(name.slice(0, max));
+  return cut.length > 0 ? cut : name.slice(0, max).trim();
+}
+
+/**
  * The per-event manifest. `start_url` and `scope` are the couple's own address,
  * so the installed tile opens THEIR invitation and stays inside it — an install
  * that lands on our homepage is not their wedding on their phone.
@@ -131,9 +157,7 @@ export function buildEventManifest(input: {
   const bg = safeHex(input.background, DEFAULT_ICON_BG);
   return {
     name,
-    // Home-screen labels are clipped around 12 characters on iOS and Android,
-    // so the short name is the couple, never "Maria & Jose's Wedding Invitation".
-    short_name: name.slice(0, 12),
+    short_name: homeScreenLabel(name),
     description: input.eventDate ? `${name} · ${input.eventDate}` : name,
     start_url: base,
     scope: base,

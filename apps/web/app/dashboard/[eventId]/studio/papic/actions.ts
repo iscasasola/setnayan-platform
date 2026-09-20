@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
+import { payPath } from '@/lib/pay-path';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -1218,11 +1219,20 @@ export async function purchasePapicCameras(formData: FormData) {
       `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
     );
   }
-  redirect(
-    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
-      order.public_id,
-    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
-  );
+  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
+  // Every other buy button in the product ends here (lib/pay-path.ts lists a
+  // dozen), and this path used to be the exception: it returned to the studio,
+  // where a banner named the amount and the reference and then asked for ANOTHER
+  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
+  // reached the QR that already carries the figure.
+  //
+  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
+  // pay. but i there was no payment. it just created."* That mint was re-pointed
+  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
+  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
+  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
+  // one is SETTLED.
+  redirect(payPath(referenceCode));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1400,11 +1410,20 @@ export async function activatePapicLimited(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(
-    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
-      order.public_id,
-    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.frozenBillPhp}`,
-  );
+  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
+  // Every other buy button in the product ends here (lib/pay-path.ts lists a
+  // dozen), and this path used to be the exception: it returned to the studio,
+  // where a banner named the amount and the reference and then asked for ANOTHER
+  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
+  // reached the QR that already carries the figure.
+  //
+  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
+  // pay. but i there was no payment. it just created."* That mint was re-pointed
+  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
+  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
+  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
+  // one is SETTLED.
+  redirect(payPath(referenceCode));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1538,11 +1557,20 @@ export async function purchasePapicExtras(formData: FormData) {
       `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
     );
   }
-  redirect(
-    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
-      order.public_id,
-    )}&papic_order=${encodeURIComponent(order.order_id)}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${quote.totalPhp}`,
-  );
+  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
+  // Every other buy button in the product ends here (lib/pay-path.ts lists a
+  // dozen), and this path used to be the exception: it returned to the studio,
+  // where a banner named the amount and the reference and then asked for ANOTHER
+  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
+  // reached the QR that already carries the figure.
+  //
+  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
+  // pay. but i there was no payment. it just created."* That mint was re-pointed
+  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
+  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
+  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
+  // one is SETTLED.
+  redirect(payPath(referenceCode));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1743,13 +1771,20 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   if (orderErr || !order) fail('order_failed');
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(
-    `/dashboard/${eventId}/studio/papic?papic_purchased=${encodeURIComponent(
-      String(order!.public_id),
-      // `order!` for the same reason the line above uses it: `fail()` throws,
-      // but its return type does not narrow `order` for the compiler.
-    )}&papic_order=${encodeURIComponent(String(order!.order_id))}&papic_ref=${encodeURIComponent(referenceCode)}&papic_amount=${pricePhp}`,
-  );
+  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
+  // Every other buy button in the product ends here (lib/pay-path.ts lists a
+  // dozen), and this path used to be the exception: it returned to the studio,
+  // where a banner named the amount and the reference and then asked for ANOTHER
+  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
+  // reached the QR that already carries the figure.
+  //
+  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
+  // pay. but i there was no payment. it just created."* That mint was re-pointed
+  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
+  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
+  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
+  // one is SETTLED.
+  redirect(payPath(referenceCode));
 }
 
 /**

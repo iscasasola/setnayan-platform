@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clientIp } from '@/lib/client-ip';
 import { rateLimit } from '@/lib/rate-limit';
-import { normalizePairCode, pairCodeUsable } from '@/lib/live-screens';
+import { normalizePairCode, pairCodeUsable, canUseVenueScreens } from '@/lib/live-screens';
+import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import {
   LIVE_SCREEN_COOKIE_MAX_AGE_SECONDS,
   LIVE_SCREEN_COOKIE_NAME,
@@ -26,6 +27,12 @@ import {
  * Reads and writes run on the service-role client because the table's RLS is
  * couple/coordinator-only and a TV has no session. The only row it can reach
  * is the one whose live code was typed.
+ *
+ * ENTITLEMENT (owner ruling 2026-09-20, lib/live-screens.ts): screens come
+ * WITH the paid Live Studio unlock. Checked here too, not only in the
+ * controller's `addLiveScreen` — a code minted while entitled can still be
+ * sitting unused when the entitlement lapses (a comp grant revoked, an order
+ * refunded), and a TV must never be able to claim one for a locked event.
  */
 
 const ATTEMPTS_PER_WINDOW = 10;
@@ -60,6 +67,9 @@ export async function pairLiveScreen(formData: FormData): Promise<void> {
     revoked_at: string | null;
   } | null;
   if (!found || !pairCodeUsable(found, Date.now())) redirect('/live?error=code');
+
+  const broadcastWindow = await resolveBroadcastWindow(admin, found.event_id);
+  if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) redirect('/live?error=locked');
 
   const pairedAt = new Date().toISOString();
   const { data: claimed, error: writeError } = await admin

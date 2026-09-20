@@ -108,7 +108,13 @@ type GroupSpec = {
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
-  { key: 'parents', label: 'Parents', roles: ['bride_parents', 'groom_parents'] },
+  /*
+    ⚖ OWNER 2026-09-20: the groom's parents print FIRST. This group's `roles`
+    order IS the printed order — `buildEntourage` walks `spec.roles` outermost —
+    so the swap below is the whole change, and nothing in the component decides
+    it.
+  */
+  { key: 'parents', label: 'Parents', roles: ['groom_parents', 'bride_parents'] },
   /*
     ⚖ OWNER 2026-09-20. Immediate family PUBLISHES for the first time. These two
     roles existed in the dashboard from the start and appeared in NO group here,
@@ -127,7 +133,11 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   {
     key: 'immediate_family',
     label: 'Immediate Family',
-    roles: ['bride_immediate_family', 'groom_immediate_family'],
+    /* Groom's side first, following the owner's 2026-09-20 ruling on Parents
+       one group above. That ruling named Parents; printing the two families in
+       OPPOSITE orders on one invitation would be the odder reading of it. Flip
+       this line alone if the ruling was meant to stop at Parents. */
+    roles: ['groom_immediate_family', 'bride_immediate_family'],
   },
   /*
     ⚖ OWNER 2026-09-20, verbatim order: "1. Maid of Honor & Best Man ... 2.

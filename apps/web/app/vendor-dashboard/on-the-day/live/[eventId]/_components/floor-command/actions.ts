@@ -21,6 +21,7 @@ import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type FloorActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -42,6 +43,10 @@ async function requireCoordinator(eventId: string) {
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { error: 'You are not booked on this event.' as const };
   }
+  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the
+  // flag is off; a refused or missing fee read returns null (fail OPEN).
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { error: feeBlocked as string };
 
   return { supabase, user, profile };
 }

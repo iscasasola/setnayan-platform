@@ -26,6 +26,7 @@ import {
   type Shot,
   type ShotRow,
 } from '@/lib/shot-list';
+import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 type Ctx =
   | {
@@ -51,6 +52,10 @@ async function requireShotListVendor(eventId: string): Promise<Ctx> {
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }
+  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the
+  // flag is off; a refused or missing fee read returns null (fail OPEN).
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { ok: false, error: feeBlocked };
   return { ok: true, supabase, vendorProfileId: profile.vendor_profile_id };
 }
 

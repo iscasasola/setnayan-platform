@@ -56,6 +56,7 @@ import {
   type DueFeeBill,
   type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
+import { eventAccessUnlocked, feeEnforcementSentence } from '@/lib/event-access-stage';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -651,52 +652,72 @@ test('the overdue warning promises no consequence the code does not implement', 
       `the overdue copy threatens ${invented} — no code implements it (cron.job is empty; access reads lock_request_state)`,
     );
   }
-  // And the access rule really does ignore the fee, which is what makes the
-  // sentence above true. If enforcement ever ships, this line fails first.
-  const access = read('lib/vendor-room-access-rule.ts');
-  assert.doesNotMatch(
-    access,
-    /booking_fee|bookingFee/,
-    'access now consults the fee — the overdue copy must be rewritten to say so',
+  // ✏️ RE-POINTED 2026-09-20 (reconciled with `claude/fee-unlocks-the-event`):
+  // this used to grep `lib/vendor-room-access-rule.ts` for the fee, on the
+  // theory that "the access rule ignores the fee" is what makes the sentence
+  // true. That premise is now the WRONG CELL — a real, flag-gated consequence
+  // exists, just not there: `eventAccessUnlocked` in `lib/event-access-stage.ts`
+  // withholds the event's details/day-of tools once
+  // `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` is on. So the executable proof of "not
+  // affected" is that THIS gate, not the room-access one, resolves `unlocked`
+  // while the flag is off — which is exactly what `feeDueCopy` now derives its
+  // sentence from (see the tripwire below). If the flag's default ever flips,
+  // this line fails first.
+  const unlockedWhileOff = eventAccessUnlocked({
+    charge: {
+      kind: 'charge',
+      status: 'pending',
+      amountPhp: OWNERS_BILL.amountPhp,
+      dueAt: OWNERS_BILL.dueOn,
+      orderId: OWNERS_BILL.orderId,
+    },
+    enforced: false,
+  });
+  assert.equal(
+    unlockedWhileOff.unlocked,
+    true,
+    'the fee gate withholds access while the flag is off — the overdue copy would then be lying',
   );
 });
 
 /**
  * ⏱ CROSS-LANE TRIPWIRE — the overdue sentence has an expiry date it cannot see.
  *
- * `feeDueCopy` tells an overdue supplier *"your booking is not affected"*, and
- * the test above proves that is TRUE TODAY by checking that
- * `vendor-room-access-rule.ts` never reads the fee. But a parallel lane
- * (`claude/fee-unlocks-the-event`) is building enforcement in NEW modules —
- * `lib/event-access-stage.ts` and `lib/vendor-event-fee-access.server.ts`,
- * behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, default OFF — which the access-rule
- * check cannot see. When that flag flips, my sentence becomes a LIE and nothing
- * above would go red: the two lanes would be two voices on one subject, each
- * passing its own suite.
+ * `feeDueCopy` used to tell an overdue supplier a hand-written *"your booking is
+ * not affected"*, proved true only by grepping `vendor-room-access-rule.ts` for
+ * the fee — a check blind to a parallel lane (`claude/fee-unlocks-the-event`)
+ * that was building REAL enforcement in different modules
+ * (`lib/event-access-stage.ts`, `lib/vendor-event-fee-access.server.ts`, behind
+ * `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, default OFF). This tripwire armed itself the
+ * moment that lane's flag name appeared anywhere else in the tree, and it fired
+ * on this very merge (MEMORY: "two mechanisms that disagree about one fact each
+ * pass their own suite").
  *
- * 🔑 That is the exact failure this repo keeps re-learning (MEMORY: "two
- * mechanisms that disagree about one fact each pass their own suite"), so the
- * tripwire is armed NOW, while it costs nothing: today the flag name appears
- * nowhere and this passes trivially. The moment enforcement lands, it fails and
- * names what has to change.
+ * ✏️ RECONCILED 2026-09-20. The fix is NOT to duplicate the flag's literal name
+ * into `lib/booking-fee-disclosure.ts` — `the-fee-unlocks-the-event.test.ts`'s
+ * "the gate is read from ONE flag" guard forbids a second literal reader, and a
+ * second reader is exactly the class of bug this tripwire exists to prevent. The
+ * fix is to call the ONE function that already reads it: `feeEnforcementSentence`
+ * (`lib/event-access-stage.ts`). So this now asserts the MECHANISM — the import
+ * exists, and the printed sentence really is that function's live output — which
+ * stays true however many more enforcer lanes ever appear.
  *
- * SABOTAGE: add the flag name to any non-test source → RED (verified).
+ * SABOTAGE: hand-write "not affected" back into `feeDueCopy`, dropping the
+ * `feeEnforcementSentence` call → RED (verified: both assertions below fire).
  */
-const FEE_ENFORCEMENT_FLAG = 'NEXT_PUBLIC_FEE_UNLOCKS_EVENT';
-
-test('if fee enforcement lands, the overdue copy must stop saying "not affected"', () => {
-  // ANCHOR: a walker that found nothing would pass this vacuously.
-  assert.ok(SOURCES.size > 500, `only ${SOURCES.size} sources walked — the walker is broken`);
-
-  const enforcers = [...SOURCES]
-    .filter(([f, src]) => src.includes(FEE_ENFORCEMENT_FLAG) && f !== 'lib/booking-fee-disclosure.ts')
-    .map(([f]) => f);
-  if (enforcers.length === 0) return; // enforcement has not landed — nothing to reconcile.
-
+test('the overdue copy derives its consequence from feeEnforcementSentence, never a second "not affected"', () => {
+  const disclosureSrc = SOURCES.get('lib/booking-fee-disclosure.ts') ?? '';
+  assert.match(
+    disclosureSrc,
+    /import\s*\{[^}]*\bfeeEnforcementSentence\b[^}]*\}\s*from\s*['"]@\/lib\/event-access-stage['"]/,
+    'feeDueCopy must derive its consequence sentence from feeEnforcementSentence ' +
+      '(lib/event-access-stage.ts) — the ONE place NEXT_PUBLIC_FEE_UNLOCKS_EVENT is ' +
+      'read — never hand-write "not affected" a second time.',
+  );
+  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05');
   assert.ok(
-    SOURCES.get('lib/booking-fee-disclosure.ts')?.includes(FEE_ENFORCEMENT_FLAG),
-    `${FEE_ENFORCEMENT_FLAG} is now live in ${enforcers.join(', ')}, so an overdue booking CAN ` +
-      'lose access — but feeDueCopy still tells the supplier "your booking is not affected". ' +
-      'Make that sentence read the same flag, so the promise and the enforcement cannot disagree.',
+    overdue.detail.includes(feeEnforcementSentence()),
+    "the overdue detail does not contain feeEnforcementSentence()'s live sentence " +
+      '— it has drifted from the gate it is supposed to match',
   );
 });

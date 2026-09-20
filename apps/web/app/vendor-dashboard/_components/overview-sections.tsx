@@ -1534,9 +1534,12 @@ function MeetingBody({
  * visible.
  */
 function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_draft' }> }) {
+  // Centavo-exact. A draft is not yet an ask, but it becomes one on Send
+  // without being re-entered, so the supplier must read the figure they will
+  // actually put in front of the couple.
   const amount =
     typeof card.totalCentavos === 'number'
-      ? formatPhp(Math.round(card.totalCentavos / 100))
+      ? formatPhp(Math.round(card.totalCentavos) / 100)
       : null;
   return (
     <>

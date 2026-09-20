@@ -18,6 +18,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { normalizeRequestedAreas } from '@/lib/floor-command';
 import { resolveAreaLevel, type DelegateArea, type ModeratorPermissions } from '@/lib/event-moderators';
+import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type AskAccessResult = { ok: boolean; error?: string; asked?: DelegateArea[] };
 
@@ -105,6 +106,10 @@ export async function askHostForAccess(
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }
+  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the
+  // flag is off; a refused or missing fee read returns null (fail OPEN).
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { ok: false, error: feeBlocked };
 
   const held = await fetchMyAreaGrants(eventId);
   const areas = normalizeRequestedAreas(rawAreas, held);

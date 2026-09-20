@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PAY_STAGES, PROOF_STAGE } from '../../lib/pay-stages';
 
 const HERE = join(process.cwd(), 'app', 'pay');
 const read = (...p: string[]) => readFileSync(join(HERE, ...p), 'utf8');
@@ -34,11 +35,47 @@ test('the QR is in the same single column as the summary — never a second colu
 });
 
 test('every step is reachable — the bar names the next one', () => {
-  assert.match(panel, /Show me the QR code/);
-  assert.match(panel, /send my proof/);
+  /**
+   * ⚠ RE-ANCHORED 2026-09-20, AND THE PROPERTY IS UNCHANGED. The three tiles
+   * used to sit on one scroll and the sticky bar jumped between them, so
+   * reachability was two literal labels ("Show me the QR code", "send my
+   * proof") and two anchor ids. The page is three STAGES now (owner ruling,
+   * same day) and those labels describe a page that no longer exists — but
+   * "there is a named way onward from every stage, and it works with
+   * JavaScript off" is exactly the same promise, so it is asserted instead of
+   * being deleted.
+   */
+  for (const { n, advance } of PAY_STAGES) {
+    if (n === PROOF_STAGE) {
+      assert.equal(advance, null, 'the last stage offers a way onward to nowhere');
+      continue;
+    }
+    assert.ok(advance && advance.trim().length > 0, `stage ${n} has no way onward`);
+    // ⛔ NOT `assert.match(panel, advance)`. That is what this assertion said
+    // first, and it went red on a label that renders IDENTICALLY: the list
+    // spells the apostrophe as `’` and the JSX spelled it `&rsquo;`. The panel
+    // reads the label from the list now, so what is asserted is that it does.
+    assert.match(
+      panel,
+      new RegExp(`advanceLabel\\(${n}\\)`),
+      `stage ${n} does not render its way onward from the shared list`,
+    );
+  }
+  // 🔑 REACHABLE WITHOUT JAVASCRIPT. The advance control is an anchor first;
+  // `stageHref` is what puts the stage in the address so the server can paint
+  // it. A button-only control would strand anyone whose JS has not arrived.
+  // 🪤 The leading space is load-bearing: `data-href={stageHref(` contains
+  // `href={stageHref(`, so without it a rename to a data attribute — which is
+  // exactly how this control stops working without JavaScript — reads green.
+  assert.match(panel, /\shref=\{stageHref\(/, 'the stage controls are no longer real links');
   assert.match(panel, /id="payCard"/);
   assert.match(panel, /id="proofCard"/);
 });
+
+function escapeRe(s: string): string {
+  // The labels carry a typographic apostrophe and could carry a bracket.
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 test('the screenshot preview stays on screen, above the reference field', () => {
   const previewAt = panel.indexOf('Read the reference number off it');

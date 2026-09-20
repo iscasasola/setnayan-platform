@@ -7,7 +7,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
-import { giftQuoteBasis } from '@/lib/setnayan-gift.server';
+import { giftBasisFrom } from '@/lib/papic-on-a-quote';
+import { resolvePapicQuoteStanding } from '@/lib/papic-on-a-quote.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   fetchMessages,
@@ -211,14 +212,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   /**
-   * The Setnayan gift's basis for this thread — resolved ONCE here so the
-   * composer can re-price it as the supplier types, rather than asking the
+   * THE TWO MONEY LINES UNDER THE QUOTE TOTAL — resolved ONCE here so the
+   * composers can re-price them as the supplier types, rather than asking the
    * server on every keystroke.
    *
-   * ⚠ Safe to run with the admin client HERE and not earlier: line 150 above
-   * already refused the request unless this viewer is the supplier on this
-   * thread (`thread.vendor_profile_id !== profile.vendor_profile_id` → notFound).
-   * Returns null on every doubt, and the composer then says nothing.
+   * ⚠ Safe to run with the admin client HERE and not earlier: the ownership
+   * gate above already refused the request unless this viewer is the supplier
+   * on this thread (`thread.vendor_profile_id !== profile.vendor_profile_id` →
+   * notFound).
    */
   // WHERE THIS SHOP STANDS ON THE FEE for this couple — handed to BOTH quote
   // composers so the supplier prices the job knowing what Setnayan takes.
@@ -228,12 +229,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
   }).catch(() => null);
-  const composerGiftBasis = thread.event_id
-    ? await giftQuoteBasis(createAdminClient(), {
-        eventId: thread.event_id,
-        vendorProfileId: thread.vendor_profile_id,
-      })
-    : null;
+  /**
+   * HOW MUCH EXCLUSIVE PAPIC THIS BOOKING CAN CARRY — owner 2026-09-20: *"the
+   * maximum additional papic service they can also purchase on top to offer
+   * that exclusive deal."*
+   *
+   * 🔑 ONE READ ANSWERS BOTH LINES. This asks `setnayan_gift_quote_applies`
+   * once and keeps the REASON; the gift block's basis is then derived from the
+   * same answer by `giftBasisFrom` — which returns one only for `'applies'`,
+   * exactly `giftQuoteBasis`'s contract. Asking twice would let the two halves
+   * of one screen be resolved against two different moments.
+   */
+  const composerPapicStanding = await resolvePapicQuoteStanding(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+  });
+  const composerGiftBasis = giftBasisFrom(composerPapicStanding);
 
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
@@ -711,6 +722,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           threadId={threadId}
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
+          papicStanding={composerPapicStanding}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
@@ -729,6 +741,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         <SendProposalCard
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
+          papicStanding={composerPapicStanding}
           threadId={threadId}
           templates={proposalTemplates}
           packages={proposalPackages}

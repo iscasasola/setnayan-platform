@@ -34,17 +34,25 @@ const TONE = {
 export function BookingFeeNotice({
   disclosure,
   cta,
+  testId = 'booking-fee-notice',
 }: {
   /** `null` ⇒ render NOTHING. Silence is the honest rendering of "no fee here". */
   disclosure: FeeDisclosure | null;
   cta?: { href: string; label: string };
+  /**
+   * This row's own name, so a surface that mounts the shape TWICE can be
+   * counted per LINE rather than per file. Both quote composers do: the fee,
+   * and the exclusive Papic deal beside it (`papic-quote-notice`). A file-level
+   * match cannot say which of two survived an edit.
+   */
+  testId?: string;
 }) {
   if (!disclosure) return null;
   const { accent, Icon } = TONE[disclosure.tone];
   return (
     <div
       role="note"
-      data-testid="booking-fee-notice"
+      data-testid={testId}
       className="mt-3 flex items-start gap-2.5 rounded-xl border p-3"
       style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
     >

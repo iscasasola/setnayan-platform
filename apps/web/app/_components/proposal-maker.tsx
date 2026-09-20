@@ -10,6 +10,10 @@ import {
   type BookingFeeStanding,
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import {
+  papicTopUpForQuote,
+  type PapicQuoteStanding,
+} from '@/lib/papic-on-a-quote';
 
 import { useMemo, useState, useTransition } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -179,6 +183,7 @@ export function ProposalMaker({
   viewerPromo = null,
   giftBasis = null,
   feeStanding = null,
+  papicStanding = null,
   revision = null,
 }: {
   threadId: string;
@@ -216,6 +221,19 @@ export function ProposalMaker({
    * (the fee system dark) renders nothing.
    */
   feeStanding?: BookingFeeStanding | null;
+  /**
+   * HOW MUCH EXCLUSIVE PAPIC THIS BOOKING CAN CARRY — the other half of the
+   * owner's 2026-09-20 ruling: *"the maximum additional papic service they can
+   * also purchase on top to offer that exclusive deal."*
+   *
+   * Resolved once on the server by `resolvePapicQuoteStanding`, then re-priced
+   * in the browser as the total changes, through the SAME
+   * `previewGiftForTotal` the gift block below uses.
+   *
+   * 🔑 `giftBasis` IS DERIVED FROM THIS ONE READ (`giftBasisFrom`), so the two
+   * lines under the total can never be answered against different moments.
+   */
+  papicStanding?: PapicQuoteStanding | null;
   /**
    * `chat_threads.pax_at_inquiry` — what the couple ASKED with, and what any
    * earlier quote was written against.
@@ -427,6 +445,16 @@ export function ProposalMaker({
   const feeCopy = useMemo(
     () => (feeStanding ? bookingFeeForecast(feeStanding, netPayable / 100) : null),
     [feeStanding, netPayable],
+  );
+
+  /**
+   * THE MAXIMUM EXCLUSIVE PAPIC THIS QUOTE COULD CARRY — priced off the same
+   * `netPayable`, through the same `previewGiftForTotal` the gift block uses,
+   * so the ceiling and the gift can never disagree.
+   */
+  const papicCopy = useMemo(
+    () => (papicStanding ? papicTopUpForQuote(papicStanding, netPayable) : null),
+    [papicStanding, netPayable],
   );
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
@@ -1024,6 +1052,19 @@ export function ProposalMaker({
             <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
           </div>
         ) : null}
+
+        {/* THE MAXIMUM EXCLUSIVE PAPIC DEAL THIS BOOKING CAN CARRY.
+            ⚖ Owner 2026-09-20: "the maximum additional papic service they can
+            also purchase on top to offer that exclusive deal." Sits LAST
+            because it either qualifies the gift block above it ("that is the
+            most") or replaces it — measured 2026-09-20, ZERO live service cards
+            have the gift switched on, so until now this whole area of the
+            composer said nothing at all about Papic. */}
+        <BookingFeeNotice
+          testId="papic-quote-notice"
+          disclosure={papicCopy}
+          cta={papicCopy?.cta}
+        />
       </div>
 
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}

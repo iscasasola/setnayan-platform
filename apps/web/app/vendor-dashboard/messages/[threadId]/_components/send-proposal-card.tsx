@@ -12,6 +12,7 @@ import { sendProposalFromChat } from '../proposal-actions';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
 import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import { papicTopUpForQuote, type PapicQuoteStanding } from '@/lib/papic-on-a-quote';
 
 type Option = { id: string; name: string };
 /** A package carries the price the SEND PATH bills — see resolveQuoteTotalCentavos. */
@@ -38,6 +39,7 @@ export function SendProposalCard({
   packages,
   giftBasis = null,
   feeStanding = null,
+  papicStanding = null,
 }: {
   threadId: string;
   templates: TemplateOption[];
@@ -68,6 +70,15 @@ export function SendProposalCard({
    * (the fee system dark) renders nothing.
    */
   feeStanding?: BookingFeeStanding | null;
+  /**
+   * HOW MUCH EXCLUSIVE PAPIC THIS BOOKING CAN CARRY — the other half of the
+   * owner's 2026-09-20 ruling: *"the maximum additional papic service they can
+   * also purchase on top to offer that exclusive deal."*
+   *
+   * Same reasoning as `feeStanding` above: a shop that quotes from THIS card
+   * must read the same ceiling a shop that quotes from the builder reads.
+   */
+  papicStanding?: PapicQuoteStanding | null;
 }) {
   const [open, setOpen] = useState(false);
   // Controlled so the gift can be re-priced as they type. The field still posts
@@ -105,6 +116,11 @@ export function SendProposalCard({
   // must read the same fee a shop that quotes from the builder reads.
   const feeCopy = feeStanding
     ? bookingFeeForecast(feeStanding, quoteTotalCentavos / 100)
+    : null;
+  // The maximum exclusive Papic deal, off the SAME total the gift is priced
+  // from and the send path bills.
+  const papicCopy = papicStanding
+    ? papicTopUpForQuote(papicStanding, quoteTotalCentavos)
     : null;
 
   if (templates.length === 0) {
@@ -225,6 +241,15 @@ export function SendProposalCard({
               <p className="mt-0.5 text-xs text-ink/60">{giftCopy.detail}</p>
             </div>
           ) : null}
+
+          {/* THE MAXIMUM EXCLUSIVE PAPIC DEAL — owner 2026-09-20. The same line
+              the builder carries; a supplier quotes from whichever half they
+              use, so neither may be the only one that names the ceiling. */}
+          <BookingFeeNotice
+            testId="papic-quote-notice"
+            disclosure={papicCopy}
+            cta={papicCopy?.cta}
+          />
 
           <p className="text-xs text-ink/55">
             The proposal appears in this chat. The couple reviews + accepts it — accepting just adds it to

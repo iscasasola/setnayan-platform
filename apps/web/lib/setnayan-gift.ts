@@ -126,6 +126,21 @@ export function giftLadderFrom(
   return rungs;
 }
 
+/**
+ * CAN THIS LADDER PRICE A GIFT AT ALL? The cap is a number of CREDITS
+ * (`GIFT_CAP_CREDITS`) and its PRICE is read off the live rung, so a ladder
+ * without that rung cannot bound the charge and `setnayanGiftForFee` refuses
+ * rather than returning an uncapped gift.
+ *
+ * 🔑 EXPORTED SO NOBODY RE-DERIVES IT. `lib/papic-on-a-quote.ts` must tell an
+ * UNPRICEABLE catalogue apart from a quote that is merely too small — both
+ * come back as "no gift", and saying "your quote is too small" when the
+ * catalogue is broken would be a false explanation of a real outage.
+ */
+export function giftLadderIsPriceable(ladder: readonly GiftRung[]): boolean {
+  return ladder.length > 0 && ladder.some((r) => r.credits === GIFT_CAP_CREDITS);
+}
+
 /** Round-half-up of n/d for non-negative integers n and positive integer d. */
 function roundRatio(n: number, d: number): number {
   return Math.floor((2 * n + d) / (2 * d));
@@ -143,7 +158,7 @@ export function setnayanGiftForFee(
   ladder: readonly GiftRung[],
 ): SetnayanGift {
   if (!Number.isFinite(feeCentavos) || feeCentavos <= 0) return NO_GIFT;
-  if (ladder.length === 0) return NO_GIFT;
+  if (!giftLadderIsPriceable(ladder)) return NO_GIFT;
 
   // The cap is a number of CREDITS; its price is read off the live rung. No
   // 50,000 rung on the ladder ⇒ no way to price the cap ⇒ no gift, rather than

@@ -14,7 +14,6 @@ import {
   Info,
   LayoutGrid,
   Link2,
-  Lock,
   Martini,
   MessageSquare,
   MessageSquarePlus,
@@ -170,11 +169,14 @@ export const metadata = { title: 'Customer Card · Vendor' };
  * (Inquiry → Quoted → Booked → Delivered → Reviewed), and five tabs — Overview /
  * Quote & Payments / Files / Schedule / Activity — behind a `?tab=` search param.
  *
- * Stage-aware: the backing RPC (get_vendor_event_brief) now returns stage
- * 'booked' | 'inquiry'. An ACCEPTED-inquiry vendor sees a limited, quote-relevant
- * card (city-grain location, pax totals, style; no exact venue / timeline / seat
- * plan / dietary — the disclosure ladder). Redirects on any RPC error exactly as
- * before (not booked, no accepted inquiry, or the event doesn't exist).
+ * Stage-aware: the backing RPC (get_vendor_event_brief) returns stage
+ * 'booked' | 'requested' | 'inquiry'. Since 20271235469220 (owner, 2026-09-20:
+ * "they already see everything from the starts") every stage carries the same
+ * brief — venue, address, headcount, meals, seat-plan size, run-of-show — and
+ * opens for any live relationship (a thread, an ask, a shortlist row). What
+ * stays booked-only is the WORK: suggest forms, handovers, the floor-plan and
+ * production-sheet pages, the rival roster. Redirects on any RPC error (no
+ * relationship to this event, or the event doesn't exist).
  *
  * Aggregates only: the RPC never returns guest rows; guest names never render.
  * Free for every vendor tier — tiers sell reach, not features.
@@ -183,9 +185,9 @@ export const metadata = { title: 'Customer Card · Vendor' };
 type Brief = {
   /**
    * THREE rungs since PR-H slice B. `'requested'` = the couple has ASKED this
-   * supplier and nobody has answered. Its payload is the SAME pre-agreement
-   * shape `'inquiry'` returns — venue name and address hard-NULL, timeline `[]`,
-   * seat plan zeroed, dietary NULL — because only an agreement earns those.
+   * supplier and nobody has answered. Since 20271235469220 every rung carries
+   * the real venue, address, timeline, seat-plan size and (food categories)
+   * dietary counts; the label decides what the supplier can DO, not see.
    */
   stage: 'booked' | 'inquiry' | 'requested';
   /** Present ONLY at stage 'requested'. Every field is a fact about this
@@ -324,6 +326,10 @@ function fmtPesoCentavos(centavos: number | null): string {
 }
 
 /** Initials for the avatar — from the event display name (never a guest name). */
+function coupleNameOrFallback(name: string | null): string {
+  return name?.trim() || 'This couple';
+}
+
 function initials(name: string | null): string {
   if (!name) return '—';
   const words = name
@@ -1134,10 +1140,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         ? { label: 'Quote sent', cls: 'bg-warn-100 text-warn-900' }
         : { label: 'In conversation', cls: 'bg-terracotta/10 text-terracotta-700' };
 
-  const eventName = brief.event.display_name ?? 'This couple';
+  // "This couple" only when there is genuinely no name. The brief names the
+  // couple at every stage (20271235469220); a blank string is not a name.
+  const eventName = coupleNameOrFallback(brief.event.display_name);
   const metaBits = [
     fmtShortDate(brief.event.event_date) || null,
-    isBooked ? brief.event.venue_name ?? null : brief.event.region ?? null,
+    brief.event.venue_name ?? brief.event.region ?? null,
   ].filter(Boolean);
 
   // ---- Activity feed events (merged, newest-first done in the component) ----
@@ -1443,7 +1451,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
-      preAgreement={preAgreement}
       paletteEntries={paletteEntries}
       mealEntries={mealEntries}
       monogramSvg={monogramSvg}
@@ -1873,21 +1880,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   );
 }
 
-// ===========================================================================
-// Disclosure-ladder locked row (inquiry stage).
-// ===========================================================================
-function LockRow({ title, sub }: { title: string; sub: string }) {
-  return (
-    <div className="mt-2 flex items-center gap-3 rounded-xl border border-warn-300/60 bg-warn-50 px-3 py-2.5">
-      <Lock aria-hidden className="h-4 w-4 shrink-0 text-warn-900" strokeWidth={1.75} />
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-warn-900">{title}</p>
-        <p className="text-xs text-warn-900/80">{sub}</p>
-      </div>
-    </div>
-  );
-}
-
 // The local `Card` that lived here (identical to the kit's card recipe) is
 // retired — `Card` is imported from `_components/kit` at the top of the file.
 
@@ -2064,14 +2056,6 @@ function OverviewTab(props: {
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
-  /**
-   * PR-H · TRUE at every stage that is NOT 'booked' — an accepted inquiry AND an
-   * outstanding lock request. Named for what it MEANS (nothing has been agreed)
-   * rather than for one of the two stages that produce it, because the previous
-   * name (`isInquiry`) is exactly what would have let a third stage slip through
-   * into the booked render.
-   */
-  preAgreement: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
   mealEntries: [string, number][];
   monogramSvg: string | null;
@@ -2122,7 +2106,6 @@ function OverviewTab(props: {
     threadId,
     returningFlag,
     isBooked,
-    preAgreement,
     paletteEntries,
     mealEntries,
     monogramSvg,
@@ -2186,7 +2169,7 @@ function OverviewTab(props: {
               <dt className="text-ink/55">Date</dt>
               <dd className="text-right font-medium">{fmtDate(brief.event.event_date)}</dd>
             </div>
-            {isBooked ? (
+            {brief.event.venue_name || brief.event.venue_address ? (
               <>
                 {brief.event.venue_name ? (
                   <div className="flex items-center justify-between gap-3">
@@ -2215,12 +2198,6 @@ function OverviewTab(props: {
               <Church aria-hidden className="h-3.5 w-3.5" />
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
-          ) : null}
-          {preAgreement ? (
-            <LockRow
-              title="Exact venue address"
-              sub="Unlocks when they book you — you see the area for now."
-            />
           ) : null}
         </Card>
 
@@ -2254,8 +2231,9 @@ function OverviewTab(props: {
           )}
         </Card>
 
-        {/* Dietary (food-relevant categories + coordinator only) — booked only. */}
-        {isBooked && brief.dietary ? (
+        {/* Dietary (food-relevant categories + coordinator only) — every stage
+            since 20271235469220; the RPC returns NULL for other categories. */}
+        {brief.dietary ? (
           <Card>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
               <UtensilsCrossed aria-hidden className="h-4 w-4 text-terracotta" /> Meals
@@ -2280,22 +2258,14 @@ function OverviewTab(props: {
                 restriction notes — ask the couple for the details that matter to your menu.
               </p>
             ) : null}
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}/production-sheet`}
-              className="mt-3 inline-block text-sm font-medium text-mulberry underline"
-            >
-              Open the production sheet
-            </Link>
-          </Card>
-        ) : preAgreement ? (
-          <Card>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-              <UtensilsCrossed aria-hidden className="h-4 w-4 text-terracotta" /> Meals
-            </h2>
-            <LockRow
-              title="Meal counts & dietary"
-              sub="Unlocks when they book you — quote from the headcount for now."
-            />
+            {isBooked ? (
+              <Link
+                href={`/vendor-dashboard/clients/${eventId}/production-sheet`}
+                className="mt-3 inline-block text-sm font-medium text-mulberry underline"
+              >
+                Open the production sheet
+              </Link>
+            ) : null}
           </Card>
         ) : null}
 
@@ -2390,50 +2360,42 @@ function OverviewTab(props: {
         </Card>
       </div>
 
-      {/* Seat plan (booked) / locked (inquiry). */}
-      {isBooked ? (
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <LayoutGrid aria-hidden className="h-4 w-4 text-terracotta" /> Seat plan
-          </h2>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                brief.seat_plan.published
-                  ? 'bg-success-100 text-success-900'
-                  : 'bg-ink/5 text-ink/60'
-              }`}
-            >
-              {brief.seat_plan.published ? 'Published' : 'Not published yet'}
-            </span>
-            <span className="text-sm text-ink/65">
-              {brief.seat_plan.table_count} tables · {brief.seat_plan.assigned_guests} guests seated
-            </span>
-          </div>
-          {brief.seat_plan.published ? (
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
-              className="mt-2 inline-block text-sm font-medium text-mulberry underline"
-            >
-              View the floor plan
-            </Link>
-          ) : (
-            <p className="mt-2 text-xs text-ink/45">
-              Once the couple publishes their floor plan, you&rsquo;ll be able to view it here.
-            </p>
-          )}
-        </Card>
-      ) : (
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <LayoutGrid aria-hidden className="h-4 w-4 text-terracotta" /> Seat plan
-          </h2>
-          <LockRow
-            title="Seat plan & tables"
-            sub="Unlocks when they book you."
-          />
-        </Card>
-      )}
+      {/* Seat plan — status + size at every stage; the floor plan itself opens once booked. */}
+      <Card>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+          <LayoutGrid aria-hidden className="h-4 w-4 text-terracotta" /> Seat plan
+        </h2>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+              brief.seat_plan.published
+                ? 'bg-success-100 text-success-900'
+                : 'bg-ink/5 text-ink/60'
+            }`}
+          >
+            {brief.seat_plan.published ? 'Published' : 'Not published yet'}
+          </span>
+          <span className="text-sm text-ink/65">
+            {brief.seat_plan.table_count} tables · {brief.seat_plan.assigned_guests} guests seated
+          </span>
+        </div>
+        {brief.seat_plan.published && isBooked ? (
+          <Link
+            href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
+            className="mt-2 inline-block text-sm font-medium text-mulberry underline"
+          >
+            View the floor plan
+          </Link>
+        ) : brief.seat_plan.published ? (
+          <p className="mt-2 text-xs text-ink/45">
+            You can open the floor plan once they book you.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-ink/45">
+            Once the couple publishes their floor plan, you&rsquo;ll be able to view it here.
+          </p>
+        )}
+      </Card>
 
       {/* "From your vendors" editorial media (booked, recommended pick only). */}
       {editorialEligibility.eligible ? (
@@ -3101,18 +3063,34 @@ function ScheduleTab(props: {
     search,
   } = props;
 
-  // PRE-AGREEMENT (accepted inquiry OR an outstanding ask) — locked timeline,
-  // no suggest forms. The disclosure ladder: only an agreement earns these.
+  // PRE-AGREEMENT (an inquiry, a shortlist row, or an outstanding ask). The
+  // run-of-show itself is theirs from first contact (owner, 2026-09-20 —
+  // 20271235469220), read-only off the brief. The TOOLS — call-time
+  // proposals, handovers, change requests — still open on a booking.
   if (preAgreement) {
+    const timeline = props.brief.timeline ?? [];
     return (
       <div className="space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Day-of timeline</p>
-        <LockRow
-          title="Full day-of timeline"
-          sub="Unlocks when they book you. You can propose a call time once you're booked."
-        />
+        {timeline.length > 0 ? (
+          <ShopCard>
+            <ul className="space-y-2">
+              {timeline.map((b, i) => (
+                <li key={`${b.start_at ?? 'tbd'}-${i}`} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="font-medium">{b.label}</span>
+                  <span className="text-right text-ink/60">
+                    {fmtTime(b.start_at) ?? 'Time to be set'}
+                    {b.location ? ` · ${b.location}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </ShopCard>
+        ) : (
+          <p className="text-sm text-ink/55">The couple hasn&rsquo;t built their run-of-show yet.</p>
+        )}
         <p className="text-sm text-ink/55">
-          Seat plan, run-of-show, and the change-request tools open the moment this couple books you.
+          Proposing a call time, handovers and change requests open once this couple books you.
         </p>
       </div>
     );

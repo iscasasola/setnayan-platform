@@ -92,6 +92,7 @@ import {
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
 import { mintOrderQr } from '@/lib/emv-qr';
+import { qrWords } from '@/lib/qr-amount-truth';
 import { openChannels } from '@/lib/payment-channels';
 
 export type InlineCheckoutDrawerProps = {
@@ -1071,8 +1072,8 @@ function PaymentDetailsBlock({
           {mintedQr ? (
             <>
               <p className="text-center text-[11px] leading-relaxed text-ink/60">
-                <span className="font-semibold text-ink">{amountDisplay}</span>{' '}
-                is already filled in — you won&apos;t need to type it.
+                {qrWords(true, amountDisplay, { appLabel: label, reference: referenceCode })
+                  .caption}
               </p>
               {/* Same-device path: a couple browsing on their phone cannot
                   point that phone's camera at its own screen. Both GCash and
@@ -1087,8 +1088,13 @@ function PaymentDetailsBlock({
               </a>
             </>
           ) : (
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-              {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
+            /* 🚨 THIS BRANCH IS THE STATIC UPLOADED CODE, WHICH CARRIES NO
+               AMOUNT. It used to say only "Scan in GCash" — true, and silent
+               about the one thing that decides whether the money arrives.
+               A wallet opens at ₱0 on this code (owner, 2026-09-20). */
+            <p className="text-center text-[11px] leading-relaxed text-ink/60">
+              {qrWords(false, amountDisplay, { appLabel: label, reference: referenceCode })
+                .caption}
             </p>
           )}
         </div>

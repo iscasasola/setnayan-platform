@@ -53,6 +53,7 @@ import {
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { Sheet } from '@/app/_components/sheet';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { qrWords, payloadCarriesOwnAmount, AGREED_AMOUNT } from '@/lib/qr-amount-truth';
 
 export type VendorDirectPayProps = {
   vendorName: string;
@@ -437,6 +438,21 @@ function QrBody({
                 </p>
               </div>
             ) : null}
+
+            {/* 🔑 WHAT THIS CODE CARRIES, SAID OUT LOUD. Nothing mints a
+                per-payment version of a supplier's own QR, so unless the
+                supplier uploaded an already-dynamic one this is a static,
+                reusable code and the couple's wallet will open at ₱0. The
+                screen never learns the figure here — no amount is in scope on
+                this panel — so the sentence names what they agreed rather than
+                inventing a number. Measured per code, not assumed: see
+                `payloadCarriesOwnAmount`. */}
+            <p className="rounded-md bg-ink/[0.03] px-3 py-2 text-xs text-ink/70">
+              {
+                qrWords(payloadCarriesOwnAmount(method.decoded_destination), AGREED_AMOUNT)
+                  .caption
+              }
+            </p>
 
             <p className="flex items-start gap-2 rounded-md border border-warn-300/60 bg-warn-50/70 px-3 py-2 text-xs text-warn-900">
               <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" strokeWidth={1.75} />

@@ -6,6 +6,7 @@ import { readOnboardingOrderItems } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
 import { getEffectiveVatRatePct } from './platform-settings';
+import { payBackLink } from './pay-back-link';
 
 export type { PayableStatus };
 
@@ -106,6 +107,12 @@ const num = (v: number | string | null | undefined): number => {
 export async function fetchPayableByReference(
   supabase: SupabaseClient,
   reference: string,
+  /**
+   * Who is looking. Optional only so existing callers keep compiling; the
+   * payment page passes it, and without it the way out falls back to the
+   * order's own shape. See `lib/pay-back-link.ts` for why the VIEWER decides.
+   */
+  viewerUserId?: string | null,
 ): Promise<Payable | null> {
   const ref = reference.trim().toUpperCase();
   if (ref.length === 0 || ref.length > 64) return null;
@@ -129,6 +136,7 @@ export async function fetchPayableByReference(
   const order = data as OrderRow;
   const isVendorPlan =
     purchaseIdFromVendorSubscriptionServiceKey(order.service_key) !== null;
+  const isBookingFee = isBookingFeeOrder(order.service_key);
 
   // ── WHAT THEY ACTUALLY OWE ────────────────────────────────────────────────
   // 🔑 THE SAME FUNCTION THE SHORTFALL GUARD USES. `orderGrossOwed` is the
@@ -181,8 +189,15 @@ export async function fetchPayableByReference(
     isVendorPlan,
     eventId: order.event_id ?? null,
     ownerUserId: order.user_id ?? null,
-    back: backFor(order),
-    requiresReference: isBookingFeeOrder(order.service_key),
+    back: payBackLink({
+      orderId: order.order_id,
+      isBookingFee,
+      eventId: order.event_id ?? null,
+      vendorProfileId: order.vendor_profile_id ?? null,
+      ownerUserId: order.user_id ?? null,
+      viewerUserId: viewerUserId ?? null,
+    }),
+    requiresReference: isBookingFee,
   };
 }
 
@@ -265,16 +280,11 @@ async function fetchRows(
 }
 
 /**
- * The way out. `/pay` renders a bare page with no navigation, so without this
- * every buyer who lands here from a buy button has the browser's back button
- * and nothing else.
+ * ⛔ `backFor(order)` USED TO LIVE HERE AND IS GONE ON PURPOSE. It asked the
+ * order for an `event_id` first and read its presence as "the payer owns this
+ * celebration", which sent a supplier paying their own Setnayan booking fee to
+ * their customer's planning dashboard — a 404 with somebody else's celebration
+ * in the URL (owner, 2026-09-20). The rule now lives in `lib/pay-back-link.ts`,
+ * takes the VIEWER as well as the order, and is executed by
+ * `the-way-out-follows-the-payer.test.ts`.
  */
-function backFor(order: OrderRow): { label: string; href: string } | null {
-  if (order.event_id) {
-    return { label: 'Back to your celebration', href: `/dashboard/${order.event_id}` };
-  }
-  if (order.vendor_profile_id) {
-    return { label: 'Back to your shop', href: '/vendor-dashboard' };
-  }
-  return { label: 'Back to Setnayan', href: '/dashboard' };
-}

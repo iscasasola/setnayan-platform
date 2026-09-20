@@ -80,3 +80,23 @@ Fixed at the page instead: two plain links, each with one destination. A route a
 static reader cannot find is a route the next refactor deletes with nothing going
 red, so the guard was right to object. It also reads better — from inside a door
 you want "the other way", and add-ons is one level further out.
+
+### CI follow-up · a narrow read is now baselined, not widened
+
+`lint:dup-rule` GUARD 2 flagged `social-queue-surface.tsx`'s hand-typed
+`events` select as a NEW omission against `HERO_MONOGRAM_COLUMNS`, because
+this PR's own fix (reading `monogram_uploaded_svg` through
+`resolveEventMonogramSvg` so the queue publishes the mark the couple actually
+uses, not a replaced `monogram_custom_svg`) pushed the overlap with that
+constant past the guard's threshold for the first time.
+
+The admin queue does not need the rest of the list — `resolveEventMonogramSvg`
+reads only `monogram_uploaded_svg` and `monogram_custom_svg`; the studio design
+columns (`monogram_color`, `monogram_font_key`, `monogram_frame_key`,
+`monogram_motion_key`, `monogram_studio_config`, `monogram_style`,
+`monogram_text`) are never referenced by this surface. Selecting the whole
+constant here would fetch seven columns nothing on this page reads. Deliberate
+narrow read, regenerated per the guard's own escape hatch
+(`pnpm --filter @setnayan/web dup-rule:baseline`); the same regen also drops 4
+previously-baselined `monogram_uploaded_svg` omissions this PR's own changes
+already closed elsewhere.

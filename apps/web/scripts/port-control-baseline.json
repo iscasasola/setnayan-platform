@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d5d0e9ca4",
-  "routeCount": 428,
+  "generatedFromRef": "0970c23d8",
+  "routeCount": 430,
   "destinations": 919,
-  "actions": 643,
-  "blocks": 4493,
+  "actions": 651,
+  "blocks": 4509,
   "routes": {
     "/": {
       "files": [
@@ -39,6 +39,7 @@
         "NativeBridge",
         "NavProgress",
         "NavSlideController",
+        "NfcTestSwitch",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
         "PostHogProvider",
@@ -5527,6 +5528,7 @@
       "blocks": [
         "CheckinActionResult",
         "CheckinDesk",
+        "CheckinMethod",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
@@ -7861,6 +7863,7 @@
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",
+        "FileUpload",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -7868,6 +7871,7 @@
         "HandoverItem",
         "HostServiceDetails",
         "Icon",
+        "LaterInstallment",
         "Link",
         "PaymentAsksCard",
         "PaymentPlanStepper",
@@ -8510,6 +8514,37 @@
         "Link"
       ]
     },
+    "/live": {
+      "files": [
+        "live/_lib/load-screen.ts",
+        "live/actions.ts",
+        "live/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "pairLiveScreen"
+      ],
+      "blocks": [
+        "LoadedScreen"
+      ]
+    },
+    "/live/screen": {
+      "files": [
+        "live/screen/page.tsx",
+        "live/screen/screen-stage.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "forgetLiveScreen"
+      ],
+      "blocks": [
+        "LiveBackground",
+        "Picture",
+        "Ready",
+        "ScreenStage",
+        "Waiting"
+      ]
+    },
     "/login": {
       "files": [
         "login/_components/login-data.ts",
@@ -8771,9 +8806,11 @@
         "panood/control/[eventId]/_components/program-bridge.tsx",
         "panood/control/[eventId]/_components/setup-sheet.tsx",
         "panood/control/[eventId]/_components/toast-layer.tsx",
+        "panood/control/[eventId]/_components/venue-screens-section.tsx",
         "panood/control/[eventId]/_components/viewport-lock.tsx",
         "panood/control/[eventId]/actions.ts",
         "panood/control/[eventId]/page.tsx",
+        "panood/control/[eventId]/screens-actions.ts",
         "panood/control/[eventId]/transport-row.tsx"
       ],
       "destinations": [
@@ -8783,6 +8820,7 @@
       "actions": [
         "action",
         "addEventFilm",
+        "addLiveScreen",
         "addRoamZone",
         "clearControlManualAir",
         "clearControlWatchUrl",
@@ -8793,13 +8831,18 @@
         "deleteRoamZone",
         "markHighlight",
         "reissueChannelJoinLink",
+        "reissueLiveScreenCode",
         "removeEventFilm",
+        "removeLiveScreen",
+        "renameLiveScreen",
         "renameRoamZone",
         "saveControlWatchUrl",
+        "setAllLiveScreensMode",
         "setControlManualAir",
         "setEventQrOverlay",
         "setFeaturedRoamZone",
         "setGuestPick",
+        "setLiveScreenMode",
         "setLowerThird",
         "setMonogramOverlay"
       ],
@@ -8834,8 +8877,10 @@
         "LiveStudioRecordingsCard",
         "MonitorOverlays",
         "OverlayToggle",
+        "PresencePill",
         "ProgramBridgeHost",
         "ProgramCanvas",
+        "ScreenRow",
         "SetupSheet",
         "Sheet",
         "Strip",
@@ -8843,6 +8888,7 @@
         "TileSurface",
         "ToastLayer",
         "TransportRow",
+        "VenueScreensSection",
         "ViewportLock",
         "Window"
       ]
@@ -10008,9 +10054,9 @@
         "FilesTab",
         "Icon",
         "Image",
+        "LedgerUnreadableNote",
         "Link",
         "LockRequestAnswer",
-        "LockRow",
         "OverviewTab",
         "PaymentAsksPanel",
         "PaymentsPausedNote",
@@ -10298,6 +10344,8 @@
       ],
       "blocks": [
         "DisputeCard",
+        "DisputeRow",
+        "ListPager",
         "ShopEmpty",
         "ShopNotice",
         "SubmitButton"
@@ -10411,6 +10459,7 @@
         "CompleteGigResult",
         "GigCard",
         "Group",
+        "ManpowerGigRow",
         "PageMasthead"
       ]
     },

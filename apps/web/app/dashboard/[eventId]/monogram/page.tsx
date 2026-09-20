@@ -12,6 +12,8 @@ import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkDoors } from './mark-doors';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { isUploadedMarkOff } from '@/lib/monogram-mark-choice';
+import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
 import { MarkEverywhere } from './mark-everywhere';
@@ -64,6 +66,9 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
   'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
   'ink-saved': { tone: 'ok', text: 'Saved — your mark now wears those colours everywhere.' },
+  'using-upload': { tone: 'ok', text: 'Your uploaded logo is your mark again — the designed one is kept.' },
+  'using-studio': { tone: 'ok', text: 'Your designed mark is live again — your uploaded logo is kept, not deleted.' },
+  'no-studio-mark': { tone: 'error', text: 'Design a mark first — switching now would leave you with none.' },
   'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
@@ -160,6 +165,16 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * compare then withholds that side rather than previewing against a colour
    * that is not theirs. */
   const paletteInk = getPrimaryColor(sanitizeRolePalette(event.role_palette), 'reception') ?? null;
+
+  /* BOTH marks, resolved for display. The chooser shows them side by side when
+   * a couple has two, so it needs each one independently — not just whichever
+   * currently wins. `uploadIsLive` is the switch state that decides which wins
+   * (lib/monogram-mark-choice.ts): an uploaded mark stamped data-mark="off" is
+   * kept but not used. */
+  const uploadedRaw = safeMonogramSvg(event.monogram_uploaded_svg);
+  const uploadIsLive = Boolean(uploadedRaw) && !isUploadedMarkOff(uploadedRaw);
+  const studioSvgForDisplay = applyMarkInk(customSvg, undefined, paletteInk);
+  const uploadedSvgForDisplay = applyMarkInk(uploadedRaw, undefined, paletteInk);
   const askedMode = sp.mode === 'design' || sp.mode === 'upload' ? sp.mode : null;
   /* Both actions redirect back here with a notice and the #upload-mark anchor.
    * Open the matching door, or a couple reads "Saved!" on a chooser showing
@@ -202,7 +217,14 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
 
       {mode === null ? (
-        <MarkDoors eventId={eventId} effectiveSvg={effectiveSvg} hasStudio={hasStudio} hasUpload={hasUpload} />
+        <MarkDoors
+          eventId={eventId}
+          studioSvg={studioSvgForDisplay}
+          uploadedSvg={uploadedSvgForDisplay}
+          uploadIsLive={uploadIsLive}
+          hasStudio={hasStudio}
+          hasUpload={hasUpload}
+        />
       ) : null}
 
       {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
@@ -228,6 +250,8 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           notice={uploadNotice}
           ownsAnimated={ownsAnimated}
           paletteInk={paletteInk}
+          savedSvg={uploadedSvgForDisplay}
+          savedIsLive={uploadIsLive}
         />
       ) : null}
 

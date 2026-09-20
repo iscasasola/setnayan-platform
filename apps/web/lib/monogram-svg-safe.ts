@@ -94,6 +94,7 @@
  */
 
 import { applyMarkInk } from './monogram-ink';
+import { isUploadedMarkOff } from './monogram-mark-choice';
 
 /** Same ceiling the write-time sanitizers use. */
 const MAX_SVG_BYTES = 400_000;
@@ -263,7 +264,13 @@ export function resolveEventMonogramSvg(
   },
 ): string | null {
   if (!event) return null;
-  const mark = safeMonogramSvg(event.monogram_uploaded_svg) ?? safeMonogramSvg(event.monogram_custom_svg);
+  /* An uploaded mark stamped `data-mark="off"` is KEPT but not used — the
+   * couple asked for their designed mark back without deleting the file they
+   * uploaded. Skipping it here, at the one chokepoint, is what makes that
+   * choice true on every surface at once. */
+  const uploaded = safeMonogramSvg(event.monogram_uploaded_svg);
+  const uploadedLive = uploaded && !isUploadedMarkOff(uploaded) ? uploaded : null;
+  const mark = uploadedLive ?? safeMonogramSvg(event.monogram_custom_svg);
   // applyMarkInk reads the policy off the mark itself and returns the stored
   // bytes unchanged for `file` (the default, and what an unstamped mark means),
   // so this is a no-op for every mark saved before the policy existed.

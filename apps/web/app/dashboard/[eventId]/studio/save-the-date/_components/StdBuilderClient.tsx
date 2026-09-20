@@ -20,6 +20,8 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, ExternalLink, Moon, Music2, RotateCcw, Sparkles, Sun, Wand2 } from 'lucide-react';
 import { SaveTheDateFilm, type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
@@ -108,6 +110,12 @@ type Props = {
   displayName: string;
   dateIso: string | null;
   markSvg?: string | null;
+  /** The paid ANIMATED_MONOGRAM gate + chosen motion, resolved server-side by
+   *  the SAME `resolveEventMonogram` the guest page uses. Forwarded straight to
+   *  <SaveTheDateFilm>: without these two the film silently renders its static
+   *  branch, which is what made this preview disagree with the live film. */
+  animatedMonogram?: MonogramMotionKey | false;
+  studioAnim?: StudioAnim;
   /** The couple's onboarding lockup — the film's mark when there's no markSvg. */
   lockup?: StdLockup | null;
   waxColor?: string;
@@ -153,6 +161,8 @@ export function StdBuilderClient({
   isChinese = false,
   dateIso,
   markSvg,
+  animatedMonogram,
+  studioAnim,
   lockup = null,
   waxColor,
   sealConfig,
@@ -912,6 +922,8 @@ export function StdBuilderClient({
                   tone={resolveStdLegibility(background).tone}
                   lockup={lockup}
                   accentHex={accentColor ?? initialAccentDefault}
+                  animatedMonogram={animatedMonogram ?? false}
+                  studioAnim={studioAnim}
                 />
               </div>
               {/* overlay — the opening. Skipped entirely for No Reveal (the free

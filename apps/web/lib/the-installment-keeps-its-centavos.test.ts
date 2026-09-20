@@ -384,9 +384,24 @@ test('every installment surface routes its centavos through a named helper', () 
     // arrow-function DEFINITION reads `centavosToPesos = (centavos`, so it does
     // not match and cannot inflate the count into a false pass.
     [PROPOSAL_MAKER, /centavosToPesos\(/g, 2],
-    // The quote decision card in the thread, and the never-sent draft card.
+    // The quote decision card in the thread. It builds a NUMBER for a prop
+    // (`totalPhp:`), so the inline conversion is the whole expression there.
     [CHAT_STREAM, /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
-    [VENDOR_OVERVIEW, /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
+    // The never-sent draft card. It RENDERS, so PR #5772 pointed it at the app's
+    // one named centavos formatter instead.
+    //
+    // 🔑 THIS ANCHOR WAS A SPELLING AND IS NOW THE PROPERTY. It pinned the
+    // literal `Math.round(card.totalCentavos) / 100` and went red when the site
+    // moved to `formatCentavosPhp(...)` — a NAMED HELPER, which is what this
+    // test's own title asks for, and strictly better than an inline conversion.
+    // Widened rather than relaxed: `Math.round(card.totalCentavos / 100)` — the
+    // defect, one paren away — still matches NEITHER alternative, so the
+    // sabotage this test exists for is unchanged.
+    [
+      VENDOR_OVERVIEW,
+      /formatCentavosPhp\(card\.totalCentavos\)|Math\.round\(card\.totalCentavos\) \/ 100/g,
+      1,
+    ],
     // The plan snapshot + the reservation-terms evidence snapshot.
     [LOCK_ACTION, /centavosToPhp\(|pctOfTotalPhp\(/g, 2],
   ];

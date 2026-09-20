@@ -1,4 +1,4 @@
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { guestCountChangeLabel, type GuestCounts } from '@/lib/guest-count-provenance';
 import {
   THREAD_STAGE_LABEL,

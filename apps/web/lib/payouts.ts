@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emitNotification } from '@/lib/notification-emit';
+import { formatCentavosPhp } from './php';
 
 /**
  * Vendor Payout dispatcher (spec corpus lock 2026-05-16).
@@ -780,10 +781,11 @@ export function phpToCentavos(php: number | null | undefined): number {
   return Math.round(Number(php) * 100);
 }
 
-export function formatCentavosPhp(centavos: number | null | undefined): string {
-  if (centavos === null || centavos === undefined) return '—';
-  return `₱${(Math.round(centavos) / 100).toLocaleString('en-PH', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-}
+/**
+ * RE-EXPORTED from `lib/php.ts` (2026-09-20). This module's own copy was the
+ * only one of three `formatCentavosPhp` definitions that kept the centavos at
+ * all — but it kept them with `maximumFractionDigits: 2`, which prints ₱837.50
+ * as **₱837.5**, the third spelling PR #5744's suite calls out by name. One
+ * definition now, and it prints two digits or none.
+ */
+export { formatCentavosPhp } from './php';

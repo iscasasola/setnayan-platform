@@ -9,7 +9,8 @@ import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflak
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -2164,7 +2165,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           row.is_demo = true;
           const startsAt = startingPrices.get(row.vendor_profile_id);
           row.demo_starts_at_label =
-            startsAt && startsAt > 0 ? `from ${formatPhp(startsAt)}` : null;
+            startsAt && startsAt > 0 ? `from ${formatPhpRounded(startsAt)}` : null;
         }
       }
     }

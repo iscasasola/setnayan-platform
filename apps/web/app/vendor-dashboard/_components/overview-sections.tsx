@@ -26,7 +26,8 @@ import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
+import { formatCentavosPhp } from '@/lib/php';
 import type {
   OngoingTask,
   UpcomingEventRow,
@@ -1537,9 +1538,20 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
   // Centavo-exact. A draft is not yet an ask, but it becomes one on Send
   // without being re-entered, so the supplier must read the figure they will
   // actually put in front of the couple.
+  //
+  // 🔴 PR #5756 (MERGED) WROTE THIS LINE AS `formatPhp(Math.round(c) / 100)` AND
+  // THAT FIX WAS INERT ON `main`. The arithmetic was right, but `formatPhp` in
+  // this file came from `@/lib/vendors`, which did
+  // `maximumFractionDigits: 0` — so a ₱837.50 draft still read ₱838 after the
+  // fix landed. Measured on `main` at 30e6baab5, not inferred.
+  //
+  // 🔑 THAT IS THE WHOLE CASE FOR THIS PR. Removing the caller's rounding
+  // cannot help while the formatter it calls also rounds, and a name collision
+  // is what hid the second one. Now there is one definition (`lib/php.ts`) and
+  // the centavos are entered directly.
   const amount =
     typeof card.totalCentavos === 'number'
-      ? formatPhp(Math.round(card.totalCentavos) / 100)
+      ? formatCentavosPhp(card.totalCentavos)
       : null;
   return (
     <>

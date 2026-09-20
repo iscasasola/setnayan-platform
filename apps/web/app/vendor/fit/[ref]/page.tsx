@@ -23,7 +23,7 @@ import { fetchBudgetSnapshot } from '@/lib/budget';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import type { WeddingTile } from '@/lib/taxonomy';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import { computeVendorFit, type FitCheck } from '@/lib/vendor-fit-qr';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addVendorFromFit } from './actions';
@@ -211,7 +211,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
           ) : null}
         </div>
         {startingPricePhp != null ? (
-          <p className="mt-2 font-mono text-xs text-ink/70">Starts at {formatPhp(startingPricePhp)}</p>
+          <p className="mt-2 font-mono text-xs text-ink/70">Starts at {formatPhpRounded(startingPricePhp)}</p>
         ) : null}
       </div>
 

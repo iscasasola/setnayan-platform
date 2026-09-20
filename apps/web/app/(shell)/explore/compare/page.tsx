@@ -16,7 +16,8 @@ import {
   isBookable,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
@@ -572,7 +573,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                             <span className="inline-flex items-baseline gap-1">
                               <span className="font-mono text-lg font-semibold text-ink">
                                 {/* `starting_price_php` is already pesos · formatPhp expects pesos · the prior `price * 100` shipped ₱25,000 as ₱2,500,000 (pre-pilot audit cleanup 2026-05-30) */}
-                                {formatPhp(price)}
+                                {formatPhpRounded(price)}
                               </span>
                               <span className="text-[11px] text-ink/55">
                                 starts at

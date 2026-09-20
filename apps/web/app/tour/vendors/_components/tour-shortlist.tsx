@@ -22,7 +22,7 @@
 
 import { useMemo, useState } from 'react';
 import { Gem, MapPin, Sparkles, BadgeCheck } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { shopInitials } from '@/lib/shop-initials';
 
@@ -103,7 +103,7 @@ function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
   const why = aiOn ? v.matchWhy : [];
   const stars = v.rating !== null ? '★★★★★'.slice(0, Math.round(v.rating)) : null;
   const starsEmpty = v.rating !== null ? '★★★★★'.slice(Math.round(v.rating)) : '';
-  const price = v.pricePhp !== null && v.pricePhp > 0 ? formatPhp(v.pricePhp) : null;
+  const price = v.pricePhp !== null && v.pricePhp > 0 ? formatPhpRounded(v.pricePhp) : null;
 
   return (
     <div className="card">

@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, Info } from 'lucide-react';
-import { formatPhp } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import {
   BUDGET_LEDGER_COLUMNS,
   BUDGET_LEDGER_COLUMN_HINTS,

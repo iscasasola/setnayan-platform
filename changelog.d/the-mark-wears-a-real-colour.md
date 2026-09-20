@@ -43,3 +43,20 @@ happens inside the drawer, and nothing compares a button's rendered text against
 the catalogue.
 
 SPEC IMPACT: None.
+
+### CI follow-up · role_palette does not belong in the monogram's canonical list
+
+`lint:dup-rule` failed: adding `role_palette` to `HERO_MONOGRAM_COLUMNS` made
+**14 hand-typed selects across 8 files** count as dropping a canonical column —
+every narrow read that reproduces part of that list was suddenly incomplete.
+
+Those reads are deliberate and pre-existing; lengthening the canonical list is
+what broke them. And `role_palette` is a PALETTE column, not a monogram one — it
+does not belong in the monogram's list because one feature wants it. So the
+column came back out and the ink is PASSED instead: `resolveEventMonogram` takes
+an optional `ink`, and a caller that already selects `role_palette` supplies it.
+
+`app/[slug]/_lib/loaders.ts` — the guest site, the surface that matters most —
+already selects `role_palette`, so it now passes the couple's reception colour.
+A caller that does not have the palette gets the file's own colours, which is
+the safe degrade the fix above installed: never black.

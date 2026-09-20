@@ -97,6 +97,7 @@ import type {
   WatchLiveData,
 } from './types';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -414,7 +415,13 @@ export const loadMedia = cache(
     // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
     // which outranks the lettered lockup — one effective mark feeds the hero.
     // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
-    const bespokeSvg = resolveEventMonogramSvg(event);
+    /* WITH the couple's ink: this loader already selects `role_palette`, so an
+     * uploaded mark stamped data-ink="palette" is repainted in their reception
+     * colour on the guest site. A caller without the palette gets the file's
+     * own colours — the safe degrade, never black (lib/monogram-ink.ts). */
+    const bespokeSvg = resolveEventMonogramSvg(event, {
+      ink: getPrimaryColor(sanitizeRolePalette(event.role_palette), 'reception') ?? null,
+    });
 
     // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
     // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on

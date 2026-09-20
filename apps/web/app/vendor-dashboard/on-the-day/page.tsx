@@ -58,6 +58,8 @@ import { EventPicker } from './_components/event-picker';
 import { collapseToPickerDays, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
 export const metadata = { title: 'Event Hub · Vendor' };
 
@@ -263,6 +265,34 @@ export default async function VendorOnTheDayPage({
   // on the day) OR the owner explicitly asked to preview it. Otherwise a compact
   // honest state renders instead of a full console full of degraded zero-cards.
   const showFullConsole = todaysBooking != null || isPreview;
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // Item 4 of the ruling — "the event hub access". Gated HERE, before the brief
+  // is read, so a locked supplier never causes a read of the couple's details.
+  //
+  // 🔑 THE PICKER LIST IS NOT GATED. A supplier must still be able to SEE that
+  // they have a day on the 14th — hiding the booking would tell them they have
+  // no event, which is the lie this repo keeps paying for. What is withheld is
+  // the room, and the panel says so with the amount and the way to pay.
+  //
+  // Flag OFF ⇒ 'unlocked' and this is a no-op.
+  if (todaysBooking) {
+    const feeGate = await resolveEventFeeGate(
+      profile.vendor_profile_id,
+      todaysBooking.eventId,
+    );
+    if (feeGate.stage !== 'unlocked') {
+      return (
+        <EventLockedPage
+          eventId={todaysBooking.eventId}
+          gate={feeGate}
+          threadId={todaysBooking.threadId}
+          backHref="/vendor-dashboard"
+          backLabel="Back to your dashboard"
+        />
+      );
+    }
+  }
 
   // Live brief for today's event (couple / date / venue / pax). The booked gate
   // + aggregation live inside the SECURITY DEFINER RPC; a null means we couldn't

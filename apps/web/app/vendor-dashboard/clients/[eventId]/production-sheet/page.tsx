@@ -8,6 +8,8 @@ import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { shopInputClass } from '../../../_components/kit';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -116,6 +118,16 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // A per-event workroom is item 1/5/6/7 of the ruling. Flag OFF ⇒ the stage is
+  // always 'unlocked' and this is a no-op. Flag ON and the fee unsettled ⇒ a
+  // PAGE that says the amount, the due date and where to pay — never a redirect
+  // and never a 404.
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') {
+    return <EventLockedPage eventId={eventId} gate={feeGate} />;
+  }
 
   // Booked + food-category gate lives in the RPC; an error bounces back to
   // the Brief (non-food vendors never land here organically).

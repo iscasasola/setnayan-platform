@@ -79,6 +79,9 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { redactBriefForStage } from '@/lib/event-access-stage';
+import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 // ONE definition of a category's name. A file-local `CATEGORY_LABELS` used to
 // live here with 28 of the 52 categories, so `CATEGORY_LABELS[c] ?? c` printed
@@ -466,8 +469,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     p_event_id: eventId,
   });
   if (error || !data) redirect('/vendor-dashboard/clients');
-  const brief = data as Brief;
-  const isBooked = brief.stage === 'booked';
+  const rawBrief = data as Brief;
+  const isBooked = rawBrief.stage === 'booked';
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // Flag OFF ⇒ the stage is 'unlocked' for everybody and `redactBriefForStage`
+  // is a NO-OP, so this whole block is byte-behaviour-identical to today.
+  //
+  // Flag ON ⇒ a supplier who has not settled the fee keeps the QUOTING payload
+  // (event type · date · area · guest count · their own service · the couple's
+  // preferences · the budget band) and loses the operating detail. The lock is
+  // resolved SERVER-side here, never in a component, and `withheld` is carried
+  // into the render so a redacted field can never read as an empty wedding.
+  //
+  // ⚠ THE QUOTE / PAYMENTS TAB AND THE CONVERSATION ARE NEVER GATED — a locked
+  // supplier must always be able to talk and to pay (`ALWAYS_OPEN_SURFACES`).
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId, {
+    booked: isBooked,
+  });
+  const { brief, withheld: feeWithheld } = redactBriefForStage(rawBrief, feeGate.stage);
+  const feeUnlocked = feeGate.stage === 'unlocked';
   // 🔒 ONE BOOLEAN, AND IT IS THE NEGATIVE OF 'booked' — NOT `stage === 'inquiry'`.
   // This used to read `stage === 'inquiry'`, which was correct while there were
   // exactly two rungs and became a LEAK-SHAPED BUG the moment a third arrived:
@@ -1631,6 +1652,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </>
   );
 
+  // ── THE FEE GATE, APPLIED ONCE FOR BOTH LAYOUTS ─────────────────────────
+  // `feeLockPanel` is the ONE locked screen; `gated()` is the ONE way a tab is
+  // withheld. Defined here, used by both the flag-OFF card and the flag-ON
+  // shell, for exactly the reason `askBlock` is (see its docblock): a gate that
+  // exists on one branch is a gate whose behaviour depends on an env var whose
+  // production value a session cannot read.
+  //
+  // 🔒 `quoteNode`, `paymentsTabNode` and the chat door are DELIBERATELY absent
+  // from every call below. Money and the conversation are always open.
+  const feeLockPanel = feeUnlocked ? null : (
+    <EventLockedByFee
+      stage={feeGate.stage}
+      access={feeGate.access}
+      withheld={feeWithheld}
+      threadId={threadId}
+    />
+  );
+  const gated = (node: React.ReactNode): React.ReactNode => (feeUnlocked ? node : feeLockPanel);
+
   // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
   if (!relationshipShellEnabled) {
     return (
@@ -1651,13 +1691,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
           {/* ============================ BODY ============================ */}
           <div className={bodyPad}>
-            {tab === 'overview' ? askBlock : null}
+            {tab === 'overview' ? feeLockPanel : null}
+            {/* Item 2 of the ruling — "the request to access features". The
+                panel above already says why, so this withholds rather than
+                repeating it. */}
+            {tab === 'overview' && feeUnlocked ? askBlock : null}
+            {/* Item 1 — the brief itself. Rendered at every stage, but from the
+                REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
             {tab === 'quote' ? quoteNode : null}
-            {tab === 'files' ? filesNode : null}
-            {tab === 'schedule' ? scheduleNode : null}
-            {tab === 'script' ? scriptNode : null}
-            {tab === 'activity' ? activityNode : null}
+            {tab === 'files' ? gated(filesNode) : null}
+            {tab === 'schedule' ? gated(scheduleNode) : null}
+            {tab === 'script' ? gated(scriptNode) : null}
+            {tab === 'activity' ? gated(activityNode) : null}
           </div>
         </div>
       </section>
@@ -1757,13 +1803,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'files',
       label: 'Files',
       icon: <FolderOpen aria-hidden className={tabIconClass} />,
-      node: filesNode,
+      node: gated(filesNode),
     },
     {
       id: 'schedule',
       label: 'Schedule',
       icon: <CalendarDays aria-hidden className={tabIconClass} />,
-      node: scheduleNode,
+      node: gated(scheduleNode),
     },
     {
       id: 'details',
@@ -1775,7 +1821,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // OverviewTab) plus the activity log & private CRM notes.
       node: (
         <div className="space-y-6">
-          {isBooked ? (
+          {feeLockPanel}
+          {isBooked && feeUnlocked ? (
             <VendorCompletionCard
               eventId={eventId}
               isCompleteConfirmed={isCompleteConfirmed}
@@ -1783,8 +1830,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               isVendorMarked={isVendorMarked}
             />
           ) : null}
+          {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
-          {activityNode}
+          {feeUnlocked ? activityNode : null}
         </div>
       ),
     },
@@ -1873,7 +1921,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               tools on it; Contract, Files and Schedule are in its ⋮ and in the
               strip below). Flag-off keeps the row: there it is the only door. */}
           {pipelineBlock}
-          {askBlock}
+          {feeLockPanel}
+          {/* Item 2 of the ruling — "the request to access features". The panel
+              above already says why, so this withholds rather than repeating it. */}
+          {feeUnlocked ? askBlock : null}
         </div>
       }
     />

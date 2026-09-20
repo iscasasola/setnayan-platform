@@ -601,36 +601,54 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // DIY parity (2026-06-11): "also covers" options for the host-authored
   // links on a manual vendor — every plan group except this vendor's own.
   const ownGroupId = planGroupForCategory(ev.category as VendorCategory);
-  const coverOptions = PLAN_GROUPS.filter((g) => g.id !== ownGroupId).map((g) => ({
+  // 🔑 EVERY CATEGORY IS LISTED, INCLUDING THIS SUPPLIER'S OWN (owner
+  // 2026-09-20: "what services does this cover. so they can pick all
+  // categories" · "combine categories they picked").
+  //
+  // It used to `filter((g) => g.id !== ownGroupId)`. Logically defensible —
+  // the own group is covered by construction — but what the couple SAW was a
+  // list of everything except the one thing they knew this supplier does,
+  // which reads as an omission, not an implication. The own group is now
+  // present, always on, and not togglable: it states the fact instead of
+  // hiding it, and it cannot be switched off into a lie.
+  const coverOptions = PLAN_GROUPS.map((g) => ({
     id: g.id as string,
     label: g.label,
+    /** Always-on, disabled: this is where the couple added them. */
+    locked: g.id === ownGroupId,
   }));
 
-  // ── The contact card the couple filled in, read back (2026-09-20) ────────
-  // Under the couple's own RLS (`event_manual_vendors_host_all`), keyed on the
-  // manual_vendor_id the ownership-proven booking row already carries. Only
-  // for a self-added supplier: a marketplace listing owns its own address.
+  // ── The couple's own service card for a self-added supplier (2026-09-20) ──
+  // Under their own RLS (`event_manual_vendors_host_all`), keyed on the
+  // manual_vendor_id the ownership-proven booking row already carries.
   //
-  // A READ ERROR IS NOT AN ABSENCE. `null` here hides the card — which for a
-  // venue also hides the "your guests need this address" prompt — so the two
-  // are told apart: `undefined` data with an error keeps the card mounted with
-  // empty fields rather than silently deciding the couple typed nothing.
-  const manualContactId = isOffPlatformSupplier(ev) ? ev.manual_vendor_id : null;
-  const manualContactRes = manualContactId
-    ? await supabase
-        .from('event_manual_vendors')
-        .select('contact_person, contact_number, address')
-        .eq('manual_vendor_id', manualContactId)
-        .eq('event_id', eventId)
-        .maybeSingle()
-    : null;
-  const manualContact = manualContactRes
-    ? ((manualContactRes.data ?? {
-        contact_person: null,
-        contact_number: null,
-        address: null,
-      }) as { contact_person: string | null; contact_number: string | null; address: string | null })
-    : null;
+  // 🔑 THE CARD RENDERS FOR EVERY OFF-PLATFORM SUPPLIER, not only the ones
+  // that happen to have a contact row. Two production bookings with
+  // `source = 'host_manual'` carry none (2026-09-15, 2026-06-18) — created
+  // outside the Add-a-contact modal's two-step — and gating the card on the
+  // row would leave exactly those couples with no way to record an address.
+  // Saving creates the row; `hasContactCard` only decides whether the two
+  // NOT NULL contact fields are marked required.
+  //
+  // ⚠ A READ ERROR IS NOT AN ABSENCE. An unreadable row keeps the card
+  // mounted with empty fields rather than silently deciding nothing was typed.
+  const selfAdded = isOffPlatformSupplier(ev);
+  const manualContactRes =
+    selfAdded && ev.manual_vendor_id
+      ? await supabase
+          .from('event_manual_vendors')
+          .select('contact_person, contact_number, address, payment_method_note, payment_terms_note')
+          .eq('manual_vendor_id', ev.manual_vendor_id)
+          .eq('event_id', eventId)
+          .maybeSingle()
+      : null;
+  const manualContact = (manualContactRes?.data ?? null) as {
+    contact_person: string | null;
+    contact_number: string | null;
+    address: string | null;
+    payment_method_note: string | null;
+    payment_terms_note: string | null;
+  } | null;
 
   // ----------------------------------------------------------------------
   // Auto-share-link invite (2026-05-22 owner directive).
@@ -1592,6 +1610,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <HostServiceDetails
           eventId={eventId}
           vendorId={ev.vendor_id}
+          displayName={displayName}
           initialInclusions={ev.host_inclusions ?? []}
           initialCovers={ev.covers_plan_groups ?? []}
           options={coverOptions}
@@ -1603,15 +1622,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
      plus the address, which is REQUIRED for the two categories that are a
      place. Sits beside the inclusions editor on Details: both are "what only
      the couple can tell us about this supplier". */
-  const selfAddedContactSection = manualContact ? (
+  const selfAddedContactSection = selfAdded ? (
     <SelfAddedContactCard
       eventId={eventId}
       vendorId={ev.vendor_id}
       displayName={displayName}
-      contactPerson={manualContact.contact_person}
-      contactNumber={manualContact.contact_number}
-      initialAddress={manualContact.address}
+      contactPerson={manualContact?.contact_person ?? null}
+      contactNumber={manualContact?.contact_number ?? null}
+      initialAddress={manualContact?.address ?? null}
+      initialPaymentMethodNote={manualContact?.payment_method_note ?? null}
+      initialPaymentTermsNote={manualContact?.payment_terms_note ?? null}
       addressRequired={manualVendorNeedsAddress(ev.category)}
+      hasContactCard={Boolean(ev.manual_vendor_id)}
     />
   ) : null;
 

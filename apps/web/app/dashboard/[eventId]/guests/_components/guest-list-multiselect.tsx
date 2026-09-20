@@ -970,12 +970,30 @@ export function GuestListMultiselect({
                   short and fixed-width, so they lose nothing. */}
               {/* ⚖ Owner 2026-09-20 — the header IS the arrangement control:
                   the word sorts, the box beside it groups. Widths unchanged. */}
+              {/* ⚖ WIDTHS REBALANCED 2026-09-21 for the checkbox each header now
+                  carries. The six kept their pre-control widths when the
+                  controls landed, so ~20px of checkbox per column had nowhere
+                  to go: the labels spilled over their own cells, every header
+                  sat shifted from the column beneath it, the last one was
+                  pushed off the right edge reading "CONTA", and the table
+                  overflowed its own scroller instead of filling the screen.
+                  The six go 46% → 50%; Name keeps the rest.
+
+                  ⛔ PADDING IS NOT WHERE THE SPACE COMES FROM. Trimming these
+                  to px-2 buys 8px a column and puts the header 4px left of
+                  every cell under it — the exact crookedness
+                  `the-roster-lines-up.test.ts` exists to stop. One padding,
+                  header and body, always.
+
+                  🔑 Truncation in ArrangeTh is the floor under all of it:
+                  these widths make truncating RARE, they do not prevent it,
+                  and nothing here may depend on a label fitting. */}
               <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-medium" />
-              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[6%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
               <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[9%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
-              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[10%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[8%] px-3 py-2.5 font-medium" />
               <th className="w-[5%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>

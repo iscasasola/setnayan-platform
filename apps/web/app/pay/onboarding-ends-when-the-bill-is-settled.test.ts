@@ -73,7 +73,15 @@ test('the other door removes the extras — and says what that costs', () => {
 });
 
 test('after the proof is in, the last step is FINISHED, not repeated', () => {
-  assert.match(PAGE, /\{setup && waiting && payable\.eventId && \(/, 'a finish door appears');
+  // 2026-09-20: the exit moved OUT from under `setup` — the ordinary buyer had
+  // no way back to their celebration from the verifying screen either. The
+  // set-up arm is unchanged in what it does; it is now the first branch of one
+  // exit gated on `waiting`. Same door, same words, one more person reaches it.
+  assert.match(
+    PAGE,
+    /\{waiting &&\s*\(setup && payable\.eventId \? \(/,
+    'a finish door appears',
+  );
   assert.match(PAGE, /Finish setting up/, 'named as the end of set-up');
   // And the removal door is gone by then — you cannot un-buy something you have
   // just told us you paid for.

@@ -30,9 +30,46 @@ One section per area. Each is a numbered list: which account, what to click, wha
 8. **As the guest**, on the invitation's photo wall, use **Take it down** on the photo (this sends a request, it does not delete). Then, **as testnayan3**, reload Moderation. The report should appear against that photo.
 9. **As the guest**, open `/papic/guest` directly in a *new* private window, so there is no guest cookie. You should see "Open your invitation first." with a button back to Setnayan. There should be no camera.
 10. **testnayan3** → **When guests can shoot** → **Only on my event day**. **As the guest**, go back to the invitation and tap **Camera**. You should see **"Guest cameras open on the day"**, which names 2026-10-30, and a **Back to the invitation** button that returns you to rosa-ben. Before PR #5668 this screen had no button at all.
-11. **testnayan2** (Saysay) → **On the day → Live → rosa-ben → Papic** (`/vendor-dashboard/on-the-day/live/<eventId>/papic`). The page should show the supplier's portfolio credits as **0 held**. That is correct: production has **no booking-fee charge ever billed** (`booking_fee_charges` is empty), and credits are granted as 5% of a *paid* booking fee, capped at 1,000, when the admin approves the payment. The ₱500 pack price comes from `vendor_billing_catalog`. If the page quotes a number, it must match that table.
+11. **testnayan2** (Saysay) → **On the day → Live → rosa-ben → Papic** (`/vendor-dashboard/on-the-day/live/<eventId>/papic`). The page should show the supplier's portfolio credits as **0 held**. That is correct: ~~production has **no booking-fee charge ever billed** (`booking_fee_charges` is empty)~~ ⚠ **STALE — re-measured 2026-09-20: `booking_fee_charges` holds 2 rows, one of them 83,750 centavos (order `S89O-DW67KBQADN`). Re-measure with `select count(*), max(amount_charged_centavos) from booking_fee_charges`, never trust this line as current**, and credits are granted as 5% of a *paid* booking fee, capped at 1,000, when the admin approves the payment. The ₱500 pack price comes from `vendor_billing_catalog`. If the page quotes a number, it must match that table.
 12. **Restore:** **testnayan3** → confirm **When guests can shoot: Event day** and **How many credits each guest gets: Off**. Leave the photo or delete it, whichever you prefer. It is your own test event.
 
 **Still open (owner, not engineering):** none found in this pass. Two things were checked and are *not* defects:
 - Supplier Papic credits are 0 because no booking fee has ever been billed.
 - `/papic/order/<bad token>` returns a plain 404, the same as any other bad token.
+
+---
+
+## Exact peso on the money path (PR #5744) · 2026-09-20
+
+The owner saw `/vendor-dashboard/booking-fees/7d1a014d-54ec-4e66-b882-03a085f5f7ca` tell him to
+send **₱838** for a charge of **₱837.50**. Everything below is the same order
+(`S89O-DW67KBQADN`, reference `SN9B7485DD`), so the figure is the SAME on every step or something
+is wrong.
+
+1. **testnayan2** (Saysay) → `/vendor-dashboard/booking-fees`. The unpaid row and the
+   *"totalling"* line both read **₱837.50**. Neither says ₱838.
+2. Open the row. The headline **Amount to send** reads **₱837.50**.
+3. Scroll to **Payment instructions**. Its own **Amount to send** reads **₱837.50** — this is the
+   second mount, and it is the one that used to disagree silently.
+4. Press **Copy** beside it and paste somewhere. It must be **`837.50`** — not `837.5`, not `838`.
+5. **Payment log** at the bottom → the logged row reads **₱837.50 · manual**.
+6. **Send your payment** → `/pay/SN9B7485DD`. The headline, the caption above the QR and the
+   sticky bar all read **₱837.50**, and the QR itself carries `837.50`. The fee page and the QR
+   now agree; before this they did not.
+7. As an **admin**, `/admin/payments` → find the order. The order total and the payment's
+   **Amount** stat both read **₱837.50**. `/admin/money` → the same figure on the ledger row.
+8. On `/admin/payments`, paste `Received PHP837.50 from S*** S***` into **Match a bank / GCash
+   notification** → the pending fee is offered. Now paste `Received PHP838.00 from J*** D***`
+   → **it must NOT be offered.** Before this it was, because the matcher searched for a rounded
+   “838” that no row anywhere holds.
+9. **A whole-peso order must look exactly as it always did.** Open any ₱2,499 or ₱50 order on
+   the same screens → **₱2,499**, **₱50**. No `.00` anywhere.
+
+**Still open (owner, not engineering):**
+- The fee hub renders `Number(... ?? 0)`, so an order with no stored total would read **₱0**
+  rather than “—”. Not reachable today (every fee order is minted with a total) and the file is
+  being rewritten by PR #5737 — flagged, not fixed here.
+- Installment / quote-total surfaces still round centavos to the peso
+  (`proposal-maker.tsx`, `chat-message-stream.tsx`, `overview-sections.tsx`). An installment IS
+  money a couple is later asked to pay. Left alone because #5737/#5741/#5742 are rewriting all
+  three files; worth a follow-up once they land.

@@ -6,7 +6,9 @@ import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { StudioRevealPlayer } from '@/app/_components/studio-reveal-player';
 import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveUploadedMarkAction, clearUploadedMarkAction } from './upload-actions';
-import { formatPhp } from '@/lib/orders';
+import { InkCompare } from './ink-compare';
+import { UploadTips } from './upload-tips';
+import type { MarkInkMode } from '@/lib/monogram-ink';
 
 /**
  * <UploadMark> — "upload your own mark" on the Monogram Maker (owner
@@ -38,7 +40,7 @@ export function UploadMark({
   monogramText,
   notice,
   ownsAnimated,
-  animatedPricePhp,
+  paletteInk,
 }: {
   eventId: string;
   /** An uploaded mark is currently live (events.monogram_uploaded_svg set). */
@@ -48,8 +50,10 @@ export function UploadMark({
   notice?: { tone: 'ok' | 'error'; text: string } | null;
   /** Whether the couple owns the paid Animated Monogram (gates the LIVE reveal). */
   ownsAnimated?: boolean;
-  /** Catalog price for the honesty line when unowned; null hides the price. */
-  animatedPricePhp?: number | null;
+  /** The couple's reception colour from their mood board, or null when they
+   *  have not chosen one — <InkCompare> withholds the comparison rather than
+   *  previewing against a colour that is not theirs. */
+  paletteInk?: string | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +61,9 @@ export function UploadMark({
   const [decoded, setDecoded] = useState<{ svg: string; elements: number; traced: boolean } | null>(null);
   const [revealKind, setRevealKind] = useState<StudioAnimKind>('handwriting');
   const [replay, setReplay] = useState(0);
+  /* Default 'file': never silently repaint somebody's existing brand mark. The
+   * couple opts INTO the mood board, having seen both. */
+  const [inkMode, setInkMode] = useState<MarkInkMode>('file');
 
   async function onFile(file: File | undefined) {
     if (!file || busy) return;
@@ -138,6 +145,11 @@ export function UploadMark({
 
       {error ? <p className="text-sm text-terracotta-700">{error}</p> : null}
 
+      {/* Open while there is nothing to look at, collapsed once a mark is on
+          screen — NN/g's mobile-accordion rule, applied to the moment rather
+          than the breakpoint: guidance first, then get out of the way. */}
+      <UploadTips open={!decoded} />
+
       {decoded ? (
         <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
@@ -195,25 +207,31 @@ export function UploadMark({
             </button>
           </div>
 
-          {/* The free/paid line, said where the reveal is chosen — matching the
-              studio's §5.3 honesty (gap audit 2026-07-17): the pick previews
-              free, but plays live for guests only with Animated Monogram. */}
+          <InkCompare
+            svg={decoded.svg}
+            paletteInk={paletteInk ?? null}
+            value={inkMode}
+            onChange={setInkMode}
+          />
+
+          {/* ONE free/paid line on this page, and it is the unlock row below
+              (<AnimatedMonogramUpgrade>, compact). This panel used to carry a
+              SECOND, differently-worded copy of it — two sentences making the
+              same promise in two voices, which is how they drift apart. Only
+              the owned confirmation stays, because it is a status, not a
+              pitch. */}
           {ownsAnimated ? (
-            <p className="text-xs text-success-800">The reveal you pick here plays live on your Event Hub.</p>
-          ) : (
-            <p className="text-xs text-ink/60">
-              Previewing the reveal is free — guests see it play live with{' '}
-              <a href="#animated-monogram" className="font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-700">
-                Animated Monogram{animatedPricePhp != null ? ` · ${formatPhp(animatedPricePhp)}` : ''}
-              </a>
-              . Your mark still shows everywhere without it.
-            </p>
-          )}
+            <p className="text-xs text-success-800">The reveal you pick here plays live for your guests.</p>
+          ) : null}
 
           <form action={saveUploadedMarkAction} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="svg" value={decoded.svg} />
             <input type="hidden" name="anim_kind" value={revealKind} />
+            {/* The colour choice rides with the mark: the action stamps it onto
+                the SVG's root tag, so every read site inherits it without
+                asking. */}
+            <input type="hidden" name="ink_mode" value={inkMode} />
             <button
               type="submit"
               className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700"

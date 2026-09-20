@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 361
+# facts: 364
 #   shadow  20
-#   omit    341
+#   omit    344
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -155,8 +155,14 @@ omit	app/_actions/plan3d-demo-actions.ts	guests	ENTOURAGE_COLUMNS	pair_with_gues
 omit	app/_actions/plan3d-demo-actions.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/_components/chat-message-stream.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_color
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_style
+omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_text
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	last_name
 omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	middle_name
@@ -167,7 +173,6 @@ omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
 omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
 omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
@@ -250,7 +255,6 @@ omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COL
 omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
 omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/dashboard/[eventId]/story/_lib/load-desk.ts	guests	ENTOURAGE_COLUMNS	extra_roles
@@ -275,7 +279,6 @@ omit	app/dashboard/[eventId]/studio/guest-columns/page.tsx	guests	ENTOURAGE_COLU
 omit	app/dashboard/[eventId]/studio/guest-columns/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/dashboard/[eventId]/studio/mood-board/concept-pdf/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_uploaded_svg
 omit	app/dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx	guests	ENTOURAGE_COLUMNS	name_suffix

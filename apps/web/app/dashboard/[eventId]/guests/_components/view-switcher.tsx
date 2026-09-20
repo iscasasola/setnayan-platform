@@ -17,10 +17,16 @@ export function GuestsViewSwitcher({
   eventId,
   active,
   search,
+  showWalk = true,
 }: {
   eventId: string;
   active: ViewKey;
   search: Record<string, string | undefined>;
+  /** Whether this celebration has a processional at all — a generic event's
+   *  roles (guest · host · vip · family · helper) walk down no aisle, so the
+   *  tab would open a view with nothing in it. Derived by the caller from the
+   *  event's own role set, never from a list of event types. */
+  showWalk?: boolean;
 }) {
   const hrefFor = (gview: ViewKey) => {
     const p = new URLSearchParams();
@@ -48,8 +54,8 @@ export function GuestsViewSwitcher({
       couple does a handful of times. It is a VIEW of the same list, so it lives
       where the other views live — URL-driven, SSR, shareable, no client island.
     */
-    { key: 'walk', label: 'Walking order', Icon: ListOrdered },
   ];
+  if (showWalk) tabs.push({ key: 'walk', label: 'Wedding March', Icon: ListOrdered });
 
   return (
     <div role="tablist" aria-label="Guest list view" className="sn-seg inline-flex">

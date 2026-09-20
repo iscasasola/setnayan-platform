@@ -271,7 +271,7 @@ test('🔑 there is a LABELLED way in — a tab, beside List and Mind map', () =
     knew to filter first. A control nobody can find is not a control.
   */
   assert.match(SWITCHER, /'walk'/, 'the switcher has no walking-order key');
-  assert.match(SWITCHER, /label: 'Walking order'/, 'the tab has no readable label');
+  assert.match(SWITCHER, /label: 'Wedding March'/, 'the tab has no readable label');
   assert.match(
     SWITCHER,
     /if \(gview !== 'list'\) p\.set\('gview', gview\)/,
@@ -310,4 +310,47 @@ test('⚖ a move keeps you in the view you made it from', () => {
     /new URLSearchParams\(\{\s*gview: 'walk'/,
     'the walking-order actions redirect back to the roster instead of the view',
   );
+});
+
+test("⚖ the owner's word is the ONLY word the couple sees", () => {
+  /*
+    Owner 2026-09-20 named it: "[Wedding March]". A button called one thing that
+    opens a view called another is two names for one idea, and the second one
+    always reads as a different feature. So the header button, the view tab and
+    the panel's own heading all say it. `entourage_order` stays — a schema name
+    is not a word anybody reads.
+  */
+  /* 🪤 Comments are not copy. A first draft failed on a docblock that explains
+     the walking order in prose, which is exactly the kind of false positive
+     that teaches somebody to delete the guard. Strip comments; judge the
+     strings a couple can actually read. */
+  const copyOf = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  for (const [what, src] of [
+    ['the header button', PAGE],
+    ['the view tab', SWITCHER],
+    ['the panel heading', PANEL],
+  ] as const) {
+    const copy = copyOf(src);
+    assert.match(copy, /Wedding March/, `${what} does not use the owner's word`);
+    assert.ok(!/Walking order/.test(copy), `${what} still says "Walking order" to the couple`);
+  }
+});
+
+test('🔑 a celebration with no processional is not offered one', () => {
+  /*
+    A generic event's roles are guest · host · vip · family · helper — not one
+    of them walks down an aisle. "Wedding March" on a birthday guest list would
+    be the wrong word over an empty view.
+
+    DERIVED from the event's own role set, never from a list of event types, so
+    a new profile answers correctly the day it is added.
+  */
+  assert.match(
+    PAGE,
+    /const hasProcessional = resolveRoleSet\(guestRoleSetKey\)\.offeredRoles\.some/,
+    'the button is no longer derived from the event\'s own roles',
+  );
+  assert.match(PAGE, /finished \|\| !hasProcessional \? null/, 'the button shows on every event type');
+  assert.match(SWITCHER, /if \(showWalk\) tabs\.push/, 'the tab shows on every event type');
 });

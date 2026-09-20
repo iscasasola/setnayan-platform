@@ -41,19 +41,26 @@ existing test caught it; the comparator now ranks by placement, then the
 group's role order, then surname.
 
 Guarded by `lib/a-pair-walks-as-one-line.test.ts` — thirteen tests, the ordering
-ones EXECUTED rather than grepped. Eleven sabotages confirmed red: ordering per
+ones EXECUTED rather than grepped. Fourteen sabotages confirmed red: ordering per
 role again · an unplaced line read as position zero · the action writing a seat
 · the roster losing a column · the roster's "walks with" mount renamed · the
 panel hidden again on "All" · the drag handle losing its keyboard path · the
 buttons replaced by the drag layer · the tab losing its label · the panel bolted
-back over the roster · a move dropping you out of the view.
+back over the roster · a move dropping you out of the view · the button shown on
+every event type · the tab shown on every event type · the flash reverting to
+the old name.
 
 🪤 Three of those needed the assertion tightened first, all the same mistake:
 `includes('<PartnerLine')` also matches `<PartnerLineX`. **A substring is not a
 mount** — the assertions now match a tag boundary. A fourth guard failed on
 CORRECT code: it sliced the page from the first mention of `rosterLensKey`,
 which is its declaration far above the markup, so the window swallowed the very
-branch it was meant to exclude. **A window has to face the thing it judges.**
+branch it was meant to exclude. **A window has to face the thing it judges.** A fifth failed on a
+DOCBLOCK — comments are not copy, and policing them is how a guard earns its
+own deletion; it now strips comments and judges only the strings a couple
+reads. That same assertion then caught a real one: the save confirmation still
+said "Walking order saved."
+
 
 ## Arranging — it was built, and it was HIDDEN
 
@@ -65,9 +72,24 @@ place a couple can arrange who walks first did not exist unless they already
 knew to filter first. From where the owner was standing that is the same as not
 built, and he was right to call it.
 
-- **There is a way in: a "Walking order" tab**, beside List and Mind map in the
-  guest list's own segmented switcher (`?gview=walk`). Owner, 2026-09-20: *"so
+- **A "Wedding March" button in the header, beside "Arrange the room"** — ⚖ owner
+  2026-09-20: *"Add a button on the upper part beside arrange the room to launch
+  that. [Wedding March]."* "Arrange the room" is the door to the seat plan; this
+  is the door to the AISLE, and they belong together precisely because they are
+  not the same ordering.
+- **And a matching tab** beside List and Mind map (`?gview=walk`). Owner: *"so
   how to launch it on the guestlist?"* — there had been no entry point at all.
+- 🔑 **The owner named it, so "Wedding March" is the ONLY word the couple sees**
+  — button, tab, panel heading and the saved-confirmation flash. A button called
+  one thing that opens a view called another is two names for one idea, and the
+  second always reads as a different feature. `entourage_order` stays: a schema
+  name is not a word anybody reads.
+- 🔑 **A celebration with no processional is not offered one.** A generic event's
+  roles are guest · host · vip · family · helper — not one of them walks down an
+  aisle, so "Wedding March" there would be the wrong word over an empty view.
+  The button and the tab are DERIVED from whether the event's own role set
+  offers any role the invitation prints, never from a list of event types, so a
+  new profile answers correctly the day it is added.
 - It is a **view, not a banner**. The whole processional pinned above the roster
   would push the guest list down the page on every visit, for a job a couple
   does a handful of times.

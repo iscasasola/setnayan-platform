@@ -144,7 +144,7 @@ export async function EntourageOrderPanel({
     <section className="mb-4 rounded-xl border border-ink/10 bg-white/70 px-4 py-3">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          Walking order
+          Wedding March
         </h2>
         <p className="text-xs text-ink/55">
           The order your invitation prints them in. A pair is one line.{' '}

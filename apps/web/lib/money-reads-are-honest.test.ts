@@ -6,7 +6,7 @@
  * Supabase RESOLVES with `{ error }`; it does not throw. Four money surfaces
  * turned a refused read into the same pixels as a genuine "none":
  *
- *   /vendor-dashboard/booking-fees ..... "No booking fees yet." → to a shop that owes one
+ *   /vendor-dashboard/booking-fees ..... "Nothing to pay yet." → to a shop that owes one
  *   /vendor-dashboard/payment-options .. "No payment options yet." → invites a re-add
  *   vendor Overview cash-flow tile ..... "No booked installments yet." → to a booked shop
  *   couple's Papic studio .............. "Guests chipped in" card vanished → reads as nobody gave
@@ -119,7 +119,12 @@ const RENDERS: { file: string; guard: string; empty: string }[] = [
   {
     file: 'app/vendor-dashboard/booking-fees/page.tsx',
     guard: '{unreadable ? (',
-    empty: 'No booking fees yet.',
+    // ⚠ WAS "No booking fees yet." (2026-09-20). The page now also lists the
+    // WAIVED free-5 charges, which are booking fees — computed, recorded and
+    // owed nothing on. Claiming a shop with five of them has "no booking fees"
+    // was the same false absence this file exists to catch, one word over, so
+    // the empty state is about what is PAYABLE.
+    empty: 'Nothing to pay yet.',
   },
   {
     file: 'app/vendor-dashboard/payment-options/surface.tsx',

@@ -41,7 +41,7 @@
 // never holds funds. Recording does NOT change the order status (orthogonal).
 // ==========================================================================
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
 import { recordDeposit } from '../../../actions';
 import { logScheduledPayment } from '@/app/dashboard/[eventId]/budget/actions';
@@ -49,6 +49,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { moneyStepLine, pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { PaymentHistoryList } from '@/app/_components/payment-history-list';
 import type { PaymentHistory } from '@/lib/payment-history';
+import { ProofImage } from '@/app/_components/proof-image';
+import { ChosenProofField } from '@/app/_components/chosen-proof-field';
 import { useSaveLoader } from '@/components/sd-loader';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -144,7 +146,6 @@ export function DepositReservation({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const save = useSaveLoader();
 
   const recorded = Boolean(depositRecordedAt);
@@ -302,16 +303,23 @@ export function DepositReservation({
         </p>
       ) : null}
 
+      {/* ── THE RECEIPT YOU SENT, BIG ENOUGH TO READ (owner, live, 2026-09-20:
+          "when i upload a photo, i cannot see it. it is too small") ──────────
+          This was the words "View payment proof" and nothing else. The couple
+          could not check from here that the right screenshot went to the
+          supplier who is about to accept or refuse it, and on a phone the new
+          tab replaced the card they were reading. Same picture, same size, as
+          every other screen that shows this file (app/_components/proof-image).
+          `depositProofUrl` is ALREADY a short-lived presigned link — the page
+          signs it through `depositProofDisplayUrl` — so nothing here is public. */}
       {depositProofUrl ? (
-        <a
-          href={depositProofUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
-        >
-          <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          View payment proof
-        </a>
+        <div className="space-y-1">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
+            <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            The proof you sent
+          </p>
+          <ProofImage url={depositProofUrl} alt="The payment proof you sent" />
+        </div>
       ) : null}
 
       {/* 🔑 A REFUSED CLAIM MUST REOPEN THIS FORM. The CTA used to render only
@@ -388,19 +396,21 @@ export function DepositReservation({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="proof" className="block text-[11px] font-medium text-ink/70">
-              Proof of payment <span className="text-ink/40">(optional — screenshot/receipt)</span>
-            </label>
-            <input
-              id="proof"
-              name="proof"
-              ref={fileRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="block w-full text-xs text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-cream/80"
-            />
-          </div>
+          {/* The same `<input type="file" name="proof">`, still read by
+              `recordDeposit` out of this form's own FormData — with the picture
+              you just chose shown at a size you can actually check, its name and
+              size, and a Remove that clears the INPUT and not just the preview.
+              See app/_components/chosen-proof-field.tsx. */}
+          <ChosenProofField
+            id="proof"
+            name="proof"
+            label={
+              <>
+                Proof of payment{' '}
+                <span className="text-ink/40">(optional — screenshot/receipt)</span>
+              </>
+            }
+          />
 
           {errorMsg ? (
             <p role="alert" className="text-[11px] font-medium text-danger-600">
@@ -629,6 +639,9 @@ function LaterInstallment({
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             label="Attach receipt (optional)"
             variant="wide"
+            /* A receipt is checked by LOOKING at it, never by its filename —
+               owner, live, 2026-09-20. See the prop in file-upload.tsx. */
+            bigPreview
           />
           {errorMsg ? (
             <p role="alert" className="text-[11px] font-medium text-danger-600">

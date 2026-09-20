@@ -1,4 +1,6 @@
 import { SubmitButton } from '@/app/_components/submit-button';
+import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 
 /**
  * THE SUPPLIER'S ANSWER TO A BOOKING ASK, ON THE ACCEPTED QUOTE CARD.
@@ -28,15 +30,23 @@ export function LockAnswerForms({
   returnTo,
   agreeLock,
   declineLock,
+  feeForecast = null,
 }: {
   eventVendorId: string;
   /** The supplier's own thread path — where the answer lands. */
   returnTo: string;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
+  /**
+   * What agreeing will cost this shop, resolved by `forecastForBooking` on the
+   * thread page. Named BEFORE the button — owner, 2026-09-20: "as a vendor i do
+   * not know i have to pay." `null` renders nothing.
+   */
+  feeForecast?: FeeDisclosure | null;
 }) {
   return (
     <div className="w-full">
+      <BookingFeeNotice disclosure={feeForecast} />
       <form action={agreeLock}>
         <input type="hidden" name="vendor_id" value={eventVendorId} />
         <input type="hidden" name="return_to" value={returnTo} />

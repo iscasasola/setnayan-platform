@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { recordedDepositPhp } from '@/lib/paid-to-vendor';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import { ProofImage } from '@/app/_components/proof-image';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { settleDepositDispute } from '../actions';
 import {
@@ -184,22 +185,21 @@ export async function DepositDisputesSection() {
                 Couple recorded {depositAmount(r)}
                 {r.deposit_method_label ? ` via ${r.deposit_method_label}` : ''}
                 {r.deposit_recorded_at ? ` · ${relativeTime(r.deposit_recorded_at)}` : ''}
-                {receiptUrls.get(r.vendor_id) ? (
-                  <>
-                    {' · '}
-                    <a
-                      className="underline"
-                      href={receiptUrls.get(r.vendor_id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      receipt
-                    </a>
-                  </>
-                ) : (
-                  ' · no receipt on file'
-                )}
+                {receiptUrls.get(r.vendor_id) ? '' : ' · no receipt on file'}
               </p>
+              {/* ── THE RECEIPT UNDER DISPUTE, SHOWN (owner, live, 2026-09-20) ──
+                  The word "receipt" as a link was the whole of it, on the queue
+                  whose entire job is to judge whether this money moved. The
+                  ruling is made by reading the picture; make the picture the
+                  thing on the page. Already a short-lived signed link, scoped to
+                  the row's own event deposit folder (resolved above). */}
+              {receiptUrls.get(r.vendor_id) ? (
+                <ProofImage
+                  url={receiptUrls.get(r.vendor_id) as string}
+                  alt="The receipt the couple filed"
+                  className="mt-2"
+                />
+              ) : null}
               {r.deposit_decline_reason ? (
                 <p className="mt-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-xs text-ink/80">
                   Supplier’s words: “{r.deposit_decline_reason}”

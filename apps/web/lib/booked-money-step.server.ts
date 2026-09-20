@@ -16,6 +16,7 @@
  * supplier owns this booking (a supplier holds no `event_vendors` RLS).
  */
 import 'server-only';
+import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -41,6 +42,23 @@ export type BookedMoney = {
     acknowledgedAt: string | null;
     declinedAt: string | null;
     declineReason: string | null;
+    /**
+     * The couple's receipt as a SHORT-LIVED SIGNED LINK, or null.
+     *
+     * 🔒 SIGNED HERE, NOT HANDED ON RAW. The first draft of this returned the
+     * stored `r2://` ref and let each caller sign it — and
+     * `lib/deposit-proofs-are-private.test.ts` refused it, correctly: its
+     * invariant is that a file which READS `deposit_proof_url` is the file that
+     * passes it through `depositProofDisplayUrl`. Two callers signing for
+     * themselves is two chances to forget, and forgetting means either no
+     * receipt or a raw ref in an `<img src>`. So the one read signs once,
+     * scoped to its own `eventId`, and nobody downstream can get it wrong.
+     *
+     * null for: no receipt, a value that fails the event's own folder policy,
+     * or an unavailable signer. Fail-soft by construction — this function's
+     * whole job is the money STEP, and a receipt must never cost a caller that.
+     */
+    proofUrl: string | null;
   } | null;
   /**
    * The ledger row that IS the first payment (`is_deposit_record`), still
@@ -79,7 +97,7 @@ export async function readBookedMoney(
   let bookingQuery = db
     .from('event_vendors')
     .select(
-      'vendor_id, status, marketplace_vendor_id, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, created_at',
+      'vendor_id, status, marketplace_vendor_id, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url, created_at',
     )
     .eq('event_id', args.eventId);
   if (args.eventVendorId) bookingQuery = bookingQuery.eq('vendor_id', args.eventVendorId);
@@ -101,6 +119,7 @@ export async function readBookedMoney(
     deposit_acknowledged_at: string | null;
     deposit_declined_at: string | null;
     deposit_decline_reason: string | null;
+    deposit_proof_url: string | null;
   }[];
   // A supplier can sit on one event twice (two categories); the booked row wins.
   const booking = rows.find((r) => CONFIRMED.has(r.status ?? '')) ?? rows[0] ?? null;
@@ -191,6 +210,9 @@ export async function readBookedMoney(
       acknowledgedAt: booking.deposit_acknowledged_at,
       declinedAt: booking.deposit_declined_at,
       declineReason: booking.deposit_decline_reason,
+      proofUrl: await depositProofDisplayUrl(booking.deposit_proof_url, args.eventId).catch(
+        () => null,
+      ),
     },
     firstPaymentRowId,
   };

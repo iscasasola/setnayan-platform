@@ -72,8 +72,16 @@ export function OpenShopWizard({
   logoDisplayMap,
   defaults,
   error,
+  feeNotice = null,
   initialStep = 1,
 }: {
+  /**
+   * "Free to join, and here is when you DO pay" — composed on the server by
+   * `bookingFeeJoinDisclosure(await readBookingFeeJoinSchedule())`, so the rate
+   * is the owner's live one and is NEVER typed in this file. Null when the fee
+   * system is dark, and the wizard then says nothing about it.
+   */
+  feeNotice?: { headline: string; detail: string } | null;
   /** 'create' = no shop yet · 'complete' = shop exists but was never named. */
   mode: 'create' | 'complete';
   serviceLabels?: Record<string, string>;
@@ -660,6 +668,26 @@ export function OpenShopWizard({
               </SubmitButton>
             )}
           </div>
+
+          {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT.
+              🔴 Owner, 2026-09-20, as a supplier who had just been billed:
+              "as a vendor i do not know i have to pay." The button says FREE
+              and it is true — joining costs nothing. What was missing is the
+              other half: a booking fee exists, and it starts at booking six.
+              Last step only: a disclosure on step 1 is read by nobody, and
+              repeating it on four steps is a wall of text, not a disclosure.
+              `feeNotice` is composed by `bookingFeeJoinDisclosure` from the
+              LIVE schedule — never a rate typed here. */}
+          {step === TOTAL_STEPS && feeNotice ? (
+            <div
+              data-testid="open-shop-fee-disclosure"
+              className="mt-3 rounded-xl border p-3"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              <p className="text-sm font-semibold text-ink">{feeNotice.headline}</p>
+              <p className="mt-0.5 text-sm text-ink/70">{feeNotice.detail}</p>
+            </div>
+          ) : null}
 
         </form>
 

@@ -33,6 +33,7 @@ import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
 import { coupleLockDoorHref } from '@/lib/lock-door';
+import { proposalBackDoor } from '@/lib/proposal-back';
 import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
@@ -273,6 +274,50 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   }
   const noteShown = quoteNoteShown(proposal.rendered_body, bookedMoney !== null);
 
+  /**
+   * THE WAY BACK (owner, live, 2026-09-20: *"when i click view proposal, it
+   * opens the proposal, but when i press back, it doesn't go back."*).
+   *
+   * Every door into this page is a thread door — the chat's quote card, the
+   * Decisions view's "Review & accept", the Payments tab the chat links to —
+   * and the control in the corner walked off to the Vendors bench instead. The
+   * thread is resolved from the quote itself, on the same (event_id,
+   * vendor_profile_id) pair the workspace uses for its chat deep-link, so the
+   * way back is right even for an arrival nobody linked: an email, a bookmark,
+   * a refresh. See lib/proposal-back.ts for why this is RESOLVED and not a
+   * `?from=` the caller supplies.
+   *
+   * The supplier's own copy goes through the admin client for the same reason
+   * `readBookedMoney` above does — a vendor org holds no `chat_threads` row
+   * under the couple's policies.
+   */
+  let backThreadId: string | null = null;
+  if (proposal.event_id) {
+    const { data: threadRow, error: threadError } = await (isVendorSide
+      ? createAdminClient()
+      : supabase)
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', proposal.event_id)
+      .eq('vendor_profile_id', proposal.vendor_profile_id)
+      .maybeSingle();
+    if (threadError) {
+      // A refused read costs the WORDS, never the control — proposalBackDoor
+      // falls back to the destination this page has always had.
+      logQueryError('proposals/[publicId]:backThread', threadError, {
+        eventId: proposal.event_id,
+        vendorProfileId: proposal.vendor_profile_id,
+      });
+    } else if (threadRow) {
+      backThreadId = (threadRow as { thread_id: string }).thread_id;
+    }
+  }
+  const backDoor = proposalBackDoor({
+    isVendorSide,
+    eventId: proposal.event_id,
+    threadId: backThreadId,
+  });
+
   let lockDoorHref: string | null = null;
   if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id && !bookedMoney) {
     const { data: pick, error: pickError } = await supabase
@@ -297,24 +342,17 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+        {/* ⚖ THE CONTROL NAMES WHERE IT GOES. It said "Back" and went to the
+            bench; a word that describes the destination is the difference
+            between a control that lost your place and one that offers a
+            different screen on purpose. `event_id` being NULL (the couple
+            deleted the celebration) and a refused thread read both land on the
+            pre-existing destinations — see lib/proposal-back.ts. */}
         <Link
-          /* `event_id` is NULL once the couple has deleted the celebration
-             (slice 5 of "vendors get to keep it"). Interpolating it blind
-             produces `/dashboard/null/vendors`.
-
-             Unreachable TODAY — an orphaned quote is invisible to the couple,
-             whose read policy keys on `event_id`, so only the supplier can open
-             this page and they take the vendor branch. Guarded anyway: that
-             reasoning depends on no admin or support policy ever being added to
-             `vendor_proposals`, which is not a promise this file can keep. */
-          href={
-            isVendorSide || !proposal.event_id
-              ? '/vendor-dashboard/proposals'
-              : `/dashboard/${proposal.event_id}/vendors`
-          }
+          href={backDoor.href}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
         >
-          <ArrowLeft aria-hidden className="h-4 w-4" /> Back
+          <ArrowLeft aria-hidden className="h-4 w-4" /> {backDoor.label}
         </Link>
         <div className="flex items-center gap-2">
           <span

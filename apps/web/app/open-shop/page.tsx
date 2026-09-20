@@ -6,6 +6,8 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
+import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
+import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -138,9 +140,19 @@ export default async function OpenShopPage({
     serviceLabels?.[savedService] ??
     null;
 
+  // WHAT "FREE" MEANS — the booking-fee disclosure, composed from the OWNER'S
+  // LIVE schedule. Null while the fee system is dark, and the wizard then says
+  // nothing rather than promising a fee that cannot be charged.
+  // ⚠ 'off' and null are NOT the same. 'off' = no fee exists, so say nothing.
+  // null = the read failed, and the disclosure then says it could not load the
+  // rate rather than implying there is no fee.
+  const feeSchedule = await readBookingFeeJoinSchedule().catch(() => null);
+  const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
+
   return (
     <OpenShopWizard
       mode={row ? 'complete' : 'create'}
+      feeNotice={feeNotice}
       serviceLabels={serviceLabels}
       serviceTree={serviceTree}
       accountName={accountName}

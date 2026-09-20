@@ -318,7 +318,18 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       vendorName: vendorLabel,
       depositRecordedAt: bookedMoney.deposit.recordedAt,
       depositAcknowledgedAt: bookedMoney.deposit.acknowledgedAt,
-      depositProofUrl: null,
+      /*
+        THE RECEIPT THEY SENT, IN THE PLACE THEY SENT IT FROM (owner, live,
+        2026-09-20: "when i upload a photo, i cannot see it"). This was a
+        hard-coded `null`, so a couple could record a payment from the chat and
+        the chat would then show them nothing of what they had attached — the
+        Payments tab held the only copy. Signed HERE, through the scoped private
+        signer, because `readBookedMoney` hands on the stored `r2://` ref and
+        never a URL. A ref that fails its own folder policy signs to null and
+        the card shows no picture: the fail-soft contract
+        `depositProofDisplayUrl` already has.
+      */
+      depositProofUrl: bookedMoney.deposit.proofUrl,
       depositDeclinedAt: bookedMoney.deposit.declinedAt,
       depositDeclineReason: bookedMoney.deposit.declineReason,
       depositDisputeNote: null,

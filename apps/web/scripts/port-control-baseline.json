@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b4858f5af",
+  "generatedFromRef": "747efb329",
   "routeCount": 430,
   "destinations": 921,
   "actions": 651,
-  "blocks": 4549,
+  "blocks": 4546,
   "routes": {
     "/": {
       "files": [
@@ -5336,7 +5336,6 @@
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
-        "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
@@ -5357,7 +5356,6 @@
         "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
-        "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
         "dashboard/[eventId]/guests/inline-actions.ts",
         "dashboard/[eventId]/guests/loading.tsx",
@@ -5403,7 +5401,6 @@
         "EditGroupForm",
         "EditResult",
         "EmptyState",
-        "EntourageOrderPanel",
         "FacetRow",
         "Fragment",
         "G",
@@ -5447,7 +5444,6 @@
         "MobileSelfJoinCard",
         "MobileTree",
         "ModeSeg",
-        "MoveButton",
         "NewGroupForm",
         "NewGroupInlineForm",
         "NotSharedWithYou",
@@ -9318,7 +9314,6 @@
         "signUp"
       ],
       "blocks": [
-        "AccountTypeOption",
         "DesktopOAuthButtons",
         "FormField",
         "Link",

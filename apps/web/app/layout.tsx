@@ -13,6 +13,7 @@ import { ClientTypeDetector } from './_components/client-type-detector';
 import { NativeBridge } from './_components/native-bridge';
 import { NfcTestSwitch } from './_components/use-nfc-enabled';
 import { CookieConsentBanner } from './_components/cookie-consent-banner';
+import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { NavProgress } from './_components/nav-progress';
@@ -707,6 +708,15 @@ export default async function RootLayout({
             UI in the tree is this banner plus the "Cookie settings" re-open
             links, which all share state via lib/cookie-consent.) */}
         <CookieConsentBanner />
+        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
+            minutes and a page left open can break in a way that throws NOTHING
+            — no exception, so no error boundary and no stale-bundle reload,
+            just a blank screen that reads as an outage (it did, to the owner,
+            on 2026-09-20). Mounted at the ROOT so it covers a couple's
+            dashboard, a supplier's workspace AND a guest on an invitation; it
+            renders null unless two different real build versions are known.
+            See lib/build-version.ts. */}
+        <StaleTabNotice />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

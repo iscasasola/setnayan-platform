@@ -15,6 +15,7 @@
  *   - Wordmark + .m-serif + .m-mono typography.
  *   - "Set your day in motion." display heading with italic orange accent.
  *   - Couple / Vendor pill toggle (matches template's segmented control).
+ *     ⚠ REMOVED 2026-09-20 — see the 2026-09-20 note at the foot of this block.
  *   - First-name / Last-name / Mobile / Wedding-date visual fields are
  *     rendered but NOT wired to backend in V1 (signUp action consumes only
  *     email + password + account_type + public_summary_consent). V1.1
@@ -27,12 +28,13 @@
  * PRESERVED:
  *   - signUp server action from ./actions.ts (Supabase Auth wiring).
  *   - OAuthButtonRow above email form per industry-standard placement.
- *   - account_type radio (Couple / Vendor) — DOM contract unchanged · just
- *     restyled as v2.1 segmented pill toggle.
+ *   - account_type — DOM contract unchanged (one `name="account_type"` posting
+ *     'customer' | 'vendor'), but a hidden value since 2026-09-20, not a radio.
  *   - Public Event Summary consent checkbox — locked in CLAUDE.md 2026-05-19
  *     rows 426 + 428 with 8 RA 10173 safe-harbor guardrails. Field name +
- *     value identical to prior implementation. Hidden when Vendor is picked
- *     via [data-couple-only] + the form's :has() arbitrary variant.
+ *     value identical to prior implementation. Rendered only for a couple —
+ *     decided on the SERVER since 2026-09-20 (it was [data-couple-only] + a
+ *     `:has()` variant aimed at the now-deleted radio).
  *   - searchParams contract (error / sent / next / as / prefill_email).
  *   - ERROR_COPY map unchanged.
  *
@@ -54,6 +56,36 @@
  * catalog/onboarding counts). The number renders only at/above
  * VENDOR_COUNT_BRAG_THRESHOLD; below the floor the bullet omits the figure
  * ("Verified vendor marketplace") so the public-claims lock stays honest.
+ *
+ * ── 2026-09-20 · THE SCREEN NO LONGER ASKS WHO YOU ARE ──────────────────────
+ * The owner tapped one of our NFC vendor cards on his own phone. It landed on
+ * /vendor-invite/<slug>, he followed "Sign up free & add this vendor", and this
+ * page asked him whether he was a couple or a vendor. Verbatim: *"you shouldn't
+ * ask if they are a vendor since it should be directly as a user."* Locked the
+ * same day, and widened by him to a bare /signup as well: signing up is signing
+ * up as a person; `?as=vendor` is the one way to arrive as a vendor.
+ *
+ * 🔑 THE LINK HAD ALREADY SAID SO, AND NOTHING READ IT. Five call sites have
+ * sent `?as=couple` for months — /vendor-invite/[slug] (page + action),
+ * /vendor/lock/[token] (page + action), /vendor/fit/[ref] — and this page only
+ * ever tested `params.as === 'vendor'`. So `as=couple` did exactly one thing:
+ * leave the couple pill pre-ticked. A parameter that is written, carried and
+ * ignored is indistinguishable, from the outside, from a screen that was
+ * designed to ask.
+ *
+ * The rule itself lives in `lib/signup-intent.ts` rather than in a ternary
+ * here, because this is a server component: a guard can't render it, so a guard
+ * written against this file could only grep it — and a grep cannot tell
+ * 'customer' from 'vendor' inside a branch it never takes, which is the exact
+ * shape of the bug being fixed. `signup-intent.test.ts` EXECUTES the decision.
+ *
+ * ⚠ THE VENDOR DOOR MOVED INSIDE; IT DID NOT CLOSE. Owner, same conversation:
+ * *"we should also have the direct to vendor application app as well, but not
+ * there."* `/signup?as=vendor` is untouched (reached from /vendors, /open-shop,
+ * /vendor/claim/[token], the front door), and a signed-in customer reaches
+ * `/open-shop` from the account switcher's "Create your shop" — where
+ * `becomeVendor` self-heals `users.account_type` to 'vendor'. Nobody is
+ * trapped in the wrong account by this change.
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -67,6 +99,7 @@ import { safeNext } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
+import { accountTypeForSignup, showsCoupleConsent } from '@/lib/signup-intent';
 import {
   getVerifiedVendorMarketplaceCount,
   VENDOR_COUNT_BRAG_THRESHOLD,
@@ -116,7 +149,15 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const confirmationSent = params.sent === '1';
   const next = safeNext(params.next);
-  const preselectVendor = params.as === 'vendor';
+  // WHO IS SIGNING UP IS DECIDED BY THE LINK, NOT BY A QUESTION (owner-locked
+  // 2026-09-20). `?as=vendor` — set only by the deliberate "Register your
+  // business" doors — is the one way to arrive as a vendor; everything else,
+  // including a bare /signup, is a couple. The rule and the reasons live in
+  // lib/signup-intent.ts, where a guard can EXECUTE them; a server component
+  // can only ever be grepped.
+  const accountType = accountTypeForSignup(params.as);
+  const isVendorSignup = accountType === 'vendor';
+  const coupleConsent = showsCoupleConsent(params.as);
 
   // Already-authenticated bypass. /signup has no session check today, so a
   // logged-in user clicking a "Register your business" CTA (?as=vendor) —
@@ -136,7 +177,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
       if (next !== '/') {
         redirect(next);
       }
-      if (preselectVendor) {
+      if (isVendorSignup) {
         redirect('/vendor-dashboard');
       }
       const { data: profile } = await supabase
@@ -400,7 +441,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             // OAuth row so a vendor signing up via Google/Apple isn't
             // misclassified as a customer. (Desktop-loopback OAuth threading is a
             // separate follow-up — the Tauri flow doesn't post a form.)
-            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} withAccountType defaultAccountType={preselectVendor ? 'vendor' : 'customer'} />
+            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
           ) : null}
 
           {showOAuth ? (
@@ -431,11 +472,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
           <form
             action={signUp}
-            // [data-couple-only] consent block hides when Vendor radio is
-            // checked. :has() arbitrary variant approach preserved from prior
-            // implementation — no client JS needed.
+            // The couples-only consent block used to hide itself here, with a
+            // `:has(input[value='vendor']:checked)` rule aimed at the Couple/
+            // Vendor radio. That radio is gone (owner 2026-09-20), so the
+            // selector could never match again and the block would have
+            // rendered for vendors. It is gated on the server now instead —
+            // `coupleConsent`, from the same helper that picks the account
+            // type, so the two can never disagree.
             style={{ display: 'grid', gap: 12 }}
-            className="[&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
           >
             <input type="hidden" name="next" value={next} />
             <TurnstileField action="signup" />
@@ -451,63 +495,40 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               <input type="hidden" name="refc" value={referralCode} />
             ) : null}
 
-            {/* Account-type pill toggle · matches template's segmented control.
-                DOM contract preserved (radio inputs with name='account_type'
-                and value='customer' | 'vendor') so signUp server action reads
-                via formData.get('account_type') unchanged. */}
-            <fieldset
-              style={{
-                border: 'none',
-                padding: 0,
-                margin: 0,
-                display: 'grid',
-                gap: 6,
-              }}
-            >
-              <legend
-                className="m-mono"
-                style={{
-                  fontSize: 10,
-                  color: 'rgb(var(--color-ink) / 0.60)',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  padding: 0,
-                }}
-              >
-                I&rsquo;m signing up as a
-              </legend>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 4,
-                  padding: 3,
-                  background: 'rgb(var(--color-ink) / 0.04)',
-                  borderRadius: 'var(--m-r-full)',
-                  border: '1px solid rgb(var(--color-ink) / 0.12)',
-                }}
-              >
-                <AccountTypeOption
-                  value="customer"
-                  label="I'm a couple"
-                  defaultChecked={!preselectVendor}
-                />
-                <AccountTypeOption
-                  value="vendor"
-                  label="I'm a vendor"
-                  defaultChecked={preselectVendor}
-                />
-              </div>
-            </fieldset>
+            {/* WHO IS SIGNING UP IS ALREADY DECIDED — see lib/signup-intent.ts.
+                This was a Couple/Vendor pill toggle. The owner tapped an NFC
+                vendor card on his own phone, followed "Sign up free & add this
+                vendor", and was asked whether he was a vendor: *"you shouldn't
+                ask if they are a vendor since it should be directly as a user."*
 
-            {/* Public Event Summary consent · couples only. Hides via
-                [data-couple-only] when Vendor is checked. Field name +
-                value identical to prior implementation (locked in
-                CLAUDE.md 2026-05-19 rows 426 + 428). Starts UNticked
-                (2026-07-05 NPC consent hygiene) — showcase consent must be
-                freely given, not pre-selected. The 8 RA 10173 safe-harbor
-                guardrails still apply once opted in. */}
+                🔑 THE LINK HAD ALREADY SAID SO, AND NOTHING READ IT. Five entries
+                have been sending `?as=couple` for months and this page only ever
+                tested for 'vendor', so the param's only effect was to leave the
+                couple pill pre-ticked — indistinguishable, from the outside, from
+                a screen designed to ask.
+
+                The DOM contract signUp reads is unchanged: one `account_type`
+                posting 'customer' | 'vendor' via formData.get('account_type').
+                It is now a value rather than a question. The vendor door is not
+                closed — it is `/signup?as=vendor` (unchanged) and `/open-shop`
+                from inside a signed-in account, which self-heals account_type. */}
+            <input type="hidden" name="account_type" value={accountType} />
+
+            {/* Public Event Summary consent · couples only. Field name + value
+                identical to prior implementation (locked in CLAUDE.md
+                2026-05-19 rows 426 + 428). Starts UNticked (2026-07-05 NPC
+                consent hygiene) — showcase consent must be freely given, not
+                pre-selected. The 8 RA 10173 safe-harbor guardrails still apply
+                once opted in.
+
+                🔑 IT IS THE SERVER THAT HIDES THIS NOW, NOT A SELECTOR. The old
+                `[data-couple-only]` + `:has(input[value='vendor']:checked)` pair
+                pointed at a radio that no longer exists, so it would have shown
+                a photography studio a consent question about *its wedding*. A
+                CSS rule aimed at a deleted element does not fail — it silently
+                stops hiding anything. */}
+            {coupleConsent ? (
             <div
-              data-couple-only
               style={{
                 padding: '10px 12px',
                 borderRadius: 'var(--m-r-sm)',
@@ -551,6 +572,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 </span>
               </label>
             </div>
+            ) : null}
 
             {/* Visual-only optional fields · NOT wired to V1 signUp action.
                 Template ships First name + Last name + Mobile + Wedding date
@@ -714,43 +736,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
         }}
       />
     </main>
-  );
-}
-
-/**
- * Segmented account-type radio · visual treatment matches template's
- * pill toggle. The radio inputs are visually hidden (sr-only) and the
- * label's checked-state is driven by :has(input:checked) so the DOM
- * contract (name='account_type' radios) stays identical to the prior
- * implementation. signUp server action consumes formData.get('account_type')
- * unchanged.
- */
-function AccountTypeOption({
-  value,
-  label,
-  defaultChecked,
-}: {
-  value: 'customer' | 'vendor';
-  label: string;
-  defaultChecked: boolean;
-}) {
-  return (
-    <label
-      /* The selected side wears the threshold colour — cream on #C24E25 is
-         4.61:1, the same pairing every door CTA uses. Unselected stays ink/70
-         on the card (5.29:1), so BOTH states are legible, which the old
-         ink-fill pill also managed and must not regress. */
-      className="m-acct-pill flex-1 cursor-pointer rounded-full px-3.5 py-2 text-center text-xs font-normal text-ink/70 transition-colors has-[:checked]:bg-mulberry has-[:checked]:font-medium has-[:checked]:text-cream"
-    >
-      <input
-        type="radio"
-        name="account_type"
-        value={value}
-        defaultChecked={defaultChecked}
-        className="peer sr-only"
-      />
-      {label}
-    </label>
   );
 }
 

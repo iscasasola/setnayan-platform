@@ -156,6 +156,38 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
 
+  /* ── THE UNLOCK IS A ROW, NOT A SECTION (owner 2026-09-20) ──────────────
+   * "it doesn't need its own row. it just needs to be on the Animate and
+   * Apply or something like that then add the price."
+   *
+   * So the buy no longer opens with a 2xl "Make your mark move" headline, a
+   * before/after and a "What you get" list stacked below the maker. Before
+   * purchase it is ONE row beside the reveal the couple just picked: what it
+   * does, and a button carrying the catalog price. The pitch was arguing for
+   * something they can already see playing — every reveal previews free, which
+   * sells it better than a list of bullets.
+   *
+   * The OWNED and UNDER-REVIEW states keep the fuller treatment: once money has
+   * changed hands, confirming what they bought is worth the room. */
+  if (!owns) {
+    return (
+      <section id="animated-monogram" className="scroll-mt-24 border-t border-ink/10 pt-8">
+        <UnownedView
+          compact
+          monogram={monogram}
+          pricePhp={pricePhp}
+          eventId={eventId}
+          displayName={event.display_name}
+          motion={motion}
+          motionLabel={motionLabel}
+          bespokeSvg={bespokeSvg}
+          studioAnim={studioAnim}
+          revealLabel={revealLabel}
+        />
+      </section>
+    );
+  }
+
   return (
     <section id="animated-monogram" className="scroll-mt-24 space-y-5 border-t border-ink/10 pt-8">
       <header className="space-y-2">
@@ -340,6 +372,7 @@ function OwnedView({
 // ─────────────────────────────────────────────────────────────────────────
 
 async function UnownedView({
+  compact = false,
   monogram,
   pricePhp,
   eventId,
@@ -350,6 +383,10 @@ async function UnownedView({
   studioAnim,
   revealLabel,
 }: {
+  /** One row with the price on the button, instead of the before/after pitch.
+   *  The reveal previews free a few centimetres above this — the couple has
+   *  already SEEN the thing; the row only has to say what buying changes. */
+  compact?: boolean;
   monogram: ReturnType<typeof resolveMonogram>;
   pricePhp: number | null;
   eventId: string;
@@ -366,6 +403,63 @@ async function UnownedView({
   const supabase = await createClient();
   const settings = await fetchPlatformSettings(supabase);
   const metalStage = studioAnim.kind === 'gold' || studioAnim.kind === 'molten';
+
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center">
+        <div className="flex-1 space-y-1">
+          <p className="text-base font-semibold tracking-tight text-ink">
+            Guests see it draw itself in
+          </p>
+          <p className="max-w-prose text-sm leading-relaxed text-ink/65">
+            {bespokeSvg ? (
+              <>
+                Every reveal previews free above. This makes {revealLabel} play for
+                real — on your website, your invitation, your save-the-date and the
+                screens on the day.
+              </>
+            ) : (
+              <>
+                Every reveal previews free above. This makes your monogram draw
+                itself in for real — on your website, your invitation, your
+                save-the-date and the screens on the day.
+              </>
+            )}
+          </p>
+          {/* The honest wait, said where the money is — not after they pay.
+           * `order_paid` is on the email allowlist (lib/notification-emit.ts),
+           * so the email is real. NO duration is promised: `orders` has no
+           * approved_at column, so approval latency has never been measured,
+           * and a made-up "within 2 hours" is a number governing money. */}
+          <p className="pt-1 text-xs text-ink/55">
+            One unlock for your wedding — designed mark or uploaded logo, whichever
+            you use. We check every payment by hand and email you the moment it
+            goes live; your mark shows everywhere in the meantime.
+          </p>
+        </div>
+        {pricePhp != null ? (
+          <div className="shrink-0 sm:w-auto">
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={SKU_CODE}
+              displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+              originalPriceCentavos={String(Math.round(pricePhp * 100))}
+              settings={settings}
+              triggerLabel={`Animate & apply · ${formatPhp(pricePhp)}`}
+              triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
+            />
+          </div>
+        ) : (
+          /* Price unresolved → NO button and NO number. The catalog is the only
+           * place a price exists; inventing a fallback here is how a wrong
+           * price reaches a customer. */
+          <p className="shrink-0 text-sm text-ink/65">
+            Pricing loads from your catalog — please refresh in a moment.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>

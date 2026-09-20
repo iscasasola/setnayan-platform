@@ -74,6 +74,35 @@ export function isFeeUnlocksEventEnabled(): boolean {
 }
 
 /**
+ * IS THE GATE ENFORCED? — the whole rule, as one expression, with no `process`
+ * and no database, so a test can execute every state instead of describing it.
+ *
+ * Two switches, and they are NOT symmetric:
+ *
+ *   • `envFlag`        — `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`. Narrows the SCREEN.
+ *                        SQL cannot read it (#5738 shipped it OFF).
+ *   • `platformSwitch` — `platform_settings.fee_unlocks_event_enforced`, read by
+ *                        the app AND by `public.vendor_event_fee_gate_stage`
+ *                        (migration 20271236283573). Narrows BOTH.
+ *
+ * 🔑 THE INVARIANT: `platformSwitch === true` ⇒ this returns TRUE. That is what
+ * makes DATABASE-ENFORCING ⇒ APP-ENFORCING, and it is the only direction that
+ * matters. The reverse asymmetry (env on, column off) is safe: the page hides a
+ * field the RPC would still answer with, which is exactly the state #5738
+ * shipped. The forbidden state — the database withholding a field the page
+ * believes it is drawing — cannot be produced by any pair of inputs here.
+ *
+ * An UNREADABLE switch is `null`: not enforced, the same fail-open direction the
+ * rest of this module takes.
+ */
+export function feeEnforcementFromSources(args: {
+  envFlag: boolean;
+  platformSwitch: boolean | null;
+}): boolean {
+  return args.envFlag || args.platformSwitch === true;
+}
+
+/**
  * What the fee read found for ONE (shop × event).
  *
  * `none` and `unreadable` are deliberately DIFFERENT values. Both unlock, but
@@ -267,8 +296,62 @@ export type RedactableBrief = {
   seat_plan?: unknown;
   monogram?: unknown;
   budget_band?: unknown;
+  /**
+   * WHAT THE DATABASE ALREADY TOOK. Since migration 20271236283573
+   * `get_vendor_event_brief` enforces this same field rule itself — a supplier
+   * calling the RPC straight from their own session no longer reads what the
+   * page hides — and names what it withheld in this key. ABSENT whenever SQL
+   * narrowed nothing, so an unenforced payload is byte-identical to before.
+   */
+  withheld?: unknown;
   [k: string]: unknown;
 };
+
+/**
+ * THE FIELDS THE DATABASE SAYS IT TOOK, read back off the payload.
+ *
+ * 🔑 THIS IS NOT DECORATION, IT IS THE MEASUREMENT REACHING THE RENDER. By the
+ * time a SQL-narrowed payload arrives here its venue, dietary, timeline, seat
+ * plan and monogram are ALREADY null — so recomputing `withheld` from their
+ * presence finds nothing missing, hands the screen an empty list, and
+ * `feeLockCopy` falls back to "the rest of this event" instead of naming the
+ * exact venue, the meal counts and the day-of timeline. The narrowing must
+ * announce itself, and this is where the announcement is heard.
+ *
+ * Unknown strings are dropped rather than trusted: the list is intersected with
+ * `STAGE_THREE_ONLY_BRIEF_FIELDS`, which also fixes the ORDER, so the two
+ * sources cannot produce two different sentences for one redaction.
+ */
+export function withheldFromPayload(brief: RedactableBrief): WithheldBriefField[] {
+  const raw = brief.withheld;
+  if (!Array.isArray(raw)) return [];
+  return STAGE_THREE_ONLY_BRIEF_FIELDS.filter((f) => raw.includes(f));
+}
+
+/**
+ * THE PAYLOAD OVERRIDES THE FLAG READ.
+ *
+ * 🚨 The one state that must never render: the database narrowed the brief while
+ * this process thinks the stage is `'unlocked'`. The page would draw the booked
+ * layout over NULLs — a wedding with no venue, no meals and no timeline, shown
+ * to a supplier as if that were the truth. The same
+ * failure-that-looks-like-emptiness class this repo keeps paying for, with the
+ * twist that the emptiness is OUR OWN redaction.
+ *
+ * `platform_settings.fee_unlocks_event_enforced` is read by BOTH halves
+ * (`resolveFeeEnforcement` in `lib/vendor-event-fee-access.server.ts` ORs it
+ * with the env flag), so database-enforcing already implies app-enforcing and
+ * this should be unreachable. It exists because "should be unreachable" is a
+ * belief and `withheld` is evidence: if the payload says fields were taken, the
+ * screen says so too, whatever the flag read returned.
+ */
+export function reconcileStageWithPayload(
+  stage: EventAccessStage,
+  brief: RedactableBrief,
+): EventAccessStage {
+  if (stage !== 'unlocked') return stage;
+  return withheldFromPayload(brief).length > 0 ? 'booked_fee_due' : 'unlocked';
+}
 
 /**
  * Narrow a brief to what its stage may see, and SAY WHAT WAS TAKEN.
@@ -284,7 +367,9 @@ export function redactBriefForStage<T extends RedactableBrief>(
   brief: T,
   stage: EventAccessStage,
 ): { brief: T; withheld: WithheldBriefField[] } {
-  if (stage === 'unlocked') return { brief, withheld: [] };
+  // What SQL already took (empty unless migration 20271236283573's switch is on).
+  const fromSql = withheldFromPayload(brief);
+  if (stage === 'unlocked') return { brief, withheld: fromSql };
 
   const withheld: WithheldBriefField[] = [];
   const out: RedactableBrief = { ...brief };
@@ -320,7 +405,12 @@ export function redactBriefForStage<T extends RedactableBrief>(
 
   if (!SHOW_BUDGET_BAND_WHILE_QUOTING) out.budget_band = null;
 
-  return { brief: out as T, withheld };
+  // The UNION of what this function took and what SQL had already taken, in
+  // `STAGE_THREE_ONLY_BRIEF_FIELDS` order. Either half alone is a screen that
+  // under-reports: SQL narrowed first, so the checks above see nulls and find
+  // nothing; and SQL narrows nothing at all while the switch is off.
+  const seen = new Set<WithheldBriefField>([...fromSql, ...withheld]);
+  return { brief: out as T, withheld: STAGE_THREE_ONLY_BRIEF_FIELDS.filter((f) => seen.has(f)) };
 }
 
 /**

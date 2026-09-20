@@ -1,5 +1,13 @@
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
+import type { GuestRole } from '@/lib/guests';
+import type { RolePalette } from '@/lib/mood-board';
+import {
+  STYLE_UNSET_LINE,
+  resolveGuestDressCode,
+  sanitizeRoleAttire,
+} from '@/lib/role-dress-code';
+import { roleLabel } from '@/lib/entourage';
 
 /**
  * Dress code section on the public landing page (CLAUDE.md 2026-05-22).
@@ -15,9 +23,15 @@ export function DressCodeWidget({
   ceremonyType,
   genderSeparation,
   words,
+  guestRole = null,
+  rolePalette = null,
 }: {
   words: EventWords;
   config: EventRow['dress_code_config'];
+  /** The reader's own role, when the reader is an identified guest. */
+  guestRole?: GuestRole | null;
+  /** The couple's mood board — the colour a role wears comes from here. */
+  rolePalette?: RolePalette | null;
   ceremonyType?: string | null;
   genderSeparation?: string | null;
 }) {
@@ -135,6 +149,20 @@ export function DressCodeWidget({
   // dots), and the Do/Don't boxes recoloured off the app's success/danger greens
   // and reds onto palette-derived tones — the functional-color exile (§4). The
   // two lists stay distinguishable by their key and rule, not by hue.
+  // ── WHAT *YOU* WEAR (owner 2026-09-20 · lib/role-dress-code.ts).
+  // A reader with a role is answered for THEIR role only: the whole palette is
+  // everyone else's instructions, and a ninang does not need the groomsmen's.
+  // A reader with no role (or no session) falls through to the general section
+  // below, unchanged.
+  const mine = resolveGuestDressCode({
+    role: guestRole,
+    roles: sanitizeRoleAttire(
+      (config as { roles?: unknown } | null)?.roles,
+      (v) => roleLabel(v as GuestRole) !== null,
+    ),
+    palette: rolePalette,
+  });
+
   return (
     <section className="space-y-5">
       <header className="space-y-2">
@@ -149,7 +177,41 @@ export function DressCodeWidget({
       {description ? (
         <p className="max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
       ) : null}
-      {palette.length > 0 ? (
+      {mine ? (
+        <div className="space-y-3 border-l-2 border-gild bg-veil/50 p-4">
+          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+            You are {mine.roleLabel ?? 'in the entourage'}
+          </p>
+          <div className="flex items-center gap-4">
+            {mine.hex ? (
+              <span
+                aria-hidden
+                className="pahina-swatch shrink-0"
+                style={{ backgroundColor: mine.hex }}
+              />
+            ) : null}
+            <div className="space-y-1">
+              <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">
+                {mine.styleLabel ?? 'Outfit to be confirmed'}
+              </p>
+              {mine.styleLabel ? null : (
+                <p className="text-sm leading-relaxed text-ink/65">{STYLE_UNSET_LINE}</p>
+              )}
+              {mine.note ? (
+                <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p>
+              ) : null}
+              {mine.hex ? (
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink/55">
+                  {mine.hex}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* The full palette is everyone else's instructions. A reader who has
+          their own line above does not need it (owner 2026-09-20). */}
+      {!mine && palette.length > 0 ? (
         <div className="flex flex-wrap gap-4">
           {palette.map((p, i) => (
             <figure key={`${p.hex}-${i}`} className="w-[3.25rem]">

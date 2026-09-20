@@ -1,4 +1,8 @@
 import { PaletteField } from './palette-field';
+import { RoleAttireField } from './role-attire-field';
+import { sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { roleLabel } from '@/lib/entourage';
+import type { GuestRole } from '@/lib/guests';
 import { ListField } from './list-field';
 import type { DressCodeConfig } from '../actions';
 
@@ -18,11 +22,14 @@ import type { DressCodeConfig } from '../actions';
 export function DressCodeFields({
   config,
   eventNoun,
+  eventRoles = [],
   compact = false,
 }: {
   config: DressCodeConfig;
   /** e.g. "wedding" — used in the palette hint copy. */
   eventNoun: string;
+  /** Roles present on this event's guest list (owner 2026-09-20). */
+  eventRoles?: { role: GuestRole; label: string; count: number }[];
   /** Rail-panel density: tighter spacing + smaller labels. */
   compact?: boolean;
 }) {
@@ -81,6 +88,15 @@ export function DressCodeFields({
       <div className="space-y-1.5">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
         <p className={hint}>What you&rsquo;d love guests to wear.</p>
+      <div className="space-y-2">
+        <p className={label}>What each role wears</p>
+        <p className="text-xs text-ink/55">
+          Each role gets its own outfit and its colour from your mood board. A guest with a role
+          sees only their own line.
+        </p>
+        <RoleAttireField roles={eventRoles} saved={config.roles} compact={compact} />
+      </div>
+
         <ListField name="dos" tone="do" initial={config.dos} />
       </div>
 
@@ -113,6 +129,10 @@ export function normalizeDressCodeConfig(raw: unknown): DressCodeConfig {
     donts: Array.isArray(obj.donts)
       ? obj.donts.filter((v): v is string => typeof v === 'string')
       : [],
+    // Per-role attire (owner 2026-09-20). Only PUBLISHED roles may carry an
+    // instruction — `roleLabel` returning null means the role is not one the
+    // invitation names, so an instruction for it could never be shown.
+    roles: sanitizeRoleAttire(obj.roles, (v) => roleLabel(v as GuestRole) !== null),
     palette: Array.isArray(obj.palette)
       ? obj.palette
           .map((row) => {

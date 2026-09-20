@@ -124,13 +124,18 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
     (n, f) => n + (readFileSync(f, 'utf8').match(/font-mono text-\[0\.66rem\]/g) ?? []).length,
     0,
   );
+  // 20 since 2026-09-20, deliberately: the per-role dress-code panel adds ONE
+  // eyebrow, "You are <role>", which names the reader's own role above their
+  // outfit and colour (owner's role-specific attire · lib/role-dress-code.ts).
+  // It is the same protected eyebrow treatment, used for the same job — naming
+  // a section — so it joins the count rather than inventing a second style.
   assert.equal(
     gild,
-    19,
+    20,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 19 when AP-3 shipped. They are an explicitly PROTECTED design ` +
-      `decision — AP-3 must not have crept into them. If a legitimate change ` +
-      `moves this number, change it here deliberately and say why.`,
+      `carried 20 from 2026-09-20 (19 when AP-3 shipped). They are an explicitly ` +
+      `PROTECTED design decision — AP-3 must not have crept into them. If a ` +
+      `legitimate change moves this number, change it here deliberately and say why.`,
   );
 });
 

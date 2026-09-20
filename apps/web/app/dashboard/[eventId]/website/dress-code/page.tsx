@@ -8,6 +8,9 @@ import { updateDressCode, type DressCodeConfig } from './actions';
 import { DressCodeFields, normalizeDressCodeConfig } from './_components/dress-code-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { roleLabel } from '@/lib/entourage';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import type { GuestRole } from '@/lib/guests';
 
 export const metadata = { title: 'Edit dress code' };
 
@@ -47,6 +50,36 @@ export default async function DressCodeEditorPage({
     .maybeSingle();
 
   if (!event) redirect(`/dashboard/${eventId}`);
+
+  // ── WHICH ROLES THIS WEDDING ACTUALLY HAS (owner 2026-09-20).
+  // The vocabulary holds thirty-odd roles; this couple uses a handful. The
+  // editor offers only theirs, counted, so the form is as long as their
+  // entourage and no longer. A refused read returns no rows, and the field
+  // then says the guest list has no roles yet — which is the same thing it
+  // says for a genuinely empty list, and is the safe direction for an editor.
+  // A delegate who was not given the guest list does not get to enumerate the
+  // entourage here either — the same gate every other guest-reading dashboard
+  // page carries (lib/event-viewer.server.ts · guarded by lib/event-viewer.test.ts).
+  // They keep the rest of the editor; the per-role section simply has no roles
+  // to offer, which reads the same as a guest list with none.
+  const mayNameGuests = !isDelegateWithoutArea(
+    await fetchEventViewer(supabase, eventId, user.id),
+    'guest_list',
+  );
+  const { data: roleRows, error: roleError } = mayNameGuests
+    ? await supabase.from('guests').select('role').eq('event_id', eventId)
+    : { data: null, error: null };
+  if (roleError) console.error('[supabase-error] website/dress-code/page.tsx · guest roles', roleError);
+  const roleCounts = new Map<GuestRole, number>();
+  for (const row of (roleRows ?? []) as { role: GuestRole | null }[]) {
+    const role = row.role;
+    if (!role || role === 'guest') continue;
+    if (roleLabel(role) === null) continue;
+    roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+  }
+  const eventRoles = [...roleCounts.entries()]
+    .map(([role, count]) => ({ role, label: roleLabel(role) as string, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
   // Bind the server action to this event id — Next.js form actions can
   // pre-bind args like this so the page-level eventId travels with the form.
@@ -109,7 +142,7 @@ export default async function DressCodeEditorPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* Editor */}
         <form action={updateAction} className="space-y-6">
-          <DressCodeFields config={config} eventNoun={eventNoun(event.event_type)} />
+          <DressCodeFields config={config} eventNoun={eventNoun(event.event_type)} eventRoles={eventRoles} />
 
           {/* Submit */}
           <div className="flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4">
@@ -159,6 +192,9 @@ export default async function DressCodeEditorPage({
  * see 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
  */
 const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
+  // No per-role attire is suggested: the INC guidance is about what EVERY guest
+  // wears, and this product does not know what a role should be asked for.
+  roles: {},
   title: 'Modest & formal',
   description:
     'Our ceremony is held in the INC chapel, so we kindly ask everyone to dress modestly and formally. Thank you for honoring the occasion with us.',

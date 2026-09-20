@@ -234,10 +234,23 @@ test('/pay asks the one rule, and hands out nothing when every rail is closed', 
     panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', gates[0]!) < number1,
     'the account number escaped the all-closed branch on stage 1',
   );
-  // Stage 2's order, unchanged: paused → QR → the manual fallback.
+  /**
+   * Stage 2's order: paused FIRST, then whatever prints a code or a number.
+   *
+   * ✏️ RE-ANCHORED 2026-09-20, AND THE TWO ANCHORS BECAME ONE BECAUSE THE TWO
+   * THINGS DID. This read `<QrTile` then `'or send manually to'` — the code and
+   * the manual fallback, which were separate in this file. Both now come from
+   * `<PaymentDetailsBlock>`, the shared rails the checkout drawer renders too,
+   * so a single anchor covers the code AND the account rows. The property is
+   * unchanged: with every rail closed, the paused message is what stage 2 says,
+   * and nothing below it is reached.
+   */
   const g2 = gates[1]!;
   const paused2 = panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', g2);
-  const qr = panel.indexOf('<QrTile', g2);
-  const manual = panel.indexOf('or send manually to', g2);
-  assert.ok(paused2 > g2 && paused2 < qr && qr < manual, 'the QR or the number escaped the all-closed branch');
+  const rails = panel.indexOf('<PaymentDetailsBlock', g2);
+  assert.ok(rails > -1, 'stage 2 no longer renders the shared rails — re-anchor this');
+  assert.ok(
+    paused2 > g2 && paused2 < rails,
+    'the QR or the number escaped the all-closed branch',
+  );
 });

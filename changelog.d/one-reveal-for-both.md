@@ -49,3 +49,16 @@ worktree, and the paper.js composition only exists at runtime).
 So the shared step is authoritative, but a couple in the studio can still see
 the old panel. The consolidation is one step short, and that step needs a live
 check rather than another typecheck.
+
+### CI follow-up · no local alias for a shared name
+
+`lint:dup-rule` caught the first fix: extracting the tempo table left
+`const ANIM_TEMPOS = ANIM_TEMPO_TIMINGS` in `engine.ts`, an alias kept so the
+two call sites would not need touching. That alias SHADOWED the exported
+`ANIM_TEMPOS` from the very module the file now imports — and they are different
+values: the tempo NAMES (`['quick','classic','ceremonial','custom']`) versus the
+TIMINGS map.
+
+One identifier meaning two things in one file is how the next reader picks the
+wrong one. The alias is gone and both call sites use `ANIM_TEMPO_TIMINGS`
+directly. The guard was right; the convenience was not worth it.

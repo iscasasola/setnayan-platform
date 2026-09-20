@@ -175,10 +175,17 @@ export function mountStudio(opts) {
   let presetKey = null;
   // Reveal tempo (§5.4): the lit chip. The stored dur/smooth/delay numbers
   // stay canonical — 'custom' after any fine-tune slider touch.
-  /* The ONE tempo table (lib/monogram-studio-shared.ts). It used to be a local
-   * copy here; the reveal step on the page needs the same numbers, and two
-   * copies would have shown one duration in the preview and played another. */
-  const ANIM_TEMPOS = ANIM_TEMPO_TIMINGS;
+  /* The ONE tempo table is ANIM_TEMPO_TIMINGS (lib/monogram-studio-shared.ts),
+   * used directly below. It used to be a local copy here; the reveal step on
+   * the page needs the same numbers, and two copies would have shown one
+   * duration in the preview and played another.
+   *
+   * ⚠ NO LOCAL ALIAS. The first fix aliased it back to `ANIM_TEMPOS` to avoid
+   * touching the call sites — which SHADOWED the exported `ANIM_TEMPOS` from
+   * the same module, a DIFFERENT value: the tempo NAMES
+   * (['quick','classic','ceremonial','custom']) versus this TIMINGS map. One
+   * identifier meaning two things in one file is how the next reader picks the
+   * wrong one; `lint:dup-rule` caught it. */
   let animTempo = 'classic';
   let pts = new Map(),
     mode = null,
@@ -1866,8 +1873,8 @@ export function mountStudio(opts) {
   }
   function inferTempo() {
     // A saved config without the marker: light the chip whose numbers match.
-    for (const key in ANIM_TEMPOS) {
-      const t = ANIM_TEMPOS[key];
+    for (const key in ANIM_TEMPO_TIMINGS) {
+      const t = ANIM_TEMPO_TIMINGS[key];
       if (Math.abs(t.dur - animDur) < 0.01 && Math.abs(t.delay - animDelay) < 0.01 && Math.abs(t.smooth - animSmooth) < 0.01) return key;
     }
     return 'custom';
@@ -2996,7 +3003,7 @@ export function mountStudio(opts) {
         tempoEl.addEventListener('click', function (e) {
           const b = e.target.closest('[data-tp]');
           if (!b || animating) return;
-          const t = ANIM_TEMPOS[b.dataset.tp];
+          const t = ANIM_TEMPO_TIMINGS[b.dataset.tp];
           if (!t) return;
           animTempo = b.dataset.tp;
           animDur = t.dur;

@@ -38,7 +38,7 @@ export default async function VendorCocktailPage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
-        href={`/vendor-dashboard/clients/${eventId}`}
+        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief

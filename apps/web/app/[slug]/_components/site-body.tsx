@@ -121,6 +121,8 @@ import { HideableWidgetRender } from './hideable-widget-render';
 import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
+import { RsvpSheet } from './rsvp-sheet';
+import { rsvpSheetHeading, rsvpSheetTrigger } from './rsvp-sheet-state';
 import { PahinaKeepsake } from './pahina-keepsake';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
@@ -1690,95 +1692,92 @@ export async function SiteBody({
                   Anonymous visitors have no guest identity, so the fork is
                   structurally unreachable for them.
 
+                  ── THE REPLY IS A SHEET NOW (canvas board 2, 2026-09-20) ────
+                  What stays HERE, in the page's flow, is what a guest READS:
+                  the keepsake they earned, or the line that says they were
+                  heard, and one quiet control. The FORM moved into
+                  `<RsvpSheet>`, rendered further down as a SIBLING of this
+                  <article> — it cannot live inside these chapters, because the
+                  §6 reveal both transforms and hides them (the whole reason is
+                  written out on rsvp-sheet.tsx).
+
+                  The `<details>` drawer this replaces is gone: the sheet IS the
+                  disclosure now, and its control carries the same words for the
+                  same #4683 reason — a drawer whose label advertises only the
+                  reply gives a guest wanting to fix a phone number no reason to
+                  open it.
+
                   ⚠ The design says the ask is "gone" once answered. Taken
                   literally that would DROP the guest's ability to change their
                   reply, meal preference or dietary notes — a functional
-                  regression the reskin-never-drop rule forbids. So the form
-                  stays, demoted into a quiet disclosure beneath the keepsake:
-                  the ask no longer competes with the reward, but nothing the
-                  guest could do before is lost. */}
+                  regression the reskin-never-drop rule forbids. Nothing they
+                  could do before is lost; it is one tap away instead of one
+                  scroll away. */}
               {plan.rsvpShouldRender ? (
-                <>
-                  {/* 🔗 THE ONLY ANCHOR ON THE REPLY CARD, and it sits INSIDE the
-                      gate on purpose: the card is phase-gated to `rsvp`, so an
-                      anchor outside would survive into save_the_date / event /
-                      editorial and point a chip at nothing.
-                      ⚠ A zero-height sibling rather than a wrapper. Wrapping
-                      either mount — or adding an id to the `<div className="mt-4">`
-                      above one — breaks `only-the-answer-freezes.test.ts`, which
-                      pins each mount's immediate predecessor and is deliberately
-                      brittle. This changes neither. */}
-                  <span id="your-details" aria-hidden className="block scroll-mt-6" />
-                  {guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined' ? (
-                  <>
-                    {guest.rsvp_status === 'attending' ? (
-                      <PahinaKeepsake
-                        variant="accepted"
-                        displayName={guestHubData.displayName}
-                        guestId={guest.guest_id}
-                        tableLabel={guestHubData.tableLabel}
-                        venueName={event.venue_name}
-                        eventDate={event.event_date}
-                      />
-                    ) : (
-                      /* Declined: a quiet line, never a keepsake — the ticket is
-                         for people who are coming (design §11). */
-                      <section className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
-                        <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
-                          We&rsquo;ll miss you.
-                        </p>
-                        <p className="mt-1.5 text-sm leading-relaxed text-ink/60">
-                          Thank you for letting us know.
-                        </p>
-                      </section>
-                    )}
-                    <details className="group">
-                      <summary className="cursor-pointer list-none font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50 hover:text-ink/70">
-                        {/* Names BOTH things behind it. The old open-list label
-                            advertised only the reply, so a guest wanting to fix
-                            a phone number had no reason to open it — the exact
-                            failure this file's own #4683 note cites four lines
-                            from the boxes. */}
-                        {plan.guestListClosed
-                          ? 'Need to update your details?'
-                          : 'Need to change your reply or your details?'}
-                      </summary>
-                      <div className="mt-4">
-                        <RsvpWidget words={clientWords}
-                          guest={guest}
-                          eventId={event.event_id}
-                          eventPublicId={event.public_id}
-                          faceMode={faceMode}
-                          flash={rsvpFlash}
-                          replyLocked={plan.guestListClosed}
-                    profileDetails={profileDetails}
-                        />
-                      </div>
-                    </details>
-                  </>
-                ) : (
-                  /* pending + maybe: the ask stays exactly as it is. "Maybe"
-                     deliberately keeps the full card visible (design §11) — an
-                     undecided guest still has a question to answer.
+                <section className="space-y-4">
+                  {guest.rsvp_status === 'attending' ? (
+                    <PahinaKeepsake
+                      variant="accepted"
+                      displayName={guestHubData.displayName}
+                      guestId={guest.guest_id}
+                      tableLabel={guestHubData.tableLabel}
+                      venueName={event.venue_name}
+                      eventDate={event.event_date}
+                    />
+                  ) : guest.rsvp_status === 'declined' ? (
+                    /* Declined: a quiet line, never a keepsake — the ticket is
+                       for people who are coming (design §11). */
+                    <div className="border-l-2 border-ink/25 bg-paper-deep px-5 py-4">
+                      <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
+                        We&rsquo;ll miss you.
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-ink/60">
+                        Thank you for letting us know.
+                      </p>
+                    </div>
+                  ) : null}
 
-                     Once the list is final the card STAYS — only the
-                     going-or-not answer inside it freezes. This form is also
-                     where a guest sets their meal, their dietary notes and the
-                     selfie that makes their photos findable, and the list
-                     finalizes about two weeks out. Taking the whole card away
-                     would take the allergy box away from a caterer's last
-                     fortnight. */
-                  <RsvpWidget words={clientWords}
-                    guest={guest}
-                    eventId={event.event_id}
-                    eventPublicId={event.public_id}
-                    faceMode={faceMode}
-                    flash={rsvpFlash}
-                    replyLocked={plan.guestListClosed}
-                    profileDetails={profileDetails}
-                  />
-                  )}
-                </>
+                  {/* 🔴 AN "OK" OUTCOME IS SHOWN HERE, WHERE THE GUEST IS. The
+                      flash renders at the TOP OF THE FORM, and the form now
+                      sits behind a sheet that starts closed — so without this
+                      line a guest who had just saved would land on a page that
+                      said nothing at all about it. An ERROR outcome reopens the
+                      sheet instead (`sheetOpensOnLoad`), because the form is
+                      where it is fixed. Every outcome reaches a pixel. */}
+                  {rsvpFlash ? (
+                    <p
+                      role={rsvpFlash.tone === 'error' ? 'alert' : 'status'}
+                      className={`rounded-lg border px-3 py-2 text-sm ${
+                        rsvpFlash.tone === 'error'
+                          ? 'border-terracotta/40 bg-terracotta/10 text-terracotta-700'
+                          : 'border-success-700/30 bg-success-50 text-success-800'
+                      }`}
+                    >
+                      {rsvpFlash.text}
+                    </p>
+                  ) : null}
+
+                  {/* THE ONE CONTROL THAT OPENS THE SHEET — and the reason it is
+                      a plain fragment link rather than a button: with the bundle
+                      dead it scrolls to the panel, which renders as the ordinary
+                      section it has always been. Quiet on purpose; the accented
+                      control on this screen is the arrival action under the
+                      mark, and one accent per screen is the point of that slice. */}
+                  <a
+                    href="#your-details"
+                    className="flex min-h-[52px] w-full items-center justify-between gap-3 border border-ink/20 bg-paper px-4 text-sm text-ink/80 transition-colors hover:border-ink/40 hover:text-ink"
+                  >
+                    {
+                      rsvpSheetTrigger({
+                        status: guest.rsvp_status,
+                        guestListClosed: plan.guestListClosed,
+                      }).label
+                    }
+                    <span aria-hidden className="shrink-0 text-ink/40">
+                      &rarr;
+                    </span>
+                  </a>
+                </section>
               ) : null}
 
               {guest.photo_source === 'selfie' ? (
@@ -1889,6 +1888,53 @@ export async function SiteBody({
             </form>
           </section>
         </article>
+        {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────
+            🪤 A SIBLING OF THE ARTICLE, NEVER A CHILD OF IT — measured in a
+            browser, not reasoned. The §6 reveal puts a `transform` on every
+            direct child of `[data-pahina-chapters]`, and a transform (identity
+            included) is the containing block for any `position: fixed`
+            descendant. One 812px viewport, same panel:
+              · sibling of the article → bottom = 812, flush to the viewport
+              · inside the article     → bottom = 853, 41px below the fold
+            The bottom 41px of this sheet is its Save button, and nothing throws.
+            The full reasoning, including the `opacity: 0` half, is on
+            rsvp-sheet.tsx.
+
+            Gated on the SAME `plan.rsvpShouldRender` as the control above, so
+            the trigger and its destination can never disagree about existing —
+            which is the whole of `the-reply-card-can-be-reached.test.ts`. */}
+        {plan.rsvpShouldRender ? (
+          <RsvpSheet
+            heading={rsvpSheetHeading({
+              status: guest.rsvp_status,
+              guestListClosed: plan.guestListClosed,
+              solemn: clientWords.solemn,
+            })}
+            privacyLine={`Only ${clientWords.theOrganizer} sees your reply.`}
+            flash={rsvpFlash}
+          >
+            {/* ONE MOUNT, ONE MECHANISM. This used to be two — the ask, and the
+                same card again inside the "change your reply" drawer — with
+                byte-identical props, which is a drift hazard that only ever
+                cost. The sheet serves both readings, so there is now exactly one
+                reply card in the guest tree and `<div data-rsvp-form>` is what
+                pins it: a condition wrapped around this mount would hide the
+                meal, the allergy box and the selfie along with the answer, which
+                is the defect `only-the-answer-freezes.test.ts` was written for. */}
+            <div data-rsvp-form>
+              <RsvpWidget
+                words={clientWords}
+                guest={guest}
+                eventId={event.event_id}
+                eventPublicId={event.public_id}
+                faceMode={faceMode}
+                flash={rsvpFlash}
+                replyLocked={plan.guestListClosed}
+                profileDetails={profileDetails}
+              />
+            </div>
+          </RsvpSheet>
+        ) : null}
         <GuestGuidedTour tourKey="guest_welcome_v1" />
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors, SAME structure as anonymousTree. Flag-dark

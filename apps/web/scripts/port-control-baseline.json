@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "0970c23d8",
+  "generatedFromRef": "9c0bed938",
   "routeCount": 430,
-  "destinations": 919,
+  "destinations": 920,
   "actions": 651,
   "blocks": 4509,
   "routes": {
@@ -9667,7 +9667,8 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=quote",
+        "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/earnings",
@@ -9959,7 +9960,7 @@
       "destinations": [
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -10086,7 +10087,7 @@
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10101,7 +10102,7 @@
         "vendor-dashboard/clients/[eventId]/cocktail/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10120,7 +10121,7 @@
         "vendor-dashboard/clients/[eventId]/editorial-media/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10136,7 +10137,7 @@
         "vendor-dashboard/clients/[eventId]/mood-board/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10169,7 +10170,7 @@
         "vendor-dashboard/clients/[eventId]/seat-plan/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10265,7 +10266,7 @@
         "vendor-dashboard/customers/roster-view.ts"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/services"
       ],

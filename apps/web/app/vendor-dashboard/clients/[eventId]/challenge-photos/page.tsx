@@ -74,7 +74,7 @@ export default async function VendorChallengePhotosPage({
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6">
       <Link
-        href={`/vendor-dashboard/clients/${eventId}`}
+        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />

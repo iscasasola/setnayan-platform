@@ -120,7 +120,10 @@ function hrefFor(r: RosterRow): string | null {
   }
   // Every other lane has a customer card, and the booking ask can be ANSWERED
   // on it (PR-H slice B put Agree / Turn it down there).
-  const href = `/vendor-dashboard/clients/${r.eventId}`;
+  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing
+  // since #5614 — so without it this whole roster and the "Open chat" beside it
+  // went to the same place, and the customer card had no door on this page.
+  const href = `/vendor-dashboard/clients/${r.eventId}?tab=details`;
   return href;
 }
 

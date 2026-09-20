@@ -58,3 +58,30 @@ a green PR is not "served yet". #5672 is a migration: it only takes effect after
 - The explore card omits inclusions/discount/showcase that the shop page and preview show.
 - The card-maker intro sample promises an "Exclusive" perk suppliers cannot write, and says "shoot".
 - Performance's Pro upsell names "Price-Position", which no page shows.
+
+---
+
+## Today — the doors (added 2026-09-20, TODAY-DOORS · PR #5735)
+
+Same account: **testnayan2** (*Saysay Host and Band*), email + password. Check `/api/health` shows a sha
+at or after the merge first — a green PR is not "served yet".
+
+17. `/vendor-dashboard` → **Upcoming schedules** → tap the *Rosa & Ben* row. It must open the
+    **customer card** (`/vendor-dashboard/clients/…?tab=details` — the brief, the activity log, the
+    completion handshake). It must **not** open the conversation. *This is the report.*
+18. Same row: a small **Message** button sits at its right-hand end. Tap it — that one opens the chat.
+    (Only the row opens the card; only the button opens the chat.)
+19. In the browser address bar, confirm the row's URL ends in `?tab=details`. A bare
+    `/vendor-dashboard/clients/<id>` bounces to the chat by design (#5614), so the `?tab=` is the fix.
+20. **My Customers** (`/vendor-dashboard/customers`) → tap any booked row. Same thing: the customer
+    card, not the chat.
+21. **Clients** (`/vendor-dashboard/clients`) → on a booked row, **Customer card** and **Open chat** are
+    two different destinations now. Tap both and confirm they differ.
+22. Open the customer card → **Mood board** (or Seat plan / Cocktail / Editorial media / Challenge
+    photos) → tap **← Event brief**. It returns to the card, not to the chat.
+23. If a couple has recorded a deposit: the Today card's button reads **View the payment** and opens the
+    card's **Quote & Payments** section with the balance on screen.
+24. If a couple has proposed a meeting time: **Offer another time** opens the card's **Schedule**
+    section, where the appointments calendar is.
+25. If the Ongoing list shows **"Agree to a booking, or turn it down"**: tapping it now scrolls to that
+    card in What's new instead of doing nothing.

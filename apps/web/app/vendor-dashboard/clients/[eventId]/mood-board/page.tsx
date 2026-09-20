@@ -240,7 +240,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <Link
-        href={`/vendor-dashboard/clients/${eventId}`}
+        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" />

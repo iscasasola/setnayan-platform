@@ -641,7 +641,14 @@ export default async function VendorOnTheDayPage({
                     ? 'A dispute is open on this booking'
                     : 'Opens once you mark complete'
             }
-            href={todaysBooking ? `/vendor-dashboard/clients/${todaysBooking.eventId}` : '/vendor-dashboard/reviews'}
+            href={
+              // "Opens once you mark complete" — and Mark complete is
+              // VendorCompletionCard, which sits at the top of the card's
+              // Details section. Bare, this landed on the chat (#5614).
+              todaysBooking
+                ? `/vendor-dashboard/clients/${todaysBooking.eventId}?tab=details`
+                : '/vendor-dashboard/reviews'
+            }
             hint={null}
           />
         </div>
@@ -1101,10 +1108,15 @@ function NonPhotoConsole({
   kind: Exclude<DayOfConsoleKind, 'photo'>;
   eventId: string | null;
 }) {
+  // "Your event brief" · "Run the floor … from the couple's brief" · "Your
+  // setlist". All three are the BRIEF, so the section is named — a bare client
+  // route is a chat landing since #5614, and a tile that says "Headcount,
+  // palette, the day-of timeline" opening a conversation is the day-of screen
+  // telling the supplier the wrong thing on the one morning it matters.
   const target = eventId
     ? kind === 'caterer'
       ? `/vendor-dashboard/clients/${eventId}/production-sheet`
-      : `/vendor-dashboard/clients/${eventId}`
+      : `/vendor-dashboard/clients/${eventId}?tab=details`
     : kind === 'band'
       ? '/vendor-dashboard/repertoire'
       : '/vendor-dashboard/customers';

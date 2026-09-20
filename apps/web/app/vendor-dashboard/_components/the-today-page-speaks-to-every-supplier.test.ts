@@ -42,7 +42,13 @@ const booking = {
   place: 'Manila',
   category: 'band_dj',
   inDays: 41,
-  href: '/vendor-dashboard/clients/e1',
+  // The row opens the CUSTOMER CARD, named section and all — a bare client
+  // route is a chat landing (#5614), and the owner reported this row opening
+  // the chat on 2026-09-20. `the-upcoming-row-opens-the-customer-card.test.ts`
+  // is the guard; this fixture only has to mean what a real row means.
+  href: '/vendor-dashboard/clients/e1?tab=details',
+  threadHref: '/vendor-dashboard/messages/t1',
+  opensCard: true,
 };
 
 async function render(): Promise<string> {

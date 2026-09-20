@@ -354,7 +354,7 @@ function DesktopRow({
   const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
   return (
     <tr
-      className={`border-t border-ink/5 transition-colors ${
+      className={`border-t border-ink/5 align-middle transition-colors ${
         selected
           ? 'bg-terracotta/[0.06]'
           : inspected
@@ -547,10 +547,13 @@ function SelfJoinDesktopRow({
   displayUrl?: string;
 }) {
   const name = guestDisplayName(guest);
+  // `align-middle` centres the cells against the 36px avatar instead of letting
+  // them sit on its baseline; the 2px edge and px-3 keep this row's columns on
+  // the same lines as every other row's.
   return (
-    <tr className="border-t border-danger-200/60 bg-danger-50/50">
-      <td className="px-3 py-3" />
-      <td className="px-4 py-3">
+    <tr className="border-t border-danger-200/60 bg-danger-50/50 align-middle">
+      <td className={`border-l-2 px-3 py-3 ${SIDE_CONTROL_BORDER[guest.side]}`} />
+      <td className="px-3 py-3">
         <div className="flex items-center gap-3">
           {displayUrl ? (
             <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
@@ -860,7 +863,11 @@ export function GuestListMultiselect({
         <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>
-              <th className="w-10 px-3 py-2.5">
+              {/* 🪤 THE HEADER MUST RESERVE THE ROW'S EDGE. Every body row's first
+                  cell carries a 2px side rule; without a matching (transparent)
+                  one here the header labels sit 2px off every column beneath
+                  them — a misalignment invisible in a diff and obvious on screen. */}
+              <th className="w-10 border-l-2 border-transparent px-3 py-2.5">
                 <label className="flex items-center justify-center">
                   <input
                     type="checkbox"

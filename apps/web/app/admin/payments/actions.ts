@@ -61,7 +61,40 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { customerOrderName, orderSubject } from '@/lib/order-naming';
+import {
+  orderNoticeLinkForRow as noticeLinkFor,
+  orderPaidBodyForRow,
+} from '@/lib/pay-back-link';
 
+/**
+ * ────────────────────────────────────────────────────────────────────────────
+ * WHERE A NOTICE SENDS ITS READER — asked ONCE, of the shared resolver.
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * 🚨 MEASURED IN PRODUCTION, 2026-09-20, on the first real booking-fee payment
+ * the owner approved (order `S89O-DW67KBQADN`, ref `SN9B7485DD`, ₱837.50, the
+ * supplier Saysay). Two notifications and two emails reached the SUPPLIER, and
+ * all four pointed at `/dashboard/cc47d373-…/orders/7d1a014d-…` — the COUPLE's
+ * planning dashboard.
+ *
+ * 🔑 THE CAUSE WAS ONE EXPRESSION, COPIED SIX TIMES:
+ *
+ *     relatedUrl: order?.event_id
+ *       ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+ *       : null,
+ *
+ * It reads `event_id` as "the payer owns this celebration". On a booking fee
+ * `event_id` only says *the fee is FOR this event*; the order's `user_id` is
+ * the supplier and its `vendor_profile_id` is the shop being billed. Six
+ * copies of a wrong assumption is six places to forget, which is why this is
+ * now ONE call — and why the guard COUNTS the emit sites: a seventh notice
+ * added later must come through here or the count no longer agrees.
+ *
+ * ⚖ AND IT IS NOT A SEPARATE RULE FROM THE `/pay` BACK LINK. Both render the
+ * same `orderLane` in `lib/pay-back-link.ts`. Forking a second rule for the
+ * second surface is how the first one came to be wrong here after it was
+ * already fixed there.
+ */
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -289,7 +322,7 @@ export async function approvePaymentCore(args: {
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id, reference_code, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
+    .select('event_id, user_id, vendor_profile_id, public_id, reference_code, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -322,9 +355,7 @@ export async function approvePaymentCore(args: {
         ? `Payment of ${formatPhp(payment.amount_php)} matched · order ${customerOrderName(order)}`
         : `Payment of ${formatPhp(payment.amount_php)} matched`,
       body: adminNotes ?? 'The Setnayan team confirmed your payment.',
-      relatedUrl: order?.event_id
-        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-        : null,
+      relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
     });
   } catch (e) {
     console.error('payment_matched notification failed (non-fatal):', e);
@@ -427,10 +458,14 @@ export async function approvePaymentCore(args: {
       await notifyBuyerIfAny(payment.user_id, {
         type: 'order_paid',
         title: orderSubject('Your order is marked paid', 'marked paid', order),
-        body: "Your order is fully paid. We'll start work right away.",
-        relatedUrl: order?.event_id
-          ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-          : null,
+        // 🪤 THIS BODY USED TO PROMISE THE WRONG PARTY'S WORK. It read "Your
+        // order is fully paid. We'll start work right away." — sent, on a
+        // booking fee, to the SUPPLIER who does the work. Setnayan starts
+        // nothing when a shop settles the fee it owes us. Keyed on the same
+        // lane as the link, so a notice cannot route right and still address
+        // the reader as a couple.
+        body: orderPaidBodyForRow(order, payment.order_id, payment.user_id),
+        relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
       });
     } catch (e) {
       console.error('order_paid notification failed (non-fatal):', e);
@@ -974,7 +1009,7 @@ export async function rejectPayment(formData: FormData) {
 
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, status, service_key')
+    .select('event_id, user_id, vendor_profile_id, status, service_key')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -1051,9 +1086,7 @@ export async function rejectPayment(formData: FormData) {
     type: 'payment_rejected',
     title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
     body: adminNotes ?? 'Please review and try again, or reach out to support.',
-    relatedUrl: order?.event_id
-      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-      : null,
+    relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
   });
 
   revalidatePath('/admin/payments');
@@ -1173,7 +1206,7 @@ export async function requestPaymentResubmit(formData: FormData) {
   // link directly to the order detail page where they re-upload.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id, reference_code')
+    .select('event_id, user_id, vendor_profile_id, service_key, public_id, reference_code')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -1201,9 +1234,7 @@ export async function requestPaymentResubmit(formData: FormData) {
     // The admin's notice IS the body — they know what the couple needs to
     // fix. We don't editorialize · we pass it through verbatim.
     body: notice,
-    relatedUrl: order?.event_id
-      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-      : null,
+    relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
   });
 
   revalidatePath('/admin/payments');
@@ -1285,7 +1316,7 @@ export async function refundOrder(formData: FormData) {
   const { data: orderBefore, error: readErr } = await admin
     .from('orders')
     .select(
-      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+      'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
     )
     .eq('order_id', orderId)
     .maybeSingle();
@@ -1402,9 +1433,7 @@ export async function refundOrder(formData: FormData) {
     body:
       `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
       `Reach out if you don’t see the transfer within 1–3 banking days.`,
-    relatedUrl: orderBefore.event_id
-      ? `/dashboard/${orderBefore.event_id}/orders/${orderId}`
-      : null,
+    relatedUrl: noticeLinkFor(orderBefore, orderId, orderBefore.user_id),
   });
 
   revalidatePath('/admin/payments');
@@ -1448,7 +1477,7 @@ export async function confirmOrderTotal(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('order_id', orderId)
-    .select('user_id, event_id, public_id, confirmed_total_php')
+    .select('user_id, vendor_profile_id, service_key, event_id, public_id, confirmed_total_php')
     .single();
   if (error || !order) {
     await insertFaultLog({
@@ -1465,9 +1494,7 @@ export async function confirmOrderTotal(formData: FormData) {
     type: 'order_quoted',
     title: `Order ${order.public_id} quoted at ${formatPhp(order.confirmed_total_php)}`,
     body: adminNotes ?? 'Open the order to view payment instructions.',
-    relatedUrl: order.event_id
-      ? `/dashboard/${order.event_id}/orders/${orderId}`
-      : null,
+    relatedUrl: noticeLinkFor(order, orderId, order.user_id),
   });
 
   revalidatePath('/admin/payments');

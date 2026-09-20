@@ -630,6 +630,12 @@ type Props = {
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
   photoDisplayUrls: Record<string, string>;
+  /**
+   * guest_id → the photo on their LINKED ACCOUNT, already resolved to a display
+   * URL. The fallback when the couple has uploaded none — see
+   * lib/guest-account-photos.ts for why the couple's own upload wins.
+   */
+  accountFaceByGuest: Record<string, string>;
   // Which sectioning the list uses (redesign Phase 1) — derived from the sort
   // control: 'importance' = role-tier sections (default), 'side' = group by the
   // couple's side, 'flat' = one uniform grid (name / rsvp / newest sorts).
@@ -657,6 +663,7 @@ export function GuestListMultiselect({
   selfJoinIds,
   seatByGuest,
   photoDisplayUrls,
+  accountFaceByGuest,
   groupMode,
   roleSetKey,
   recentlyDeleted,
@@ -664,6 +671,21 @@ export function GuestListMultiselect({
 }: Props) {
   // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
   // the role-editor popover's option groups (P2).
+  /**
+   * The face for one row, resolved in ONE place because six surfaces ask for it
+   * (the roster, both mobile lists, the grid, and two self-join variants).
+   *
+   * ⚖ Owner 2026-09-20: a guest whose row is linked to an account wears that
+   * account's photo when the couple has uploaded none. The couple's own upload
+   * — or the guest's RSVP selfie — always wins: it was chosen for THIS wedding.
+   *
+   * 🔑 The six call sites used to spell this lookup out individually. That is
+   * how five of them would have got the fallback and the sixth would not, and
+   * one guest would have had a face in the list and initials in the grid.
+   */
+  const faceFor = (g: GuestRow): string | undefined =>
+    photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id];
+
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
   // Which visible rows are unlisted self-joiners → render the blush needs-you
   // variant instead of the normal editable row.
@@ -931,7 +953,7 @@ export function GuestListMultiselect({
                         key={guest.guest_id}
                         guest={guest}
                         eventId={eventId}
-                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        displayUrl={faceFor(guest)}
                       />
                     ) : (
                       <DesktopRow
@@ -939,7 +961,7 @@ export function GuestListMultiselect({
                         guest={guest}
                         eventId={eventId}
                         palette={palette}
-                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        displayUrl={faceFor(guest)}
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
                         groupIds={groupMemberships[guest.guest_id] ?? []}
@@ -982,7 +1004,7 @@ export function GuestListMultiselect({
                         <MobileSelfJoinCard
                           guest={guest}
                           eventId={eventId}
-                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                          displayUrl={faceFor(guest)}
                         />
                       </li>
                     ) : (
@@ -990,7 +1012,7 @@ export function GuestListMultiselect({
                         key={guest.guest_id}
                         guest={guest}
                         eventId={eventId}
-                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        displayUrl={faceFor(guest)}
                         selectMode={selectMode}
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}
@@ -1013,7 +1035,7 @@ export function GuestListMultiselect({
                         <MobileSelfJoinCard
                           guest={guest}
                           eventId={eventId}
-                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                          displayUrl={faceFor(guest)}
                         />
                       </li>
                     ) : (
@@ -1022,7 +1044,7 @@ export function GuestListMultiselect({
                         guest={guest}
                         eventId={eventId}
                         palette={palette}
-                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        displayUrl={faceFor(guest)}
                         selectMode={selectMode}
                         selected={selectedSet.has(guest.guest_id)}
                         onToggle={() => guestSelection.toggle(guest.guest_id)}

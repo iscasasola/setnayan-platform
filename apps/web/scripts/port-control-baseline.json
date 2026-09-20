@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3ae536780",
+  "generatedFromRef": "2672206ef",
   "routeCount": 430,
   "destinations": 922,
   "actions": 651,
-  "blocks": 4557,
+  "blocks": 4558,
   "routes": {
     "/": {
       "files": [
@@ -9198,14 +9198,14 @@
       ],
       "blocks": [
         "Channel",
-        "ChannelToggle",
+        "ChannelTab",
         "CopyButton",
         "FileUpload",
         "Link",
         "PayPanel",
         "PayStage",
-        "PaymentDetailsBlock",
         "ProofForm",
+        "QrTile",
         "StageLink",
         "StageRail",
         "Step",
@@ -11549,6 +11549,7 @@
         "Link",
         "PageMasthead",
         "PapicChallengeCard",
+        "PayBox",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",

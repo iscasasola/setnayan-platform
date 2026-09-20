@@ -588,6 +588,49 @@ export async function updateRemindersEnabled(formData: FormData) {
  * those have their own switches, and quietly changing them from here would be
  * a control doing more than it says.
  */
+/**
+ * Whether the couple running an event you have joined may see your photo.
+ *
+ * ⚖ Owner 2026-09-20, told that linking a guest row to an account would show
+ * that account's photo on the couple's guest list: *"keep it opt-in, add the
+ * preference column"*.
+ *
+ * OFF until you say otherwise. `users.share_profile_photo_with_hosts` is
+ * nullable with no default, so an account that has never been asked reads NULL
+ * and is excluded by the `.eq(true)` filter in lib/guest-account-photos.ts —
+ * silence is no.
+ *
+ * ⚠ It does NOT hide your name, your RSVP, or a photo the couple uploaded for
+ * you themselves. Those are theirs, on their guest list, and a control that
+ * quietly removed them would be doing more than it says.
+ */
+export async function updateSharePhotoWithHosts(formData: FormData) {
+  const raw = formData.get('share_profile_photo_with_hosts');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid photo-sharing preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      share_profile_photo_with_hosts: enabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?photo_sharing_saved=1#privacy');
+}
+
 export async function updateDiscoverableByName(formData: FormData) {
   const raw = formData.get('discoverable_by_name');
   if (raw !== 'true' && raw !== 'false') {

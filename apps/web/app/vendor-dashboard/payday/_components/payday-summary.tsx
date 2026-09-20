@@ -1,5 +1,5 @@
 import { Wallet, CheckCircle2, Clock3, AlertTriangle } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import type { PaydayTotals } from '@/lib/vendor-cashflow';
 import { shopCardClass } from '../../_components/kit';
 

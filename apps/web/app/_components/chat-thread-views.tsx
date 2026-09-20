@@ -13,7 +13,7 @@ import {
 import { respondAppointment } from './appointments-actions';
 import { respondAmendmentFromChat } from './negotiation-actions';
 import { SubmitButton } from './submit-button';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
 import { STANDING_LABEL, standingSentence, type SupplierStanding } from '@/lib/supplier-standing';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';

@@ -51,6 +51,13 @@ function num(v: FormDataEntryValue | null | undefined): number | null {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 }
+/**
+ * @rounds-to-the-peso A SERVICE CARD'S PRICE LABEL. Every figure that reaches
+ * it — `starting_price_php`, `per_pax_price_php`, `hour_base_php`,
+ * `extra_hour_php`, `transport_flat_fee_php` — is an **INTEGER** column on
+ * `vendor_services` (migration `…_vendor_service_pricing.sql`), so the rounding
+ * cannot change a value; it only keeps the snapshot's spelling stable.
+ */
 export function php(n: number): string {
   return `₱${Math.round(n).toLocaleString('en-PH')}`;
 }

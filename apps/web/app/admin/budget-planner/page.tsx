@@ -1,7 +1,7 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { formatPhp } from '@/lib/budget';
+import { formatPhpRounded } from '@/lib/php';
 import {
   fetchAllocationAggregates,
   type BenchmarkRow,
@@ -405,7 +405,7 @@ export default async function AdminBudgetPlannerPage() {
               header: 'Avg ₱',
               align: 'right',
               mono: true,
-              cell: (a) => <span className="text-ink">{formatPhp(a.avgFinalPhp)}</span>,
+              cell: (a) => <span className="text-ink">{formatPhpRounded(a.avgFinalPhp)}</span>,
             },
             {
               header: 'Couples',

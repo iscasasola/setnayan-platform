@@ -295,12 +295,20 @@ function scanFor(src: string, token: string): Occurrence[] {
   return out;
 }
 
+/** Every call that puts a peso figure on this screen — see `lib/php.ts`. */
+const MONEY_TOKENS = ['formatPhp(', 'formatPhpRounded('] as const;
+
 function census(): { mono: Figure[]; body: Figure[] } {
   const mono: Figure[] = [];
   const body: Figure[] = [];
   for (const file of filesUnderGuard()) {
     const src = stripComments(readFileSync(file, 'utf8'));
-    for (const f of scanFor(src, 'formatPhp(')) {
+    // 🔑 BOTH MONEY FORMATTERS, OR A RENAME MAKES FIGURES INVISIBLE TO THIS
+    // GUARD. On 2026-09-20 the budget page's rounding `formatPhp` was split out
+    // as `formatPhpRounded` (lib/php.ts); scanning only the old token dropped
+    // the allocation planner's six figures to ZERO and the census reported a
+    // clean screen it had never looked at. A token list, not a token.
+    for (const f of MONEY_TOKENS.flatMap((t) => scanFor(src, t))) {
       if (f.kind === 'attribute') continue;
       const entry: Figure = {
         file: relative(EVENT_ROOT, file),

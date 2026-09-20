@@ -49,7 +49,8 @@ import { useRouter } from 'next/navigation';
 
 import { LoadingStatus } from '@/components/loading-status';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
+import { formatPhpRounded } from '@/lib/php';
 import { formatDistanceKm } from '@/lib/distance';
 import { computeCompatScore, explainCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
@@ -1176,9 +1177,9 @@ function ChildRail({
           {child.planned ? (
             <span
               className="lh-plan"
-              aria-label={`${child.planned.source === 'saved' ? 'Your plan' : 'Suggested'}: ${formatPhp(child.planned.php)}`}
+              aria-label={`${child.planned.source === 'saved' ? 'Your plan' : 'Suggested'}: ${formatPhpRounded(child.planned.php)}`}
             >
-              {formatPhp(child.planned.php)}
+              {formatPhpRounded(child.planned.php)}
             </span>
           ) : null}
           {child.personalizationEnabled ? (
@@ -1228,7 +1229,7 @@ function ChildRail({
            would be a number they never chose. */
         <p className="leaf-plan">
           {child.planned.source === 'saved' ? 'Your plan for ' : 'Suggested for '}
-          {child.label}: <strong>{formatPhp(child.planned.php)}</strong>
+          {child.label}: <strong>{formatPhpRounded(child.planned.php)}</strong>
           {child.planned.source === 'saved' ? '' : ' from your budget split'}
           {' · '}
           <Link href={`/dashboard/${eventId}/budget#budget-allocate`}>Adjust</Link>

@@ -136,7 +136,14 @@ export function roundToTypicalBand(php: number): number {
   return Math.round(php / step) * step;
 }
 
-/** ₱-format a whole-peso figure (no centavos) for either surface. */
+/**
+ * ₱-format a whole-peso figure (no centavos) for either surface.
+ *
+ * @rounds-to-the-peso A MEDIAN BAND. Its only input is `roundToTypicalBand`
+ * directly above, which has already snapped the figure to a ₱100 / ₱500 /
+ * ₱1,000 step — showing centavos under that would claim a precision the band
+ * deliberately does not have.
+ */
 export function formatMedianPhp(php: number): string {
   return `₱${Math.round(php).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 }

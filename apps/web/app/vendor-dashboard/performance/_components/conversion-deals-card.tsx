@@ -1,5 +1,5 @@
 import { CheckCircle2, Banknote, CalendarClock, Trophy } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { formatDuration, type ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import { CountUp } from './count-up';
 
@@ -46,7 +46,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
   const acceptanceValue =
     quote.acceptancePct === null ? '—' : `${Math.round(quote.acceptancePct)}%`;
   const dealAvg = deal.avgContractPhp ?? deal.avgQuotedPhp;
-  const dealValue = dealAvg === null ? '—' : formatPhp(Math.round(dealAvg));
+  const dealValue = dealAvg === null ? '—' : formatPhp(dealAvg);
   const leadValue =
     lead.medianLeadDays === null ? '—' : `${Math.round(lead.medianLeadDays)} days`;
 
@@ -131,7 +131,7 @@ export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
           <span>
             Total booked value:{' '}
             <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
-              {deal.totalContractPhp > 0 ? formatPhp(Math.round(deal.totalContractPhp)) : '—'}
+              {deal.totalContractPhp > 0 ? formatPhp(deal.totalContractPhp) : '—'}
             </span>
           </span>
           <span>

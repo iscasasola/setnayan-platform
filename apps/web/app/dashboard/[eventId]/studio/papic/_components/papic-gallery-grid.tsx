@@ -10,7 +10,7 @@ import {
   allowancePoints,
   blocksNeeded,
 } from '@/lib/papic-storage-telemetry';
-import { formatPhp } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';

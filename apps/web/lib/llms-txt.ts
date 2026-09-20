@@ -86,7 +86,15 @@ export class MissingSkuError extends Error {
   }
 }
 
-/** 1299 → "₱1,299". Matches the copy's format and the audit's `pesoFigure`. */
+/**
+ * 1299 → "₱1,299". Matches the copy's format and the audit's `pesoFigure`.
+ *
+ * @rounds-to-the-peso MARKETING COPY, not a charge. `llms.txt` is a prose page
+ * for crawlers and assistants; the figure beside it is a headline price, and
+ * the mirror check in `lib/seo/health-checks.ts#pesoFigure` compares this exact
+ * spelling. What a customer is actually charged comes from
+ * `platform_retail_catalog_v2` through `formatCentavosPhp` (`lib/php.ts`).
+ */
 export function peso(php: number): string {
   return `₱${Math.round(php).toLocaleString('en-US')}`;
 }

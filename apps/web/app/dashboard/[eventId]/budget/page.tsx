@@ -9,9 +9,9 @@ import { getCurrentUser } from '@/lib/auth';
 import {
   fetchBudgetSnapshot,
   buildBudgetLiveSummary,
-  formatPhp,
   type BudgetLiveSummary,
 } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import { resolveEventMoney, bucketLabel, type EventMoney } from '@/lib/budget-truth';
 
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';

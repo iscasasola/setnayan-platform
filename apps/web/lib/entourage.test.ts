@@ -19,6 +19,8 @@ import {
   buildEntourage,
   peopleOf,
   roleLabel,
+  holdersOfRoleInPrintOrder,
+  ENTOURAGE_COLUMNS,
   personName,
   ENTOURAGE_ROLES,
   type EntourageGuestRow,
@@ -38,7 +40,7 @@ test('every published role carries a label', () => {
   assert.deepEqual(unlabelled, [], `published with no label: ${unlabelled.join(', ')}`);
 });
 
-test('the groups print in invitation order — sponsors before the entourage proper', () => {
+test('the groups print in invitation order — family, then the honour attendants', () => {
   const groups = buildEntourage([
     row({ first_name: 'Lito', role: 'groomsman' }),
     row({ first_name: 'Rosa', role: 'principal_sponsor' }),
@@ -51,12 +53,14 @@ test('the groups print in invitation order — sponsors before the entourage pro
   assert.deepEqual(
     groups.map((g) => g.key),
     [
+      // ⚖ Owner 2026-09-20: family leads, then the honour attendants ABOVE
+      // both sponsor groups, and flower girls get their own heading.
       'parents',
+      'honour',
       'principal_sponsors',
       'secondary_sponsors',
-      'honour',
       'bridesmaids_groomsmen',
-      'bearers',
+      'flower_girls',
     ],
   );
 });
@@ -211,7 +215,9 @@ test('a same-role pair still pairs — nothing in the role says which side', () 
     paired('c', 'Christopher', 'candle_sponsor', 'k'),
   ]);
   assert.equal(g!.rows.length, 1);
-  assert.deepEqual(g!.rows[0]!.map((p) => p?.name ?? null), ['Katrina X', 'Christopher X']);
+  // Both share a surname, so the given name decides — a stable answer where
+  // the old insertion order was whatever Postgres returned that second.
+  assert.deepEqual(g!.rows[0]!.map((p) => p?.name ?? null), ['Christopher X', 'Katrina X']);
 });
 
 test('⚖ an unpartnered name KEEPS ITS LINE, with the other side blank', () => {
@@ -251,9 +257,10 @@ test('a pointer at somebody outside this group does not steal them', () => {
     paired('z', 'Zed', 'flower_girl', 'a'),
   ]);
   const sponsors = groups.find((g) => g.key === 'secondary_sponsors')!;
-  const bearers = groups.find((g) => g.key === 'bearers')!;
+  // Owner 2026-09-20 split bearers and flower girls into two headings.
+  const flowerGirls = groups.find((g) => g.key === 'flower_girls')!;
   assert.deepEqual(sponsors.rows[0]!.map((p) => p?.name ?? null), ['Ana X', null]);
-  assert.deepEqual(peopleOf(bearers).map((p) => p.name), ['Zed X']);
+  assert.deepEqual(peopleOf(flowerGirls).map((p) => p.name), ['Zed X']);
 });
 
 test('nobody is printed twice by pairing', () => {
@@ -289,4 +296,121 @@ test("the groom's parents print before the bride's", () => {
     peopleOf(parents).map((p) => p.role),
     ['groom_parents', 'bride_parents'],
   );
+});
+
+// ── ⚖ Owner 2026-09-20 — family publishes, and the order stops being random ──
+
+test('immediate family publishes, directly under Parents', () => {
+  const groups = buildEntourage([
+    row({ first_name: 'Bea', role: 'bridesmaid' }),
+    row({ first_name: 'Juanita', role: 'groom_immediate_family' }),
+    row({ first_name: 'Ent', role: 'bride_parents' }),
+  ]);
+  assert.deepEqual(
+    groups.map((g) => g.key),
+    ['parents', 'immediate_family', 'bridesmaids_groomsmen'],
+  );
+  const family = groups.find((g) => g.key === 'immediate_family')!;
+  assert.deepEqual(peopleOf(family).map((p) => p.name), ['Juanita B']);
+});
+
+test('an immediate-family role prints a LABEL, never a raw enum value', () => {
+  // This file's own docblock used `bride_immediate_family` as the example of a
+  // role that must never reach a guest's screen unlabelled. Now that it
+  // publishes, the label is what keeps that true.
+  assert.equal(roleLabel('bride_immediate_family'), "Bride's Family");
+  assert.equal(roleLabel('groom_immediate_family'), "Groom's Family");
+});
+
+test('the printed order does not depend on the order the rows arrive in', () => {
+  // 🔑 THE WHOLE POINT. Neither entourage query carries an ORDER BY, so the
+  // input order is whatever Postgres returned that second. Same people, two
+  // arrival orders, one printed result — or the invitation reshuffles itself
+  // between page loads.
+  const people = [
+    row({ guest_id: '1', first_name: 'Rosa', last_name: 'Zamora', role: 'principal_sponsor_ninang' }),
+    row({ guest_id: '2', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang' }),
+    row({ guest_id: '3', first_name: 'Mia', last_name: 'Molina', role: 'principal_sponsor_ninang' }),
+  ];
+  const forward = buildEntourage(people);
+  const reversed = buildEntourage([...people].reverse());
+  assert.deepEqual(forward, reversed);
+
+  const names = peopleOf(forward.find((g) => g.key === 'principal_sponsors')!).map((p) => p.name);
+  assert.deepEqual(names, ['Ana Abad', 'Mia Molina', 'Rosa Zamora']);
+});
+
+test('sorting is per ROLE — it never flattens the order inside a group', () => {
+  // `spec.roles` order is meaningful (ninong before ninang). Sorting the whole
+  // group by surname would put Abad the ninang above Zamora the ninong and
+  // silently discard the convention.
+  const groups = buildEntourage([
+    row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang' }),
+    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'principal_sponsor_ninong' }),
+  ]);
+  const sponsors = groups.find((g) => g.key === 'principal_sponsors')!;
+  assert.deepEqual(
+    peopleOf(sponsors).map((p) => p.role),
+    ['principal_sponsor_ninong', 'principal_sponsor_ninang'],
+  );
+});
+
+// ── ⚖ Owner 2026-09-20 — the couple's own walking order ─────────────────────
+
+test("a hand-placed name outranks the alphabetical default", () => {
+  const groups = buildEntourage([
+    row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang' }),
+    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'principal_sponsor_ninang', entourage_order: 0 }),
+  ]);
+  const names = peopleOf(groups.find((g) => g.key === 'principal_sponsors')!).map((p) => p.name);
+  assert.deepEqual(names, ['Zeny Zamora', 'Ana Abad']);
+});
+
+test('placing SOME names does not scramble the rest', () => {
+  // A couple who arranges three of their twelve should get those three on top
+  // in their order, and an alphabetical tail — not an all-or-nothing rule that
+  // makes the first drag meaningless until the twelfth.
+  const groups = buildEntourage([
+    row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'groomsman' }),
+    row({ guest_id: '2', first_name: 'Boy', last_name: 'Bautista', role: 'groomsman', entourage_order: 1 }),
+    row({ guest_id: '3', first_name: 'Cris', last_name: 'Cruz', role: 'groomsman' }),
+    row({ guest_id: '4', first_name: 'Dino', last_name: 'Dizon', role: 'groomsman', entourage_order: 0 }),
+  ]);
+  const names = peopleOf(groups.find((g) => g.key === 'bridesmaids_groomsmen')!).map((p) => p.name);
+  assert.deepEqual(names, ['Dino Dizon', 'Boy Bautista', 'Ana Abad', 'Cris Cruz']);
+});
+
+test('🔑 an UNPLACED name is not treated as position zero', () => {
+  // The whole trap: `entourage_order ?? 0` would rank everyone the couple
+  // never touched ABOVE the person they deliberately put first.
+  const groups = buildEntourage([
+    row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'bridesmaid' }),
+    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'bridesmaid', entourage_order: 0 }),
+  ]);
+  const names = peopleOf(groups.find((g) => g.key === 'bridesmaids_groomsmen')!).map((p) => p.name);
+  assert.equal(names[0], 'Zeny Zamora');
+});
+
+test('holdersOfRoleInPrintOrder is the SAME order the invitation prints', () => {
+  // The dashboard's Move ↑ acts on this; the public page prints buildEntourage.
+  // If they ever disagree, "move her up" swaps her with somebody the couple
+  // cannot see. Asserting they agree is the only thing that keeps them honest.
+  const rows = [
+    row({ guest_id: '1', first_name: 'Cris', last_name: 'Cruz', role: 'groomsman' }),
+    row({ guest_id: '2', first_name: 'Ana', last_name: 'Abad', role: 'groomsman', entourage_order: 5 }),
+    row({ guest_id: '3', first_name: 'Boy', last_name: 'Bautista', role: 'groomsman' }),
+  ];
+  const viaHelper = holdersOfRoleInPrintOrder(rows, 'groomsman').map((r) => r.guest_id);
+  const printed = peopleOf(buildEntourage(rows).find((g) => g.key === 'bridesmaids_groomsmen')!)
+    .filter((p) => p.role === 'groomsman')
+    .map((p) => p.id);
+  assert.deepEqual(viaHelper, printed);
+});
+
+test('the order column is actually asked for by the query', () => {
+  // 🪤 The sort reads `entourage_order`; the two routes read ENTOURAGE_COLUMNS.
+  // A column missing from that string arrives undefined on EVERY row, so the
+  // override silently does nothing and the page falls back to surnames with
+  // nothing red anywhere.
+  assert.match(ENTOURAGE_COLUMNS, /\bentourage_order\b/);
 });

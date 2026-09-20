@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { ClipboardPaste, CornerDownRight, X } from 'lucide-react';
 import { referencesAgree, scanPaymentProof } from '@/lib/payment-proof-scan';
+import { formatPhp } from '@/lib/orders';
+import { haystackCarriesAmount } from '@/lib/payment-amount-forms';
 
 /**
  * InboxMatcher — paste-and-match reconciliation helper (Wave 7 · 2-step program).
@@ -50,14 +52,14 @@ type Match = {
   tier: 'wallet' | 'reference' | 'amount';
 };
 
-function formatPhp(amount: number): string {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
+/**
+ * ⛔ A PRIVATE PESO FORMATTER USED TO LIVE HERE — a THIRD rendering of one
+ * amount. With `minimumFractionDigits: 0, maximumFractionDigits: 2` it printed
+ * ₱837.5 for the same charge the fee page printed as ₱838 and the `/pay` QR
+ * carried as 837.50: three screens, three spellings, one number. The desk
+ * matches these figures against a bank message by eye, so the spelling IS the
+ * work. Now it is the shared `formatPhp` — see `lib/orders.ts`.
+ */
 
 function matchPayments(text: string, payments: MatcherPayment[]): Match[] {
   const trimmed = text.trim();
@@ -93,12 +95,29 @@ function matchPayments(text: string, payments: MatcherPayment[]): Match[] {
       reference.push({ payment: p, tier: 'reference' });
       continue;
     }
-    // (3) Amount fallback: whole-peso OR centavo form against the
-    // comma-stripped haystack. Weakest — two couples paying the same SKU on
-    // the same day are indistinguishable here.
-    const whole = String(Math.round(p.amount_php));
-    const fixed = p.amount_php.toFixed(2);
-    if (whole.length >= 3 && (noCommas.includes(whole) || noCommas.includes(fixed))) {
+    // (3) Amount fallback: bare OR centavo form against the comma-stripped
+    // haystack. Weakest — two couples paying the same SKU on the same day are
+    // indistinguishable here.
+    //
+    // 🔴 THIS COMPARED A ROUNDED NUMBER, AND ROUNDING A KEY INVENTS MATCHES.
+    // It was `String(Math.round(p.amount_php))`, so the pending ₱837.50 booking
+    // fee looked for the literal "838" — a figure that exists nowhere: not in
+    // `payments.amount_php`, not in the order, not in any bank message about
+    // THIS transfer. What it does find is a bank message about somebody else's
+    // ₱838 payment, which the desk is then offered as a match, on money.
+    // 🔑 A display that rounds is a lie the reader can see. A COMPARISON that
+    // rounds is a lie that picks the wrong row and looks like a hit.
+    //
+    // The forms now come off the exact string, so each is a TRUNCATION of the
+    // real digits rather than an invented neighbour: 3999.00 → "3999" (still
+    // matching a note that writes "3,999" with no decimals, which is the whole
+    // reason that form exists) and 837.50 → "837.50", which is already exact.
+    // The rounded variant is deleted, not left unused.
+    //
+    // 🔑 THE RULE LIVES IN A PURE SIBLING SO A GUARD CAN RUN IT. This file is
+    // `'use client'`; a test that could only grep it would pass while the rule
+    // did nothing. See `lib/payment-amount-forms.ts`.
+    if (haystackCarriesAmount(noCommas, p.amount_php)) {
       amount.push({ payment: p, tier: 'amount' });
     }
   }

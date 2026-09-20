@@ -211,7 +211,19 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                   {formatPhp(totals.headlineTotal)}
                 </p>
               </div>
-              <CopyButton value={String(totals.headlineTotal)} label="Copy" />
+              {/* ⚖ THE COPY VALUE KEEPS ITS CENTAVOS AND IS NEVER ROUNDED —
+                  not up, and above all not down. GCash and BDO both accept a
+                  centavo amount, so the exact figure is payable exactly as
+                  typed; rounding DOWN underpays the charge and rounding UP
+                  overpays it, and either one leaves an admin reconciling a
+                  transfer against a number nobody ever recorded.
+                  `String(837.5)` is `"837.5"` — the right value wearing the
+                  wrong number of digits, and one keystroke away from `837.05`
+                  in a bank field. `.toFixed(2)` is the same two decimals the
+                  `/pay` QR carries in EMV tag 54 (see `lib/pay-amount.ts`), so
+                  what a supplier PASTES and what their wallet PRE-FILLS are
+                  the same digits. */}
+              <CopyButton value={totals.headlineTotal.toFixed(2)} label="Copy" />
             </div>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
               <div className="min-w-0">

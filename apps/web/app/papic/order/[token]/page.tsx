@@ -4,6 +4,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings, hasMerchantPaymentInfo } from '@/lib/platform-settings';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { formatPhp } from '@/lib/orders';
 import { submitPapicGuestPayment } from '../../buy/actions';
 
 export const dynamic = 'force-dynamic';
@@ -163,11 +164,17 @@ export default async function PapicGuestOrderPage({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="sn-eye">Amount</p>
-            <p className="text-2xl font-semibold text-ink">
-              &#8369;{amount.toLocaleString('en-PH')}
-            </p>
+            {/* ⚠ THE AMOUNT TO SEND, AND IT MAY NOT BE RESPELLED HERE.
+                A bare `toLocaleString` caps at Intl's DEFAULT three decimals
+                and drops a trailing zero, so ₱837.50 reads "₱837.5" — the
+                right value wearing the wrong digits, on the line that tells a
+                guest what to type into GCash. Same rule, same helper as the
+                supplier's booking-fee page and the /pay QR. */}
+            <p className="text-2xl font-semibold text-ink">{formatPhp(amount)}</p>
           </div>
-          <CopyButton value={String(amount)} label="Copy" />
+          {/* Never rounded — `String(837.5)` is "837.5" and is one keystroke
+              from "837.05" in a bank field. Two decimals, as the QR carries. */}
+          <CopyButton value={amount.toFixed(2)} label="Copy" />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-4">
           <div>
@@ -249,7 +256,7 @@ export default async function PapicGuestOrderPage({
           <ul className="space-y-1 text-sm text-ink/70">
             {(payments ?? []).map((p) => (
               <li key={(p as { payment_id: string }).payment_id}>
-                &#8369;{Number((p as { amount_php: number }).amount_php).toLocaleString('en-PH')}{' '}
+                {formatPhp(Number((p as { amount_php: number }).amount_php))}{' '}
                 — {(p as { status: string }).status === 'matched' ? 'confirmed' : 'waiting for review'}
               </li>
             ))}

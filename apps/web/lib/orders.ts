@@ -173,12 +173,58 @@ export async function fetchPaymentsForOrder(
   return (data ?? []) as PaymentRow[];
 }
 
+/**
+ * THE APP'S MONEY TEXT — `₱2,499` · `₱837.50` · `—` for an absent figure.
+ *
+ * 🔴 IT USED TO DROP THE CENTAVOS, AND THE OWNER CAUGHT IT ON A REAL BILL
+ * (2026-09-20). Charge `S89F-HMS91HGPAK` is 83,750 centavos; order
+ * `S89O-DW67KBQADN` / reference `SN9B7485DD` stores `requested_total_php =
+ * 837.50` and its one `payments` row stores `amount_php = 837.50`. This
+ * function printed **₱838** — twice on `/vendor-dashboard/booking-fees/<id>`,
+ * once under the headline "Amount to send" and once inside the copyable
+ * PAYMENT INSTRUCTIONS block — and again on the payment-log row.
+ *
+ * 🔑 THAT IS NOT A WRONG LABEL. IT IS AN INSTRUCTION TO SEND A DIFFERENT
+ * AMOUNT. A supplier who does as told transfers ₱838 against a ₱837.50 charge,
+ * so every reconciliation after it is 50 centavos out — on a screen whose whole
+ * purpose is to name the figure to type into GCash.
+ *
+ * ⚖ THE RULE IS NOT NEW AND IS NOT A TASTE DECISION — it is the one the
+ * database already uses. SQL `public.booking_fee_php_text` (migration
+ * `20271177298989_the_owner_sets_the_booking_fee.sql`) is documented as
+ * `100000 → '₱100,000' · 50 → '₱50' · 1500.5 → '₱1,500.50'`, and `pesoText` in
+ * `lib/setnayan-gift.ts` is its TypeScript mirror — a db test already pins the
+ * two together. This is the third copy of that same rule and it agrees with
+ * both: **centavos appear exactly when the amount has them.**
+ *
+ * ✅ SO NOTHING THAT SHOWS A WHOLE PESO CHANGES. `₱2,499` is still `₱2,499`;
+ * only a figure that genuinely carries centavos stops lying about itself.
+ *
+ * 🔑 WHY THE DIGITS COME FROM `toFixed` AND NOT FROM `Intl`. `Intl` rounds the
+ * decimal value and `toFixed` rounds the binary double, so they part company on
+ * a half-centavo (2.675 is "2.68" to Intl, "2.67" to toFixed). `payAmount` in
+ * `lib/pay-amount.ts` — the figure the `/pay` QR carries in EMV tag 54 — is
+ * built on `toFixed(2)` for exactly that reason, and `/pay` is where a supplier
+ * lands FROM this fee page. Starting from the same expression makes the two
+ * screens agree structurally instead of coincidentally.
+ *
+ * ⛔ `payAmount` STAYS SEPARATE and this does not replace it: it must print
+ * `₱49.00` for a whole peso, because the wallet is about to fill in `49.00`.
+ * This one drops a `.00` the QR keeps.
+ */
 export function formatPhp(amount: number | null | undefined): string {
   if (amount === null || amount === undefined) return '—';
-  return `₱${Number(amount).toLocaleString('en-PH', {
-    minimumFractionDigits: 0,
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '—';
+  const exact = n.toFixed(2);
+  const dot = exact.lastIndexOf('.');
+  // `whole` keeps its own sign, so a negative renders exactly as it always did.
+  const whole = exact.slice(0, dot);
+  const centavos = exact.slice(dot + 1);
+  const grouped = Number(whole).toLocaleString('en-PH', {
     maximumFractionDigits: 0,
-  })}`;
+  });
+  return `₱${grouped}${centavos === '00' ? '' : `.${centavos}`}`;
 }
 
 /**

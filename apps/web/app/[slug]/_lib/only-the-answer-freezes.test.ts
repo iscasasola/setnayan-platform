@@ -210,14 +210,28 @@ test('the body no longer hides the card — that was the defect', () => {
   // fails this test, and that is the point: it is the moment a person should
   // confirm the card still renders for a finalized list. Update the pins, do
   // not delete the check.
-  const LEGAL_PREDECESSORS = ['<div className="mt-4">', ') : ('];
+  //
+  // ── PINS UPDATED 2026-09-20 · THE REPLY BECAME A SHEET ─────────────────────
+  // This guard fired exactly as designed, and the confirmation it demands was
+  // done: the render tests at the top of this file are unchanged and still pass
+  // for `replyLocked: true`, so a finalized list still gets its card, its meal
+  // box, its allergy box and its selfie.
+  //
+  // WHAT MOVED. There used to be TWO mounts — the ask, and the SAME card again
+  // inside a `<details>` drawer for a guest who had already answered — carrying
+  // byte-identical props. The sheet serves both readings from one place, so the
+  // drawer is gone and with it the second mount. The count is now pinned to
+  // EXACTLY ONE, which is STRICTLY TIGHTER than the old `> 1`: a second reply
+  // card reappearing is now itself a failure, because two cards declaring
+  // `meal_preference` is the drift hazard this file exists to prevent.
+  const LEGAL_PREDECESSORS = ['<div data-rsvp-form>'];
   // ⚠ EVERY part here governs a mount. `split` yields N+1 parts for N mounts;
   // dropping the LAST one (the text after the final mount) leaves exactly the
   // N predecessors — part 0 governs mount 1. An earlier cut of this loop
   // skipped part 0 as "the preamble", which left the drawer mount UNCHECKED,
   // and a sabotage wrapping it in a condition passed. Measured, not reasoned.
   const mounts = src.split('<RsvpWidget').slice(0, -1);
-  assert.ok(mounts.length > 1, 'expected at least one reply-card mount');
+  assert.equal(mounts.length, 1, 'the guest tree must hold exactly ONE reply card');
   for (const [i, before] of mounts.entries()) {
     const tail = before
       .replace(/\/\*[\s\S]*?\*\//g, '') // strip block comments

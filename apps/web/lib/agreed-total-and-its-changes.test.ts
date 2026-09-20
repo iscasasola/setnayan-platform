@@ -703,6 +703,15 @@ const FOLD_ROWS = /\bwithAgreedTotalNow\s*\(/;
  * NEW raw read added to one of these files must be looked at, not waved past.
  */
 const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column: number; what: string }> = {
+  'lib/vendor-card-from-couple.ts': {
+    what: 'the seed for a claimed supplier’s first card — the price they publish',
+    needles: [
+      [AGREED_NOW, 1],
+      [PAGE_READ, 1],
+      [/agreedTotalNow\(row\.total_cost_php, byVendor\.get\(/, 1],
+    ],
+    column: 3,
+  },
   'app/dashboard/[eventId]/_components/event-dashboard.tsx': {
     what: 'event home — the committed figure',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const cost = agreedTotalNow\(row\.total_cost_php, row\.change_lines\)/, 1]],

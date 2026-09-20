@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { resolveArrivalAction } from '@/lib/arrival-action';
+import { manilaToday } from '@/lib/std-views';
+import { ArrivalActionRow } from './arrival-action';
 import { MapPin, Sparkles } from 'lucide-react';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -577,6 +580,24 @@ export async function SiteBody({
   //
   // Every rule lives in `_lib/site-nav.ts`; nothing is decided here.
   const guestToken = identity.kind === 'guest' ? identity.guest.qr_token : null;
+
+  /* ── ONE ACTION UNDER THE MARK, AND ITS LABEL IS THE STATUS (arrival design
+     slice 2 · lib/arrival-action.ts). Null for an anonymous reader, who keeps
+     the page's existing public call to action.
+
+     🕐 Manila decides the day. `manilaToday()` formats now in Asia/Manila;
+     `new Date('YYYY-MM-DD')` would be midnight UTC — the previous day here —
+     and would flip the day-of branch eight hours early. */
+  const arrivalAction =
+    identity.kind === 'guest'
+      ? resolveArrivalAction({
+          slug: event.slug ?? '',
+          rsvpStatus: identity.guest.rsvp_status,
+          eventDate: event.event_date,
+          today: manilaToday(),
+          hasPass: Boolean(guestToken),
+        })
+      : null;
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null };
@@ -1277,6 +1298,8 @@ export async function SiteBody({
               }
             />
           ) : null}
+
+          <ArrivalActionRow action={arrivalAction} />
 
           {/* ── THE PAGE OPENS ON THE MARK (owner 2026-09-20).
               Until now an identified guest met a box about THEMSELVES — "Hi

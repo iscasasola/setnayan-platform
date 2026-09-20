@@ -61,7 +61,7 @@ a green PR is not "served yet". #5672 is a migration: it only takes effect after
 
 ---
 
-## Today — the doors (added 2026-09-20, TODAY-DOORS · PR __PR__)
+## Today — the doors (added 2026-09-20, TODAY-DOORS · PR #5735)
 
 Same account: **testnayan2** (*Saysay Host and Band*), email + password. Check `/api/health` shows a sha
 at or after the merge first — a green PR is not "served yet".

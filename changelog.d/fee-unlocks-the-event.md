@@ -57,3 +57,26 @@ Unchanged: when the charge opens (deposit acknowledgement) and the fee maths.
 SPEC IMPACT: `~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md` — dated row
 2026-09-20 recording the ruling, the three stages, the flag, and the two points
 still with the owner.
+
+### Reconciling the overdue copy with #5737 (fee-visible)
+
+`feeEnforcementSentence({ enforced })` — **one source, two states**. #5737's
+overdue line reads "Your booking is not affected", guarded by a BAN on the words
+*cancel · suspend · lose access · hidden from*. Both were measured and correct
+when written. This PR makes that premise conditional, so a word ban now fails in
+both directions (it misses a reword, and it convicts the honest sentence once the
+flag is on), and a hand-written pair would need somebody to switch both on the
+day the flag is flipped.
+
+The sentence is therefore **computed from the same flag the gate reads**, and the
+guard asserts the PROPERTY — the copy states the consequence that is true for the
+current state and never asserts its opposite — executed on both states, five
+sabotages caught. `feeLockCopy` consumes the same function, so the locked screen
+and the overdue line cannot drift.
+
+⚠ #5737's guard pins the absence of `booking_fee` in `lib/vendor-room-access-rule.ts`
+as its proof that access ignores the fee. That file is deliberately untouched here
+(folding the fee into `admitRoomBookings` would reach the COUPLE), so the assertion
+still passes while its premise has become false — it is anchored on the wrong cell.
+Re-pointing it at `eventAccessUnlocked`, and wiring `feeDueCopy` to
+`feeEnforcementSentence`, is a follow-up PR once #5737 lands.

@@ -8,6 +8,7 @@ import {
   SHOW_BUDGET_BAND_WHILE_QUOTING,
   VENUE_WHILE_QUOTING,
   eventAccessUnlocked,
+  feeEnforcementSentence,
   feeLockCopy,
   redactBriefForStage,
   resolveEventAccessStage,
@@ -249,6 +250,74 @@ test('a brief that is ALREADY empty reports nothing withheld', () => {
 
 // ── What a locked screen says ──────────────────────────────────────────────
 
+/**
+ * ── THE COPY MUST SAY WHAT IS TRUE, IN BOTH FLAG STATES ────────────────────
+ *
+ * PR #5737 ships due/overdue copy that reads "Your booking is not affected",
+ * guarded by a BAN on the words cancel · suspend · lose access · hidden from.
+ * Both were measured and correct: nothing read `expires_at`, `cron.job` is
+ * empty, access was `lock_request_state = 'agreed'` alone.
+ *
+ * This PR makes that premise conditional, so:
+ *   · a word BAN now fails in both directions — it misses a reword ("your event
+ *     closes up") and it convicts the honest sentence once the flag is on;
+ *   · and a hand-written pair of sentences would need somebody to switch both
+ *     on the day the flag is flipped, which is the day nobody reads the file.
+ *
+ * So the sentence is DERIVED from the flag, and the assertion is a PROPERTY:
+ * it states the consequence that is true for the current state, and never
+ * asserts its opposite.
+ */
+test('🔑 the consequence sentence is TRUE in both flag states, from one source', () => {
+  const off = feeEnforcementSentence({ enforced: false });
+  const on = feeEnforcementSentence({ enforced: true });
+
+  assert.notEqual(off, on, 'one sentence for two different behaviours is one of them wrong');
+
+  // FLAG OFF — measured: no scheduler, nothing reads expires_at, access is
+  // lock_request_state alone. Nothing happens when the date passes.
+  assert.match(off, /not affected/, 'flag off: the booking really is untouched, so say so');
+  assert.doesNotMatch(
+    off,
+    /locked|lock(s|ed)? until|stay locked/i,
+    'flag off: nothing is withheld, so the copy must not threaten that it is — that is the ' +
+      'invented consequence #5737 exists to prevent.',
+  );
+
+  // FLAG ON — the gate IS the consequence. The copy must name it, and must NOT
+  // carry the flag-off reassurance, which becomes misleading.
+  assert.match(on, /locked until the fee is settled/, 'flag on: name the real consequence');
+  assert.doesNotMatch(
+    on,
+    /booking is not affected/,
+    'flag on: "your booking is not affected" is technically true (nothing is cancelled) and ' +
+      'misleading (the event\u2019s tools ARE locked). Two half-truths make a lie on money.',
+  );
+  // …and it must keep the two promises the ruling makes, in both directions.
+  assert.match(on, /booking stands/, 'flag on: the booking itself is NOT cancelled — say it');
+  assert.match(
+    on,
+    /conversation with the couple/,
+    'flag on: the always-open three must be promised on the screen that locks things',
+  );
+  assert.match(on, /money page/);
+  assert.match(on, /couple sees nothing/, 'the couple is never told about their supplier\u2019s bill');
+});
+
+test('the locked screen and the overdue line share ONE consequence sentence', () => {
+  // A dead export is not a source of truth. The screen that actually locks must
+  // consume it, or the two will drift the first time one is edited.
+  const copy = feeLockCopy({
+    stage: 'booked_fee_due',
+    owed: { amountPhp: 837.5, dueAt: '2026-09-27', orderId: 'o1' },
+    withheld: ['venue'],
+  });
+  assert.ok(
+    copy.detail.includes(feeEnforcementSentence({ enforced: true })),
+    'feeLockCopy hand-writes its own version of the consequence instead of using the one source',
+  );
+});
+
 test('a locked screen names the amount, the due date and the way out', () => {
   const copy = feeLockCopy({
     stage: 'booked_fee_due',
@@ -260,8 +329,8 @@ test('a locked screen names the amount, the due date and the way out', () => {
   assert.match(copy.detail, /2026/, 'the due date is stated');
   assert.equal(copy.cta, 'Pay the booking fee');
   // The always-open promise is made on the screen itself, not only in a docblock.
-  assert.match(copy.detail, /message the couple/i);
-  assert.match(copy.detail, /money/i);
+  assert.match(copy.detail, /conversation with the couple/i);
+  assert.match(copy.detail, /money page/i);
 });
 
 test('a QUOTING screen explains itself without demanding money that is not owed', () => {

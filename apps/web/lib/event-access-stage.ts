@@ -344,6 +344,60 @@ const PHP = new Intl.NumberFormat('en-PH', {
 });
 
 /**
+ * WHAT AN UNPAID BOOKING FEE ACTUALLY COSTS THE SUPPLIER — ONE SENTENCE,
+ * DERIVED FROM THE FLAG, NEVER HAND-WRITTEN TWICE.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * PR #5737 (`lib/booking-fee-disclosure.ts`) ships escalating due/overdue copy
+ * whose overdue line currently reads *"Your booking is not affected and your
+ * couple sees nothing about it"*, and a guard that FORBIDS the words `cancel`,
+ * `suspend`, `lose access`, `hidden from`… Both were correct when written and
+ * were MEASURED: nothing read `expires_at`, `cron.job` is empty, and access came
+ * from `lock_request_state = 'agreed'` alone.
+ *
+ * This PR makes that premise conditional. With `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`
+ * on, an unsettled fee DOES withhold the event's details and day-of tools — so
+ * "your booking is not affected" becomes a sentence that is technically true
+ * (the booking is not cancelled) and misleading (the tools are locked).
+ *
+ * 🔑 TWO STATES, ONE SOURCE. The sentence is COMPUTED from the same flag the
+ * gate reads, so the copy cannot disagree with the behaviour. A hand-written
+ * pair would need somebody to remember to switch both on the day the flag is
+ * flipped, and that is the day nobody is reading this file.
+ *
+ * 🔑 AND THE GUARD MUST ASSERT THE PROPERTY, NOT BAN A PHRASING. A word ban
+ * fails in both directions — it misses a reword ("your event closes up") and it
+ * convicts the honest sentence below the moment enforcement is real. The
+ * replacement assertion is: *the copy states the consequence that is true for
+ * the CURRENT flag state, and never asserts its opposite.* Both states are
+ * executed in `event-access-stage.test.ts`.
+ *
+ * ⚠ #5737's guard also pins the absence of `booking_fee` in
+ * `lib/vendor-room-access-rule.ts` as its proof that access ignores the fee.
+ * That file is deliberately untouched by this PR (folding the fee into
+ * `admitRoomBookings` would reach the COUPLE — see this module's header), so
+ * that assertion still passes while its premise has become false. It is
+ * anchored on the wrong cell: the enforcement lives HERE. When the two PRs are
+ * reconciled, that assertion must be re-pointed at `eventAccessUnlocked`.
+ */
+export function feeEnforcementSentence(opts?: { enforced?: boolean }): string {
+  const enforced = opts?.enforced ?? isFeeUnlocksEventEnabled();
+  if (!enforced) {
+    // Measured, not assumed: nothing reads `expires_at`, there is no scheduler,
+    // and access is `lock_request_state = 'agreed'` alone. Nothing happens.
+    return (
+      'Your booking is not affected and your couple sees nothing about it — but it is money ' +
+      'Setnayan is still waiting on.'
+    );
+  }
+  return (
+    'Your booking stands and your couple sees nothing about it — but this event’s details and ' +
+    'day-of tools stay locked until the fee is settled. Your conversation with the couple, this ' +
+    'booking’s money page and this fee screen stay open.'
+  );
+}
+
+/**
  * The words on a locked screen. Never a blank page, never a 404, never a silent
  * empty state — the amount, the due date, and the way to pay it.
  */
@@ -374,9 +428,14 @@ export function feeLockCopy(args: {
   const due = args.owed?.dueAt ? ` Due ${formatDue(args.owed.dueAt)}.` : '';
   return {
     headline: `Pay ${amount} to unlock this event`,
+    // 🔑 THE SAME SENTENCE THE DUE/OVERDUE COPY USES. This screen only renders
+    // when the gate is enforced, so it asks for that state explicitly — the
+    // function is the one source, not a second hand-written version of it.
     detail: `${
       listed.charAt(0).toUpperCase() + listed.slice(1)
-    } — and this event’s day-of tools — open the moment your Setnayan booking fee is settled.${due} You can still message the couple and see this booking’s money at any time.`,
+    } — and this event’s day-of tools — open the moment your Setnayan booking fee is settled.${due} ${feeEnforcementSentence(
+      { enforced: true },
+    )}`,
     cta: 'Pay the booking fee',
   };
 }

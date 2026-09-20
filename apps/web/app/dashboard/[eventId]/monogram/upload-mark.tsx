@@ -8,7 +8,7 @@ import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveUploadedMarkAction, clearUploadedMarkAction } from './upload-actions';
 import { InkCompare } from './ink-compare';
 import { UploadTips } from './upload-tips';
-import type { MarkInkMode } from '@/lib/monogram-ink';
+import { markInks, type MarkInkMode } from '@/lib/monogram-ink';
 
 /**
  * <UploadMark> — "upload your own mark" on the Monogram Maker (owner
@@ -41,6 +41,8 @@ export function UploadMark({
   notice,
   ownsAnimated,
   paletteInk,
+  savedSvg,
+  savedIsLive,
 }: {
   eventId: string;
   /** An uploaded mark is currently live (events.monogram_uploaded_svg set). */
@@ -54,6 +56,15 @@ export function UploadMark({
    *  have not chosen one — <InkCompare> withholds the comparison rather than
    *  previewing against a colour that is not theirs. */
   paletteInk?: string | null;
+  /** The mark ALREADY saved on this event, gated + ink-resolved by the page.
+   *  Without it this panel showed a couple nothing but a green banner and a
+   *  dropzone: to see their own logo, or how it animates, they had to upload it
+   *  again (owner 2026-09-20: "i do not see the logo. and what it looks like as
+   *  a converted svg to be able to animate"). */
+  savedSvg?: string | null;
+  /** Is that saved mark the one guests see, or has it been switched off in
+   *  favour of the designed one? */
+  savedIsLive?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -108,11 +119,24 @@ export function UploadMark({
         </p>
       ) : null}
 
+      {/* YOUR LOGO, SHOWN. The panel used to prove an upload existed with a
+          sentence and nothing else — no mark, no pieces, no reveal — so the one
+          screen for your uploaded logo was the one screen that never displayed
+          it. Rendered here from the SAVED svg, with the same piece and colour
+          counts a fresh upload reports, and the same player, so "what it looks
+          like as a converted svg to be able to animate" is answerable without
+          uploading the file a second time. */}
+      {hasUpload && savedSvg && !decoded ? (
+        <SavedMark svg={savedSvg} live={savedIsLive !== false} monogramText={monogramText} />
+      ) : null}
+
       {hasUpload ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Your uploaded mark is live — it outranks the studio mark everywhere.
+            {savedIsLive === false
+              ? 'Kept, but not in use — your designed mark is the live one.'
+              : 'Your uploaded mark is live — it outranks the designed mark everywhere.'}
           </p>
           <form action={clearUploadedMarkAction}>
             <input type="hidden" name="event_id" value={eventId} />
@@ -243,6 +267,93 @@ export function UploadMark({
           </form>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * <SavedMark> — the logo you already uploaded, actually on screen: the mark
+ * itself, how many pieces it was deciphered into, how many colours it carries,
+ * and every reveal playing on it.
+ *
+ * This is the same information a FRESH upload shows. It was missing for a saved
+ * one purely because the preview block was gated on `decoded`, which only
+ * exists after picking a file in this session — so the state a couple is in
+ * every time they come back was the state that displayed nothing.
+ */
+function SavedMark({
+  svg,
+  live,
+  monogramText,
+}: {
+  svg: string;
+  live: boolean;
+  monogramText: string;
+}) {
+  const [revealKind, setRevealKind] = useState<StudioAnimKind>('handwriting');
+  const [replay, setReplay] = useState(0);
+
+  // Counted from the SAME svg that renders, so the numbers cannot describe a
+  // different file from the one on screen.
+  const pieces = (svg.match(/<path[\s>]/gi) ?? []).length;
+  const colours = markInks(svg).length;
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">
+          {live ? 'Your logo, in use' : 'Your logo, kept'}
+        </p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
+          {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
+        </p>
+      </header>
+
+      {/* ONE frame, PLAYING — the same shape as the Save-the-Date opening
+          picker (reveal-preview-card.tsx): tiles choose, and a single shared
+          frame plays the choice. It auto-plays rather than waiting for a press,
+          because the whole complaint was "i cannot see the different monogram
+          animation effects" — a still frame answers nothing. Safe to auto-play:
+          StudioRevealPlayer honours prefers-reduced-motion itself and renders
+          the mark static for anyone who asked for less motion (WCAG 2.3.3). */}
+      <div className="mx-auto h-56 max-w-[320px]">
+        <StudioRevealPlayer
+          key={`${revealKind}-${replay}`}
+          svg={svg}
+          monogram={monogramText}
+          anim={{ kind: revealKind, dur: 6, smooth: 0.9, delay: 0.3 }}
+          allowWebgl={false}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">Try each one</span>
+        {REVEALS.map((r) => (
+          <button
+            key={r.kind}
+            type="button"
+            aria-pressed={revealKind === r.kind}
+            onClick={() => {
+              setRevealKind(r.kind);
+              setReplay((n) => n + 1);
+            }}
+            className={`min-h-[44px] rounded-lg border px-3 text-xs font-medium transition-colors ${
+              revealKind === r.kind
+                ? 'border-ink bg-ink text-cream'
+                : 'border-ink/15 bg-white text-ink/70 hover:bg-ink/5'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setReplay((n) => n + 1)}
+          className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-xs font-medium text-ink/70 hover:bg-ink/5"
+        >
+          ↻ Play again
+        </button>
+      </div>
     </section>
   );
 }

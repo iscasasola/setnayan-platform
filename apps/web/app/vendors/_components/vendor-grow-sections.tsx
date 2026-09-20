@@ -12,6 +12,9 @@
  * speaks the "free" thesis, never a number. Server components (no hooks).
  */
 import Link from 'next/link';
+import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /* ── shared primitives ─────────────────────────────────────────────────── */
 
@@ -364,14 +367,34 @@ export function VendorGrowAI() {
 
 /* ── 3 · ONLY PAY WHEN IT WORKS ────────────────────────────────────────── */
 
+/*
+ * 🔴 "0% COMMISSION WHILE WE LAUNCH" WAS FALSE ON 2026-09-20. The owner drove a
+ * real booking as the supplier Saysay and was billed ₱837.50 —
+ * `NEXT_PUBLIC_BOOKING_FEE_ENABLED` is ON in production and
+ * `booking_fee_charges` holds a pending charge. Two public supplier pages were
+ * still promising a launch-period 0%.
+ *
+ * The launch line is now GATED on the same flag that decides whether anybody is
+ * billed, so the promise and the charge can never disagree again. It is one
+ * function call, deliberately: a hand-edited sentence is what went stale.
+ */
 export function VendorGrowFairPay() {
+  const feeLive = isBookingFeeEnabled();
   return (
     <section style={SECTION}>
       <div style={{ maxWidth: '60ch', margin: '0 auto', textAlign: 'center' }}>
         <Eyebrow center>Fair by design</Eyebrow>
         <H2>Never spend a peso that doesn&rsquo;t grow your business.</H2>
         <Lede>
-          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then <b style={{ color: 'var(--m-ink)' }}>5%, then 1% beyond ₱100,000</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
+          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free.{' '}
+          {feeLive ? null : (
+            <>
+              While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>.{' '}
+            </>
+          )}
+          Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
+          {feeLive ? 'after that the booking fee is ' : 'after that, '}
+          <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary()}</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>

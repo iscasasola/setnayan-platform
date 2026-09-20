@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0970c23d8",
+  "generatedFromRef": "9c0bed938",
   "routeCount": 430,
-  "destinations": 919,
+  "destinations": 920,
   "actions": 651,
-  "blocks": 4509,
+  "blocks": 4514,
   "routes": {
     "/": {
       "files": [
@@ -2248,6 +2248,7 @@
         "PageMasthead",
         "PaymentDisputesSection",
         "PolicyEvidence",
+        "ProofImage",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -2411,6 +2412,7 @@
         "Image",
         "Link",
         "PageMasthead",
+        "ProofImage",
         "SubmitButton"
       ]
     },
@@ -2890,6 +2892,7 @@
         "PageMasthead",
         "PaymentsList",
         "PlatformChip",
+        "ProofImage",
         "ReceiptReadCard",
         "RefundForm",
         "Stat",
@@ -7856,6 +7859,7 @@
         "AppointmentsSection",
         "CancelBookingButton",
         "ChangeOrderTrail",
+        "ChosenProofField",
         "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
@@ -7866,7 +7870,6 @@
         "FileUpload",
         "HTMLDivElement",
         "HTMLFormElement",
-        "HTMLInputElement",
         "HandoverInbox",
         "HandoverItem",
         "HostServiceDetails",
@@ -7875,6 +7878,7 @@
         "Link",
         "PaymentAsksCard",
         "PaymentPlanStepper",
+        "ProofImage",
         "QuoteBridge",
         "ReadRefusedNotice",
         "RelationshipTabShell",
@@ -9667,7 +9671,8 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=quote",
+        "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/earnings",
@@ -9959,7 +9964,7 @@
       "destinations": [
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -10062,6 +10067,7 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PipelineStrip",
+        "ProofImage",
         "QuoteTab",
         "RelationshipTabShell",
         "Result",
@@ -10086,7 +10092,7 @@
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10101,7 +10107,7 @@
         "vendor-dashboard/clients/[eventId]/cocktail/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10120,7 +10126,7 @@
         "vendor-dashboard/clients/[eventId]/editorial-media/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10136,7 +10142,7 @@
         "vendor-dashboard/clients/[eventId]/mood-board/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10169,7 +10175,7 @@
         "vendor-dashboard/clients/[eventId]/seat-plan/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]"
+        "/vendor-dashboard/clients/[seg]?tab=details"
       ],
       "actions": [],
       "blocks": [
@@ -10265,7 +10271,7 @@
         "vendor-dashboard/customers/roster-view.ts"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/services"
       ],

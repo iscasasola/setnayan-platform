@@ -9,6 +9,14 @@ import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+// 🔒 EVERY DOOR ONTO A CUSTOMER CARD NAMES ITS SECTION. A bare
+// /vendor-dashboard/clients/<id> is a CHAT landing since #5614, so "open the
+// customer card" and "open the chat" are the same URL unless `?tab=` is there.
+import {
+  customerCardHref,
+  upcomingScheduleDoor,
+  vendorThreadHref,
+} from '@/lib/upcoming-schedule-door';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -163,6 +171,13 @@ export type WhatsNewCard =
       eventName: string;
       label: string | null;
       createdAt: string;
+      /**
+       * The conversation, because the card's own copy tells the supplier to
+       * *"read what they said and answer them in your own words"* — and the
+       * customer card's handover list shows the status chip and no reply box.
+       * Null when there is no thread; the card then names the section instead.
+       */
+      threadHref: string | null;
     }
   /*
     A REPLY OWED IN AN ACCEPTED CONVERSATION — and it is probably the commonest
@@ -254,7 +269,19 @@ export type UpcomingEventRow = {
   place: string | null;
   category: string | null;
   inDays: number;
+  /**
+   * The customer card for this booking (`?tab=details`), or — only when that
+   * card cannot open — a fallback. Built by `lib/upcoming-schedule-door.ts`.
+   */
   href: string;
+  /**
+   * The conversation, kept beside the row so a supplier who wants the chat
+   * still has it in one tap. Null when this booking has no thread; equal to
+   * `href` only in the fallback case, where the row renders no second control.
+   */
+  threadHref: string | null;
+  /** True when `href` is the customer card. False = a fallback was needed. */
+  opensCard: boolean;
 };
 
 export type VendorOverviewData = {
@@ -359,6 +386,25 @@ export async function fetchVendorOverviewData(
   */
   const acceptedThreads = threads.filter(
     (t) => t.inquiry_status === 'accepted' && !t.archived,
+  );
+  /*
+    WHICH EVENTS THE CUSTOMER CARD WILL ACTUALLY OPEN ON, by thread.
+    This is `get_vendor_event_brief`'s own 'inquiry' rung, restated against the
+    threads already in hand: accepted (archived or not), or pending and live. A
+    declined or withdrawn thread is NOT one of them, and sending a supplier to
+    a card that raises `not_booked` bounces them to /vendor-dashboard/clients —
+    a door that looks like it worked and lands somewhere else.
+    ⚠ It is a SUPPLEMENT, never the whole test: a booking admitted by its own
+    `event_vendors` row needs no thread at all (see `upcomingScheduleDoor`).
+  */
+  const briefOpenEventIds = new Set(
+    threads
+      .filter(
+        (t) =>
+          t.inquiry_status === 'accepted' ||
+          (t.inquiry_status === 'pending' && !t.archived),
+      )
+      .map((t) => t.event_id),
   );
   const owedReplies = await fetchOwedThreadReplies(
     supabase,
@@ -687,6 +733,10 @@ export async function fetchVendorOverviewData(
 
   for (const d of disputes) {
     const meta = eventMeta.get(d.eventId);
+    // A flagged handover means this shop is booked, so the accepted thread is
+    // all but certain — but it is READ, never assumed, and the card falls back
+    // to the card's Schedule section (where the handover rows are) without it.
+    const disputeThread = acceptedThreads.find((t) => t.event_id === d.eventId);
     whatsNew.push({
       kind: 'dispute',
       id: `dsp-${d.handoverId}`,
@@ -694,6 +744,7 @@ export async function fetchVendorOverviewData(
       eventName: meta?.displayName ?? 'A booked event',
       label: d.label,
       createdAt: d.deliveredAt,
+      threadHref: disputeThread ? vendorThreadHref(disputeThread.thread_id) : null,
     });
   }
 
@@ -725,7 +776,10 @@ export async function fetchVendorOverviewData(
       id: `ong-lockreq-${ar.eventVendorId}`,
       label: 'Agree to a booking, or turn it down',
       dueChip: awaitingChip(ar.requestedAt),
-      href: '/vendor-dashboard',
+      // 🔴 WAS '/vendor-dashboard' — the page this row is already on, so the
+      // tap was a no-op that reloaded the same screen. The ask IS answered
+      // here, on its own card in the feed; the anchor takes them to it.
+      href: '/vendor-dashboard#whats-new',
     });
   }
 
@@ -737,7 +791,10 @@ export async function fetchVendorOverviewData(
       id: `ong-lock-${lr.eventVendorId}`,
       label: `Confirm the deposit from ${lr.coupleName ?? meta?.displayName ?? 'a couple'}`,
       dueChip: awaitingChip(lr.recordedAt),
-      href: `/vendor-dashboard/clients/${lr.eventId}`,
+      // Money, so 'quote' — the Quote & Payments tab is the ONE money section
+      // both shells render (`?tab=payments` is not in `normalizeTab` and would
+      // silently land on Overview). A bare route would land on the chat.
+      href: customerCardHref(lr.eventId, 'quote'),
     });
   }
 
@@ -757,6 +814,21 @@ export async function fetchVendorOverviewData(
     .map((b) => {
       const meta = eventMeta.get(b.eventId);
       const inDays = daysUntil(b.bookedDate) ?? 0;
+      /*
+        🔴 THE ROW USED TO OPEN THE CHAT (owner, 2026-09-20: "pressing the
+        upcoming schedules doesn't open our customer card"). It read
+        `b.threadId ? messages/<thread> : clients/<event>` — the thread WINS
+        whenever one exists, which on a booked event is always, so the customer
+        card was unreachable from this list. And the `else` arm was a bare
+        client route, which #5614 turned into a chat landing too: BOTH arms
+        opened the conversation. The rule now lives in one pure module.
+      */
+      const door = upcomingScheduleDoor({
+        eventId: b.eventId,
+        eventVendorId: b.eventVendorId,
+        threadId: b.threadId,
+        briefOpensOnThread: briefOpenEventIds.has(b.eventId),
+      });
       return {
         id: upcomingRowId(b),
         eventId: b.eventId,
@@ -765,9 +837,9 @@ export async function fetchVendorOverviewData(
         place: placeLabel(meta?.venue ?? null, meta?.region ?? null),
         category: vendorCategory,
         inDays,
-        href: b.threadId
-          ? `/vendor-dashboard/messages/${b.threadId}`
-          : `/vendor-dashboard/clients/${b.eventId}`,
+        href: door.href,
+        threadHref: door.threadHref,
+        opensCard: door.opensCard,
       };
     });
 

@@ -126,6 +126,25 @@ export type FileUploadProps = {
    */
   variant?: 'square' | 'wide' | 'gallery';
   /**
+   * The picture IS the evidence — show the finished single upload at the size
+   * of the field it replaces, not as a 48px thumbnail in a filename row.
+   *
+   * Owner, live on the vendor payment run, 2026-09-20: *"when i upload a photo,
+   * i cannot see it. it is too small. let's make it easy to see?"* — about a
+   * RECEIPT, on a `wide` field, where the rule below deliberately keeps rows
+   * because *"a filename is what you scan"*. That rule is right for the lane it
+   * was written for (a dispute's four documents, a contract) and wrong for a
+   * payment proof: nobody checks a receipt by its filename, and the reference
+   * number on it is what the other side will refuse the payment over.
+   *
+   * ⚖ AN OPT-IN, NOT A NEW DEFAULT. Twenty-odd `wide` fields in this app are
+   * genuine evidence lists; flipping `wide` wholesale would have re-laid-out
+   * every one of them to answer a complaint about three. Same shape of promise
+   * the owner already has on the Setnayan checkout, which grew its own preview
+   * on 2026-08-21 for the identical reason (app/pay/[reference]).
+   */
+  bigPreview?: boolean;
+  /**
    * Show the finished upload as a CIRCLE (owner 2026-08-10: "Profile Logo must
    * be cropped to a round image").
    *
@@ -332,6 +351,7 @@ export function FileUpload({
   help,
   disabled = false,
   variant = 'square',
+  bigPreview = false,
   roundPreview = false,
   watermark = false,
   compressVideo = false,
@@ -867,6 +887,13 @@ export function FileUpload({
   }
 
   const dropzoneHeight = variant === 'square' ? 'min-h-[160px]' : 'min-h-[120px]';
+  /**
+   * The finished picture's box. A `wide` dropzone is 120px tall — fine as a drop
+   * target, too short to read a GCash reference number off — so a `bigPreview`
+   * field gives the picture 16rem, the same 256px ceiling every OTHER screen
+   * shows this receipt at (`PROOF_IMAGE_CLASS`, app/_components/proof-image).
+   */
+  const previewBoxHeight = bigPreview ? 'min-h-[16rem]' : dropzoneHeight;
   const isGallery = variant === 'gallery';
 
   /**
@@ -905,7 +932,9 @@ export function FileUpload({
   const first = items[0];
   const isSingleImagePreview =
     !multiple &&
-    variant === 'square' &&
+    // `bigPreview` widens exactly this clause and nothing else: a receipt is
+    // one image on a `wide` field, and the picture is the point. See the prop.
+    (variant === 'square' || (bigPreview && variant === 'wide')) &&
     items.length === 1 &&
     !!first &&
     isImage(first.contentType) &&
@@ -1077,7 +1106,7 @@ export function FileUpload({
                 </span>
               ) : (
                 <span
-                  className={`flex ${dropzoneHeight} w-full items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-cream p-2`}
+                  className={`flex ${previewBoxHeight} w-full items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-cream p-2`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

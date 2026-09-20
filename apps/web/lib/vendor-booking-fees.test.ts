@@ -18,7 +18,6 @@ import {
   classifyFeeOrderBucket,
   isFeeOrderPayable,
   selectDueFeeOrders,
-  bookingFeeNotificationCopy,
 } from './vendor-booking-fees';
 import type { OrderStatus } from './orders';
 
@@ -97,12 +96,3 @@ test('vendorBookingFeePayPath — stable vendor-scoped deep link', () => {
   );
 });
 
-test('bookingFeeNotificationCopy — amount + event name, with fallback', () => {
-  const withName = bookingFeeNotificationCopy({ amountPhp: 1250, eventName: 'Ana & Ben' });
-  assert.match(withName.title, /₱1,250/);
-  assert.match(withName.body, /Ana & Ben/);
-  assert.match(withName.body, /24 hours/);
-
-  const noName = bookingFeeNotificationCopy({ amountPhp: 500, eventName: '  ' });
-  assert.match(noName.body, /a booking/);
-});

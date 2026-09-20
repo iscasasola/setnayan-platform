@@ -55,6 +55,18 @@ import {
   shopFindability,
   findabilityNotice,
 } from '@/lib/vendor-shop-findable';
+import {
+  fetchDueFeeBills,
+  forecastsForBookings,
+  FEE_BILLS_UNREADABLE,
+} from '@/lib/booking-fee-disclosure.server';
+import {
+  billsForSurface,
+  feeDueCopy,
+  type DueFeeBill,
+  type FeeDisclosure,
+} from '@/lib/booking-fee-disclosure';
+import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -294,6 +306,37 @@ export default async function VendorOverviewPage({
       }).catch((): PayoutReadiness => 'unreadable')
     : 'unreadable';
 
+  // WHAT THIS SHOP OWES SETNAYAN — on the one screen every supplier opens.
+  //
+  // 🔴 Owner, 2026-09-20, having just been billed ₱837.50 as the supplier
+  // Saysay: "i never saw the payment screen to pay us." The bill existed and
+  // rendered correctly on /vendor-dashboard/booking-fees; the only link to that
+  // page anywhere was one tile on /vendor-dashboard/subscription. This is the
+  // first of the three surfaces in BOOKING_FEE_BILL_SURFACES.
+  //
+  // ⚠ UNREADABLE renders NOTHING rather than "you owe nothing" — an empty list
+  // and a refused read must not look the same on a money surface.
+  const feeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
+    () => FEE_BILLS_UNREADABLE,
+  );
+  const todayFeeBills: DueFeeBill[] =
+    feeBillsRead === FEE_BILLS_UNREADABLE
+      ? []
+      : billsForSurface(feeBillsRead, 'today');
+
+  // WHAT AGREEING WOULD COST — priced per booking ask on the desk, so the
+  // supplier reads the fee BEFORE the Agree button rather than on the bill.
+  // Empty object when no ask is on screen: nothing is read and nothing renders.
+  const feeForecasts: Record<string, FeeDisclosure | null> = await forecastsForBookings(
+    createAdminClient(),
+    {
+      vendorProfileId: profile.vendor_profile_id,
+      eventVendorIds: whatsNew
+        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
+        .map((c) => c.eventVendorId),
+    },
+  ).catch(() => ({}));
+
   // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
   // (its first year) and a yearly anniversary after. Prefers the precise
   // founding date (guarded read, so a not-yet-applied migration degrades to the
@@ -503,6 +546,19 @@ export default async function VendorOverviewPage({
         </div>
       ) : null}
 
+      {/* WHAT YOU OWE SETNAYAN. Above the feed because it is money with a due
+          date on it, and because the supplier's own earnings sit just above.
+          Renders nothing when there is no unpaid fee — the filter decides that,
+          not a second condition here. */}
+      {todayFeeBills.length > 0 ? (
+        <div className="mb-6">
+          <BookingFeeBills
+            bills={todayFeeBills}
+            copyFor={(b) => feeDueCopy(b, manilaToday())}
+          />
+        </div>
+      ) : null}
+
       {/* 1 · What's new — the decision feed (centrepiece) */}
       <WhatsNewFeed
         cards={whatsNew}
@@ -518,6 +574,7 @@ export default async function VendorOverviewPage({
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
         payoutReadiness={payoutReadiness}
+        feeForecasts={feeForecasts}
       />
 
       {/* 2 · Token note — cost follows the customer's event location. A subtle

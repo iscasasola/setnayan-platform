@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Seat Plan · Vendor' };
 
@@ -135,7 +137,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
   });
   // not_booked / category_not_floor / not_published all land here — the
   // Brief page is the right fallback (it shows the publication status).
-  if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
   const plan = data as Plan;
 
   const placed = plan.tables.filter((t) => t.x !== null && t.y !== null);
@@ -157,7 +159,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
-        href={`/vendor-dashboard/clients/${eventId}`}
+        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief

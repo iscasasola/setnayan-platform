@@ -10,6 +10,8 @@ import { displayChallengePrompt } from '@/lib/papic-missions';
 import { ShopCard } from '../../../_components/kit';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Challenge photos · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -32,7 +34,7 @@ export default async function VendorChallengePhotosPage({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  if (!papicGamesEnabled()) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (!papicGamesEnabled()) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 
   const supabase = await createClient();
   const {
@@ -86,7 +88,7 @@ export default async function VendorChallengePhotosPage({
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6">
       <Link
-        href={`/vendor-dashboard/clients/${eventId}`}
+        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />

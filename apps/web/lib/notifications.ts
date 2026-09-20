@@ -389,6 +389,25 @@ export type NotificationType =
     ⛔ The guest is never named — see `supplierTakedownNotice`.
   */
   | 'guest_takedown_honored'
+  /*
+    A booking landed inside the shop's free 5, so Setnayan billed them NOTHING
+    (owner 2026-09-20: *"yes, add the email receipt for waived bookings."*).
+    ⚠ Also an ENUM value in Postgres — 20271235690341. A TS-only member
+    typechecks and then the INSERT is refused in silence.
+
+    → the SUPPLIER, and nobody else. A waived charge mints no `orders` row, so
+      this event had NO notification of any kind: a shop's free bookings were as
+      invisible as the fee they DID owe was before #5737.
+
+    ⛔ IT IS A RECEIPT, NOT A BILL, AND THAT IS WHY IT IS NOT `order_quoted`.
+      That type means "you have an order to pay" and is email-enabled — aiming
+      it at a waived charge would email a supplier a fee they do not owe, which
+      is worse than the silence it replaces.
+    ⚠ On EMAIL_ENABLED_TYPES (a shop that never opens the dashboard is exactly
+      who a free-5 receipt is for), never marketing-gated, never pushed: good
+      news about money nobody is being asked for is not a 2am buzz.
+  */
+  | 'booking_fee_waived'
   /* The shared Papic pot is empty and guests are being refused AT THE
      CELEBRATION. Only the couple can top it up, and before this nothing
      anywhere told them — the guest's own screen was the only place the fact
@@ -493,6 +512,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   samahan_message: 'New in Usapan',
   samahan_join: 'Someone joined your samahan',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
+  // Tray copy for the free-5 receipt. It says WAIVED, not "Free" — a row that
+  // reads only "Free" teaches the shop there is no fee, and booking 6 then
+  // arrives as a surprise charge (owner 2026-09-20, the whole reason the
+  // disclosure lane exists).
+  booking_fee_waived: 'Booking fee waived',
   papic_pool_spent: 'Guests have run out of Papic shots',
 };
 
@@ -677,6 +701,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
     honoured it. A red badge would read as an accusation.
   */
   guest_takedown_honored: 'bg-ink/15 text-ink/70',
+  /*
+    Success, and nothing else would be honest: the shop owed a fee and owes it
+    no longer. Amber would read as "action needed" on a receipt with no action
+    in it, which is the failure this whole lane keeps paying for in reverse.
+  */
+  booking_fee_waived: 'bg-success-100 text-success-900',
   // Warn, not error: nothing is broken — the pot is spent and can be refilled.
   papic_pool_spent: 'bg-warn-100 text-warn-900',
 };

@@ -6,6 +6,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import { ProofImage } from '@/app/_components/proof-image';
 import { disputeEvidencePolicy } from '@/lib/r2-client-ref';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -283,7 +284,11 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             label="Deposit"
             value={
               vendor.deposit_recorded_at ? (
-                <span className="text-ink/75">
+                /* A <div>, not a <span>: the receipt below is a picture in its
+                   own block, and a block inside an inline element is re-parented
+                   by the browser into a hydration mismatch. `<dd>` already
+                   allows flow content, so nothing else changes. */
+                <div className="text-ink/75">
                   {vendor.deposit_acknowledged_at ? (
                     <span className="font-medium text-ink">
                       Acknowledged by vendor ({vendor.deposit_acknowledged_at.slice(0, 10)})
@@ -294,20 +299,19 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                       {vendor.deposit_recorded_at.slice(0, 10)})
                     </span>
                   )}
+                  {/* THE RECEIPT, SHOWN (owner, live, 2026-09-20). An admin
+                      ruling on a force-majeure flag reads the deposit proof to
+                      decide; "View deposit proof" as a link made that a second
+                      tab away. Already a short-lived signed link, scoped to this
+                      event's own deposit folder (resolved above). */}
                   {depositProofUrl ? (
-                    <>
-                      <br />
-                      <a
-                        href={depositProofUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-mulberry hover:underline"
-                      >
-                        View deposit proof
-                      </a>
-                    </>
+                    <ProofImage
+                      url={depositProofUrl}
+                      alt="The deposit proof on file"
+                      className="mt-2"
+                    />
                   ) : null}
-                </span>
+                </div>
               ) : (
                 <span className="text-ink/55">No deposit recorded</span>
               )

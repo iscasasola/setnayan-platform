@@ -134,6 +134,12 @@ test('every surface that reads the receipt shows it only through the scoped read
     'app/admin/force-majeure/[flagId]/page.tsx',
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
     'app/vendor-dashboard/clients/[eventId]/page.tsx',
+    /* ✚ 2026-09-20 · the one money read now signs the receipt itself, so both
+       thread pages (the couple's "Amount to pay" in the chat, the supplier's
+       "Confirm it reached you") get a LINK and never the stored ref. It was
+       added as a reader by a change that first tried to hand the raw ref on —
+       this guard is what refused that, and the pin below keeps it scoped. */
+    'lib/booked-money-step.server.ts',
     'lib/vendor-overview.ts',
   ]);
   // No surface puts the stored value straight into a link.
@@ -149,6 +155,10 @@ test('the scoped reader is scoped by the ROW’s event, on every surface', () =>
     ['app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', /depositProofDisplayUrl\(ev\.deposit_proof_url, ev\.event_id\)/],
     ['app/vendor-dashboard/clients/[eventId]/page.tsx', /depositProofDisplayUrl\(completionRow\.deposit_proof_url, eventId\)/],
     ['lib/vendor-overview.ts', /depositProofDisplayUrl\(r\.deposit_proof_url, r\.event_id\)/],
+    [
+      'lib/booked-money-step.server.ts',
+      /depositProofDisplayUrl\(booking\.deposit_proof_url, args\.eventId\)/,
+    ],
   ];
   for (const [rel, re] of pins) assert.match(src(rel), re, `${rel} no longer scopes the receipt to its own event`);
 });

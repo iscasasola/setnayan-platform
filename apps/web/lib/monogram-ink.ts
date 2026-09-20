@@ -19,12 +19,25 @@
  *     data-ink="file"     → render the file's own colours (the DEFAULT, and
  *                           what an absent attribute means, so every mark
  *                           uploaded before today is byte-identical)
- *     data-ink="palette"  → every fill/stroke becomes `currentColor`, so the
- *                           mark inherits whatever ink the surface around it
- *                           is already themed with. The couple site already
- *                           re-skins its `--color-*` tokens from the mood-board
- *                           palette (lib/site-palette.ts), so "follow our
- *                           colours" needs NO caller to pass a palette down.
+ *     data-ink="palette"  → the surface repaints the mark in the couple's
+ *                           mood-board ink, which it passes in.
+ *
+ * ⛔ THIS USED TO EMIT `currentColor` AND RENDER BLACK. The first version
+ * rewrote every fill to `currentColor` so the mark would inherit whatever ink
+ * the surface was themed with, and no caller would have to know about palettes.
+ * That is true for an INLINE svg and false at the boundary that matters:
+ * `EventMonogram` draws the mark as a data-URI `<img>`, and an `<img>` is an
+ * independent document — it inherits nothing, so `currentColor` fell back to
+ * its initial value and the mark rendered PURE BLACK on the account switcher,
+ * the album shelf, the photos tab and the public /u/ profile. Measured, not
+ * reasoned about: sampling the chip's pixels gave rgb(0,0,0) where the couple's
+ * reception colour was rgb(79,107,74).
+ *
+ * 🔑 So the ink is SUBSTITUTED, never inherited — a concrete hex goes into the
+ * bytes, which works identically inline and inside a data URI. And a caller
+ * that has no palette to give gets THE FILE'S OWN COLOURS BACK, never black:
+ * the failure mode of "I don't know your colour" must be the mark you uploaded,
+ * not a silhouette.
  *
  * The stored bytes keep the ORIGINAL colours either way. Nothing is destroyed
  * by choosing palette, so the toggle is lossless in both directions — which is
@@ -93,22 +106,35 @@ export function markInks(svg: string): string[] {
   return out;
 }
 
+/** A colour we are willing to paint WITH. Anything else is refused rather than
+ *  interpolated into the markup — this value is written into an SVG attribute,
+ *  so it must never be attacker-shaped, and a malformed palette entry must
+ *  degrade to "keep the file's colours", not to a broken attribute. */
+const SAFE_INK = /^#[0-9a-fA-F]{3,8}$/;
+
+export function isSafeInk(v: unknown): v is string {
+  return typeof v === 'string' && SAFE_INK.test(v);
+}
+
 /**
- * Rewrite every paintable fill/stroke to `currentColor`.
+ * Repaint every paintable fill/stroke in a concrete colour.
  *
  * Structural paint keywords are preserved (see COLOR_VALUE): a mark whose
  * counters are cut with `fill="none"` keeps its holes, and a gradient ref keeps
- * its gradient. The returned string is still a valid member of the sanitizer's
- * allowlist — `currentColor` introduces no element, no attribute and no URL.
+ * its gradient. The output stays inside the sanitizer's allowlist — a hex
+ * introduces no element, no attribute and no URL.
+ *
+ * An unsafe or absent ink returns the input UNCHANGED. That is the whole
+ * safety property: never emit a mark whose colour we could not determine.
  */
-export function markToCurrentColor(svg: string): string {
-  if (!svg) return svg;
+export function repaintMark(svg: string, ink: string): string {
+  if (!svg || !isSafeInk(ink)) return svg;
   return svg
     .replace(PAINT_ATTR, (whole, prop: string, value: string) =>
-      normalizeColor(value) ? `${prop}="currentColor"` : whole,
+      normalizeColor(value) ? `${prop}="${ink}"` : whole,
     )
     .replace(PAINT_STYLE, (whole, lead: string, prop: string, value: string) =>
-      normalizeColor(value) ? `${lead}${prop}:currentColor` : whole,
+      normalizeColor(value) ? `${lead}${prop}:${ink}` : whole,
     );
 }
 
@@ -139,13 +165,24 @@ export function writeMarkInkMode(svg: string, mode: MarkInkMode): string {
  * The one call every RENDER path makes: give me this mark as it should be
  * painted right now.
  *
- * `file` returns the stored bytes untouched; `palette` returns the
- * currentColor form. The caller supplies the ink simply by being a themed
- * container — no palette is threaded through, which is what keeps this from
- * needing a change at twelve read sites.
+ * `file`                     → the stored bytes, untouched.
+ * `palette` + a usable ink   → the same mark repainted in that ink.
+ * `palette` + NO usable ink  → the stored bytes, untouched.
+ *
+ * That last line is the important one. A surface that cannot supply the
+ * couple's colour shows the mark they uploaded — which is always a defensible
+ * thing to show — instead of a black silhouette produced by a colour nobody
+ * chose. Degrading to the input is invisible in the good case and harmless in
+ * the bad one; degrading to `currentColor` was invisible in the good case and
+ * WRONG in the bad one, which is why it shipped.
  */
-export function applyMarkInk(svg: string | null | undefined, mode?: MarkInkMode): string | null {
+export function applyMarkInk(
+  svg: string | null | undefined,
+  mode?: MarkInkMode,
+  ink?: string | null,
+): string | null {
   if (!svg) return null;
   const m = mode ?? readMarkInkMode(svg);
-  return m === 'palette' ? markToCurrentColor(svg) : svg;
+  if (m !== 'palette') return svg;
+  return isSafeInk(ink) ? repaintMark(svg, ink) : svg;
 }

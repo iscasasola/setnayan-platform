@@ -445,7 +445,13 @@ async function UnownedView({
               displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
-              triggerLabel={`Animate & apply · ${formatPhp(pricePhp)}`}
+              /* NO price here: InlineCheckoutDrawer appends the formatted price
+               * to whatever label it is given, so passing one produced
+               * "Animate & apply · ₱500 · ₱500.00" on a MONEY button — seen in
+               * production, invisible to tsc, lint and every test, because the
+               * appending happens inside the drawer. */
+              triggerLabel="Animate & apply"
+
               triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
             />
           </div>

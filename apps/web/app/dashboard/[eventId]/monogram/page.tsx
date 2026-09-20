@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Lock } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { registerGatesEnabled } from '@/lib/register-gates';
@@ -10,12 +10,12 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
+import { MarkDoors } from './mark-doors';
+import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
 import { MarkEverywhere } from './mark-everywhere';
-import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
+import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
@@ -44,6 +44,10 @@ export const maxDuration = 60;
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
+    /** Which door is open: 'design' (Vector Studio) · 'upload' (their own
+     *  file) · absent (the chooser). In the URL so Back and a refresh both
+     *  work, and so a link can drop a couple straight into one door. */
+    mode?: string;
     studio?: string;
     studio_error?: string;
     upload_error?: string;
@@ -59,6 +63,7 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
   'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
+  'ink-saved': { tone: 'ok', text: 'Saved — your mark now wears those colours everywhere.' },
   'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
@@ -79,7 +84,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -119,96 +124,102 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     null;
 
   // Free/paid honesty line (council verdict 2026-07-17 §5.3): the studio's
-  // "Animate the reveal" panel previews all five kinds free, but the LIVE site
-  // plays the pick only with the paid Animated Monogram — say so where the
-  // choice is made. Price from the admin catalog only (owner rule 2026-06-14).
+  /* The reveal previews free; it plays for guests only with the paid Animated
+   * Monogram. `ownsAnimated` drives the one owned-state confirmation left on
+   * this page — the PRICE is no longer fetched here, because the single place
+   * a price is now said is the unlock row inside <AnimatedMonogramUpgrade>,
+   * which reads the admin catalog itself. Two components fetching one price is
+   * two chances to disagree about what a customer is charged. */
   const storeShell = await isStoreShellRequest();
   const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
-  const animatedPricePhp = ownsAnimated
-    ? null
-    : ((await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null);
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
   const effectiveSvg = safeMonogramSvg(event.monogram_uploaded_svg) ?? customSvg;
   const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
 
+  /* ── ONE DOOR AT A TIME (owner 2026-09-20) ────────────────────────────────
+   * This page used to stack BOTH ways of getting a mark down one column: the
+   * whole Vector Studio, then a free/paid line, then "upload your own" (with a
+   * SECOND, differently-worded free/paid line inside it), then the paid pitch.
+   * A couple who already had a logo scrolled past an entire editor to reach the
+   * thing they came for.
+   *
+   * Now: a chooser, then ONE door, `?mode=` holding which. In the URL so Back
+   * and refresh both work and the App-Store "Get" CTA can still deep-link.
+   * Researched against how Canva, Wix, Adobe Express and Looka actually split
+   * "design it" from "upload yours" — none of them stack the two.
+   *
+   * The chooser is the default even when a mark exists, because the two doors
+   * write DIFFERENT columns: landing in the wrong one silently edits the mark
+   * the couple is not using. The chooser is also where they see which mark is
+   * live right now — a question this page never answered before. */
+  const hasUpload = typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg);
+  /* The couple's REAL reception colour drives the "follow our mood board" side
+   * of the compare. Undefined when they have not chosen a palette yet, and the
+   * compare then withholds that side rather than previewing against a colour
+   * that is not theirs. */
+  const paletteInk = getPrimaryColor(sanitizeRolePalette(event.role_palette), 'reception') ?? null;
+  const askedMode = sp.mode === 'design' || sp.mode === 'upload' ? sp.mode : null;
+  /* Both actions redirect back here with a notice and the #upload-mark anchor.
+   * Open the matching door, or a couple reads "Saved!" on a chooser showing
+   * none of what they just changed. */
+  const mode = askedMode ?? (uploadNotice ? 'upload' : studioNotice ? 'design' : null);
+
   return (
     <section className="space-y-6">
       {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
       <Link
-        href={`/dashboard/${eventId}/studio`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        href={mode ? `/dashboard/${eventId}/monogram` : `/dashboard/${eventId}/studio`}
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
+        {mode ? 'Both ways to make it' : 'Back to add-ons'}
       </Link>
 
-      <PageMasthead
-        title="Your wedding monogram"
-      />
+      <PageMasthead title="Your wedding monogram" />
 
       {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
 
-      {/* ── Vector studio — the ONE way to set the wedding mark (real outlines · booleans · pen · symbols).
-          The Monogram maker page is now studio-only (owner 2026-06-21 "make the vector monogram the only
-          screen for the monogram"); the Feature-Us opt-in + the paid Animated-Monogram upsell that used to
-          sit below it were removed. The Animated Monogram stays discoverable from the Studio add-ons hub. ── */}
+      {mode === null ? (
+        <MarkDoors eventId={eventId} effectiveSvg={effectiveSvg} hasStudio={hasStudio} hasUpload={hasUpload} />
+      ) : null}
+
       {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
           #animbox) — owner 2026-06-23 "improve THIS animate the reveal … not a
-          separate feature". The standalone MonogramAnimatePicker was retired; the
-          studio panel is the single home for choosing the reveal. */}
-      <VectorStudio
-        eventId={eventId}
-        initialConfig={studioConfig}
-        initialNames={monogram.text}
-        hasStudio={hasStudio}
-        notice={studioNotice}
-      />
+          separate feature". */}
+      {mode === 'design' ? (
+        <VectorStudio
+          eventId={eventId}
+          initialConfig={studioConfig}
+          initialNames={monogram.text}
+          hasStudio={hasStudio}
+          notice={studioNotice}
+        />
+      ) : null}
 
-      {/* ── The free/paid line, said where the choice is made (§5.3): a React
-          sibling below the studio card — React never reaches into the inert
-          editor subtree. Owned → confirmation; unowned → the honest gate +
-          catalog price, anchored to the buy section below. ── */}
-      {ownsAnimated ? (
-        <p className="inline-flex items-center gap-2 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
-          <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          The reveal you pick in the studio plays live on your Event Hub.
-        </p>
-      ) : (
-        <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/70">
-          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          <span>
-            Previewing reveals in the studio is always free — guests see your pick live with{' '}
-            <a href="#animated-monogram" className="font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-700">
-              Animated Monogram{animatedPricePhp != null ? ` · ${formatPhp(animatedPricePhp)}` : ''}
-            </a>
-            .
-          </span>
-        </p>
-      )}
+      {/* ── Upload your own mark (owner 2026-07-17). Writes the long-dormant
+          monogram_uploaded_svg, which outranks every other mark. ── */}
+      {mode === 'upload' ? (
+        <UploadMark
+          eventId={eventId}
+          hasUpload={hasUpload}
+          monogramText={monogram.text}
+          notice={uploadNotice}
+          ownsAnimated={ownsAnimated}
+          paletteInk={paletteInk}
+        />
+      ) : null}
 
-      {/* ── Upload your own mark (owner 2026-07-17 — overrides the benchmark
-          council's §9 upload deferral). Writes the long-dormant
-          monogram_uploaded_svg, which outranks every other mark on the hero. ── */}
-      <UploadMark
-        eventId={eventId}
-        hasUpload={typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg)}
-        monogramText={monogram.text}
-        notice={uploadNotice}
-        ownsAnimated={ownsAnimated}
-        animatedPricePhp={animatedPricePhp}
-      />
+      {/* ── The reveal's ₱ unlock — ONE row, under whichever door is open, never
+          on the chooser (there is no reveal picked yet there). This replaces the
+          two separate free/paid paragraphs the page used to carry.
 
-      {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
-          Owned → live confirmation + preview; unowned → before/after + buy. ──
-
-          🔒 Withheld in the store shell (App Review 3.1.1). The monogram maker
-          ABOVE is free and stays whole — this is the paid upgrade block, which
-          carries the live catalogue price on a route the /studio gate never
-          covered. See lib/store-shell.ts. */}
-      {!storeShell && <AnimatedMonogramUpgrade eventId={eventId} />}
+          🔒 Withheld in the store shell (App Review 3.1.1). The maker above is
+          free and stays whole — this is the paid block, which carries the live
+          catalogue price on a route the /studio gate never covered. ── */}
+      {!storeShell && mode !== null && <AnimatedMonogramUpgrade eventId={eventId} />}
     </section>
   );
 }

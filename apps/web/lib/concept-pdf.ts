@@ -41,6 +41,13 @@ export type ConceptPdfEvent = {
   monogram_font_key?: string | null;
   monogram_frame_key?: string | null;
   monogram_custom_svg?: string | null;
+  /* ⚠ NEITHER SVG COLUMN IS DRAWN BY THIS RENDERER — the cover badge composes
+   * ASCII initials (see monoText below), so both fields are carried, not used.
+   * `monogram_uploaded_svg` is here so the shape matches what the route now
+   * selects and so a future badge that DOES draw the mark resolves the pair
+   * rather than reaching for the studio one alone. Do not read this as proof
+   * the PDF honours an uploaded logo: it does not, because it draws no SVG. */
+  monogram_uploaded_svg?: string | null;
 };
 
 export type ConceptPdfInput = {

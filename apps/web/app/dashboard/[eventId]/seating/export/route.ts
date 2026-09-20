@@ -37,7 +37,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();

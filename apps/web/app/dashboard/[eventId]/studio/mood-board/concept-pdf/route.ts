@@ -36,7 +36,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, role_palette, reception_design, moodboard_theme_name, moodboard_theme_description',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, moodboard_theme_name, moodboard_theme_description',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -171,6 +171,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       monogram_font_key: event.monogram_font_key,
       monogram_frame_key: event.monogram_frame_key,
       monogram_custom_svg: event.monogram_custom_svg,
+      monogram_uploaded_svg: event.monogram_uploaded_svg,
     },
     design,
     palette: swatches,

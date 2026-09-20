@@ -33,3 +33,29 @@ added, per the guard's own instruction).
 SPEC IMPACT: None — every one of these was already retired or superseded in the corpus
 (token economy retirement, 2026-06-17 verification-bonus removal; `release_lead_token_hold` was
 infrastructure for that same retired token economy).
+
+## 2026-09-20 · fix(ci): the both-ends baseline is edited by hand here, never regenerated
+
+CI failed in `test:db:ci` (which then failed the blocking-guards step), and the failing test was
+`ugat-both-ends.db.test.ts`. Not the drop — the **baseline file**. An earlier repair pass had
+regenerated `ugat-both-ends.baseline.txt` wholesale with `UPDATE_BOTH_ENDS_BASELINE=1`, which
+rewrote it from 132 rows down to 62. The test's own anti-truncation floor —
+`assert.ok(baseline.size > 100, 'baseline holds only N lines — was it truncated?')` — then fired.
+
+🔑 **A wholesale regeneration of this file cannot pass its own guard today.** The honest current
+orphan set is **44** rows (11 rpc · 16 table · 3 notice · 3 component · 11 silent-drop, measured
+here), because ~82 of the inherited 132 were genuinely paid down by the retirement and
+"reads-honest" PRs that have since merged — and a paid-down entry only *prints a note*, so nobody
+was ever forced to delete it. Any honest regeneration therefore lands under the floor of 100 and
+reads as a truncation. **Edit this baseline by hand, one line per orphan you actually retired.**
+Deleting the other 82 stale rows is a separate job (it would drop the file to 44 and needs the
+floor re-thought), deliberately not done in a migration PR.
+
+This PR now removes exactly its own six rows from the supplier tier (and updates that tier's
+header count 10 → 4); the file holds 126 rows and the full db suite is 2,939/2,939 green.
+The regenerated baselines (`port-control-baseline.json`, `exposure-surface.baseline.txt`,
+`admin-jobs.generated.ts`) were taken from `main` and regenerated; the FK behaviour map did not
+move. The one merge conflict was `port-control-baseline.json` — resolved by taking main's copy and
+re-running `pnpm --filter @setnayan/web port:baseline`.
+
+SPEC IMPACT: None.

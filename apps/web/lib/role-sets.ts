@@ -258,12 +258,18 @@ export const MUSLIM_ROLE_SET: RoleSet = {
 
 export const GENERIC_ROLE_SET: RoleSet = {
   key: 'generic',
-  offeredRoles: ['guest', 'host', 'vip', 'family', 'helper'],
-  // Self-claim excludes 'host' (the organizer), mirroring how wedding excludes
-  // the couple from self-claim.
+  // 'celebrant' leads the picker because it leads the list (owner 2026-09-20).
+  offeredRoles: ['celebrant', 'guest', 'host', 'vip', 'family', 'helper'],
+  // Self-claim excludes 'host' (the organizer) and now 'celebrant' too,
+  // mirroring how wedding excludes the couple from self-claim: a guest
+  // arriving through a share link must not be able to declare themselves the
+  // person the celebration is for.
   selfClaimableRoles: ['guest', 'family', 'vip', 'helper'],
-  singletonRoles: [], // generic roles are all multi-instance
-  tier1Roles: new Set<string>(['host', 'vip']),
+  // Still empty, deliberately: a celebrant is NOT one-per-event. Owner
+  // 2026-08-27 — "single, couple, or multiple people" — twins share a
+  // birthday and a golden anniversary honours two.
+  singletonRoles: [],
+  tier1Roles: new Set<string>(['celebrant', 'host', 'vip']),
   tier2Roles: new Set<string>(), // generic has no "entourage" ring
   tier3Roles: new Set<string>(['family']),
   tierLabels: {

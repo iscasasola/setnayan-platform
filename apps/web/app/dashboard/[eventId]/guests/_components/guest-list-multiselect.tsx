@@ -49,6 +49,7 @@ import {
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
+  SIDE_ORDER,
   TEAM_SIDE_CHIP,
   TEAM_SIDE_LABELS,
   type GuestGroupTeamSide,
@@ -70,6 +71,8 @@ import {
 import {
   importanceGroupOf,
   ROLE_GROUP_LABELS,
+  isHonoreeRole,
+  roleGroupOf,
   type RoleGroup,
 } from '@/lib/role-groups';
 
@@ -96,8 +99,19 @@ export {
   bulkRoleSectionsFor,
   type RoleSection,
 } from '@/lib/bulk-role-vocabulary';
+import {
+  buildRosterSections,
+  groupingKeyOf,
+  type ArrangeCtx,
+  type ArrangeKey,
+} from '@/lib/roster-arrangement';
+import { ArrangeSheet, ArrangeTh } from './arrange-controls';
 
 type SectionGroup = RoleGroup | 'guest';
+
+// ⚖ Owner 2026-09-20 — the column header is the arrangement control. See
+// lib/roster-arrangement.ts for the two-questions split and the URL contract.
+
 
 const SECTION_CONFIG: {
   group: SectionGroup;
@@ -124,99 +138,35 @@ type GuestSection = {
   label: string | null;
   mobileCols: string;
   guests: GuestRow[];
+  count: number;
+  /** The honoree's section. Never collapsible: "always first" would otherwise
+   *  last exactly until somebody folded it. */
+  pinned?: boolean;
 };
 
-// How the list breaks into sections (redesign Phase 1 — driven by the sort
-// control): 'importance' = role-tier sections (default); 'side' = group by
-// which side of the couple; 'group' = group by custom group (couple pinned
-// first); 'flat' = one uniform section (name/rsvp/newest sorts).
-type GroupMode = 'importance' | 'side' | 'group' | 'flat';
+/**
+ * The order role sections appear in — the roster's curated hierarchy.
+ *
+ * 🔑 EXPORTED because the page needs the identical order to SORT by role when
+ * Role is one of the ordering ticks. Two copies would let the headings and the
+ * rows under them disagree about where Principal Sponsors goes.
+ */
+export const ROLE_SECTION_ORDER: readonly string[] = SECTION_CONFIG.map((c) => c.label);
 
-// groupKey (group mode only): guest_id → its first custom group {key,label},
-// precomputed by the caller from groupMemberships + groups.
-function buildSections(
-  guests: GuestRow[],
-  mode: GroupMode,
-  groupKey?: Map<string, { key: string; label: string }>,
-): GuestSection[] {
-  if (mode === 'flat' || (mode === 'group' && !groupKey)) {
-    // Flat sort (name / rsvp / newest) → one group, no tier headers.
-    return [{ key: 'all', label: null, mobileCols: 'grid-cols-2', guests }];
-  }
-  if (mode === 'side') {
-    // Group by side. `guests` is already side-sorted with Bride #1 · Groom #2
-    // pinned (page sortCompare), so bride/groom stay first within their side
-    // section — the couple-pin holds. Bride's side renders first.
-    const order: GuestSide[] = ['bride', 'groom', 'both'];
-    return order
-      .map((side) => ({
-        key: `side-${side}`,
-        label: SIDE_LABELS[side],
-        mobileCols: 'grid-cols-2',
-        guests: guests.filter((g) => g.side === side),
-      }))
-      .filter((s) => s.guests.length > 0);
-  }
-  if (mode === 'group') {
-    // Group by custom group. Bride & Groom are pulled into a pinned leading
-    // section (preserves the couple-pin); everyone else buckets by their first
-    // custom group (alphabetical); the ungrouped trail at the end.
-    const couple: GuestRow[] = [];
-    const byKey = new Map<string, { label: string; guests: GuestRow[] }>();
-    const ungrouped: GuestRow[] = [];
-    for (const g of guests) {
-      if (importanceGroupOf([g.role, ...(g.extra_roles ?? [])]) === 'couple') {
-        couple.push(g);
-        continue;
-      }
-      const gk = groupKey!.get(g.guest_id);
-      if (!gk) {
-        ungrouped.push(g);
-        continue;
-      }
-      const bucket = byKey.get(gk.key);
-      if (bucket) bucket.guests.push(g);
-      else byKey.set(gk.key, { label: gk.label, guests: [g] });
-    }
-    const out: GuestSection[] = [];
-    if (couple.length)
-      out.push({
-        key: 'couple',
-        label: ROLE_GROUP_LABELS.couple,
-        mobileCols: 'grid-cols-2',
-        guests: couple,
-      });
-    for (const [key, v] of [...byKey.entries()].sort((a, b) =>
-      a[1].label.localeCompare(b[1].label),
-    )) {
-      out.push({ key: `grp-${key}`, label: v.label, mobileCols: 'grid-cols-2', guests: v.guests });
-    }
-    if (ungrouped.length)
-      out.push({
-        key: 'grp-none',
-        label: 'No group yet',
-        mobileCols: 'grid-cols-2',
-        guests: ungrouped,
-      });
-    return out;
-  }
-  // importance — role-tier sections. `guests` is already importance-sorted, so
-  // bucketing preserves order within each tier. A guest buckets under their
-  // MOST important role (primary/extra).
-  const byGroup = new Map<SectionGroup, GuestRow[]>();
-  for (const g of guests) {
-    const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
-    const key: SectionGroup = grp === 'other_roles' ? 'guest' : grp;
-    const bucket = byGroup.get(key);
-    if (bucket) bucket.push(g);
-    else byGroup.set(key, [g]);
-  }
-  return SECTION_CONFIG.map((cfg) => ({
-    key: cfg.group,
-    label: cfg.label,
-    mobileCols: cfg.mobileCols,
-    guests: byGroup.get(cfg.group) ?? [],
-  })).filter((s) => s.guests.length > 0);
+const SIDE_SECTION_ORDER: readonly string[] = SIDE_ORDER.map((s) => SIDE_LABELS[s]);
+
+const RSVP_SECTION_ORDER: readonly string[] = [
+  RSVP_LABELS.attending,
+  RSVP_LABELS.pending,
+  RSVP_LABELS.maybe,
+  RSVP_LABELS.declined,
+];
+
+function knownBucketOrder(key: ArrangeKey): readonly string[] {
+  if (key === 'role') return ROLE_SECTION_ORDER;
+  if (key === 'side') return SIDE_SECTION_ORDER;
+  if (key === 'rsvp') return RSVP_SECTION_ORDER;
+  return [];
 }
 
 // Subtle tier label above each section (Bride & Groom / Wedding Party / …).
@@ -227,11 +177,14 @@ function TierHeader({
   count,
   collapsed,
   onToggle,
+  pinned = false,
 }: {
   label: string;
   count: number;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** The honoree. Shown, never folded — see the section build. */
+  pinned?: boolean;
 }) {
   const labelEls = (
     <>
@@ -239,10 +192,17 @@ function TierHeader({
         {label}
       </h3>
       <span className="text-[11px] text-ink/35">{count}</span>
+      {pinned ? (
+        <span className="text-[10px] lowercase tracking-normal text-ink/30">
+          always first
+        </span>
+      ) : null}
     </>
   );
-  if (!onToggle) {
-    return <div className="mb-2 flex items-baseline gap-2">{labelEls}</div>;
+  if (!onToggle || pinned) {
+    return (
+      <div className="mb-2 flex items-baseline gap-2">{labelEls}</div>
+    );
   }
   return (
     <button
@@ -639,7 +599,10 @@ type Props = {
   // Which sectioning the list uses (redesign Phase 1) — derived from the sort
   // control: 'importance' = role-tier sections (default), 'side' = group by the
   // couple's side, 'flat' = one uniform grid (name / rsvp / newest sorts).
-  groupMode: GroupMode;
+  /** Ordered grouping keys from `?by=` (empty = one list, no headings). */
+  grouping: readonly ArrangeKey[];
+  /** The live `?sort=`, so a header can show which column is ordering. */
+  sort: string;
   // Iteration 0053 P4 Unit 5: the event's role-set key, driving the bulk-assign
   // picker sections. Optional (defaults to wedding → byte-identical).
   roleSetKey?: string | null;
@@ -664,7 +627,8 @@ export function GuestListMultiselect({
   seatByGuest,
   photoDisplayUrls,
   accountFaceByGuest,
-  groupMode,
+  grouping,
+  sort,
   roleSetKey,
   recentlyDeleted,
   recentlyApplied,
@@ -796,23 +760,103 @@ export function GuestListMultiselect({
   // (importance · default), by-side, or one flat grid. Built from the already-
   // sorted `guests`, so order within a section holds + the couple-pin survives.
   const sections = useMemo(() => {
-    let groupKey: Map<string, { key: string; label: string }> | undefined;
-    if (groupMode === 'group') {
-      // Each guest's first custom group (alphabetical) → section key + label.
-      groupKey = new Map();
-      for (const g of rosterGuests) {
-        let best: { key: string; label: string } | null = null;
-        for (const id of groupMemberships[g.guest_id] ?? []) {
-          const grp = groupsById[id];
-          if (!grp) continue;
-          if (!best || grp.label.localeCompare(best.label) < 0)
-            best = { key: id, label: grp.label };
-        }
-        if (best) groupKey.set(g.guest_id, best);
+    const groupKey = groupingKeyOf(grouping);
+    // No grouping is a real answer: one list, no headings. The honoree still
+    // leads it, because the PIN lives in the sort (page.tsx sortCompare), not
+    // in the sectioning — which is the whole reason it survives every sort.
+    if (groupKey === null)
+      return [
+        {
+          key: 'all',
+          label: null,
+          mobileCols: 'grid-cols-2',
+          count: rosterGuests.length,
+          guests: rosterGuests,
+        } satisfies GuestSection,
+      ];
+
+    // Each guest's first custom group (alphabetical) → the label to bucket by.
+    const groupLabelById = new Map<string, string>();
+    for (const g of rosterGuests) {
+      let best: string | null = null;
+      for (const id of groupMemberships[g.guest_id] ?? []) {
+        const grp = groupsById[id];
+        if (!grp) continue;
+        if (!best || grp.label.localeCompare(best) < 0) best = grp.label;
       }
+      if (best) groupLabelById.set(g.guest_id, best);
     }
-    return buildSections(rosterGuests, groupMode, groupKey);
-  }, [rosterGuests, groupMode, groupMemberships, groupsById]);
+
+    const ctx: ArrangeCtx<GuestRow> = {
+      lastName: (g) => g.last_name,
+      sideLabel: (g) => SIDE_LABELS[g.side],
+      roleGroupLabel: (g) => {
+        const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
+        return grp === 'guest' || grp === 'other_roles'
+          ? 'Guests'
+          : ROLE_GROUP_LABELS[grp];
+      },
+      groupLabel: (g) => groupLabelById.get(g.guest_id) ?? null,
+      rsvpLabel: (g) => RSVP_LABELS[g.rsvp_status],
+      seatLabel: (g) => {
+        const seat = seatByGuest[g.guest_id];
+        if (seat?.placed) return `Table ${seat.placed}`;
+        if (seat?.suggested) return `Suggested ${seat.suggested}`;
+        return null;
+      },
+      // Ordering by seat needs the TIER, not the label — see the ctx docblock.
+      seatRank: (g) => {
+        const seat = seatByGuest[g.guest_id];
+        if (seat?.placed) return [0, seat.placed];
+        if (seat?.suggested) return [1, seat.suggested];
+        return [2, ''];
+      },
+    };
+
+    // ⛔ THE HONOREE IS PULLED OUT BEFORE ANY BUCKETING. Left in, they would
+    // scatter — the celebrant under "No group yet", the bride under her own
+    // side — and "the first one will always be the celebrant" would hold only
+    // until somebody ticked a box. With the default grouping (`role`) this is
+    // byte-identical to what shipped: their role section was already first.
+    const honorees: GuestRow[] = [];
+    const rest: GuestRow[] = [];
+    for (const g of rosterGuests) (isHonoreeRole(g.role) ? honorees : rest).push(g);
+
+    const out: GuestSection[] = [];
+    if (honorees.length) {
+      const grp = roleGroupOf(honorees[0]!.role);
+      out.push({
+        key: 'honoree',
+        label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],
+        mobileCols: 'grid-cols-2',
+        count: honorees.length,
+        guests: honorees,
+        pinned: true,
+      });
+    }
+    // ⚖ ONLY THE FIRST TICKED COLUMN MAKES HEADINGS (owner 2026-09-20). The
+    // rest only ORDER, and that ordering is already applied — the page sorted
+    // `rosterGuests` by them before this component saw a row, so bucketing
+    // preserves it. Doing it here as well would be a second sort that could
+    // disagree with the first.
+    for (const sec of buildRosterSections(rest, groupKey, ctx, knownBucketOrder)) {
+      out.push({
+        key: sec.key,
+        label: sec.label,
+        mobileCols: 'grid-cols-2',
+        count: sec.count,
+        guests: collapsed.has(sec.key) ? [] : sec.guests,
+      });
+    }
+    return out;
+  }, [
+    rosterGuests,
+    grouping,
+    groupMemberships,
+    groupsById,
+    seatByGuest,
+    collapsed,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -924,12 +968,14 @@ export function GuestListMultiselect({
                   name into an unchanged column would have shown LESS of it than
                   before. Trimmed to 46% total; the chips in those columns are
                   short and fixed-width, so they lose nothing. */}
-              <th className="px-3 py-2.5 font-medium">Name</th>
-              <th className="w-[6%] px-3 py-2.5 font-medium">Side</th>
-              <th className="w-[12%] px-3 py-2.5 font-medium">Role</th>
-              <th className="w-[9%] px-3 py-2.5 font-medium">Groups</th>
-              <th className="w-[7%] px-3 py-2.5 font-medium">RSVP</th>
-              <th className="w-[7%] px-3 py-2.5 font-medium">Seat</th>
+              {/* ⚖ Owner 2026-09-20 — the header IS the arrangement control:
+                  the word sorts, the box beside it groups. Widths unchanged. */}
+              <ArrangeTh column="name" grouping={grouping} sort={sort} className="px-3 py-2.5 font-medium" />
+              <ArrangeTh column="side" grouping={grouping} sort={sort} className="w-[6%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="role" grouping={grouping} sort={sort} className="w-[12%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="group" grouping={grouping} sort={sort} className="w-[9%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="rsvp" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
+              <ArrangeTh column="seat" grouping={grouping} sort={sort} className="w-[7%] px-3 py-2.5 font-medium" />
               <th className="w-[5%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
@@ -942,12 +988,20 @@ export function GuestListMultiselect({
                       colSpan={8}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
-                      <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
+                      <TierHeader
+                        label={sec.label}
+                        count={sec.count}
+                        pinned={sec.pinned}
+                        collapsed={collapsed.has(sec.key)}
+                        onToggle={() => toggleSection(sec.key)}
+                      />
                     </td>
                   </tr>
                 ) : null}
-                {(!sec.label || !collapsed.has(sec.key)) &&
-                  sec.guests.map((guest) =>
+                {/* No collapse test here — the section build already emptied a
+                    shut section, so the rule lives in ONE place for both
+                    surfaces (this table and the mobile grid below). */}
+                {sec.guests.map((guest) =>
                     selfJoinSet.has(guest.guest_id) ? (
                       <SelfJoinDesktopRow
                         key={guest.guest_id}
@@ -990,12 +1044,21 @@ export function GuestListMultiselect({
           2026-06-03 directive. See the table's note above for why this is not
           `sm:hidden` any more. */}
       <div className="space-y-5 lg:hidden">
+        {/* The phone has no header row to hold six boxes, so the same choices
+            live behind one icon (owner 2026-09-20). */}
+        <ArrangeSheet grouping={grouping} sort={sort} />
         {sections.map((sec) => (
           <section key={sec.key}>
             {sec.label ? (
-              <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
+              <TierHeader
+                        label={sec.label}
+                        count={sec.count}
+                        pinned={sec.pinned}
+                        collapsed={collapsed.has(sec.key)}
+                        onToggle={() => toggleSection(sec.key)}
+                      />
             ) : null}
-            {!sec.label || !collapsed.has(sec.key) ? (
+            {sec.guests.length > 0 ? (
               mobileDensity === 'list' ? (
                 <ul className="flex list-none flex-col gap-2">
                   {sec.guests.map((guest) =>
@@ -1467,6 +1530,34 @@ function BulkApplyForm({
               {SIDE_LABELS[side]}
             </option>
           ))}
+        </select>
+        <ChevronDown
+          aria-hidden
+          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+          strokeWidth={1.75}
+        />
+      </div>
+
+      {/* ⚖ Part of the host — owner 2026-09-20: *"on guestlist. we can also
+          assign if they will be part of the host."* Rides the SAME Apply as
+          role/side/group, because one Apply button is the decision (owner
+          2026-05-23 PM), and writes the `host` hat into `extra_roles` rather
+          than a column — see lib/host-hat.ts for why.
+          ⛔ It does not pin anybody to the top of the list; the CELEBRANT does
+          that, and at most celebrations they are different people. */}
+      <label className="sr-only" htmlFor="bulk-host">
+        Mark selected guests as part of the host
+      </label>
+      <div className="relative">
+        <select
+          id="bulk-host"
+          name="host"
+          defaultValue=""
+          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+        >
+          <option value="">Hosting…</option>
+          <option value="yes">Part of the host</option>
+          <option value="no">Not part of the host</option>
         </select>
         <ChevronDown
           aria-hidden

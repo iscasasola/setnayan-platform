@@ -41,9 +41,11 @@
  *     the email subject, because `lib/notification-emit.ts` composes the
  *     subject FROM the title — asserted as a chain, so breaking either half
  *     goes red.
- *  4. THE EMIT SITES ARE COUNTED. Six `relatedUrl:` sites exist in
+ *  4. THE EMIT SITES ARE COUNTED. Six notice sites exist in
  *     `app/admin/payments/actions.ts` and every one is the single adapter;
  *     a seventh added later cannot hand-roll a URL without failing here.
+ *  6. EVERY DESTINATION IS A ROUTE THAT EXISTS — see the last test for why
+ *     this file now has to say so itself.
  *  5. ONE RULE, TWO SURFACES — the notice link and the `/pay` back control
  *     render the SAME `orderLane`. A second lane rule is what let the page get
  *     fixed while the notification stayed wrong.
@@ -55,7 +57,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -360,8 +362,17 @@ test('every order read that feeds a notice carries the columns the lane needs', 
   assert.equal(sites.length, 6, `expected 6 adapter calls, saw ${sites.length}`);
 
   for (const site of sites) {
-    const [, rowName, , recipientArg] = site;
+    // ⚠ `string | undefined`, not `string`. Destructuring a RegExp match under
+    // `noUncheckedIndexedAccess` widens every group, and CI's typecheck is where
+    // that surfaced — so the groups are read and CHECKED, never asserted away
+    // with a `!` that would hide a regex that stopped capturing.
+    const rowName = site[1];
+    const recipientArg = site[3];
     const at = site.index!;
+    assert.ok(
+      rowName && recipientArg,
+      `the emit-site pattern stopped capturing its arguments: ${site[0]}`,
+    );
 
     // The recipient is a PERSON's id, never an order field standing in for one.
     assert.match(
@@ -424,7 +435,103 @@ test('the notice link and the /pay back control render the same lane', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6 · DEAD END, NOT A LEAK — pinned independently of everything above
+// 6 · EVERY DESTINATION IS A ROUTE THAT EXISTS
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Directories under `apps/web/<dir>` whose names start with `prefix`. */
+function subdirs(dir: string, prefix: string): string[] {
+  return readdirSync(join(WEB, dir), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name.startsWith(prefix))
+    .map((e) => e.name);
+}
+
+/**
+ * Does the App Router actually serve this path?
+ *
+ * Three ways a segment can be satisfied, and missing any one of them makes a
+ * perfectly good route look absent:
+ *   · the literal directory;
+ *   · a `[param]` directory, which a concrete id fills;
+ *   · a `(group)` directory, which is TRANSPARENT to the URL — `/dashboard` is
+ *     served by `app/dashboard/(launcher)/page.tsx`, so the group is re-entered
+ *     for the SAME segment rather than consuming it.
+ */
+function servesRoute(dir: string, segments: readonly string[]): boolean {
+  if (segments.length === 0) {
+    return (
+      existsSync(join(WEB, dir, 'page.tsx')) ||
+      subdirs(dir, '(').some((g) => servesRoute(join(dir, g), segments))
+    );
+  }
+  const [head, ...rest] = segments;
+  if (existsSync(join(WEB, dir, head!)) && servesRoute(join(dir, head!), rest)) return true;
+  if (subdirs(dir, '[').some((d) => servesRoute(join(dir, d), rest))) return true;
+  return subdirs(dir, '(').some((g) => servesRoute(join(dir, g), segments));
+}
+
+test('every link the resolver can produce lands on a real page', () => {
+  // 🔑 THIS TEST EXISTS BECAUSE THIS PR CREATED THE GAP IT CLOSES.
+  // `apps/web/scripts/lint-email-links.mjs` is a blocking CI guard: it finds
+  // every `relatedUrl` assigned a STRING LITERAL and refuses any with no
+  // `page.tsx` behind it — a notification is also an email, and a dead link in
+  // an inbox outlives the tray badge.
+  //
+  // Moving the six literals into a function was the right change AND it made
+  // that guard blind to this file: it reports 99 links repo-wide and not one of
+  // them is the payment desk's any more. So the coverage returns here, where the
+  // destinations are enumerated from the resolver itself rather than from
+  // whatever spelling happens to sit in the source.
+  //
+  // ⚠ The guard was ALSO tripped by this file's own docblock — it matched the
+  // words `relatedUrl:` followed by a backtick and read the prose after it as a
+  // route. That is why claim 4 above no longer writes the key with its colon.
+  const destinations = new Set<string>();
+  for (const recipient of [SUPPLIER, COUPLE, null]) {
+    for (const shape of [
+      FEE,
+      COUPLE_ORDER,
+      { ...FEE, isBookingFee: false },
+      { ...FEE, eventId: null },
+      { ...FEE, vendorProfileId: null },
+      { ...COUPLE_ORDER, eventId: null },
+    ]) {
+      const href = orderNoticeLink({ ...shape, recipientUserId: recipient });
+      if (href) destinations.add(href);
+      // The `/pay` back control renders the same lane, so its routes belong to
+      // the same enumeration — one rule, one list of destinations.
+      destinations.add(payBackLink({ ...shape, viewerUserId: recipient }).href);
+    }
+  }
+  assert.ok(destinations.size >= 4, `expected several destinations, saw ${destinations.size}`);
+
+  for (const href of destinations) {
+    assert.ok(
+      servesRoute('app', href.split('/').filter(Boolean)),
+      `the resolver can emit ${href}, and no page.tsx serves it — that is a dead ` +
+        `link in somebody's inbox`,
+    );
+  }
+
+  // The check has teeth: a route that does NOT exist must be rejected, or the
+  // loop above passes for every string it is ever handed.
+  assert.equal(servesRoute('app', ['vendor-dashboard', 'booking-fees']), true);
+  assert.equal(
+    servesRoute('app', ['vendor-dashboard', 'booking-fees', 'x', 'y', 'z']),
+    false,
+    'the route check accepts anything — it proves nothing about the destinations',
+  );
+
+  // ⚠ AND ONE HONEST LIMIT, BECAUSE A GUARD THAT OVERSTATES ITSELF IS WORSE
+  // THAN A NARROW ONE. `app/[slug]` is the public celebration vanity route, so
+  // ANY single-segment path resolves — `/no-such-route-exists-here` included,
+  // in the real app as much as in this function. The strength here is therefore
+  // in the multi-segment destinations, which is where all three of the routes
+  // this PR introduces live.
+  assert.equal(servesRoute('app', ['literally-anything']), true);
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7 · DEAD END, NOT A LEAK — pinned independently of everything above
 // ───────────────────────────────────────────────────────────────────────────
 
 test('the event dashboard is still shut to non-members, before it reads anything', () => {

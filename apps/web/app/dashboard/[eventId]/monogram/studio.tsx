@@ -52,6 +52,7 @@ export function VectorStudio({
   eventId,
   initialConfig,
   initialNames,
+  initialUploadSvg,
   hasStudio,
   notice,
 }: {
@@ -60,6 +61,13 @@ export function VectorStudio({
   /** The event's initials (e.g. "A & B") — seeds a FIRST design so the editor
    *  opens on the couple's mark, not the built-in "Maria & Juan" placeholder. */
   initialNames: string | null;
+  /** The couple's uploaded logo, when that is the mark they are working from.
+   *  Passed only while no studio composition exists yet: the studio then builds
+   *  its base layer from the LOGO'S PIECES instead of from letters, so frames,
+   *  ornaments, colours and the reveal all apply to it (owner 2026-09-20:
+   *  "replace the letter with the upload a photo. that is it"). The original
+   *  file is never overwritten — saving writes the composition. */
+  initialUploadSvg?: string | null;
   hasStudio: boolean;
   notice: { tone: 'ok' | 'error'; text: string } | null;
 }) {
@@ -156,6 +164,7 @@ export function VectorStudio({
           PaperOffset,
           initialConfig,
           initialNames,
+          initialUploadSvg: initialUploadSvg ?? null,
           // Universal portal preview (benchmark §3): EVERY reveal kind renders
           // the identical live-site player over the canvas; null clears it.
           portalPreview: true,

@@ -35,7 +35,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
@@ -61,6 +61,24 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
+
+/** Every non-test source under app/ and lib/, comments stripped. */
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next') continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) sourceFiles(full, out);
+    else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) out.push(full);
+  }
+  return out;
+}
+const SOURCES: ReadonlyMap<string, string> = new Map(
+  ['app', 'lib'].flatMap((d) =>
+    sourceFiles(join(WEB, d)).map(
+      (f) => [f.slice(WEB.length + 1), stripComments(readFileSync(f, 'utf8'))] as const,
+    ),
+  ),
+);
 
 /** The owner's own bill, to the centavo. */
 const OWNERS_BILL: DueFeeBill = {
@@ -624,5 +642,45 @@ test('the overdue warning promises no consequence the code does not implement', 
     access,
     /booking_fee|bookingFee/,
     'access now consults the fee — the overdue copy must be rewritten to say so',
+  );
+});
+
+/**
+ * ⏱ CROSS-LANE TRIPWIRE — the overdue sentence has an expiry date it cannot see.
+ *
+ * `feeDueCopy` tells an overdue supplier *"your booking is not affected"*, and
+ * the test above proves that is TRUE TODAY by checking that
+ * `vendor-room-access-rule.ts` never reads the fee. But a parallel lane
+ * (`claude/fee-unlocks-the-event`) is building enforcement in NEW modules —
+ * `lib/event-access-stage.ts` and `lib/vendor-event-fee-access.server.ts`,
+ * behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, default OFF — which the access-rule
+ * check cannot see. When that flag flips, my sentence becomes a LIE and nothing
+ * above would go red: the two lanes would be two voices on one subject, each
+ * passing its own suite.
+ *
+ * 🔑 That is the exact failure this repo keeps re-learning (MEMORY: "two
+ * mechanisms that disagree about one fact each pass their own suite"), so the
+ * tripwire is armed NOW, while it costs nothing: today the flag name appears
+ * nowhere and this passes trivially. The moment enforcement lands, it fails and
+ * names what has to change.
+ *
+ * SABOTAGE: add the flag name to any non-test source → RED (verified).
+ */
+const FEE_ENFORCEMENT_FLAG = 'NEXT_PUBLIC_FEE_UNLOCKS_EVENT';
+
+test('if fee enforcement lands, the overdue copy must stop saying "not affected"', () => {
+  // ANCHOR: a walker that found nothing would pass this vacuously.
+  assert.ok(SOURCES.size > 500, `only ${SOURCES.size} sources walked — the walker is broken`);
+
+  const enforcers = [...SOURCES]
+    .filter(([f, src]) => src.includes(FEE_ENFORCEMENT_FLAG) && f !== 'lib/booking-fee-disclosure.ts')
+    .map(([f]) => f);
+  if (enforcers.length === 0) return; // enforcement has not landed — nothing to reconcile.
+
+  assert.ok(
+    SOURCES.get('lib/booking-fee-disclosure.ts')?.includes(FEE_ENFORCEMENT_FLAG),
+    `${FEE_ENFORCEMENT_FLAG} is now live in ${enforcers.join(', ')}, so an overdue booking CAN ` +
+      'lose access — but feeDueCopy still tells the supplier "your booking is not affected". ' +
+      'Make that sentence read the same flag, so the promise and the enforcement cannot disagree.',
   );
 });

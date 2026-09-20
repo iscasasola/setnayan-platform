@@ -107,3 +107,12 @@ waived surfaces mount it, and the client page shows only its own couple's.
 
 SPEC IMPACT: None — the free-5 rule and the fee schedule are unchanged; only what the
 supplier is told about them.
+
+**Cross-lane tripwire.** A parallel lane (`claude/fee-unlocks-the-event`) is building fee
+enforcement in NEW modules behind `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` (default OFF), which the
+"access never reads the fee" check cannot see. When that flag flips, this PR's overdue
+sentence — *"your booking is not affected"* — becomes a lie, and nothing here would have gone
+red: two lanes, two voices on one subject, each passing its own suite. The guard now fails as
+soon as that flag name appears in any live source while `feeDueCopy` still ignores it, and
+says what has to change. Armed now, while it costs nothing. (Trial-merged against that branch:
+clean, no conflict.)

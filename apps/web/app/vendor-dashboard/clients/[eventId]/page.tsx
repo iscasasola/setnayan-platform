@@ -1052,7 +1052,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
-  const canEditCocktail = !!cocktailEdit;
+  // The couple's invitation to arrange the cocktail area is a WORKING control
+  // (ruling item 7): its own page is gated, so the door to it is too — a link
+  // that only ever lands on a locked screen is a dead end, not an invitation.
+  const canEditCocktail = !!cocktailEdit && feeUnlocked;
 
   // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
   // display URL for the preview — the same ref → URL step the 3D scenes do.

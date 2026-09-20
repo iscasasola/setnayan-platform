@@ -29,6 +29,19 @@
  */
 
 import type { RsvpStatus } from '@/lib/guests';
+import { SITE_MENU_ANCHORS } from '@/app/[slug]/_lib/site-menu';
+
+/**
+ * 🔴 THE HREFS COME FROM THE PAGE'S OWN ANCHOR MAP, NOT FROM WORDS THAT READ
+ * WELL. The first version of this file invented `#your-qr`, `#schedule`,
+ * `#photos` and `#rsvp`; NONE of those ids exist on the invitation, so every
+ * link scrolled nowhere and said nothing — a fragment link to a missing id
+ * fails silently, which is the quietest failure this page can have.
+ *
+ * `PASS_ANCHOR` is the one id this slice adds; the rest are the ids the site
+ * menu already resolves, so they cannot drift apart from the sections.
+ */
+export const PASS_ANCHOR = 'site-pass';
 
 export type ArrivalAction = {
   /** The accented control's words — the status, not a generic verb. */
@@ -69,7 +82,7 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
   const rsvp = input.rsvpStatus ?? null;
   if (rsvp === null) return null;
 
-  const rsvpHref = input.rsvpHref ?? `/${input.slug}#rsvp`;
+  const rsvpHref = input.rsvpHref ?? `/${input.slug}#${SITE_MENU_ANCHORS.me}`;
   const day = isIsoDay(input.eventDate) ? input.eventDate.slice(0, 10) : null;
   const today = isIsoDay(input.today) ? input.today.slice(0, 10) : null;
 
@@ -81,20 +94,20 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
     return input.hasPass
       ? {
           label: 'Show your pass',
-          href: `/${input.slug}#your-qr`,
+          href: `/${input.slug}#${PASS_ANCHOR}`,
           note: 'It opens the door and finds your table.',
           kind: 'day-of',
         }
       : {
           label: 'Today’s programme',
-          href: `/${input.slug}#schedule`,
+          href: `/${input.slug}#${SITE_MENU_ANCHORS.details}`,
           note: null,
           kind: 'day-of',
         };
   }
 
   if (isAfter) {
-    return { label: 'See the photos', href: `/${input.slug}#photos`, note: null, kind: 'after' };
+    return { label: 'See the photos', href: `/${input.slug}#${SITE_MENU_ANCHORS.gallery}`, note: null, kind: 'after' };
   }
 
   if (rsvp === 'attending') {

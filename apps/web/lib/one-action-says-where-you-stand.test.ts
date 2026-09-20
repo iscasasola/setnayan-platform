@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveArrivalAction } from './arrival-action';
+import { PASS_ANCHOR, resolveArrivalAction } from './arrival-action';
 import { manilaToday } from './std-views';
 
 const BASE = { slug: 'cale-ice', eventDate: '2026-12-18' };
@@ -106,4 +106,39 @@ test('it renders under the mark, and is not a second fixed bar', () => {
     'utf8',
   );
   assert.doesNotMatch(component, /fixed bottom-0/, 'GuestHubBar was retired for covering the menu');
+});
+
+test('EVERY href the action can produce resolves to an id the page renders', () => {
+  // 🔴 The first version invented #your-qr, #schedule, #photos and #rsvp. None
+  // existed. A fragment link to a missing id scrolls nowhere and reports
+  // nothing — so this walks every branch and checks the target is real.
+  const body = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
+  const menu = readFileSync(join(__dirname, '..', 'app', '[slug]', '_lib', 'site-menu.ts'), 'utf8');
+
+  const cases = [
+    { rsvpStatus: 'pending' as const, today: '2026-09-20' },
+    { rsvpStatus: 'attending' as const, today: '2026-09-20' },
+    { rsvpStatus: 'declined' as const, today: '2026-09-20' },
+    { rsvpStatus: 'attending' as const, today: '2026-12-18', hasPass: true },
+    { rsvpStatus: 'attending' as const, today: '2026-12-18', hasPass: false },
+    { rsvpStatus: 'attending' as const, today: '2026-12-19' },
+  ];
+
+  const anchors = new Set<string>();
+  for (const m of menu.matchAll(/:\s*'(site-[a-z-]+)'/g)) anchors.add(m[1]!);
+  anchors.add(PASS_ANCHOR);
+  assert.ok(anchors.size >= 5, `precondition: found the anchor map (${[...anchors].join(',')})`);
+
+  for (const c of cases) {
+    const action = resolveArrivalAction({ slug: 'cale-ice', eventDate: '2026-12-18', ...c });
+    assert.ok(action, `a case produced no action: ${JSON.stringify(c)}`);
+    for (const href of [action.href, action.secondary?.href].filter(Boolean) as string[]) {
+      const hash = href.split('#')[1];
+      assert.ok(hash, `${href} has a target`);
+      assert.ok(anchors.has(hash), `#${hash} is a real anchor, not an invented one`);
+    }
+  }
+
+  // And the one this slice adds is actually rendered.
+  assert.match(body, /id=\{PASS_ANCHOR\}/, 'the pass anchor exists on the page');
 });

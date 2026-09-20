@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { resolveArrivalAction } from '@/lib/arrival-action';
+import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin, Sparkles } from 'lucide-react';
@@ -1648,7 +1648,15 @@ export async function SiteBody({
                   decouple if the host wants QR off (e.g., a couple who doesn't
                   want their wedding photographed). */}
               {plan.qrCardShouldRender ? (
-                <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8">
+                <section
+                  id={PASS_ANCHOR}
+                  className="scroll-mt-6 rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8"
+                >
+                  {/* The anchor the arrival action's day-of label points at. A
+                      fragment link to a missing id fails SILENTLY — the first
+                      version of that action invented `#your-qr`, which existed
+                      nowhere, so "Show your pass" scrolled a guest nowhere at
+                      the door. Pinned by `one-action-says-where-you-stand`. */}
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                     Your invitation QR
                   </p>

@@ -24,6 +24,13 @@ someone who declined is not handed a door pass on the day.
 Guarded by `lib/one-action-says-where-you-stand.test.ts` (9 tests). Two sabotages each turn one
 red: making the label a verb again, and letting UTC decide the day.
 
+🔴 **CAUGHT BEFORE MERGE, IN THIS BRANCH: every href was invented.** The first version pointed at
+`#your-qr`, `#schedule`, `#photos` and `#rsvp` — **none of those ids exist on the invitation**, so
+each label scrolled nowhere and reported nothing. A fragment link to a missing id is the quietest
+failure this page has. The hrefs now come from `SITE_MENU_ANCHORS`, the map the site menu already
+resolves, plus one new `PASS_ANCHOR` rendered on the QR card. A test walks EVERY branch and asserts
+each target is a real anchor; restoring `#your-qr` turns it red.
+
 Not yet seen by a real guest — that check comes after deploy, on a guest link.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-20 row — the arrival's one action.

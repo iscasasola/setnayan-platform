@@ -273,6 +273,28 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  /*
+   * WHICH BUILD THIS BUNDLE IS, readable from the browser.
+   *
+   * `/api/health` already reports the SERVING build's commit sha (it has since
+   * iteration 0035, for Better Stack pings). Pairing the two is what lets a tab
+   * notice it has fallen behind the site — see `lib/build-version.ts` for why
+   * that matters and why Vercel's own Skew Protection is not available to us.
+   *
+   * 🔑 INLINED AT BUILD TIME, deliberately, not read from
+   * `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`: that one exists only when the project
+   * has "Automatically expose System Environment Variables" switched on, which
+   * is a dashboard setting nobody here controls or checks. A value that silently
+   * becomes undefined turns the notice off with nothing red anywhere.
+   *
+   * The `'dev'` fallback matches the health route's own fallback, and
+   * `shouldOfferReload` treats it as "no opinion" on both sides — so a local or
+   * self-hosted build never shows the bar.
+   */
+  env: {
+    NEXT_PUBLIC_BUILD_VERSION:
+      process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev',
+  },
   // Skip the in-`next build` TypeScript type-check + ESLint passes. BOTH are
   // already enforced as dedicated, isolated, REQUIRED CI jobs
   // (.github/workflows/ci.yml → `typecheck-lint`: `pnpm typecheck` (tsc

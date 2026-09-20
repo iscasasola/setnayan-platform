@@ -3,6 +3,7 @@ import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin, Sparkles } from 'lucide-react';
+import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
@@ -1185,6 +1186,32 @@ export async function SiteBody({
     const isLive = dayOfPhase === 'live';
     const isPost = dayOfPhase === 'post';
 
+    /*
+      ── ON THE DAY, THE INVITATION LEADS WITH THE ROOM (arrival board
+         "5 · On the day"). What is happening now, the pass, the camera; the
+         planning rows step back behind them.
+
+      🕐 MANILA DECIDES THE DAY, and this is the slice most likely to be wrong
+         by eight hours. `manilaToday()` and `event_date` are both Manila-local
+         `YYYY-MM-DD` and are compared as STRINGS — `new Date(event_date)` is
+         midnight UTC, the previous day here, and would rearrange the page on
+         the evening before the wedding.
+
+      🔒 NARROWER THAN `isLive` ON PURPOSE. The live window runs T−12h..T+36h so
+         an evening reception is covered; this is the calendar day alone, which
+         for a Manila venue sits strictly inside it. That keeps the lead in step
+         with the arrival action's "Show your pass", which flips on exactly this
+         boundary. See lib/day-of-lead.ts.
+    */
+    const dayOfLead = resolveDayOfLead({
+      eventDate: event.event_date,
+      today: manilaToday(),
+      rsvpStatus: guest.rsvp_status,
+      hasPass: plan.qrCardShouldRender,
+      hasSchedule: scheduleBlocks.length > 0,
+      hasCamera: Boolean(papicGuest) || needsFaceEnroll,
+    });
+
     // Open-browse MENU SHELL (PR6, flag-dark; always on for the sample event).
     // Mirrors anonymousTree, so a guest gets the SAME five-tab structure (§1.1).
     // The markers + the fixed bar render ONLY when the menu is enabled, so a
@@ -1222,6 +1249,105 @@ export async function SiteBody({
       rsvpStatus: guest.rsvp_status,
       arrived: guestHubData.arrived,
     });
+
+    /* ── THE TWO BLOCKS THE DAY REORDERS (arrival board "5 · On the day").
+       Each is written ONCE here and mounted in one of two slots below, so the
+       reorder is a move rather than a copy: a duplicated block would render
+       the QR twice and give the page two elements with one id. */
+    const passCard = plan.qrCardShouldRender ? (
+      <section
+        id={PASS_ANCHOR}
+        className="scroll-mt-6 rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8"
+      >
+        {/* The anchor the arrival action's day-of label points at. A fragment
+            link to a missing id fails SILENTLY — the first version of that
+            action invented `#your-qr`, which existed nowhere, so "Show your
+            pass" scrolled a guest nowhere at the door. Pinned by
+            `one-action-says-where-you-stand` (#5783).
+
+            ⚠ THE ANCHOR TRAVELS WITH THE CARD. This card now renders in one of
+            two slots — on the day it leads, directly under the programme — so
+            the id moves with it and the action's link keeps resolving, to a
+            shorter scroll. It renders in exactly ONE slot per render, so there
+            is never a second element with this id. */}
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          Your invitation QR
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
+          Save this to your phone. Photographers will scan it on the day to tag the
+          photos they take of you — and you&rsquo;ll be able to grab those photos here
+          after the event.
+        </p>
+        <div
+          aria-label={`QR code for ${displayNameOf(guest)}`}
+          className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
+          dangerouslySetInnerHTML={{ __html: qrSvg }}
+        />
+        <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
+          {invitationUrl}
+        </p>
+        {/* "Save this to your phone" above was a promise this card had
+            no way to keep — the code is drawn as an inline SVG, so a
+            long-press offers nothing and a screenshot was the only
+            answer. These are the two ways to take it away. */}
+        <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
+        {/* Indoor Blueprint entry point — pure navigation (no DB query on
+            this always-rendered landing). The /find-my-table route does its
+            own SKU gating: it shows a friendly "ask the couple" prompt when
+            the event hasn't bought Indoor Blueprint, so this link is safe to
+            always render. */}
+        <Link
+          href={`/${event.slug}/find-my-table`}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
+        >
+          <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Find my table
+        </Link>
+        {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
+            ADDITIVE, separately gated, and only when the couple bought the
+            branded-QR SKU. Routes through /seat/claim so the cookie is set
+            before landing on the pass (their exact seat + arrival bloom).
+            The find-my-table link above (a separate INDOOR_BLUEPRINT
+            surface) is untouched — both can show. */}
+        {seatPassActive && guest.qr_token ? (
+          <Link
+            href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
+            className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
+          >
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Your seat pass
+          </Link>
+        ) : null}
+      </section>
+    ) : null;
+
+    const greetingBlock = plan.greetingShouldRender ? (
+      /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
+         the display face with the guest's name in gild — the
+         personalization (nobody else in the market has it) is
+         unchanged, only its setting. */
+      <section className="space-y-3">
+        <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
+          Hi, <span className="text-gild">{guest.first_name}</span>.
+        </p>
+        <p className="max-w-prose text-base leading-relaxed text-ink/70">
+          {clientWords.solemn
+            ? 'We hope you can be with us on'
+            : 'We’d love to celebrate with you on'}{' '}
+          <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
+          {event.venue_name ? (
+            <>
+              {' '}
+              — at <span className="font-medium text-ink">{event.venue_name}</span>
+            </>
+          ) : null}
+          . You&rsquo;re joining us as{' '}
+          <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
+          <span className="text-ink/80">{sideLabel}</span>.
+        </p>
+      </section>
+    ) : null;
 
     return (
       <>
@@ -1390,32 +1516,7 @@ export async function SiteBody({
               {/* Greeting — always-on per the editor contract; gated here so V1.1
                   can decouple if a host wants the wedding page to skip the
                   personalized welcome. */}
-              {plan.greetingShouldRender ? (
-                /* Pahina §7: the greeting becomes a left-aligned SALUTATION in
-                   the display face with the guest's name in gild — the
-                   personalization (nobody else in the market has it) is
-                   unchanged, only its setting. */
-                <section className="space-y-3">
-                  <p className="font-pahina text-3xl font-light italic leading-tight text-ink">
-                    Hi, <span className="text-gild">{guest.first_name}</span>.
-                  </p>
-                  <p className="max-w-prose text-base leading-relaxed text-ink/70">
-                    {clientWords.solemn
-                      ? 'We hope you can be with us on'
-                      : 'We’d love to celebrate with you on'}{' '}
-                    <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
-                    {event.venue_name ? (
-                      <>
-                        {' '}
-                        — at <span className="font-medium text-ink">{event.venue_name}</span>
-                      </>
-                    ) : null}
-                    . You&rsquo;re joining us as{' '}
-                    <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
-                    <span className="text-ink/80">{sideLabel}</span>.
-                  </p>
-                </section>
-              ) : null}
+              {dayOfLead.greetingStepsBack ? null : greetingBlock}
 
               {/* Task #13 — day-of-mode promotes the schedule block to the top of
                   the article so a guest at the venue sees "happening now" before
@@ -1443,6 +1544,14 @@ export async function SiteBody({
                   />
                 </section>
               ) : null}
+
+              {/* ── THE PASS LEADS (arrival board "5 · On the day"). On the day the
+                  QR climbs from far below the vendor pitch to directly under the
+                  programme: a guest at a door is holding a phone to be let in,
+                  not to read. Withheld from someone who declined — see
+                  lib/day-of-lead.ts. Guarded by
+                  lib/the-day-rearranges-the-invitation.test.ts. */}
+              {dayOfLead.passLeads ? passCard : null}
 
               {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
                   (no roster / no PII). Mirrors the public + identified-guest paths for
@@ -1526,6 +1635,12 @@ export async function SiteBody({
                   An empty list is now a real result and null means only that
                   the read failed, so the three states can finally be told
                   apart. */}
+              {/* ── THE SALUTATION, STEPPED BACK (arrival board "5 · On the day").
+                  On the day it renders HERE, behind what the guest needs in the
+                  room. Off the day it renders in its ordinary place above.
+                  One block, two slots — never both. */}
+              {dayOfLead.greetingStepsBack ? greetingBlock : null}
+
               {isLive || isPost ? (
                 <PhotosOfYouGallery
                   gallery={guestLiveGallery}
@@ -1649,67 +1764,9 @@ export async function SiteBody({
               {/* QR card — always-on per the editor contract. Gated so V1.1 can
                   decouple if the host wants QR off (e.g., a couple who doesn't
                   want their wedding photographed). */}
-              {plan.qrCardShouldRender ? (
-                <section
-                  id={PASS_ANCHOR}
-                  className="scroll-mt-6 rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8"
-                >
-                  {/* The anchor the arrival action's day-of label points at. A
-                      fragment link to a missing id fails SILENTLY — the first
-                      version of that action invented `#your-qr`, which existed
-                      nowhere, so "Show your pass" scrolled a guest nowhere at
-                      the door. Pinned by `one-action-says-where-you-stand`. */}
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    Your invitation QR
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
-                  <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-                    Save this to your phone. Photographers will scan it on the day to tag the
-                    photos they take of you — and you&rsquo;ll be able to grab those photos here
-                    after the event.
-                  </p>
-                  <div
-                    aria-label={`QR code for ${displayNameOf(guest)}`}
-                    className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
-                    dangerouslySetInnerHTML={{ __html: qrSvg }}
-                  />
-                  <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
-                    {invitationUrl}
-                  </p>
-                  {/* "Save this to your phone" above was a promise this card had
-                      no way to keep — the code is drawn as an inline SVG, so a
-                      long-press offers nothing and a screenshot was the only
-                      answer. These are the two ways to take it away. */}
-                  <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
-                  {/* Indoor Blueprint entry point — pure navigation (no DB query on
-                      this always-rendered landing). The /find-my-table route does its
-                      own SKU gating: it shows a friendly "ask the couple" prompt when
-                      the event hasn't bought Indoor Blueprint, so this link is safe to
-                      always render. */}
-                  <Link
-                    href={`/${event.slug}/find-my-table`}
-                    className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
-                  >
-                    <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    Find my table
-                  </Link>
-                  {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
-                      ADDITIVE, separately gated, and only when the couple bought the
-                      branded-QR SKU. Routes through /seat/claim so the cookie is set
-                      before landing on the pass (their exact seat + arrival bloom).
-                      The find-my-table link above (a separate INDOOR_BLUEPRINT
-                      surface) is untouched — both can show. */}
-                  {seatPassActive && guest.qr_token ? (
-                    <Link
-                      href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
-                      className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
-                    >
-                      <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Your seat pass
-                    </Link>
-                  ) : null}
-                </section>
-              ) : null}
+              {/* The pass in its ordinary place — on the day it leads instead,
+                  directly under the programme rail above. */}
+              {dayOfLead.passLeads ? null : passCard}
 
               {/* RSVP — always-on per the editor contract. The wedding's
                   load-bearing form: the editor blocks hiding it, but the gate

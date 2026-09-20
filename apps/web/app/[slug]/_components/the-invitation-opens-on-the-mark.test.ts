@@ -52,8 +52,38 @@ test('a shared phone does not announce the reader before the couple', () => {
   // The greeting names the guest. It may stay where it is — inside the body,
   // well below the hero — but it must never climb above it.
   const hero = guestBranchIndex("plan.body === 'normal' && plan.heroShouldRender");
-  const greeting = SRC.indexOf('plan.greetingShouldRender');
-  assert.ok(greeting > hero, 'the salutation stays below the mark');
+
+  /* ⚠ MECHANISM CHANGED 2026-09-20 (arrival board "5 · On the day"). THE
+     PROPERTY IS UNCHANGED AND IS NOW ASSERTED HARDER — this was not relaxed to
+     go green.
+
+     The salutation is written ONCE as `greetingBlock` and mounted in one of two
+     slots, because on the wedding day it steps back behind the programme and
+     the pass. Its DECLARATION therefore sits above the hero in source order,
+     and the old `SRC.indexOf('plan.greetingShouldRender')` — the FIRST mention
+     anywhere in the file — read that as the salutation climbing above the mark.
+     It had not moved a pixel; a declaration is not a mount.
+
+     So this now measures every MOUNT and counts them. That forbids strictly
+     more than one index ever could: a single index cannot notice a second slot
+     appearing above the hero, and cannot notice a slot being dropped. */
+  const mounts = [
+    ...SRC.matchAll(/\{dayOfLead\.greetingStepsBack \? (?:null : greetingBlock|greetingBlock : null)\}/g),
+  ];
+  assert.equal(mounts.length, 2, `the salutation has exactly two slots (found ${mounts.length})`);
+  for (const m of mounts) {
+    assert.ok(
+      (m.index ?? -1) > hero,
+      'every slot the salutation can render in sits below the mark',
+    );
+  }
+
+  // Written once, and still gated on the editor's own visibility flag.
+  assert.equal(
+    SRC.split('const greetingBlock = plan.greetingShouldRender ? (').length - 1,
+    1,
+    'the salutation is declared exactly once, and still honours plan.greetingShouldRender',
+  );
 });
 
 test('nothing was dropped in the move', () => {

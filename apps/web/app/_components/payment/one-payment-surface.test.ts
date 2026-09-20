@@ -124,3 +124,52 @@ test('no page hands out a payment code of its own — they point at /pay', () =>
     );
   }
 });
+
+test('the account-less guest gets the same style — its own code is gone', () => {
+  /**
+   * Owner, 2026-09-20: *"again all payments entering us should be one paying
+   * style."* No exceptions, including the door a guest opens with a bearer
+   * token and no account at all.
+   *
+   * 🔑 THE STYLE MOVED, THE ROUTE DID NOT, AND THAT IS NOT A LOOPHOLE. /pay's
+   * read is session-scoped, so a guest with no `auth.uid()` cannot open it —
+   * sending them there would 404 them on their own order. The page therefore
+   * renders the shared rails itself, and mints the code on the SERVER as /pay
+   * does, which is how it GAINED an amount-carrying code it never had.
+   */
+  const rel = 'app/papic/order/[token]/page.tsx';
+  const src = read(rel);
+
+  assert.match(src, /<PayRailsBlock\b/, `${rel} does not render the shared rails`);
+  assert.match(
+    src,
+    /mintedQrImage\(/,
+    `${rel} must mint on the server — a browser mint leaves the ₱0 static code on screen`,
+  );
+  /**
+   * ⚠ WRITTEN AS A PER-LINE SCAN, NOT A LOOKAHEAD. The first cut was
+   * `/settings\.(gcash|bdo)_qr_url\b(?![^\n]*staticUrl)/` and it fired on the
+   * correct code: the guard looked FORWARD for `staticUrl` while the real line
+   * reads `staticUrl: settings.gcash_qr_url`, where it sits behind. A lookahead
+   * facing away from the thing it must see cannot match the line it was written
+   * for — the same shape as the `(?!\s*\?)` guard this repo shipped inert.
+   */
+  const staticUses = src
+    .split('\n')
+    .filter((l) => /settings\.(gcash|bdo)_qr_url\b/.test(l));
+  assert.ok(staticUses.length > 0, `${rel} stopped passing the static fallback at all`);
+  for (const line of staticUses) {
+    assert.match(
+      line,
+      /staticUrl:/,
+      `${rel} draws the static code directly instead of handing it to the rails: ${line.trim()}`,
+    );
+  }
+  // The rails are the only thing that may print a receiving account here now.
+  const accountPrints = (src.match(/settings\.(gcash_number|bdo_account_number)/g) ?? []).length;
+  assert.ok(
+    accountPrints <= 2,
+    `${rel} prints a receiving account ${accountPrints}x — the rails take one each, ` +
+      'more means the old blocks came back',
+  );
+});

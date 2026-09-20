@@ -12,7 +12,6 @@ import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkDoors } from './mark-doors';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
-import { isUploadedMarkOff } from '@/lib/monogram-mark-choice';
 import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
@@ -140,8 +139,6 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
-  const effectiveSvg = safeMonogramSvg(event.monogram_uploaded_svg) ?? customSvg;
-  const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
 
   /* ── ONE DOOR AT A TIME (owner 2026-09-20) ────────────────────────────────
    * This page used to stack BOTH ways of getting a mark down one column: the
@@ -172,9 +169,17 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * (lib/monogram-mark-choice.ts): an uploaded mark stamped data-mark="off" is
    * kept but not used. */
   const uploadedRaw = safeMonogramSvg(event.monogram_uploaded_svg);
-  const uploadIsLive = Boolean(uploadedRaw) && !isUploadedMarkOff(uploadedRaw);
-  const studioSvgForDisplay = applyMarkInk(customSvg, undefined, paletteInk);
+  /* The composition wins; the upload stands in only until there is one. */
+  const uploadIsLive = Boolean(uploadedRaw) && !customSvg;
   const uploadedSvgForDisplay = applyMarkInk(uploadedRaw, undefined, paletteInk);
+
+  /* The mark as every surface draws it: the COMPOSITION first, the uploaded
+   * file only while no composition exists (lib/monogram-svg-safe.ts carries the
+   * same order, and this page must not disagree with it). Ink applied, so the
+   * strip shows what guests see rather than an unpainted variant. */
+  const effectiveSvg = applyMarkInk(customSvg ?? uploadedRaw, undefined, paletteInk);
+  const showEverywhere =
+    (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
   const askedMode = sp.mode === 'design' || sp.mode === 'upload' ? sp.mode : null;
   /* Both actions redirect back here with a notice and the #upload-mark anchor.
    * Open the matching door, or a couple reads "Saved!" on a chooser showing
@@ -219,9 +224,8 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       {mode === null ? (
         <MarkDoors
           eventId={eventId}
-          studioSvg={studioSvgForDisplay}
-          uploadedSvg={uploadedSvgForDisplay}
-          uploadIsLive={uploadIsLive}
+          liveSvg={effectiveSvg}
+          liveIsComposition={Boolean(customSvg)}
           hasStudio={hasStudio}
           hasUpload={hasUpload}
         />

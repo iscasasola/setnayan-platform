@@ -94,7 +94,6 @@
  */
 
 import { applyMarkInk } from './monogram-ink';
-import { isUploadedMarkOff } from './monogram-mark-choice';
 
 /** Same ceiling the write-time sanitizers use. */
 const MAX_SVG_BYTES = 400_000;
@@ -229,8 +228,9 @@ export function safeMonogramSvg(raw: unknown): string | null {
  * The canonical monogram-mark resolution, with the read-time gate applied to
  * BOTH columns.
  *
- * Precedence is `uploaded ?? custom` — an explicit upload outranks a generated
- * mark (see lib/events.ts). A column that fails the gate is skipped rather
+ * Precedence is `custom ?? uploaded` — the studio composition is the mark, and
+ * an uploaded logo is the source it was composed from (see the flip note
+ * below). A column that fails the gate is skipped rather
  * than failing the whole resolution, so a poisoned `monogram_uploaded_svg`
  * falls through to a clean `monogram_custom_svg` instead of blanking the mark.
  *
@@ -264,13 +264,19 @@ export function resolveEventMonogramSvg(
   },
 ): string | null {
   if (!event) return null;
-  /* An uploaded mark stamped `data-mark="off"` is KEPT but not used — the
-   * couple asked for their designed mark back without deleting the file they
-   * uploaded. Skipping it here, at the one chokepoint, is what makes that
-   * choice true on every surface at once. */
-  const uploaded = safeMonogramSvg(event.monogram_uploaded_svg);
-  const uploadedLive = uploaded && !isUploadedMarkOff(uploaded) ? uploaded : null;
-  const mark = uploadedLive ?? safeMonogramSvg(event.monogram_custom_svg);
+  /* ── THE COMPOSITION IS THE MARK (owner 2026-09-20) ──────────────────────
+   * `custom ?? uploaded`, which is the REVERSE of the rule this function held
+   * this morning. It flipped because the product flipped: an uploaded logo is
+   * no longer a competing mark, it is the SOURCE the studio composes from
+   * (engine.ts builds its base layer from the logo's pieces). What ships is the
+   * re-rendered composition — owner, verbatim: "yes keep it. and only use the
+   * rerendered version of the uploaded photo".
+   *
+   * The upload remains as the FALLBACK, not as an archive nobody reads: a
+   * couple who uploaded a logo and has not opened the studio yet still has a
+   * mark. Measured before flipping — of 11 events in production, 0 had both
+   * marks and 1 had an upload only, so no event's live mark changed. */
+  const mark = safeMonogramSvg(event.monogram_custom_svg) ?? safeMonogramSvg(event.monogram_uploaded_svg);
   // applyMarkInk reads the policy off the mark itself and returns the stored
   // bytes unchanged for `file` (the default, and what an unstamped mark means),
   // so this is a no-op for every mark saved before the policy existed.

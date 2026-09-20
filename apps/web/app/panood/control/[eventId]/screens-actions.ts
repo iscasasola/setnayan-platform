@@ -7,11 +7,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
+import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { generateScreenPairingCode } from '@/lib/panood-screens';
 import {
   DEFAULT_LIVE_SCREEN_MODE,
   LIVE_SCREEN_CODE_TTL_MS,
   canAddScreen,
+  canUseVenueScreens,
   isLiveScreenMode,
   nextScreenIndex,
   normalizeScreenName,
@@ -23,18 +25,23 @@ import {
  * Owner rulings 2026-09-20: screens live in this controller; a screen shows
  * live background, mirror or off, never the photo wall (lib/live-screens.ts).
  *
- * GATE: the SAME predicate the controller page and its other actions use
- * (`isLiveStudioSetupHost` — couple, coordinator or moderator). The table's RLS
- * covers couple + coordinator only, so a moderator would be refused by a
- * session-client write; the writes therefore run on the service-role client
- * AFTER the host gate, and every one of them is scoped by `event_id` so a
- * screen id from another event matches nothing. This is the camera-seat shape
- * the page already uses.
+ * GATE 1 · HOST: the SAME predicate the controller page and its other actions
+ * use (`isLiveStudioSetupHost` — couple, coordinator or moderator). The
+ * table's RLS covers couple + coordinator only, so a moderator would be
+ * refused by a session-client write; the writes therefore run on the
+ * service-role client AFTER the host gate, and every one of them is scoped by
+ * `event_id` so a screen id from another event matches nothing. This is the
+ * camera-seat shape the page already uses.
  *
- * FREE, deliberately. These are rehearsal-grade controls under the Wave 3 rule
- * ("rehearse free, pay to broadcast"): a screen can show the couple's monogram
- * or their YouTube watch link, and the watch link is already public on their
- * event page. Nothing here publishes anything a guest could not already see.
+ * GATE 2 · ENTITLEMENT (owner ruling 2026-09-20, lib/live-screens.ts): venue
+ * screens come WITH the paid Live Studio unlock — no second charge, no second
+ * flag. Resolved the SAME way the controller page resolves broadcasting
+ * (`resolveBroadcastWindow` → `eventSkuActive(LIVE_STUDIO_SKU)`, on the ADMIN
+ * client, for the same reason page.tsx uses it there: `orders` RLS is
+ * purchaser-scoped, and a coordinator/moderator running this controller for a
+ * couple who paid is not the purchaser). Every action below runs GATE 2 —
+ * except `removeLiveScreen`, which stays allowed for cleanup even on a locked
+ * event (`gate(formData, { allowLocked: true })`).
  *
  * EVERY WRITE COUNTS ITS ROWS. An update that matches nothing returns no error
  * (a zero-row UPDATE is success-shaped), so each one selects `id` back and a
@@ -45,7 +52,7 @@ import {
 // which left the sheet shut and the new screen's code hidden (prod, 2026-09-20).
 const SCREENS = (eventId: string, qs: string) => `${liveStudioControlPath(eventId)}?${qs}&sheet=screens`;
 
-async function gate(formData: FormData): Promise<string> {
+async function gate(formData: FormData, opts: { allowLocked?: boolean } = {}): Promise<string> {
   const raw = formData.get('event_id');
   if (typeof raw !== 'string' || raw.length === 0) redirect('/dashboard');
   const eventId = raw;
@@ -57,6 +64,15 @@ async function gate(formData: FormData): Promise<string> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
   if (!(await isLiveStudioSetupHost(eventId, user.id))) redirect('/dashboard');
+
+  // GATE 2 · ENTITLEMENT. Skipped only for removeLiveScreen (cleanup).
+  if (!opts.allowLocked) {
+    const admin = createAdminClient();
+    const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
+    if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) {
+      redirect(SCREENS(eventId, 'screen_error=locked'));
+    }
+  }
   return eventId;
 }
 
@@ -218,7 +234,8 @@ export async function reissueLiveScreenCode(formData: FormData): Promise<void> {
  * token is refused from its next check-in.
  */
 export async function removeLiveScreen(formData: FormData): Promise<void> {
-  const eventId = await gate(formData);
+  // Cleanup stays allowed even on a locked event — GATE 2's one exception.
+  const eventId = await gate(formData, { allowLocked: true });
   const screenId = screenIdFrom(formData);
   if (screenId === null) redirect(SCREENS(eventId, 'screen_error=save'));
 

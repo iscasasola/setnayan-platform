@@ -217,3 +217,35 @@ export function nextScreenIndex(existing: Iterable<number>): number {
 export function canAddScreen(activeCount: number): boolean {
   return activeCount < MAX_LIVE_SCREENS;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   VENUE SCREENS COME WITH LIVE STUDIO — owner ruling 2026-09-20.
+   ══════════════════════════════════════════════════════════════════════════════
+ * Asked whether venue screens should stay free or become a paid perk, the
+ * owner said: "live studio is paid… depends on their live studio." Ruling:
+ * screens are INCLUDED WITH the paid Live Studio unlock — there is no second
+ * charge and no second flag. An event with no active unlock may not add,
+ * pair, rename, re-code, or drive a screen. Removing one stays allowed, for
+ * cleanup — see the `allowLocked` escape in screens-actions.ts's `gate()`.
+ *
+ * `liveStudioActive` is resolved the SAME way broadcasting already is —
+ * `resolveBroadcastWindow(supabase, eventId).multiCam`
+ * (lib/live-studio-window-server.ts, itself `eventSkuActive(LIVE_STUDIO_SKU)`)
+ * — so this can never disagree with the controller's own "Unlock · price"
+ * bar. This file does not read that entitlement itself (it is pure, no I/O);
+ * every caller resolves it first and hands in the boolean.
+ */
+export function canUseVenueScreens(input: { liveStudioActive: boolean }): boolean {
+  return input.liveStudioActive;
+}
+
+/**
+ * The words shown wherever a screen surface is locked. Points at the
+ * controller's EXISTING unlock bar/CTA (`detailHref` + `lock.unlockCtaLabel`
+ * in app/panood/control/[eventId]/page.tsx) — there is deliberately no second
+ * purchase path.
+ */
+export const VENUE_SCREENS_LOCKED_MESSAGE = 'Venue screens come with Live Studio';
+
+/** The neutral card a paired TV shows instead of the event's content once it is locked. */
+export const VENUE_SCREEN_LOCKED_TV_MESSAGE = "Live Studio isn't active for this event.";

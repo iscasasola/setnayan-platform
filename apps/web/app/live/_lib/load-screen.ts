@@ -6,7 +6,8 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { deriveMonogram } from '@/lib/monogram';
 import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
-import { decideScreenPicture, shouldWriteCheckIn, type ScreenPicture } from '@/lib/live-screens';
+import { canUseVenueScreens, decideScreenPicture, shouldWriteCheckIn, type ScreenPicture } from '@/lib/live-screens';
+import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import {
   LIVE_SCREEN_COOKIE_NAME,
   liveScreenTokenMatchesRow,
@@ -30,6 +31,11 @@ import {
  * A REFUSED READ IS NOT "UNPAIRED". A database error returns `{ state: 'down' }`
  * so the screen keeps its last picture and says it is reconnecting, instead of
  * telling a room full of guests that the screen was disconnected.
+ *
+ * NOT ENTITLED IS NOT "DOWN" EITHER. Screens come WITH the paid Live Studio
+ * unlock (owner ruling 2026-09-20); an event with no active unlock returns
+ * `{ state: 'locked' }`, which goes dark rather than keeping the last picture
+ * — the opposite of the `down` behaviour above, on purpose.
  */
 
 export type ScreenBrand = {
@@ -44,6 +50,12 @@ export type LoadedScreen =
   | { state: 'unpaired' }
   | { state: 'revoked' }
   | { state: 'down' }
+  /**
+   * Owner ruling 2026-09-20: screens come WITH the paid Live Studio unlock.
+   * A paired screen whose event has no active unlock reaches this state, not
+   * `ready` — the TV goes dark instead of showing the event's content.
+   */
+  | { state: 'locked' }
   | { state: 'ready'; picture: ScreenPicture; brand: ScreenBrand; screenName: string | null };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -75,6 +87,16 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
   if (!liveScreenTokenMatchesRow(claim, row)) return { state: 'revoked' };
   // Narrowed by the check above; restated for the type system.
   if (!row) return { state: 'revoked' };
+
+  // VENUE SCREENS COME WITH LIVE STUDIO (owner ruling 2026-09-20). Checked on
+  // EVERY poll, not only at pair time — `eventSkuActive` folds refunds and
+  // revoked comp grants too, so a screen paired while entitled must go dark
+  // the moment the event stops being entitled, never keep showing its last
+  // picture. Same resolver the controller page and pairing already use. Read
+  // before the check-in write and the event query below: a locked TV must
+  // never reach the read that produces its picture.
+  const broadcastWindow = await resolveBroadcastWindow(admin, row.event_id);
+  if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) return { state: 'locked' };
 
   const now = Date.now();
   if (shouldWriteCheckIn(row.last_seen_at, now)) {

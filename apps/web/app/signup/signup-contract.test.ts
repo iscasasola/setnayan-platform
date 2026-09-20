@@ -86,15 +86,71 @@ test('no field was silently ADDED either — the contract is exact', () => {
   assert.deepEqual(extra, [], `Unexpected new field(s) on /signup: ${extra.join(', ')}`);
 });
 
-test('the two account-type radios still share one name — that is what makes it a choice', () => {
+/**
+ * ⚠ THIS TEST WAS REWRITTEN ON 2026-09-20, AND THE DOCBLOCK ABOVE SAYS WHEN
+ * THAT IS ALLOWED: *"If a redesign needs this file edited to go green, a FIELD
+ * was added or removed, and that is a product decision that belongs in the PR
+ * description, not a test tweak."* No field was added or removed —
+ * `account_type` still posts — but it stopped being a QUESTION and became a
+ * value, which is the same class of product decision. It is owner-locked and it
+ * is in the PR description. It was two radios, "I'm a couple / I'm a vendor".
+ */
+test('account_type posts exactly once, and nothing on screen asks for it', () => {
   const code = SRC();
-  const radios = [...code.matchAll(/<AccountTypeOption\b/g)].length;
-  assert.equal(radios, 2, 'Couple and vendor: two options, one question.');
+  assert.equal(
+    [...code.matchAll(/<AccountTypeOption\b/g)].length,
+    0,
+    'The Couple/Vendor chooser is back. An NFC vendor card sends a COUPLE here ' +
+      '(?as=couple) and asking them whether they are a vendor is the defect ' +
+      'this file now pins — owner-locked 2026-09-20.',
+  );
+  assert.equal(
+    [...code.matchAll(/type="radio"/g)].length,
+    0,
+    'A radio reappeared on /signup. If it is a new account_type chooser, see above.',
+  );
+  const fields = [...code.matchAll(/\bname="account_type"/g)].length;
+  assert.equal(
+    fields,
+    1,
+    `account_type must post from exactly ONE input, not ${fields}. Two inputs ` +
+      'sharing the name is how a radio group works — and how a stray second ' +
+      'field would silently win, since FormData.get() returns the first.',
+  );
   assert.match(
     code,
-    /name="account_type"/,
-    'Both radios must post under the same name or the choice stops being a choice.',
+    /<input type="hidden" name="account_type" value=\{accountType\} \/>/,
+    'account_type must carry the value the URL decided (accountTypeForSignup), ' +
+      'not a hard-coded string — /signup?as=vendor is still the vendor door.',
   );
+});
+
+test('the account type is decided by the shared helper, not re-derived here', () => {
+  // The decision is a pure module precisely so signup-intent.test.ts can RUN
+  // it. A local `params.as === 'vendor'` would go green on both files while
+  // the two drifted apart — that is how `as=couple` came to be ignored for
+  // months in the first place.
+  const code = SRC();
+  assert.match(code, /accountTypeForSignup\(params\.as\)/, 'use the shared helper');
+  assert.match(code, /showsCoupleConsent\(params\.as\)/, 'use the shared helper');
+  assert.doesNotMatch(
+    code,
+    /params\.as === 'vendor'/,
+    'The account type was re-derived inline. One rule, one place.',
+  );
+});
+
+test('the couple consent block is gated on the server, not by a CSS selector', () => {
+  const code = SRC();
+  assert.doesNotMatch(
+    code,
+    /data-couple-only/,
+    'The `[data-couple-only]` + `:has(input[value=\'vendor\']:checked)` pair aimed ' +
+      'at a radio that no longer exists. A selector matching nothing does not ' +
+      'fail — it silently stops hiding, showing a vendor a consent question ' +
+      'about their wedding.',
+  );
+  assert.match(code, /\{coupleConsent \? \(/, 'the consent block must be server-gated');
 });
 
 test('the form still submits to the same server action', () => {

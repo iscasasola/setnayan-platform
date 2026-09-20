@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -7,6 +8,7 @@ import { readInChunks } from '@/lib/read-all-pages';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import {
   eventAccessUnlocked,
+  feeEnforcementFromSources,
   isFeeUnlocksEventEnabled,
   resolveEventAccessStage,
   type BookingFeeChargeFacts,
@@ -41,6 +43,73 @@ import {
  * `eventAccessUnlocked` UNLOCKS, and logs through `logQueryError`. A supplier
  * is never locked out of a wedding because a SELECT was refused.
  */
+
+/**
+ * IS THE GATE ENFORCED? — the ONE answer, and it is the same answer the DATABASE
+ * gives itself.
+ *
+ * ── WHY THIS IS NOT JUST THE ENV FLAG ───────────────────────────────────────
+ * Migration 20271236283573 moved the FIELD rule into SQL, because
+ * `get_vendor_event_brief` is SECURITY DEFINER and a supplier could call it
+ * straight from their own browser session and read every field the page was
+ * hiding. SQL cannot read `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, so the enforcement
+ * got a switch both halves can read: `platform_settings.fee_unlocks_event_enforced`
+ * (the `setnayan_ai_paywall_enabled` precedent — non-secret config on the
+ * singleton, flipped from the admin console with no redeploy).
+ *
+ * 🔑 THE INVARIANT, AND IT IS THE WHOLE POINT:
+ *        DATABASE ENFORCING  ⇒  APP ENFORCING.
+ * `enforced_app = env OR column` and `enforced_db = column`, so the only
+ * asymmetry that can exist is the SAFE one — the env flag alone narrows the
+ * SCREEN while the RPC still answers in full, exactly the state #5738 shipped.
+ * There is no state in which the database withholds a field this app believes
+ * it is showing. `lib/event-access-stage.test.ts` executes the implication.
+ *
+ * ── FAILURE DIRECTION ───────────────────────────────────────────────────────
+ * A refused/absent read returns FALSE — not enforced. That is the fail-open
+ * direction this whole module takes, and it cannot desynchronise the two halves
+ * on its own: both read the same row in the same database through the same
+ * PostgREST, and the brief carries `withheld` so a narrowing announces itself to
+ * the page regardless (`reconcileStageWithPayload`).
+ *
+ * Service-role, because the column is config, not the caller's data — and
+ * `cache()`d, so one render resolves it once.
+ */
+export const resolveFeeEnforcement = cache(async (): Promise<boolean> =>
+  feeEnforcementFromSources({
+    envFlag: isFeeUnlocksEventEnabled(),
+    platformSwitch: await readFeeEnforcementSwitch(),
+  }),
+);
+
+/**
+ * `platform_settings.fee_unlocks_event_enforced`, or NULL when it cannot be read
+ * — NULL and FALSE are the same answer to `feeEnforcementFromSources`, and the
+ * distinction is kept only so the log line above says which happened.
+ *
+ * Service-role, because the column is platform config and not the caller's data.
+ */
+async function readFeeEnforcementSwitch(): Promise<boolean | null> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('platform_settings')
+      .select('fee_unlocks_event_enforced')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('resolveFeeEnforcement.platform_settings', error);
+      return null;
+    }
+    return (
+      (data as { fee_unlocks_event_enforced?: boolean | null } | null)
+        ?.fee_unlocks_event_enforced ?? null
+    );
+  } catch {
+    // The column not existing yet (a deploy that lands before the migration) is
+    // the same answer as NULL: nothing is enforced anywhere.
+    return null;
+  }
+}
 
 /** The charge columns the rule needs. Nothing about the event, by design. */
 const CHARGE_SELECT = 'charge_id, event_id, status, amount_charged_centavos, expires_at';
@@ -84,8 +153,8 @@ export async function readEventFeeCharges(
 ): Promise<Map<string, BookingFeeChargeFacts>> {
   const out = new Map<string, BookingFeeChargeFacts>();
   if (eventIds.length === 0) return out;
-  // The gate is inert while the flag is off, so do not spend a query on it.
-  if (!isFeeUnlocksEventEnabled()) {
+  // The gate is inert while the switch is off, so do not spend a query on it.
+  if (!(await resolveFeeEnforcement())) {
     for (const id of eventIds) out.set(id, { kind: 'none' });
     return out;
   }
@@ -195,7 +264,13 @@ export async function resolveEventFeeGate(
   opts?: { booked?: boolean },
 ): Promise<EventFeeGate> {
   const charge = await readEventFeeCharge(vendorProfileId, eventId);
-  return resolveEventAccessStage({ booked: opts?.booked ?? true, charge });
+  return resolveEventAccessStage({
+    booked: opts?.booked ?? true,
+    charge,
+    // 🔑 The DB switch counts too, so the page can never believe 'unlocked' while
+    // the RPC is narrowing. See `resolveFeeEnforcement`.
+    enforced: await resolveFeeEnforcement(),
+  });
 }
 
 /** `resolveEventFeeGate` for a list — one query for the whole Event Hub. */
@@ -205,9 +280,10 @@ export async function resolveEventFeeGates(
   opts?: { booked?: boolean },
 ): Promise<Map<string, EventFeeGate>> {
   const charges = await readEventFeeCharges(vendorProfileId, eventIds);
+  const enforced = await resolveFeeEnforcement();
   const out = new Map<string, EventFeeGate>();
   for (const [eventId, charge] of charges) {
-    out.set(eventId, resolveEventAccessStage({ booked: opts?.booked ?? true, charge }));
+    out.set(eventId, resolveEventAccessStage({ booked: opts?.booked ?? true, charge, enforced }));
   }
   return out;
 }

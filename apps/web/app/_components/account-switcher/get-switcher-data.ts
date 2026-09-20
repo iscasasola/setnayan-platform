@@ -6,7 +6,7 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
-import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -159,7 +159,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
     const { data: eventRows, error: eventsErr } = await supabase
       .from('events')
       .select(
-        'event_id, display_name, event_type, event_date, is_primary, archived, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg',
+        'event_id, display_name, event_type, event_date, is_primary, archived, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg',
       )
       .in('event_id', eventIds)
       .eq('archived', false)
@@ -188,9 +188,13 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       monogram_font_key: (ev.monogram_font_key as string | null) ?? null,
       monogram_style: (ev.monogram_style as string | null) ?? null,
       monogram_frame_key: (ev.monogram_frame_key as string | null) ?? null,
-      // SEC-3: gated on read — the column is host-writable via PostgREST, and
-      // the switcher renders every event the viewer belongs to (cross-tenant).
-      monogram_custom_svg: safeMonogramSvg(ev.monogram_custom_svg),
+      /* SEC-3: gated on read — the column is host-writable via PostgREST, and
+       * the switcher renders every event the viewer belongs to (cross-tenant).
+       * The RESOLVED mark goes into this field (uploaded outranks studio, and
+       * the ink policy is applied): the select below did not even FETCH
+       * monogram_uploaded_svg, so an uploaded logo was invisible here — the
+       * switcher kept drawing the designed mark the couple had replaced. */
+      monogram_custom_svg: resolveEventMonogramSvg(ev),
     }));
   }
 

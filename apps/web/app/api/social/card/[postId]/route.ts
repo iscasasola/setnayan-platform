@@ -11,7 +11,7 @@ import {
   type CardContext,
   type CardFormat,
 } from '@/lib/social/card';
-import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * GET /api/social/card/[postId] — the branded social card for a social_posts
@@ -168,14 +168,17 @@ async function coupleCreationContext(
     const { data: ev } = await admin
       .from('events')
       .select(
-        'display_name, monogram_custom_svg, monogram_text, monogram_color, monogram_font_key, monogram_style',
+        'display_name, monogram_custom_svg, monogram_uploaded_svg, monogram_text, monogram_color, monogram_font_key, monogram_style',
       )
       .eq('event_id', consent.event_id)
       .maybeSingle();
     if (ev) {
       coupleName = ev.display_name ?? null;
-      // SEC-3: gated on read — host-writable column feeding a shareable card.
-      monogramCustomSvg = safeMonogramSvg(ev.monogram_custom_svg);
+      /* SEC-3: gated on read — host-writable columns feeding a SHAREABLE card.
+       * Resolved, not raw: this card is the mark as the world sees it, so an
+       * uploaded logo must win here exactly as it does on the website. It did
+       * not before — the select fetched only monogram_custom_svg. */
+      monogramCustomSvg = resolveEventMonogramSvg(ev);
       monogramStyle = ev.monogram_style ?? null;
       monogramFontKey = ev.monogram_font_key ?? null;
       const mono = resolveMonogram({

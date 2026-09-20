@@ -35,6 +35,7 @@ export type PublicProfileEvent = {
   monogram_font_key: string | null;
   monogram_frame_key: string | null;
   monogram_custom_svg: string | null;
+  monogram_uploaded_svg: string | null;
 };
 
 export type PublicProfileUser = {
@@ -55,7 +56,7 @@ export type ResolvedPublicProfile = {
 };
 
 const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg';
+  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg';
 
 /** The minimum an event row must carry to be put through the public gate. */
 export type PublicGateEventFields = {

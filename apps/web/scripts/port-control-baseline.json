@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c13488a54",
+  "generatedFromRef": "ccc185edb",
   "routeCount": 430,
-  "destinations": 921,
+  "destinations": 922,
   "actions": 651,
-  "blocks": 4548,
+  "blocks": 4556,
   "routes": {
     "/": {
       "files": [
@@ -5468,9 +5468,11 @@
         "RoleChip",
         "RoleChipEditor",
         "RoleChips",
+        "RoleTexts",
         "RowAvatar",
         "RsvpChipEditor",
         "RsvpPill",
+        "RsvpText",
         "Scrim",
         "SeatChip",
         "Seg",
@@ -5483,6 +5485,7 @@
         "SheetPill",
         "SideChipEditor",
         "SidePill",
+        "SideText",
         "SoftDeleteForUndoResult",
         "SortSelect",
         "SubmitButton",
@@ -5906,15 +5909,19 @@
       "files": [
         "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
         "dashboard/[eventId]/monogram/draft-restore.tsx",
+        "dashboard/[eventId]/monogram/ink-compare.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
+        "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
-        "dashboard/[eventId]/monogram/upload-mark.tsx"
+        "dashboard/[eventId]/monogram/upload-mark.tsx",
+        "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/monogram",
         "/dashboard/[seg]/studio"
       ],
       "actions": [
@@ -5934,9 +5941,13 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
+        "InkChoice",
+        "InkCompare",
         "InlineCheckoutDrawer",
         "Link",
+        "MarkDoors",
         "MarkEverywhere",
+        "MarkInkMode",
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",
@@ -5949,8 +5960,10 @@
         "StudioAnimKind",
         "StudioApi",
         "StudioRevealPlayer",
+        "Tip",
         "UnownedView",
         "UploadMark",
+        "UploadTips",
         "VectorStudio"
       ]
     },
@@ -9315,7 +9328,6 @@
         "signUp"
       ],
       "blocks": [
-        "AccountTypeOption",
         "DesktopOAuthButtons",
         "FormField",
         "Link",

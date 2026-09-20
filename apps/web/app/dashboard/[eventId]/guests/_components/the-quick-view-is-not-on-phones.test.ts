@@ -89,15 +89,16 @@ test('the quick view has exactly ONE trigger, and it is the desktop row', () => 
   );
 });
 
-test('neither phone row renders it — that is WHY it is unreachable at 375px', () => {
-  for (const row of ['GuestCard', 'MobileListRow']) {
-    assert.equal(
-      bodyOf(LIST, row).includes('<QuickViewButton'),
-      false,
-      `${row} now mounts the quick view, so a phone CAN reach it — the sheet ` +
-        'is no longer desktop-only and guest-drawer.tsx must stop saying so',
-    );
-  }
+test('the phone row does not render it — that is WHY it is unreachable at 375px', () => {
+  // ⚠ UPDATED 2026-09-20 — `GuestCard` (the grid density's phone row) is
+  // deleted along with the grid view; `MobileListRow` is the only phone row
+  // left, so it is the only one left to check.
+  assert.equal(
+    bodyOf(LIST, 'MobileListRow').includes('<QuickViewButton'),
+    false,
+    'MobileListRow now mounts the quick view, so a phone CAN reach it — the ' +
+      'sheet is no longer desktop-only and guest-drawer.tsx must stop saying so',
+  );
 });
 
 test('the desktop table is still hidden below the desktop breakpoint', () => {

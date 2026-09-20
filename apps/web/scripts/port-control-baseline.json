@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2672206ef",
+  "generatedFromRef": "1f9ab732e",
   "routeCount": 430,
-  "destinations": 922,
-  "actions": 651,
-  "blocks": 4558,
+  "destinations": 923,
+  "actions": 653,
+  "blocks": 4562,
   "routes": {
     "/": {
       "files": [
@@ -705,6 +705,7 @@
     },
     "/[slug]": {
       "files": [
+        "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/countdown.tsx",
@@ -726,6 +727,7 @@
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/entourage-section.tsx",
         "[slug]/_components/event-words-provider.tsx",
+        "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
@@ -817,6 +819,7 @@
         "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/icon-source.ts",
@@ -856,6 +859,7 @@
         "/dashboard/profile",
         "/login",
         "/papic/guest",
+        "/papic/guest?from=[seg]",
         "/signup",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
@@ -865,6 +869,7 @@
       ],
       "actions": [
         "action",
+        "arrivalAction",
         "submit",
         "toggle",
         "toggleBlur",
@@ -873,6 +878,7 @@
       "blocks": [
         "AnnouncementCard",
         "ArrangedSheet",
+        "ArrivalActionRow",
         "ArrivalGreeting",
         "BackCover",
         "BackCoverBlock",
@@ -921,6 +927,7 @@
         "EventWords",
         "EventWordsContext.Provider",
         "EventWordsProvider",
+        "EverythingElseSheet",
         "FaceDataNotice",
         "FaceGateResult",
         "FaceReceiptCard",
@@ -1041,6 +1048,7 @@
         "RoomLink",
         "RoomPlan",
         "Row",
+        "RowGroup",
         "RsvpPill",
         "RsvpWidget",
         "RunOfShowHeader",
@@ -1061,6 +1069,7 @@
         "SelfieCapture",
         "SetnayanExperience",
         "ShareButtons",
+        "Sheet",
         "SheetClip",
         "SheetEntry",
         "SiteBody",
@@ -4500,6 +4509,7 @@
         "updatePlannerMode",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
+        "updateSharePhotoWithHosts",
         "updateUserSlug"
       ],
       "blocks": [
@@ -9135,7 +9145,8 @@
         "submitPapicGuestPayment"
       ],
       "blocks": [
-        "CopyButton"
+        "CopyButton",
+        "PayRailsBlock"
       ]
     },
     "/papic/pool": {
@@ -9198,14 +9209,14 @@
       ],
       "blocks": [
         "Channel",
-        "ChannelTab",
+        "ChannelToggle",
         "CopyButton",
         "FileUpload",
         "Link",
         "PayPanel",
         "PayStage",
+        "PaymentDetailsBlock",
         "ProofForm",
-        "QrTile",
         "StageLink",
         "StageRail",
         "Step",
@@ -11549,7 +11560,6 @@
         "Link",
         "PageMasthead",
         "PapicChallengeCard",
-        "PayBox",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",

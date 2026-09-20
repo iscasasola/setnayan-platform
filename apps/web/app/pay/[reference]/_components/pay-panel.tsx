@@ -289,6 +289,8 @@ export function PayPanel({
                 }}
                 referenceCode={reference}
                 amountPhp={amountPhp}
+                /* Not "below": on this page the picture is the NEXT STAGE. */
+                proofHint="then send us the screenshot on the next step."
               />
             </>
           )}

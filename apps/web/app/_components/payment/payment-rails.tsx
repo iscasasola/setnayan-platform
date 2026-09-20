@@ -194,6 +194,7 @@ export function PaymentDetailsBlock({
   info,
   referenceCode,
   amountPhp,
+  proofHint,
 }: {
   channel: 'gcash' | 'bdo';
   /** This rail's account and code — see `railFromSettings` for the adapter. */
@@ -201,6 +202,12 @@ export function PaymentDetailsBlock({
   referenceCode: string;
   /** VAT-inclusive gross the payer sends — minted into the QR as tag 54. */
   amountPhp: number;
+  /**
+   * Where the proof goes, in the words of THIS surface. Defaults to the
+   * checkout drawer's "then upload your screenshot below", which is true there
+   * and false on a page where the upload is a separate stage.
+   */
+  proofHint?: string;
 }) {
   const { name, number, staticUrl: qrUrl, payload: qrPayload } = info;
   const hasInfo = Boolean(number?.trim());
@@ -285,7 +292,14 @@ export function PaymentDetailsBlock({
     <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
       <p className="text-xs text-ink/60">
         Send your <span className="font-semibold text-ink">{label}</span> payment,
-        then upload your screenshot below.
+        {/* ⚠ "BELOW" IS A CLAIM ABOUT THE PAGE AROUND THIS BLOCK, and it stopped
+            being true the moment /pay started rendering it: there the upload is
+            the NEXT STAGE, not the next thing down the screen. A sentence that
+            was accurate in the drawer became a wrong direction somewhere else —
+            which is the cost of sharing copy, and the reason it is a prop with
+            the drawer's own words as the default rather than a constant. */}
+        {' '}
+        {proofHint ?? 'then upload your screenshot below.'}
       </p>
 
       {referenceCode ? (

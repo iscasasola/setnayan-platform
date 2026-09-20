@@ -60,7 +60,7 @@ export function EverythingElseSheet({ rows }: { rows: EverythingElseRow[] }) {
 function RowGroup({ heading, rows }: { heading: string; rows: EverythingElseRow[] }) {
   return (
     <div className="py-3">
-      <p className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-terracotta">
+      <p className="mb-1 font-mono text-xs font-bold uppercase tracking-[0.24em] text-terracotta">
         {heading}
       </p>
       <ul>

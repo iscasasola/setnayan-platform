@@ -2091,6 +2091,14 @@ export async function SiteBody({
             cameraFeatureOn: hostCameraOpen,
             broadcastConfigured: plan.liveMediaVisible && Boolean(watchLive),
             venueWalkHref: doorways.venueWalk,
+            /* The album door, resolved ONCE by `resolveAlbumDoor` in
+               `_lib/loaders.ts` and carried on the anonymous identity. The rows
+               module used to build `/recap` itself, which is a second place
+               deciding where the album lives — `the-album-door-is-one-decision`
+               caught it. A guest branch with no resolved door passes null, and
+               the row falls back to its dated "after" badge instead of a link
+               that may not open. */
+            keepsakeHref: identity.kind === 'anonymous' ? identity.publicAlbumHref : null,
             recapBodyReady: recapBody,
             recapHasPhotos,
             canShare: resolveEffectiveVisibility(event) === 'public',

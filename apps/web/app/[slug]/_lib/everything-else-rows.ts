@@ -62,6 +62,14 @@ export type EverythingElseInput = {
   /** `plan.body === 'editorial'` — the post-event editorial has been composed.
    *  Gates both the recap ("keepsake reel") and print, which mirrors the
    *  editorial's own visibility + phase gate. */
+  /**
+   * The album door, ALREADY RESOLVED by `resolveAlbumDoor` (album-door.server.ts)
+   * and handed in. This module must never build `/recap` itself: the guest tree
+   * has exactly one place that decides where the album lives, and a second one
+   * here would answer differently the day that decision changes. Pinned by
+   * `the-album-door-is-one-decision.test.ts`.
+   */
+  keepsakeHref: string | null;
   recapBodyReady: boolean;
   /** Did the recap actually produce photos (`recapHasPhotos`)? A ready-but-
    *  empty recap is still worth a badge, not yet a link. */
@@ -130,8 +138,8 @@ export function resolveEverythingElseRows(input: EverythingElseInput): Everythin
 
   if (input.recapBodyReady) {
     rows.push(
-      input.recapHasPhotos
-        ? { key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', href: `${base}/recap` }
+      input.recapHasPhotos && input.keepsakeHref
+        ? { key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', href: input.keepsakeHref }
         : { key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', badge: AFTER_BADGE },
     );
     // /print mirrors the editorial's own visibility + phase gate — never

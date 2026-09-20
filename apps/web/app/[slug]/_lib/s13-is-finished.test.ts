@@ -110,6 +110,15 @@ const ALLOWED: Record<string, string> = {
  */
 const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string }> = [
   {
+    file: '_lib/everything-else-rows.ts',
+    snippet: "viewerKind: 'anonymous' | 'guest' | 'couple' | 'vendor';",
+    why:
+      'A TYPE UNION naming viewer roles, not text a guest reads. `couple` here is the role the ' +
+      'identity discriminator already uses across the guest tree (site-identity.ts); resolving it ' +
+      'from the event type would rename a role, not a word on a screen. Keyed on the LINE, so the ' +
+      'rest of this file stays under the guard.',
+  },
+  {
     file: 'recap/page.tsx',
     snippet: "from '@/lib/couple-website-pro'",
     why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',

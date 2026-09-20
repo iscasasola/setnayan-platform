@@ -15,6 +15,7 @@ const base: EverythingElseInput = {
   cameraFeatureOn: false,
   broadcastConfigured: false,
   venueWalkHref: null,
+  keepsakeHref: null,
   recapBodyReady: false,
   recapHasPhotos: false,
   canShare: false,
@@ -89,9 +90,16 @@ test('everything-else · walk-the-room mirrors doorways.venueWalk verbatim, pers
 });
 
 test('everything-else · keepsake reel: link once photos exist, "After" badge once the recap body exists but is still empty', () => {
+  // The href is HANDED IN, resolved once by `resolveAlbumDoor` — this module
+  // must not build `/recap` itself (the-album-door-is-one-decision).
   assert.equal(
-    row(at({ recapBodyReady: true, recapHasPhotos: true }), 'keepsake')?.href,
+    row(at({ recapBodyReady: true, recapHasPhotos: true, keepsakeHref: '/maria-and-jose/recap' }), 'keepsake')?.href,
     '/maria-and-jose/recap',
+  );
+  assert.equal(
+    row(at({ recapBodyReady: true, recapHasPhotos: true, keepsakeHref: null }), 'keepsake')?.badge,
+    'After',
+    'no resolved door → a dated row, never a link that may not open',
   );
   const emptyRecap = row(at({ recapBodyReady: true, recapHasPhotos: false }), 'keepsake');
   assert.equal(emptyRecap?.href, undefined);

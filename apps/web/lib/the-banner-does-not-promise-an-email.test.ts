@@ -12,7 +12,19 @@
  *
  * 🔑 THE INSTRUCTIONS ARE NOT ON THE WAY — THEY ARE ONE TAP AWAY. The order's
  * own page already carries the total, the reference, the BDO/GCash accounts and
- * the form for telling us the transfer is made. So the banner links to it.
+ * the form for telling us the transfer is made. So the banner linked to it.
+ *
+ * 🔁 AND ON 2026-09-20 THE BANNER ITSELF WENT. Owner: *"papic order is not
+ * fixed like the other purchases… why isn't it like this when they set the
+ * price they pay for papic."* He was looking at `/pay/<reference>` — the QR
+ * with the figure already inside it, the account name and number, the exact
+ * amount to copy, the field for the bank reference. A banner that NAMES a
+ * payment page is still not a payment page: it cost two more taps ("See how to
+ * pay" → the order page → "Pay now") to reach what every other buy button in
+ * the product reaches on the redirect. So these four mints now end at
+ * `payPath(referenceCode)` like the rest, and the tests below moved with them —
+ * from "the banner links somewhere payable" to "there is no banner, because
+ * there is no detour".
  *
  * This is the same defect the owner hit in onboarding on 2026-08-20 ("i had a
  * price to pay. but i there was no payment. it just created."), in three more
@@ -55,33 +67,74 @@ test('the promise is still unsendable — if this fails, the email now exists an
   );
 });
 
-test('the banner sends the buyer somewhere they can actually pay', () => {
-  const src = stripComments(read(STUDIO_PAGE));
-  // Counted, not merely matched: this label used to be duplicated across two
-  // ternary branches, and a mutation deleting ONE left the other standing and
-  // this guard green. Exactly one link, so removing it cannot hide.
-  const labels = (src.match(/See how to pay/g) ?? []).length;
-  assert.equal(labels, 1, `expected exactly one pay link, found ${labels}`);
-  assert.match(
-    src,
-    /`\/dashboard\/\$\{eventId\}\/orders\/\$\{papicOrder\}`/,
-    'the link must open the order that was just minted',
-  );
-  assert.match(
-    src,
-    /`\/dashboard\/\$\{eventId\}\/orders`/,
-    'and must fall back to the orders list when the id is missing, never to nothing',
-  );
+test('every paid Papic studio buy ends on the payment page, by name', () => {
+  /**
+   * Anchored PER FUNCTION, not counted over the file. A file-level match cannot
+   * say WHICH buy path still detours — sabotage that re-pointed one of the four
+   * back at the studio would leave three matches standing and a count-based
+   * assertion green. Each door is asked its own question.
+   */
+  const src = stripComments(read(STUDIO_ACTIONS));
+  const bodyOf = (fn: string): string => {
+    const at = src.indexOf(`export async function ${fn}(`);
+    assert.ok(at >= 0, `${fn} is gone from ${STUDIO_ACTIONS} — was it renamed?`);
+    const next = src.indexOf('\nexport async function ', at + 1);
+    return next === -1 ? src.slice(at) : src.slice(at, next);
+  };
+
+  for (const fn of [
+    'purchasePapicCameras',
+    'activatePapicLimited',
+    'purchasePapicExtras',
+    'purchasePapicPoolTopUp',
+  ]) {
+    const body = bodyOf(fn);
+    assert.match(
+      body,
+      /redirect\(payPath\(referenceCode\)\)/,
+      `${fn} must send the buyer to /pay/<reference> — the one screen that carries ` +
+        'the amount inside the QR and can take a screenshot and a bank reference',
+    );
+    assert.doesNotMatch(
+      body,
+      /papic_purchased=/,
+      `${fn} still redirects to the studio banner, which is the detour this removed`,
+    );
+  }
 });
 
-test('every studio buy path carries the order id the link needs', () => {
+test('a FREE Papic provision still returns before the payment page', () => {
+  /**
+   * The mirror of the ₱0 rule in every-buy-button-lands-on-the-payment-page:
+   * an Unlock-all owner provisioning cameras for nothing must not be shown a
+   * bill. Both free arms redirect on `papic_unlock_provisioned`, and both must
+   * do it BEFORE the paid redirect is reached.
+   */
   const src = stripComments(read(STUDIO_ACTIONS));
-  const purchased = (src.match(/papic_purchased=/g) ?? []).length;
-  const withOrder = (src.match(/papic_order=/g) ?? []).length;
-  assert.ok(purchased > 0, 'expected at least one buy-path redirect');
-  assert.equal(
-    withOrder,
-    purchased,
-    `${purchased - withOrder} buy path(s) redirect without the order id, so their banner degrades to the list`,
-  );
+  const frees = [...src.matchAll(/papic_unlock_provisioned=/g)].map((m) => m.index ?? -1);
+  assert.equal(frees.length, 2, `expected both free provisions, found ${frees.length}`);
+  for (const freeAt of frees) {
+    const payAt = src.indexOf('redirect(payPath(referenceCode))', freeAt);
+    assert.ok(payAt > freeAt, 'the free arm must come before its function’s paid redirect');
+    assert.doesNotMatch(
+      src.slice(freeAt, payAt),
+      /requested_total_php/,
+      'nothing may be priced between the free arm and the paid redirect',
+    );
+  }
+});
+
+test('the studio banner that stood in for a payment page is GONE, not merely unreachable', () => {
+  // A confirmation nothing can trigger reads to the next person as a live screen
+  // with a broken trigger — and its copy drifts out of true unnoticed.
+  const src = stripComments(read(STUDIO_PAGE));
+  assert.doesNotMatch(src, /See how to pay/, 'the banner’s link survived the redirect change');
+  assert.doesNotMatch(src, /papicPurchased/, 'the banner’s trigger survived the redirect change');
+  for (const param of ['papic_purchased', 'papic_ref', 'papic_amount']) {
+    assert.doesNotMatch(
+      src,
+      new RegExp(`${param}\\?:`),
+      `${param} is still in the page’s searchParams — nothing sets it any more`,
+    );
+  }
 });

@@ -1,6 +1,6 @@
 import { Sparkles, Store, Info } from 'lucide-react';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { CountUp } from './count-up';
 
 /**

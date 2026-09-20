@@ -1090,7 +1090,13 @@ export function buildPlanBudgetModel(args: {
   };
 }
 
-/** Format centavos as a compact peso string for the top bar (₱840K). */
+/**
+ * Format centavos as a compact peso string for the top bar (₱840K).
+ *
+ * @rounds-to-the-peso A COMPACT SUMMARY GLYPH. It already collapses to `₱840K`
+ * and `₱1.2M`; a centavo inside an abbreviation is not information. The exact
+ * figure lives one tap away on the budget page, which uses `formatPhp`.
+ */
 export function formatPesoCompact(centavos: number): string {
   const pesos = centavos / PESO;
   if (pesos >= 1_000_000) {
@@ -1103,7 +1109,13 @@ export function formatPesoCompact(centavos: number): string {
   return `₱${Math.round(pesos).toLocaleString('en-PH')}`;
 }
 
-/** Format centavos as a precise peso string for the overview (₱840,000). */
+/**
+ * Format centavos as a precise peso string for the overview (₱840,000).
+ *
+ * @rounds-to-the-peso "Precise" here means UNABBREVIATED, not exact — it is the
+ * long form of `formatPesoCompact` above, on the same planning overview, and
+ * the two must agree. The figures are plan totals, never a bill.
+ */
 export function formatPesoPrecise(centavos: number): string {
   return `₱${Math.round(centavos / PESO).toLocaleString('en-PH')}`;
 }

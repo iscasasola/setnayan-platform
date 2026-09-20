@@ -80,7 +80,7 @@ import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
-import { redactBriefForStage } from '@/lib/event-access-stage';
+import { redactBriefForStage, reconcileStageWithPayload } from '@/lib/event-access-stage';
 import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 // ONE definition of a category's name. A file-local `CATEGORY_LABELS` used to
@@ -514,9 +514,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   //
   // ⚠ THE QUOTE / PAYMENTS TAB AND THE CONVERSATION ARE NEVER GATED — a locked
   // supplier must always be able to talk and to pay (`ALWAYS_OPEN_SURFACES`).
-  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId, {
+  //
+  // 🔒 AND SINCE MIGRATION 20271236283573 THE DATABASE NARROWS THE SAME FIELDS
+  // ITSELF (the RPC is SECURITY DEFINER; a supplier could call it from their own
+  // session and read what this page hid). `reconcileStageWithPayload` takes the
+  // RPC's own `withheld` list as decisive: if SQL says it took the venue, this
+  // page shows the locked panel even if the flag read came back 'unlocked' —
+  // otherwise the booked layout would be drawn over NULLs and read as a wedding
+  // with nothing planned.
+  const rawGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId, {
     booked: isBooked,
   });
+  const feeGate = {
+    ...rawGate,
+    stage: reconcileStageWithPayload(rawGate.stage, rawBrief),
+  };
   const { brief, withheld: feeWithheld } = redactBriefForStage(rawBrief, feeGate.stage);
   const feeUnlocked = feeGate.stage === 'unlocked';
   // 🔒 ONE BOOLEAN, AND IT IS THE NEGATIVE OF 'booked' — NOT `stage === 'inquiry'`.

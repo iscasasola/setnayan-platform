@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Wallet, Clock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
+import { fetchBudgetSnapshot, buildBudgetLiveSummary } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';

@@ -32,7 +32,7 @@ import {
   updateSocialPostBody,
 } from '@/app/admin/social-queue/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
@@ -90,6 +90,7 @@ type ConsentEvent = {
   display_name: string | null;
   event_date: string | null;
   monogram_custom_svg: string | null;
+  monogram_uploaded_svg: string | null;
 };
 
 type VendorQueueRow = {
@@ -355,7 +356,7 @@ export async function SocialQueueSurface({
   if (consentEventIds.length > 0) {
     const { data: eventData } = await admin
       .from('events')
-      .select('event_id,display_name,event_date,monogram_custom_svg')
+      .select('event_id,display_name,event_date,monogram_custom_svg,monogram_uploaded_svg')
       .in('event_id', consentEventIds);
     eventMap = Object.fromEntries(
       ((eventData ?? []) as ConsentEvent[]).map((e) => [e.event_id, e]),
@@ -858,8 +859,11 @@ export async function SocialQueueSurface({
             // below, but this is an ADMIN session reading arbitrary couples'
             // host-writable marks — gate the value too, and keep a poisoned mark
             // out of anything published from this queue.
+            /* Resolved, not raw — what this queue PUBLISHES must be the mark
+             * the couple actually uses. Reading monogram_custom_svg alone
+             * published a mark they had already replaced by uploading one. */
             const monogramSvg =
-              c.artifact_type === 'monogram' ? safeMonogramSvg(ev?.monogram_custom_svg) : null;
+              c.artifact_type === 'monogram' ? resolveEventMonogramSvg(ev ?? null) : null;
             return (
               <li key={c.consent_id}>
                 <article className="space-y-3 sn-tile p-4">

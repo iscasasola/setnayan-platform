@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarClock, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { formatPhp, type BudgetLiveSummary } from '@/lib/budget';
+import { type BudgetLiveSummary } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import { getBudgetLiveSummary } from '../actions';
 import { BUDGET_TOP_SUMMARY_HEADER_ID } from './budget-summary-ids';
 

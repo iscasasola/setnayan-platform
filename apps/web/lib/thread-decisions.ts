@@ -1,4 +1,4 @@
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { THREAD_STAGE_LABEL, type ThreadStage } from '@/lib/vendor-thread-stage';
 import type { PaymentDispute } from '@/lib/payment-refusal';
 

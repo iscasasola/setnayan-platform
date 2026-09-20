@@ -57,7 +57,7 @@ import {
 } from '@/lib/budget-allocation';
 import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
-import { formatPhp } from '@/lib/budget';
+import { formatPhpRounded } from '@/lib/php';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
@@ -279,7 +279,7 @@ export function BudgetAllocationPlanner({
               Total budget
             </p>
             <p className="font-mono text-3xl font-bold text-ink sm:text-4xl">
-              {formatPhp(budgetPhp)}
+              {formatPhpRounded(budgetPhp)}
             </p>
           </div>
           <div className="space-y-1 text-right">
@@ -288,11 +288,11 @@ export function BudgetAllocationPlanner({
             </p>
             {overBudget ? (
               <p className="font-mono text-2xl font-bold text-terracotta-700 sm:text-3xl">
-                {formatPhp(Math.abs(cushion))}
+                {formatPhpRounded(Math.abs(cushion))}
               </p>
             ) : (
               <p className="font-mono text-2xl font-bold text-success-700 sm:text-3xl">
-                {formatPhp(cushion)}
+                {formatPhpRounded(cushion)}
               </p>
             )}
             <p className="text-xs text-ink/55">
@@ -316,7 +316,7 @@ export function BudgetAllocationPlanner({
             <span>
               Your budget is about{' '}
               <strong className="font-medium text-ink">
-                {formatPhp(final.shortfallPhp)}
+                {formatPhpRounded(final.shortfallPhp)}
               </strong>{' '}
               short for these services — consider raising it or trimming a few.
             </span>
@@ -452,7 +452,7 @@ function OverspendBanner({
       <span>
         {joinLabels(overLabels)} {overLabels.length === 1 ? 'is' : 'are'} about{' '}
         <strong className="font-medium text-ink">
-          {formatPhp(overspend.totalOverspendPhp)}
+          {formatPhpRounded(overspend.totalOverspendPhp)}
         </strong>{' '}
         over the suggested split.{' '}
         {emerald ? (
@@ -467,7 +467,7 @@ function OverspendBanner({
             ) : null}
             about{' '}
             <strong className="font-medium text-ink">
-              {formatPhp(overspend.netOverPhp)}
+              {formatPhpRounded(overspend.netOverPhp)}
             </strong>{' '}
             isn&rsquo;t covered elsewhere — consider trimming or raising your budget.
           </>
@@ -495,7 +495,7 @@ function LeafRow({
         type="button"
         onClick={onOpen}
         className="sn-row group flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-terracotta/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-1"
-        aria-label={`Adjust ${label} — suggested ${formatPhp(leaf.amountPhp)}`}
+        aria-label={`Adjust ${label} — suggested ${formatPhpRounded(leaf.amountPhp)}`}
       >
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -515,13 +515,13 @@ function LeafRow({
             ) : null}
           </div>
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-            Range {formatPhp(leaf.rangeLowPhp)}–{formatPhp(leaf.rangeHighPhp)}
+            Range {formatPhpRounded(leaf.rangeLowPhp)}–{formatPhpRounded(leaf.rangeHighPhp)}
           </p>
         </div>
 
         <div className="shrink-0 text-right">
           <p className="font-mono text-xl font-bold text-ink tabular-nums">
-            {formatPhp(leaf.amountPhp)}
+            {formatPhpRounded(leaf.amountPhp)}
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
             {sharePct}% of budget
@@ -647,9 +647,9 @@ function TiltEditor({
         <p className="mt-2 text-sm text-ink/65">
           Suggested{' '}
           <strong className="font-medium text-ink">
-            {formatPhp(recommendedAmountPhp)}
+            {formatPhpRounded(recommendedAmountPhp)}
           </strong>{' '}
-          · typical range {formatPhp(leaf.rangeLowPhp)}–{formatPhp(leaf.rangeHighPhp)}.
+          · typical range {formatPhpRounded(leaf.rangeLowPhp)}–{formatPhpRounded(leaf.rangeHighPhp)}.
         </p>
 
         {/* Quick tilts. Standard clears the pin (back to suggested); Splurge /
@@ -662,7 +662,7 @@ function TiltEditor({
               setDraft(formatPlain(saveAmt));
             }}
             label="Save"
-            sub={formatPhp(saveAmt)}
+            sub={formatPhpRounded(saveAmt)}
           />
           <TiltButton
             active={isStandard}
@@ -671,7 +671,7 @@ function TiltEditor({
               setDraft(formatPlain(recommendedAmountPhp));
             }}
             label="Standard"
-            sub={formatPhp(recommendedAmountPhp)}
+            sub={formatPhpRounded(recommendedAmountPhp)}
           />
           <TiltButton
             active={leaf.pinned && leaf.amountPhp === splurgeAmt && splurgeAmt > 0}
@@ -680,7 +680,7 @@ function TiltEditor({
               setDraft(formatPlain(splurgeAmt));
             }}
             label="Splurge"
-            sub={formatPhp(splurgeAmt)}
+            sub={formatPhpRounded(splurgeAmt)}
           />
         </div>
 

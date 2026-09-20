@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6420
+# facts: 6421
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     562
-#   col       4729
+#   col       4730
 #   policy    876
 #   view      8
 #   func      241
@@ -2386,6 +2386,7 @@ col	public.guests.dietary_restrictions	anon=SIU authenticated=SIU
 col	public.guests.display_name	anon=SIU authenticated=SIU
 col	public.guests.download_completed_at	anon=SIU authenticated=SIU
 col	public.guests.email	anon=SIU authenticated=SIU
+col	public.guests.entourage_order	anon=SIU authenticated=SIU
 col	public.guests.entry_source	anon=SIU authenticated=SIU
 col	public.guests.event_id	anon=SIU authenticated=SIU
 col	public.guests.extra_roles	anon=SIU authenticated=SIU
@@ -3451,6 +3452,7 @@ col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
+col	public.platform_settings.fee_unlocks_event_enforced	anon=- authenticated=S
 col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
@@ -3999,7 +4001,6 @@ col	public.users.religion_consent_at	anon=S authenticated=SU
 col	public.users.reminders_enabled	anon=S authenticated=SU
 col	public.users.sex	anon=S authenticated=SU
 col	public.users.sex_consent_at	anon=S authenticated=SU
-col	public.users.share_profile_photo_with_hosts	anon=S authenticated=SU
 col	public.users.slug	anon=S authenticated=SU
 col	public.users.theme_preference	anon=S authenticated=SU
 col	public.users.tour_completed_at	anon=S authenticated=SU

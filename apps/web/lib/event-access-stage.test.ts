@@ -8,10 +8,13 @@ import {
   SHOW_BUDGET_BAND_WHILE_QUOTING,
   VENUE_WHILE_QUOTING,
   eventAccessUnlocked,
+  feeEnforcementFromSources,
   feeEnforcementSentence,
   feeLockCopy,
+  reconcileStageWithPayload,
   redactBriefForStage,
   resolveEventAccessStage,
+  withheldFromPayload,
   type BookingFeeChargeFacts,
 } from '@/lib/event-access-stage';
 
@@ -349,4 +352,90 @@ test('the three always-open surfaces are recorded as strings, not as a promise',
   assert.equal(ALWAYS_OPEN_SURFACES.conversation, '/vendor-dashboard/messages');
   assert.equal(ALWAYS_OPEN_SURFACES.feePayment, '/vendor-dashboard/booking-fees');
   assert.equal(ALWAYS_OPEN_SURFACES.bookingMoney, 'tab=quote');
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// TWO SWITCHES, ONE DIRECTION — migration 20271236283573.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * THE INVARIANT, EXECUTED OVER EVERY PAIR OF INPUTS.
+ *
+ * SQL cannot read `NEXT_PUBLIC_FEE_UNLOCKS_EVENT`, so the SQL half of the gate
+ * is switched by `platform_settings.fee_unlocks_event_enforced` alone. The app
+ * reads BOTH. The one state that must not exist is the database withholding a
+ * field the page believes it is drawing — so:
+ *
+ *     platformSwitch === true  ⇒  the app is enforcing.
+ *
+ * This is a truth table, not a sentence, because the sentence is what rots.
+ */
+test('🔑 DATABASE ENFORCING IMPLIES APP ENFORCING — every pair of switch states', () => {
+  const table: Array<{ envFlag: boolean; platformSwitch: boolean | null; app: boolean }> = [
+    { envFlag: false, platformSwitch: null, app: false },  // today's production
+    { envFlag: false, platformSwitch: false, app: false },
+    { envFlag: false, platformSwitch: true, app: true },   // the owner flips it: BOTH narrow
+    { envFlag: true, platformSwitch: null, app: true },    // #5738's state: screen only
+    { envFlag: true, platformSwitch: false, app: true },
+    { envFlag: true, platformSwitch: true, app: true },
+  ];
+  for (const row of table) {
+    const app = feeEnforcementFromSources({
+      envFlag: row.envFlag,
+      platformSwitch: row.platformSwitch,
+    });
+    assert.equal(
+      app,
+      row.app,
+      `env=${row.envFlag} switch=${row.platformSwitch} resolved to ${app}`,
+    );
+    // The database enforces on the COLUMN alone. It may never enforce while the
+    // app does not — that is the forbidden state.
+    const db = row.platformSwitch === true;
+    assert.ok(
+      !db || app,
+      `FORBIDDEN: the database would narrow while the app renders as unlocked ` +
+        `(env=${row.envFlag} switch=${row.platformSwitch})`,
+    );
+  }
+});
+
+test('an UNREADABLE switch is not an enforced switch', () => {
+  // `readFeeEnforcementSwitch` returns null on a refused read; null and false are
+  // the same answer, and neither turns the gate on behind anybody's back.
+  assert.equal(feeEnforcementFromSources({ envFlag: false, platformSwitch: null }), false);
+});
+
+test('a SQL-narrowed payload names its fields on the screen, whatever the flag read said', () => {
+  const narrowedBySql = {
+    event: { venue_name: null, venue_address: null, region: 'NCR' },
+    dietary: null,
+    timeline: [],
+    seat_plan: { published: false, published_at: null, table_count: 0, assigned_guests: 0 },
+    monogram: { text: null, color: null, font_key: null, frame_key: null, custom_svg: null },
+    withheld: ['venue', 'dietary', 'timeline'],
+  };
+  // Recomputing from the payload finds nothing — every field is already null.
+  // The list has to be READ BACK, or the screen says "the rest of this event".
+  const { withheld } = redactBriefForStage(narrowedBySql, 'booked_fee_due');
+  assert.deepEqual(withheld, ['venue', 'dietary', 'timeline']);
+  const copy = feeLockCopy({ stage: 'booked_fee_due', owed: null, withheld });
+  assert.match(copy.detail, /exact venue and address/);
+  assert.match(copy.detail, /meal counts/);
+  assert.match(copy.detail, /day-of timeline/);
+
+  // 🚨 And a payload that says it was narrowed is never rendered as unlocked.
+  assert.equal(reconcileStageWithPayload('unlocked', narrowedBySql), 'booked_fee_due');
+  assert.equal(reconcileStageWithPayload('unlocked', { withheld: [] }), 'unlocked');
+  assert.equal(reconcileStageWithPayload('unlocked', {}), 'unlocked', 'no key = nothing narrowed');
+  assert.equal(
+    reconcileStageWithPayload('quoting', {}),
+    'quoting',
+    'a stage the app already decided is never widened by this',
+  );
+  assert.deepEqual(
+    withheldFromPayload({ withheld: ['not_a_field', 'venue'] }),
+    ['venue'],
+    'only the register’s own field names are trusted',
+  );
 });

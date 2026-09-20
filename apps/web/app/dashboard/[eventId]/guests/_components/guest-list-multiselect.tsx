@@ -59,8 +59,14 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { type RolePalette } from '@/lib/mood-board';
-import { roleChipStyle } from '@/lib/role-chip-style';
-import { SIDE_AVATAR, SIDE_CHIP, SIDE_RING, SIDE_TINT_FILL } from '@/lib/side-colors';
+import { roleChipStyle, roleTextStyle } from '@/lib/role-chip-style';
+import {
+  SIDE_AVATAR,
+  SIDE_CHIP,
+  SIDE_CONTROL_BORDER,
+  SIDE_RING,
+  SIDE_TINT_FILL,
+} from '@/lib/side-colors';
 import {
   importanceGroupOf,
   ROLE_GROUP_LABELS,
@@ -356,7 +362,15 @@ function DesktopRow({
             : 'hover:bg-terracotta/[0.04]'
       }`}
     >
-      <td className="px-3 py-2.5">
+      {/* ⚖ The side, as an EDGE (owner 2026-09-20: "remove the pill boxes ...
+          so it looks neater"). A 2px rule down the left of the row lets a host
+          scan "all the bride's people" without reading a word, at zero
+          horizontal cost — where 77 tinted capsules cost a column. The Side
+          column keeps its label: an edge is for scanning, not a substitute for
+          a word a colour-blind reader or a screen reader can use.
+          Reusing SIDE_CONTROL_BORDER rather than adding a twelfth near-identical
+          side map — it is already exactly "a border colour per side". */}
+      <td className={`border-l-2 px-3 py-2.5 ${SIDE_CONTROL_BORDER[guest.side]}`}>
         <label className="flex items-center justify-center">
           <input
             type="checkbox"
@@ -418,12 +432,12 @@ function DesktopRow({
         {/* Inline editors (P2): the chip opens an anchored popover that applies
             through the optimistic overlay + drops an undo toast. */}
         <SideChipEditor eventId={eventId} guest={guest}>
-          <SidePill side={guest.side} />
+          <SideText side={guest.side} />
         </SideChipEditor>
       </td>
       <td className="px-3 py-2.5">
         <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
-          <RoleChips guest={guest} palette={palette} />
+          <RoleTexts guest={guest} palette={palette} />
         </RoleChipEditor>
       </td>
       <td className="px-3 py-2.5">
@@ -435,6 +449,7 @@ function DesktopRow({
             groupsById={groupsById}
             currentGroupId={currentGroupId}
             compact
+            plain
           />
           <AddToGroupControl
             eventId={eventId}
@@ -450,7 +465,7 @@ function DesktopRow({
           guest={guest}
           seatedTableLabel={seat?.placed ?? null}
         >
-          <RsvpPill status={guest.rsvp_status} />
+          <RsvpText status={guest.rsvp_status} />
         </RsvpChipEditor>
       </td>
       {/* Reactive seat (Living Roster P3): placed 🪑 T# · declined — · else the
@@ -461,6 +476,7 @@ function DesktopRow({
           suggested={seat?.suggested ?? null}
           rsvp={guest.rsvp_status}
           hasPlusOne={guest.plus_one_allowed}
+          plain
         />
       </td>
       {/* Owner 2026-09-14: "contact number should just show icon to call." The
@@ -2219,6 +2235,7 @@ function GroupChipList({
   groupsById,
   currentGroupId,
   compact = false,
+  plain = false,
 }: {
   eventId: string;
   guestId: string;
@@ -2226,6 +2243,10 @@ function GroupChipList({
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
   compact?: boolean;
+  /** Roster presentation (owner 2026-09-20): the group's NAME, no capsule. The
+   *  team-side tint moves onto the text so the bride/groom cue survives. The
+   *  mobile card keeps its chips — see the ROSTER TEXT VARIANTS note. */
+  plain?: boolean;
 }) {
   if (groupIds.length === 0) {
     return compact ? null : <span className="text-xs text-ink/35">—</span>;
@@ -2243,7 +2264,11 @@ function GroupChipList({
         return (
           <span
             key={gid}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${TEAM_SIDE_CHIP[grp.team_side]}`}
+            className={
+              plain
+                ? 'inline-flex items-center gap-1 text-[11px] text-ink/60'
+                : `inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${TEAM_SIDE_CHIP[grp.team_side]}`
+            }
             title={`${grp.label} · ${TEAM_SIDE_LABELS[grp.team_side]}`}
           >
             <span className="max-w-[10ch] truncate">{grp.label}</span>
@@ -2336,6 +2361,82 @@ function RsvpPill({ status }: { status: RsvpStatus }) {
       className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[status]}`}
     >
       {RSVP_LABELS[status]}
+    </span>
+  );
+}
+
+/* ── ROSTER TEXT VARIANTS ────────────────────────────────────────────────────
+   ⚖ Owner 2026-09-20, on the desktop guest list: "is there a better way to keep
+   this clean and remove the pill boxes? so it looks neater?"
+
+   Five filled capsules per row across 77 rows is ~385 coloured shapes and no
+   hierarchy — the eye reads texture, not information. These render the same
+   facts as text so ONE thing in the row carries colour: the role, which is the
+   identity and, since #5755, the couple's own mood-board colour.
+
+   🔑 THE MOBILE CARD KEEPS ITS PILLS, and that is not an oversight. `SidePill`,
+   `RsvpPill`, `RoleChips` and `SeatChip` are shared with `GuestCard` and
+   `MobileListRow`, where ONE guest fills a card — a chip reads as a label
+   there, not as texture. Editing those components in place would have
+   redesigned two surfaces from a note about one. The colour still comes from
+   the same resolver in lib/role-chip-style.ts, so a role can never be one
+   colour on a card and another on a row.
+
+   The SIDE COLUMN KEEPS ITS WORDS even though the row now carries a coloured
+   left edge for the same fact. The edge is for scanning; the text is what a
+   colour-blind reader and a screen reader actually get. Colour alone is not a
+   label. */
+
+const ROSTER_SIDE_LABEL: Record<GuestSide, string> = {
+  bride: "Bride's",
+  groom: "Groom's",
+  both: 'Both',
+};
+
+function SideText({ side }: { side: GuestRow['side'] }) {
+  return <span className="text-xs text-ink/60">{ROSTER_SIDE_LABEL[side]}</span>;
+}
+
+/* A dot, not a filled pill — the status still reads at a glance, and the four
+   tones keep the roster proto's warm semantics (attending → success, maybe →
+   warning, pending → neutral ink, declined → danger). */
+const ROSTER_RSVP_DOT: Record<RsvpStatus, string> = {
+  attending: 'bg-success-600',
+  maybe: 'bg-warn-500',
+  pending: 'bg-ink/25',
+  declined: 'bg-danger-600',
+};
+
+function RsvpText({ status }: { status: RsvpStatus }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-ink/70">
+      <span aria-hidden className={`h-1.5 w-1.5 flex-none rounded-full ${ROSTER_RSVP_DOT[status]}`} />
+      {RSVP_LABELS[status]}
+    </span>
+  );
+}
+
+function RoleTexts({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
+  const primary = roleTextStyle(guest.role, palette);
+  const extras = guest.extra_roles ?? [];
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+      <span className={`text-xs font-medium ${primary.textClass ?? ''}`} style={primary.style ?? undefined}>
+        {ROLE_LABELS[guest.role]}
+      </span>
+      {extras.map((r) => {
+        const extra = roleTextStyle(r, palette);
+        return (
+          <span
+            key={r}
+            title={`Also ${ROLE_LABELS[r]}`}
+            className={`text-[10px] ${extra.textClass ?? ''}`}
+            style={extra.style ?? undefined}
+          >
+            +{ROLE_LABELS[r]}
+          </span>
+        );
+      })}
     </span>
   );
 }

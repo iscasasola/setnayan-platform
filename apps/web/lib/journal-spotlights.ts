@@ -234,11 +234,11 @@ export async function fetchSponsoredSlotPrice(
   };
 }
 
-/** Format centavos → "₱1,999" style peso string (no decimals for whole pesos). */
-export function formatCentavos(centavos: number): string {
-  const pesos = centavos / 100;
-  return `₱${pesos.toLocaleString('en-PH', {
-    minimumFractionDigits: Number.isInteger(pesos) ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+/**
+ * `199900` → `"₱1,999"`. RE-EXPORTED from `lib/php.ts` (2026-09-20) under this
+ * module's existing name — `lib/vendor-proposals.ts` exported a second
+ * `formatCentavos` of its own, and two definitions of one rule do not stay
+ * equal. Both spelled `maximumFractionDigits: 2`, which renders ₱837.50 as
+ * `₱837.5`; the shared one prints two digits or none.
+ */
+export { formatCentavosPhp as formatCentavos } from './php';

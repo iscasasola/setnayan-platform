@@ -53,10 +53,10 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   VENDOR_CATEGORY_LABEL,
-  formatPhp,
   isCanonicalService,
   type VendorCategory,
 } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import {
   type VendorServiceRow,
 } from '@/lib/vendor-services';
@@ -480,7 +480,7 @@ function ServiceRow({ row }: { row: VendorServiceRow }) {
     : row.category;
   const priceLabel =
     row.starting_price_php !== null && row.starting_price_php > 0
-      ? `from ${formatPhp(row.starting_price_php)}`
+      ? `from ${formatPhpRounded(row.starting_price_php)}`
       : 'Inquire';
   const crewParts: string[] = [];
   if (row.crew_size !== null && row.crew_size > 0) {

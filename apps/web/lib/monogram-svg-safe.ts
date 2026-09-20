@@ -93,6 +93,8 @@
  * under the ones that don't.
  */
 
+import { applyMarkInk } from './monogram-ink';
+
 /** Same ceiling the write-time sanitizers use. */
 const MAX_SVG_BYTES = 400_000;
 
@@ -230,6 +232,20 @@ export function safeMonogramSvg(raw: unknown): string | null {
  * mark (see lib/events.ts). A column that fails the gate is skipped rather
  * than failing the whole resolution, so a poisoned `monogram_uploaded_svg`
  * falls through to a clean `monogram_custom_svg` instead of blanking the mark.
+ *
+ * ── WHY THE INK POLICY IS APPLIED HERE (2026-09-20) ───────────────────────
+ * A mark stamped `data-ink="palette"` comes back with every fill/stroke as
+ * `currentColor`, so the surface's own themed text colour paints it — which is
+ * how "follow our mood board" reaches a dozen read sites without any of them
+ * learning about palettes. Doing it at the chokepoint rather than per-surface
+ * is the whole point: the alternative is twelve callers that must each
+ * remember, and the four that already forgot to ask this function at all are
+ * exactly why that alternative does not work.
+ *
+ * 🔑 EVERY SURFACE THAT DRAWS THE COUPLE'S MARK MUST CALL THIS, never
+ * `safeMonogramSvg(event.monogram_custom_svg)` directly — that bypass ignores
+ * an uploaded mark AND its ink policy, silently, on a screen that still looks
+ * correct. `apps/web/lib/the-mark-is-resolved-everywhere.test.ts` holds the line.
  */
 export function resolveEventMonogramSvg(
   event:
@@ -241,5 +257,9 @@ export function resolveEventMonogramSvg(
     | undefined,
 ): string | null {
   if (!event) return null;
-  return safeMonogramSvg(event.monogram_uploaded_svg) ?? safeMonogramSvg(event.monogram_custom_svg);
+  const mark = safeMonogramSvg(event.monogram_uploaded_svg) ?? safeMonogramSvg(event.monogram_custom_svg);
+  // applyMarkInk reads the policy off the mark itself and returns the stored
+  // bytes unchanged for `file` (the default, and what an unstamped mark means),
+  // so this is a no-op for every mark saved before the policy existed.
+  return applyMarkInk(mark);
 }

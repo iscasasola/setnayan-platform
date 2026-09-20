@@ -17,14 +17,34 @@ import type {
 
 const PESO = '₱'; // ₱
 
-export function formatPhp(php: number | null | undefined): string {
+/**
+ * A PRICE IN A BOT'S SENTENCE — `48000` → `"₱48,000"`, absent → `""`.
+ *
+ * @rounds-to-the-peso A STARTING PRICE QUOTED IN PROSE, never an amount owed.
+ *
+ * ⚖ THE REASON: the only figures reaching this module are a service's
+ * `starting_price_php` / `per_pax_price_php` / `hour_base_php`, all **INTEGER**
+ * columns (`vendor_services`), so the rounding is a no-op on real data. And the
+ * shape it renders into is a sentence — "Photography starts at ₱48,000" — where
+ * ₱48,000.00 reads as a quote rather than a floor. The empty string for an
+ * absent figure is also deliberate and unlike every other formatter here: the
+ * caller drops the whole clause instead of writing "—" into a chat reply.
+ *
+ * 🔑 RENAMED 2026-09-20 (`formatPhp` → `formatPhpApprox`). It was the FOURTH
+ * exported `formatPhp` in the app and the only one that returned `''` for an
+ * absent figure, so a file that imported it by mistake printed nothing where
+ * every other surface prints an em-dash. Three behaviours, one name. See
+ * `lib/php.ts`.
+ */
+export function formatPhpApprox(php: number | null | undefined): string {
   if (php == null || !Number.isFinite(php)) return '';
   return PESO + Math.round(php).toLocaleString('en-PH');
 }
 
-export function formatCentavosPhp(centavos: number | null | undefined): string {
+/** Centavos into the same prose rule. @rounds-to-the-peso — see above. */
+export function formatCentavosPhpApprox(centavos: number | null | undefined): string {
   if (centavos == null || !Number.isFinite(centavos)) return '';
-  return formatPhp(centavos / 100);
+  return formatPhpApprox(centavos / 100);
 }
 
 function labelize(v: string): string {
@@ -37,18 +57,18 @@ function serviceTitle(s: StoreService): string {
 
 function servicePriceLine(s: StoreService): string | null {
   if (s.startingPricePhp == null) return null;
-  let line = `${serviceTitle(s)} starts at ${formatPhp(s.startingPricePhp)}`;
+  let line = `${serviceTitle(s)} starts at ${formatPhpApprox(s.startingPricePhp)}`;
   if (s.pricingBasis === 'per_pax' && s.perPaxPricePhp != null) {
-    line += ` (${formatPhp(s.perPaxPricePhp)}/guest${s.minPax != null ? `, min ${s.minPax} pax` : ''})`;
+    line += ` (${formatPhpApprox(s.perPaxPricePhp)}/guest${s.minPax != null ? `, min ${s.minPax} pax` : ''})`;
   } else if (s.pricingBasis === 'per_hour' && s.hourBasePhp != null) {
     // Never invent a duration: only state the covered hours when the vendor set
     // minHours (else just the extra-hour rate, if any). No hardcoded "1 hr".
     if (s.minHours != null) {
       line += ` (covers ${s.minHours} hr${s.minHours === 1 ? '' : 's'}${
-        s.extraHourPhp != null ? `, +${formatPhp(s.extraHourPhp)}/extra hr` : ''
+        s.extraHourPhp != null ? `, +${formatPhpApprox(s.extraHourPhp)}/extra hr` : ''
       })`;
     } else if (s.extraHourPhp != null) {
-      line += ` (+${formatPhp(s.extraHourPhp)}/extra hr)`;
+      line += ` (+${formatPhpApprox(s.extraHourPhp)}/extra hr)`;
     }
   } else if (s.basePax != null) {
     line += ` (up to ${s.basePax} pax)`;
@@ -69,7 +89,7 @@ function buildPrice(store: VendorStoreSnapshot): string | null {
   else if (lines.length > 1) parts.push(`Our starting rates — ${lines.slice(0, 3).join('; ')}.`);
   const firstPkg = pkgs[0];
   if (firstPkg) {
-    parts.push(`Our ${firstPkg.name} package is ${formatCentavosPhp(firstPkg.totalPriceCentavos)}.`);
+    parts.push(`Our ${firstPkg.name} package is ${formatCentavosPhpApprox(firstPkg.totalPriceCentavos)}.`);
   }
   return parts.join(' ');
 }
@@ -106,7 +126,7 @@ function buildDiscount(store: VendorStoreSnapshot): string {
   const ds = store.services.flatMap((s) => s.discounts);
   if (ds.length === 0) return `We don't have a running promo at the moment.`;
   const parts = ds.slice(0, 3).map((d) => {
-    const amount = d.unit === 'pct' ? `${d.rate}% off` : `${formatPhp(d.rate)} off`;
+    const amount = d.unit === 'pct' ? `${d.rate}% off` : `${formatPhpApprox(d.rate)} off`;
     // Name the lead-time rung, or a ladder reads as repeated "Early Booking"
     // offers with no way to tell them apart (owner-locked 2026-07-27). This
     // only STATES the ladder — the couple's event date picks their tier on

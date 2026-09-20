@@ -38,6 +38,7 @@ import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { LockAnswerForms } from './lock-answer-forms';
+import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -245,6 +246,11 @@ type Props = {
    * page omits it, and `unreadable` renders nothing.
    */
   payoutReadiness?: PayoutReadiness;
+  /**
+   * What agreeing to THIS booking will cost the supplier. Supplier surfaces
+   * only — the couple's page never passes it, and must never see it.
+   */
+  feeForecast?: FeeDisclosure | null;
 };
 
 function statusLabelOf(status: string): string {
@@ -277,6 +283,7 @@ export function ChatMessageStream({
   supplierFirstPaymentRowId = null,
   paymentProofUrl = null,
   payoutReadiness = 'unreadable',
+  feeForecast = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -1201,6 +1208,7 @@ export function ChatMessageStream({
                             returnTo={`/vendor-dashboard/messages/${threadId}`}
                             agreeLock={supplierReplyActions.agreeLock}
                             declineLock={supplierReplyActions.declineLock}
+                            feeForecast={feeForecast}
                           />
                         ) : null}
                         {/*

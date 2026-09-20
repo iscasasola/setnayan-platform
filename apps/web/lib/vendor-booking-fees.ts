@@ -52,6 +52,26 @@ export function vendorBookingFeePayPath(orderId: string): string {
 export const VENDOR_BOOKING_FEES_PATH = '/vendor-dashboard/booking-fees';
 
 /**
+ * Where a WAIVED charge's receipt points — and, because this repo's emitters
+ * key on `related_url`, its idempotency key as well.
+ *
+ * 🔑 A WAIVED CHARGE HAS NO PAY PAGE, BECAUSE IT HAS NO ORDER.
+ * `vendorBookingFeePayPath` is `/booking-fees/{orderId}`, and
+ * `collectBookingFeeAtLock` returns 'free' before any order is minted — so
+ * there is no id to deep-link and nothing to pay. The hub's "Waived — your
+ * first 5" section is the right destination.
+ *
+ * ⚠ NOT A `#fragment`. A fragment link to an id the page does not render fails
+ * SILENTLY — the browser stays at the top and nothing says the anchor was
+ * missing. The query parameter is inert on the page; it is carried only to make
+ * the URL unique per charge, which is what makes "one receipt per waived
+ * charge" enforceable with an existence check.
+ */
+export function vendorWaivedFeePath(chargeId: string): string {
+  return `${VENDOR_BOOKING_FEES_PATH}?waived=${encodeURIComponent(chargeId)}`;
+}
+
+/**
  * The vendor-facing bucket for a fee order.
  *   • 'due'      — actionable: submitted / awaiting_payment (pay now).
  *   • 'verifying' has NO separate order status (a payment row is pre-created at
@@ -99,28 +119,20 @@ export function selectDueFeeOrders<
   );
 }
 
-const PHP = new Intl.NumberFormat('en-PH', {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-/**
- * The in-app + email notification copy for a due fee order. Pure so the exact
- * wording is testable and identical across the in-app row and the email body.
- * `eventName` falls back to a neutral phrase when the event has no display_name.
+/*
+ * 🪦 `bookingFeeNotificationCopy` LIVED HERE AND IS GONE (2026-09-20).
+ *
+ * It formatted with `maximumFractionDigits: 0`, so it titled a ₱837.50 bill
+ * "Booking fee due — ₱838" — measured on production notification 5b5882bc, the
+ * one the owner received. A supplier who pays the number they were shown pays
+ * the wrong number. Its replacement is `bookingFeeNoticeCopy` in
+ * `lib/booking-fee-disclosure.ts`, which formats to the centavo through
+ * `feePesos` and also names the due date the old copy never carried.
+ *
+ * Deleted rather than fixed in place: the point of the disclosure module is
+ * that there is ONE place a fee figure is formatted, and leaving a second
+ * formatter here is how the two come to disagree again.
  */
-export function bookingFeeNotificationCopy(args: {
-  amountPhp: number;
-  eventName: string | null | undefined;
-}): { title: string; body: string } {
-  const name = (args.eventName ?? '').trim() || 'a booking';
-  return {
-    title: `Booking fee due — ₱${PHP.format(args.amountPhp)}`,
-    body: `Your ₱${PHP.format(
-      args.amountPhp,
-    )} Setnayan booking fee for ${name} is due. Pay it on the manual GCash/BDO rail — it clears once our team confirms your payment (within 24 hours).`,
-  };
-}
 
 /** Longest reference we store. Bank/e-wallet ids are far shorter; this is a cap, not a shape. */
 export const BOOKING_FEE_REFERENCE_MAX = 64;

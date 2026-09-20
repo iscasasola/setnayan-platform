@@ -1,0 +1,44 @@
+-- notification_type_booking_fee_waived
+-- ============================================================================
+-- THE RECEIPT FOR A BOOKING FEE NOBODY WAS CHARGED (owner, 2026-09-20:
+-- *"yes, add the email receipt for waived bookings."*)
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE.
+-- notification_type is a Postgres ENUM (20260513160000_iteration_0028_notifications.sql),
+-- and Postgres forbids USING a newly-added enum value in the same transaction
+-- that adds it. So: no BEGIN/COMMIT, no other statements. Exact shape of
+-- 20271226261855_notification_type_guest_takedown_honored.sql and
+-- 20271204557031_notification_type_colour_changed_in_lane.sql.
+--
+-- 🔑 A TYPE THE DATABASE HAS NEVER HEARD OF IS REFUSED, NOT THROWN. Adding the
+-- member to the TypeScript union costs one line and typechecks instantly;
+-- without the label here the INSERT is rejected, emitNotification console.errors
+-- it by design so the LOCK still completes, and the only symptom is a supplier
+-- who is never told their booking was free.
+-- `every-notice-type-exists-in-the-database.test.ts` is the other half of it.
+--
+-- Who hears it:
+--   booking_fee_waived → the SUPPLIER, and ONLY the supplier. A free-5 booking
+--                        mints NO `orders` row (`collectBookingFeeAtLock`
+--                        returns 'free' before the insert), so before this the
+--                        whole event was silent: no order, no notification, no
+--                        email. PR #5737 gave the waived charge three in-app
+--                        surfaces; this is the half that reaches a shop who is
+--                        not at a console.
+--
+-- ⛔ AND IT IS *NOT* `order_quoted`. That type means "you have an order to
+-- pay", it is on EMAIL_ENABLED_TYPES, and pointing it at a waived charge would
+-- email a supplier a fee they do not owe — worse than silence. A receipt and a
+-- bill are different sentences and they need different types.
+--
+-- ⛔ THE COUPLE HEARS NOTHING. The booking fee is between Setnayan and the
+-- shop; a couple has no interest in it, and telling them would price the
+-- supplier's relationship in front of them. There is deliberately no
+-- couple-facing sibling of this label.
+--
+-- 🔑 THERE IS NO `booking_fee_charged` EITHER. The billable path already uses
+-- `order_quoted` and has a real order to point at; inventing a second label for
+-- it is how a vocabulary rots.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'booking_fee_waived';

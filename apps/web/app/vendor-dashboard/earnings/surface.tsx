@@ -28,6 +28,21 @@ import {
 } from '@/lib/payouts';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
+import {
+  fetchDueFeeBills,
+  fetchWaivedFeeCharges,
+  FEE_BILLS_UNREADABLE,
+} from '@/lib/booking-fee-disclosure.server';
+import {
+  billsForSurface,
+  feeDueCopy,
+  totalDuePhp,
+  feePesos,
+  type DueFeeBill,
+  type WaivedFeeCharge,
+} from '@/lib/booking-fee-disclosure';
+import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
+import { manilaToday } from '@/lib/std-views';
 
 export const metadata = { title: 'Earnings · Vendor' };
 
@@ -163,6 +178,24 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
   const start = (page - 1) * PAGE_SIZE;
   const visible = earnings.slice(start, start + PAGE_SIZE);
+  // WHAT THIS SHOP OWES SETNAYAN — on the money page, because "Your share
+  // 100%" three lines below is only the whole truth when nothing is outstanding.
+  // A supplier reading "no platform cut" while carrying an unpaid booking fee is
+  // the same defect as the missing doorway, wearing the opposite costume.
+  // UNREADABLE renders nothing; it must never read as "you owe nothing".
+  const feeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
+    () => FEE_BILLS_UNREADABLE,
+  );
+  const earningsFeeBills: DueFeeBill[] =
+    feeBillsRead === FEE_BILLS_UNREADABLE ? [] : billsForSurface(feeBillsRead, 'earnings');
+  // The free five, priced. On the money page because "0% commission" and "you
+  // keep 100%" are exactly where a supplier concludes no fee exists at all.
+  const waivedRead = await fetchWaivedFeeCharges(admin, profile.vendor_profile_id).catch(
+    () => FEE_BILLS_UNREADABLE,
+  );
+  const earningsWaived: WaivedFeeCharge[] =
+    waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
+
   const totalPages = Math.max(1, Math.ceil(earnings.length / PAGE_SIZE));
 
   return (
@@ -177,6 +210,15 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         </Link>{' '}
         tab.
       </p>
+
+      {/* Second of the three BOOKING_FEE_BILL_SURFACES. Sits ABOVE the "you
+          keep 100%" tiles deliberately: the fee is the one thing a supplier owes
+          Setnayan, and the page says so before it says they owe nothing. */}
+      <BookingFeeBills
+        bills={earningsFeeBills}
+        copyFor={(b) => feeDueCopy(b, manilaToday())}
+      />
+      <WaivedFeeRows charges={earningsWaived} />
 
       <article className="sn-tile flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
@@ -204,10 +246,19 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             (months[months.length - 1]?.order_count ?? 0) === 1 ? '' : 's'
           }`}
         />
+        {/* ⚠ TRUE, AND NOT THE WHOLE TRUTH WHEN A FEE IS OPEN. Couples do pay
+            the supplier 100% directly — Setnayan takes nothing out of that
+            money. But a booking fee billed separately is still money owed, and
+            "no platform cut" read alone is how a supplier concludes they owe
+            nothing. The help line names the open amount when there is one. */}
         <Stat
           label="Your share"
           value="100%"
-          help="You keep everything couples pay you — no platform cut."
+          help={
+            earningsFeeBills.length > 0
+              ? `You keep everything couples pay you. Separately, ${feePesos(totalDuePhp(earningsFeeBills))} of booking fees is due to Setnayan.`
+              : 'You keep everything couples pay you — no platform cut.'
+          }
         />
       </section>
 

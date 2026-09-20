@@ -21,6 +21,8 @@ import { formatLongDate, monthDay } from '@/lib/format-date';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './payout-method-nudge';
+import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
@@ -641,6 +643,7 @@ export function WhatsNewFeed({
   postReviewReply,
   respondMeeting,
   payoutReadiness = 'unreadable',
+  feeForecasts = {},
   incomplete = false,
 }: {
   cards: WhatsNewCard[];
@@ -668,6 +671,12 @@ export function WhatsNewFeed({
    * `unreadable`, which renders nothing.
    */
   payoutReadiness?: PayoutReadiness;
+  /**
+   * What agreeing to each booking ask will cost this shop, keyed by
+   * `event_vendors.vendor_id`. Resolved ONCE on the Today page so a feed with
+   * two asks prices both without either card doing its own arithmetic.
+   */
+  feeForecasts?: Record<string, FeeDisclosure | null>;
 }) {
   return (
     <section id="whats-new" className="mb-8 scroll-mt-24">
@@ -708,6 +717,7 @@ export function WhatsNewFeed({
                 postReviewReply={postReviewReply}
                 respondMeeting={respondMeeting}
                 payoutReadiness={payoutReadiness}
+                feeForecasts={feeForecasts}
               />
             </li>
           ))}
@@ -730,6 +740,7 @@ function FeedCard({
   postReviewReply,
   respondMeeting,
   payoutReadiness,
+  feeForecasts,
 }: {
   card: WhatsNewCard;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
@@ -744,6 +755,7 @@ function FeedCard({
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
   payoutReadiness: PayoutReadiness;
+  feeForecasts: Record<string, FeeDisclosure | null>;
 }) {
   const tone = cardTone(card);
   return (
@@ -770,6 +782,7 @@ function FeedCard({
           agreeLock={agreeLock}
           declineLock={declineLock}
           payoutReadiness={payoutReadiness}
+          feeForecast={feeForecasts[card.eventVendorId] ?? null}
         />
       ) : card.kind === 'lock_request_lapsed' ? (
         <LockRequestLapsedBody card={card} />
@@ -906,11 +919,14 @@ function LockRequestBody({
   agreeLock,
   declineLock,
   payoutReadiness,
+  feeForecast,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request' }>;
   agreeLock: (formData: FormData) => void | Promise<void>;
   declineLock: (formData: FormData) => void | Promise<void>;
   payoutReadiness: PayoutReadiness;
+  /** What this booking will cost them, named BEFORE the Agree button. */
+  feeForecast: FeeDisclosure | null;
 }) {
   // Rendered on the server, so "now" is the render instant.
   // ONE phrasing, shared with the customer card and the Customers roster — three
@@ -930,6 +946,8 @@ function LockRequestBody({
       <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
+      {/* ⚠ ABOVE THE BUTTON. A fee named after the press is a receipt. */}
+      <BookingFeeNotice disclosure={feeForecast} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeLock}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />

@@ -100,14 +100,8 @@ result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_captures
 result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_portfolio_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-photo-challenge.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-seats.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (10) ══
-rpc-no-caller	consume_vendor_assets	1	no 'consume_vendor_assets' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	grant_verified_vendor_bonus	1	RETURNS trigger and no trigger is bound to it
-rpc-no-caller	grant_verified_vendor_bonus_on_insert	1	RETURNS trigger and no trigger is bound to it
-rpc-no-caller	handle_vendor_lead_report	1	no 'handle_vendor_lead_report' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-rpc-no-caller	rival_signals_for_vendor	1	no 'rival_signals_for_vendor' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (4) ══
 rpc-no-caller	vendor_meetings_set_updated_at	1	RETURNS trigger and no trigger is bound to it
-rpc-no-caller	vendors_worked_together	1	no 'vendors_worked_together' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	vendor_2307_filings	1	no .from('vendor_2307_filings').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 component-no-mount	app/_components/OfflineSyncProvider.tsx	1	no runtime importer in any source file
 result-dropped-silently	lib/verification-checks-server.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason

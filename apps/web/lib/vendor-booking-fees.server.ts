@@ -9,8 +9,8 @@ import {
   vendorBookingFeePayPath,
   classifyFeeOrderBucket,
   isFeeOrderPayable,
-  bookingFeeNotificationCopy,
 } from '@/lib/vendor-booking-fees';
+import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -169,9 +169,17 @@ export async function maybeSweepVendorBookingFeeNotifications(
       const payUrl = vendorBookingFeePayPath(o.order_id);
       if (alreadyNotified.has(payUrl)) continue;
       const amountPhp = Number(o.confirmed_total_php ?? o.requested_total_php ?? 0);
-      const { title, body } = bookingFeeNotificationCopy({
+      // 🔴 THIS USED TO ROUND. `bookingFeeNotificationCopy` formatted with
+      // `maximumFractionDigits: 0`, so production notification 5b5882bc titled
+      // a ₱837.50 bill "Booking fee due — ₱838" (measured 2026-09-20). A
+      // supplier who pays the number they were shown pays the wrong number, and
+      // the admin matching by amount then has a mismatch on money.
+      const { title, body } = bookingFeeNoticeCopy({
+        orderId: o.order_id,
         amountPhp,
-        eventName: o.event_id ? nameByEvent.get(o.event_id) : null,
+        eventId: o.event_id ?? null,
+        coupleName: o.event_id ? (nameByEvent.get(o.event_id) ?? null) : null,
+        dueOn: null,
       });
       // order_quoted = the transactional "you have an order to pay" type: amber
       // (action-needed) tone + on the email allowlist. The recipient is the fee

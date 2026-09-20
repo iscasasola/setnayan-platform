@@ -65,7 +65,19 @@ test('both composers DERIVE the number — never a local estimate', () => {
 
 test('the server FEEDS both composers, from one resolved basis', () => {
   const src = read(THREAD);
-  assert.match(src, /giftQuoteBasis\(/, 'the thread page never resolves the gift basis');
+  // 🔁 2026-09-20: the page no longer calls `giftQuoteBasis` directly. It asks
+  // `setnayan_gift_quote_applies` ONCE through `resolvePapicQuoteStanding` —
+  // because the supplier's Papic ceiling needs the REASON a gift does not
+  // apply, which `giftQuoteBasis` throws away — and derives the basis from that
+  // same answer. The contract is unchanged and is EXECUTED in
+  // `the-exclusive-papic-on-a-quote.test.ts`: `giftBasisFrom` yields a basis
+  // for 'applies' and for nothing else. Still pinned to an exact symbol, so a
+  // page that stops resolving the basis is still RED.
+  assert.match(
+    src,
+    /giftBasisFrom\(composerPapicStanding\)/,
+    'the thread page never resolves the gift basis',
+  );
   const passes = src.match(/giftBasis=\{composerGiftBasis\}/g) ?? [];
   assert.equal(
     passes.length,

@@ -280,6 +280,32 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     in the gated one, or stops being emitted.
   */
   'colour_changed_in_lane',
+  /*
+    THE FREE-5 RECEIPT (owner 2026-09-20: *"yes, add the email receipt for
+    waived bookings."*).
+
+    🔑 THE EVENT IT REPORTS MAKES NO OTHER MARK ANYWHERE. A billable booking fee
+    mints an `orders` row, a `payments` row, an /admin/payments queue entry and a
+    bill on three supplier surfaces. A WAIVED one writes a `booking_fee_charges`
+    row and stops — `collectBookingFeeAtLock` returns 'free' before the order
+    insert. So this notice plus #5737's in-app rows are the ENTIRE trace a shop
+    has that Setnayan waived their fee, and the in-app half reaches only a shop
+    already at a console.
+
+    ⚠ It is a RECEIPT: it names the amount that was waived and says nothing is
+    owed. It is NOT `order_quoted` — that type means "you have an order to pay",
+    and aiming it here would email a supplier a fee they do not owe, which is
+    worse than the silence it replaces.
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES below: it is about the
+    supplier's own money and their own booking. That set suppresses unless
+    users.marketing_opt_in = TRUE, a NOT NULL DEFAULT FALSE column — the mistake
+    that silenced all six lock_request_* types for every user.
+    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: nothing here is time-critical and
+    there is nothing to act on.
+    `the-waived-fee-sends-a-receipt.test.ts` fails if it drops off this set,
+    lands in the gated one, or stops being emitted.
+  */
+  'booking_fee_waived',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

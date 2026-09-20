@@ -118,7 +118,7 @@ export function HideableWidgetRender({
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guest?.role ?? null} rolePalette={(event as { role_palette?: unknown }).role_palette as never} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} />;

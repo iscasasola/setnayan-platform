@@ -482,9 +482,18 @@ test('every link the resolver can produce lands on a real page', () => {
   // destinations are enumerated from the resolver itself rather than from
   // whatever spelling happens to sit in the source.
   //
-  // ⚠ The guard was ALSO tripped by this file's own docblock — it matched the
-  // words `relatedUrl:` followed by a backtick and read the prose after it as a
-  // route. That is why claim 4 above no longer writes the key with its colon.
+  // ⚠ THE GUARD WAS ALSO TRIPPED BY THIS FILE'S OWN PROSE, TWICE. Its pattern
+  // is the key name plus a colon plus an opening quote, and it does not strip
+  // comments — so a sentence that spells that key with its colon inside
+  // backticks IS the pattern, and the guard reads the following paragraph as a
+  // route. It fired first on claim 4 in the docblock, and then a second time on
+  // the sentence written here to explain the first. Hence: never write that key
+  // followed by its colon anywhere in this file, including in a comment.
+  //
+  // 🔑 AND THE SECOND ONE WAS ONLY FOUND BY CI, BECAUSE THE LOCAL RUN HAPPENED
+  // BEFORE THIS TEXT EXISTED. A guard run is evidence about the tree as it was
+  // when it ran, not a property of the branch. Re-run it after the LAST edit —
+  // `node apps/web/scripts/lint-email-links.mjs`.
   const destinations = new Set<string>();
   for (const recipient of [SUPPLIER, COUPLE, null]) {
     for (const shape of [

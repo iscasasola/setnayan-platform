@@ -36,7 +36,13 @@ export type PaletteKey =
   // wedding_party (fallback) · principal/secondary sponsors · bearers ·
   // officiants · muslim_principals. 'couple' + 'other_roles' have no palette;
   // 'vip_family' is superseded by 'parents_immediate_family' (added below).
-  | Exclude<RoleGroup, 'other_roles' | 'couple' | 'vip_family'>
+  // 'honoree' is excluded with the other three: a palette key is a group of
+  // people who are DRESSED alike, and the celebrant is one person (or two)
+  // whose colour the couple picks directly. Adding it here would have widened
+  // the palette space — which the mood board, the 3D seating lab, the concept
+  // PDF and the tour gallery all index by name — for a group that never wears
+  // a uniform.
+  | Exclude<RoleGroup, 'other_roles' | 'couple' | 'vip_family' | 'honoree'>
   // Wedding-party SPLIT — specific role keys that fall back to wedding_party.
   | 'maid_of_honor'
   | 'best_man'
@@ -498,7 +504,12 @@ export function getPrimaryColor(
   // 'couple' is the role group bride + groom belong to, but the palette splits
   // attire colors into separate `bride` and `groom` keys, so there's no
   // aggregate "couple" primary to surface here.
-  if (key === 'other_roles' || key === 'couple') return undefined;
+  // 'honoree' — the non-wedding celebrant (added 2026-09-20) — is out for the
+  // same reason as 'couple', and deliberately has no palette key of its own:
+  // a palette key is a group who DRESS alike, and the celebrant is one person
+  // whose colour the couple picks directly. See the Exclude<> at PaletteKey.
+  if (key === 'other_roles' || key === 'couple' || key === 'honoree')
+    return undefined;
   // The guest-list role chip passes the ROLE GROUP; `vip_family` is the group
   // name for the parents/immediate-family cluster whose palette key was renamed
   // to `parents_immediate_family` in taxonomy v2 — normalize so the chip colors.

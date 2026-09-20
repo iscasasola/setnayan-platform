@@ -1,6 +1,10 @@
 import type { GuestRole } from './guests';
 
 export type RoleGroup =
+  // The non-wedding honoree. Its own group rather than 'couple', because
+  // 'couple' is LABELLED "Bride & Groom" — a birthday sectioned under that
+  // heading is worse than no heading at all.
+  | 'honoree'
   | 'couple'
   | 'vip_family'
   // ⚠ `wedding_party` STAYS, even though no ROLE maps to it any more. It is not
@@ -23,6 +27,7 @@ export type RoleGroup =
   | 'other_roles';
 
 export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
+  honoree: 'Celebrant',
   couple: 'Bride & Groom',
   // Owner directive 2026-05-23 PM — 4 VIP-family roles for Tier-1
   // seating auto-fill per iteration 0008. Surface as one group in the
@@ -41,6 +46,7 @@ export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
 
 const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   guest: 'guest',
+  celebrant: 'honoree',
   bride: 'couple',
   groom: 'couple',
   bride_parents: 'vip_family',
@@ -98,6 +104,11 @@ export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
 // order mirrors the RoleGroup order above + BULK_ROLE_SECTIONS so the
 // importance sort, the View sidebar, and the bulk role picker all agree.
 export const ROLE_IMPORTANCE: readonly GuestRole[] = [
+  // The honoree leads every list they appear on. 'celebrant' and bride/groom
+  // never coexist (no role set offers both), so putting it first costs a
+  // wedding nothing — every wedding role keeps its RELATIVE order, which is
+  // all this array is ever used for.
+  'celebrant',
   'bride',
   'groom',
   'bride_parents',
@@ -167,6 +178,38 @@ export function roleImportanceRank(role: GuestRole): number {
   return ROLE_IMPORTANCE_RANK[role] ?? ROLE_IMPORTANCE.length;
 }
 
+/**
+ * ── THE PIN ────────────────────────────────────────────────────────────────
+ * ⚖ Owner 2026-06-05: *"Bride will always be #1 then groom."*
+ * ⚖ Owner 2026-09-20: *"on list, the first one will always be the celebrant.
+ *   for wedding that is the bride and groom."*
+ *
+ * 🔑 THIS IS NOT A SORT — IT OUTRANKS THE SORT. Importance order already put
+ * the couple first, but "importance" is one of seven choices; under Last name,
+ * RSVP or Newest the honoree moved like anybody else. So the pin is applied
+ * BEFORE the chosen comparator runs and the chosen comparator only ever
+ * decides order between two rows that are both un-pinned.
+ *
+ * ⛔ Being part of the HOST does not pin anybody. A guest carries 'host' as an
+ * extra role — a label, not a rank — because at most celebrations the people
+ * running it are not the people being celebrated.
+ *
+ * Lives here, pure and exported, rather than inside the page: the page is a
+ * server component, so a guard there could only grep it. This can be executed.
+ * See honoree-leads-every-sort.test.ts.
+ */
+const HONOREE_ORDER: readonly GuestRole[] = ['celebrant', 'bride', 'groom'];
+
+export function honoreeRank(role: GuestRole): number {
+  const i = HONOREE_ORDER.indexOf(role);
+  return i === -1 ? HONOREE_ORDER.length : i;
+}
+
+/** Whether a role is the person a celebration is FOR (never: who runs it). */
+export function isHonoreeRole(role: GuestRole): boolean {
+  return HONOREE_ORDER.includes(role);
+}
+
 // The role-group a guest is sectioned/ranked under = the group of their MOST
 // important role (primary or extra). Keeps the importance SORT and the tiered
 // guest-list SECTIONS in agreement for multi-role guests (e.g. a Bridesmaid
@@ -186,6 +229,12 @@ export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
 
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
+  // Deliberately the COUPLE'S tint, not a new one. It is the same standing at
+  // a different kind of celebration, and the two can never appear on one list
+  // (no role set offers both), so there is nothing for it to be confused with.
+  // Every other tint in here is already spoken for, and inventing a tenth to
+  // say "principal" a second time is how a palette stops meaning anything.
+  honoree: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
   couple: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
   // VIP family tint — deeper rose to read as kin-of-couple, distinct
   // from the wedding-party terracotta tone.
@@ -217,6 +266,7 @@ export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
  * mood-board colour. A filled palette wins, exactly as it does for the chip.
  */
 export const ROLE_GROUP_TEXT: Record<RoleGroup | 'guest', string> = {
+  honoree: 'text-danger-900',
   couple: 'text-danger-900',
   vip_family: 'text-danger-950',
   wedding_party: 'text-terracotta-700',

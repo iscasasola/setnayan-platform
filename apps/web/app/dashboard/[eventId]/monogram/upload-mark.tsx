@@ -273,33 +273,34 @@ export function UploadMark({
 
 /**
  * <SavedMark> — the logo you already uploaded, actually on screen: the mark
- * itself, how many pieces it was deciphered into, how many colours it carries,
- * and every reveal playing on it.
+ * itself, and how many pieces and colours it carries.
  *
- * This is the same information a FRESH upload shows. It was missing for a saved
- * one purely because the preview block was gated on `decoded`, which only
- * exists after picking a file in this session — so the state a couple is in
- * every time they come back was the state that displayed nothing.
+ * It was missing entirely because the preview block was gated on `decoded`,
+ * which only exists after picking a file in this session — so the state a
+ * couple is in every time they come back was the state that displayed nothing
+ * (owner: "i do not see the logo").
+ *
+ * ⛔ NO REVEAL CHIPS HERE ANY MORE. They used to live in this panel AND inside
+ * the Vector Studio — two pickers writing one field, neither visible from the
+ * other door. The reveal is now one step of its own after the mark exists
+ * (reveal-step.tsx), so it serves a mark made either way. Adding a second
+ * picker back here would recreate exactly the split the owner asked to remove.
  */
 function SavedMark({
   svg,
   live,
-  monogramText,
 }: {
   svg: string;
   live: boolean;
   monogramText: string;
 }) {
-  const [revealKind, setRevealKind] = useState<StudioAnimKind>('handwriting');
-  const [replay, setReplay] = useState(0);
-
   // Counted from the SAME svg that renders, so the numbers cannot describe a
   // different file from the one on screen.
   const pieces = (svg.match(/<path[\s>]/gi) ?? []).length;
   const colours = markInks(svg).length;
 
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">
           {live ? 'Your logo, in use' : 'Your logo, kept'}
@@ -309,51 +310,15 @@ function SavedMark({
         </p>
       </header>
 
-      {/* ONE frame, PLAYING — the same shape as the Save-the-Date opening
-          picker (reveal-preview-card.tsx): tiles choose, and a single shared
-          frame plays the choice. It auto-plays rather than waiting for a press,
-          because the whole complaint was "i cannot see the different monogram
-          animation effects" — a still frame answers nothing. Safe to auto-play:
-          StudioRevealPlayer honours prefers-reduced-motion itself and renders
-          the mark static for anyone who asked for less motion (WCAG 2.3.3). */}
-      <div className="mx-auto h-56 max-w-[320px]">
-        <StudioRevealPlayer
-          key={`${revealKind}-${replay}`}
-          svg={svg}
-          monogram={monogramText}
-          anim={{ kind: revealKind, dur: 6, smooth: 0.9, delay: 0.3 }}
-          allowWebgl={false}
-        />
-      </div>
+      <div
+        aria-hidden
+        className="mx-auto flex h-48 max-w-[300px] items-center justify-center [&_svg]:max-h-full [&_svg]:max-w-full"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">Try each one</span>
-        {REVEALS.map((r) => (
-          <button
-            key={r.kind}
-            type="button"
-            aria-pressed={revealKind === r.kind}
-            onClick={() => {
-              setRevealKind(r.kind);
-              setReplay((n) => n + 1);
-            }}
-            className={`min-h-[44px] rounded-lg border px-3 text-xs font-medium transition-colors ${
-              revealKind === r.kind
-                ? 'border-ink bg-ink text-cream'
-                : 'border-ink/15 bg-white text-ink/70 hover:bg-ink/5'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setReplay((n) => n + 1)}
-          className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-xs font-medium text-ink/70 hover:bg-ink/5"
-        >
-          ↻ Play again
-        </button>
-      </div>
+      <p className="text-xs text-ink/55">
+        Each piece animates on its own — choose how in <a href="#reveal" className="font-medium text-mulberry underline underline-offset-2">the reveal</a> below.
+      </p>
     </section>
   );
 }

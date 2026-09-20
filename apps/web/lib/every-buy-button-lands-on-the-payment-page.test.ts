@@ -114,7 +114,7 @@ function writesAPricedOrder(src: string): boolean {
   const code = stripComments(src);
   for (const m of code.matchAll(/requested_total_php\s*:\s*([^,\n]+)/g)) {
     // `requested_total_php: number | null;` is a type, not a write.
-    if (!/^(number|string|boolean)\b/.test(m[1].trim())) return true;
+    if (!/^(number|string|boolean)\b/.test(m[1]!.trim())) return true;
   }
   return false;
 }

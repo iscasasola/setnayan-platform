@@ -255,11 +255,17 @@ export function resolveEventMonogramSvg(
       }
     | null
     | undefined,
+  opts?: {
+    /** The couple's mood-board ink, when this surface knows it. A mark stamped
+     *  `data-ink="palette"` is repainted in it. WITHOUT it the mark keeps its
+     *  own colours — never a fallback colour, never black. */
+    ink?: string | null;
+  },
 ): string | null {
   if (!event) return null;
   const mark = safeMonogramSvg(event.monogram_uploaded_svg) ?? safeMonogramSvg(event.monogram_custom_svg);
   // applyMarkInk reads the policy off the mark itself and returns the stored
   // bytes unchanged for `file` (the default, and what an unstamped mark means),
   // so this is a no-op for every mark saved before the policy existed.
-  return applyMarkInk(mark);
+  return applyMarkInk(mark, undefined, opts?.ink ?? null);
 }

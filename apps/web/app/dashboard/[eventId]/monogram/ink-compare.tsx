@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { markInks, markToCurrentColor, type MarkInkMode } from '@/lib/monogram-ink';
+import { markInks, repaintMark, type MarkInkMode } from '@/lib/monogram-ink';
 
 /**
  * <InkCompare> — whose colours should this uploaded mark wear: the file's own,
@@ -45,7 +45,12 @@ export function InkCompare({
   const id = useId();
 
   const inks = markInks(svg);
-  const recoloured = markToCurrentColor(svg);
+  /* Repainted in the couple's actual ink — the same substitution the live
+   * surfaces perform, so this preview shows the rendered result rather than a
+   * CSS approximation of it. (It used to emit currentColor and lean on the
+   * wrapper's `color`, which looked right here and rendered black inside the
+   * data-URI <img> the chips use.) */
+  const recoloured = paletteInk ? repaintMark(svg, paletteInk) : svg;
 
   // A mark with no flat colour at all (every fill a gradient or `none`) cannot
   // be recoloured, so offering the choice would be a lie. Say nothing.
@@ -80,7 +85,7 @@ export function InkCompare({
         <div
           aria-hidden
           className="absolute inset-0 flex items-center justify-center p-8 [&_svg]:max-h-full [&_svg]:max-w-full"
-          style={{ clipPath: `inset(0 0 0 ${wipe}%)`, color: paletteInk }}
+          style={{ clipPath: `inset(0 0 0 ${wipe}%)` }}
           dangerouslySetInnerHTML={{ __html: recoloured }}
         />
 

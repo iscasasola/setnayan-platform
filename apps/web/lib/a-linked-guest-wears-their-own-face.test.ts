@@ -1,0 +1,114 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * ⚖ Owner 2026-09-20, on his own row of his own guest list: *"why is my account
+ * not showing. i registered on the event as me"* — then *"so when users create
+ * their accounts, when they have a profile photo, it will show here too"*.
+ *
+ * His registration was fine: `event_members.guest_id` linked his row to his
+ * user with role `groom`. The roster simply never looked at the account, so a
+ * guest who had joined, claimed their invite and set a profile photo was drawn
+ * exactly like a name typed in once and never heard from again.
+ *
+ * Two properties are worth guarding and neither is about pixels:
+ *   1. the couple's own upload still wins, and
+ *   2. the ADMIN read that makes this possible cannot quietly grow.
+ */
+
+const LIB = readFileSync(join(process.cwd(), 'lib', 'guest-account-photos.ts'), 'utf8');
+const LIST = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
+  'utf8',
+);
+const PAGE = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
+  'utf8',
+);
+
+test("the couple's own upload wins; the account photo is the fallback", () => {
+  // `photo_url` is what the couple (or the guest's RSVP selfie) chose for THIS
+  // wedding. Reversing this would let a profile picture overwrite a selfie
+  // taken for the seating chart.
+  const at = LIST.indexOf('const faceFor');
+  assert.notEqual(at, -1, 'faceFor is gone — this guard is blind');
+  const body = LIST.slice(at, LIST.indexOf(';', LIST.indexOf('accountFaceByGuest[g.guest_id]', at)));
+  const guestFirst = body.indexOf("photoDisplayUrls[g.photo_url");
+  const accountSecond = body.indexOf('accountFaceByGuest[g.guest_id]');
+  assert.ok(guestFirst !== -1 && accountSecond !== -1, 'faceFor no longer reads both sources');
+  assert.ok(
+    guestFirst < accountSecond,
+    "the account photo is being preferred over the couple's own upload",
+  );
+});
+
+test('every row surface resolves its face through the ONE helper', () => {
+  // 🔑 Six surfaces ask for a face. When each spelled the lookup out itself,
+  // five could gain the fallback and the sixth silently not — a guest with a
+  // face in the list and initials in the grid.
+  const spelledOut = LIST.match(/photoDisplayUrls\[guest\.photo_url/g) ?? [];
+  assert.deepEqual(
+    spelledOut,
+    [],
+    `${spelledOut.length} surface(s) still resolve the face inline instead of calling faceFor`,
+  );
+  const viaHelper = LIST.match(/displayUrl=\{faceFor\(guest\)\}/g) ?? [];
+  assert.ok(
+    viaHelper.length >= 6,
+    `expected every row surface to use faceFor, found ${viaHelper.length}`,
+  );
+});
+
+test('🔒 the admin read is gated by a policy, not by an if', () => {
+  // The membership read runs as the CALLER, so RLS decides. A caller who is not
+  // on the event gets zero rows, there are no user ids, and the admin client is
+  // never asked anything.
+  const memberAt = LIB.indexOf("from('event_members')");
+  const adminAt = LIB.indexOf('createAdminClient()');
+  assert.ok(memberAt !== -1 && adminAt !== -1, 'the two reads are no longer both present');
+  assert.ok(
+    memberAt < adminAt,
+    'the admin read now runs BEFORE the RLS-gated membership read — the gate is gone',
+  );
+  assert.match(LIB, /\.in\('user_id', userIds\)/, 'the admin read is no longer keyed to the gated ids');
+});
+
+test('🔒 the admin read carries the photo and nothing else', () => {
+  // Another account's `users` row is invisible under RLS by design. An admin
+  // read is a visibility surface; widening this select is how an email or a
+  // display name reaches a screen it was never meant to.
+  const select = /from\('users'\)\s*\.select\('([^']+)'\)/.exec(LIB);
+  assert.ok(select, 'could not find the admin users select — this guard is blind');
+  const columns = (select[1] ?? '').split(',').map((c) => c.trim()).sort();
+  assert.deepEqual(
+    columns,
+    ['profile_photo_url', 'user_id'],
+    `the admin read now selects ${columns.join(', ')} — it may carry only the photo and its key`,
+  );
+});
+
+test('🪤 the account ref is RESOLVED, never handed to an <img> raw', () => {
+  // The stored value is an `r2://…` ref, not a URL. A raw ref in an <img src>
+  // is a broken-image glyph — the exact defect a-guest-face-is-resolved.test.ts
+  // was written for after it shipped in four loaders at once.
+  const at = PAGE.indexOf('accountRefByGuest');
+  assert.notEqual(at, -1, 'the page no longer loads account photo refs');
+  const window = PAGE.slice(at, at + 900);
+  assert.match(
+    window,
+    /guestPhotoDisplayUrls\(/,
+    'the account refs are not put through guestPhotoDisplayUrls — an r2:// ref would reach an <img>',
+  );
+});
+
+test('a refused read degrades to initials rather than throwing', () => {
+  // Initials are what the roster drew before this existed, so a failure is no
+  // worse than yesterday — but it is logged, because a refused read and an
+  // event where nobody has joined look identical from the outside.
+  const returns = LIB.match(/return \{\};/g) ?? [];
+  assert.ok(returns.length >= 3, `expected the empty-map fallbacks, found ${returns.length}`);
+  const logs = LIB.match(/logQueryError\(/g) ?? [];
+  assert.ok(logs.length >= 2, `both reads must log their failure, found ${logs.length}`);
+});

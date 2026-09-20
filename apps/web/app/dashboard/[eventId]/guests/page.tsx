@@ -46,6 +46,7 @@ import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
+import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import {
@@ -607,6 +608,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
+  /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
+     profile photo, it will show here too". A guest whose row is linked to an
+     account falls back to that account's photo — the couple's own upload still
+     wins. Resolved through the SAME resolver, because the stored value is an
+     `r2://` ref, not a URL. */
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefUrls = await guestPhotoDisplayUrls(
+    Object.values(accountRefByGuest).map((ref) => ({ photo_url: ref })),
+  );
+  const accountFaceByGuest: Record<string, string> = Object.fromEntries(
+    Object.entries(accountRefByGuest)
+      .map(([guestId, ref]) => [guestId, accountRefUrls[ref]] as const)
+      .filter((e): e is [string, string] => Boolean(e[1])),
+  );
+
   const inspectedGuest = inspectId
     ? (guests.find((g) => g.guest_id === inspectId) ?? null)
     : null;
@@ -632,7 +648,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         showFullDetailsLink={false}
-        photoDisplayUrl={photoDisplayUrls[inspectedGuest.photo_url ?? ''] ?? null}
+        photoDisplayUrl={
+          photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
+          accountFaceByGuest[inspectedGuest.guest_id] ??
+          null
+        }
       />
     </InspectorColumn>
   ) : null;
@@ -1085,6 +1105,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
               photoDisplayUrls={photoDisplayUrls}
+              accountFaceByGuest={accountFaceByGuest}
               groupMode={
                 sort === 'side'
                   ? 'side'
@@ -1139,6 +1160,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         photoDisplayUrls={photoDisplayUrls}
+        accountFaceByGuest={accountFaceByGuest}
       />
     </section>
   );

@@ -191,32 +191,29 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   return (
     <section className="space-y-6">
       {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
-      {/* TWO controls, each with ONE destination — not one control with a
-          ternary href. `lint-port-no-lost-controls` reads routes statically and
-          could not see the `/studio` branch inside a conditional, so the page
-          registered as having LOST its way back to add-ons. It had not; but a
-          route a static reader cannot find is a route the next refactor can
-          delete without anything going red, and the guard was right to object.
-          Regenerating its baseline would have recorded a removal that never
-          happened. Two plain links also read better: from inside a door you
-          want "the other way", and add-ons is a level further out. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* ⛔ NO "BACK TO ADD-ONS" HERE — removed at the owner's request
+          (2026-09-20), pointing at it on the live page: "remove this."
+
+          The route /dashboard/[eventId]/studio is genuinely no longer reachable
+          FROM this page, so `lint-port-no-lost-controls` is right to notice and
+          its baseline is regenerated in this same commit — which is what that
+          guard asks for when a removal is deliberate. Contrast the earlier
+          entry in this file's history: that one regenerated NOTHING, because
+          the link still existed and only the guard's static reader could not
+          see it. A baseline is regenerated when a control is really gone, never
+          to quiet a guard that has found something.
+
+          The app shell's own navigation still reaches add-ons; this was a
+          second, page-level way back sitting above the page title. */}
+      {mode ? (
         <Link
-          href={`/dashboard/${eventId}/studio`}
+          href={`/dashboard/${eventId}/monogram`}
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to add-ons
+          Both ways to make it
         </Link>
-        {mode ? (
-          <Link
-            href={`/dashboard/${eventId}/monogram`}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-          >
-            Both ways to make it
-          </Link>
-        ) : null}
-      </div>
+      ) : null}
 
       <PageMasthead title="Your wedding monogram" />
 

@@ -17,6 +17,9 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { ATTIRE_STYLES, isAttireStyle, type RoleAttireMap } from '@/lib/role-dress-code';
+import { roleLabel } from '@/lib/entourage';
+import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveReturnTo } from '@/lib/editor-return';
 
@@ -35,6 +38,8 @@ export type DressCodeConfig = {
   dos: string[];
   donts: string[];
   palette: { name: string; hex: string }[];
+  /** Per-role attire, owner 2026-09-20 — lib/role-dress-code.ts. */
+  roles: RoleAttireMap;
 };
 
 /**
@@ -93,6 +98,25 @@ export async function updateDressCode(
     .getAll('palette_hex')
     .map((v) => (typeof v === 'string' ? v.trim() : ''));
 
+  // ── PER-ROLE ATTIRE (owner 2026-09-20). Two parallel arrays, same idiom as
+  // the palette above: role_key[] and role_style[], plus an optional note.
+  // An empty style means "not set" and REMOVES the role's instruction — the
+  // couple must be able to take back a wrong answer, and an unset role renders
+  // as "not said yet" rather than as a stale one.
+  const roleKeys = formData.getAll('role_key').map((v) => String(v));
+  const roleStyles = formData.getAll('role_style').map((v) => String(v));
+  const roleNotes = formData.getAll('role_note').map((v) => String(v));
+  const roles: RoleAttireMap = {};
+  for (let i = 0; i < roleKeys.length; i += 1) {
+    const key = roleKeys[i] ?? '';
+    const style = roleStyles[i] ?? '';
+    if (!key || roleLabel(key as GuestRole) === null) continue;
+    if (!isAttireStyle(style)) continue; // '' = not set → no entry
+    const note = (roleNotes[i] ?? '').trim().slice(0, 120);
+    roles[key as GuestRole] = note ? { style, note } : { style };
+  }
+  void ATTIRE_STYLES;
+
   const palette: { name: string; hex: string }[] = [];
   for (let i = 0; i < Math.min(paletteNames.length, paletteHexes.length); i += 1) {
     const name = paletteNames[i] ?? '';
@@ -113,6 +137,7 @@ export async function updateDressCode(
     dos,
     donts,
     palette,
+    roles,
   };
 
   // ----- Persist ----------------------------------------------------------

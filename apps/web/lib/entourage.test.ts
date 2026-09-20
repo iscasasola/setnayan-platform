@@ -266,3 +266,27 @@ test('nobody is printed twice by pairing', () => {
   assert.equal(new Set(names).size, names.length, 'a name appears more than once');
   assert.equal(names.length, 3);
 });
+
+/**
+ * ⚖ OWNER 2026-09-20: *"parents of the groom should go first"* — said of the
+ * live invitation, which was printing the bride's parents above his.
+ *
+ * 🔑 THE ASSERTION IS ON THE PRINTED ROWS, NOT ON THE SPEC. Reading
+ * `GROUPS[0].roles` back would only prove the constant equals itself; it is
+ * `buildEntourage` that turns that order into the order a guest reads, and a
+ * change to how it walks the spec is exactly the regression worth catching.
+ * The fixture deliberately feeds the BRIDE's parents first, so a build that
+ * merely preserves input order fails instead of passing by luck.
+ */
+test("the groom's parents print before the bride's", () => {
+  const groups = buildEntourage([
+    row({ first_name: 'Milagros', last_name: 'Buanhog', role: 'bride_parents' }),
+    row({ first_name: 'Eufrocina', last_name: 'Casasola', role: 'groom_parents' }),
+  ]);
+  const parents = groups.find((g) => g.key === 'parents');
+  assert.ok(parents, 'the parents group must render');
+  assert.deepEqual(
+    peopleOf(parents).map((p) => p.role),
+    ['groom_parents', 'bride_parents'],
+  );
+});

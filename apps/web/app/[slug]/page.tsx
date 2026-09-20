@@ -24,6 +24,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
@@ -961,7 +962,11 @@ async function InvitationBody({
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
   // firewall) and structurally cannot carry guest-derived data.
   const siteProps = {
-    event,
+    // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
+    // render branch spreads this object, so a branch that knows nothing about
+    // the viewer's reply shows no address, no map and no directions. The guest
+    // branch below is the ONLY place that opens it, and only on a real reply.
+    event: withheldVenue(event),
     monogram,
     animatedMonogram,
     studioAnim,
@@ -1230,10 +1235,20 @@ async function InvitationBody({
   // (rsvpFaceMode — the effective face-tag mode for the RSVP selfie + day-of
   // enroll surfaces — now resolves inside loadGuestContext, destructured above.)
 
+  // ── THE ONE PLACE THE VENUE OPENS (owner 2026-09-20 · lib/venue-disclosure.ts).
+  // This guest has been read, so their reply is known. `venueIsOpen` also opens
+  // from the event day onward, so a guest who never replied is never locked out
+  // while travelling to the wedding.
+  const venueOpen = venueIsOpen({
+    rsvpStatus: guest.rsvp_status,
+    eventDate: event.event_date,
+  });
+
   return (
     <>
       <SiteBody
         {...siteProps}
+        event={venueOpen ? event : withheldVenue(event)}
         identity={guestIdentity({
           guest,
           qrSvg,

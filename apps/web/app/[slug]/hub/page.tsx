@@ -69,6 +69,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { venueIsOpen } from '@/lib/venue-disclosure';
 import { ScheduleWidget } from '../_components/schedule-widget';
 import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
 import { GuestCodeKeepers } from '../_components/guest-code-keepers';
@@ -545,7 +546,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     event.venue_longitude != null &&
     Number.isFinite(event.venue_latitude) &&
     Number.isFinite(event.venue_longitude);
-  const hasDirections = hasCoords || Boolean((event.venue_address ?? '').trim());
+  // 🔒 The precise location is for people who have answered (owner 2026-09-20 ·
+  // lib/venue-disclosure.ts). This hub is the DAY-OF surface, and the rule opens
+  // on the event day anyway — so this only closes it for a guest who opens the
+  // hub early without having replied. Same rule object as the invitation page,
+  // never a second copy of the reasoning.
+  const venueOpen = venueIsOpen({
+    rsvpStatus: guest?.rsvp_status ?? null,
+    eventDate: event.event_date,
+  });
+  const hasDirections = venueOpen && (hasCoords || Boolean((event.venue_address ?? '').trim()));
 
   const firstName = guest?.first_name ?? null;
   // Only the LIVE window with an active/upcoming block should read "happening

@@ -1,5 +1,5 @@
 import { CheckCircle2, Wallet } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import type { BookingMoney } from '@/lib/vendor-cashflow';
 
 /**

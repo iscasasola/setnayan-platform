@@ -384,9 +384,23 @@ test('every installment surface routes its centavos through a named helper', () 
     // arrow-function DEFINITION reads `centavosToPesos = (centavos`, so it does
     // not match and cannot inflate the count into a false pass.
     [PROPOSAL_MAKER, /centavosToPesos\(/g, 2],
-    // The quote decision card in the thread, and the never-sent draft card.
+    // The quote decision card in the thread. It builds a NUMBER for a prop
+    // (`totalPhp:`), so the inline conversion is the whole expression there and
+    // there is no rendered string for a formatter to own.
     [CHAT_STREAM, /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
-    [VENDOR_OVERVIEW, /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
+    // Same card on the vendor overview — PR #5772 ("one peso formatter")
+    // removed this caller's own rounding: `formatPhp(Math.round(c) / 100)` was
+    // INERT because `formatPhp` in this file ALSO rounded
+    // (`maximumFractionDigits: 0`), a name collision the PR's whole point was
+    // to remove. `formatCentavosPhp` (lib/php.ts) now takes the centavos
+    // directly and is the one place doing the arithmetic.
+    //
+    // 🔑 THE ANCHOR IS THE NAMED HELPER, WHICH IS THIS TEST'S OWN TITLE — and
+    // deliberately NOT "either exact spelling". Unlike CHAT_STREAM above, this
+    // site renders, so going back to an inline conversion here would be a
+    // regression even if the arithmetic were exact. Kept strict on purpose.
+    // SABOTAGE: `Math.round(card.totalCentavos / 100)` → 0. So does deleting it.
+    [VENDOR_OVERVIEW, /formatCentavosPhp\(card\.totalCentavos\)/g, 1],
     // The plan snapshot + the reservation-terms evidence snapshot.
     [LOCK_ACTION, /centavosToPhp\(|pctOfTotalPhp\(/g, 2],
   ];

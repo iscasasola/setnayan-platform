@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAnswer, formatPhp, formatCentavosPhp } from './answer';
+import { buildAnswer, formatPhpApprox, formatCentavosPhpApprox } from './answer';
 import type { EngineInput, StoreService, VendorStoreSnapshot } from './types';
 
 const baseService: StoreService = {
@@ -51,10 +51,10 @@ function input(s: VendorStoreSnapshot = store(), extra: Partial<EngineInput> = {
   return { inquiryText: '', store: s, ...extra };
 }
 
-test('formatPhp / formatCentavosPhp', () => {
-  assert.equal(formatPhp(48000), '₱48,000');
-  assert.equal(formatPhp(null), '');
-  assert.equal(formatCentavosPhp(4800000), '₱48,000');
+test('formatPhpApprox / formatCentavosPhpApprox', () => {
+  assert.equal(formatPhpApprox(48000), '₱48,000');
+  assert.equal(formatPhpApprox(null), '');
+  assert.equal(formatCentavosPhpApprox(4800000), '₱48,000');
 });
 
 test('price answer quotes the real per-pax rate', () => {

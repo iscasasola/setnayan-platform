@@ -16,7 +16,7 @@
  * the dashboard's fit-badge rule.
  */
 
-import { formatPhp } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 
 export type GuardPick = {
   vendorId: string;
@@ -66,7 +66,7 @@ export function computeBuildGuard(input: BuildGuardInput): BuildGuard {
       issues.push({
         kind: 'budget',
         vendorId: null,
-        text: `Over budget by ${formatPhp(committed - input.totalBudgetPhp)}`,
+        text: `Over budget by ${formatPhpRounded(committed - input.totalBudgetPhp)}`,
       });
     }
   }

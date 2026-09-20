@@ -44,7 +44,7 @@ import { fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
-import { formatPhp } from '@/lib/vendors';
+
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   lockAgreeNotice,

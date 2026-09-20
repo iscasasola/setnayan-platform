@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
-import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { ShopEmpty, ShopPill } from '../_components/kit';
 import { QrActions } from '@/app/_components/qr-actions';
 

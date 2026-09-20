@@ -212,20 +212,15 @@ export async function fetchPaymentsForOrder(
  * `₱49.00` for a whole peso, because the wallet is about to fill in `49.00`.
  * This one drops a `.00` the QR keeps.
  */
-export function formatPhp(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '—';
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return '—';
-  const exact = n.toFixed(2);
-  const dot = exact.lastIndexOf('.');
-  // `whole` keeps its own sign, so a negative renders exactly as it always did.
-  const whole = exact.slice(0, dot);
-  const centavos = exact.slice(dot + 1);
-  const grouped = Number(whole).toLocaleString('en-PH', {
-    maximumFractionDigits: 0,
-  });
-  return `₱${grouped}${centavos === '00' ? '' : `.${centavos}`}`;
-}
+/**
+ * THE MONEY FORMATTER, RE-EXPORTED — the definition moved to `lib/php.ts`
+ * (2026-09-20) so that `lib/budget.ts` and `lib/vendors.ts` could stop carrying
+ * their own `formatPhp` that rounded ₱837.50 to ₱838. The name stays here
+ * because ~30 files import it from `@/lib/orders` and PR #5744's guard,
+ * `app/vendor-dashboard/booking-fees/the-exact-peso-reaches-every-surface.test.ts`,
+ * asserts those imports by module path.
+ */
+export { formatPhp } from './php';
 
 /**
  * Compute the running totals for an order. The order's *_total_php columns

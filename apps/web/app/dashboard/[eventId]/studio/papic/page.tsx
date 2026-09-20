@@ -154,10 +154,12 @@ type Props = {
     uploads_ready?: string;
     uploads_error?: string;
     uploads_open_set?: string;
-    papic_purchased?: string;
-    papic_order?: string;
-    papic_ref?: string;
-    papic_amount?: string;
+    /* 🗑 papic_purchased / papic_order / papic_ref / papic_amount ARE GONE.
+     *  They carried a banner that stood in for a payment page: it named the
+     *  amount and the reference, then spent two more taps getting the buyer to
+     *  the QR. All four Papic mints now redirect to /pay/<reference> like every
+     *  other buy button in the product (lib/pay-path.ts), so nothing sets these
+     *  and a banner reading them could only ever render for a stale link. */
     /** Credits the Home decision row recommended topping up by, so this page
      *  can open on the right rung instead of making the couple work it out
      *  again. Advisory only — nothing is priced or purchased from it. */
@@ -232,10 +234,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     uploads_ready: uploadsReady,
     uploads_error: uploadsError,
     uploads_open_set: uploadsOpenSet,
-    papic_purchased: papicPurchased,
-    papic_order: papicOrder,
-    papic_ref: papicRef,
-    papic_amount: papicAmount,
     papic_error: papicError,
     papic_one_error: papicOneError,
     papic_pool_error: papicPoolError,
@@ -701,10 +699,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         uploadsOpenSet={uploadsOpenSet}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
-        papicPurchased={papicPurchased}
-        papicOrder={papicOrder}
-        papicRef={papicRef}
-        papicAmount={papicAmount}
         papicUnlockProvisioned={papicUnlockProvisioned}
         papicError={papicError}
         limitedSynced={limitedSynced}
@@ -1411,10 +1405,6 @@ function StatusBanners({
   allotmentSet,
   allotmentError,
   connectedAccount,
-  papicPurchased,
-  papicOrder,
-  papicRef,
-  papicAmount,
   papicUnlockProvisioned,
   papicError,
   limitedSynced,
@@ -1442,10 +1432,6 @@ function StatusBanners({
   allotmentSet: string | undefined;
   allotmentError: string | undefined;
   connectedAccount: string | null;
-  papicPurchased: string | undefined;
-  papicOrder: string | undefined;
-  papicRef: string | undefined;
-  papicAmount: string | undefined;
   papicUnlockProvisioned: string | undefined;
   papicError: string | undefined;
   limitedSynced: string | undefined;
@@ -1477,7 +1463,6 @@ function StatusBanners({
     uploadsReady ||
     uploadsError ||
     uploadsOpenSet ||
-    papicPurchased ||
     papicUnlockProvisioned ||
     papicError ||
     limitedSynced !== undefined ||
@@ -1503,52 +1488,14 @@ function StatusBanners({
 
   return (
     <div className="space-y-3">
-      {papicPurchased ? (
-        <div className={neutral}>
-          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          {/*
-            🔴 THIS USED TO PROMISE AN EMAIL THAT DOES NOT EXIST. "Payment
-            instructions are on the way" was on every one of these buy paths,
-            and there is no `payment_instructions` notification type in the app —
-            lib/notification-emit.ts says so in its own comment ("instructions go
-            out via the checkout email path"), and none of these actions touches
-            an email path. So the sentence sent the buyer away to wait for
-            something that was never coming.
-
-            🔑 THE INSTRUCTIONS ARE NOT "ON THE WAY" — THEY ARE ONE TAP AWAY.
-            The order's own page already carries the total, the reference with a
-            copy button, the BDO/GCash accounts and the form for telling us the
-            transfer is made. Link to it rather than describe a message.
-
-            Same defect the owner hit in onboarding on 2026-08-20: "i had a price
-            to pay. but i there was no payment. it just created."
-          */}
-          <span>
-            Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
-            Reference <span className="font-mono">{papicRef}</span>.{' '}
-            {/*
-              ONE link, not a ternary over two identical ones. The label is the
-              thing a guard can count, and two copies of it meant deleting one
-              left the other standing and the guard green — measured, not
-              guessed. The branch belongs in the href, where it is a fallback:
-              an older redirect still in someone's history carries no order id,
-              and the orders list is the honest landing for it. Never nothing.
-            */}
-            <Link
-              className="font-semibold underline underline-offset-2"
-              href={
-                papicOrder
-                  ? `/dashboard/${eventId}/orders/${papicOrder}`
-                  : `/dashboard/${eventId}/orders`
-              }
-            >
-              See how to pay
-            </Link>
-            {' '}— your cameras activate once the Setnayan team confirms your transfer.
-          </span>
-        </div>
-      ) : null}
-
+      {/* 💳 THE "ORDER RECEIVED" BANNER LIVED HERE, AND IT WAS THE DETOUR.
+          It printed the amount and the reference and then offered "See how to
+          pay" → the order page → "Pay now" → /pay. The owner asked why a Papic
+          purchase did not land where the others land; it now does, at the mint
+          (app/.../studio/papic/actions.ts), so there is no state left for this
+          banner to describe. Deleted rather than left unreachable: a
+          confirmation nothing can trigger reads to the next person as a live
+          screen with a broken trigger. */}
       {papicUnlockProvisioned ? (
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />

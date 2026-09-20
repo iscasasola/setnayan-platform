@@ -109,8 +109,17 @@ export async function resolveSuppliesPricing(
 }
 
 /**
- * Helper: format centavos as a PHP retail label (₱1,234 — no decimals since
- * retail is always rounded to the nearest peso).
+ * Helper: format centavos as a PHP retail label (₱1,234).
+ *
+ * @rounds-to-the-peso ⚠ ON THE STRENGTH OF A CONVENTION, NOT A CONSTRAINT.
+ * The original comment said "retail is always rounded to the nearest peso";
+ * that is a habit, not a CHECK — `service_catalog.price_centavos` is a plain
+ * integer and the owner edits these figures by hand. Measured 2026-09-20: all
+ * 43 live rows are whole pesos, so this is accurate TODAY. If a `.50` rung is
+ * ever set, this label is the surface that will hide it, and the honest fix is
+ * to point it at `formatCentavosPhp` (`lib/php.ts`) rather than to widen the
+ * marker's reason. Flagged, not silently changed — it is a price, and the
+ * owner sets prices.
  */
 export function formatRetailLabel(centavos: number): string {
   const pesos = Math.round(centavos / 100);

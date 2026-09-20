@@ -16,7 +16,7 @@ import {
 } from '@/lib/clusters';
 import { RSVP_LABELS, type RsvpStatus } from '@/lib/guests';
 import { budgetStateNote, fetchClusterBudgets } from '@/lib/cluster-budgets';
-import { formatPhp } from '@/lib/budget';
+import { formatPhpRounded } from '@/lib/php';
 import { ClusterTools } from './_components/cluster-tools';
 
 /**
@@ -191,7 +191,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
           </>
         ) : (
           <>
-            <p className="mt-2 text-2xl font-medium text-ink">{formatPhp(budgets.totalPhp)}</p>
+            <p className="mt-2 text-2xl font-medium text-ink">{formatPhpRounded(budgets.totalPhp)}</p>
             <p className="mt-1 text-sm text-ink-soft">
               {/*
                 ⚠ SAY WHAT THE TOTAL IS MADE OF WHENEVER IT IS NOT ALL OF THEM.
@@ -271,7 +271,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
                   const note = budgetStateNote(b.state);
                   return note === null ? (
                     <p className="shrink-0 text-right text-sm font-medium text-ink">
-                      {formatPhp(b.targetPhp)}
+                      {formatPhpRounded(b.targetPhp)}
                     </p>
                   ) : (
                     <p className="max-w-[9rem] shrink-0 text-right text-xs text-ink-soft">

@@ -223,6 +223,14 @@ function pesoText(centavos: number): string {
  * Mirror of SQL `setnayan_gift_bill_clause` (the amended-order minter); the db
  * test asserts the two produce the same text.
  */
+/**
+ * @not-a-money-rounder THE `maximumFractionDigits: 0` BELOW ROUNDS A PHOTO
+ * COUNT, NOT A PESO. `giftCredits` is a whole number of Papic photos; both
+ * money figures in this clause go through `pesoText`, which keeps its centavos.
+ * The scanner sees one rounding call in a body that returns a ₱ string and
+ * cannot tell which number it is applied to — this says so out loud rather
+ * than claiming a peso rounding that does not happen.
+ */
 export function setnayanGiftBillClause(
   feeCentavos: number,
   giftCredits: number,

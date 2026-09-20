@@ -8,11 +8,20 @@
  * Spec: Adaptive_Checklist_Design_2026-06-17.md §5 (budget health states).
  */
 import type { ChecklistBudgetHealth } from './checklist-budget';
+import { formatCentavosPhp } from './php';
 
-/** Whole-peso display from centavos: 1_230_00 → "₱1,230". */
+/**
+ * Centavos → the app's one money spelling: `123000` → `"₱1,230"`.
+ *
+ * 🔑 THIS ROUNDED TO THE PESO (`Math.round(centavos / 100)`) UNTIL 2026-09-20,
+ * and one of the three figures it renders — `committedCentavos` — is money a
+ * couple has actually agreed to. The other two are projections, so the sentence
+ * as a whole is advisory; but there was no reason to keep a rounding rule of
+ * its own to say so, and the two render identically on a whole peso anyway.
+ * Delegated rather than annotated: one definition beats a justified second one.
+ */
 export function formatPeso(centavos: number): string {
-  const pesos = Math.round((Number.isFinite(centavos) ? centavos : 0) / 100);
-  return `₱${pesos.toLocaleString('en-PH')}`;
+  return formatCentavosPhp(Number.isFinite(centavos) ? centavos : 0);
 }
 
 export type BudgetTone = 'good' | 'tight' | 'over';

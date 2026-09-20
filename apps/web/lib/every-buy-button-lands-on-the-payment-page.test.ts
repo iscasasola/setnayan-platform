@@ -25,6 +25,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
@@ -48,6 +50,15 @@ const PAID_PATHS = [
   // (₱500/100 credits, per booked event) pays real money and must land on the
   // same one screen as every other paid buy button.
   'app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts',
+  // ⬇ ADDED 2026-09-20, and the owner found these, not this guard: *"papic
+  // order is not fixed like the other purchases."* All four Papic studio buys —
+  // cameras, Limited, extras, the pool top-up — redirected BACK to the studio
+  // with a banner that named the amount and then cost two more taps ("See how
+  // to pay" → the order page → "Pay now") to reach the QR the figure is
+  // already inside. The guest door was already here in spirit (its assertion
+  // lives at the bottom of this file); the couple's door was nowhere.
+  'app/dashboard/[eventId]/studio/papic/actions.ts',
+  'app/papic/buy/actions.ts',
 ] as const;
 
 /**
@@ -71,9 +82,43 @@ const DELIBERATELY_NOT_REDIRECTED: Record<string, string> = {
     'team through notifyAdminsOrderAwaitingReconciliation. Moving it means ' +
     'inverting pay-then-mint into mint-then-pay, which leaves an unpaid order ' +
     'in the admin queue on every abandoned checkout.',
+  'app/admin/custom-plans/actions.ts':
+    'an ADMIN mints a negotiated plan for a shop. The person pressing the ' +
+    'button is not the payer, so redirecting them to /pay would send the ' +
+    'Setnayan desk to a screen asking IT to send money. The shop reaches the ' +
+    'same payment page from its own subscription page, by reference.',
 };
 
-/** Every file under app/ that mints a PAID order. Derived, never typed out. */
+/**
+ * Every file under app/ that mints a PAID order. Derived, never typed out.
+ *
+ * 🔑 BROADENED 2026-09-20 — `orderRowFor(` ALONE WAS THE SECOND HAND-WRITTEN
+ * LIST. The comment above says a hand-enumerated list is a list of the doors
+ * somebody thought of, and then the derivation asked one question: does this
+ * file use the shared mint helper? The four Papic studio buys do not — they
+ * `.insert()` the `orders` row themselves — so the "derived, never typed out"
+ * check could not see the couple's most-bought product, and passed for weeks.
+ *
+ * So the question is now about the ROW, not the helper: anything that writes a
+ * `requested_total_php` into `orders` is a paid mint. Type annotations and the
+ * docblock that quotes the column are excluded — a value, not a `number | null`.
+ */
+function writesAPricedOrder(src: string): boolean {
+  if (src.includes('orderRowFor(')) return true;
+  if (!/from\('orders'\)/.test(src)) return false;
+  // The string-aware lexer, never a two-replace regex: `accept="image/*"` in a
+  // scanned file opens a block comment that runs to the next `*/` and blanks
+  // real code in between — lib/strip-comments.ts measured 5,104 lines lost that
+  // way, and `lint-one-comment-stripper` is the guard that caught this file
+  // growing its own.
+  const code = stripComments(src);
+  for (const m of code.matchAll(/requested_total_php\s*:\s*([^,\n]+)/g)) {
+    // `requested_total_php: number | null;` is a type, not a write.
+    if (!/^(number|string|boolean)\b/.test(m[1]!.trim())) return true;
+  }
+  return false;
+}
+
 function paidMinters(): string[] {
   const out: string[] = [];
   const walk = (rel: string) => {
@@ -81,7 +126,7 @@ function paidMinters(): string[] {
       const child = rel + '/' + e.name;
       if (e.isDirectory()) walk(child);
       else if (e.name.endsWith('.ts') && !e.name.includes('.test.')) {
-        if (readFileSync(join(WEB, child), 'utf8').includes('orderRowFor(')) out.push(child);
+        if (writesAPricedOrder(readFileSync(join(WEB, child), 'utf8'))) out.push(child);
       }
     }
   };
@@ -93,7 +138,10 @@ test('the set of paid buy paths is DERIVED from the mint, not trusted from a lis
   const minters = paidMinters();
   // A guard that finds nothing passes silently — the failure mode this whole
   // file exists to prevent. Floor it against the eight we know are real.
-  assert.ok(minters.length >= 8, `expected to find the paid minters, saw ${minters.length}`);
+  // Raised 8 → 11 on 2026-09-20 with the broadened derivation above: the two
+  // Papic doors and the admin desk were always mints, they were merely invisible
+  // to a check that only knew one helper.
+  assert.ok(minters.length >= 11, `expected to find the paid minters, saw ${minters.length}`);
 
   const uncovered = minters.filter(
     (rel) => !PAID_PATHS.includes(rel as (typeof PAID_PATHS)[number]) && !DELIBERATELY_NOT_REDIRECTED[rel],

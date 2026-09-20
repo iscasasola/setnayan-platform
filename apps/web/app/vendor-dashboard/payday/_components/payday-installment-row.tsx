@@ -1,5 +1,5 @@
 import { CheckCircle2, AlertTriangle, CalendarDays } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import type { PaydayInstallment } from '@/lib/vendor-cashflow';
 
 /** 'YYYY-MM-DD' → 'Mar 14, 2027'. Returns a dash when null. */

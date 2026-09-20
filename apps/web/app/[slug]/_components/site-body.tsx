@@ -1225,6 +1225,71 @@ export async function SiteBody({
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
               event.website_open_browse is TRUE; identity-aware (guest → RSVP /
               event → Watch Live). */}
+
+          {isLive ? (
+            <DayOfBanner words={clientWords} kind="live" />
+          ) : isPost ? (
+            <DayOfBanner words={clientWords} kind="post" />
+          ) : null}
+
+          {/* Hero. When the host uploads a banner photo/video via
+              /dashboard/[eventId]/website/hero-photo + /site-chrome, render
+              full-bleed with a soft overlay so the monogram + display name + date
+              stay legible. Default falls back to the cream-on-cream monogram-only
+              treatment. Gated on hero widget visibility — always-on by default
+              (editor blocks hiding), but the gate exists so V1.1 can let
+              exhibitions / private weddings drop the hero entirely if needed.
+              (plan.body === 'normal' ≡ the old !showEditorialPlaceholder &&
+              !showSaveTheDate pair.) */}
+          {plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
+            /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
+               (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
+            <PahinaMasthead
+              displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                  shadow
+                />
+              }
+              mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
+              mediaCaption={event.venue_name}
+            />
+          ) : plan.body === 'normal' && plan.heroShouldRender ? (
+            <PahinaMasthead
+              displayName={event.display_name}
+              twoPeople={clientWords.twoPeople}
+              eventDate={event.event_date}
+              venueName={event.venue_name}
+              monogramSlot={
+                <HeroMonogram
+                  event={event}
+                  monogram={monogram}
+                  animatedMonogram={animatedMonogram}
+                  bespokeSvg={bespokeSvg}
+                />
+              }
+            />
+          ) : null}
+
+          {/* ── THE PAGE OPENS ON THE MARK (owner 2026-09-20).
+              Until now an identified guest met a box about THEMSELVES — "Hi
+              again, <name>" — and the couple's monogram sat a screen and a half
+              below it. The owner, seeing his own invitation: "it starts with
+              the logo like when you enter a place you see their logo on their
+              building."
+              So the hero runs FIRST and everything personal — the spotlight,
+              the status card, the home-screen offer, the account prompt — moves
+              below it. Nothing here is new or removed; only the order changed.
+              A shared phone also stops announcing whose invitation it is before
+              it says whose wedding it is.
+              Guarded by `the-invitation-opens-on-the-mark.test.ts`. */}
           {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at
@@ -1287,58 +1352,6 @@ export async function SiteBody({
               targetTableId={seatMap.targetTableId}
               firstName={guestHubData.firstName}
               arrived={guestHubData.arrived}
-            />
-          ) : null}
-
-          {isLive ? (
-            <DayOfBanner words={clientWords} kind="live" />
-          ) : isPost ? (
-            <DayOfBanner words={clientWords} kind="post" />
-          ) : null}
-
-          {/* Hero. When the host uploads a banner photo/video via
-              /dashboard/[eventId]/website/hero-photo + /site-chrome, render
-              full-bleed with a soft overlay so the monogram + display name + date
-              stay legible. Default falls back to the cream-on-cream monogram-only
-              treatment. Gated on hero widget visibility — always-on by default
-              (editor blocks hiding), but the gate exists so V1.1 can let
-              exhibitions / private weddings drop the hero entirely if needed.
-              (plan.body === 'normal' ≡ the old !showEditorialPlaceholder &&
-              !showSaveTheDate pair.) */}
-          {plan.body === 'normal' && plan.heroShouldRender && hasHeroMedia ? (
-            /* Pahina masthead (wave A PR-2) — typographic hero + cover plate
-               (STRUCTURAL: was text-over-scrim). HeroMonogram mount unchanged. */
-            <PahinaMasthead
-              displayName={event.display_name}
-              twoPeople={clientWords.twoPeople}
-              eventDate={event.event_date}
-              venueName={event.venue_name}
-              monogramSlot={
-                <HeroMonogram
-                  event={event}
-                  monogram={monogram}
-                  animatedMonogram={animatedMonogram}
-                  bespokeSvg={bespokeSvg}
-                  shadow
-                />
-              }
-              mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
-              mediaCaption={event.venue_name}
-            />
-          ) : plan.body === 'normal' && plan.heroShouldRender ? (
-            <PahinaMasthead
-              displayName={event.display_name}
-              twoPeople={clientWords.twoPeople}
-              eventDate={event.event_date}
-              venueName={event.venue_name}
-              monogramSlot={
-                <HeroMonogram
-                  event={event}
-                  monogram={monogram}
-                  animatedMonogram={animatedMonogram}
-                  bespokeSvg={bespokeSvg}
-                />
-              }
             />
           ) : null}
 

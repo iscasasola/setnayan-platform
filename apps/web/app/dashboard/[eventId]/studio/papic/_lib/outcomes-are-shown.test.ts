@@ -71,38 +71,44 @@ function region(startMarker: string, endMarker: string): string {
  * /crew child page and are read there, correctly; `next` is a login param. A
  * guard that cries wolf teaches you to skim past the one time it is right.
  */
+function keysFromSource(src: string, targetsThisPage: boolean): string[] {
+  // 🔴 THE `\n` USED TO BE IN THESE CHARACTER CLASSES, AND IT MADE THIS GUARD
+  // BLIND TO EVERY PARAM AFTER A LINE BREAK. These redirects are template
+  // literals wrapped across lines by the formatter, so the match died at the
+  // first newline and each multi-line redirect contributed only its FIRST
+  // parameter. Measured before the fix: the scan found 16 keys and missed
+  // `papic_ref`, `papic_amount` and `papic_order` — all real outcomes, all on
+  // continuation lines.
+  //
+  // 🔑 AND THE BLIND SPOT HAD BEEN WRITTEN DOWN AS A DECISION. Two of the
+  // three sat in this file's exemption list, which reads as "we considered
+  // these and they are fine" — but the scan had never seen them, so the
+  // exemption was never doing anything. A guard's blind spot becomes a lie
+  // the moment somebody records it as an intentional exclusion.
+  //
+  // Stopping at the closing backtick/quote instead is safe in the same
+  // direction the old class was: it can only under-match, never over-match.
+  const keys = new Set<string>();
+  const patterns = [/\/studio\/papic\?([^`'"]*)/g];
+  if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g);
+  for (const m of patterns.flatMap((re) => [...src.matchAll(re)])) {
+    for (const kv of m[1]!.split('&')) {
+      const key = kv.split('=')[0]?.trim();
+      if (key && /^[a-zA-Z_]+$/.test(key)) keys.add(key);
+    }
+  }
+  keys.delete('tab'); // navigation, not an outcome
+  return [...keys];
+}
+
 function outcomeKeys(): string[] {
   const keys = new Set<string>();
   for (const name of readdirSync(ROUTE)) {
     if (!name.endsWith('actions.ts')) continue;
     const src = codeOnly(readFileSync(join(ROUTE, name), 'utf8'));
     const targetsThisPage = /const back = `\/dashboard\/\$\{eventId\}\/studio\/papic`/.test(src);
-    // 🔴 THE `\n` USED TO BE IN THESE CHARACTER CLASSES, AND IT MADE THIS GUARD
-    // BLIND TO EVERY PARAM AFTER A LINE BREAK. These redirects are template
-    // literals wrapped across lines by the formatter, so the match died at the
-    // first newline and each multi-line redirect contributed only its FIRST
-    // parameter. Measured before the fix: the scan found 16 keys and missed
-    // `papic_ref`, `papic_amount` and `papic_order` — all real outcomes, all on
-    // continuation lines.
-    //
-    // 🔑 AND THE BLIND SPOT HAD BEEN WRITTEN DOWN AS A DECISION. Two of the
-    // three sat in this file's exemption list, which reads as "we considered
-    // these and they are fine" — but the scan had never seen them, so the
-    // exemption was never doing anything. A guard's blind spot becomes a lie
-    // the moment somebody records it as an intentional exclusion.
-    //
-    // Stopping at the closing backtick/quote instead is safe in the same
-    // direction the old class was: it can only under-match, never over-match.
-    const patterns = [/\/studio\/papic\?([^`'"]*)/g];
-    if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g);
-    for (const m of patterns.flatMap((re) => [...src.matchAll(re)])) {
-      for (const kv of m[1]!.split('&')) {
-        const key = kv.split('=')[0]?.trim();
-        if (key && /^[a-zA-Z_]+$/.test(key)) keys.add(key);
-      }
-    }
+    for (const k of keysFromSource(src, targetsThisPage)) keys.add(k);
   }
-  keys.delete('tab'); // navigation, not an outcome
   return [...keys].sort();
 }
 
@@ -118,18 +124,17 @@ const KEYS = outcomeKeys();
  * cannot be the ONLY thing a redirect sends. Adding one to silence a failure,
  * when it really is a banner's trigger, is how a confirmation gets written,
  * passed in and never shown — the exact defect the two tests below exist for.
- *   • connectedAccount · papicRef · papicAmount — words inside another banner
+ *   • connectedAccount — words inside another banner
  *   • eventId — the route's own id, always present, never an outcome
- *   • papicOrder — the bill link's destination, shown only inside the
- *     `papic_purchased` banner, which has its own trigger
+ *
+ * 🗑 SHRANK 2026-09-20. `papicRef` · `papicAmount` · `papicOrder` were the
+ * three words inside the "Order received" banner, and that banner is gone: the
+ * four Papic buys now redirect to /pay/<reference> like every other purchase
+ * instead of returning here to describe one. An exemption must not outlive its
+ * subject — kept, it would silence the two tests below for a prop that could
+ * come back as a real trigger.
  */
-const DETAIL_ONLY_PROPS = [
-  'connectedAccount',
-  'papicRef',
-  'papicAmount',
-  'eventId',
-  'papicOrder',
-];
+const DETAIL_ONLY_PROPS = ['connectedAccount', 'eventId'];
 
 /** The `<StatusBanners … />` call site, and the component's bail-out condition. */
 function bannerCallSite(): string {
@@ -153,19 +158,48 @@ test('the scan finds the outcomes (a guard reading nothing passes everything)', 
   // per-guest numbers. They could NOT reuse `shots_set` / `shots_error` — those
   // belong to setCameraShots, and sharing them would show one control's
   // confirmation after another control's save.
+  //
+  // ⬇ 21 → 17 on 2026-09-20, and this is the one lowering the line above allows:
+  // the four keys are not MISSED, they are DELETED. `papic_purchased` /
+  // `papic_order` / `papic_ref` / `papic_amount` carried the "Order received"
+  // banner, and the four Papic buys now redirect to /pay/<reference> instead of
+  // coming back here to describe a payment page. Check `git log` for the mint
+  // before believing any future drop is as innocent as this one.
   assert.ok(
-    KEYS.length >= 21,
+    KEYS.length >= 17,
     `expected this route's redirect outcomes, found ${KEYS.length}: ${KEYS.join(', ')}`,
   );
-  for (const spanning of ['papic_ref', 'papic_amount', 'papic_order']) {
-    assert.ok(
-      KEYS.includes(spanning),
-      `${spanning} sits on a continuation line — if it is missing the scan has gone newline-blind again`,
-    );
-  }
   for (const known of ['style_set', 'style_error', 'faceTagging', 'guestCameras']) {
     assert.ok(KEYS.includes(known), `${known} must be found by the scan`);
   }
+});
+
+test('the scan still reads PAST a line break (the blindness that cost three outcomes)', () => {
+  /**
+   * ⚠ THIS USED TO BE A SAMPLE, AND ITS SAMPLE IS GONE. The check was "does the
+   * scan find `papic_ref` / `papic_amount` / `papic_order`" — the three keys
+   * that sat on continuation lines. They were deleted with the banner on
+   * 2026-09-20, and a canary asserting the presence of deleted keys is either
+   * red forever or quietly dropped, which is how the blindness came back the
+   * first time.
+   *
+   * 🔑 SO THE PROPERTY IS EXECUTED INSTEAD OF SAMPLED. The extraction runs
+   * against a fixture shaped exactly like the redirects the formatter wraps, so
+   * it holds whatever today's actions happen to look like. Put the `\n` back
+   * into the character class in keysFromSource and this goes red immediately.
+   */
+  const wrapped = [
+    'redirect(',
+    '  `/dashboard/${eventId}/studio/papic?first_key=${encodeURIComponent(',
+    '    value,',
+    '  )}&second_key=${other}&third_key=1`,',
+    ');',
+  ].join('\n');
+  assert.deepEqual(
+    keysFromSource(wrapped, false).sort(),
+    ['first_key', 'second_key', 'third_key'],
+    'the scan stops at the first line break again — every param after one is invisible',
+  );
 });
 
 test('🚨 every outcome arrives — it is in the page’s searchParams type', () => {
@@ -212,7 +246,7 @@ test('the detail-only exemption list is exactly what it claims', () => {
   // not a quiet way to make a red run green.
   assert.deepEqual(
     [...DETAIL_ONLY_PROPS].sort(),
-    ['connectedAccount', 'eventId', 'papicAmount', 'papicOrder', 'papicRef'],
+    ['connectedAccount', 'eventId'],
     'the exemption list changed — every entry must be a prop that DETAILS a banner, never one that triggers it',
   );
 });

@@ -341,14 +341,14 @@ export function NewManualVendorModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-manual-vendor-heading"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
+      className="sn-addman-veil fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
       onClick={(e) => {
         // Click backdrop to close, but ignore clicks inside the form.
         if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
-        className="w-full max-w-md rounded-t-2xl border-t border-ink/10 bg-cream p-5 shadow-2xl sm:rounded-2xl sm:border"
+        className="sn-addman-sheet w-full max-w-md rounded-t-2xl border-t border-ink/10 bg-cream p-5 shadow-2xl sm:rounded-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-4 flex items-start justify-between gap-3">
@@ -466,7 +466,7 @@ export function NewManualVendorModal({
                   inside this relative container so it floats above
                   whatever sits below in the form. */}
               <div className="relative">
-                <Field label="Vendor name" htmlFor="manual-vendor-name" required>
+                <Field label="Vendor name" htmlFor="manual-vendor-name" required step={0}>
                   <input
                     ref={firstFieldRef}
                     id="manual-vendor-name"
@@ -501,6 +501,7 @@ export function NewManualVendorModal({
                 label="Contact person"
                 htmlFor="manual-vendor-contact-person"
                 required
+                step={1}
                 hint="Who to call · usually the same as Vendor name."
               >
                 <input
@@ -519,6 +520,7 @@ export function NewManualVendorModal({
                 label="Contact number"
                 htmlFor="manual-vendor-contact-number"
                 required
+                step={2}
                 hint="Mobile preferred · e.g. +63 917 555 1234"
               >
                 <input
@@ -545,6 +547,7 @@ export function NewManualVendorModal({
                 label={addressRequired ? MANUAL_VENUE_ADDRESS_LABEL : 'Address'}
                 htmlFor="manual-vendor-address"
                 required={addressRequired}
+                step={3}
                 hint={
                   addressRequired
                     ? MANUAL_VENUE_ADDRESS_HINT
@@ -1205,16 +1208,27 @@ function Field({
   htmlFor,
   required,
   hint,
+  /**
+   * Stagger index. The sheet rises, then its fields follow just behind it —
+   * `.sn-addman-field` is `sn-canvas-rise` with `backwards`, so the delay
+   * holds the FROM state instead of flashing the resting one first.
+   * The global prefers-reduced-motion block disables all of it.
+   */
+  step = 0,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
   hint?: string;
+  step?: number;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div
+      className="sn-addman-field space-y-1"
+      style={{ animationDelay: `${120 + Math.min(step, 8) * 45}ms` }}
+    >
       <label
         htmlFor={htmlFor}
         className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65"

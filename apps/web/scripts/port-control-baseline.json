@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9c0bed938",
+  "generatedFromRef": "b85d6996d",
   "routeCount": 430,
   "destinations": 920,
   "actions": 651,
-  "blocks": 4514,
+  "blocks": 4531,
   "routes": {
     "/": {
       "files": [
@@ -740,6 +740,7 @@
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/invitation-shell.tsx",
         "[slug]/_components/invitation-skeleton.tsx",
+        "[slug]/_components/keep-on-home-screen.tsx",
         "[slug]/_components/live-wall-block.tsx",
         "[slug]/_components/our-love-story-widget.tsx",
         "[slug]/_components/our-photos-widget.tsx",
@@ -817,6 +818,7 @@
         "[slug]/_lib/event-words.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
+        "[slug]/_lib/icon-source.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -884,6 +886,7 @@
         "ChallengeCountdown",
         "Chapter",
         "ChapterWriteUp",
+        "Choice",
         "ClientEventWords",
         "ClipFrame",
         "Colophon",
@@ -912,6 +915,7 @@
         "EditorialOrderKey",
         "EditorialSections",
         "EntourageSection",
+        "EventIconSource",
         "EventMedia",
         "EventWords",
         "EventWordsContext.Provider",
@@ -960,9 +964,11 @@
         "HubMenuButton",
         "HubPanelKey",
         "Icon",
+        "InstallPlatform",
         "InvitationBody",
         "InvitationShell",
         "InvitationSkeleton",
+        "KeepOnHomeScreen",
         "KwentoClip",
         "KwentoWall",
         "Layer",
@@ -5449,6 +5455,7 @@
         "PairSelectedForm",
         "PartnerLine",
         "Popover",
+        "QrActions",
         "QuickAddInlineForm",
         "QuickAddResult",
         "QuickAddSheet",
@@ -5762,7 +5769,8 @@
         "StatusBadge",
         "StatusLine",
         "SubmitButton",
-        "SuggestionsRow"
+        "SuggestionsRow",
+        "TagListDownload"
       ]
     },
     "/dashboard/[eventId]/invitation/print": {
@@ -7877,6 +7885,7 @@
         "LaterInstallment",
         "Link",
         "PaymentAsksCard",
+        "PaymentHistoryList",
         "PaymentPlanStepper",
         "ProofImage",
         "QuoteBridge",
@@ -7965,6 +7974,7 @@
         "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
         "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx",
         "dashboard/[eventId]/website/dress-code/actions.ts",
         "dashboard/[eventId]/website/dress-code/loading.tsx",
         "dashboard/[eventId]/website/dress-code/page.tsx"
@@ -7983,6 +7993,7 @@
         "ListField",
         "PageMasthead",
         "PaletteField",
+        "RoleAttireField",
         "SubmitButton"
       ]
     },
@@ -9299,7 +9310,6 @@
         "signUp"
       ],
       "blocks": [
-        "AccountTypeOption",
         "DesktopOAuthButtons",
         "FormField",
         "Link",
@@ -9711,6 +9721,8 @@
         "AgeLine",
         "AgentHome",
         "AppRailShell",
+        "BookingFeeBills",
+        "BookingFeeNotice",
         "BottomNav",
         "BranchActionState",
         "BranchPinMap",
@@ -9847,7 +9859,8 @@
         "FeeGroup",
         "Link",
         "ListPageSkeleton",
-        "PageMasthead"
+        "PageMasthead",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/booking-fees/[orderId]": {
@@ -10046,6 +10059,8 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "BookingFeeBills",
+        "BookingFeeNotice",
         "BookingMoneySummary",
         "BoothEventActionState",
         "BoothEventBuyForm",
@@ -10064,6 +10079,7 @@
         "LockRequestAnswer",
         "OverviewTab",
         "PaymentAsksPanel",
+        "PaymentHistoryList",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PipelineStrip",
@@ -10084,7 +10100,8 @@
         "VendorChallengeSection",
         "VendorCompletionCard",
         "VendorFinalizationResult",
-        "VendorPaymentLive"
+        "VendorPaymentLive",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/challenge-photos": {
@@ -10369,10 +10386,12 @@
       ],
       "actions": [],
       "blocks": [
+        "BookingFeeBills",
         "Link",
         "PayoutKpi",
         "Stat",
-        "VendorTierGate"
+        "VendorTierGate",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/funnel": {
@@ -10531,6 +10550,7 @@
         "sendProposalFromChat"
       ],
       "blocks": [
+        "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailColumn",
         "ChatInfoRailTrigger",

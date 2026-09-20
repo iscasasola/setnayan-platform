@@ -25,6 +25,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from '@/lib/strip-comments';
+
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
@@ -104,7 +106,12 @@ const DELIBERATELY_NOT_REDIRECTED: Record<string, string> = {
 function writesAPricedOrder(src: string): boolean {
   if (src.includes('orderRowFor(')) return true;
   if (!/from\('orders'\)/.test(src)) return false;
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // The string-aware lexer, never a two-replace regex: `accept="image/*"` in a
+  // scanned file opens a block comment that runs to the next `*/` and blanks
+  // real code in between — lib/strip-comments.ts measured 5,104 lines lost that
+  // way, and `lint-one-comment-stripper` is the guard that caught this file
+  // growing its own.
+  const code = stripComments(src);
   for (const m of code.matchAll(/requested_total_php\s*:\s*([^,\n]+)/g)) {
     // `requested_total_php: number | null;` is a type, not a write.
     if (!/^(number|string|boolean)\b/.test(m[1].trim())) return true;

@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 import {
   RSVP_SHEET_ANCHORS,
@@ -65,11 +66,11 @@ const readHere = (name: string) => readFileSync(join(HERE, name), 'utf8');
  * thing it explains. It is at least the third time in this repo that a COMMENT
  * satisfied a pattern match — twice as a false pass, here as a false failure.
  */
-const stripComments = (src: string) =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+// ⚠ ONE STRIPPER IN THE REPO, and this file used to grow its own.
+// `lint-one-comment-stripper.mjs` exists because a two-replace regex strips
+// BLOCK comments first, so a line comment containing `video/*` opens a comment
+// that closes at the next real `*/` and blanks everything between — and a guard
+// built on it then asserts against a blank and passes. Use the shared one.
 
 const SHEET_SRC = readHere('rsvp-sheet.tsx');
 const SHEET_CODE = stripComments(SHEET_SRC);

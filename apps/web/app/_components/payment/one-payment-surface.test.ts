@@ -83,3 +83,44 @@ test('/pay hands down the SERVER-drawn code, and nothing for a browser to draw',
     'the payment page stopped minting its own code on the server',
   );
 });
+
+/**
+ * The surfaces that used to hand out a code of their own.
+ *
+ * Each printed the receiving accounts beside their STATIC QR — a code carrying
+ * NO amount, which is the ₱0 scan the owner hit paying a real ₱837.50 booking
+ * fee. Neither could take the proof afterwards: the booking-fee page still told
+ * a supplier to "log it below" about a form that had moved to /pay in August,
+ * and the subscription tile offered nowhere to say you had paid at all.
+ */
+const SECOND_SURFACES = [
+  'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
+  'app/vendor-dashboard/subscription/page.tsx',
+] as const;
+
+test('no page hands out a payment code of its own — they point at /pay', () => {
+  for (const rel of SECOND_SURFACES) {
+    const src = read(rel);
+
+    // The static merchant image is the tell: it is the one that carries no
+    // amount. A payload is fine — `qr-amount-truth` reads it to decide what a
+    // page may CLAIM about a code, without drawing one.
+    assert.doesNotMatch(
+      src,
+      /settings\.(gcash|bdo)_qr_url/,
+      `${rel} draws the static ₱0 code again — sending money belongs on /pay`,
+    );
+    assert.doesNotMatch(
+      src,
+      /settings\.(gcash_number|bdo_account_number)/,
+      `${rel} prints a receiving account again, which is a second way to pay one bill`,
+    );
+
+    // And the way out must exist, or removing the tile stranded somebody.
+    assert.match(
+      src,
+      /payPath\(/,
+      `${rel} no longer points anywhere payable — that is worse than the tile it replaced`,
+    );
+  }
+});

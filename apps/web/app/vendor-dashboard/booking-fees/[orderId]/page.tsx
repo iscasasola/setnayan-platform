@@ -4,8 +4,6 @@ import { payPath } from '@/lib/pay-path';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -23,7 +21,6 @@ import {
 } from '@/lib/orders';
 import {
   fetchPlatformSettings,
-  hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
 import { everyOpenRailCarriesAmount, qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
@@ -237,83 +234,25 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
               <CopyButton value={order.reference_code} label="Copy" />
             </div>
           </div>
+          {/* 🔁 THE SECOND PAYMENT SURFACE THAT SAT HERE IS GONE (2026-09-20).
+              It printed both receiving accounts and their STATIC QR codes —
+              codes that carry no amount, which is the ₱0 scan the owner hit on
+              this very lane ("the amount is not filled up. it only shows 0.",
+              paying a real ₱837.50 booking fee). Below it, this page told the
+              supplier to "log it below" — and the form it meant moved to /pay
+              on 2026-08-21, so the instruction had been pointing at nothing.
+
+              🔑 THE FACTS OF THE BILL STAY; THE WAYS TO PAY IT DO NOT. The
+              amount and the reference above are what this page is FOR. Sending
+              the money happens on /pay, which mints the code with the figure
+              already inside it and takes the proof — see "Paying this fee"
+              below, and app/_components/payment/payment-rails.tsx for the one
+              surface every payment screen now renders. */}
           <p className="text-xs leading-relaxed text-ink/60">
-            Send the amount via BDO or GCash
-            {hasMerchantPaymentInfo(settings)
-              ? ' to the account below'
-              : ' (details emailed with your reference)'}
-            , include the{' '}
-            <span className="font-semibold text-ink">reference code</span> in the
-            transfer note so we can match it, then log it below.
+            Include the{' '}
+            <span className="font-semibold text-ink">reference code</span> in your
+            transfer note so we can match it to this fee.
           </p>
-
-          {hasMerchantPaymentInfo(settings) ? (
-            <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
-              {isChannelOpen(settings, 'bdo') ? (
-                <div className="sn-row space-y-2 p-4">
-                  <p className="sn-eye">BDO bank transfer</p>
-                  {settings.bdo_account_name ? (
-                    <p className="text-sm font-medium text-ink">{settings.bdo_account_name}</p>
-                  ) : null}
-                  {settings.bdo_account_number ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="break-all font-mono text-sm text-ink">
-                        {settings.bdo_account_number}
-                      </p>
-                      <CopyButton value={settings.bdo_account_number} label="Copy" />
-                    </div>
-                  ) : null}
-                  {settings.bdo_qr_url ? (
-                    <>
-                      <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={settings.bdo_qr_url}
-                          alt="BDO merchant QR, which carries no amount"
-                          className="h-40 w-40 rounded-lg object-contain"
-                        />
-                      </div>
-                      <p className="text-xs leading-relaxed text-ink/60">
-                        {staticImageWords.caption}
-                      </p>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {isChannelOpen(settings, 'gcash') ? (
-                <div className="sn-row space-y-2 p-4">
-                  <p className="sn-eye">GCash</p>
-                  {settings.gcash_account_name ? (
-                    <p className="text-sm font-medium text-ink">{settings.gcash_account_name}</p>
-                  ) : null}
-                  {settings.gcash_number ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="break-all font-mono text-sm text-ink">
-                        {settings.gcash_number}
-                      </p>
-                      <CopyButton value={settings.gcash_number} label="Copy" />
-                    </div>
-                  ) : null}
-                  {settings.gcash_qr_url ? (
-                    <>
-                      <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={settings.gcash_qr_url}
-                          alt="GCash QR, which carries no amount"
-                          className="h-40 w-40 rounded-lg object-contain"
-                        />
-                      </div>
-                      <p className="text-xs leading-relaxed text-ink/60">
-                        {staticImageWords.caption}
-                      </p>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </section>
       ) : null}
 

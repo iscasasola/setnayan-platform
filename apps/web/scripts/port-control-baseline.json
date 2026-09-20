@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8e0a1a28e",
+  "generatedFromRef": "3ae536780",
   "routeCount": 430,
   "destinations": 922,
   "actions": 651,
-  "blocks": 4558,
+  "blocks": 4557,
   "routes": {
     "/": {
       "files": [
@@ -11549,7 +11549,6 @@
         "Link",
         "PageMasthead",
         "PapicChallengeCard",
-        "PayBox",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",

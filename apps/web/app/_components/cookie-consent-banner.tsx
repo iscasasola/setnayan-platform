@@ -32,8 +32,9 @@ import { isNativeApp } from '@/lib/capacitor';
 // SELF-GATED, same idiom as SiteChrome's `isMarketingRoute`: `usePathname()` +
 // one pure predicate, so the root layout keeps mounting this unconditionally and
 // the route policy lives in exactly one testable place. The gate is a DENY-list
-// of two Live Studio surfaces — the OBS-captured program output and the host's
-// full-screen controller — and nothing else; see capture-safe-routes.ts for
+// of three Live Studio surfaces — the OBS-captured program output, the host's
+// full-screen controller, and a paired venue screen (/live/screen) — and
+// nothing else; see capture-safe-routes.ts for
 // why each is excluded and why `/panood/cam/` deliberately is not.
 export function CookieConsentBanner() {
   const pathname = usePathname();

@@ -6,7 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import {
-  fetchVendorBlocks,
+  fetchVendorBlocksDetailed,
   fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
@@ -219,12 +219,13 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
 
-  const [pools, bookings, blocks, services, waitlist, dayStates] = await Promise.all([
+  const [pools, bookings, blocksRead, services, waitlist, dayStates] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     // CAPACITY, not the room: every booking here is keyed into byPool by poolId to
     // paint the day states. Widening it would drop rows into a null pool.
     fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
-    fetchVendorBlocks(supabase, profile.vendor_profile_id),
+    // Paged to the server's count; `complete` drives the note under the header.
+    fetchVendorBlocksDetailed(supabase, profile.vendor_profile_id),
     namedCalendars
       ? fetchVendorServicesForPicker(supabase, profile.vendor_profile_id)
       : Promise.resolve([] as CalendarServiceOption[]),
@@ -237,6 +238,10 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
       `${month}-31`,
     ),
   ]);
+
+  const blocks = blocksRead.blocks;
+  // ⚠ A block read that did not reach the end is SAID, never shown as open days.
+  const blocksIncomplete = !blocksRead.complete;
 
   // Waitlist settings + per-date picked counts (owner 2026-07). Soft-probed so a
   // pre-migration DB degrades to "disabled" rather than throwing.
@@ -682,6 +687,13 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
           )}
         </p>
       </header>
+
+      {blocksIncomplete ? (
+        <p role="status" className="rounded-xl border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+          Some of your blocked dates couldn&rsquo;t load, so a date you closed may show as open
+          here. Reload the page to try again before you promise anyone a date.
+        </p>
+      ) : null}
 
       {notice ? (
         <p

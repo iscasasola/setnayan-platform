@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
+import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 
 /**
  * "Save the code" + "Copy link" — the two ways a guest takes their invitation
@@ -55,6 +56,10 @@ export function GuestCodeKeepers({
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
         </a>
+        <NfcWriteButton
+          url={invitationUrl}
+          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
+        />
         <button
           type="button"
           onClick={copy}

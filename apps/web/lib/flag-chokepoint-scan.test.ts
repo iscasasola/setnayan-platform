@@ -221,6 +221,24 @@ const FLAGS: FlagSpec[] = [
     ],
     locals: ['venueThrottleOn'],
   },
+  {
+    // "Write to NFC" (2026-09-20). Ships OFF: built to the Web NFC spec, but a
+    // tap on a real sticker is the only proof, and no session can produce one.
+    env: 'NEXT_PUBLIC_NFC_WRITE_ENABLED',
+    helper: 'lib/nfc-write-flag.ts',
+    fn: 'isNfcWriteEnabled',
+    gates: [
+      // The ONE hook both NFC surfaces ask (the write button on every QR strip,
+      // and the check-in desk's tag reader). It ORs the flag with this phone's
+      // own `?nfc-test=1` opt-in; with neither, no surface shows NFC.
+      'app/_components/use-nfc-enabled.ts',
+    ],
+    pureCores: [
+      // Eligibility, byte budget, error naming, read-back: no flag, no DOM.
+      'lib/nfc-tag.ts',
+    ],
+    locals: ['nfcWrite'],
+  },
 ];
 
 /** Strip comments — a docblock naming the helper must not read as a call. */

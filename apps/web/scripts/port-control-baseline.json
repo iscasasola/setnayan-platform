@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "57aa279b32",
+  "generatedFromRef": "d5d0e9ca4",
   "routeCount": 428,
-  "destinations": 917,
-  "actions": 639,
-  "blocks": 4475,
+  "destinations": 919,
+  "actions": 643,
+  "blocks": 4493,
   "routes": {
     "/": {
       "files": [
@@ -985,6 +985,7 @@
         "MomentsEssay",
         "Monogram",
         "NavLinksRow",
+        "NfcWriteButton",
         "OurLoveStoryWidget",
         "OurPhotosWidget",
         "OurStory",
@@ -5593,6 +5594,7 @@
         "InviteLink",
         "InviteThemePicker",
         "Link",
+        "QrActions",
         "RegenerateInviteQrResult",
         "RegenerateQrButton",
         "SubmitButton"
@@ -5749,6 +5751,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "QrActions",
         "ReissueQrButton",
         "SlugField",
         "StatusBadge",
@@ -6126,6 +6129,7 @@
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
+        "dashboard/[eventId]/schedule/_components/host-questions.tsx",
         "dashboard/[eventId]/schedule/_components/journey-view.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
@@ -6141,6 +6145,7 @@
         "dashboard/[eventId]/schedule/loading.tsx",
         "dashboard/[eventId]/schedule/page.tsx",
         "dashboard/[eventId]/schedule/prep-actions.ts",
+        "dashboard/[eventId]/schedule/question-answers-actions.ts",
         "dashboard/[eventId]/schedule/stage-note-actions.ts"
       ],
       "destinations": [
@@ -6157,6 +6162,7 @@
         "deleteScheduleBlock",
         "loadScheduleTemplate",
         "resolveScheduleSuggestion",
+        "saveHostAnswers",
         "sendStageNoteFromEvent",
         "setBlockPrepVisibility",
         "setBlockResponsibleParty",
@@ -6178,6 +6184,8 @@
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HostQuestions",
+        "HostQuestionsUnread",
         "Icon",
         "JourneyArc",
         "JourneyEmptyState",
@@ -6600,6 +6608,7 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
+        "QrActions",
         "StudioBuyHero",
         "UnownedView"
       ]
@@ -7981,6 +7990,7 @@
         "dashboard/[eventId]/website/editor/page.tsx"
       ],
       "destinations": [
+        "/api/website/qr[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date"
@@ -8019,6 +8029,7 @@
         "PhotoMomentsPanel",
         "PreviewTabKey",
         "ProLockPanel",
+        "QrActions",
         "ReturnTo",
         "RsvpBackdropPanel",
         "SaveButton",
@@ -9576,6 +9587,7 @@
         "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
+        "vendor-dashboard/_components/list-pager.tsx",
         "vendor-dashboard/_components/overview-sections.tsx",
         "vendor-dashboard/_components/payments-paused-note.tsx",
         "vendor-dashboard/_components/payout-method-nudge.tsx",
@@ -9658,7 +9670,6 @@
         "ComingSoon",
         "Connected",
         "ContractDraftBody",
-        "CopyButton",
         "CorrectionRequestResult",
         "CountUp",
         "DeleteRequestBody",
@@ -9694,6 +9705,7 @@
         "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
+        "QrActions",
         "QrCard",
         "QuoteDraftBody",
         "ReviewBody",
@@ -9724,19 +9736,25 @@
     "/vendor-dashboard/activities": {
       "files": [
         "vendor-dashboard/activities/actions.ts",
-        "vendor-dashboard/activities/page.tsx"
+        "vendor-dashboard/activities/page.tsx",
+        "vendor-dashboard/activities/question-actions.ts",
+        "vendor-dashboard/activities/questions-section.tsx"
       ],
       "destinations": [],
       "actions": [
         "addActivity",
+        "addQuestion",
         "reorderActivity",
         "toggleActivityOffered",
-        "updateActivity"
+        "toggleQuestionAsked",
+        "updateActivity",
+        "updateQuestion"
       ],
       "blocks": [
         "ActivityRow",
         "Icon",
-        "MoveButton"
+        "MoveButton",
+        "QuestionsSection"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -9815,6 +9833,7 @@
         "HTMLInputElement",
         "KindIcon",
         "Link",
+        "ListPager",
         "PrepKind",
         "PrepKindPicker",
         "ShopEmpty",
@@ -9905,6 +9924,7 @@
         "ConfirmForm",
         "Link",
         "ListPageSkeleton",
+        "ListPager",
         "StageChip",
         "SubmitButton"
       ]
@@ -9933,6 +9953,7 @@
       ],
       "destinations": [
         "/proposals/[seg]",
+        "/vendor-dashboard/activities",
         "/vendor-dashboard/clients",
         "/vendor-dashboard/clients/[seg]/calendar.ics[seg]",
         "/vendor-dashboard/clients/[seg]/challenge-photos",
@@ -10007,6 +10028,7 @@
         "ShopCard",
         "ShopEmpty",
         "SubmitButton",
+        "TheyToldYou",
         "VendorChallengeSection",
         "VendorCompletionCard",
         "VendorFinalizationResult",
@@ -10193,7 +10215,8 @@
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
-        "vendor-dashboard/customers/page.tsx"
+        "vendor-dashboard/customers/page.tsx",
+        "vendor-dashboard/customers/roster-view.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
@@ -10216,9 +10239,12 @@
         "FeatureAccordion",
         "FilterSelect",
         "Link",
+        "ListPager",
         "MessagesSurface",
         "PaydaySurface",
         "ProposalsSurface",
+        "R",
+        "RosterRow",
         "ShopEmpty",
         "Suspense",
         "VendorQrSection"
@@ -10320,12 +10346,12 @@
         "issueLockedQr"
       ],
       "blocks": [
-        "CopyButton",
         "HTMLInputElement",
         "Icon",
         "Link",
         "LockedMode",
         "LockedQrGenerator",
+        "QrActions",
         "Row",
         "ShopCard",
         "ShopNotice",
@@ -10361,9 +10387,9 @@
       ],
       "actions": [],
       "blocks": [
-        "CopyButton",
         "Icon",
         "Link",
+        "QrActions",
         "ShopEmpty",
         "ShopPill",
         "StatusBadge"
@@ -10405,6 +10431,7 @@
         "Icon",
         "InquiryOutcomesRollup",
         "Link",
+        "ListPager",
         "RevealList",
         "ShopEmpty",
         "ThreadArchiveToggle",
@@ -10593,6 +10620,7 @@
         "ModuleConfigurator",
         "ModuleReadout",
         "NonPhotoConsole",
+        "QrActions",
         "RequestsInbox",
         "ServerRead",
         "SetActionResult",
@@ -10821,6 +10849,7 @@
       ],
       "blocks": [
         "AddPaymentMethod",
+        "ConfirmForm",
         "FileUpload",
         "FormFlash",
         "Icon",
@@ -10937,6 +10966,7 @@
       "blocks": [
         "Link",
         "ListPageSkeleton",
+        "ListPager",
         "ReuseActionResult",
         "SubmitButton",
         "VendorReuseInbox"

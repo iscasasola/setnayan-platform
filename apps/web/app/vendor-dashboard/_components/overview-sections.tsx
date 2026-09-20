@@ -409,6 +409,7 @@ export function VendorEnergyStats({
         <EarnedTile
           earnedThisYearPhp={earnings.earnedThisYearPhp}
           bookingCount={earnings.bookingCount}
+          measured={earnings.earningsMeasured}
         />
       ) : null}
 
@@ -501,10 +502,30 @@ function EnergyKpi({
 function EarnedTile({
   earnedThisYearPhp,
   bookingCount,
+  measured,
 }: {
   earnedThisYearPhp: number;
   bookingCount: number;
+  /** False = the ledger read failed or came up short: say so, never ₱0. */
+  measured: boolean;
 }) {
+  if (!measured) {
+    return (
+      <Link
+        href="/vendor-dashboard/earnings"
+        className="sn-tile sn-reveal sn-press group flex flex-col"
+      >
+        <p className="sn-eye">
+          <Wallet aria-hidden strokeWidth={1.75} />
+          Earned · this year
+        </p>
+        <span role="status" className="mt-2 block text-sm text-ink/70">
+          Some payments couldn&rsquo;t load, so this year&rsquo;s total isn&rsquo;t shown.
+          Open your earnings to try again.
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link
       href="/vendor-dashboard/earnings"
@@ -619,8 +640,15 @@ export function WhatsNewFeed({
   postReviewReply,
   respondMeeting,
   payoutReadiness = 'unreadable',
+  incomplete = false,
 }: {
   cards: WhatsNewCard[];
+  /**
+   * A booking-ask or deposit read did not reach the end. Said above the list,
+   * and the "all caught up" empty state is never drawn on top of it — an empty
+   * desk that could not be read must not look like a desk with nothing waiting.
+   */
+  incomplete?: boolean;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
@@ -651,7 +679,13 @@ export function WhatsNewFeed({
         // to remove the affordance rather than to fake one. ("No fake doors.")
         action={null}
       />
-      {cards.length === 0 ? (
+      {incomplete ? (
+        <p role="status" className="sn-tile mb-3 p-4 text-sm text-ink/80">
+          Some booking asks and deposits couldn&rsquo;t load, so this list may be
+          missing some. Refresh the page to try again.
+        </p>
+      ) : null}
+      {cards.length === 0 && incomplete ? null : cards.length === 0 ? (
         <EmptyCard
           icon={<Star className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--sn-ink-400)' }} />}
           text="You're all caught up. Every answer you owe anybody — new inquiries, booking asks, replies, reviews, meeting times, quotes and contracts you haven't sent — lands here, the longest wait first."

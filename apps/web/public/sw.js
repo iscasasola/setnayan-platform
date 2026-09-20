@@ -111,6 +111,7 @@ function isDayOfGuestNavigation(url) {
     'help',
     'host',
     'join',
+    'live',
     'llms.txt',
     'login',
     'monogram',

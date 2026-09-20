@@ -387,14 +387,48 @@ export async function fetchVendorBlocks(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<CalendarBlockEntry[]> {
-  const { data: rows } = await supabase
-    .from('vendor_calendar_blocks')
-    .select(
-      'block_id, pool_id, block_source, block_label, client_name, client_contact, client_note, blocked_at, blocked_until',
-    )
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('blocked_at', { ascending: true });
-  return ((rows ?? []) as {
+  return (await fetchVendorBlocksDetailed(supabase, vendorProfileId)).blocks;
+}
+
+/**
+ * `fetchVendorBlocks`, plus whether the read reached the server's exact count.
+ *
+ * ⚠ PAGED, NOT ONE UN-RANGED SELECT. PostgREST caps one response (Supabase
+ * default 1000) with `error: null`, so a shop with more blocks than that lost
+ * its latest ones — dates it had closed read as open on the calendar, and the
+ * external-client blocks that fill a pool's seats stopped counting. A refused
+ * read was `?? []` too: every block gone, silently. Both now come back as
+ * `complete: false`, logged, for the calendar to say so on screen.
+ */
+export async function fetchVendorBlocksDetailed(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ blocks: CalendarBlockEntry[]; complete: boolean }> {
+  const read = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await supabase
+        .from('vendor_calendar_blocks')
+        .select(
+          'block_id, pool_id, block_source, block_label, client_name, client_contact, client_note, blocked_at, blocked_until',
+          { count: 'exact' },
+        )
+        .eq('vendor_profile_id', vendorProfileId)
+        .order('blocked_at', { ascending: true })
+        .order('block_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  );
+  if (!read.complete) {
+    logQueryError(
+      'fetchVendorBlocks',
+      { message: read.error ?? `read ${read.rows.length} rows without reaching the server count` },
+      { vendor_profile_id: vendorProfileId },
+      'graceful_degrade',
+    );
+  }
+  const blocks = (read.rows as {
     block_id: string;
     pool_id: string | null;
     block_source: CalendarBlockEntry['source'];
@@ -415,4 +449,5 @@ export async function fetchVendorBlocks(
     startDate: manilaDate(b.blocked_at),
     endDate: manilaDate(b.blocked_until),
   }));
+  return { blocks, complete: read.complete };
 }

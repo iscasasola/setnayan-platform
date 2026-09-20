@@ -13,6 +13,7 @@ import {
   QrCode,
   Smartphone,
 } from 'lucide-react';
+import { QrActions } from '@/app/_components/qr-actions';
 
 /**
  * EditorShell — the unified website editor's two-pane client shell
@@ -243,6 +244,13 @@ export function EditorShell({
     );
   }, []);
 
+  // The scan-to-view QR encodes the ABSOLUTE live address; the strip under it
+  // needs the same string, and only the browser knows the origin.
+  const [liveUrl, setLiveUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setLiveUrl(liveHref ? new URL(liveHref, window.location.origin).toString() : null);
+  }, [liveHref]);
+
   /** Preview → rail. */
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -303,7 +311,7 @@ export function EditorShell({
                   <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   Scan to view
                 </summary>
-                <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-2xl border border-ink/10 bg-white p-3 shadow-lg">
+                <div className="absolute right-0 top-full z-30 mt-2 w-60 rounded-2xl border border-ink/10 bg-white p-3 shadow-lg">
                   {/* eslint-disable-next-line @next/next/no-img-element -- dynamic same-origin PNG from our QR route */}
                   <img
                     src={`/api/website/qr${liveHref}`}
@@ -315,6 +323,13 @@ export function EditorShell({
                   <p className="mt-1.5 text-center text-[0.65rem] text-ink/55">
                     Point a phone camera here to open your site.
                   </p>
+                  {liveUrl ? (
+                    <QrActions
+                      url={liveUrl}
+                      download={{ href: `/api/website/qr${liveHref}`, filename: 'setnayan-event-qr.png' }}
+                      className="mt-2 flex flex-wrap justify-center gap-1.5"
+                    />
+                  ) : null}
                 </div>
               </details>
               <Link

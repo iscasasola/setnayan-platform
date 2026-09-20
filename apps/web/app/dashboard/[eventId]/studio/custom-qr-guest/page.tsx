@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Download, Palette, QrCode, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Palette, QrCode, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -23,6 +23,8 @@ import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inli
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { QrActions } from '@/app/_components/qr-actions';
+import { qrFileName } from '@/lib/qr-download';
 
 export const metadata = { title: 'Custom QR per guest' };
 
@@ -287,14 +289,15 @@ async function OwnedView({
                     <p className="mt-0.5 text-xs text-ink/45">{displayName}</p>
                   ) : null}
                 </div>
-                <a
-                  href={`/api/website/qr/guest/${card.guestId}`}
-                  download={`qr-${card.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`}
-                  className="mt-auto inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-                >
-                  <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Download PNG
-                </a>
+                <QrActions
+                  className="mt-auto flex flex-wrap items-center justify-center gap-2"
+                  url={card.url}
+                  download={{
+                    href: `/api/website/qr/guest/${card.guestId}`,
+                    filename: qrFileName(card.name, 'png'),
+                    label: 'Download PNG',
+                  }}
+                />
               </article>
             </li>
           ))}

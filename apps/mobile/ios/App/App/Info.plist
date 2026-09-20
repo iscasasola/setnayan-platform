@@ -37,6 +37,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Setnayan writes your event and shop links onto NFC stickers so guests and couples can tap to open them.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Setnayan uses your camera so you can capture photos and short clips at the event and add them to the shared event gallery.</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -40,6 +40,27 @@ const BROADCAST_CAPTURE_PREFIXES = ['/panood/program/'] as const;
  */
 const CONSENT_ONLY_PREFIXES = ['/panood/control/'] as const;
 
+/**
+ * DAY-12 (2026-09-20) — a VENUE SCREEN: a TV / projector / LED wall in the room
+ * showing `/live/screen`. Not encoder-captured, but the same consequence: every
+ * pixel is watched by a roomful of guests, and nobody is at the TV to dismiss
+ * anything. A consent card or demo banner there would sit on the couple's
+ * monogram all night.
+ *
+ * EXACT path, not a prefix: `/live` itself (where a person types the pairing
+ * code) keeps the banner — a human is there and can answer it. Suppressing the
+ * ask on `/live/screen` costs nobody a choice: the device is not a person, and
+ * while undecided, analytics never initialise (`analyticsAllowed()` is false),
+ * so nothing is collected in place of the question.
+ */
+const ROOM_DISPLAY_PATHS: ReadonlySet<string> = new Set(['/live/screen']);
+
+/** True on a surface a ROOM is watching (a paired venue screen). */
+export function isRoomDisplayRoute(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return ROOM_DISPLAY_PATHS.has(pathname);
+}
+
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => pathname.startsWith(prefix));
 }
@@ -92,6 +113,7 @@ export function isConsentSuppressedRoute(
   if (!pathname) return false;
   return (
     matchesPrefix(pathname, BROADCAST_CAPTURE_PREFIXES) ||
-    matchesPrefix(pathname, CONSENT_ONLY_PREFIXES)
+    matchesPrefix(pathname, CONSENT_ONLY_PREFIXES) ||
+    isRoomDisplayRoute(pathname)
   );
 }

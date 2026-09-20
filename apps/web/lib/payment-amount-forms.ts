@@ -58,8 +58,11 @@ export function paymentAmountMatchForms(amountPhp: number | string): string[] {
  */
 export function haystackCarriesAmount(haystack: string, amountPhp: number | string): boolean {
   const forms = paymentAmountMatchForms(amountPhp);
-  if (forms.length === 0) return false;
-  const pesoDigits = forms[0].slice(0, forms[0].lastIndexOf('.'));
+  // `exact` is the always-two-decimal form, and its absence means the figure was
+  // unreadable — no forms, and therefore no match. Never a fallback.
+  const exact = forms[0];
+  if (exact === undefined) return false;
+  const pesoDigits = exact.slice(0, exact.lastIndexOf('.'));
   if (pesoDigits.replace('-', '').length < 3) return false;
   return forms.some((form) => haystack.includes(form));
 }

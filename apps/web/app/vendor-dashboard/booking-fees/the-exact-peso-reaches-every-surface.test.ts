@@ -65,6 +65,8 @@ const ADMIN_QUEUE = 'app/admin/payments/page.tsx';
 const ADMIN_MATCHER = 'app/admin/payments/_components/inbox-matcher.tsx';
 const ADMIN_ACTIONS = 'app/admin/payments/actions.ts';
 const ADMIN_LEDGER = 'app/admin/money/_components/transactions-ledger.tsx';
+/** The guest Papic order — a second "amount to send" + payment log on the same rail. */
+const PAPIC_ORDER = 'app/papic/order/[token]/page.tsx';
 
 /* ═══ 1 · THE FORMATTER ITSELF, EXECUTED ═════════════════════════════════════ */
 
@@ -243,6 +245,29 @@ test('the admin desk and the supplier read the SAME formatter', () => {
       `${rel} does not import the shared money formatter`,
     );
   }
+});
+
+test('the guest Papic order page spells its amount the same way', () => {
+  // THE SAME DEFECT, A THIRD SPELLING. A bare `toLocaleString` caps at Intl's
+  // DEFAULT three decimals and drops a trailing zero, so ₱837.50 reads "₱837.5"
+  // — on an "Amount" line that tells a guest what to type, and on a payment-log
+  // row reading `payments.amount_php`, the very column the owner's fee is
+  // stored in. Latent today (the packs are whole pesos); one repriced SKU away
+  // from live.
+  // SABOTAGE: restore either bare `toLocaleString('en-PH')`, or the copy value
+  // to `String(amount)`.
+  const src = code(PAPIC_ORDER);
+  assert.match(src, /from '@\/lib\/orders'/);
+  assert.match(src, /\{formatPhp\(amount\)\}/, 'the "Amount" line is not the shared formatter');
+  assert.match(src, /<CopyButton value=\{amount\.toFixed\(2\)\}/, 'the copy value is not exact');
+  assert.ok(
+    !/amount\.toLocaleString\('en-PH'\)/.test(src),
+    'the amount is back to a bare toLocaleString, which caps at three decimals',
+  );
+  assert.ok(
+    !/amount_php: number \}\)\.amount_php\)\.toLocaleString/.test(src),
+    'the payment-log row is back to a bare toLocaleString',
+  );
 });
 
 /* ═══ 5 · NOTHING COMPARES A ROUNDED AMOUNT ═════════════════════════════════ */

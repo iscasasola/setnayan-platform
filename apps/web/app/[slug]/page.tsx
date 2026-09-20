@@ -1242,6 +1242,8 @@ async function InvitationBody({
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
     eventDate: event.event_date,
+    // The VENUE's day, not the server's — this runs in UTC on Vercel.
+    timeZone: venueTz,
   });
 
   return (

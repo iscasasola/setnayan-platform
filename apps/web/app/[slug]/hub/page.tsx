@@ -554,6 +554,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const venueOpen = venueIsOpen({
     rsvpStatus: guest?.rsvp_status ?? null,
     eventDate: event.event_date,
+    // The VENUE's day, not the server's — this runs in UTC on Vercel.
+    timeZone: eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude),
   });
   const hasDirections = venueOpen && (hasCoords || Boolean((event.venue_address ?? '').trim()));
 

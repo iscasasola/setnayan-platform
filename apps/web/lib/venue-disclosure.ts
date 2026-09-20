@@ -42,15 +42,47 @@ export function hasReplied(status: RsvpStatus | null | undefined): boolean {
 }
 
 /**
- * Is the event day here? Compared as calendar DAYS in the venue's own day, not
- * as instants: a guest travelling on the morning of the wedding is "on the
- * day" wherever their phone thinks it is.
+ * Is the event day here, IN THE VENUE'S OWN TIMEZONE?
+ *
+ * 🔴 THE WALL-CLOCK-VS-INSTANT CLASS, CAUGHT BY CI ON 2026-09-20. The first
+ * version read the SERVER's calendar (`now.getFullYear()` and friends). Vercel
+ * runs in UTC, so 7am in Manila on the wedding day is still 17 December there —
+ * and the rule that exists so nobody is locked out while travelling would have
+ * opened the address EIGHT HOURS LATE, during the ceremony. The same class as
+ * the supplier Today page that read a day behind (DECISION_LOG 2026-09-10).
+ *
+ * The zone is the caller's to supply, from the venue's coordinates
+ * (`eventTimezoneFromCoords`), because only the caller has them. It defaults to
+ * Manila rather than to the server: this product's weddings are in the
+ * Philippines, and a wrong-but-local default beats a wrong-and-invisible one.
  */
-export function eventDayHasArrived(eventDate: string | null | undefined, now: Date = new Date()): boolean {
+export const DEFAULT_VENUE_TZ = 'Asia/Manila';
+
+export function eventDayHasArrived(
+  eventDate: string | null | undefined,
+  now: Date = new Date(),
+  timeZone: string = DEFAULT_VENUE_TZ,
+): boolean {
   if (!eventDate) return false;
   const day = String(eventDate).slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  let today: string;
+  try {
+    // `en-CA` renders YYYY-MM-DD, which compares as a string.
+    today = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  } catch {
+    today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: DEFAULT_VENUE_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  }
   return today >= day;
 }
 
@@ -61,6 +93,8 @@ export type VenueViewer = {
   rsvpStatus?: RsvpStatus | null;
   /** The event's calendar date, `YYYY-MM-DD`. */
   eventDate?: string | null;
+  /** The VENUE's timezone — see `eventDayHasArrived`. Defaults to Manila. */
+  timeZone?: string;
   now?: Date;
 };
 
@@ -68,7 +102,7 @@ export type VenueViewer = {
 export function venueIsOpen(viewer: VenueViewer): boolean {
   if (viewer.isHost) return true;
   if (hasReplied(viewer.rsvpStatus)) return true;
-  return eventDayHasArrived(viewer.eventDate, viewer.now ?? new Date());
+  return eventDayHasArrived(viewer.eventDate, viewer.now ?? new Date(), viewer.timeZone);
 }
 
 /** The fields that carry the precise location. */

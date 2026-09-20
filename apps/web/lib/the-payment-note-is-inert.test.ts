@@ -74,6 +74,23 @@ const WRITE_CALL = /\.(insert|update|upsert|delete)\s*\(/;
  * is how every read and write in this codebase names one — which no comment
  * can trip.
  */
+/**
+ * ⚠ COMMENTS STRIPPED BEFORE SCANNING — the SECOND false positive this guard
+ * produced against careful code. After the money-table side was made
+ * structural, the note side still matched plain prose: `payment-plan-actions.ts`
+ * opens with "Nothing in THIS file may ever read `payment_method_note`", which
+ * is the guard's own rule written down, and the guard convicted it for saying
+ * so. A rule that punishes documenting it teaches people not to document it.
+ *
+ * Conservative on purpose: it removes line and block comments and nothing
+ * else. A column name appearing inside a string that also contains `//` (a
+ * URL) could be missed — no such string exists, and a false NEGATIVE here is
+ * a missed warning rather than a blocked branch, which is the right way round
+ * for a guard that has already cried wolf twice.
+ */
+const stripComments = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[^\n]*?\/\/[^\n]*$/gm, ' ');
+
 const queriesTable = (src: string, table: string): boolean =>
   new RegExp(String.raw`\.from\(\s*['"\`]` + table + String.raw`['"\`]\s*\)`).test(src);
 
@@ -109,7 +126,7 @@ describe('the couple’s payment note is inert', () => {
     // ANCHOR 2 — if the columns were renamed, every assertion below would pass
     // over a term that matches nothing. This is the test that notices.
     const mentions = SOURCES.filter((f) => {
-      const src = fs.readFileSync(f, 'utf8');
+      const src = stripComments(fs.readFileSync(f, 'utf8'));
       return NOTE_COLUMNS.some((c) => src.includes(c));
     });
     assert.ok(
@@ -122,7 +139,7 @@ describe('the couple’s payment note is inert', () => {
   it('found the money writers it is supposed to be checking', () => {
     // ANCHOR 3 — same reasoning, from the other side.
     const writers = SOURCES.filter((f) => {
-      const src = fs.readFileSync(f, 'utf8');
+      const src = stripComments(fs.readFileSync(f, 'utf8'));
       return MONEY_TABLES.some((t) => queriesTable(src, t)) && WRITE_CALL.test(src);
     });
     assert.ok(
@@ -135,7 +152,7 @@ describe('the couple’s payment note is inert', () => {
   it('no writer of the event’s real money reads a payment note', () => {
     const offenders: string[] = [];
     for (const f of SOURCES) {
-      const src = fs.readFileSync(f, 'utf8');
+      const src = stripComments(fs.readFileSync(f, 'utf8'));
       if (!NOTE_COLUMNS.some((c) => src.includes(c))) continue;
       const table = MONEY_TABLES.find((t) => queriesTable(src, t));
       if (!table) continue;

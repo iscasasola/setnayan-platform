@@ -27,6 +27,14 @@ const PAGE = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
   'utf8',
 );
+const MIGRATION = readFileSync(
+  join(process.cwd(), '..', '..', 'supabase', 'migrations', '20271236036451_share_profile_photo_with_hosts.sql'),
+  'utf8',
+);
+const PROFILE = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '(account)', 'profile', 'page.tsx'),
+  'utf8',
+);
 
 test("the couple's own upload wins; the account photo is the fallback", () => {
   // `photo_url` is what the couple (or the guest's RSVP selfie) chose for THIS
@@ -111,4 +119,60 @@ test('a refused read degrades to initials rather than throwing', () => {
   assert.ok(returns.length >= 3, `expected the empty-map fallbacks, found ${returns.length}`);
   const logs = LIB.match(/logQueryError\(/g) ?? [];
   assert.ok(logs.length >= 2, `both reads must log their failure, found ${logs.length}`);
+});
+
+// ── ⚖ Owner 2026-09-20: "keep it opt-in, add the preference column" ─────────
+
+test('🔒 the read is gated on the opt-in, and NULL is excluded', () => {
+  // `.eq(true)` excludes NULL, and NULL is what every account that has never
+  // been asked holds. Silence has to mean no, or "opt-in" is a label on an
+  // opt-out.
+  assert.match(
+    LIB,
+    /\.eq\('share_profile_photo_with_hosts', true\)/,
+    'the account photo is no longer gated on the opt-in — this shares every photo',
+  );
+});
+
+test('🔒 the preference is FILTERED on, never selected', () => {
+  // Somebody's privacy setting is not a fact this function needs to hand back,
+  // and keeping it out of the select is what lets the exact-columns guard above
+  // stay meaningful.
+  const select = /from\('users'\)\s*\.select\('([^']+)'\)/.exec(LIB);
+  assert.ok(select, 'could not find the admin users select');
+  assert.ok(
+    !(select[1] ?? '').includes('share_profile_photo_with_hosts'),
+    'the preference is now being read out of the table as well as filtered on',
+  );
+});
+
+test('🔑 the column has NO default, so "not asked" is not recorded as "said no"', () => {
+  // A `NOT NULL DEFAULT TRUE` would perform the disclosure the owner declined,
+  // once, silently, on every existing account. A `DEFAULT FALSE` would be a
+  // decision nobody made, written down as though they had.
+  const add = /ADD COLUMN IF NOT EXISTS share_profile_photo_with_hosts([^;]*);/.exec(MIGRATION);
+  assert.ok(add, 'the migration no longer adds the column');
+  const decl = (add[1] ?? '').toUpperCase();
+  assert.ok(!decl.includes('DEFAULT'), `the column gained a DEFAULT: ${decl.trim()}`);
+  assert.ok(!decl.includes('NOT NULL'), `the column gained NOT NULL: ${decl.trim()}`);
+});
+
+test('the profile reads the preference as OFF when it has never been set', () => {
+  // Its sibling `discoverable_by_name` reads `?? true` because a row predating
+  // that column must mean its default. This one is the opposite question and
+  // must read the opposite way.
+  assert.match(
+    PROFILE,
+    /share_profile_photo_with_hosts \?\? false/,
+    'the profile defaults the photo-sharing preference to ON',
+  );
+});
+
+test('there is a control to turn it on — a preference nobody can set is not one', () => {
+  assert.match(PROFILE, /updateSharePhotoWithHosts/, 'the profile has no toggle for it');
+  assert.match(
+    PROFILE,
+    /name="share_profile_photo_with_hosts"/,
+    'the toggle does not post the preference',
+  );
 });

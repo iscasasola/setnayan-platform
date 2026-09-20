@@ -29,10 +29,22 @@ admin client is never asked anything, so the gate is a policy rather than an
 `if`. The admin select carries exactly `user_id, profile_photo_url`: no email,
 no display name, no discoverability flag.
 
-⚠ **It is still a disclosure.** A guest who joins an event now shows that
-event's couple the photo on their account. They chose to join and the couple
-already knows their name — but if that is not wanted, the fix is a preference
-column on `users`, not a quiet change here. Flagged for the owner.
+⚖ **IT IS OPT-IN.** Owner 2026-09-20, shown the disclosure before it shipped:
+*"keep it opt-in, add the preference column"*. Nobody's face reaches a couple
+until they switch it on in their own profile (Privacy → "Can the couples you
+join see your photo?", off by default).
+
+`users.share_profile_photo_with_hosts` (migration `20271236036451`) is
+**nullable with no DEFAULT**, and the read filters `.eq(true)` — which excludes
+NULL, so silence means no. A `NOT NULL DEFAULT TRUE` would have performed the
+declined disclosure once, silently, on every existing account; a `DEFAULT FALSE`
+would be a decision nobody made recorded as though they had. Its sibling
+`discoverable_by_name` reads `?? true` for the same reason this reads
+`?? false`: same shape, opposite default, because the question is opposite.
+
+The preference is **filtered on, never selected**, so the admin read still
+carries only `user_id, profile_photo_url` — somebody's privacy setting is not a
+fact this function needs to hand back.
 
 The stored value is an `r2://` ref, not a URL, so it goes through
 `guestPhotoDisplayUrls` like every other face — a raw ref in an `<img src>` is a
@@ -41,9 +53,10 @@ for after it shipped in four loaders at once. A refused read degrades to
 initials (what the roster drew before this existed) and is logged, because a
 refusal and an event where nobody has joined look identical from the outside.
 
-Guarded by `lib/a-linked-guest-wears-their-own-face.test.ts` (6 tests).
-Sabotages confirmed red: the account photo preferred over the couple's upload;
-the admin select widened to carry `email`; one surface reverting to an inline
-lookup.
+Guarded by `lib/a-linked-guest-wears-their-own-face.test.ts` (11 tests). Six
+sabotages confirmed red: the account photo preferred over the couple's upload ·
+the admin select widened to carry `email` · one surface reverting to an inline
+lookup · the opt-in filter dropped · the column gaining `NOT NULL DEFAULT TRUE`
+· the profile defaulting the preference to ON.
 
 SPEC IMPACT: None.

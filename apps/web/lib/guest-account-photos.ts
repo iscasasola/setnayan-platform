@@ -38,10 +38,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  *     columns. No email, no display name, no discoverability flag.
  *  3. Nothing leaves this function but `guest_id → stored photo ref`.
  *
- * ⚠ IT IS STILL A DISCLOSURE, and worth saying plainly: a guest who joins an
- * event now shows that event's couple the photo on their account. They chose to
- * join, and the couple already knows their name — but if that is not wanted,
- * the fix is a column on `users`, not a quiet change here.
+ * ⚖ IT IS OPT-IN, because the owner said so on 2026-09-20 when the disclosure
+ * was put to him: *"keep it opt-in, add the preference column"*. Nobody's face
+ * reaches a couple until they switch `users.share_profile_photo_with_hosts` on
+ * in their own profile. The column is nullable with no default, so an account
+ * that has never been asked reads NULL and is excluded — silence is no.
  *
  * ── THE REF IS NOT A URL ───────────────────────────────────────────────────
  * The value returned is the STORED ref, exactly as `guests.photo_url` holds it:
@@ -76,11 +77,23 @@ export async function accountPhotoRefsByGuest(
 
   const userIds = [...new Set(rows.map((r) => r.user_id))];
 
-  // 2. Admin, keyed to those ids only, two columns only.
+  /*
+    2. Admin, keyed to those ids only, two columns only, AND opt-in only.
+
+    ⚖ Owner 2026-09-20: "keep it opt-in, add the preference column". The filter
+    is `.eq(true)`, which excludes NULL — and NULL is what every account that
+    has never been asked holds. So silence means no, which is what opt-in means.
+
+    🔑 THE FLAG IS FILTERED ON, NOT SELECTED. Keeping it out of the column list
+    means this read still carries only the photo and its key: somebody's
+    privacy preference is not itself a fact this function needs to hand back,
+    and the guard that compares the select exactly stays meaningful.
+  */
   const { data: users, error: userErr } = await createAdminClient()
     .from('users')
     .select('user_id, profile_photo_url')
     .in('user_id', userIds)
+    .eq('share_profile_photo_with_hosts', true)
     .not('profile_photo_url', 'is', null);
 
   if (userErr) {

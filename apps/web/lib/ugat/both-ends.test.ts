@@ -97,6 +97,31 @@ CREATE POLICY "public_one" ON public.events USING (called_by_policy(id));`;
   assert.ok(!findRpcOrphans(cat2, indexLiterals(SOURCES)).findings.some((f) => f.key === 'rls_auto_enable'));
 });
 
+test('rpc-no-caller: a name mentioned only inside a /* */ BLOCK comment is not a caller (regression)', () => {
+  // Sibling of the `named_only_in_a_comment` / `commenter` fixture above,
+  // which already pinned the `--` case. This is the case that was actually
+  // broken: stripSqlComments used to blank only `--` line comments, so a
+  // block comment's text passed straight through `sqlWords()` and a name
+  // sitting only inside one read as a real reference — exactly the miss
+  // that lets a genuinely orphaned RPC hide from findRpcOrphans.
+  const cat: Catalog = {
+    ...CATALOG,
+    functions: [
+      ...CATALOG.functions,
+      { name: 'named_only_in_a_block_comment', src: 'select 1' },
+      {
+        name: 'block_commenter',
+        src: '/* legacy note: this used to call named_only_in_a_block_comment() before the refactor */\nselect 2',
+      },
+    ],
+  };
+  const keys = findRpcOrphans(cat, indexLiterals(SOURCES)).findings.map((f) => f.key);
+  assert.ok(
+    keys.includes('named_only_in_a_block_comment'),
+    'a name mentioned only inside a /* */ comment must still be reported as an orphan',
+  );
+});
+
 test('table-no-writer: seeded, app-written, dynamically-written and SQL-written tables are not orphans', () => {
   const writers = indexWriters(SOURCES, CATALOG);
   const { findings, stats } = findTableOrphans(CATALOG, writers);

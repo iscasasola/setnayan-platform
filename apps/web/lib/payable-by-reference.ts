@@ -4,9 +4,8 @@ import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscriptio
 import { statusOf, type PayableStatus } from './payable-status';
 import { readOnboardingOrderItems } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
-import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
 import { getEffectiveVatRatePct } from './platform-settings';
-import { payBackLink } from './pay-back-link';
+import { isBookingFeeOrder, payBackLink } from './pay-back-link';
 
 export type { PayableStatus };
 
@@ -202,12 +201,14 @@ export async function fetchPayableByReference(
 }
 
 /**
- * Is this the booking fee? Derived from the same prefix the fee lane itself
- * keys on, never a second spelling of it.
+ * ⛔ A PRIVATE `isBookingFeeOrder` USED TO LIVE HERE. It was correct, and it
+ * was still a second copy: the notice path in `app/admin/payments/actions.ts`
+ * needs the identical question, and this module is `server-only`, so that path
+ * could not have imported it. The one spelling now lives beside the lane it
+ * feeds — see `lib/pay-back-link.ts`. Two private copies of "is this a fee" is
+ * exactly how the /pay page and the notification came to disagree about who
+ * was paying.
  */
-function isBookingFeeOrder(serviceKey: string | null): boolean {
-  return chargeIdFromBookingFeeLockServiceKey(serviceKey ?? '') !== null;
-}
 
 /** The celebration, or the shop — whichever this order belongs to. */
 async function fetchWho(

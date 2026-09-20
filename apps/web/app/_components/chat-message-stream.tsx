@@ -562,7 +562,12 @@ export function ChatMessageStream({
           publicId: card.publicId,
           announcedAtMs: ms(m.created_at) ?? 0,
           title: card.title,
-          totalPhp: Math.round(card.totalCentavos / 100),
+          // Centavo-exact. `buildThreadDecisions` prints this through
+          // `formatPhp`, which keeps centavos only if they survive TO it — so a
+          // quote totalling ₱187,500.50 titled its own decision card
+          // "₱187,501": the figure the couple is being asked to accept, 50
+          // centavos off, in the chat thread where they accept it.
+          totalPhp: Math.round(card.totalCentavos) / 100,
           status: card.status,
           decidedAtMs: ms(card.resolvedAt),
         };

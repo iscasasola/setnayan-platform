@@ -168,14 +168,66 @@ export function bpsToPct(bps: number): number {
   return Math.round(bps / 100);
 }
 
-/** whole pesos → centavos. */
+/** pesos → centavos. Centavos in, centavos out — `13400.50` → `1340050`. */
 export function phpToCentavos(php: number): number {
   return Math.round(php * 100);
 }
 
-/** centavos → whole pesos. */
+/**
+ * centavos → pesos, KEEPING THE CENTAVOS — `1340050` → `13400.5`.
+ *
+ * 🔴 THIS USED TO BE `Math.round(centavos / 100)`, AND TWO OF ITS CALLERS ARE
+ * NOT DISPLAYS — SO IT ROUNDED BEFORE STORING:
+ *
+ *  • `rowToDraft` fills the supplier's schedule EDITOR from the stored row, and
+ *    saving sends the draft back through `phpToCentavos`. So opening a schedule
+ *    whose `amount_centavos` was `1340050` and pressing Save WITHOUT TOUCHING
+ *    IT wrote `1340100` back — the round trip silently moved the installment by
+ *    50 centavos, with nothing on screen to show it had happened.
+ *  • `computePlanInstances` freezes the couple's plan into
+ *    `event_vendor_payment_plan.instances_json` at lock. A rounded figure there
+ *    is the amount the couple is later ASKED TO PAY, stored wrong for the life
+ *    of the booking.
+ *
+ * ⚖ CENTAVOS ARE REACHABLE BY CONSTRUCTION, not by accident. `amount_centavos`
+ * is `BIGINT` (migration `20270202160004_vendor_service_payment_schedules.sql`),
+ * and accepting a proposal writes `event_vendors.total_cost_php =
+ * v_total_centavos::numeric / 100.0`
+ * (`20270201674389_proposal_accept_writes_priced_pick.sql`), so a percent
+ * installment off that total lands on a centavo routinely: 30% of ₱187,501 is
+ * ₱56,250.30.
+ *
+ * 🔑 ITS IDENTICALLY-NAMED SIBLING IN `lib/payouts.ts` ALREADY DID THIS
+ * CORRECTLY (`Math.round(centavos) / 100`). Two exported functions, one name,
+ * one of them wrong — which is why this one is now spelled exactly like that
+ * one rather than merely fixed.
+ */
 export function centavosToPhp(centavos: number): number {
-  return Math.round(centavos / 100);
+  return Math.round(centavos) / 100;
+}
+
+/**
+ * A PERCENT INSTALLMENT'S PESO AMOUNT — `percent_bps` of a peso total, rounded
+ * to the CENTAVO.
+ *
+ * 🔴 BOTH CALL SITES USED TO WRITE `Math.round((totalCostPhp * percent_bps) /
+ * 10000)` INLINE, rounding to the whole peso. 30% of ₱187,501 became ₱56,250
+ * instead of ₱56,250.30 — and both sites then persist the result: one into
+ * `event_vendor_payment_plan.instances_json` (the couple's plan), one into the
+ * reservation-terms evidence snapshot the couple acknowledges at lock.
+ *
+ * ⚖ THE ORDER OF OPERATIONS IS LOAD-BEARING. Dividing first
+ * (`total * bps / 10000` then rounding to 2dp) loses precision in the double
+ * before the rounding can see it; multiplying to centavos FIRST and rounding
+ * there keeps the arithmetic integral where it matters. 3,000 bps of ₱187,501:
+ * `187501 * 3000 / 100` = `5,625,030` centavos exactly → `56250.3`.
+ *
+ * 🔑 ONE FUNCTION, NOT TWO COPIES, deliberately: a guard on one inline
+ * expression cannot see the other, and this app has already shipped a fix to
+ * one of two identical spellings while the second kept the defect.
+ */
+export function pctOfTotalPhp(totalCostPhp: number, percentBps: number): number {
+  return Math.round((totalCostPhp * percentBps) / 100) / 100;
 }
 
 // ===========================================================================
@@ -217,7 +269,8 @@ function shiftIsoDate(isoDate: string, days: number): string | null {
 /**
  * Resolve a service's schedule template rows into a concrete per-booking plan.
  *
- *   amount: percent → totalCostPhp * percent_bps / 10000 (rounded to peso);
+ *   amount: percent → totalCostPhp * percent_bps / 10000 (rounded to the
+ *           CENTAVO, never to the peso — see `pctOfTotalPhp` below);
  *           fixed   → amount_centavos / 100.
  *           If totalCostPhp is null, percent rows snapshot amount_php:null and
  *           retain percent_bps/amount_kind so they resolve later. Fixed rows
@@ -243,12 +296,9 @@ export function computePlanInstances(opts: {
       // amount
       let amountPhp: number | null = null;
       if (row.amount_kind === 'fixed' && row.amount_centavos != null) {
-        amountPhp = Math.round(row.amount_centavos / 100);
+        amountPhp = centavosToPhp(row.amount_centavos);
       } else if (row.amount_kind === 'percent' && row.percent_bps != null) {
-        amountPhp =
-          totalCostPhp != null
-            ? Math.round((totalCostPhp * row.percent_bps) / 10000)
-            : null;
+        amountPhp = totalCostPhp != null ? pctOfTotalPhp(totalCostPhp, row.percent_bps) : null;
       }
 
       // due date

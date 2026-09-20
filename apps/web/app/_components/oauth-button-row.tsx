@@ -5,7 +5,6 @@ import {
 } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
-import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
 import { envFlagEnabled } from '@/lib/env-flag';
 
 /**
@@ -73,17 +72,16 @@ type Props = {
   /**
    * /signup only: carry the Couple/Vendor selection into the OAuth forms so a
    * vendor signing up via Google/Apple isn't misclassified as a customer. Each
-   * form gets a hidden `account_type` input mirrored from the radio by
-   * <OAuthAccountTypeMirror>. Omitted on /login (existing users — no selector),
-   * keeping that surface byte-identical.
+   * form gets a hidden `account_type` input carrying the value. Omitted on
+   * /login (existing users — no selector), keeping that surface byte-identical.
    */
   withAccountType?: boolean;
   /**
-   * SSR default for the hidden OAuth `account_type` (only when withAccountType).
-   * Pass the URL-derived intent (e.g. /signup?as=vendor → 'vendor') so a
-   * deep-linked vendor's OAuth submit carries the right value BEFORE the mirror
-   * hydrates — and even with JS off. The mirror then only tracks runtime radio
-   * toggles. Defaults to 'customer'.
+   * The hidden OAuth `account_type` (only when withAccountType). Pass the
+   * URL-derived intent — `accountTypeForSignup(params.as)` on /signup — which
+   * since 2026-09-20 is the entire decision rather than a default: there is no
+   * radio to change it, so this is what submits, with JS or without. Defaults
+   * to 'customer'.
    */
   defaultAccountType?: 'customer' | 'vendor';
 };
@@ -156,9 +154,20 @@ export function OAuthButtonRow({
   if (!ANY_OAUTH_ENABLED) return null;
   const btn = BTN_LIGHT;
   const appleFill = '#000000';
-  // /signup: a hidden account_type input per OAuth form, SSR'd to the URL-derived
-  // intent (so a deep-linked vendor is correct pre-hydration / no-JS) and kept in
-  // sync with the Couple/Vendor radio at runtime by <OAuthAccountTypeMirror>.
+  // /signup: a hidden account_type input per OAuth form, SSR'd to the
+  // URL-derived intent — which is now the WHOLE answer, not a pre-hydration
+  // guess.
+  //
+  // 🔑 THE MIRROR HAD TO GO IN THE SAME CHANGE, NOT AFTER IT. This value used to
+  // be re-synced on mount by <OAuthAccountTypeMirror>, which read
+  // `input[name="account_type"][type="radio"]:checked`. /signup deleted that
+  // radio on 2026-09-20 (the account type comes from the link now), and a
+  // `querySelector` that matches nothing returns null — so the mirror's own
+  // `?? 'customer'` fallback would have OVERWRITTEN a correct SSR'd 'vendor'
+  // the instant the page hydrated. A vendor arriving at /signup?as=vendor and
+  // choosing "Continue with Google" would have been filed as a customer: no
+  // error, no failed build, just the wrong dashboard. Nothing re-syncs this
+  // field now because nothing can change it.
   const accountTypeField = withAccountType ? (
     <input
       type="hidden"
@@ -199,7 +208,6 @@ export function OAuthButtonRow({
           </SubmitButton>
         </form>
       ) : null}
-      {withAccountType ? <OAuthAccountTypeMirror /> : null}
     </div>
   );
 }

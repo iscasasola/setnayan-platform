@@ -210,8 +210,9 @@ test('the plan frozen at lock holds the exact installment, not a rounded one', (
     lockDateIso: '2026-09-20',
     eventDateIso: '2027-02-14',
   });
-  assert.equal(instances[0].amount_php, INSTALLMENT_PHP);
-  assert.equal(instances[1].amount_php, THIRTY_PCT_PHP);
+  assert.equal(instances.length, 2, 'the plan lost an installment');
+  assert.equal(instances[0]?.amount_php, INSTALLMENT_PHP);
+  assert.equal(instances[1]?.amount_php, THIRTY_PCT_PHP);
   // An unresolvable percent stays null — never 0, which would read "free".
   const noTotal = computePlanInstances({
     scheduleRows: [
@@ -221,7 +222,8 @@ test('the plan frozen at lock holds the exact installment, not a rounded one', (
     lockDateIso: '2026-09-20',
     eventDateIso: null,
   });
-  assert.equal(noTotal[0].amount_php, null, 'an unresolved installment became a number');
+  assert.equal(noTotal.length, 1, 'the unresolved plan lost its installment');
+  assert.equal(noTotal[0]?.amount_php, null, 'an unresolved installment became a number');
 });
 
 test('opening the supplier schedule editor and saving it unchanged moves no money', () => {
@@ -266,7 +268,7 @@ test("the server's wire sanitizer keeps a quote installment's centavos", () => {
     creditCentavos: 0,
   });
   assert.ok(resolved, 'the sanitizer refused a well-formed draft');
-  assert.equal(resolved.installments[0].amount_centavos, INSTALLMENT_CENTAVOS);
+  assert.equal(resolved.installments[0]?.amount_centavos, INSTALLMENT_CENTAVOS);
   // A string off the wire is the realistic shape, and must survive identically.
   const fromWire = sanitizeAndResolveSchedule({
     manual: [
@@ -276,7 +278,7 @@ test("the server's wire sanitizer keeps a quote installment's centavos", () => {
     baseCentavos: 5_000_000,
     creditCentavos: 0,
   });
-  assert.equal(fromWire?.installments[0].amount_centavos, INSTALLMENT_CENTAVOS);
+  assert.equal(fromWire?.installments[0]?.amount_centavos, INSTALLMENT_CENTAVOS);
 });
 
 test('a centavo-bearing schedule still pays to exactly zero', () => {
@@ -475,12 +477,91 @@ test('the guest Papic order withholds its Copy button when it has no figure', ()
 
 /* ═══ 6 · NOTHING ROUNDS BEFORE STORING ══════════════════════════════════════ */
 
+/**
+ * Every `Math.round|floor|ceil(` whose argument DIVIDES a centavos figure by
+ * 100 — i.e. rounds money to the whole peso. `Math.round(x * 100)` is CENTAVO
+ * precision and is deliberately allowed.
+ *
+ * 🔑 THIS MATCHES PARENTHESES INSTEAD OF GUESSING, AND EVERY REASON WAS
+ * MEASURED ON THIS FILE'S OWN SABOTAGES. Three earlier versions were each wrong
+ * in a different direction, and two of them were GREEN while being wrong:
+ *
+ *  • `\([^)]*centavos\s*\/\s*100[^)]*\)` could not cross the `)` of an inner
+ *    `?? 0)`, so `Math.round((resolved?.raw_centavos ?? 0) / 100)` — the exact
+ *    spelling that shipped in the proposal editor — SLIPPED THROUGH IT while
+ *    the suite stayed green. Only the mount-count test caught that sabotage.
+ *  • A fixed 120-character window then CONVICTED THE FIX ITSELF:
+ *    `Math.round(centavos) / 100` divides OUTSIDE the round, which is correct,
+ *    but sits inside any window wide enough to see the nested case.
+ *  • Matching parens still convicted `resolveRaw`'s
+ *    `Math.round((baseCentavos * clampPct(d.percent)) / 100)`, where the `/ 100`
+ *    divides by a PERCENT and the result stays in centavos.
+ *
+ * ⚖ SO THE RULE IS NARROWED TO WHAT IT CAN ACTUALLY DECIDE: a `/ 100` under a
+ * round, on an argument mentioning centavos, with NO multiplication anywhere in
+ * that argument. A `*` means a rate is being applied (`centavos * pct / 100`) or
+ * a figure is being re-scaled to centavos (`f(c / 100) * 100`) — both legitimate.
+ * Without one, `/ 100` can only be centavos→pesos.
+ */
+function pesoRoundSites(src: string): string[] {
+  const hits: string[] = [];
+  const re = /Math\.(?:round|floor|ceil)\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    // Walk from the opening paren to its match, so the argument is the real one.
+    let depth = 0;
+    let end = -1;
+    for (let i = re.lastIndex - 1; i < src.length; i++) {
+      if (src[i] === '(') depth++;
+      else if (src[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end === -1) continue;
+    const arg = src.slice(re.lastIndex, end);
+    if (!/centavos/i.test(arg)) continue;
+    if (!/\/\s*100\b/.test(arg)) continue;
+    // A multiplication means a rate or a re-scale, not a centavos→pesos convert.
+    if (arg.includes('*')) continue;
+    hits.push(src.slice(m.index, end + 1).replace(/\s+/g, ' ').slice(0, 90));
+  }
+  return hits;
+}
+
+test('the peso-round scanner works — proven on known inputs before the tree', () => {
+  // 🔑 A ZERO FROM A HARNESS IS NOT EVIDENCE, and this scanner earned the
+  // suspicion: three versions of it were wrong, two of them silently. These are
+  // its report card, run before it is trusted on a single real file.
+  const guilty = [
+    'Math.round(row.amount_centavos / 100)',
+    'Math.round(card.totalCentavos / 100)',
+    'Math.round((resolved?.raw_centavos ?? 0) / 100)', // the one that slipped
+    'Math.floor(centavos / 100)',
+    'Math.ceil(dpRow.amount_centavos / 100)',
+  ];
+  for (const g of guilty) {
+    assert.equal(pesoRoundSites(g).length, 1, `the scanner missed: ${g}`);
+  }
+  const innocent = [
+    'Math.round(centavos) / 100', // the fix itself — divides OUTSIDE the round
+    'Math.round((baseCentavos * clampPct(d.percent)) / 100)', // a percent; stays in centavos
+    'Math.round(bookingFeePhp(args.amountCentavos / 100, s) * 100)', // re-scaled to centavos
+    'Math.round(php * 100)', // pesos → centavos
+    'Math.round(pct)', // not money at all
+  ];
+  for (const i of innocent) {
+    assert.deepEqual(pesoRoundSites(i), [], `the scanner convicted correct code: ${i}`);
+  }
+});
+
 test('no installment path rounds a peso figure to the whole peso', () => {
-  // `Math.round(x * 100)` is CENTAVO precision and is correct; `Math.round(x)`
-  // and `Math.round(x / 100)` on a money figure are not.
-  // SABOTAGE: `Math.round(row.amount_centavos / 100)` anywhere below.
-  const banned = /Math\.(round|floor|ceil)\([^)]*(centavos|Centavos)\s*\/\s*100[^)]*\)/;
-  for (const rel of [
+  // SABOTAGE: `Math.round(row.amount_centavos / 100)` — or the nested-paren
+  // spelling `Math.round((x ?? 0) / 100)` — anywhere below.
+  const files = [
     SCHEDULE_LIB,
     PROPOSAL_SCHEDULE_LIB,
     PROPOSAL_MAKER,
@@ -488,10 +569,20 @@ test('no installment path rounds a peso figure to the whole peso', () => {
     VENDOR_OVERVIEW,
     LOCK_ACTION,
     STEPPER,
-  ]) {
-    const hit = code(rel).match(banned);
-    assert.equal(hit, null, `${rel} divides centavos under a round: ${hit?.[0]}`);
+  ];
+  let scanned = 0;
+  for (const rel of files) {
+    const src = code(rel);
+    scanned += (src.match(/Math\.(?:round|floor|ceil)\(/g) ?? []).length;
+    const hits = pesoRoundSites(src);
+    assert.deepEqual(hits, [], `${rel} rounds centavos to the whole peso: ${hits.join(' · ')}`);
   }
+  // A floor on the search itself: zero findings must mean zero findings in a
+  // place that was actually looked at.
+  assert.ok(
+    scanned >= 10,
+    `only ${scanned} round/floor/ceil sites scanned across ${files.length} files — the scan is looking at the wrong text`,
+  );
 });
 
 test('no installment surface switches the centavos off in a formatter', () => {

@@ -108,7 +108,13 @@ type GroupSpec = {
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
-  { key: 'parents', label: 'Parents', roles: ['bride_parents', 'groom_parents'] },
+  /*
+    ⚖ OWNER 2026-09-20: the groom's parents print FIRST. This group's `roles`
+    order IS the printed order — `buildEntourage` walks `spec.roles` outermost —
+    so the swap below is the whole change, and nothing in the component decides
+    it.
+  */
+  { key: 'parents', label: 'Parents', roles: ['groom_parents', 'bride_parents'] },
   {
     key: 'principal_sponsors',
     label: 'Principal Sponsors',

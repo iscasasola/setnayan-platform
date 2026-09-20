@@ -40,6 +40,8 @@ const STRIP_MOUNTS: Record<string, number> = {
   'app/dashboard/[eventId]/studio/custom-qr-guest/page.tsx': 1, // branded cards
   'app/dashboard/[eventId]/guests/invite/page.tsx': 1, // the join-link QR
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx': 1, // scan-to-view
+  // The guest's own card in the roster (inspector + drawer render the same body)
+  'app/dashboard/[eventId]/guests/_components/guest-detail-body.tsx': 1,
 };
 
 /** The guest's own code has its own pair of keepers; it gains the NFC button alone. */

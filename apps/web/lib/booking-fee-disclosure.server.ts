@@ -228,6 +228,45 @@ export async function forecastsForBookings(
  * `booking_fee_charges` is not readable from a supplier session. The caller has
  * already proven the profile is theirs (`fetchOwnVendorProfile`).
  */
+/**
+ * ONE select string for every waived-charge read. The `!inner` join is what
+ * makes `booking_ordinal` come off `booking_fee_ledger` rather than from a
+ * count computed on this side (owner, 2026-09-20).
+ */
+const WAIVED_CHARGE_SELECT =
+  'charge_id,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)';
+
+type WaivedChargeRow = {
+  charge_id: string;
+  event_id: string | null;
+  computed_fee_centavos: number | string | null;
+  created_at: string | null;
+  ledger: { booking_ordinal: number | null } | Array<{ booking_ordinal: number | null }> | null;
+};
+
+/**
+ * Row → `WaivedFeeCharge`. Shared by the list read (the fee hub) and the single
+ * read (the receipt), so the notification a supplier is emailed carries the
+ * SAME amount and the SAME ordinal the hub will show them.
+ */
+function toWaivedFeeCharge(r: WaivedChargeRow, coupleName: string | null): WaivedFeeCharge {
+  // PostgREST returns an embedded to-one as an object, but as an ARRAY when it
+  // cannot prove the relationship is to-one. Both shapes are handled so the
+  // ordinal does not silently vanish into `undefined`.
+  const led = Array.isArray(r.ledger) ? r.ledger[0] : r.ledger;
+  const ord = led?.booking_ordinal;
+  const centavos = Number(r.computed_fee_centavos);
+  return {
+    chargeId: r.charge_id,
+    eventId: r.event_id ?? null,
+    coupleName,
+    // ⚠ A NON-FINITE COLUMN IS NULL, NEVER 0. The copy then prints no number.
+    computedPhp: Number.isFinite(centavos) ? centavos / 100 : null,
+    ordinal: typeof ord === 'number' && Number.isFinite(ord) ? ord : null,
+    waivedOn: r.created_at ? r.created_at.slice(0, 10) : null,
+  };
+}
+
 export async function fetchWaivedFeeCharges(
   admin: SupabaseClient,
   vendorProfileId: string | null | undefined,
@@ -236,9 +275,7 @@ export async function fetchWaivedFeeCharges(
   if (!vendorProfileId) return [];
   const { data, error } = await admin
     .from('booking_fee_charges')
-    .select(
-      'charge_id,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)',
-    )
+    .select(WAIVED_CHARGE_SELECT)
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'waived_free5')
     .order('created_at', { ascending: false });
@@ -246,13 +283,7 @@ export async function fetchWaivedFeeCharges(
     logQueryError('booking-fee-disclosure: waived charges', error);
     return FEE_BILLS_UNREADABLE;
   }
-  const rows = (data ?? []) as Array<{
-    charge_id: string;
-    event_id: string | null;
-    computed_fee_centavos: number | string | null;
-    created_at: string | null;
-    ledger: { booking_ordinal: number | null } | Array<{ booking_ordinal: number | null }> | null;
-  }>;
+  const rows = (data ?? []) as WaivedChargeRow[];
   if (rows.length === 0) return [];
 
   const eventIds = Array.from(
@@ -270,22 +301,57 @@ export async function fetchWaivedFeeCharges(
     }
   }
 
-  return rows.map((r): WaivedFeeCharge => {
-    // PostgREST returns an embedded to-one as an object, but as an ARRAY when it
-    // cannot prove the relationship is to-one. Both shapes are handled so the
-    // ordinal does not silently vanish into `undefined`.
-    const led = Array.isArray(r.ledger) ? r.ledger[0] : r.ledger;
-    const ord = led?.booking_ordinal;
-    const centavos = Number(r.computed_fee_centavos);
-    return {
-      chargeId: r.charge_id,
-      eventId: r.event_id ?? null,
-      coupleName: r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null,
-      computedPhp: Number.isFinite(centavos) ? centavos / 100 : null,
-      ordinal: typeof ord === 'number' && Number.isFinite(ord) ? ord : null,
-      waivedOn: r.created_at ? r.created_at.slice(0, 10) : null,
-    };
-  });
+  return rows.map((r) =>
+    toWaivedFeeCharge(r, r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null),
+  );
+}
+
+/**
+ * ONE waived charge, by id — what the RECEIPT is composed from at the moment
+ * the charge is opened waived (`collectBookingFeeAtLock`, the 'free' arm).
+ *
+ * 🔑 IT READS WHAT THE HUB READS. The same select, the same ledger join, the
+ * same mapper — so the emailed receipt and the "Waived — your first 5" row
+ * cannot disagree about the amount or the position. The RPC does return a
+ * `booking_ordinal` in its response, and using THAT would have been a second
+ * source for one fact; the ledger is the one the supplier's screen quotes.
+ *
+ * ⚠ NULL HAS TWO CAUSES AND THE CALLER IS TOLD WHICH. A refused read is logged
+ * and returns `FEE_BILLS_UNREADABLE`; a charge that genuinely is not a waived
+ * one returns `null`. Both mean "send no receipt", but only one is a fault —
+ * and a receipt built from a failed read would print a number nobody measured.
+ */
+export async function fetchWaivedFeeCharge(
+  admin: SupabaseClient,
+  chargeId: string,
+): Promise<WaivedFeeCharge | null | typeof FEE_BILLS_UNREADABLE> {
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select(WAIVED_CHARGE_SELECT)
+    .eq('charge_id', chargeId)
+    .eq('status', 'waived_free5')
+    .maybeSingle();
+  if (error) {
+    logQueryError('booking-fee-disclosure: waived charge', error, { chargeId });
+    return FEE_BILLS_UNREADABLE;
+  }
+  const row = data as WaivedChargeRow | null;
+  if (!row) return null;
+
+  let coupleName: string | null = null;
+  if (row.event_id) {
+    const { data: ev, error: eErr } = await admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', row.event_id)
+      .maybeSingle();
+    // A refused name read costs the receipt the couple's NAME, not the receipt.
+    // Logged rather than swallowed (FEE-HONEST) — the copy already handles a
+    // null name by dropping the "for <couple>" clause.
+    if (eErr) logQueryError('booking-fee-disclosure: waived charge event name', eErr);
+    coupleName = (ev as { display_name?: string | null } | null)?.display_name ?? null;
+  }
+  return toWaivedFeeCharge(row, coupleName);
 }
 
 /**

@@ -89,6 +89,18 @@ export function freeBookingsLeftAfter(ordinal: number): number {
   return Math.max(0, FREE_BOOKING_LIMIT - Math.floor(ordinal));
 }
 
+/**
+ * " — 4 more free bookings after this one", or " — and this is the last of
+ * them". ONE clause, used by the forecast (before the booking) and by the
+ * waived receipt (after it), so the count the supplier is promised on the
+ * Agree button is the count their receipt confirms.
+ */
+export function freeBookingsLeftClause(ordinal: number): string {
+  const left = freeBookingsLeftAfter(ordinal);
+  if (left <= 0) return ' — and this is the last of them';
+  return ` — ${left} more free ${left === 1 ? 'booking' : 'bookings'} after this one`;
+}
+
 const PESO = new Intl.NumberFormat('en-PH', {
   style: 'currency',
   currency: 'PHP',
@@ -136,12 +148,10 @@ function feePositionSentence(ordinal: number, frozen: boolean, free: boolean): s
   const where = frozen
     ? `This is booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`
     : `This would be booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`;
-  if (free) {
-    const left = freeBookingsLeftAfter(ordinal);
-    return left > 0
-      ? `${where}, which are free — ${left} more free ${left === 1 ? 'booking' : 'bookings'} after this one.`
-      : `${where}, which are free — and this is the last of them.`;
-  }
+  // ⚠ ONE CLAUSE, SHARED WITH THE RECEIPT. `freeBookingsLeftClause` is what
+  // `waivedFeeCopy` also reads, so the count promised before the booking is the
+  // count confirmed after it — this used to be typed out twice.
+  if (free) return `${where}, which are free${freeBookingsLeftClause(ordinal)}.`;
   return frozen
     ? `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this is number ${ordinal}.`
     : `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this would be number ${ordinal}.`;
@@ -275,9 +285,15 @@ export type WaivedFeeCharge = {
  */
 export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
   const who = charge.coupleName?.trim() ? ` for ${charge.coupleName.trim()}` : '';
+  // ⚠ HOW MANY ARE LEFT IS PART OF THE POSITION, not a separate sentence bolted
+  // on by one caller. The in-app row and the emailed receipt read this SAME
+  // function, so "4 more free bookings after this one" cannot say one thing on
+  // the fee hub and another in the supplier's inbox. Only claimed when the
+  // ledger gave a real ordinal — `freeBookingsLeftAfter(null)` is not a number
+  // anyone measured.
   const position =
     typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
-      ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free.`
+      ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
       : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
   // ⚠ NO NUMBER ⇒ NO NUMBER. An unreadable computed amount must not degrade to
   // "₱0" — that would state the fee was nothing rather than that it was waived.
@@ -293,6 +309,41 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
     detail: amount
       ? `${position} You were not billed the ${amount}, and nothing is owed on it.`
       : `${position} Nothing is owed on it.`,
+  };
+}
+
+/**
+ * THE RECEIPT — the in-app notification and the email for a waived charge.
+ * Owner, 2026-09-20: *"yes, add the email receipt for waived bookings."*
+ *
+ * 🔑 IT COMPOSES {@link waivedFeeCopy}; IT DOES NOT RE-WRITE IT. The fee hub's
+ * "Waived — your first 5" row and the sentence that lands in the supplier's
+ * inbox come out of ONE function, so the amount, the position and the count of
+ * free bookings left cannot say different things in the two places. The email
+ * SUBJECT is `title` verbatim (emitNotification passes it straight to Resend),
+ * so the subject line carries the real centavo figure — not the rounded one
+ * that titled a ₱837.50 bill "₱838" in production.
+ *
+ * ⛔ IT IS A RECEIPT, NOT A BILL. No "pay", no "due", no "owed" in the
+ * asking direction — the only mention of owing is the sentence saying nothing
+ * is. The supplier has no action to take and the copy must never imply one;
+ * `the-waived-fee-sends-a-receipt.test.ts` scans for the bill vocabulary.
+ *
+ * ⚠ AND AN UNREADABLE AMOUNT PRINTS NO NUMBER. That branch is inherited whole
+ * from `waivedFeeCopy` for exactly this reason: a receipt that says "₱0 waived"
+ * tells a shop their booking was worthless, and it is the shape the free-5
+ * disclosure lane exists to remove.
+ */
+export function waivedFeeReceiptCopy(charge: WaivedFeeCharge): {
+  title: string;
+  body: string;
+} {
+  const copy = waivedFeeCopy(charge);
+  return {
+    title: copy.headline,
+    body:
+      `${copy.detail} This is your receipt — there is nothing to pay. ` +
+      'Your Booking fees page lists every Setnayan booking fee you have had, waived and billed.',
   };
 }
 

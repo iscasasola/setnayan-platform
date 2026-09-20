@@ -566,8 +566,24 @@ test('a ₱837.50 bill never reads ₱838 — anywhere', () => {
 // SABOTAGE: delete the emitNotification call from collectBookingFeeAtLock → RED.
 test('the bill notifies at the moment it opens, not on the next dashboard visit', () => {
   const lock = read('lib/booking-fee-lock.server.ts');
-  assert.equal(count(lock, /emitNotification\(\{/), 1, 'the charge path stopped notifying');
-  assert.match(lock, /type: 'order_quoted'/, "the type must stay on EMAIL_ENABLED_TYPES");
+  // ⚠ SCOPED TO THE BILLABLE FUNCTION, NOT TO THE FILE. This file now holds TWO
+  // emitters and they are deliberately different notices: the BILL below
+  // (`order_quoted`, inside collectBookingFeeAtLock) and the free-5 RECEIPT
+  // (`booking_fee_waived`, in sendWaivedFeeReceipt above it — see
+  // `the-waived-fee-sends-a-receipt.test.ts`). A file-level count of 1 was the
+  // right assertion while there was one emitter and now fails on a correct
+  // tree; a file-level count of 2 would be satisfied by two BILLS, which is the
+  // sabotage this test exists to catch. So count inside the bill's own body.
+  const bill = lock.slice(lock.indexOf('export async function collectBookingFeeAtLock'));
+  assert.ok(bill.length > 2000, `billable-function slice floor: ${bill.length} chars`);
+  assert.equal(count(bill, /emitNotification\(\{/), 1, 'the charge path stopped notifying');
+  assert.equal(count(bill, /type: 'order_quoted'/), 1, "the type must stay on EMAIL_ENABLED_TYPES");
+  assert.equal(
+    count(bill, /type: 'booking_fee_waived'/),
+    0,
+    'the BILLABLE path sends the waived receipt — a supplier who owes money would be told ' +
+      'that nothing is owed',
+  );
   assert.match(lock, /relatedUrl: vendorBookingFeePayPath\(orderId\)/, 'the deep link is the idempotency key');
   // …and the type really is on the allowlist, so the email actually sends.
   const emit = read('lib/notification-emit.ts');

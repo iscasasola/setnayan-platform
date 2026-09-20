@@ -52,6 +52,26 @@ export function vendorBookingFeePayPath(orderId: string): string {
 export const VENDOR_BOOKING_FEES_PATH = '/vendor-dashboard/booking-fees';
 
 /**
+ * Where a WAIVED charge's receipt points — and, because this repo's emitters
+ * key on `related_url`, its idempotency key as well.
+ *
+ * 🔑 A WAIVED CHARGE HAS NO PAY PAGE, BECAUSE IT HAS NO ORDER.
+ * `vendorBookingFeePayPath` is `/booking-fees/{orderId}`, and
+ * `collectBookingFeeAtLock` returns 'free' before any order is minted — so
+ * there is no id to deep-link and nothing to pay. The hub's "Waived — your
+ * first 5" section is the right destination.
+ *
+ * ⚠ NOT A `#fragment`. A fragment link to an id the page does not render fails
+ * SILENTLY — the browser stays at the top and nothing says the anchor was
+ * missing. The query parameter is inert on the page; it is carried only to make
+ * the URL unique per charge, which is what makes "one receipt per waived
+ * charge" enforceable with an existence check.
+ */
+export function vendorWaivedFeePath(chargeId: string): string {
+  return `${VENDOR_BOOKING_FEES_PATH}?waived=${encodeURIComponent(chargeId)}`;
+}
+
+/**
  * The vendor-facing bucket for a fee order.
  *   • 'due'      — actionable: submitted / awaiting_payment (pay now).
  *   • 'verifying' has NO separate order status (a payment row is pre-created at

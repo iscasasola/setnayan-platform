@@ -10,7 +10,6 @@ import {
   type StudioAnimKind,
 } from '@/lib/monogram-studio-shared';
 import { isMarkInkMode, writeMarkInkMode, type MarkInkMode } from '@/lib/monogram-ink';
-import { isMarkChoice, setUploadedMarkOff } from '@/lib/monogram-mark-choice';
 
 /**
  * Server actions for "upload your own mark" (owner 2026-07-17 — overriding the
@@ -185,50 +184,4 @@ export async function setUploadedMarkInkAction(formData: FormData): Promise<void
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);
   backToMaker(eventId, { studio: 'ink-saved' });
-}
-
-/**
- * setMarkChoiceAction — which mark is live, WITHOUT deleting the other.
- *
- * Before this, the only route from an uploaded mark back to a designed one was
- * `clearUploadedMarkAction`, which nulls the column — a couple had to destroy
- * their file to see their other mark, and re-upload it to change their mind
- * back. Now the uploaded SVG carries `data-mark="off"` and every read site
- * honours it through resolveEventMonogramSvg (lib/monogram-mark-choice.ts).
- *
- * "Remove upload" survives and now means only what it says: delete the file.
- */
-export async function setMarkChoiceAction(formData: FormData): Promise<void> {
-  const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) throw new Error('Missing event_id');
-  const supabase = await requireCouple(eventId);
-
-  const choice = String(formData.get('choice') ?? '');
-  if (!isMarkChoice(choice)) backToMaker(eventId, { upload_error: 'invalid' });
-
-  const { data: event } = await supabase
-    .from('events')
-    .select('monogram_uploaded_svg, monogram_custom_svg')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  const uploaded = typeof event?.monogram_uploaded_svg === 'string' ? event.monogram_uploaded_svg : '';
-  if (!uploaded) backToMaker(eventId, { upload_error: 'not-found' });
-
-  /* Choosing the designed mark when there ISN'T one would leave the event with
-   * no mark at all — the switch must never be able to blank the monogram. */
-  if (choice === 'studio' && !event?.monogram_custom_svg) {
-    backToMaker(eventId, { upload_error: 'no-studio-mark' });
-  }
-
-  const { data: updated, error } = await supabase
-    .from('events')
-    .update({ monogram_uploaded_svg: setUploadedMarkOff(uploaded, choice === 'studio') })
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (error || !updated || updated.length === 0) backToMaker(eventId, { upload_error: 'save' });
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/monogram`);
-  backToMaker(eventId, { studio: choice === 'studio' ? 'using-studio' : 'using-upload' });
 }

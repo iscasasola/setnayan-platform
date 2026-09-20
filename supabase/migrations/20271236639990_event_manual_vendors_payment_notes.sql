@@ -1,8 +1,18 @@
 -- ============================================================================
 -- 20271236639990_event_manual_vendors_payment_notes.sql
 --
--- HOW THE COUPLE PAYS A SUPPLIER THEY ADDED THEMSELVES — as a NOTE, and
--- deliberately inert.
+-- WHERE THE COUPLE SENDS THE MONEY to a supplier they added themselves — as a
+-- NOTE, and deliberately inert.
+--
+-- ⚠ THE PAYMENT *PLAN* IS NOT HERE, AND AN EARLIER DRAFT OF THIS MIGRATION HAD
+-- IT AS A SECOND TEXT COLUMN (`payment_terms_note`). Owner, 2026-09-20:
+-- "Payment Plan Must set date for until the payment is fully paid. just like
+-- on our quote maker." A plan with due dates is something the couple is
+-- TRACKED against — it belongs in `event_vendor_payment_plan`, the table that
+-- already drives the Payments surface, written through the quote maker's own
+-- `computePlanInstances`. Free text cannot carry a due date, and shipping one
+-- beside a real schedule would be two sources for one fact. The column was
+-- removed before it merged rather than deprecated after.
 --
 -- Owner, 2026-09-20, in three passes that each narrowed the shape:
 --   1. "payment methods · payment options" — among the things a couple should
@@ -87,9 +97,6 @@ BEGIN;
 ALTER TABLE public.event_manual_vendors
   ADD COLUMN IF NOT EXISTS payment_method_note TEXT;
 
-ALTER TABLE public.event_manual_vendors
-  ADD COLUMN IF NOT EXISTS payment_terms_note TEXT;
-
 -- Idempotent, and the only thing the database can honestly enforce about a
 -- free-text note: present means non-blank. Same shape as the address CHECK in
 -- 20271236460588 and the three NOT NULL columns in 20260604080000.
@@ -99,12 +106,6 @@ ALTER TABLE public.event_manual_vendors
   ADD CONSTRAINT event_manual_vendors_payment_method_note_not_blank
   CHECK (payment_method_note IS NULL OR length(trim(payment_method_note)) > 0);
 
-ALTER TABLE public.event_manual_vendors
-  DROP CONSTRAINT IF EXISTS event_manual_vendors_payment_terms_note_not_blank;
-ALTER TABLE public.event_manual_vendors
-  ADD CONSTRAINT event_manual_vendors_payment_terms_note_not_blank
-  CHECK (payment_terms_note IS NULL OR length(trim(payment_terms_note)) > 0);
-
 COMMENT ON COLUMN public.event_manual_vendors.payment_method_note IS
   'Free text: where the couple sends money to a supplier THEY added (e.g. '
   '"GCash 0917 555 1234 — Maria Santos"). A NOTE, not a payment rail: nothing '
@@ -112,12 +113,5 @@ COMMENT ON COLUMN public.event_manual_vendors.payment_method_note IS
   'screen once the supplier claims an account and publishes their own '
   'vendor_payment_methods. Owner 2026-09-20: "just a note so the user can rely '
   'on the payment method."';
-
-COMMENT ON COLUMN public.event_manual_vendors.payment_terms_note IS
-  'Free text: what the couple agreed about WHEN to pay (e.g. "50% to reserve, '
-  'balance on the day"). Deliberately NOT event_vendor_payment_plan — that '
-  'table is the event''s real schedule and writing a memo into it would turn a '
-  'note into an obligation. Owner 2026-09-20: "no connection to the user''s '
-  'event. it needs to be imported to a vendor first."';
 
 COMMIT;

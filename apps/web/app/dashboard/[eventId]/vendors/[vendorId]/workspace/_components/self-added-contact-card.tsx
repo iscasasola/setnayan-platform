@@ -59,7 +59,6 @@ export function SelfAddedContactCard({
   contactNumber,
   initialAddress,
   initialPaymentMethodNote,
-  initialPaymentTermsNote,
   addressRequired,
   hasContactCard,
 }: {
@@ -70,7 +69,6 @@ export function SelfAddedContactCard({
   contactNumber: string | null;
   initialAddress: string | null;
   initialPaymentMethodNote: string | null;
-  initialPaymentTermsNote: string | null;
   /** TRUE for the reception and ceremony venues — the addresses guests use. */
   addressRequired: boolean;
   /**
@@ -87,7 +85,6 @@ export function SelfAddedContactCard({
   const [number, setNumber] = useState(contactNumber ?? '');
   const [address, setAddress] = useState(initialAddress ?? '');
   const [methodNote, setMethodNote] = useState(initialPaymentMethodNote ?? '');
-  const [termsNote, setTermsNote] = useState(initialPaymentTermsNote ?? '');
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = useSaveLoader();
@@ -113,7 +110,6 @@ export function SelfAddedContactCard({
         fd.set('contact_number', number);
         fd.set('address', address);
         fd.set('payment_method_note', methodNote);
-        fd.set('payment_terms_note', termsNote);
         await save.run(() => saveSelfAddedServiceCard(fd), {
           steps: ['Saving their details'],
           hint: 'Saving',
@@ -228,9 +224,9 @@ export function SelfAddedContactCard({
           How you pay them
         </p>
         <p className="-mt-1.5 text-[11px] leading-snug text-ink/55">
-          Notes for you — so you are not digging through messages on the day. Setnayan
-          does not send or track this money, and nothing here creates a payment or a due
-          date.
+          Where you send the money — so you are not digging through messages on the
+          day. Setnayan does not send or track it, and nothing here creates a payment.
+          Due dates live in the payment plan.
         </p>
 
         <div className="space-y-1.5">
@@ -252,24 +248,6 @@ export function SelfAddedContactCard({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <label
-            htmlFor="self-added-payment-terms"
-            className="block text-[11px] font-medium text-ink/70"
-          >
-            Payment terms
-          </label>
-          <textarea
-            id="self-added-payment-terms"
-            rows={2}
-            maxLength={NOTE_MAX}
-            disabled={pending}
-            value={termsNote}
-            placeholder="e.g. 50% to reserve the date, balance on the day"
-            onChange={(e) => touched(setTermsNote)(e.target.value)}
-            className={`${FIELD} resize-y`}
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-2">

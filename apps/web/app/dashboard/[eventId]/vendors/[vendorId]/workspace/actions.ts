@@ -326,10 +326,17 @@ export async function deleteWorkingNoteAction(formData: FormData): Promise<void>
 // two rows above) is the behaviour this replaces.
 //
 // ── WHAT IT DELIBERATELY DOES NOT DO ──────────────────────────────────────
-// The payment notes reach NO payment machinery. No `event_vendor_payment_plan`
-// row, no `event_vendor_payments`, no schedule, no rail, no notification. They
-// are text the couple can read back. `the-payment-note-is-inert.test.ts` fails
-// CI if a writer of those tables ever learns to read them.
+// The payment METHOD note reaches no payment machinery: no
+// `event_vendor_payment_plan` row, no `event_vendor_payments`, no schedule, no
+// rail, no notification. It is the GCash number the couple wrote down, and
+// `the-payment-note-is-inert.test.ts` fails CI if a writer of those tables
+// ever learns to read it.
+//
+// ⚖ THE PAYMENT PLAN IS A DIFFERENT ANIMAL AND IS NOT WRITTEN HERE. Owner
+// 2026-09-20: "Payment Plan Must set date for until the payment is fully paid.
+// just like on our quote maker." A plan with due dates IS the event's money —
+// it belongs in `event_vendor_payment_plan` through `computePlanInstances`,
+// not in a text column beside a phone number.
 //
 // Auth: the couple's session client throughout. RLS
 // (`event_manual_vendors_host_all`) is the wall; the event_id equalities are
@@ -397,7 +404,6 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   if (!address.ok) throw new Error(address.message);
 
   const paymentMethodNote = readNote(formData, 'payment_method_note', PAYMENT_NOTE_MAX);
-  const paymentTermsNote = readNote(formData, 'payment_terms_note', PAYMENT_NOTE_MAX);
   const contactPerson = readNote(formData, 'contact_person', CONTACT_PERSON_MAX);
   const contactNumber = readNote(formData, 'contact_number', CONTACT_NUMBER_MAX);
 
@@ -408,7 +414,6 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
     const update: Record<string, unknown> = {
       address: address.value,
       payment_method_note: paymentMethodNote,
-      payment_terms_note: paymentTermsNote,
       updated_at: new Date().toISOString(),
     };
     // NOT NULL columns: only overwritten when the card actually sent a value,
@@ -442,8 +447,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
         contact_number: contactNumber,
         address: address.value,
         payment_method_note: paymentMethodNote,
-        payment_terms_note: paymentTermsNote,
-        created_by_user_id: user.id,
+          created_by_user_id: user.id,
       })
       .select('manual_vendor_id')
       .single();

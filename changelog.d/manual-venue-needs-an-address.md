@@ -69,7 +69,7 @@ no request and no approval.
 ## 2026-09-20 · chore(security): accept the three new event_manual_vendors columns in the exposure baseline
 
 `exposure-freeze.db.test.ts` failed the branch — correctly. `address`,
-`payment_method_note` and `payment_terms_note` inherit the table's grant to
+`payment_method_note` inherits the table's grant to
 `authenticated`, because a column-level grant is not something a new column
 opts into: it arrives with whatever the table already gives out. RLS is
 ROW-level and can never hide a column from someone the row policy admits.
@@ -84,3 +84,27 @@ events they hold.
 
 Baseline regenerated in the same PR so the three added lines show up in
 review, which is the point of the file.
+
+## 2026-09-20 · fix(payments): drop `payment_terms_note` before it ships — a payment plan is not free text
+
+Owner, refining the same day: *"Payment Plan Must set date for until the
+payment is fully paid. just like on our quote maker."*
+
+The earlier draft stored payment terms as a second free-text column beside the
+payment-method note, on the reading that everything manual was an inert record.
+A plan with **due dates the couple is tracked against** is not that — it is the
+event's real money, and it already has a home: `event_vendor_payment_plan`,
+written through the quote maker's own `computePlanInstances`, which resolves
+`on_lock` / `before_event` anchors against the booking total and the event date
+and emits exactly the `instances_json` shape that table documents.
+
+Free text cannot carry a due date, and shipping one beside a real schedule would
+be two sources for one fact. The column is **removed before merge** rather than
+deprecated after — nothing in production has it, so there is no migration debt.
+
+`payment_method_note` stays exactly as it was: where the couple sends the money,
+inert by design, still held by `the-payment-note-is-inert.test.ts` — which is
+now narrowed to the method note alone, because guarding a payment PLAN for
+inertness would assert the opposite of what it is for.
+
+The structured plan editor itself is the next PR.

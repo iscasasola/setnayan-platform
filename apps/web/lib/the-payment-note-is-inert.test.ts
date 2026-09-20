@@ -40,7 +40,15 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(HERE, '..');
 const ROOTS = ['app', 'lib', 'components'].map((d) => path.join(WEB_ROOT, d));
 
-const NOTE_COLUMNS = ['payment_method_note', 'payment_terms_note'];
+/**
+ * ⚠ THE *METHOD* NOTE ONLY. `payment_terms_note` was here until the owner
+ * settled that a payment PLAN carries due dates "just like on our quote
+ * maker" — which makes it the event's real money, written to
+ * `event_vendor_payment_plan`, not an inert note. The column was removed
+ * before it shipped. Guarding a plan for inertness would assert the opposite
+ * of what it is for.
+ */
+const NOTE_COLUMNS = ['payment_method_note'];
 
 /** Tables that ARE the event's money. A write to one of these is an obligation. */
 const MONEY_TABLES = [
@@ -106,7 +114,7 @@ describe('the couple’s payment note is inert', () => {
     });
     assert.ok(
       mentions.length > 0,
-      'neither payment_method_note nor payment_terms_note appears anywhere. ' +
+      'payment_method_note appears nowhere. ' +
         'If they were renamed, re-point this guard — do not delete it.',
     );
   });

@@ -637,7 +637,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     selfAdded && ev.manual_vendor_id
       ? await supabase
           .from('event_manual_vendors')
-          .select('contact_person, contact_number, address, payment_method_note, payment_terms_note')
+          .select('contact_person, contact_number, address, payment_method_note')
           .eq('manual_vendor_id', ev.manual_vendor_id)
           .eq('event_id', eventId)
           .maybeSingle()
@@ -647,7 +647,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     contact_number: string | null;
     address: string | null;
     payment_method_note: string | null;
-    payment_terms_note: string | null;
   } | null;
 
   // ----------------------------------------------------------------------
@@ -1631,7 +1630,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       contactNumber={manualContact?.contact_number ?? null}
       initialAddress={manualContact?.address ?? null}
       initialPaymentMethodNote={manualContact?.payment_method_note ?? null}
-      initialPaymentTermsNote={manualContact?.payment_terms_note ?? null}
       addressRequired={manualVendorNeedsAddress(ev.category)}
       hasContactCard={Boolean(ev.manual_vendor_id)}
     />

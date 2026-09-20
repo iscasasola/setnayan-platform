@@ -46,6 +46,7 @@ import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
 import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogram, type HeroMonogramRow } from '@/lib/hero-monogram-data';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 
@@ -92,7 +93,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -107,6 +108,24 @@ export default async function SaveTheDatePage({ params }: Props) {
 
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
   const markSvg = resolveEventMonogramSvg(event);
+
+  /* ── THE COUPLE MUST SEE WHAT THEIR GUESTS SEE (2026-09-20) ───────────────
+   * This builder mounts the SAME <SaveTheDateFilm> the guest page mounts — but
+   * it never passed `animatedMonogram` or `studioAnim`, so the film fell to its
+   * static <img> branch here while guests watched the monogram draw itself in.
+   * The one screen built for previewing the Save-the-Date could not preview the
+   * paid feature, and the couple who bought it had no way to see it working.
+   *
+   * Resolved through `resolveEventMonogram` — the shared resolver that already
+   * carries the paid ANIMATED_MONOGRAM gate — so an unpaid couple sees exactly
+   * what their guests currently get (static), not a teaser of something that is
+   * not live. Same inputs, same component, same result: that is the property.
+   */
+  const heroMonogram = await resolveEventMonogram(
+    supabase,
+    eventId,
+    event ? (event as unknown as HeroMonogramRow) : null,
+  );
 
   // The couple's onboarding lockup — the film's mark when there's no markSvg
   // (owner 2026-06-19 logo precedence). Mirrors the live page's stdLockupFor.
@@ -515,6 +534,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}
+        animatedMonogram={heroMonogram?.animatedMonogram ?? false}
+        studioAnim={heroMonogram?.studioAnim}
         lockup={lockup}
         waxColor={waxColor}
         sealConfig={sealConfig}

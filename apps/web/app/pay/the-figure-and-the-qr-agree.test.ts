@@ -24,6 +24,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { payAmount } from '../../lib/pay-amount';
+import { stripComments } from '../../lib/strip-comments';
 import { mintOrderQr, parseTlv } from '../../lib/emv-qr';
 
 /** The real decoded GCash receiving QR, same fixture as `lib/emv-qr.test.ts`. */
@@ -102,7 +103,23 @@ test('the peso sign is the real one, on the page and in the helper', () => {
  * `number | undefined`, which is `error TS2532` here (the runtime was always
  * fine — both keys exist). Literal keys make the lookup exact.
  */
-const FLOOR = { 'page.tsx': 1, 'pay-panel.tsx': 4 } as const;
+const FLOOR = { 'page.tsx': 1, 'pay-panel.tsx': 3 } as const;
+
+/**
+ * ⚠ pay-panel's FLOOR WENT 4 → 3 ON 2026-09-20, AND THAT IS NOT A WEAKENING —
+ * it is the count catching up with a mechanism change. The caption under the
+ * code used to be written twice in this file, once per branch of
+ * `exact ? … : …`, each spelling `payAmount(amountPhp)` itself. Both branches
+ * now come from ONE call to `qrWords`, which is handed `payAmount(amountPhp)`
+ * — so the figure is still displayed in the same three places (the alt text,
+ * the caption, the sticky bar) and still formatted by the shared helper; there
+ * is simply one fewer call site spelling it.
+ *
+ * 🔑 THE COUNT IS NO LONGER THE STRONGEST THING HERE, so it is not asked to
+ * carry the weight alone. `the amount reaching qrWords is payAmount's own` (in
+ * this file) pins the property the count was standing in for: whatever the
+ * caption says, its digits came from the formatter the QR is pinned to.
+ */
 
 test('neither file keeps a private copy of the rule', () => {
   const page = read('page.tsx');
@@ -145,5 +162,40 @@ test('neither file keeps a private copy of the rule', () => {
      * and a guard that cries wolf teaches you to skim past the one time it is
      * right.
      */
+  }
+});
+
+test("the amount reaching qrWords is payAmount's own", () => {
+  // ⛔ THE COUNT ABOVE CANNOT SEE THIS. `qrWords(exact, '₱838')` would keep
+  // every call site and still put a figure on screen that the QR does not
+  // carry — the exact class of defect this file exists for. Asserted on the
+  // ARGUMENT, in both files that build a sentence about the code.
+  //
+  // ⚠ THE WINDOW IS BALANCED, NOT A CHARACTER COUNT. `stripComments` blanks a
+  // comment to SPACES of the same length, so a window measured in characters
+  // grows with the prose inside the call and goes red for a reason nobody can
+  // see — measured here at 400 characters against a four-line note.
+  for (const [name, raw] of [
+    ['page.tsx', read('page.tsx')],
+    ['pay-panel.tsx', read('_components', 'pay-panel.tsx')],
+  ] as const) {
+    const src = stripComments(raw);
+    const calls = [...src.matchAll(/qrWords\(/g)];
+    assert.ok(calls.length > 0, `${name} no longer phrases anything about the code`);
+    for (const m of calls) {
+      const open = (m.index ?? 0) + m[0].length - 1;
+      let depth = 0;
+      let end = open;
+      for (; end < src.length; end++) {
+        if (src[end] === '(') depth++;
+        else if (src[end] === ')' && --depth === 0) break;
+      }
+      const args = src.slice(open, end + 1);
+      assert.match(
+        args,
+        /payAmount\(|AGREED_AMOUNT/,
+        `${name} hands qrWords a figure that did not come from payAmount: ${args}`,
+      );
+    }
   }
 });

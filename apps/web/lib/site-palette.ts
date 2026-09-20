@@ -437,3 +437,71 @@ export function readableTextOn(bgHex: string): string {
   // Both on-brand tokens fall short — use the pure extreme with the most contrast.
   return contrast(WHITE, bg) >= contrast({ r: 0, g: 0, b: 0 }, bg) ? '#ffffff' : '#000000';
 }
+
+/**
+ * A SOFT TINTED CHIP from one accent — the second consumer of this file's sRGB
+ * + WCAG math (the first is the couple-site theme above).
+ *
+ * 🔑 THE POINT IS THAT IT STAYS QUIET. A mood-board colour is chosen as DECOR;
+ * slammed in raw as an 11px pill background across a 77-row table it reads as a
+ * warning, not as identity. So the accent arrives as a 16% wash over the page
+ * and the LABEL carries the hue — darkened by `ensureContrast` only as far as AA
+ * needs, so a pale champagne and a deep mulberry both stay legible without
+ * either becoming a shout. Same visual weight as the fixed Tailwind tints it
+ * replaces; only the hue now comes from the couple.
+ *
+ * WHITE IS CORRECT HERE, NOT AN ASSUMPTION: dark mode is disabled repo-wide
+ * (globals.css, owner 2026-06-04 — `ThemeProvider` never adds `.dark` and the
+ * bootstrap strips it before first paint) and `--color-cream` is `#FFFFFF`. If
+ * dark mode is ever restored, this function is one of the places that must be
+ * re-derived rather than re-themed — which is why the surface is a named
+ * constant and not an inline literal.
+ *
+ * Returns null for a malformed hex so the caller keeps its existing fallback
+ * class instead of rendering a chip with no tint at all.
+ */
+const CHIP_SURFACE: RGB = { r: 255, g: 255, b: 255 };
+
+export type TintedChip = { background: string; color: string; ring: string };
+
+export function tintedChipFromAccent(accentHex: string): TintedChip | null {
+  const accent = hexToRgb(accentHex);
+  if (!accent) return null;
+  const background = blend(CHIP_SURFACE, accent, 0.16);
+  return {
+    background: toHex(background),
+    // AA against the TINTED background the label actually sits on — not against
+    // the white page, which would under-darken every chip by the wash's worth.
+    color: toHex(ensureContrast(accent, background, 4.5)),
+    ring: toHex(blend(CHIP_SURFACE, accent, 0.4)),
+  };
+}
+
+/**
+ * A role's colour as TEXT on the roster, not as a filled chip.
+ *
+ * ⚖ Owner 2026-09-20, looking at the desktop guest list: *"is there a better
+ * way to keep this clean and remove the pill boxes? so it looks neater?"* Five
+ * tinted capsules per row across 77 rows is ~385 coloured shapes and no
+ * hierarchy — the eye gets texture instead of information. The role keeps the
+ * colour (it is the identity, and since PR #5755 it is the couple's own
+ * mood-board colour); it simply stops wearing a box.
+ *
+ * 🔑 THE SURFACE CHANGED, SO THE CONTRAST TARGET MUST TOO. `tintedChipFromAccent`
+ * darkens the label against its own 16% wash. Here the label sits on the ROW,
+ * which alternates between the page and a 2% ink zebra — a different and
+ * slightly darker background. Reusing the chip's colour would be AA against a
+ * surface that is no longer behind it. The zebra is used because it is the
+ * darker of the two, so whichever row a name lands on, it clears.
+ */
+const ROSTER_ZEBRA: RGB = blend(
+  { r: 255, g: 255, b: 255 }, // --color-cream is #FFFFFF (globals.css, owner 2026-08-20)
+  { r: 44, g: 42, b: 41 }, //    --color-ink espresso #2C2A29
+  0.02, //                       the roster's `odd:bg-ink/[0.02]`
+);
+
+export function accentTextOnRoster(accentHex: string): string | null {
+  const accent = hexToRgb(accentHex);
+  if (!accent) return null;
+  return toHex(ensureContrast(accent, ROSTER_ZEBRA, 4.5));
+}

@@ -14,6 +14,7 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
 import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
+import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 /**
  * Buy ONE Papic credit pack for a booked event — apply-then-pay, the same
@@ -85,6 +86,10 @@ export async function buyVendorPapicPortfolioPack(
   if (!booked) {
     return err('You are not booked on this event.');
   }
+  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the
+  // flag is off; a refused or missing fee read returns null (fail OPEN).
+  const feeBlocked = await eventFeeBlocksAction(vendorProfileId, eventId);
+  if (feeBlocked) return err(feeBlocked);
 
   // ── Feature-availability gate (defence in depth) ───────────────────────────
   // The whole vendor Papic lane — camera, album, this pack — lives behind the

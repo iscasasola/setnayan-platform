@@ -135,6 +135,95 @@ function upsert(fields: TlvField[], id: string, value: string): TlvField[] {
 }
 
 /**
+ * Every EMVCo merchant-account-information template, plus the fields that say
+ * WHO and WHERE the money goes. These are the bytes that decide which account
+ * is credited, and re-minting must not touch a single one of them.
+ *
+ * 26–51 are the merchant account templates (the bank/wallet identifiers),
+ * 52 is the merchant category code, 53 the currency, 58 the country, 59 the
+ * merchant name, 60 the city, 61 the postal code.
+ */
+const IDENTITY_TAGS: ReadonlySet<string> = new Set([
+  ...Array.from({ length: 26 }, (_, i) => String(26 + i)),
+  '52',
+  '53',
+  '58',
+  '59',
+  '60',
+  '61',
+]);
+
+export type MintCheck = {
+  ok: boolean;
+  /** Every reason it failed, so a log says which one rather than "invalid". */
+  problems: string[];
+};
+
+/**
+ * Does `minted` pay the SAME account as `source`, for exactly `amountPhp`?
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * 🚨 THE WORST OUTCOME OF THIS WHOLE FEATURE IS A GENERATED CODE THAT PAYS THE
+ * WRONG ACCOUNT. Everything else here fails loudly — a malformed payload is
+ * refused by the wallet, a wrong amount is caught by the payer reading the
+ * screen. A payload whose merchant identifier drifted by one byte scans
+ * perfectly, pre-fills the right figure, and sends the money somewhere else.
+ * Nothing downstream can notice.
+ *
+ * 🔑 SO THE CHECK IS BYTE EQUALITY ON THE IDENTITY TAGS, not "we did not mean
+ * to change them". `upsert` splices by tag id and `buildTlv` re-counts every
+ * length; both are correct today and both are one edit from not being. This
+ * asks the OUTPUT, which is the only artefact a wallet ever sees.
+ * ────────────────────────────────────────────────────────────────────────────
+ */
+export function verifyMintedAgainstSource(
+  sourcePayload: string,
+  minted: string,
+  amountPhp: number,
+): MintCheck {
+  const problems: string[] = [];
+  let src: TlvField[];
+  let out: TlvField[];
+  try {
+    src = parseTlv(sourcePayload);
+    out = parseTlv(minted);
+  } catch (e) {
+    return { ok: false, problems: [`unparseable: ${String(e)}`] };
+  }
+
+  if (!verifyCrc(minted).ok) problems.push('minted CRC does not check out');
+
+  const outById = new Map(out.map((f) => [f.id, f.value]));
+  if (outById.get('01') !== '12') {
+    // Without this a wallet treats the code as reusable and REJECTS the amount
+    // (measured on real GCash, 2026-07-31 — see the header note).
+    problems.push(`point-of-initiation is ${outById.get('01') ?? 'absent'}, not 12 (dynamic)`);
+  }
+  const expected = amountPhp.toFixed(2);
+  if (outById.get('54') !== expected) {
+    problems.push(`amount is ${outById.get('54') ?? 'absent'}, not ${expected}`);
+  }
+
+  // The identity tags, byte for byte, in the source's own order.
+  for (const field of src) {
+    if (!IDENTITY_TAGS.has(field.id)) continue;
+    const got = outById.get(field.id);
+    if (got !== field.value) {
+      problems.push(`tag ${field.id} changed: ${JSON.stringify(field.value)} → ${JSON.stringify(got)}`);
+    }
+  }
+  // …and nothing new that claims to be one.
+  for (const field of out) {
+    if (!IDENTITY_TAGS.has(field.id)) continue;
+    if (!src.some((f) => f.id === field.id)) {
+      problems.push(`tag ${field.id} appeared from nowhere`);
+    }
+  }
+
+  return { ok: problems.length === 0, problems };
+}
+
+/**
  * Mint a per-order QR Ph payload carrying `amountPhp`.
  *
  * Returns null rather than throwing when the source is not a payload we
@@ -164,8 +253,16 @@ export function mintOrderQr(
     // Tag 62 is deliberately NOT set: GCash rejects the template outright.
     const body = buildTlv(fields) + '6304';
     const minted = body + crc16(body);
-    // Belt and braces — never hand back something that fails its own check.
-    return verifyCrc(minted).ok ? minted : null;
+    // 🔑 THE OUTPUT IS ASKED, NOT THE INTENT. A self-CRC was the old check and
+    // it passes happily on a payload whose merchant identifier drifted — the
+    // one failure nothing downstream can notice. `verifyMintedAgainstSource`
+    // compares the identity tags byte for byte against where we started.
+    const check = verifyMintedAgainstSource(sourcePayload, minted, amountPhp);
+    if (!check.ok) {
+      console.error('[emv-qr] refused a minted code:', check.problems.join(' · '));
+      return null;
+    }
+    return minted;
   } catch {
     return null;
   }

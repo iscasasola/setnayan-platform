@@ -125,7 +125,14 @@ test('the couple is told in a sentence — and "could not load" never reads as "
 
 test('the deposit card shows the supplier’s methods FIRST, then "Record payment"', () => {
   const card = read(DEPOSIT_CARD);
-  const pay = card.indexOf('<VendorDirectPay vendorName={vendorName} methods={payMethods} />');
+  /* ✏️ RE-ANCHORED 2026-09-20 ON THE MOUNT, NOT ITS ONE-LINE SPELLING. This
+     read the whole tag as a single literal, so adding a prop — `amountPhp`,
+     which is what lets the supplier's own QR carry the figure — reformatted
+     the JSX onto four lines and the guard reported "the deposit step does not
+     mount the pay sheet". It was mounted the entire time. What is asserted
+     (pay comes before record) is unchanged, and the props are checked on their
+     own below so widening the anchor loses nothing. */
+  const pay = card.indexOf('<VendorDirectPay');
   const sentence = card.indexOf('{noMethods}');
   /* ✏️ EVOLVED 2026-09-20 (owner: "better to say amount to pay … not just for
      the downpayment but also for the next payments"). The button's words
@@ -140,11 +147,24 @@ test('the deposit card shows the supplier’s methods FIRST, then "Record paymen
   assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked;/);
   /* ✏️ EVOLVED 2026-09-20: the one pay sheet also serves the NEXT installment
      (Amount to pay), so its gate is `payDue` — built from `owed`, not a second
-     invention. */
-  assert.match(card, /const payDue = \(owed && firstPaymentOffered\) \|\| later !== null;/);
+     invention. ✏️ EVOLVED again the same day ("nothing due now" is its own
+     state): a not-due-yet installment adds no CTA of its own — it only opens
+     the SAME pay sheet if the couple chooses to pay early. */
+  assert.match(
+    card,
+    /const payDue = \(owed && firstPaymentOffered\) \|\| later !== null \|\| \(notDueYet !== null && earlyOpen\);/,
+  );
   assert.match(card, /\{payDue \? \(/, 'the pay step is not gated on what is owed');
   // Exactly one pay sheet in the card.
   assert.equal(card.split('<VendorDirectPay').length - 1, 1);
+  // …and it is still handed the supplier's methods. Asserted separately, so
+  // the anchor above can be about ORDER and this can be about WIRING.
+  assert.match(card, /methods=\{payMethods\}/, 'the pay sheet is no longer given the methods');
+  assert.match(card, /vendorName=\{vendorName\}/, 'the pay sheet is no longer told whose it is');
+  /* 🔑 AND THE FIGURE THE SUPPLIER ASKED FOR. Without it the sheet cannot mint
+     a code carrying the amount, and falls back to saying it must be typed —
+     which is honest, but is not what the owner asked for on 2026-09-20. */
+  assert.match(card, /amountPhp=\{minimumPhp\}/, 'the pay sheet is not told the figure asked for');
 });
 
 test('the workspace hands the card the methods AND the read’s outcome', () => {

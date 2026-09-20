@@ -26,6 +26,8 @@ import {
   type AcceptedQuoteTerms,
   type MoneyStep,
 } from './accepted-quote-terms';
+import { paymentHistory, type PaymentHistory, type PaymentLedgerRow } from './payment-history';
+import { manilaToday } from './std-views';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
 
 export type BookedMoney = {
@@ -64,9 +66,15 @@ export type BookedMoney = {
    * which acknowledges the deposit through `confirm_vendor_payment`). null = none.
    */
   firstPaymentRowId: string | null;
+  /**
+   * WHAT HAS ALREADY BEEN PAID, for whichever end asked (`args.viewer`).
+   * A refused ledger read is `{ state: 'unreadable' }` — never 'none', never
+   * ₱0. null only when there is no booking to have a ledger.
+   */
+  history: PaymentHistory | null;
 };
 
-const NONE = { deposit: null, firstPaymentRowId: null } as const;
+const NONE = { deposit: null, firstPaymentRowId: null, history: null } as const;
 
 const CONFIRMED = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
 
@@ -78,8 +86,14 @@ export async function readBookedMoney(
     eventVendorId?: string | null;
     vendorProfileId?: string | null;
     eventDate?: string | null;
+    /** Which end is reading — it decides the history's wording only. */
+    viewer?: 'couple' | 'vendor';
+    /** The OTHER party's name, for the history's sentences. */
+    otherName?: string | null;
   },
 ): Promise<BookedMoney> {
+  const viewer = args.viewer ?? 'couple';
+  const otherName = args.otherName?.trim() || (viewer === 'couple' ? 'your supplier' : 'the couple');
   let bookingQuery = db
     .from('event_vendors')
     .select(
@@ -133,20 +147,27 @@ export async function readBookedMoney(
 
   const { data: payRows, error: payErr } = await db
     .from('event_vendor_payments')
-    .select('payment_id, amount_php, is_deposit_record, vendor_confirmed_at')
+    .select(
+      'payment_id, amount_php, is_deposit_record, vendor_confirmed_at, paid_at, method, payment_refused_at',
+    )
     .eq('event_id', args.eventId)
-    .eq('vendor_id', booking.vendor_id);
+    .eq('vendor_id', booking.vendor_id)
+    .order('paid_at', { ascending: true });
   let ledger: { count: number; paidCentavos: number; recordedFirstCentavos: number | null } | null = null;
   let firstPaymentRowId: string | null = null;
+  // 🔑 A REFUSED READ IS NOT AN EMPTY LEDGER. `rowsOrNull` stays null on
+  // `payErr`, so the history renders "we couldn't load your payments" and
+  // never the "no payments recorded yet" sentence.
+  let historyRows: PaymentLedgerRow[] | null = null;
   if (payErr) {
     console.error('[readBookedMoney] ledger read refused', payErr.message, { event_id: args.eventId });
   } else {
-    const pays = (payRows ?? []) as {
+    const pays = (payRows ?? []) as (PaymentLedgerRow & {
       payment_id: string;
-      amount_php: number | string | null;
       is_deposit_record: boolean | null;
       vendor_confirmed_at: string | null;
-    }[];
+    })[];
+    historyRows = pays;
     const c = (v: number | string | null) => {
       const n = Number(v);
       return Number.isFinite(n) ? Math.round(n * 100) : 0;
@@ -164,12 +185,22 @@ export async function readBookedMoney(
     step: moneyStep({
       terms,
       booked: CONFIRMED.has(booking.status ?? ''),
+      // TODAY IN MANILA — the one clock that decides "not due yet". Never
+      // `new Date()` on a due-date string: that is midnight UTC, the day
+      // before in Manila.
+      today: manilaToday(),
       deposit: {
         recordedAt: booking.deposit_recorded_at,
         acknowledgedAt: booking.deposit_acknowledged_at,
         declinedAt: booking.deposit_declined_at,
       },
       ledger,
+    }),
+    history: paymentHistory({
+      rowsOrNull: historyRows,
+      totalCentavos: terms?.totalCentavos ?? null,
+      viewer,
+      otherName,
     }),
     terms,
     termsUnreadable,

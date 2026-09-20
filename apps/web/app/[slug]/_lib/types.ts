@@ -84,6 +84,9 @@ export type EventRow = {
   venue_address: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /** True when the precise location is closed because the viewer has not
+   *  replied yet (lib/venue-disclosure.ts). The NAME is still present. */
+  venue_withheld?: boolean;
   slug: string;
   // Event type (events.event_type). Drives event-type-adaptive guest copy —
   // weddings keep "wedding", other types read "event" — now that non-wedding

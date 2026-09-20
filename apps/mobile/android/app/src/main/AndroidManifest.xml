@@ -20,7 +20,8 @@
             </intent-filter>
 
             <!-- App Links (verified https) — opens setnayan.com app-surface links in the app.
-                 SCOPED to /dashboard so marketing + auth pages still open in the browser
+                 SCOPED to the app's own surfaces so marketing + auth pages still open in
+                 the browser
                  (the wholesale-vs-scoped question is owner-open; widen with more
                  <data> pathPrefix entries here as the public URL scheme firms up).
                  autoVerify REQUIRES /.well-known/assetlinks.json hosted on
@@ -31,6 +32,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/dashboard" />
+                <!-- The surfaces an NFC TAG or a QR can carry (2026-09-20). A tag holds a
+                     plain https link, so without these a tapped tag opens the browser even
+                     on a phone that has the app. Mirrors the iOS AASA `paths` list. -->
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/papic" />
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/vendor-invite" />
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/vendor/lock" />
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/v/" />
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/join/" />
+                <data android:scheme="https" android:host="www.setnayan.com" android:pathPrefix="/u/" />
             </intent-filter>
 
             <!-- Custom scheme — setnayan:// for app-to-app / in-app handoff (per the

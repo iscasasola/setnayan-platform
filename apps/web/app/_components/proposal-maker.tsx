@@ -100,6 +100,19 @@ type SchedRow = InstallmentDraft & { key: string };
 /** Peso → whole centavos. */
 const toCentavos = (php: number): number => Math.round((Number(php) || 0) * 100);
 
+/**
+ * Centavos → pesos for an INSTALLMENT FIELD, keeping the centavos.
+ *
+ * ⛔ NOT `Math.round(centavos / 100)`. Both places this is used materialise a
+ * resolved centavos figure into a `fixed` installment the couple is later asked
+ * to pay, and the value is sent, re-resolved and stored — so rounding here is
+ * not a display choice, it is a different amount of money. One named helper
+ * rather than the expression twice: a guard can execute a helper, and the app
+ * has already shipped a fix to one of two identical inline spellings while the
+ * other kept the defect.
+ */
+const centavosToPesos = (centavos: number): number => Math.round(centavos) / 100;
+
 let keySeq = 0;
 const nextKey = () => `ln_${Date.now().toString(36)}_${keySeq++}`;
 
@@ -544,7 +557,11 @@ export function ProposalMaker({
         key: nextSchedKey(),
         label: ordinalLabel(prev.length),
         kind: 'fixed',
-        amountPhp: Math.round(autoRow.amount_centavos / 100),
+        // 🔴 `Math.round(… / 100)` HERE MOVED THE MONEY. Splitting a balance of
+        // ₱11,333.35 materialised ₱11,333, the resolver regenerated a fresh
+        // ₱0.35 auto "Final balance", and the couple got a schedule with a
+        // 35-centavo line nobody wrote. Exact centavos in, exact centavos out.
+        amountPhp: centavosToPesos(autoRow.amount_centavos),
         percent: null,
         due: autoBalanceMeta.due,
         offsetDays: autoBalanceMeta.offsetDays,
@@ -1120,9 +1137,16 @@ export function ProposalMaker({
                 ) : (
                   <span className="flex items-center gap-1 text-xs text-ink/50">
                     ₱
+                    {/* `step` DEFAULTS TO 1 ON type="number", so without this
+                        the field declares itself invalid for exactly the
+                        centavo amounts the ₱/% toggle and "Add payment" now
+                        put into it — and a supplier could not type ₱1,999.95
+                        at all. The resolver keeps centavos; the control has to
+                        admit them. */}
                     <input
                       type="number"
                       min={0}
+                      step="0.01"
                       value={r.amountPhp ?? 0}
                       onChange={(e) => patchInstallment(r.key, { amountPhp: Number(e.target.value) || 0 })}
                       aria-label="Installment amount"
@@ -1133,7 +1157,10 @@ export function ProposalMaker({
                 <button
                   type="button"
                   onClick={() =>
-                    patchInstallment(r.key, r.kind === 'percent' ? { kind: 'fixed', amountPhp: Math.round((resolved?.raw_centavos ?? 0) / 100) } : { kind: 'percent', percent: r.percent ?? 0 })
+                    // Centavo-exact: a 15% row on a centavo-bearing total is
+                    // ₱1,999.95, and rounding it to ₱2,000 on a ₱/% tap moved
+                    // 5 centavos of a real contract.
+                    patchInstallment(r.key, r.kind === 'percent' ? { kind: 'fixed', amountPhp: centavosToPesos(resolved?.raw_centavos ?? 0) } : { kind: 'percent', percent: r.percent ?? 0 })
                   }
                   aria-label="Toggle peso / percent"
                   title={r.kind === 'percent' ? 'Switch to a fixed peso amount' : 'Switch to a percent of the total'}

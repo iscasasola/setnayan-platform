@@ -64,3 +64,25 @@ export function webNdefReader(): NdefReaderCtor | null {
   if (typeof window === 'undefined') return null;
   return (window as unknown as { NDEFReader?: NdefReaderCtor }).NDEFReader ?? null;
 }
+
+/** Read this browser's device signals for `nfcDeviceKind`. Browser-only. */
+export function readDeviceEnv(): {
+  coarsePointer: boolean;
+  maxTouchPoints: number;
+  userAgent: string;
+  screenWidth: number;
+} {
+  return {
+    coarsePointer: typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches,
+    maxTouchPoints: navigator.maxTouchPoints ?? 0,
+    userAgent: navigator.userAgent ?? '',
+    screenWidth: window.screen?.width ?? window.innerWidth ?? 0,
+  };
+}
+
+/** True when this is an iPhone/iPad (including the app's WebView). */
+export function isIosBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent ?? '';
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
+}

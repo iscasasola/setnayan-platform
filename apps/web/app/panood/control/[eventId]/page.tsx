@@ -118,6 +118,7 @@ import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
 import { VenueScreensSection } from './_components/venue-screens-section';
 import { fetchPanoodScreens, PANOOD_SCREEN_PAIR_PATH, type PanoodScreenRow } from '@/lib/panood-screens';
+import { VENUE_SCREENS_LOCKED_MESSAGE } from '@/lib/live-screens';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
 import { IngestHealthStrip } from './_components/ingest-health-strip';
@@ -467,6 +468,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     : screen_removed ? 'Screen removed. It is disconnected within a few seconds.'
     : screen_error === 'cap' ? 'That is the most screens one event can hold.'
     : screen_error === 'missing' ? 'That screen is no longer connected to this event. Reload to see the current list.'
+    : screen_error === 'locked' ? `${VENUE_SCREENS_LOCKED_MESSAGE} — unlock below to use them.`
     : screen_error ? 'Couldn’t save that — please try again.'
     : null;
 
@@ -2372,6 +2374,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         pairUrlBase={`${appUrl}${PANOOD_SCREEN_PAIR_PATH}`}
         nowMs={Date.now()}
         banner={screensBanner}
+        entitled={entitled}
+        unlockHref={detailHref}
+        unlockCtaLabel={lock.unlockCtaLabel}
       />
 
       {/* Going live note (owner-OAuth gated). */}

@@ -41,6 +41,8 @@ import { LockAnswerForms } from './lock-answer-forms';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
+import { PaymentHistoryList } from '@/app/_components/payment-history-list';
+import type { PaymentHistory } from '@/lib/payment-history';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
@@ -227,6 +229,13 @@ type Props = {
    */
   supplierFirstPaymentRowId?: string | null;
   /**
+   * THE SUPPLIER'S END of "show the current payments done as well" (owner,
+   * 2026-09-20). Same `readBookedMoney().history` the couple's card mounts —
+   * the couple gets it inside `DepositReservation`, so it is rendered here for
+   * the vendor only and the two ends read one shape.
+   */
+  bookedHistory?: PaymentHistory | null;
+  /**
    * THE RECEIPT THE COUPLE SENT, on the one card where the supplier says the
    * money reached them (owner, live, 2026-09-20).
    *
@@ -281,6 +290,7 @@ export function ChatMessageStream({
   bookedStep = null,
   couplePay = null,
   supplierFirstPaymentRowId = null,
+  bookedHistory = null,
   paymentProofUrl = null,
   payoutReadiness = 'unreadable',
   feeForecast = null,
@@ -562,7 +572,12 @@ export function ChatMessageStream({
           publicId: card.publicId,
           announcedAtMs: ms(m.created_at) ?? 0,
           title: card.title,
-          totalPhp: Math.round(card.totalCentavos / 100),
+          // Centavo-exact. `buildThreadDecisions` prints this through
+          // `formatPhp`, which keeps centavos only if they survive TO it — so a
+          // quote totalling ₱187,500.50 titled its own decision card
+          // "₱187,501": the figure the couple is being asked to accept, 50
+          // centavos off, in the chat thread where they accept it.
+          totalPhp: Math.round(card.totalCentavos) / 100,
           status: card.status,
           decidedAtMs: ms(card.resolvedAt),
         };
@@ -1298,6 +1313,12 @@ export function ChatMessageStream({
                                 Confirm it reached you
                               </button>
                             </form>
+                          ) : null}
+                          {/* WHAT THE COUPLE HAS ALREADY PAID — the supplier's
+                              end. The couple's end rides inside the mounted
+                              DepositReservation above, from the same helper. */}
+                          {viewerRole === 'vendor' ? (
+                            <PaymentHistoryList history={bookedHistory} className="pt-1" />
                           ) : null}
                         </div>
                       ) : null}

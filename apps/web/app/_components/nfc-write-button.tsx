@@ -12,8 +12,10 @@ import {
   classifyNfcError,
   decodeNdefUriRecords,
   ndefUriRecord,
+  nfcDeviceKind,
   nfcFailureCopy,
   nfcTagEligibility,
+  nfcWrongDeviceCopy,
   nfcWriteSupported,
   readBackMatches,
   sessionEndReason,
@@ -21,12 +23,15 @@ import {
   type NfcFailureReason,
 } from '@/lib/nfc-tag';
 import {
+  isIosBrowser,
   nativeNfc,
+  readDeviceEnv,
   type ListenerHandle,
   type NativeNfc,
   type NativeNfcEvent,
   type NdefReaderCtor,
 } from '@/app/_components/nfc-runtime';
+import type { NfcDevice } from '@/lib/nfc-tag';
 
 /**
  * NfcWriteButton — "Write to NFC": the same link a QR encodes, written onto a
@@ -92,11 +97,13 @@ export function NfcWriteButton({
   const nfcOn = useNfcEnabled();
   const eligibility = nfcTagEligibility(url);
   const [writer, setWriter] = useState<Writer | null>(null);
+  const [device, setDevice] = useState<NfcDevice>('phone');
   const [state, setState] = useState<SheetState>({ kind: 'closed' });
   const abortRef = useRef<AbortController | null>(null);
 
   // Decided after mount so the server and the first client paint agree.
   useEffect(() => {
+    setDevice(nfcDeviceKind(readDeviceEnv()));
     if (nativeNfc()) setWriter('app');
     else if (nfcWriteSupported(typeof window === 'undefined' ? null : window)) setWriter('web');
     else setWriter('none');
@@ -183,7 +190,13 @@ export function NfcWriteButton({
         type="button"
         onClick={() => void run('write')}
         className={className ?? ACTION_CLASS}
-        title={writer === 'none' ? 'Writing tags needs the Setnayan app or Chrome on Android' : 'Write this link onto a blank NFC sticker'}
+        title={
+          writer === 'none'
+            ? device === 'desktop'
+              ? 'Writing tags happens on a phone'
+              : 'Writing tags needs the Setnayan app or Chrome on Android'
+            : 'Write this link onto a blank NFC sticker'
+        }
       >
         <Nfc aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Write to NFC
@@ -194,9 +207,9 @@ export function NfcWriteButton({
           {state.kind === 'unsupported' ? (
             <>
               <h2 id="nfc-write-title" className="text-base font-semibold text-ink">
-                Not in this browser
+                {device === 'desktop' ? 'Do this on your phone' : 'Not in this browser'}
               </h2>
-              <p className="text-sm text-ink/70">{nfcFailureCopy('unsupported-browser')}</p>
+              <p className="text-sm text-ink/70">{nfcWrongDeviceCopy(device, isIosBrowser())}</p>
               <LinkBox url={eligibility.url} />
               <p className="text-xs text-ink/55">{tagSizeCopy(eligibility.url)}</p>
             </>

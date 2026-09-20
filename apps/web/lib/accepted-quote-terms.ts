@@ -66,6 +66,14 @@ export type QuoteScheduleRow = {
   dueText: string;
   /** The calendar date alone ("Feb 27, 2027") when the event date is known, else null. */
   dueOn: string | null;
+  /**
+   * The same calendar day as 'YYYY-MM-DD', for COMPARING against today.
+   * Compared as a STRING against `manilaToday()` — never build a `Date` from
+   * it: `new Date('2027-02-27')` is midnight UTC, which is still the 26th in
+   * Manila. null for an on-lock installment (nothing to compare: lock IS now)
+   * and whenever the event date is unknown.
+   */
+  dueOnISO: string | null;
 };
 
 export type AcceptedQuoteTerms = {
@@ -121,6 +129,24 @@ export function installmentDueText(
   }
   if (due === 'on_event') return valid ? `on the event day (${shortDate(valid)})` : 'on the event day';
   return 'on lock';
+}
+
+/**
+ * The calendar day an installment falls due, as 'YYYY-MM-DD' — the value a
+ * screen compares against `manilaToday()` to answer "is this due yet?".
+ * null = nothing to compare (on-lock, or no event date on file).
+ */
+export function installmentDueISO(
+  due: InstallmentDue,
+  offsetDays: number,
+  eventDate: string | null | undefined,
+): string | null {
+  if (due === 'on_lock') return null;
+  if (typeof eventDate !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(eventDate)) return null;
+  const at = new Date(`${eventDate.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(at.getTime())) return null;
+  const d = due === 'before_event' ? Math.max(0, int(offsetDays)) : 0;
+  return new Date(at.getTime() - d * 86_400_000).toISOString().slice(0, 10);
 }
 
 /** The calendar date an installment falls due, when the event date is known. */
@@ -183,6 +209,7 @@ export function acceptedQuoteTerms(
         isFirstPayment: isFirst,
         dueText: installmentDueText(due, int(i.offset_days), eventDate),
         dueOn: installmentDueOn(due, int(i.offset_days), eventDate),
+        dueOnISO: installmentDueISO(due, int(i.offset_days), eventDate),
       });
       if (isFirst && firstPaymentCentavos === null && amount > 0) firstPaymentCentavos = amount;
     }
@@ -456,6 +483,8 @@ export type NextQuoteInstallment = {
   amountCentavos: number;
   dueText: string;
   dueOn: string | null;
+  /** 'YYYY-MM-DD' for comparison against `manilaToday()`; null = on lock / unknown. */
+  dueOnISO: string | null;
   isFirstPayment: boolean;
 };
 
@@ -482,6 +511,7 @@ export function nextQuoteInstallment(
         amountCentavos: Math.min(row.amountCentavos, cumulative - paidCentavos),
         dueText: row.dueText,
         dueOn: row.dueOn,
+        dueOnISO: row.dueOnISO,
         isFirstPayment: row.isFirstPayment,
       };
     }
@@ -497,10 +527,52 @@ export function nextQuoteInstallment(
 // 2026-09-20: "i do not see the confirmation here and the payment action?").
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// IS IT DUE YET? (owner, live as testnayan4 on the booked Saysay card,
+// 2026-09-20: "after paying. their next due date is not yet today, so there is
+// nothing to record. Pay in advance? show the current payments done as well.")
+//
+// THE DEFECT: the first payment (₱3,350) was recorded AND confirmed, and the
+// card still read "Final balance · due Feb 27, 2027" with a prominent Record
+// payment button — a due-now call to action for money owed five months out.
+// "Nothing is owed today" and "₱13,400 is owed today" rendered identically.
+//
+// 🔑 A DUE DATE IS A STRING, NOT A `Date`. Compared lexically against
+// `manilaToday()` ('YYYY-MM-DD', Asia/Manila). `new Date('2027-02-27')` is
+// midnight UTC — the 26th in Manila — so a Date-built comparison flips the
+// answer for the eight hours either side of midnight. Same trap
+// `lib/vendor-room-access-rule.ts` documents for booked dates.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InstallmentDueState = 'due_now' | 'not_due_yet' | 'overdue';
+
+/**
+ * Is this installment due yet? Both arguments are 'YYYY-MM-DD' in Manila.
+ *   • `dueOnISO` null — an on-lock installment, or no event date on file.
+ *     Nothing says it is in the future, so it is due now (today's behaviour).
+ *   • `today` null — the clock could not be read. Due now, for the same
+ *     reason: a payment door is never HIDDEN on a date we cannot establish.
+ */
+export function installmentDueState(
+  dueOnISO: string | null,
+  today: string | null,
+): InstallmentDueState {
+  if (!dueOnISO || !today) return 'due_now';
+  if (dueOnISO > today) return 'not_due_yet';
+  if (dueOnISO < today) return 'overdue';
+  return 'due_now';
+}
+
 export type MoneyStepInput = {
   terms: AcceptedQuoteTerms | null;
   /** The booking is locked (a CONFIRMED status). Before that nothing is owed. */
   booked: boolean;
+  /**
+   * Today in Manila, 'YYYY-MM-DD' (`manilaToday()`). Omitted/null = the day is
+   * unknown and every dated installment reads as due now — never as "nothing
+   * due", which would hide a real payment.
+   */
+  today?: string | null;
   /** The booking's deposit markers; undefined = the row could not be read. */
   deposit:
     | { recordedAt: string | null; acknowledgedAt: string | null; declinedAt: string | null }
@@ -527,13 +599,34 @@ export type MoneyStep =
     }
   /** Recorded; the supplier has not confirmed. Nothing more to pay yet. */
   | { kind: 'first_payment_sent'; recordedCentavos: number | null }
-  /** A later installment — `logPayment`, prefilled, never a minimum. */
+  /** A later installment, owed TODAY or already past its date — `logPayment`,
+   *  prefilled, never a minimum. */
   | {
       kind: 'installment_due';
       action: 'log_payment';
       label: string;
+      /** The installment's own name ("Final balance"), with no due date on it. */
+      installmentLabel: string;
       amountCentavos: number | null;
       firstConfirmed: boolean;
+      dueOn: string | null;
+      /** Its date has passed and it is unpaid. A plain statement — no consequence. */
+      overdue: boolean;
+    }
+  /**
+   * A later installment whose due date has NOT arrived. Nothing is owed today.
+   * Still an `action: 'log_payment'` step, because paying early stays possible
+   * as a CHOICE — the same one control, quieter, never a due-now CTA.
+   */
+  | {
+      kind: 'installment_not_due_yet';
+      action: 'log_payment';
+      label: string;
+      installmentLabel: string;
+      amountCentavos: number | null;
+      firstConfirmed: boolean;
+      dueOn: string | null;
+      dueOnISO: string | null;
     }
   | { kind: 'paid_in_full'; paidCentavos: number };
 
@@ -546,30 +639,60 @@ function laterStep(
   terms: AcceptedQuoteTerms | null,
   paidCentavos: number | null,
   firstConfirmed: boolean,
+  today: string | null,
 ): MoneyStep {
   const next = nextQuoteInstallment(terms, paidCentavos);
   if (next) {
+    const state = installmentDueState(next.dueOnISO, today);
+    if (state === 'not_due_yet') {
+      return {
+        kind: 'installment_not_due_yet',
+        action: 'log_payment',
+        label: `${next.label} · due ${next.dueOn ?? next.dueText}`,
+        installmentLabel: next.label,
+        amountCentavos: next.amountCentavos,
+        firstConfirmed,
+        dueOn: next.dueOn,
+        dueOnISO: next.dueOnISO,
+      };
+    }
     return {
       kind: 'installment_due',
       action: 'log_payment',
-      label: `${next.label} · due ${next.dueOn ?? next.dueText}`,
+      label:
+        state === 'overdue' && next.dueOn
+          ? `${next.label} · was due ${next.dueOn}`
+          : `${next.label} · due ${next.dueOn ?? next.dueText}`,
+      installmentLabel: next.label,
       amountCentavos: next.amountCentavos,
       firstConfirmed,
+      dueOn: next.dueOn,
+      overdue: state === 'overdue',
     };
   }
   if (terms && terms.schedule.length > 0 && paidCentavos !== null) {
     return { kind: 'paid_in_full', paidCentavos };
   }
   // No schedule to read (or the ledger was refused): still a door, no prefill.
-  return { kind: 'installment_due', action: 'log_payment', label: 'Next payment', amountCentavos: null, firstConfirmed };
+  return {
+    kind: 'installment_due',
+    action: 'log_payment',
+    label: 'Next payment',
+    installmentLabel: 'Next payment',
+    amountCentavos: null,
+    firstConfirmed,
+    dueOn: null,
+    overdue: false,
+  };
 }
 
 export function moneyStep(input: MoneyStepInput): MoneyStep {
   if (!input.booked) return { kind: 'not_booked' };
   const dep = input.deposit;
   if (dep === undefined) return { kind: 'unknown' };
+  const today = input.today ?? null;
   const paid = input.ledger ? input.ledger.paidCentavos : null;
-  if (dep.acknowledgedAt) return laterStep(input.terms, paid, true);
+  if (dep.acknowledgedAt) return laterStep(input.terms, paid, true, today);
   if (dep.recordedAt && dep.declinedAt) {
     return {
       kind: 'first_payment_due',
@@ -587,7 +710,7 @@ export function moneyStep(input: MoneyStepInput): MoneyStep {
   // Money already logged with no deposit recorded (older rows, or the Budget
   // page's "already paid"): `decideDepositRecord` will not record it again, so
   // the next step is the next installment after it.
-  if (input.ledger.count > 0) return laterStep(input.terms, paid, false);
+  if (input.ledger.count > 0) return laterStep(input.terms, paid, false, today);
   return {
     kind: 'first_payment_due',
     action: 'record_deposit',
@@ -630,9 +753,28 @@ export function moneyStepLine(
         ? `${amt(step.recordedCentavos)} recorded — waiting for ${otherName} to confirm`
         : `${amt(step.recordedCentavos)} recorded by the couple — confirm once it reaches you`;
     case 'installment_due': {
+      // OVERDUE — the mirror of "not due yet", said plainly. No consequence is
+      // named because the code implements none: no fee, no cancellation, no
+      // expiry. It states the date that passed, and nothing more.
+      if (step.overdue) {
+        const amt2 = step.amountCentavos === null ? '' : ` ${pesoFromCentavos(step.amountCentavos)}`;
+        const when = step.dueOn ? ` was due ${step.dueOn}` : ' is past its due date';
+        return couple
+          ? `Overdue · ${step.installmentLabel}${amt2}${when}`
+          : `Overdue · ${step.installmentLabel}${amt2}${when} — not recorded by the couple`;
+      }
       const lead = step.firstConfirmed ? 'First payment confirmed. ' : '';
       const what = step.amountCentavos === null ? step.label : `${step.label} · ${pesoFromCentavos(step.amountCentavos)}`;
       return couple ? `${lead}Amount to pay: ${what}` : `${lead}Next from the couple: ${what}`;
+    }
+    case 'installment_not_due_yet': {
+      // NOTHING IS OWED TODAY. The next date is still named, so the couple can
+      // see what is coming — but no due-now call to action rides beside it.
+      const amt3 = step.amountCentavos === null ? '' : ` ${pesoFromCentavos(step.amountCentavos)}`;
+      const when = step.dueOn ? ` due ${step.dueOn}` : '';
+      return couple
+        ? `Nothing due now · ${step.installmentLabel}${amt3}${when}`
+        : `Nothing due from the couple now · ${step.installmentLabel}${amt3}${when}`;
     }
     case 'paid_in_full':
       return `Paid in full — ${pesoFromCentavos(step.paidCentavos)}`;

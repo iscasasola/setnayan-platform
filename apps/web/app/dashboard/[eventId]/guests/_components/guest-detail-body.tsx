@@ -36,6 +36,7 @@ import {
   SIDE_LABELS,
   type GuestRow,
 } from '@/lib/guests';
+import { QrActions } from '@/app/_components/qr-actions';
 
 // ── decorative QR (seeded from the real qr_token) ──────────────────────────
 
@@ -117,10 +118,19 @@ export function GuestDetailBody({
   headingId,
   showFullDetailsLink = true,
   photoDisplayUrl = null,
+  invitationBase = null,
 }: {
   guest: GuestRow;
   groupLabels: string[];
   eventId: string;
+  /**
+   * The event's public address WITHOUT the guest's token — e.g.
+   * `https://www.setnayan.com/u/<owner>/<slug>`. The guest's own invitation
+   * link is that plus `?invite=<their token>`, which is exactly what their QR
+   * encodes and what an NFC tag holds. Null before the event has a slug, in
+   * which case this card keeps its existing doorway to the Invitation page.
+   */
+  invitationBase?: string | null;
   /**
    * The guest's face, ALREADY RESOLVED to a displayable URL by the loader.
    *
@@ -200,6 +210,23 @@ export function GuestDetailBody({
             </p>
           </div>
         </div>
+        {invitationBase ? (
+          // Download · Write to NFC · Copy link — the same strip every other QR
+          // surface carries, on the guest's OWN link.
+          <QrActions
+            className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/[0.06] pt-3"
+            url={`${invitationBase}?invite=${guest.qr_token}`}
+            download={
+              brandedQrActive
+                ? {
+                    href: `/api/website/qr/guest/${guest.guest_id}`,
+                    filename: qrFileName,
+                    label: 'Download QR',
+                  }
+                : null
+            }
+          />
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/[0.06] pt-3">
           {brandedQrActive ? (
             // Owner of the branded upgrade: one-click download of the REAL

@@ -117,3 +117,20 @@ fetch half) reads it to carry "the event feeds this crew" onto the supplier's
 first card. The switch now has a consumer somewhere else, which is exactly the
 state the baseline exists to track the absence of — so the declaration goes,
 rather than being edited to stay green.
+
+## 2026-09-20 · fix(csp): name the OSM tile host in the report-only policy
+
+The address pin renders OpenStreetMap raster **tiles as `<img>`** (BranchPinMap,
+no Leaflet), so it needs `img-src`. The 2026-08-08 note beside it is about a
+different map and a different directive — that one was an `<iframe>` embed
+rendering a grey box on shop pages, fixed with `frame-src`.
+
+🔑 **The pin is not broken today, which is why this is easy to miss.** The
+ENFORCING header declares only `frame-ancestors` and `frame-src`; images are
+unrestricted, so the tiles load. The list this adds to is the REPORT-ONLY
+policy — the dress rehearsal for enforcement. Left as it was, every pin drop
+files a violation report, and the day anyone promotes that policy the map goes
+blank with nothing in the diff to explain why.
+
+Found by checking rather than assuming: the tiles were verified against the
+actual header value, not against the fact that the vendor-side map works.

@@ -221,7 +221,19 @@ const CSP_REPORT_ONLY = [
   // fails if the enforced list gains a host this one lacks. The chain is anchored
   // in code at both ends: source iframes/scripts → enforced list → this draft.
   "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com https://www.openstreetmap.org https://challenges.cloudflare.com",
-  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com",
+  // ⚠ `https://tile.openstreetmap.org` added 2026-09-20 with the Add-manually
+  // address pin. The map is raster TILES as <img> (BranchPinMap — no Leaflet),
+  // so it needs img-src, not the frame-src that the 2026-08-08 note above is
+  // about. Those are two different maps and two different directives: that one
+  // was an <iframe> embed rendering a grey box, this one is tiles.
+  //
+  // 🔑 IT IS NOT BROKEN TODAY, AND THAT IS EXACTLY WHY IT IS EASY TO MISS. The
+  // ENFORCING header below declares only frame-ancestors + frame-src, so images
+  // are unrestricted and the tiles load. This list is the REPORT-ONLY policy —
+  // the dress rehearsal for enforcement. Leaving a known-good host out of it
+  // means every pin drop files a violation report, and the day anyone promotes
+  // this policy the map goes blank with nothing in the diff to explain it.
+  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com https://tile.openstreetmap.org",
   "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",

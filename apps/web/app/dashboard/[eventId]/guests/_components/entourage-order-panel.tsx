@@ -30,6 +30,7 @@
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   ENTOURAGE_COLUMNS,
   ENTOURAGE_ROLES,
@@ -83,6 +84,7 @@ export async function EntourageOrderPanel({
     Say the read failed, and say nothing about who is in the list.
   */
   if (error) {
+    logQueryError('EntourageOrderPanel (guests)', error, { eventId, view });
     return (
       <section className="mb-4 rounded-xl border border-danger-200 bg-danger-50/60 px-4 py-3 text-sm text-danger-900">
         The walking order could not be loaded just now, so it is not shown. Your

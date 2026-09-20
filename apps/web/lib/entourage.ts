@@ -109,6 +109,39 @@ type GroupSpec = {
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
   { key: 'parents', label: 'Parents', roles: ['bride_parents', 'groom_parents'] },
+  /*
+    ⚖ OWNER 2026-09-20. Immediate family PUBLISHES for the first time. These two
+    roles existed in the dashboard from the start and appeared in NO group here,
+    so a couple who had carefully marked their siblings and grandparents found
+    them on no page — `bride_immediate_family` was even this file's own example
+    of a role that must never print. That was the bug, not the design.
+
+    🔴 THIS IS A VISIBILITY CHANGE, NOT A LAYOUT ONE. `ENTOURAGE_ROLES` is
+    derived from this list and is also the query's `role.in.(…)` filter, so
+    adding a role here makes those people's real names readable by anyone who
+    can open the invitation — the entourage section is NOT behind the
+    recognised-viewer gate that hides the plain guest list. A couple whose page
+    is public is now publishing their siblings' names. `landing_page_visibility`
+    remains the only control that closes that door.
+  */
+  {
+    key: 'immediate_family',
+    label: 'Immediate Family',
+    roles: ['bride_immediate_family', 'groom_immediate_family'],
+  },
+  /*
+    ⚖ OWNER 2026-09-20, verbatim order: "1. Maid of Honor & Best Man ... 2.
+    Principal Sponsors ... 3. Secondary Sponsors ... 4. Bride's Crew & Groom's
+    Crew ... 5. Bearers ... 6. Flower Girls", with family placed above all of
+    them. The honour attendants therefore lead the entourage proper — they sat
+    fourth until today, under both sponsor groups.
+  */
+  {
+    key: 'honour',
+    label: 'Maid of Honour & Best Man',
+    roles: ['maid_of_honor', 'matron_of_honor', 'best_man'],
+    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man']],
+  },
   {
     key: 'principal_sponsors',
     label: 'Principal Sponsors',
@@ -144,12 +177,6 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     label: 'Secondary Sponsors',
     roles: ['candle_sponsor', 'veil_sponsor', 'cord_sponsor', 'coin_sponsor'],
   },
-  {
-    key: 'honour',
-    label: 'Maid of Honour & Best Man',
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man'],
-    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man']],
-  },
   /*
     ⚖ ONE GROUP, TWO COLUMNS — they were two separate groups until 2026-09-15.
     The owner's pairing ruling covers "sponsors AND the entourage", and a
@@ -160,14 +187,24 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   */
   {
     key: 'bridesmaids_groomsmen',
-    label: 'Bridesmaids & Groomsmen',
+    // ⚖ Owner 2026-09-20: "Bride's Crew & Groom's Crew". The roles beside each
+    // name stay Bridesmaid / Groomsman — only the heading is the couple's word.
+    label: "Bride's Crew & Groom's Crew",
     roles: ['bridesmaid', 'groomsman'],
     sides: [['bridesmaid'], ['groomsman']],
   },
+  /* ⚖ Owner 2026-09-20 split these into two headings ("5. Bearers ... 6. Flower
+     Girls"). They shared one group until today, which printed a flower girl
+     under a heading that called her a bearer. */
   {
     key: 'bearers',
-    label: 'Bearers & Flower Girls',
-    roles: ['ring_bearer', 'bible_bearer', 'coin_bearer', 'flower_girl'],
+    label: 'Bearers',
+    roles: ['ring_bearer', 'bible_bearer', 'coin_bearer'],
+  },
+  {
+    key: 'flower_girls',
+    label: 'Flower Girls',
+    roles: ['flower_girl'],
   },
   {
     key: 'ceremony',
@@ -192,6 +229,11 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
 const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   bride_parents: 'Parents of the Bride',
   groom_parents: 'Parents of the Groom',
+  /* Short on purpose: this sits BESIDE a name, and the heading above already
+     says Immediate Family. The dashboard's longer "Bride's Immediate Family"
+     is a picker label, where it has a dropdown to disambiguate in. */
+  bride_immediate_family: "Bride's Family",
+  groom_immediate_family: "Groom's Family",
   principal_sponsor: 'Principal Sponsor',
   /* The couple's own words, not the enum's. `guests.ts` labels these "Principal
      Sponsor (Ninong)" for the dashboard's role picker, where the prefix is what
@@ -293,14 +335,44 @@ export function personName(row: EntourageGuestRow): string | null {
  * Within a group, names keep the order they arrive in; the caller sorts. Empty
  * groups are dropped, so the render never draws a heading over nothing.
  */
+/**
+ * Two people holding the SAME role, in a stable printed order.
+ *
+ * 🔑 THERE WAS NO ORDER AT ALL. Neither entourage query carries an `ORDER BY`,
+ * so within one role the names arrived in whatever order Postgres happened to
+ * return — which is not stable across page loads. An invitation that lists the
+ * ninongs differently each time you open it is not a layout preference; it is
+ * the page having no opinion. Surname then given name is the convention a
+ * printed programme uses, and it is derived from columns
+ * `ENTOURAGE_COLUMNS` already asks for.
+ *
+ * This is the DEFAULT, not the last word: when a couple can drag these into
+ * their own order, that override sorts first and this stays as the tiebreak
+ * for everyone who has not touched it.
+ */
+function comparePrinted(a: EntourageGuestRow, b: EntourageGuestRow): number {
+  const by = (x?: string | null, y?: string | null) =>
+    (x ?? '').localeCompare(y ?? '', 'en', { sensitivity: 'base' });
+  return (
+    by(a.last_name, b.last_name) ||
+    by(a.first_name, b.first_name) ||
+    // Final tiebreak so two people with identical names never swap places.
+    by(a.guest_id, b.guest_id)
+  );
+}
+
 export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   for (const spec of GROUPS) {
     const people: EntouragePerson[] = [];
     for (const role of spec.roles) {
-      for (const row of rows) {
-        const held = row.role === role || (row.extra_roles ?? []).includes(role);
-        if (!held) continue;
+      // Sorted per ROLE, never across the group: the role order inside `spec`
+      // is itself meaningful (ninong before ninang, maid before matron), so
+      // sorting the whole group by name would discard it.
+      const holders = rows
+        .filter((row) => row.role === role || (row.extra_roles ?? []).includes(role))
+        .sort(comparePrinted);
+      for (const row of holders) {
         const name = personName(row);
         if (!name) continue;
         people.push({ id: row.guest_id ?? null, name, role, pairId: row.pair_with_guest_id ?? null });

@@ -25,9 +25,11 @@
  *     Save sends it back through `phpToCentavos`. Opening a schedule whose
  *     `amount_centavos` was 1340050 and pressing Save WITHOUT TOUCHING IT wrote
  *     back 1340100. A read-only visit moved the money.
- *  3. `parseScheduleDraft` — the SERVER's sanitizer for a quote's schedule —
- *     coerced `amountPhp` with `Math.round`, so a ₱13,400.50 installment
- *     arrived correct on the wire and was persisted as ₱13,401.
+ *  3. `sanitizeAndResolveSchedule` — the SERVER's sanitizer for a quote's
+ *     schedule, which that module's own header calls authoritative over "the
+ *     client's arithmetic" — coerced `amountPhp` through the integer helper
+ *     `int()`, so a ₱13,400.50 installment arrived correct on the wire and was
+ *     persisted as ₱13,401.
  *
  * 🔑 CENTAVOS ARE REACHABLE BY CONSTRUCTION, NOT BY ACCIDENT.
  * `vendor_service_payment_schedules.amount_centavos` is `BIGINT`, and accepting

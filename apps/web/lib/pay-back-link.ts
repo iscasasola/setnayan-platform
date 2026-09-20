@@ -168,6 +168,67 @@ export function orderNoticeLink(
 }
 
 /**
+ * ────────────────────────────────────────────────────────────────────────────
+ * THE ROW FORM — what a caller holding an `orders` row actually calls.
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * 🔑 IT LIVES HERE BECAUSE A GUARD CAN ONLY GREP `actions.ts`. That file is a
+ * server-action module; a test cannot import it. The mapping from an order row
+ * to the lane's inputs used to sit inside it, and a sabotage run proved the
+ * cost: replacing `vendorProfileId: order?.vendor_profile_id ?? null` with
+ * `vendorProfileId: null` — which sends every supplier back to the couple's
+ * dashboard, the exact production defect — left the suite GREEN. The guard
+ * asserted that the string `vendorProfileId:` appeared, and it still did.
+ *
+ * ⚠ THAT IS THE "KEEP THE CALL, DISCARD ITS RESULT" SHAPE. A guard that checks
+ * a key is present cannot see what the key is assigned. So the mapping moved
+ * into this pure module where the test EXECUTES it against a real row shape,
+ * and `actions.ts` now holds no mapping at all — it imports this function and
+ * hands it the row.
+ */
+export type NoticeOrderRow =
+  | {
+      event_id?: string | null;
+      vendor_profile_id?: string | null;
+      user_id?: string | null;
+      service_key?: string | null;
+    }
+  | null
+  | undefined;
+
+/** Where a notice about this order row should land `recipientUserId`. */
+export function orderNoticeLinkForRow(
+  order: NoticeOrderRow,
+  orderId: string,
+  recipientUserId: string | null | undefined,
+): string | null {
+  return orderNoticeLink({
+    orderId,
+    isBookingFee: isBookingFeeOrder(order?.service_key),
+    eventId: order?.event_id ?? null,
+    vendorProfileId: order?.vendor_profile_id ?? null,
+    ownerUserId: order?.user_id ?? null,
+    recipientUserId: recipientUserId ?? null,
+  });
+}
+
+/** What a settled-order notice about this row may promise `recipientUserId`. */
+export function orderPaidBodyForRow(
+  order: NoticeOrderRow,
+  orderId: string,
+  recipientUserId: string | null | undefined,
+): string {
+  return orderPaidBody({
+    orderId,
+    isBookingFee: isBookingFeeOrder(order?.service_key),
+    eventId: order?.event_id ?? null,
+    vendorProfileId: order?.vendor_profile_id ?? null,
+    ownerUserId: order?.user_id ?? null,
+    recipientUserId: recipientUserId ?? null,
+  });
+}
+
+/**
  * Is this the booking fee? Derived from the one parser the fee lane itself
  * keys on, never a second spelling of it.
  *

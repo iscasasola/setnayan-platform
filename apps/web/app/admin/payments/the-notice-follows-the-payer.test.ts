@@ -63,7 +63,9 @@ import {
   isCoupleOnlyRoute,
   orderLane,
   orderNoticeLink,
+  orderNoticeLinkForRow,
   orderPaidBody,
+  orderPaidBodyForRow,
   payBackLink,
 } from '@/lib/pay-back-link';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
@@ -283,21 +285,65 @@ test('every relatedUrl in the admin payments actions goes through the adapter', 
   );
 });
 
-test('the adapter is the only thing that answers, and it asks the shared resolver', () => {
+test('the row→lane mapping is EXECUTED, and it reads every load-bearing column', () => {
+  // 🔴 THIS TEST EXISTS BECAUSE ITS FIRST VERSION WAS USELESS. The mapping used
+  // to live inside `actions.ts`, which a test cannot import, so the guard did
+  // the only thing it could: assert the string `vendorProfileId:` appeared.
+  // A sabotage run replaced `vendorProfileId: order?.vendor_profile_id ?? null`
+  // with `vendorProfileId: null` — which sends every supplier back to the
+  // couple's dashboard, i.e. reinstates the production defect in full — and the
+  // suite STAYED GREEN. The key was still there; only its value had changed.
+  //
+  // 🔑 A GUARD THAT CHECKS A KEY CANNOT SEE WHAT THE KEY IS ASSIGNED. The
+  // mapping moved into the pure `lib/pay-back-link.ts` so it can be run. Below
+  // it IS run, against the live row's own shape.
+  const row = {
+    event_id: EVENT,
+    vendor_profile_id: SHOP,
+    user_id: SUPPLIER,
+    service_key: bookingFeeLockServiceKey('charge-1'),
+  };
   assert.equal(
-    (ACTIONS.match(/function noticeLinkFor\(/g) ?? []).length,
-    1,
-    'a second adapter exists — one of them will drift',
+    orderNoticeLinkForRow(row, ORDER, SUPPLIER),
+    `/vendor-dashboard/booking-fees/${ORDER}`,
+    'the row form no longer routes the supplier to their own fee',
   );
-  assert.match(ACTIONS, /return orderNoticeLink\(\{/);
-  // And it forwards the four load-bearing facts, not just the event.
-  for (const field of ['vendorProfileId', 'ownerUserId', 'recipientUserId', 'isBookingFee']) {
-    assert.match(
-      ACTIONS,
-      new RegExp(`${field}:`),
-      `the adapter drops ${field}, so the lane falls back to guessing from event_id`,
+  assert.equal(
+    orderPaidBodyForRow(row, ORDER, SUPPLIER).includes('start work'),
+    false,
+    'the row form no longer lane-gates the wording',
+  );
+
+  // Each column is load-bearing: drop it from the ROW and the destination must
+  // change. This is what proves the mapping reads it, rather than merely
+  // mentioning it.
+  for (const column of ['vendor_profile_id', 'user_id', 'service_key'] as const) {
+    const without = { ...row, [column]: null };
+    assert.notEqual(
+      orderNoticeLinkForRow(without, ORDER, SUPPLIER),
+      `/vendor-dashboard/booking-fees/${ORDER}`,
+      `\`${column}\` is not actually consulted — the mapping ignores it`,
     );
   }
+  // And the recipient is read, not assumed from the row.
+  assert.equal(
+    orderNoticeLinkForRow(row, ORDER, COUPLE),
+    `/dashboard/${EVENT}/orders/${ORDER}`,
+    'the recipient is ignored — the row alone decides, which is the old bug',
+  );
+
+  // `actions.ts` must hold NO mapping of its own, or a second copy can drift
+  // away from the one this test executes.
+  assert.doesNotMatch(
+    ACTIONS,
+    /orderNoticeLink\(\{|orderPaidBody\(\{/,
+    'actions.ts hand-builds the lane inputs again — a copy no test can execute',
+  );
+  assert.match(
+    ACTIONS,
+    /orderNoticeLinkForRow as noticeLinkFor/,
+    'the adapter is no longer the shared row form',
+  );
 });
 
 test('every order read that feeds a notice carries the columns the lane needs', () => {
@@ -386,9 +432,34 @@ test('the event dashboard is still shut to non-members, before it reads anything
   // keep being true on its own: the guard above is about not sending people to
   // a dead end, never about being the thing that protects the couple.
   assert.match(LAYOUT, /from\('event_members'\)/);
-  assert.match(LAYOUT, /member_type !== 'couple'/);
   assert.match(LAYOUT, /from\('event_moderators'\)/);
   assert.match(LAYOUT, /notFound\(\)/);
+
+  // 🔴 THE CONDITION IS PARSED, NOT MERELY FOUND. A sabotage run wrapped the
+  // membership test in `if (false && (…))` — the gate disabled outright, every
+  // non-member admitted — and an earlier version of this test stayed GREEN,
+  // because `member_type !== 'couple'` was still present in the source and
+  // `notFound()` still textually preceded the event read. A `match` cannot tell
+  // a live condition from a dead one.
+  const gateAt = LAYOUT.indexOf("member_type !== 'couple'");
+  assert.notEqual(gateAt, -1, 'the layout no longer tests member_type at all');
+  const ifAt = LAYOUT.lastIndexOf('if (', gateAt);
+  assert.notEqual(ifAt, -1, 'the member_type test is not inside an if at all');
+  const condition = LAYOUT.slice(ifAt + 'if ('.length, LAYOUT.indexOf(') {', gateAt));
+  assert.equal(
+    condition.replace(/\s+/g, ' ').trim(),
+    "!membership || membership.member_type !== 'couple'",
+    'the membership gate’s condition changed — read it before trusting it; a ' +
+      'constant operand (`false &&`, `true ||`) disables the gate while leaving ' +
+      'every string this test used to look for exactly where it was',
+  );
+
+  // The moderator fallback is the ONLY other way through, and it refuses.
+  assert.match(
+    LAYOUT,
+    /if \(!moderator\) \{\s*notFound\(\);/,
+    'the moderator fallback no longer refuses a non-moderator',
+  );
 
   // And the refusal precedes the event read, so a non-member never reaches the
   // query that would return the couple's celebration.

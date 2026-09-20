@@ -62,25 +62,9 @@ import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { customerOrderName, orderSubject } from '@/lib/order-naming';
 import {
-  isBookingFeeOrder,
-  orderNoticeLink,
-  orderPaidBody,
+  orderNoticeLinkForRow as noticeLinkFor,
+  orderPaidBodyForRow,
 } from '@/lib/pay-back-link';
-
-/**
- * The order row, as much of it as deciding a NOTICE needs.
- *
- * ⚠ `vendor_profile_id`, `user_id` AND `service_key` ARE LOAD-BEARING, not
- * decoration — drop any one and this file silently returns to guessing from
- * `event_id` alone, which is the defect. Every `.select()` below that feeds a
- * notice carries all four columns for that reason.
- */
-type NoticeOrder = {
-  event_id?: string | null;
-  vendor_profile_id?: string | null;
-  user_id?: string | null;
-  service_key?: string | null;
-} | null | undefined;
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -111,22 +95,6 @@ type NoticeOrder = {
  * second surface is how the first one came to be wrong here after it was
  * already fixed there.
  */
-function noticeLinkFor(
-  order: NoticeOrder,
-  orderId: string,
-  /** Who this notice is addressed to — never assumed from the order. */
-  recipientUserId: string | null | undefined,
-): string | null {
-  return orderNoticeLink({
-    orderId,
-    isBookingFee: isBookingFeeOrder(order?.service_key),
-    eventId: order?.event_id ?? null,
-    vendorProfileId: order?.vendor_profile_id ?? null,
-    ownerUserId: order?.user_id ?? null,
-    recipientUserId: recipientUserId ?? null,
-  });
-}
-
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -496,14 +464,7 @@ export async function approvePaymentCore(args: {
         // nothing when a shop settles the fee it owes us. Keyed on the same
         // lane as the link, so a notice cannot route right and still address
         // the reader as a couple.
-        body: orderPaidBody({
-          orderId: payment.order_id,
-          isBookingFee: isBookingFeeOrder(order?.service_key),
-          eventId: order?.event_id ?? null,
-          vendorProfileId: order?.vendor_profile_id ?? null,
-          ownerUserId: order?.user_id ?? null,
-          recipientUserId: payment.user_id ?? null,
-        }),
+        body: orderPaidBodyForRow(order, payment.order_id, payment.user_id),
         relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
       });
     } catch (e) {

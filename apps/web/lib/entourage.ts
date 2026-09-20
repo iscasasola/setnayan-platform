@@ -51,6 +51,12 @@ export type EntouragePerson = {
   role: GuestRole;
   /** Their partner's guest id, when the couple paired them. */
   pairId: string | null;
+  /** `guests.entourage_order` — the LINE's hand-set position, not this person's.
+   *  Both halves of a pair carry the same number; see `orderLines`. */
+  order: number | null;
+  /** True when they are invited to the ceremony and nothing else. They still
+   *  walk, and print normally; they simply have no chair. */
+  ceremonyOnly: boolean;
 };
 
 /**
@@ -295,7 +301,7 @@ export function roleLabel(role: GuestRole): string | null {
  * and `pair_with_guest_id` (every pair invisible).
  */
 export const ENTOURAGE_COLUMNS =
-  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
+  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order, invited_to_blocks';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
@@ -316,9 +322,12 @@ export type EntourageGuestRow = {
   name_suffix?: string | null;
   role?: string | null;
   extra_roles?: readonly string[] | null;
-  /** `guests.entourage_order` — the couple's hand-set walking order within one
-   *  role. NULL means never placed by hand; see `comparePrinted`. */
+  /** `guests.entourage_order` — the couple's hand-set position of the LINE this
+   *  person walks in. Both halves of a pair carry the same value; see
+   *  `orderLines`. NULL means never placed by hand. */
   entourage_order?: number | null;
+  /** `guests.invited_to_blocks` — a ceremony-only sponsor still walks. */
+  invited_to_blocks?: readonly string[] | null;
 };
 
 /**
@@ -413,22 +422,135 @@ export function holdersOfRoleInPrintOrder(
     .sort(comparePrinted);
 }
 
+/**
+ * ⚖ OWNER 2026-09-20 — THE ORDER BELONGS TO THE LINE, NOT TO THE PERSON.
+ *
+ * A Filipino entourage walks in pairs, and a pair is ONE thing in a
+ * processional: a ninong and his ninang step off together. Until now
+ * `entourage_order` was compared inside a single ROLE, which could not express
+ * that at all — ninong and ninang are two different roles, so "move her up"
+ * moved her past other ninangs while he stayed where he was, and the pair came
+ * apart on the page that exists to show them together.
+ *
+ * So the unit of ordering is the LINE: a pair, or a single who walks alone.
+ * Both halves of a pair carry the SAME `entourage_order`, which is why this
+ * needed no schema change — the column was always able to say this; nothing
+ * was ever writing it that way.
+ *
+ * 🔑 THIS IS NOT THE SEAT PLAN. `entourage_order` is the line in the aisle;
+ * `event_seat_assignments` + `seating_priority` are the chair. Moving a pair up
+ * the processional must never move a chair, and nothing here touches one.
+ *
+ * Hand-placed lines lead, in their own order; the rest fall back to the
+ * surname default, exactly as the migration's NULL rule intends.
+ */
+function orderLines(
+  lines: readonly EntourageRow[],
+  spec: GroupSpec,
+): EntourageRow[] {
+  const lead = (ln: EntourageRow) => ln[0] ?? ln[1];
+  /*
+    🪤 THE ROLE CONVENTION SURVIVES THE MOVE TO LINES. `spec.roles` order is
+    meaningful — ninong before ninang, maid before matron — and the first draft
+    of this sorted unplaced lines by surname ALONE, which put Abad the ninang
+    above Zamora the ninong and silently discarded it. An existing test caught
+    that, and it was right to: changing the UNIT of ordering from the role to
+    the line must not change the default ORDER within a group.
+  */
+  const rolePos = (ln: EntourageRow) => {
+    const l = lead(ln);
+    const at = l ? (spec.roles as readonly string[]).indexOf(l.role) : -1;
+    return at === -1 ? Number.MAX_SAFE_INTEGER : at;
+  };
+  const placedAt = (ln: EntourageRow): number | null => {
+    for (const half of ln) {
+      if (half && typeof half.order === 'number') return half.order;
+    }
+    return null;
+  };
+  return [...lines].sort((x, y) => {
+    const px = placedAt(x);
+    const py = placedAt(y);
+    if (px !== null && py !== null && px !== py) return px - py;
+    if (px !== null && py === null) return -1;
+    if (px === null && py !== null) return 1;
+    // Then the group's own role order, then the per-person comparator's
+    // tiebreak applied to the line's lead.
+    const rx = rolePos(x);
+    const ry = rolePos(y);
+    if (rx !== ry) return rx - ry;
+    return (lead(x)?.name ?? '').localeCompare(lead(y)?.name ?? '', 'en', {
+      sensitivity: 'base',
+    });
+  });
+}
+
+/**
+ * One printed group's LINES, in the order the invitation prints them.
+ *
+ * 🔑 EXPORTED BECAUSE THREE SURFACES MUST AGREE — the invitation, the dashboard
+ * panel that reorders it, and the action behind Move ↑. If any of them derived
+ * its own order, "move this pair up" would swap it with whatever a DIFFERENT
+ * surface happened to show above it.
+ */
+export function entourageLines(
+  rows: readonly EntourageGuestRow[],
+  groupKey: string,
+): EntourageRow[] {
+  const spec = GROUPS.find((g) => g.key === groupKey);
+  if (!spec) return [];
+  return orderLines(pairUp(peopleForSpec(rows, spec), spec.sides), spec);
+}
+
+/** Every printed group key, in printing order. */
+export const ENTOURAGE_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
+
+/** Which printed group a role belongs to, or null when it never prints. */
+export function entourageGroupOfRole(role: string): string | null {
+  return GROUPS.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;
+}
+
+/** The people of one group, in `spec.roles` order — the sequence pairing sees. */
+function peopleForSpec(
+  rows: readonly EntourageGuestRow[],
+  spec: GroupSpec,
+): EntouragePerson[] {
+  const people: EntouragePerson[] = [];
+  for (const role of spec.roles) {
+    for (const row of holdersOfRoleInPrintOrder(rows, role)) {
+      const name = personName(row);
+      if (!name) continue;
+      people.push({
+        id: row.guest_id ?? null,
+        name,
+        role,
+        pairId: row.pair_with_guest_id ?? null,
+        order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
+        ceremonyOnly: isCeremonyOnly(row),
+      });
+    }
+  }
+  return people;
+}
+
+/**
+ * Invited to the ceremony and nothing else.
+ *
+ * ⚖ Owner 2026-09-20: such a sponsor "prints normally and shows ceremony only ·
+ * not at the reception". They are a guest like any other — they simply have no
+ * chair, which is a fact about the seat plan and not a reason to hide them from
+ * the processional.
+ */
+function isCeremonyOnly(row: EntourageGuestRow): boolean {
+  const blocks = row.invited_to_blocks;
+  return Array.isArray(blocks) && blocks.length === 1 && blocks[0] === 'ceremony';
+}
+
 export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   for (const spec of GROUPS) {
-    const people: EntouragePerson[] = [];
-    for (const role of spec.roles) {
-      // Sorted per ROLE, never across the group: the role order inside `spec`
-      // is itself meaningful (ninong before ninang, maid before matron), so
-      // sorting the whole group by name would discard it.
-      const holders = holdersOfRoleInPrintOrder(rows, role);
-      for (const row of holders) {
-        const name = personName(row);
-        if (!name) continue;
-        people.push({ id: row.guest_id ?? null, name, role, pairId: row.pair_with_guest_id ?? null });
-      }
-    }
-    const built = pairUp(people, spec.sides);
+    // The SAME function the dashboard reorders with — see `entourageLines`.
+    const built = entourageLines(rows, spec.key);
     if (built.length > 0) groups.push({ key: spec.key, label: spec.label, rows: built });
   }
   return groups;

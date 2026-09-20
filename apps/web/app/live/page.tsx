@@ -20,15 +20,19 @@ const ERRORS: Record<string, string> = {
   code: 'That code didn’t work. Check it on the controller — codes are used once and last a day.',
   slow: 'Too many tries from this screen. Wait a few minutes, then try again.',
   down: 'We couldn’t reach Setnayan just now. Try again in a moment.',
+  // Owner ruling 2026-09-20: screens come WITH the paid Live Studio unlock.
+  locked: 'This event hasn’t unlocked Live Studio, so its screens aren’t active yet. Ask the couple to unlock it first.',
 };
 
 type Props = { searchParams: Promise<{ code?: string; error?: string }> };
 
 export default async function LivePairPage({ searchParams }: Props) {
   // Already paired? Go straight to the picture — a TV that reloads this page
-  // must not strand the room on a code prompt.
+  // must not strand the room on a code prompt. `locked` goes there too: the
+  // neutral "isn't active" card lives once, on the screen, and keeps polling
+  // so the TV recovers on its own the moment the event unlocks.
   const loaded = await loadLiveScreen();
-  if (loaded.state === 'ready') redirect('/live/screen');
+  if (loaded.state === 'ready' || loaded.state === 'locked') redirect('/live/screen');
 
   const { code, error } = await searchParams;
   const message = error ? ERRORS[error] ?? ERRORS.code : null;

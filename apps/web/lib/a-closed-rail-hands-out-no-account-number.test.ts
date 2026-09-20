@@ -203,11 +203,41 @@ test('/pay asks the one rule, and hands out nothing when every rail is closed', 
   assert.equal(asks.length, 2, `expected both rails asked through isChannelOpen, found ${asks.length}`);
 
   const panel = readFileSync(join(WEB, 'app/pay/[reference]/_components/pay-panel.tsx'), 'utf8');
-  const gate = panel.indexOf('!gcash.enabled && !bdo.enabled ? (');
-  assert.ok(gate > -1, 'the all-closed branch is gone — BDO becomes the fallback tab and prints its number');
-  const paused = panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', gate);
-  const qr = panel.indexOf('<QrTile', gate);
-  const manual = panel.indexOf('or send manually to', gate);
-  // The paused message is the TRUE arm; the QR and the number sit in the else.
-  assert.ok(paused > gate && paused < qr && qr < manual, 'the QR or the number escaped the all-closed branch');
+  /**
+   * ✏️ RE-ANCHORED 2026-09-20, AND WIDENED RATHER THAN RELAXED. This looked for
+   * the literal `!gcash.enabled && !bdo.enabled ? (` — one ternary, because the
+   * page had one place that printed an account number. It has TWO now (the
+   * owner's step-by-step ruling added a "Show all the payment details" opener
+   * on stage 1), so the condition was lifted into `railsClosed` and BOTH sites
+   * are checked. A guard that kept pointing at the old literal would have gone
+   * red while the new site — the one that could newly leak a switched-off
+   * number — went unexamined.
+   */
+  assert.match(
+    panel,
+    /const railsClosed = !gcash\.enabled && !bdo\.enabled;/,
+    'the all-closed rule is gone — BDO becomes the fallback tab and prints its number',
+  );
+  const gates = [...panel.matchAll(/railsClosed \? \(/g)].map((m) => m.index ?? -1);
+  console.log(`# /pay sites gated on every rail being closed: ${gates.length}`);
+  assert.ok(gates.length >= 2, `only ${gates.length} of /pay's number-printing sites ask the rule`);
+  // ⚠ EVERY site answers the paused message FIRST. A site whose true arm is
+  // anything else is a site that hands out an account the bank will refuse.
+  for (const g of gates) {
+    const paused = panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', g);
+    assert.ok(paused > g, `a railsClosed site at ${g} does not say payments are paused`);
+  }
+  // Stage 1's opener: the paused message comes before any number it would show.
+  const number1 = panel.indexOf('{c.number}', gates[0]!);
+  assert.ok(number1 > -1, 'stage 1 no longer offers the account details — re-anchor this');
+  assert.ok(
+    panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', gates[0]!) < number1,
+    'the account number escaped the all-closed branch on stage 1',
+  );
+  // Stage 2's order, unchanged: paused → QR → the manual fallback.
+  const g2 = gates[1]!;
+  const paused2 = panel.indexOf('{PAYMENTS_PAUSED_MESSAGE}', g2);
+  const qr = panel.indexOf('<QrTile', g2);
+  const manual = panel.indexOf('or send manually to', g2);
+  assert.ok(paused2 > g2 && paused2 < qr && qr < manual, 'the QR or the number escaped the all-closed branch');
 });

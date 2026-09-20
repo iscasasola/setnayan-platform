@@ -38,11 +38,15 @@ export type InstallmentKind = 'fixed' | 'percent';
 export type InstallmentDue = 'on_lock' | 'before_event' | 'on_event';
 
 /** One manual installment as the editor / wire payload carries it (human units:
- *  whole pesos for fixed, whole percent 0–100 for percent). */
+ *  pesos-and-centavos for fixed, percent 0–100 for percent). */
 export type InstallmentDraft = {
   label: string;
   kind: InstallmentKind;
-  /** Whole pesos when kind = 'fixed', else ignored. */
+  /**
+   * Pesos when kind = 'fixed', else ignored. **CENTAVOS ARE KEPT** — `13400.5`
+   * stays `13400.5`. This said "Whole pesos" and the sanitizer enforced it with
+   * `Math.round`; see `php2`.
+   */
   amountPhp: number | null;
   /** Whole percent 0–100 when kind = 'percent', else ignored. */
   percent: number | null;
@@ -101,12 +105,35 @@ export const MAX_INSTALLMENTS = 12;
 
 const DUES: readonly InstallmentDue[] = ['on_lock', 'before_event', 'on_event'];
 
-/** Coerce to a finite integer (0 fallback). Keeps the resolver total. */
+/** Coerce to a finite integer (0 fallback). For SEQ + DAY COUNTS, never money. */
 function int(v: unknown): number {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? n : 0;
 }
-/** Whole pesos → centavos (non-negative). */
+/**
+ * Coerce a wire PESO amount, KEEPING THE CENTAVOS (0 fallback, 2dp).
+ *
+ * 🔴 `sanitizeAndResolveSchedule` USED `int()` HERE, and it is the SERVER's
+ * sanitizer on the way to `resolveSchedule` — whose output is what gets
+ * persisted, and which this module's own header calls authoritative over
+ * "the client's arithmetic". So a ₱13,400.50 installment arrived on the wire
+ * correct and was stored as ₱13,401: rounded before storing, on money a couple
+ * is later asked to pay.
+ *
+ * ⚠ IT WAS NOT ONLY THE WIRE. The two editor controls that MATERIALISE a
+ * centavo-bearing figure into a fixed row — "Add payment · splits the balance"
+ * and the ₱/% toggle — both read a centavos integer and divided by 100 under a
+ * `Math.round`, so the editor produced whole pesos for `int()` to pass through
+ * unchanged. Fixing one without the other would have left the schedule's total
+ * silently off by the centavos, which the auto "Final balance" row then
+ * absorbs as a stray ₱0.35 line rather than reporting.
+ */
+function php2(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+/** Pesos → centavos (non-negative). Centavos in, centavos out. */
 function phpToCentavos(php: unknown): number {
   return Math.max(0, Math.round((Number(php) || 0) * 100));
 }
@@ -240,7 +267,7 @@ export function sanitizeAndResolveSchedule(raw: unknown): ResolvedSchedule | nul
     return {
       label: String(d.label ?? '').slice(0, 120),
       kind: d.kind === 'percent' ? 'percent' : 'fixed',
-      amountPhp: d.amountPhp == null ? null : int(d.amountPhp),
+      amountPhp: d.amountPhp == null ? null : php2(d.amountPhp),
       percent: d.percent == null ? null : clampPct(d.percent),
       due: normDue(d.due),
       offsetDays: Math.max(0, int(d.offsetDays)),

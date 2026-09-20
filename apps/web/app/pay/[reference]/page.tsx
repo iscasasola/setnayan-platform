@@ -4,7 +4,9 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { resolveQrAmount, qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
+import { qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
+import { mintedQrImage } from '@/lib/qr-image.server';
+import { parseStage } from '@/lib/pay-stages';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
@@ -35,7 +37,14 @@ export const metadata = { title: 'Pay' };
 
 type Props = {
   params: Promise<{ reference: string }>;
-  searchParams: Promise<{ sent?: string; error?: string; recheck?: string; setup?: string }>;
+  searchParams: Promise<{
+    sent?: string;
+    error?: string;
+    recheck?: string;
+    setup?: string;
+    /** Which of the three stages to paint — see lib/pay-stages.ts. */
+    step?: string;
+  }>;
 };
 
 export default async function PayPage({ params, searchParams }: Props) {
@@ -143,11 +152,18 @@ export default async function PayPage({ params, searchParams }: Props) {
    * lines down said to type it. `resolveQrAmount` is now the only thing that
    * knows, and `qrWords` is the only thing that phrases it.
    */
-  const gcashQr = resolveQrAmount(settings.gcash_qr_payload, payable.amountPhp);
-  const bdoQr = resolveQrAmount(settings.bdo_qr_payload, payable.amountPhp);
+  //
+  // 🔑 PAINTED HERE, NOT IN THE BROWSER. Both rails are rendered up front
+  // because the payer switches tabs client-side and a tab that has to fetch
+  // its own code re-opens the window this page just closed. Two inline PNGs is
+  // ~10 KB — cheaper than one wrong scan.
+  const [gcashImage, bdoImage] = await Promise.all([
+    mintedQrImage(settings.gcash_qr_payload, payable.amountPhp),
+    mintedQrImage(settings.bdo_qr_payload, payable.amountPhp),
+  ]);
 
   const gcash: ChannelInfo = {
-    payload: gcashQr.payload,
+    mintedUrl: gcashImage?.dataUrl ?? null,
     staticUrl: settings.gcash_qr_url,
     number: settings.gcash_number,
     name: settings.gcash_account_name,
@@ -155,7 +171,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     enabled: isChannelOpen(settings, 'gcash'),
   };
   const bdo: ChannelInfo = {
-    payload: bdoQr.payload,
+    mintedUrl: bdoImage?.dataUrl ?? null,
     staticUrl: settings.bdo_qr_url,
     number: settings.bdo_account_number,
     name: settings.bdo_account_name,
@@ -171,8 +187,11 @@ export default async function PayPage({ params, searchParams }: Props) {
     everyOpenRailCarriesAmount({
       amountPhp: payable.amountPhp,
       rails: [
-        { open: gcash.enabled, payload: settings.gcash_qr_payload },
-        { open: bdo.enabled, payload: settings.bdo_qr_payload },
+        // ⚠ THE RAIL'S ANSWER IS THE IMAGE WE ACTUALLY PAINTED, not the stored
+        // payload. A payload that mints but fails to RENDER puts the static
+        // code on screen, and the sentence must follow the pixels.
+        { open: gcash.enabled, payload: gcashImage ? settings.gcash_qr_payload : null },
+        { open: bdo.enabled, payload: bdoImage ? settings.bdo_qr_payload : null },
       ],
     }),
     payAmount(payable.amountPhp),
@@ -182,6 +201,91 @@ export default async function PayPage({ params, searchParams }: Props) {
   const activates = payable.isVendorPlan
     ? 'Your plan switches on as soon as our team confirms the payment.'
     : 'It switches on as soon as our team confirms the payment.';
+
+  /**
+   * STAGE 1's CONTENTS, built here on the server and handed to the client
+   * stage machinery as a prop. It reads the payable, the catalogue rows and
+   * the event name; none of that belongs in a client bundle just because the
+   * thing that SHOWS it is interactive.
+   *
+   * ⚠ In the waiting state there are no stages at all — the page is the wait
+   * (owner 2026-08-28) — so this is rendered directly instead.
+   */
+  const summary = (
+    /* ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ──────────────
+    Owner, 2026-08-28: *"After I paid, it should say we are currently
+    verifying your purchase. kindly wait within 24 hours. (1) and (2) must
+    not show anymore."*
+
+    He is right, and it is not only tidiness. A page that still says "scan
+    the code" and "pay this exact amount" under a notice saying we are
+    checking your payment is telling somebody who has ALREADY PAID to pay —
+    and the worst outcome of that sentence is that they pay twice.
+
+    🔑 THE WAIT IS THE WHOLE PAGE NOW, NOT A CARD AT THE BOTTOM OF IT. What
+    stays is what they may still need while waiting: what they bought, what
+    it cost, and the reference — because that is the number they will quote
+    if they have to ask us about it. What goes is every instruction to act.
+
+    ⚖ AND IT COMES BACK BY ITSELF. `proofSent` is false again the moment the
+    proof is refused (`needsBetterProof`), so a person asked for a clearer
+    picture gets the code, the amount and the form returned to them. Nothing
+    here is a one-way door.
+    */
+    <section className="sn-tile p-6">
+    <div className="mb-4 flex items-center gap-2.5">
+      {!waiting && (
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-[12px] font-bold text-white">
+          1
+        </span>
+      )}
+      <span className="sn-eye">
+        {waiting ? 'What you bought' : 'You’re paying for'}
+      </span>
+    </div>
+
+    <h1 className="text-2xl font-semibold leading-tight text-ink">{payable.title}</h1>
+    {payable.who && <p className="mt-1 text-sm text-ink/60">{payable.who}</p>}
+
+    <p className="mt-4 font-mono text-[40px] font-bold leading-none tracking-tight text-ink">
+      {payAmount(payable.amountPhp)}
+    </p>
+
+    {payable.rows.length > 0 && (
+      <div className="mt-5 border-t border-ink/10 pt-3 text-sm">
+        {payable.rows.map((r) => (
+          <div key={r.label} className="flex justify-between gap-4 py-1.5">
+            <span className="text-ink/60">{r.label}</span>
+            <span className="text-ink">{r.value}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <div className="mt-5 flex items-center gap-3 rounded-lg border border-ink/12 bg-ink/[0.03] px-4 py-3">
+      <div>
+        <p className="sn-eye mb-0.5">Your reference</p>
+        <code className="font-mono text-[17px] font-semibold tracking-wide text-ink">
+          {payable.reference}
+        </code>
+      </div>
+      <div className="ml-auto">
+        <CopyButton value={payable.reference} label="Copy" />
+      </div>
+    </div>
+    <p className="mt-2 text-xs text-ink/55">{words.note}</p>
+
+    {!waiting && (
+      <div className="mt-5 border-t border-ink/10 pt-4">
+        <p className="sn-eye mb-2">What happens next</p>
+        <Step n={1}>{words.scanStep}</Step>
+        <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
+        <Step n={3}>{activates}</Step>
+      </div>
+    )}
+  </section>
+  );
+
 
   if (payable.status !== 'awaiting_payment') {
     return (
@@ -226,80 +330,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           </Link>
         )
       )}
-      {/*
-        ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ────────────────────
-        Owner, 2026-08-28: *"After I paid, it should say we are currently
-        verifying your purchase. kindly wait within 24 hours. (1) and (2) must
-        not show anymore."*
-
-        He is right, and it is not only tidiness. A page that still says "scan
-        the code" and "pay this exact amount" under a notice saying we are
-        checking your payment is telling somebody who has ALREADY PAID to pay —
-        and the worst outcome of that sentence is that they pay twice.
-
-        🔑 THE WAIT IS THE WHOLE PAGE NOW, NOT A CARD AT THE BOTTOM OF IT. What
-        stays is what they may still need while waiting: what they bought, what
-        it cost, and the reference — because that is the number they will quote
-        if they have to ask us about it. What goes is every instruction to act.
-
-        ⚖ AND IT COMES BACK BY ITSELF. `proofSent` is false again the moment the
-        proof is refused (`needsBetterProof`), so a person asked for a clearer
-        picture gets the code, the amount and the form returned to them. Nothing
-        here is a one-way door.
-      */}
-      <section className="sn-tile p-6">
-        <div className="mb-4 flex items-center gap-2.5">
-          {!waiting && (
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-[12px] font-bold text-white">
-              1
-            </span>
-          )}
-          <span className="sn-eye">
-            {waiting ? 'What you bought' : 'You’re paying for'}
-          </span>
-        </div>
-
-        <h1 className="text-2xl font-semibold leading-tight text-ink">{payable.title}</h1>
-        {payable.who && <p className="mt-1 text-sm text-ink/60">{payable.who}</p>}
-
-        <p className="mt-4 font-mono text-[40px] font-bold leading-none tracking-tight text-ink">
-          {payAmount(payable.amountPhp)}
-        </p>
-
-        {payable.rows.length > 0 && (
-          <div className="mt-5 border-t border-ink/10 pt-3 text-sm">
-            {payable.rows.map((r) => (
-              <div key={r.label} className="flex justify-between gap-4 py-1.5">
-                <span className="text-ink/60">{r.label}</span>
-                <span className="text-ink">{r.value}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-5 flex items-center gap-3 rounded-lg border border-ink/12 bg-ink/[0.03] px-4 py-3">
-          <div>
-            <p className="sn-eye mb-0.5">Your reference</p>
-            <code className="font-mono text-[17px] font-semibold tracking-wide text-ink">
-              {payable.reference}
-            </code>
-          </div>
-          <div className="ml-auto">
-            <CopyButton value={payable.reference} label="Copy" />
-          </div>
-        </div>
-        <p className="mt-2 text-xs text-ink/55">{words.note}</p>
-
-        {!waiting && (
-          <div className="mt-5 border-t border-ink/10 pt-4">
-            <p className="sn-eye mb-2">What happens next</p>
-            <Step n={1}>{words.scanStep}</Step>
-            <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
-            <Step n={3}>{activates}</Step>
-          </div>
-        )}
-      </section>
-
+      {waiting && summary}
       {waiting && (
         <section className="sn-tile mt-5 border-mulberry p-6 text-center">
           <h2 className="text-lg font-semibold text-ink">
@@ -403,6 +434,21 @@ export default async function PayPage({ params, searchParams }: Props) {
         gcash={gcash}
         bdo={bdo}
         activatesLine={activates}
+        summary={summary}
+        initialStage={parseStage(search.step)}
+        /*
+          ⚠ EVERY OTHER PARAMETER RIDES ALONG. `?setup=1` is what tells this
+          page it is the last step of setting a celebration up — a Continue
+          link that dropped it would silently remove the "remove these extras"
+          door and the set-up discount framing, and `?recheck=` is the only
+          copy telling somebody what to fix.
+        */
+        carryQuery={{
+          setup: search.setup,
+          sent: search.sent,
+          error: search.error,
+          recheck: search.recheck,
+        }}
       />
       )}
     </main>

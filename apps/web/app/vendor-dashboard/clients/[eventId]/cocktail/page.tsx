@@ -4,6 +4,8 @@ import { ArrowLeft, Martini } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CocktailEditor, type CocktailEditorData } from './cocktail-editor';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
@@ -28,6 +30,16 @@ export default async function VendorCocktailPage({ params }: Props) {
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // A per-event workroom is item 1/5/6/7 of the ruling. Flag OFF ⇒ the stage is
+  // always 'unlocked' and this is a no-op. Flag ON and the fee unsettled ⇒ a
+  // PAGE that says the amount, the due date and where to pay — never a redirect
+  // and never a 404.
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') {
+    return <EventLockedPage eventId={eventId} gate={feeGate} />;
+  }
 
   // not_a_vendor / not_booked / category_not_cocktail / vendor_edit_off all
   // land here → the brief is the right fallback.

@@ -14,6 +14,8 @@ import { PapicCaptureController } from '../_components/papic-capture-controller'
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 import { PortfolioCreditsCard } from '../_components/portfolio-credits-card';
 import { PortfolioAlbumSection } from '../_components/portfolio-album-section';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
 export const metadata = { title: 'Papic capture · Event Hub' };
 
@@ -54,6 +56,24 @@ export default async function VendorPapicCapturePage({
     ) ?? null;
   // Not booked on this event at all ⇒ nothing here is theirs. That check stays.
   if (!booking) redirect(back);
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // Item 3 of the ruling — "their papic service for that event". Gated WHOLE:
+  // the shutter, the allowance and the look-back gallery all belong to the
+  // event, and the event is what the fee unlocks.
+  // Flag OFF ⇒ 'unlocked' for everyone and this is a no-op.
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') {
+    return (
+      <EventLockedPage
+        eventId={eventId}
+        gate={feeGate}
+        threadId={booking.threadId}
+        backHref={back}
+        backLabel="Back to the Event Hub"
+      />
+    );
+  }
 
   // ⚠ THE SHUTTER IS DAY-BOUND. LOOKING BACK IS NOT.
   //

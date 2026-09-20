@@ -268,6 +268,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     const read = await readBookedMoney(isVendorSide ? createAdminClient() : supabase, {
       eventId: proposal.event_id,
       vendorProfileId: proposal.vendor_profile_id,
+      viewer: isVendorSide ? 'vendor' : 'couple',
     });
     if (read.step.kind !== 'not_booked') bookedMoney = read;
   }

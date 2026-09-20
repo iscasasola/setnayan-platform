@@ -1,4 +1,5 @@
-import { AlertCircle, MonitorPlay, Plus, PowerOff, RefreshCw, Sparkles, Trash2, Tv } from 'lucide-react';
+import { AlertCircle, Lock, MonitorPlay, Plus, PowerOff, RefreshCw, Sparkles, Trash2, Tv } from 'lucide-react';
+import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { PanoodScreenRow } from '@/lib/panood-screens';
 import {
@@ -6,6 +7,7 @@ import {
   LIVE_SCREEN_MODE_LABEL,
   MAX_LIVE_SCREENS,
   MIRROR_DELAY_NOTICE,
+  VENUE_SCREENS_LOCKED_MESSAGE,
   canAddScreen,
   defaultScreenName,
   isLiveScreenMode,
@@ -28,6 +30,12 @@ import {
  *
  * Owner rulings 2026-09-20: screens live here; each shows live background,
  * mirror or off — never the photo wall; a mirroring screen says it is behind.
+ * SEPARATE owner ruling, same day: screens come WITH the paid Live Studio
+ * unlock — no second charge. `entitled` (== the controller's own
+ * `broadcastWindow.reason !== 'not-owned'`) decides whether this section's
+ * writable controls render; the server actions (screens-actions.ts `gate()`)
+ * enforce the same rule independently, so a stale render can never write.
+ * Removing a screen is the one control that survives being locked — cleanup.
  *
  * `screens === null` means the read was REFUSED, and that is said out loud.
  * Rendering it as an empty list would tell a host mid-event that their paired
@@ -53,6 +61,9 @@ export function VenueScreensSection({
   pairUrlBase,
   nowMs,
   banner,
+  entitled,
+  unlockHref,
+  unlockCtaLabel,
 }: {
   eventId: string;
   screens: PanoodScreenRow[] | null;
@@ -62,6 +73,11 @@ export function VenueScreensSection({
   pairUrlBase: string;
   nowMs: number;
   banner: string | null;
+  /** Owner ruling 2026-09-20: screens come WITH the paid Live Studio unlock. */
+  entitled: boolean;
+  /** The controller's EXISTING unlock detail page — never a second purchase path. */
+  unlockHref: string;
+  unlockCtaLabel: string;
 }) {
   const active = (screens ?? []).filter((s) => !s.revoked_at);
   const pairHost = pairUrlBase.replace(/^https?:\/\//, '');
@@ -87,6 +103,24 @@ export function VenueScreensSection({
         </p>
       ) : null}
 
+      {!entitled ? (
+        <Link
+          href={unlockHref}
+          data-testid="venue-screens-locked"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/[0.07] px-3.5 py-2.5 text-xs leading-snug text-ink/75 transition-colors hover:bg-terracotta/[0.12]"
+        >
+          <Lock aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-ink">{VENUE_SCREENS_LOCKED_MESSAGE}</span>
+            Add, pair and drive a TV once Live Studio is unlocked. Already-added screens stay
+            listed and removable below.
+          </span>
+          <span className="shrink-0 rounded-lg bg-mulberry px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-cream">
+            {unlockCtaLabel}
+          </span>
+        </Link>
+      ) : null}
+
       {screens === null ? (
         <p role="alert" className="flex items-start gap-2 rounded-xl border border-danger-300/70 bg-danger-50 px-3 py-2 text-sm text-danger-900">
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
@@ -95,7 +129,7 @@ export function VenueScreensSection({
         </p>
       ) : null}
 
-      {!hasWatchUrl ? (
+      {entitled && !hasWatchUrl ? (
         <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/65">
           <MonitorPlay aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           Mirroring needs your YouTube watch link (under &ldquo;How guests watch&rdquo;). Until it is saved, a screen
@@ -103,7 +137,7 @@ export function VenueScreensSection({
         </p>
       ) : null}
 
-      {active.length > 1 ? (
+      {entitled && active.length > 1 ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-ink/50">All screens</span>
           {LIVE_SCREEN_MODES.map((mode) => {
@@ -131,6 +165,7 @@ export function VenueScreensSection({
               screen={s}
               nowMs={nowMs}
               pairHost={pairHost}
+              entitled={entitled}
             />
           ))}
         </ul>
@@ -138,7 +173,7 @@ export function VenueScreensSection({
         <p className="text-sm text-ink/60">No screens yet.</p>
       ) : null}
 
-      {screens !== null && canAddScreen(active.length) ? (
+      {entitled && screens !== null && canAddScreen(active.length) ? (
         <form action={addLiveScreen} className="flex flex-col gap-2 sm:flex-row">
           <input type="hidden" name="event_id" value={eventId} />
           <input
@@ -166,16 +201,41 @@ function ScreenRow({
   screen,
   nowMs,
   pairHost,
+  entitled,
 }: {
   eventId: string;
   screen: PanoodScreenRow;
   nowMs: number;
   pairHost: string;
+  entitled: boolean;
 }) {
   const presence = screenPresence(screen, nowMs);
   const mode: LiveScreenMode = isLiveScreenMode(screen.current_source) ? screen.current_source : 'live_bg';
   const name = screen.name ?? defaultScreenName(screen.screen_index);
   const codeLive = pairCodeUsable(screen, nowMs);
+
+  // LOCKED: every write below except Remove is refused server-side too
+  // (screens-actions.ts `gate()`), so the row only offers what it can do —
+  // rename, mode and re-code all disappear, and Remove (cleanup) stays.
+  if (!entitled) {
+    return (
+      <li className="sn-row space-y-2 p-4" data-testid="venue-screen-row">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{name}</span>
+          <PresencePill presence={presence} />
+        </div>
+        <p className="text-xs text-ink/55">Locked with Live Studio. It can still be removed.</p>
+        <form action={removeLiveScreen}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="screen_id" value={screen.id} />
+          <SubmitButton pendingLabel="…" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60 hover:text-burgundy">
+            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Remove
+          </SubmitButton>
+        </form>
+      </li>
+    );
+  }
 
   return (
     <li className="sn-row space-y-3 p-4" data-testid="venue-screen-row">

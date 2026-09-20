@@ -66,13 +66,59 @@ is wrong.
    the same screens → **₱2,499**, **₱50**. No `.00` anywhere.
 
 **Still open (owner, not engineering):**
-- The fee hub renders `Number(... ?? 0)`, so an order with no stored total would read **₱0**
+- ~~The fee hub renders `Number(... ?? 0)`, so an order with no stored total would read **₱0**
   rather than “—”. Not reachable today (every fee order is minted with a total) and the file is
-  being rewritten by PR #5737 — flagged, not fixed here.
-- Installment / quote-total surfaces still round centavos to the peso
+  being rewritten by PR #5737 — flagged, not fixed here.~~
+  ✅ **DONE — PR #5756.** Pure `feeOrderTotalPhp` / `sumFeeOrderTotalsPhp` return `null`, and
+  the banner says it couldn’t load the total rather than silently under-stating the debt.
+  The “not reachable today” half of that line was RIGHT and stays true
+  (`orders.requested_total_php` is `NOT NULL`) — but the same shape on
+  `app/papic/order/[token]/page.tsx` reads through a PostgREST **embed** the page itself types
+  `number | null`, and that one IS reachable. Fixed there too.
+- ~~Installment / quote-total surfaces still round centavos to the peso
   (`proposal-maker.tsx`, `chat-message-stream.tsx`, `overview-sections.tsx`). An installment IS
   money a couple is later asked to pay. Left alone because #5737/#5741/#5742 are rewriting all
-  three files; worth a follow-up once they land.
+  three files; worth a follow-up once they land.~~
+  ✅ **DONE — PR #5756.** All three fixed, and the sweep found the rounding was **not only on
+  the screen**: three further sites rounded an installment **before storing it**
+  (`computePlanInstances` → `instances_json` at lock · `rowToDraft`, where a no-op Save rewrote
+  the row · `sanitizeAndResolveSchedule`, the server’s own wire sanitizer). Root cause was a
+  name collision — two exported `centavosToPhp`, only one of them correct. Fenced by
+  `apps/web/lib/the-installment-keeps-its-centavos.test.ts`.
+  ⏭ **Still open, flagged not fixed:** `lib/budget.ts` exports a SECOND `formatPhp` with
+  `maximumFractionDigits: 0` across 10 importers — the same collision shape, but its callers are
+  bands and planners, so it needs measuring per call site rather than a blind flip.
+
+## Money · an installment keeps its centavos (PR #5756, follow-up to #5744)
+
+**As Saysay (testnayan2), supplier:**
+
+1. Open a service's **payment schedule** with a fixed installment that carries centavos
+   (e.g. `amount_centavos = 1340050`) → it reads **₱13,400.50**.
+2. Press **Save without changing anything**, then reload → still **₱13,400.50**.
+   ⚠ Before this PR the no-op Save rewrote the row to ₱13,401 — a read-only visit moved
+   the money, with nothing on screen to show it had happened.
+3. In a thread, open the **quote maker**. Set an installment to a percent of a
+   centavo-bearing total, then tap the **₱/%** toggle → it becomes the exact peso figure
+   (e.g. **₱1,999.95**), and the field now accepts centavos when you type into it.
+4. Tap **Add payment · splits the balance** on a balance like ₱11,333.35 → the new row
+   carries the exact balance and **no stray ₱0.35 "Final balance" row appears**.
+5. `/vendor-dashboard` **Today** → a saved-never-sent quote card shows its exact total.
+6. `/vendor-dashboard/booking-fees` → the banner and every row read the exact amount.
+   Nothing reads **₱0**; a total we could not read now reads **—**, not free.
+
+**As testnayan3, couple:**
+
+7. Open the booked supplier's **workspace** → the **payment plan stepper** lists each
+   installment to the centavo. An unresolved percent row says **"20% of total"** or
+   **"Amount TBD"** — never **₱0**.
+8. In the thread, the **quote decision card** title carries the exact total (it used to
+   round the very figure the couple is being asked to accept).
+
+🔑 **What is NOT a bug to report here:** the budget pages and the couple's
+supplier-workspace header still round to the peso, deliberately — they are band and
+estimate formatters. See PR #5756's "Still rounding, deliberately NOT touched" table;
+`lib/budget.ts`'s second `formatPhp` is flagged there as the recommended follow-up.
 
 ---
 

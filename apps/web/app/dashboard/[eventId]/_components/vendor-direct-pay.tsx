@@ -35,7 +35,7 @@
 // /budget per-vendor cards and the per-vendor workspace embed.
 // ============================================================================
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
@@ -54,13 +54,25 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { Sheet } from '@/app/_components/sheet';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { qrWords, payloadCarriesOwnAmount, AGREED_AMOUNT } from '@/lib/qr-amount-truth';
+import { mintOrderQr } from '@/lib/emv-qr';
+import { payAmount } from '@/lib/pay-amount';
 
 export type VendorDirectPayProps = {
   vendorName: string;
   methods: CoupleFacingMethod[];
+  /**
+   * The exact figure this couple has been asked for, when the screen knows one
+   * — the supplier's first-payment ask on the deposit step.
+   *
+   * 🔑 WITH IT, THE SUPPLIER'S OWN CODE CAN CARRY THE AMOUNT. Without it the
+   * code is shown exactly as before and `qrWords` says plainly that the figure
+   * must be typed. Never guessed: a screen that does not know the ask passes
+   * null rather than reaching for the nearest number on it.
+   */
+  amountPhp?: number | null;
 };
 
-export function VendorDirectPay({ vendorName, methods }: VendorDirectPayProps) {
+export function VendorDirectPay({ vendorName, methods, amountPhp = null }: VendorDirectPayProps) {
   // No published direct-pay option (off-platform/manual vendor, or none
   // shared yet). Keep it quiet — a single hint that points to chat, the
   // canonical coordination channel for these vendors.
@@ -82,6 +94,7 @@ export function VendorDirectPay({ vendorName, methods }: VendorDirectPayProps) {
     <DirectPayTrigger
       vendorName={vendorName}
       methods={methods}
+      amountPhp={amountPhp}
       // Couple-facing variant — primary terracotta affordance + the always-on
       // one-line reassurance beneath it.
       variant="couple"
@@ -125,11 +138,13 @@ function DirectPayTrigger({
   methods,
   variant,
   adminLabel,
+  amountPhp = null,
 }: {
   vendorName: string;
   methods: CoupleFacingMethod[];
   variant: 'couple' | 'admin';
   adminLabel?: string;
+  amountPhp?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
@@ -203,7 +218,7 @@ function DirectPayTrigger({
               Use one of the destinations below. Setnayan never handles the money.
             </p>
           </div>
-          <DirectPayBody vendorName={vendorName} methods={methods} />
+          <DirectPayBody vendorName={vendorName} methods={methods} amountPhp={amountPhp} />
         </div>
       </Sheet>
     </section>
@@ -224,9 +239,11 @@ function methodTypeNoun(type: CoupleFacingMethod['method_type']): string {
 function DirectPayBody({
   vendorName,
   methods,
+  amountPhp = null,
 }: {
   vendorName: string;
   methods: CoupleFacingMethod[];
+  amountPhp?: number | null;
 }) {
   return (
     <div className="space-y-3">
@@ -248,7 +265,7 @@ function DirectPayBody({
       <ul className="space-y-2">
         {methods.map((m) => (
           <li key={m.payment_method_id}>
-            <MethodCard method={m} vendorName={vendorName} />
+            <MethodCard method={m} vendorName={vendorName} amountPhp={amountPhp} />
           </li>
         ))}
       </ul>
@@ -263,9 +280,11 @@ function DirectPayBody({
 function MethodCard({
   method,
   vendorName,
+  amountPhp = null,
 }: {
   method: CoupleFacingMethod;
   vendorName: string;
+  amountPhp?: number | null;
 }) {
   return (
     <div className="rounded-xl border border-ink/10 bg-cream p-3">
@@ -288,7 +307,7 @@ function MethodCard({
         {method.method_type === 'bank' ? (
           <BankBody method={method} />
         ) : method.method_type === 'qr' ? (
-          <QrBody method={method} vendorName={vendorName} />
+          <QrBody method={method} vendorName={vendorName} amountPhp={amountPhp} />
         ) : (
           <LinkBody method={method} vendorName={vendorName} />
         )}
@@ -389,11 +408,64 @@ function CopyButton({ value, fieldLabel }: { value: string; fieldLabel: string }
 function QrBody({
   method,
   vendorName,
+  amountPhp = null,
 }: {
   method: CoupleFacingMethod;
   vendorName: string;
+  /** The figure they were asked for, when this screen knows it. */
+  amountPhp?: number | null;
 }) {
   const [open, setOpen] = useState(false);
+
+  /**
+   * ── THE SUPPLIER'S OWN CODE, CARRYING THIS COUPLE'S FIGURE ────────────────
+   *
+   * ⚠ WE ARE RE-ENCODING SOMEBODY ELSE'S MERCHANT PAYLOAD AND SHOWING IT TO
+   * THEIR CUSTOMER. The worst outcome in this whole area is a generated code
+   * that pays the wrong account: it scans perfectly, pre-fills the right
+   * figure, and nothing downstream notices. `mintOrderQr` therefore verifies
+   * its own output against the source byte for byte on the identity tags
+   * (`verifyMintedAgainstSource`) and returns null on any doubt — at which
+   * point this falls back to the supplier's uploaded image, unchanged.
+   *
+   * 🔑 `decoded_destination` IS WHAT THE IMAGE ACTUALLY ENCODES, not what the
+   * supplier typed — the server decodes the upload and stores that
+   * (vendor-dashboard/payment-options/actions.ts). So minting from it cannot
+   * silently swap in a destination the picture does not show.
+   */
+  const minted = useMemo(
+    () =>
+      amountPhp && amountPhp > 0 ? mintOrderQr(method.decoded_destination, amountPhp) : null,
+    [method.decoded_destination, amountPhp],
+  );
+  const [mintedUrl, setMintedUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setMintedUrl(null);
+    if (!minted) return;
+    import('qrcode')
+      .then((m) => m.toDataURL(minted, { margin: 1, width: 520, errorCorrectionLevel: 'M' }))
+      .then((url) => {
+        if (!cancelled) setMintedUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setMintedUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [minted]);
+
+  /**
+   * ⛔ THE STATIC IMAGE IS NOT SHOWN WHILE A MINTED ONE IS COMING. Same rule
+   * as /pay: a code that opens the wallet at ₱0 must not hold the screen under
+   * a caption promising otherwise. Here the render is in the browser because
+   * this panel is a client component several hops from any server boundary —
+   * so the waiting state is explicit instead.
+   */
+  const awaitingMint = Boolean(minted) && !mintedUrl;
+  const carries = Boolean(mintedUrl) || payloadCarriesOwnAmount(method.decoded_destination);
+  const shownUrl = mintedUrl ?? method.qr_display_url;
 
   return (
     <>
@@ -413,11 +485,20 @@ function QrBody({
           title={method.label}
         >
           <div className="space-y-3">
-            {method.qr_display_url ? (
+            {awaitingMint ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-col items-center gap-2 rounded-xl border border-ink/10 bg-cream p-3"
+              >
+                <div className="h-56 w-56 max-w-full animate-pulse rounded-lg bg-ink/[0.06]" />
+                <p className="text-xs text-ink/60">Making the code&hellip;</p>
+              </div>
+            ) : shownUrl ? (
               <div className="flex justify-center rounded-xl border border-ink/10 bg-cream p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={method.qr_display_url}
+                  src={shownUrl}
                   alt={`${method.label} payment QR code`}
                   className="h-56 w-56 max-w-full object-contain"
                 />
@@ -449,8 +530,10 @@ function QrBody({
                 `payloadCarriesOwnAmount`. */}
             <p className="rounded-md bg-ink/[0.03] px-3 py-2 text-xs text-ink/70">
               {
-                qrWords(payloadCarriesOwnAmount(method.decoded_destination), AGREED_AMOUNT)
-                  .caption
+                qrWords(
+                  carries,
+                  amountPhp && amountPhp > 0 ? payAmount(amountPhp) : AGREED_AMOUNT,
+                ).caption
               }
             </p>
 

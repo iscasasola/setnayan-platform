@@ -19,6 +19,7 @@ import {
   type DayRequestRow,
   type DayRequestStatus,
 } from '@/lib/day-requests';
+import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 /** The eleven canonical moments — a set's anchor must be one of them. */
 const VALID_PLAYLIST_SLOTS = new Set<string>(PLAYLIST_SLOT_TYPES);
@@ -244,6 +245,10 @@ export async function saveDayOfModules(
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   const booking = bookings.find((b) => b.eventId === eventId);
   if (!booking) return { ok: false, error: 'You are not booked on this event.' };
+  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the flag
+  // is off; a refused or missing fee read always returns null (fail open).
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { ok: false, error: feeBlocked };
 
   const eventTiles = await fetchBookedTiles(supabase, eventId);
 
@@ -376,6 +381,8 @@ async function requireBookedVendor(eventId: string) {
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { error: 'You are not booked on this event.' as const };
   }
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { error: feeBlocked as string };
 
   return { supabase, user, profile, side: vendorInboxSide(profile.services) };
 }
@@ -593,6 +600,8 @@ export async function setEventAccessGrant(
   if (!bookings.some((b) => b.eventId === eventId)) {
     return { ok: false, error: 'You are not booked on this event.' };
   }
+  const feeBlocked = await eventFeeBlocksAction(profile.vendor_profile_id, eventId);
+  if (feeBlocked) return { ok: false, error: feeBlocked };
 
   if (grant) {
     const { error } = await supabase.from('vendor_event_access_grants').upsert(

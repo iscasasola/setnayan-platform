@@ -24,6 +24,7 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
@@ -216,6 +217,34 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
+    // ── THEIR WEDDING AS AN ICON (owner 2026-09-20 · lib/event-app-icon.ts).
+    // The per-event manifest is what makes an installed tile open THIS
+    // invitation with THEIR mark, instead of our app. iOS ignores manifest
+    // icons entirely, so the apple-touch-icon is named separately, and
+    // `appleWebApp.title` is the label under the icon — without it iOS writes
+    // "Setnayan" under a couple's monogram.
+    //
+    // ⚠ BOTH ROUTES ASK THE VISIBILITY QUESTION THEMSELVES. Naming them here
+    // for a private event would be harmless (they answer 404), but the reverse
+    // — a public event whose metadata omits them — is the failure that leaves a
+    // guest with a grey tile, so they are named on every shareable state.
+    manifest: `/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      title: event.display_name ?? 'Invitation',
+      statusBarStyle: 'default' as const,
+    },
+    icons: {
+      icon: [
+        { url: `/${slug}/icon/192.svg`, type: 'image/svg+xml', sizes: '192x192' },
+        { url: `/${slug}/icon/512.png`, type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [
+        { url: `/${slug}/icon/180.png`, sizes: '180x180', type: 'image/png' },
+        { url: `/${slug}/icon/167.png`, sizes: '167x167', type: 'image/png' },
+        { url: `/${slug}/icon/152.png`, sizes: '152x152', type: 'image/png' },
+      ],
+    },
     description,
     // An Unlisted site that shows its card is still kept out of search.
     ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
@@ -961,7 +990,11 @@ async function InvitationBody({
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
   // firewall) and structurally cannot carry guest-derived data.
   const siteProps = {
-    event,
+    // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
+    // render branch spreads this object, so a branch that knows nothing about
+    // the viewer's reply shows no address, no map and no directions. The guest
+    // branch below is the ONLY place that opens it, and only on a real reply.
+    event: withheldVenue(event),
     monogram,
     animatedMonogram,
     studioAnim,
@@ -1230,10 +1263,22 @@ async function InvitationBody({
   // (rsvpFaceMode — the effective face-tag mode for the RSVP selfie + day-of
   // enroll surfaces — now resolves inside loadGuestContext, destructured above.)
 
+  // ── THE ONE PLACE THE VENUE OPENS (owner 2026-09-20 · lib/venue-disclosure.ts).
+  // This guest has been read, so their reply is known. `venueIsOpen` also opens
+  // from the event day onward, so a guest who never replied is never locked out
+  // while travelling to the wedding.
+  const venueOpen = venueIsOpen({
+    rsvpStatus: guest.rsvp_status,
+    eventDate: event.event_date,
+    // The VENUE's day, not the server's — this runs in UTC on Vercel.
+    timeZone: venueTz,
+  });
+
   return (
     <>
       <SiteBody
         {...siteProps}
+        event={venueOpen ? event : withheldVenue(event)}
         identity={guestIdentity({
           guest,
           qrSvg,

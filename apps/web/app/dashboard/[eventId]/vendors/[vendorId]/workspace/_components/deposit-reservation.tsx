@@ -46,9 +46,11 @@ import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } 
 import { recordDeposit } from '../../../actions';
 import { logScheduledPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { FileUpload } from '@/app/_components/file-upload';
+import { moneyStepLine, pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
+import { PaymentHistoryList } from '@/app/_components/payment-history-list';
+import type { PaymentHistory } from '@/lib/payment-history';
 import { ProofImage } from '@/app/_components/proof-image';
 import { ChosenProofField } from '@/app/_components/chosen-proof-field';
-import { pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { useSaveLoader } from '@/components/sd-loader';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -95,6 +97,12 @@ type Props = {
    * first-payment card it always was.
    */
   step?: MoneyStep | null;
+  /**
+   * WHAT HAS ALREADY BEEN PAID (`readBookedMoney().history`). A refused ledger
+   * read arrives as `{ state: 'unreadable' }` and says so — it is NEVER shown
+   * as "no payments recorded yet".
+   */
+  history?: PaymentHistory | null;
   /** Compact chrome for the chat quote card (no anchor id, no outer border). */
   compact?: boolean;
 };
@@ -128,6 +136,7 @@ export function DepositReservation({
   requestedFirstPaymentSentence = null,
   requestedTermsUnreadable = false,
   step = null,
+  history = null,
   compact = false,
 }: Props) {
   const minimumPhp =
@@ -149,14 +158,25 @@ export function DepositReservation({
   const firstLabel =
     step && step.kind === 'first_payment_due' ? step.label : 'First payment · locks the date';
   const later = step && step.kind === 'installment_due' ? step : null;
+  // NOT DUE YET — the next installment's date has not arrived, so nothing is
+  // owed today. No due-now CTA; the couple may still choose to pay early,
+  // through the SAME control, and the line below says what is coming.
+  const notDueYet = step && step.kind === 'installment_not_due_yet' ? step : null;
+  const [earlyOpen, setEarlyOpen] = useState(false);
   const paidInFull = step && step.kind === 'paid_in_full' ? step : null;
+  // The one sentence for this state — `moneyStepLine`, the same helper the
+  // supplier's client page and both chat cards read. In the chat card the
+  // frame already prints it, so it is not printed twice.
+  const stepLine = step && !compact ? moneyStepLine(step, 'couple', vendorName) : null;
   // Money already on the ledger with no first payment recorded: the next step
   // is the next installment (`decideDepositRecord` will not re-record it), so
   // the first-payment form must not be offered on top of it.
   const firstPaymentOffered = (!recorded || declined) && !(later && !recorded);
   // Something is due now: the first payment, or the next installment after it.
   // ONE pay sheet serves both (the supplier's destinations do not change).
-  const payDue = (owed && firstPaymentOffered) || later !== null;
+  // …and the destinations also appear once the couple opens "Pay early", since
+  // that is the moment they need somewhere to send the money.
+  const payDue = (owed && firstPaymentOffered) || later !== null || (notDueYet !== null && earlyOpen);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -258,7 +278,17 @@ export function DepositReservation({
               {noMethods}
             </p>
           ) : (
-            <VendorDirectPay vendorName={vendorName} methods={payMethods} />
+            /* 🔑 THE FIGURE THE SUPPLIER ASKED FOR RIDES INTO THE CODE.
+               `minimumPhp` is the accepted quote's first payment — the same
+               number the form below defaults to and refuses to go under — so
+               the QR in the sheet carries exactly what the couple is being
+               asked for. Null when the quote's terms could not be read, and
+               then the sheet says the amount must be typed. */
+            <VendorDirectPay
+              vendorName={vendorName}
+              methods={payMethods}
+              amountPhp={minimumPhp}
+            />
           )}
           <p className="pt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             2 · Record it here
@@ -436,32 +466,86 @@ export function DepositReservation({
           vendorId={vendorId}
           vendorName={vendorName}
           label={later.label}
+          line={stepLine}
+          overdue={later.overdue}
           amountCentavos={later.amountCentavos}
         />
       ) : null}
+
+      {/* NOTHING DUE NOW (owner, live, 2026-09-20: "their next due date is not
+          yet today, so there is nothing to record. Pay in advance?"). The same
+          one control, opened by a quieter "Pay early" — same action, same
+          server rules, no second payment path. */}
+      {notDueYet ? (
+        <LaterInstallment
+          eventId={eventId}
+          vendorId={vendorId}
+          vendorName={vendorName}
+          label={notDueYet.label}
+          line={stepLine ?? `Nothing due now · ${notDueYet.label}`}
+          notDueYet
+          amountCentavos={notDueYet.amountCentavos}
+          onOpenChange={setEarlyOpen}
+        />
+      ) : null}
+
       {paidInFull ? (
         <p className="rounded-md border border-success-300 bg-success-50 px-2.5 py-1.5 text-xs font-medium text-success-800">
           Paid in full — {pesoFromCentavos(paidInFull.paidCentavos)} per the quote you accepted.
         </p>
       ) : null}
+
+      {/* THE PAYMENTS COULD NOT BE READ. Said out loud, because "unknown" and
+          "nothing owed" would otherwise render as the same blank card. */}
+      {step && step.kind === 'unknown' && stepLine ? (
+        <p role="status" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+          {stepLine}
+        </p>
+      ) : null}
+
+      {/* WHAT HAS ALREADY BEEN PAID — one mount, so the Payments tab and the
+          chat quote card (which mounts this card) show the same history. */}
+      <PaymentHistoryList history={history} className="border-t border-ink/10 pt-2" />
     </div>
   );
 }
 
+/**
+ * ONE later-installment control, in three tones:
+ *   • due now   — the terracotta line and a "Record payment" button;
+ *   • overdue   — the same button, with the line saying the date has passed
+ *                 (`moneyStepLine`). No consequence is stated: the code
+ *                 implements none;
+ *   • not due yet — a quiet line and a text-weight "Pay early" control. Same
+ *                 form, same `logScheduledPayment`, same server rules.
+ */
 function LaterInstallment({
   eventId,
   vendorId,
   vendorName,
   label,
+  line = null,
   amountCentavos,
+  notDueYet = false,
+  overdue = false,
+  onOpenChange,
 }: {
   eventId: string;
   vendorId: string;
   vendorName: string;
   label: string;
+  /** The state's sentence from `moneyStepLine`; falls back to `label`. */
+  line?: string | null;
   amountCentavos: number | null;
+  notDueYet?: boolean;
+  overdue?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const save = useSaveLoader();
@@ -484,20 +568,40 @@ function LaterInstallment({
 
   return (
     <div className="space-y-2 border-t border-ink/10 pt-2">
-      <p className="rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink">
-        {label}
-        {amountCentavos !== null ? ` · ${pesoFromCentavos(amountCentavos)}` : ''}
+      <p
+        className={
+          notDueYet
+            ? 'rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-xs font-medium text-ink/75'
+            : overdue
+              ? 'rounded-md border border-warn-300 bg-warn-50 px-2.5 py-1.5 text-xs font-medium text-warn-900'
+              : 'rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink'
+        }
+      >
+        {line ?? `${label}${amountCentavos !== null ? ` · ${pesoFromCentavos(amountCentavos)}` : ''}`}
       </p>
       <p className="sr-only">Pay {vendorName} through one of the destinations above, then record it.</p>
       {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
-        >
-          <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Record payment
-        </button>
+        notDueYet ? (
+          // QUIETER ON PURPOSE: nothing is owed today, so this is an offer, not
+          // an instruction. It opens the identical form below.
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream"
+          >
+            <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Pay early
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
+          >
+            <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Record payment
+          </button>
+        )
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           <div className="space-y-1">

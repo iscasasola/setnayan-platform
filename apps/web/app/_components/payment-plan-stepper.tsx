@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, Clock, PartyPopper } from 'lucide-react';
 import type { StepperInstallment } from '@/lib/vendor-service-payment-schedules';
+import { formatPhp } from '@/lib/orders';
 
 /**
  * Vendor Transaction Lifecycle · Phase 2 · PR-D — the installment PROGRESS
@@ -41,13 +42,27 @@ const STATE_META = {
   },
 } as const;
 
+/**
+ * THE INSTALLMENT AMOUNT — the app's one money text, or `null` when the figure
+ * has not resolved yet.
+ *
+ * 🔴 THIS WAS A TWELFTH PRIVATE PESO FORMATTER, AND IT CARRIED
+ * `maximumFractionDigits: 0`. This stepper is the couple's payment plan on the
+ * supplier workspace and the supplier's end of the same plan in the thread — the
+ * list of amounts a couple is asked to transfer, one by one. A ₱56,250.30
+ * downpayment read "₱56,250" on both ends, from the same rounded string, so the
+ * two screens agreed with each other and disagreed with the plan.
+ *
+ * ⛔ THE `null` IS NOT DECORATION AND MUST SURVIVE. `formatPhp` renders an
+ * absent figure as `—`, but this caller needs to know the figure is absent so it
+ * can fall through to "20% of total" / "Amount TBD" — which says WHY there is no
+ * number instead of drawing a dash. So the absence is decided here and the
+ * digits are delegated; what is never allowed is `?? 0`, which would print
+ * ₱0 for an unresolved percent installment.
+ */
 function formatPHP(value: number | null | undefined): string | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null;
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    maximumFractionDigits: 0,
-  }).format(value);
+  return formatPhp(value);
 }
 
 // A frozen due_date is a DATE-ONLY string (YYYY-MM-DD); anchor at UTC noon so

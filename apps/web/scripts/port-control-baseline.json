@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9c0bed938",
+  "generatedFromRef": "429e03808",
   "routeCount": 430,
   "destinations": 920,
   "actions": 651,
-  "blocks": 4514,
+  "blocks": 4525,
   "routes": {
     "/": {
       "files": [
@@ -7965,6 +7965,7 @@
         "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
         "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
         "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
+        "dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx",
         "dashboard/[eventId]/website/dress-code/actions.ts",
         "dashboard/[eventId]/website/dress-code/loading.tsx",
         "dashboard/[eventId]/website/dress-code/page.tsx"
@@ -7983,6 +7984,7 @@
         "ListField",
         "PageMasthead",
         "PaletteField",
+        "RoleAttireField",
         "SubmitButton"
       ]
     },
@@ -8543,6 +8545,7 @@
       ],
       "blocks": [
         "LiveBackground",
+        "Locked",
         "Picture",
         "Ready",
         "ScreenStage",
@@ -9711,6 +9714,8 @@
         "AgeLine",
         "AgentHome",
         "AppRailShell",
+        "BookingFeeBills",
+        "BookingFeeNotice",
         "BottomNav",
         "BranchActionState",
         "BranchPinMap",
@@ -9847,7 +9852,8 @@
         "FeeGroup",
         "Link",
         "ListPageSkeleton",
-        "PageMasthead"
+        "PageMasthead",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/booking-fees/[orderId]": {
@@ -10046,6 +10052,8 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "BookingFeeBills",
+        "BookingFeeNotice",
         "BookingMoneySummary",
         "BoothEventActionState",
         "BoothEventBuyForm",
@@ -10084,7 +10092,8 @@
         "VendorChallengeSection",
         "VendorCompletionCard",
         "VendorFinalizationResult",
-        "VendorPaymentLive"
+        "VendorPaymentLive",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/challenge-photos": {
@@ -10369,10 +10378,12 @@
       ],
       "actions": [],
       "blocks": [
+        "BookingFeeBills",
         "Link",
         "PayoutKpi",
         "Stat",
-        "VendorTierGate"
+        "VendorTierGate",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/funnel": {
@@ -10531,6 +10542,7 @@
         "sendProposalFromChat"
       ],
       "blocks": [
+        "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailColumn",
         "ChatInfoRailTrigger",

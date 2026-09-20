@@ -68,6 +68,32 @@ const ROOTS = ['app', 'lib', 'components'];
 const EXTRA = ['middleware.ts', 'instrumentation.ts', 'instrumentation-client.ts'];
 const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 
+/**
+ * The baseline's row-count floor — EXACT, not `> 100`, and deliberately updated
+ * by hand in the same PR that changes the baseline (mirrors `MODEL_CHOICE_CAP`
+ * for admin pages: a number nothing derives, that a person must move).
+ *
+ * A `> 100` floor punished honest cleanup: regenerating on 2026-09-20 found 81
+ * of the 125 inherited rows fully fixed (retirement PRs + S41c's
+ * result-dropped-silently sweeps already fixed them; nothing here forced the
+ * delete) plus one — venue_directory.select — only PARTLY fixed (2 of its 3
+ * silent call sites now log; a pre-migration retry fallback still returns `[]`
+ * on an unread error), so its count moved from 3 to 1 rather than being
+ * deleted. That leaves 44 real rows — a true, smaller number that a "was it
+ * truncated?" floor cannot tell from an actual truncation. Comparing
+ * `baseline.size` (unique class+key rows,
+ * not the sum of `count` columns) to an EXACT constant catches everything the
+ * old floor caught (an emptied or truncated file changes the size without this
+ * constant moving with it) plus what it never did (a hand-added line the
+ * file's own header forbids also changes the size without this constant
+ * moving). It cannot be defeated by shrinking the file alone — only by editing
+ * this line too, which is a visible diff for the reviewer.
+ *
+ * Bump this in the SAME COMMIT as any edit to ugat-both-ends.baseline.txt:
+ * up when a newly-accepted orphan is ranked in, down when a row is paid down.
+ */
+const EXPECTED_BASELINE_ROWS = 44;
+
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {
     if (name === 'node_modules' || name === '.next') continue;
@@ -232,7 +258,13 @@ test('every connection has both ends — no NEW orphan beyond the ranked baselin
 
   assert.ok(fs.existsSync(BASELINE), `${BASELINE} is missing — generate it with UPDATE_BOTH_ENDS_BASELINE=1`);
   const baseline = parseBaseline(fs.readFileSync(BASELINE, 'utf8'));
-  assert.ok(baseline.size > 100, `baseline holds only ${baseline.size} lines — was it truncated?`);
+  assert.equal(
+    baseline.size,
+    EXPECTED_BASELINE_ROWS,
+    `baseline holds ${baseline.size} lines, expected exactly ${EXPECTED_BASELINE_ROWS} (EXPECTED_BASELINE_ROWS above). ` +
+      `A mismatch means the file was truncated or emptied by accident, OR a line was added or removed without moving ` +
+      `EXPECTED_BASELINE_ROWS to match in the same commit — do the latter deliberately, never silently.`,
+  );
   const { grown, paidDown } = diffBaseline(r.findings, baseline);
   assert.deepEqual(
     grown,
@@ -290,4 +322,34 @@ test('every baseline line is well-formed and carries evidence', () => {
     assert.ok(['rpc-no-caller', 'table-no-writer', 'notice-no-emitter', 'component-no-mount', 'result-dropped-silently'].includes(cls ?? ''), `unknown class in "${key}"`);
     assert.ok((name ?? '').length > 0 && e.count >= 1 && e.evidence.length >= 12, `baseline line "${key}" needs a key, a count and real evidence`);
   }
+});
+
+test('the row-count floor rejects a truncated, emptied, or hand-shrunk baseline — no DB needed', () => {
+  // The floor's whole job: `baseline.size !== EXPECTED_BASELINE_ROWS` must fire
+  // on exactly the accidents it exists for, without needing the replay (this
+  // class of sabotage never touches the catalog — only the file on disk).
+  const real = fs.readFileSync(BASELINE, 'utf8');
+  const realSize = parseBaseline(real).size;
+  assert.equal(realSize, EXPECTED_BASELINE_ROWS, 'the real baseline on disk must already match EXPECTED_BASELINE_ROWS — the positive case the sabotages below are contrasted against');
+
+  const dataLines = real.split('\n').filter((l) => l.trim() && !l.startsWith('#'));
+  assert.ok(dataLines.length === realSize, 'sanity: one data line per baseline row');
+
+  // Sabotage 1 — TRUNCATE: keep only the first half of the data lines.
+  const truncated = ['# header', '', ...dataLines.slice(0, Math.floor(dataLines.length / 2))].join('\n');
+  const truncatedSize = parseBaseline(truncated).size;
+  assert.notEqual(truncatedSize, EXPECTED_BASELINE_ROWS, 'CANARY FAILED TO FIRE: a truncated baseline must not match EXPECTED_BASELINE_ROWS');
+
+  // Sabotage 2 — EMPTY: header comments only, no data lines at all.
+  const emptied = '# header\n# still just comments\n';
+  const emptiedSize = parseBaseline(emptied).size;
+  assert.equal(emptiedSize, 0, 'sanity: an all-comment file parses to zero rows');
+  assert.notEqual(emptiedSize, EXPECTED_BASELINE_ROWS, 'CANARY FAILED TO FIRE: an emptied baseline must not match EXPECTED_BASELINE_ROWS');
+
+  // Sabotage 3 — DROP ONE LIVE ROW: remove a single real, still-open orphan
+  // line (not a header, not a comment) and leave every other line untouched.
+  const oneDropped = ['# header', '', ...dataLines.slice(1)].join('\n');
+  const oneDroppedSize = parseBaseline(oneDropped).size;
+  assert.equal(oneDroppedSize, realSize - 1, 'sanity: dropping one data line drops the parsed size by exactly one');
+  assert.notEqual(oneDroppedSize, EXPECTED_BASELINE_ROWS, 'CANARY FAILED TO FIRE: dropping a single live row must not match EXPECTED_BASELINE_ROWS');
 });

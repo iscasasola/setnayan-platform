@@ -132,6 +132,7 @@ import {
 import { EditorBridge } from './editor-bridge';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
+import { KeepOnHomeScreen } from './keep-on-home-screen';
 import type { EntourageGroup } from '@/lib/entourage';
 
 /**
@@ -1241,6 +1242,12 @@ export async function SiteBody({
               Date), and only when there's no signed-in account (showClaimAccountCta).
               Posts the email to claimAccountAction → emails a passwordless sign-in
               link that connects this event to a real account. */}
+          {/* ── KEEP IT ON YOUR HOME SCREEN (owner 2026-09-20). Sits directly
+              above the email sign-in box because they answer the same question
+              — "how do I find this again?" — and this is the answer that needs
+              no account. It renders nothing on a desktop, and nothing at all
+              for a guest already reading inside the installed app. */}
+          <KeepOnHomeScreen coupleName={event.display_name ?? 'this celebration'} />
           {showClaimAccountCta && lifecyclePhase !== 'save_the_date' ? (
             <section
               id="claim-account"

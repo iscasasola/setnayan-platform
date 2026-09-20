@@ -79,6 +79,9 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { redactBriefForStage } from '@/lib/event-access-stage';
+import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 // ONE definition of a category's name. A file-local `CATEGORY_LABELS` used to
 // live here with 28 of the 52 categories, so `CATEGORY_LABELS[c] ?? c` printed
@@ -160,6 +163,8 @@ import {
   type SupplierFirstPaymentStatus,
 } from '@/lib/accepted-quote-terms';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
+import { PaymentHistoryList } from '@/app/_components/payment-history-list';
+import type { PaymentHistory } from '@/lib/payment-history';
 import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -494,8 +499,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     p_event_id: eventId,
   });
   if (error || !data) redirect('/vendor-dashboard/clients');
-  const brief = data as Brief;
-  const isBooked = brief.stage === 'booked';
+  const rawBrief = data as Brief;
+  const isBooked = rawBrief.stage === 'booked';
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // Flag OFF ⇒ the stage is 'unlocked' for everybody and `redactBriefForStage`
+  // is a NO-OP, so this whole block is byte-behaviour-identical to today.
+  //
+  // Flag ON ⇒ a supplier who has not settled the fee keeps the QUOTING payload
+  // (event type · date · area · guest count · their own service · the couple's
+  // preferences · the budget band) and loses the operating detail. The lock is
+  // resolved SERVER-side here, never in a component, and `withheld` is carried
+  // into the render so a redacted field can never read as an empty wedding.
+  //
+  // ⚠ THE QUOTE / PAYMENTS TAB AND THE CONVERSATION ARE NEVER GATED — a locked
+  // supplier must always be able to talk and to pay (`ALWAYS_OPEN_SURFACES`).
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId, {
+    booked: isBooked,
+  });
+  const { brief, withheld: feeWithheld } = redactBriefForStage(rawBrief, feeGate.stage);
+  const feeUnlocked = feeGate.stage === 'unlocked';
   // 🔒 ONE BOOLEAN, AND IT IS THE NEGATIVE OF 'booked' — NOT `stage === 'inquiry'`.
   // This used to read `stage === 'inquiry'`, which was correct while there were
   // exactly two rungs and became a LEAK-SHAPED BUG the moment a third arrived:
@@ -763,18 +786,29 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // names the next payment from `moneyStep`; the supplier reads the same step
   // here, so both ends name the same payment. Only once the first is settled —
   // before that the status line above says it all.
-  const supplierMoney = acceptedTerms
-    ? await readBookedMoney(admin, {
-        eventId,
-        vendorProfileId: profile.vendor_profile_id,
-        eventDate: brief.event.event_date,
-      })
-    : null;
+  // Read for ANY booked client, not only one with an accepted quote: the
+  // payment HISTORY ("show the current payments done as well") exists whenever
+  // money has been recorded, quote or no quote.
+  const supplierMoney =
+    acceptedTerms || isBooked
+      ? await readBookedMoney(admin, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          eventDate: brief.event.event_date,
+          viewer: 'vendor',
+          otherName: 'the couple',
+        })
+      : null;
   const supplierNextLine =
     supplierMoney &&
-    (supplierMoney.step.kind === 'installment_due' || supplierMoney.step.kind === 'paid_in_full')
+    (supplierMoney.step.kind === 'installment_due' ||
+      // NOTHING DUE FROM THE COUPLE YET — the supplier's end of the same
+      // sentence, so neither side is told a payment is owed when it is not.
+      supplierMoney.step.kind === 'installment_not_due_yet' ||
+      supplierMoney.step.kind === 'paid_in_full')
       ? moneyStepLine(supplierMoney.step, 'vendor', 'the couple')
       : null;
+  const supplierPaymentHistory = supplierMoney?.history ?? null;
   const firstPayment =
     firstPaymentStatus && acceptedTerms && firstPaymentSentenceText
       ? {
@@ -1116,7 +1150,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
-  const canEditCocktail = !!cocktailEdit;
+  // The couple's invitation to arrange the cocktail area is a WORKING control
+  // (ruling item 7): its own page is gated, so the door to it is too — a link
+  // that only ever lands on a locked screen is a dead end, not an invitation.
+  const canEditCocktail = !!cocktailEdit && feeUnlocked;
 
   // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
   // display URL for the preview — the same ref → URL step the 3D scenes do.
@@ -1558,6 +1595,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
       firstPayment={firstPayment}
+      paymentHistory={supplierPaymentHistory}
       depositAcked={depositAcked}
       depositDeclined={depositDeclined}
       isCompleteConfirmed={isCompleteConfirmed}
@@ -1725,6 +1763,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </>
   );
 
+  // ── THE FEE GATE, APPLIED ONCE FOR BOTH LAYOUTS ─────────────────────────
+  // `feeLockPanel` is the ONE locked screen; `gated()` is the ONE way a tab is
+  // withheld. Defined here, used by both the flag-OFF card and the flag-ON
+  // shell, for exactly the reason `askBlock` is (see its docblock): a gate that
+  // exists on one branch is a gate whose behaviour depends on an env var whose
+  // production value a session cannot read.
+  //
+  // 🔒 `quoteNode`, `paymentsTabNode` and the chat door are DELIBERATELY absent
+  // from every call below. Money and the conversation are always open.
+  const feeLockPanel = feeUnlocked ? null : (
+    <EventLockedByFee
+      stage={feeGate.stage}
+      access={feeGate.access}
+      withheld={feeWithheld}
+      threadId={threadId}
+    />
+  );
+  const gated = (node: React.ReactNode): React.ReactNode => (feeUnlocked ? node : feeLockPanel);
+
   // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
   if (!relationshipShellEnabled) {
     return (
@@ -1745,13 +1802,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
           {/* ============================ BODY ============================ */}
           <div className={bodyPad}>
-            {tab === 'overview' ? askBlock : null}
+            {tab === 'overview' ? feeLockPanel : null}
+            {/* Item 2 of the ruling — "the request to access features". The
+                panel above already says why, so this withholds rather than
+                repeating it. */}
+            {tab === 'overview' && feeUnlocked ? askBlock : null}
+            {/* Item 1 — the brief itself. Rendered at every stage, but from the
+                REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
             {tab === 'quote' ? quoteNode : null}
-            {tab === 'files' ? filesNode : null}
-            {tab === 'schedule' ? scheduleNode : null}
-            {tab === 'script' ? scriptNode : null}
-            {tab === 'activity' ? activityNode : null}
+            {tab === 'files' ? gated(filesNode) : null}
+            {tab === 'schedule' ? gated(scheduleNode) : null}
+            {tab === 'script' ? gated(scriptNode) : null}
+            {tab === 'activity' ? gated(activityNode) : null}
           </div>
         </div>
       </section>
@@ -1851,13 +1914,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'files',
       label: 'Files',
       icon: <FolderOpen aria-hidden className={tabIconClass} />,
-      node: filesNode,
+      node: gated(filesNode),
     },
     {
       id: 'schedule',
       label: 'Schedule',
       icon: <CalendarDays aria-hidden className={tabIconClass} />,
-      node: scheduleNode,
+      node: gated(scheduleNode),
     },
     {
       id: 'details',
@@ -1869,7 +1932,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // OverviewTab) plus the activity log & private CRM notes.
       node: (
         <div className="space-y-6">
-          {isBooked ? (
+          {feeLockPanel}
+          {isBooked && feeUnlocked ? (
             <VendorCompletionCard
               eventId={eventId}
               isCompleteConfirmed={isCompleteConfirmed}
@@ -1878,8 +1942,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               notice={completedNotice}
             />
           ) : null}
+          {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
-          {activityNode}
+          {feeUnlocked ? activityNode : null}
         </div>
       ),
     },
@@ -1968,7 +2033,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               tools on it; Contract, Files and Schedule are in its ⋮ and in the
               strip below). Flag-off keeps the row: there it is the only door. */}
           {pipelineBlock}
-          {askBlock}
+          {feeLockPanel}
+          {/* Item 2 of the ruling — "the request to access features". The panel
+              above already says why, so this withholds rather than repeating it. */}
+          {feeUnlocked ? askBlock : null}
         </div>
       }
     />
@@ -2212,6 +2280,12 @@ function OverviewTab(props: {
     nextLine: string | null;
     laterRows: { label: string; amount: string; dueText: string }[];
   } | null;
+  /**
+   * WHAT THE COUPLE HAS ALREADY PAID — `readBookedMoney().history`, the same
+   * shape their own card renders. A refused ledger read arrives as
+   * `{ state: 'unreadable' }` and says so; it is never shown as no payments.
+   */
+  paymentHistory: PaymentHistory | null;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
@@ -2251,6 +2325,7 @@ function OverviewTab(props: {
     depositAcked,
     depositDeclined,
     firstPayment,
+    paymentHistory,
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
@@ -2574,8 +2649,10 @@ function OverviewTab(props: {
         </Card>
       ) : null}
 
-      {firstPayment ? (
+      {firstPayment || paymentHistory ? (
         <Card>
+          {firstPayment ? (
+            <>
           <p className="text-sm font-medium text-ink">{firstPayment.sentence}</p>
           <p
             className={
@@ -2598,6 +2675,11 @@ function OverviewTab(props: {
               ))}
             </ul>
           ) : null}
+            </>
+          ) : null}
+          {/* WHAT THEY HAVE ALREADY PAID — the supplier's end of the couple's
+              own history, from the SAME `readBookedMoney().history`. */}
+          <PaymentHistoryList history={paymentHistory} className="mt-3 border-t border-ink/10 pt-2" />
         </Card>
       ) : null}
 

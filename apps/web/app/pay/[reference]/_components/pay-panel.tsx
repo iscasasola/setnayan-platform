@@ -5,6 +5,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
+import { qrWords } from '@/lib/qr-amount-truth';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 
 /**
@@ -111,7 +112,7 @@ export function PayPanel({
           />
         </div>
 
-        <QrTile channel={channel} info={info} amountPhp={amountPhp} />
+        <QrTile channel={channel} info={info} amountPhp={amountPhp} reference={reference} />
 
         {(info.number || info.name) && (
           <p className="mt-4 text-center text-sm text-ink/70">
@@ -224,22 +225,42 @@ function ChannelTab({
  * enters the server bundle. When there is no payload to mint we fall back to
  * the static uploaded image unchanged — which is what shipped before — and say
  * plainly that the amount has to be typed, rather than implying it is filled in.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * 🚨 THE STATIC CODE IS NO LONGER PAINTED WHILE THE MINTED ONE IS COMING.
+ * `minted` starts null on every render, so the fallback used to put the STATIC
+ * merchant image on screen for however long the `qrcode` chunk took to arrive
+ * — a real, scannable code that opens the wallet at ₱0 — and only then swapped
+ * it. On a phone on mobile data that window is not theoretical, and the owner
+ * paid through it on 2026-09-20: *"the amount is not filled up. it only shows
+ * 0."*
+ *
+ * 🔑 A CODE THAT IS NOT READY MUST LOOK LIKE ONE. When the server minted a
+ * payload we show a placeholder until its image exists; the static code comes
+ * back only if the render genuinely FAILS, and the caption flips with it. The
+ * three states are distinct on screen, which is the whole point — "still
+ * coming" must not be able to render as "here is your code".
+ * ────────────────────────────────────────────────────────────────────────────
  */
 function QrTile({
   channel,
   info,
   amountPhp,
+  reference,
 }: {
   channel: Channel;
   info: ChannelInfo;
   amountPhp: number;
+  reference: string;
 }) {
   const [minted, setMinted] = useState<string | null>(null);
+  const [renderFailed, setRenderFailed] = useState(false);
   const payload = info.payload;
 
   useEffect(() => {
     let cancelled = false;
     setMinted(null);
+    setRenderFailed(false);
     if (!payload) return;
     import('qrcode')
       .then((m) => m.toDataURL(payload, { margin: 1, width: 520, errorCorrectionLevel: 'M' }))
@@ -247,16 +268,36 @@ function QrTile({
         if (!cancelled) setMinted(url);
       })
       .catch(() => {
-        if (!cancelled) setMinted(null);
+        // The payload was good and the RENDERER failed. Fall back to the static
+        // image — and say what that image is, which is a code with no amount.
+        if (!cancelled) setRenderFailed(true);
       });
     return () => {
       cancelled = true;
     };
   }, [payload]);
 
+  /** Waiting on the renderer for a code we know carries the figure. */
+  const pending = Boolean(payload) && !minted && !renderFailed;
   const src = minted ?? info.staticUrl;
   const exact = Boolean(minted);
   const label = channel === 'gcash' ? 'GCash' : 'your bank app';
+  const words = qrWords(exact, payAmount(amountPhp), { appLabel: label, reference });
+
+  if (pending) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="mt-4 rounded-xl border border-ink/15 bg-white p-4 text-center"
+      >
+        <div className="mx-auto h-[260px] w-full max-w-[260px] animate-pulse rounded-lg bg-ink/[0.06]" />
+        <p className="mt-3 text-sm text-ink/65">
+          Making your {payAmount(amountPhp)} code&hellip;
+        </p>
+      </div>
+    );
+  }
 
   if (!src) {
     return (
@@ -274,26 +315,14 @@ function QrTile({
         alt={
           exact
             ? `Payment QR code already set to ${payAmount(amountPhp)}`
-            : 'Setnayan payment QR code'
+            : 'Setnayan payment QR code, which carries no amount'
         }
         width={260}
         height={260}
         decoding="async"
         className="mx-auto h-auto w-full max-w-[260px]"
       />
-      <p className="mt-3 text-sm text-ink/65">
-        {exact ? (
-          <>
-            This code is for <b className="text-ink">{payAmount(amountPhp)}</b> &mdash; {label} fills the
-            amount in for you. Nothing to type.
-          </>
-        ) : (
-          <>
-            Scan this, then type <b className="text-ink">{payAmount(amountPhp)}</b> yourself &mdash; this
-            code doesn&rsquo;t carry an amount.
-          </>
-        )}
-      </p>
+      <p className="mt-3 text-sm text-ink/65">{words.caption}</p>
       {exact && (
         <a
           href={src}

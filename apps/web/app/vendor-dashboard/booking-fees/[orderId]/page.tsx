@@ -25,6 +25,8 @@ import {
   fetchPlatformSettings,
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
+import { everyOpenRailCarriesAmount, qrWords } from '@/lib/qr-amount-truth';
+import { payAmount } from '@/lib/pay-amount';
 import { bookingFeeErrorCopy,
   isVendorBookingFeeServiceKey,
   isFeeOrderPayable,
@@ -75,6 +77,36 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.
   const totals = computeOrderTotals(order, payments, 0);
   const payable = isFeeOrderPayable(order.status);
+
+  /**
+   * 🔑 WHAT THE CODES ON THIS SCREEN — AND ON /pay — ACTUALLY CARRY.
+   * This page used to state, in a hand-written line, that "the code on the
+   * payment page already has the amount in it", while the two images it prints
+   * ITSELF are the STATIC uploaded merchant codes, which carry nothing. On
+   * 2026-09-20 the owner scanned one and his wallet opened at ₱0. Both
+   * sentences now come off one resolver run against the same stored payloads
+   * /pay renders from.
+   */
+  const feeWords = qrWords(
+    everyOpenRailCarriesAmount({
+      amountPhp: totals.headlineTotal,
+      rails: [
+        { open: isChannelOpen(settings, 'gcash'), payload: settings.gcash_qr_payload },
+        { open: isChannelOpen(settings, 'bdo'), payload: settings.bdo_qr_payload },
+      ],
+    }),
+    payAmount(totals.headlineTotal),
+    { reference: order.reference_code },
+  );
+  /**
+   * ⚠ THE IMAGES BELOW ARE ALWAYS THE STATIC ONES. `settings.*_qr_url` is the
+   * uploaded picture and nothing mints it per-order here, so this caption is
+   * NOT `feeWords` — it is the static verdict, unconditionally, and saying
+   * otherwise would be the same lie one level down.
+   */
+  const staticImageWords = qrWords(false, payAmount(totals.headlineTotal), {
+    reference: order.reference_code,
+  });
 
   const paymentScreenshotMap: Record<string, string> = {};
   await Promise.all(
@@ -179,7 +211,19 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                   {formatPhp(totals.headlineTotal)}
                 </p>
               </div>
-              <CopyButton value={String(totals.headlineTotal)} label="Copy" />
+              {/* ⚖ THE COPY VALUE KEEPS ITS CENTAVOS AND IS NEVER ROUNDED —
+                  not up, and above all not down. GCash and BDO both accept a
+                  centavo amount, so the exact figure is payable exactly as
+                  typed; rounding DOWN underpays the charge and rounding UP
+                  overpays it, and either one leaves an admin reconciling a
+                  transfer against a number nobody ever recorded.
+                  `String(837.5)` is `"837.5"` — the right value wearing the
+                  wrong number of digits, and one keystroke away from `837.05`
+                  in a bank field. `.toFixed(2)` is the same two decimals the
+                  `/pay` QR carries in EMV tag 54 (see `lib/pay-amount.ts`), so
+                  what a supplier PASTES and what their wallet PRE-FILLS are
+                  the same digits. */}
+              <CopyButton value={totals.headlineTotal.toFixed(2)} label="Copy" />
             </div>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
               <div className="min-w-0">
@@ -220,14 +264,19 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                     </div>
                   ) : null}
                   {settings.bdo_qr_url ? (
-                    <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={settings.bdo_qr_url}
-                        alt="BDO merchant QR"
-                        className="h-40 w-40 rounded-lg object-contain"
-                      />
-                    </div>
+                    <>
+                      <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={settings.bdo_qr_url}
+                          alt="BDO merchant QR, which carries no amount"
+                          className="h-40 w-40 rounded-lg object-contain"
+                        />
+                      </div>
+                      <p className="text-xs leading-relaxed text-ink/60">
+                        {staticImageWords.caption}
+                      </p>
+                    </>
                   ) : null}
                 </div>
               ) : null}
@@ -247,14 +296,19 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
                     </div>
                   ) : null}
                   {settings.gcash_qr_url ? (
-                    <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={settings.gcash_qr_url}
-                        alt="GCash QR"
-                        className="h-40 w-40 rounded-lg object-contain"
-                      />
-                    </div>
+                    <>
+                      <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={settings.gcash_qr_url}
+                          alt="GCash QR, which carries no amount"
+                          className="h-40 w-40 rounded-lg object-contain"
+                        />
+                      </div>
+                      <p className="text-xs leading-relaxed text-ink/60">
+                        {staticImageWords.caption}
+                      </p>
+                    </>
                   ) : null}
                 </div>
               ) : null}
@@ -274,8 +328,8 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         <section className="sn-tile space-y-3 p-5">
           <h2 className="sn-eye">Paying this fee</h2>
           <p className="text-sm text-ink/70">
-            The code on the payment page already has the amount in it. Have your GCash or BDO
-            confirmation to hand — we need its reference number to match your payment.
+            {feeWords.pointer} Have your GCash or BDO confirmation to hand — we need its
+            reference number to match your payment.
           </p>
           <Link
             href={payPath(order.reference_code)}

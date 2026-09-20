@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dbda9a26c",
+  "generatedFromRef": "9c0bed938",
   "routeCount": 430,
   "destinations": 920,
   "actions": 651,
-  "blocks": 4510,
+  "blocks": 4514,
   "routes": {
     "/": {
       "files": [
@@ -2248,6 +2248,7 @@
         "PageMasthead",
         "PaymentDisputesSection",
         "PolicyEvidence",
+        "ProofImage",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -2411,6 +2412,7 @@
         "Image",
         "Link",
         "PageMasthead",
+        "ProofImage",
         "SubmitButton"
       ]
     },
@@ -2890,6 +2892,7 @@
         "PageMasthead",
         "PaymentsList",
         "PlatformChip",
+        "ProofImage",
         "ReceiptReadCard",
         "RefundForm",
         "Stat",
@@ -7856,6 +7859,7 @@
         "AppointmentsSection",
         "CancelBookingButton",
         "ChangeOrderTrail",
+        "ChosenProofField",
         "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
@@ -7866,7 +7870,6 @@
         "FileUpload",
         "HTMLDivElement",
         "HTMLFormElement",
-        "HTMLInputElement",
         "HandoverInbox",
         "HandoverItem",
         "HostServiceDetails",
@@ -7875,6 +7878,7 @@
         "Link",
         "PaymentAsksCard",
         "PaymentPlanStepper",
+        "ProofImage",
         "QuoteBridge",
         "ReadRefusedNotice",
         "RelationshipTabShell",
@@ -8539,7 +8543,6 @@
       ],
       "blocks": [
         "LiveBackground",
-        "Locked",
         "Picture",
         "Ready",
         "ScreenStage",
@@ -10064,6 +10067,7 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PipelineStrip",
+        "ProofImage",
         "QuoteTab",
         "RelationshipTabShell",
         "Result",

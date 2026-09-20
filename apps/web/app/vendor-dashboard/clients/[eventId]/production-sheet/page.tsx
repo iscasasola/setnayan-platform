@@ -8,6 +8,8 @@ import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { shopInputClass } from '../../../_components/kit';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -122,7 +124,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
   const { data, error } = await supabase.rpc('get_vendor_catering_metrics', {
     p_event_id: eventId,
   });
-  if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
   const metrics = data as Metrics;
 
   const { data: ruleRows, error: ruleRowsError } = await supabase

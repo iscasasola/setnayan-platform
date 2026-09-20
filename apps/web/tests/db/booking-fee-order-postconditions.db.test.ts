@@ -38,8 +38,6 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import path from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -47,37 +45,16 @@ import { bookingFeePhp } from '../../lib/booking-fee';
 import { bookingFeeLockServiceKey } from '../../lib/booking-fee-lock';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
-/* ── `server-only` shim ──────────────────────────────────────────────────────
- * lib/booking-fee-lock.server.ts opens with `import 'server-only'`, a module
- * Next.js supplies to the bundler and which does not exist in node_modules, so
- * a plain import of the production file dies with MODULE_NOT_FOUND before a
- * single assertion runs. The import is a BUNDLER ASSERTION ("never ship me to a
- * client"), carries no runtime behaviour, and lib/live-studio-channel-pool.test
- * already guards its presence textually — so resolving it to an empty module is
- * faithful, not a shortcut. Registered here (module scope) so it is in place
- * before the dynamic import in before(); a static import would be hoisted above
- * it and defeat the point. */
-type CjsModuleCtor = {
-  _resolveFilename: (request: string, ...rest: unknown[]) => string;
-  _cache: Record<string, unknown>;
-  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
-};
-const nodeRequire = createRequire(import.meta.url);
-const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
-const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
-{
-  const stub = new CjsModule(SERVER_ONLY_STUB);
-  stub.filename = SERVER_ONLY_STUB;
-  stub.loaded = true;
-  stub.exports = {};
-  stub.paths = [];
-  CjsModule._cache[SERVER_ONLY_STUB] = stub;
-  const originalResolve = CjsModule._resolveFilename;
-  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
-    if (request === 'server-only') return SERVER_ONLY_STUB;
-    return originalResolve.call(this, request, ...rest);
-  };
-}
+/* ── The two seams that let a PRODUCTION module run inside node:test ─────────
+ * Both live in ./supabase-over-pglite:
+ *   • the `server-only` shim — installed by the mere act of importing this
+ *     module, which is why the dynamic import() in before() resolves;
+ *   • makeAdminClient(pg) — a supabase-js-shaped facade over PGlite that
+ *     RETURNS errors as { data, error } (never throws) and carries the SQLSTATE
+ *     in `code`, the two properties the rollback and already-billed arms need.
+ * Extracted 2026-09-20 so the money-PATH test could share them rather than keep
+ * a second copy of an adapter that decides how money is written. */
+import { makeAdminClient } from './supabase-over-pglite';
 
 type CollectResult = Awaited<
   ReturnType<typeof import('../../lib/booking-fee-lock.server').collectBookingFeeAtLock>
@@ -88,169 +65,6 @@ let replay: ReplayResult;
 let db: PGlite;
 let admin: SupabaseClient;
 
-/* ── A supabase-js-shaped adapter over PGlite ────────────────────────────────
- * Models EXACTLY the call shapes lib/booking-fee-lock.server.ts uses:
- *   .rpc(fn, namedArgs)
- *   .from(t).select(cols).eq(...)[.limit(n)].maybeSingle()
- *   .from(t).insert(row).select(cols).maybeSingle()
- *   await .from(t).insert(row)
- *   await .from(t).delete().eq(...)
- * Anything else throws loudly rather than silently skipping the call.
- *
- * THE FIDELITY THAT MATTERS: errors are RETURNED as `{ data, error }`, never
- * thrown. The order-rollback arm is reached only via `if (pErr)` — an adapter
- * that threw would abort the function before the compensating delete and make
- * the rollback untestable while looking like a crash.
- */
-// `code` carries the SQLSTATE, exactly like supabase-js's PostgrestError — the
-// one-bill-per-charge arm branches on '23505', so an adapter that dropped it
-// would make that arm unreachable while every other test stayed green.
-type PgError = { message: string; code?: string } | null;
-
-function asPgError(e: unknown): { message: string; code?: string } {
-  const code = (e as { code?: unknown } | null)?.code;
-  return {
-    message: e instanceof Error ? e.message : String(e),
-    ...(typeof code === 'string' ? { code } : {}),
-  };
-}
-type Row = Record<string, unknown>;
-
-function assertModelled(ok: boolean, what: string): asserts ok {
-  if (!ok) {
-    throw new Error(
-      `[booking-fee adapter] unsupported call shape: ${what}. This adapter models only what ` +
-        'lib/booking-fee-lock.server.ts uses — extend it rather than letting the test skip the call.',
-    );
-  }
-}
-
-const IDENT = /^[a-z_][a-z0-9_]*$/i;
-
-class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
-  private eqs: Array<[string, unknown]> = [];
-  private limitN: number | null = null;
-  private projection: string | null;
-
-  constructor(
-    private readonly pg: PGlite,
-    private readonly table: string,
-    private readonly op: 'select' | 'insert' | 'delete',
-    projection: string | null,
-    private readonly payload: Row | null,
-  ) {
-    this.projection = projection;
-  }
-
-  eq(column: string, value: unknown): this {
-    assertModelled(this.op !== 'insert', `.eq() on an insert into ${this.table}`);
-    this.eqs.push([column, value]);
-    return this;
-  }
-
-  limit(n: number): this {
-    assertModelled(this.op === 'select', `.limit() on a ${this.op} of ${this.table}`);
-    this.limitN = n;
-    return this;
-  }
-
-  /** Post-insert `.select(cols)` → RETURNING cols. */
-  select(cols: string): this {
-    assertModelled(this.op === 'insert', `.select() chained onto a ${this.op}`);
-    this.projection = cols;
-    return this;
-  }
-
-  async maybeSingle(): Promise<{ data: Row | null; error: PgError }> {
-    const { data, error } = await this.run();
-    if (error) return { data: null, error };
-    return { data: data && data.length > 0 ? data[0]! : null, error: null };
-  }
-
-  private cols(): string {
-    if (!this.projection || this.projection.trim() === '*') return '*';
-    return this.projection
-      .split(',')
-      .map((c) => `"${c.trim()}"`)
-      .join(', ');
-  }
-
-  private async run(): Promise<{ data: Row[] | null; error: PgError }> {
-    const params: unknown[] = [];
-    const where = () => {
-      if (this.eqs.length === 0) return '';
-      const parts = this.eqs.map(([c, v]) => {
-        params.push(v);
-        return `"${c}" = $${params.length}`;
-      });
-      return ` WHERE ${parts.join(' AND ')}`;
-    };
-
-    let sql: string;
-    if (this.op === 'select') {
-      sql =
-        `SELECT ${this.cols()} FROM public."${this.table}"` +
-        where() +
-        (this.limitN === null ? '' : ` LIMIT ${Number(this.limitN)}`);
-    } else if (this.op === 'delete') {
-      sql = `DELETE FROM public."${this.table}"` + where();
-    } else {
-      const entries = Object.entries(this.payload ?? {});
-      assertModelled(entries.length > 0, `.insert({}) into ${this.table}`);
-      const names = entries.map(([c]) => `"${c}"`).join(', ');
-      const values = entries
-        .map(([, v]) => {
-          params.push(v);
-          return `$${params.length}`;
-        })
-        .join(', ');
-      sql =
-        `INSERT INTO public."${this.table}" (${names}) VALUES (${values})` +
-        (this.projection ? ` RETURNING ${this.cols()}` : '');
-    }
-
-    try {
-      const res = await this.pg.query(sql, params);
-      // supabase-js: an insert with no .select() resolves with data === null.
-      if (this.op === 'insert' && !this.projection) return { data: null, error: null };
-      return { data: (res.rows ?? []) as Row[], error: null };
-    } catch (e) {
-      return { data: null, error: asPgError(e) };
-    }
-  }
-
-  then<T1 = { data: Row[] | null; error: PgError }, T2 = never>(
-    onfulfilled?: ((v: { data: Row[] | null; error: PgError }) => T1 | PromiseLike<T1>) | null,
-    onrejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null,
-  ): PromiseLike<T1 | T2> {
-    return this.run().then(onfulfilled, onrejected);
-  }
-}
-
-function makeAdminClient(pg: PGlite): SupabaseClient {
-  return {
-    from(table: string) {
-      return {
-        select: (cols = '*') => new Query(pg, table, 'select', cols, null),
-        insert: (payload: Row) => new Query(pg, table, 'insert', null, payload),
-        delete: () => new Query(pg, table, 'delete', null, null),
-      };
-    },
-    async rpc(fn: string, params: Record<string, unknown>) {
-      assertModelled(IDENT.test(fn), `rpc name ${fn}`);
-      const keys = Object.keys(params);
-      for (const k of keys) assertModelled(IDENT.test(k), `rpc arg name ${k}`);
-      const sql =
-        `SELECT public.${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) AS result`;
-      try {
-        const res = await pg.query<{ result: unknown }>(sql, keys.map((k) => params[k]));
-        return { data: res.rows[0]?.result ?? null, error: null };
-      } catch (e) {
-        return { data: null, error: asPgError(e) };
-      }
-    },
-  } as unknown as SupabaseClient;
-}
 
 /* ── Fixtures (same shapes as booking-fee-lock.db.test.ts) ───────────────────*/
 

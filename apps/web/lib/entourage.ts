@@ -285,7 +285,7 @@ export function roleLabel(role: GuestRole): string | null {
  * and `pair_with_guest_id` (every pair invisible).
  */
 export const ENTOURAGE_COLUMNS =
-  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles';
+  'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
@@ -306,6 +306,9 @@ export type EntourageGuestRow = {
   name_suffix?: string | null;
   role?: string | null;
   extra_roles?: readonly string[] | null;
+  /** `guests.entourage_order` — the couple's hand-set walking order within one
+   *  role. NULL means never placed by hand; see `comparePrinted`. */
+  entourage_order?: number | null;
 };
 
 /**
@@ -353,12 +356,51 @@ export function personName(row: EntourageGuestRow): string | null {
 function comparePrinted(a: EntourageGuestRow, b: EntourageGuestRow): number {
   const by = (x?: string | null, y?: string | null) =>
     (x ?? '').localeCompare(y ?? '', 'en', { sensitivity: 'base' });
+
+  /*
+    ⚖ THE COUPLE'S OWN ORDER WINS, AND ONLY WHERE THEY GAVE ONE. A hand-placed
+    name sorts above every unplaced one; two unplaced names fall through to the
+    surname default below. A couple who drags three of their twelve ninongs
+    gets exactly those three at the top, in their order, and an unsurprising
+    alphabetical tail — rather than an all-or-nothing rule that would force
+    them to place all twelve before the first drag meant anything.
+
+    🔑 NULL IS NOT ZERO. Treating an unplaced name as 0 would silently rank it
+    ABOVE everyone the couple actually placed.
+  */
+  const placed = (r: EntourageGuestRow) =>
+    typeof r.entourage_order === 'number' ? r.entourage_order : null;
+  const pa = placed(a);
+  const pb = placed(b);
+  if (pa !== null && pb !== null && pa !== pb) return pa - pb;
+  if (pa !== null && pb === null) return -1;
+  if (pa === null && pb !== null) return 1;
+
   return (
     by(a.last_name, b.last_name) ||
     by(a.first_name, b.first_name) ||
     // Final tiebreak so two people with identical names never swap places.
     by(a.guest_id, b.guest_id)
   );
+}
+
+/**
+ * Everyone holding one role, in the order the invitation prints them.
+ *
+ * 🔑 EXPORTED BECAUSE TWO SURFACES MUST AGREE. The public page prints this
+ * order and the dashboard's Move ↑ / Move ↓ acts on it. If the dashboard
+ * sorted even slightly differently — its own `sort` param, or the raw DB
+ * order — then "move her up" would move whoever the DASHBOARD happened to show
+ * above her, and the invitation would change somewhere the couple was not
+ * looking. One rule, imported by both, is the only way that cannot happen.
+ */
+export function holdersOfRoleInPrintOrder(
+  rows: readonly EntourageGuestRow[],
+  role: string,
+): EntourageGuestRow[] {
+  return rows
+    .filter((row) => row.role === role || (row.extra_roles ?? []).includes(role))
+    .sort(comparePrinted);
 }
 
 export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGroup[] {
@@ -369,9 +411,7 @@ export function buildEntourage(rows: readonly EntourageGuestRow[]): EntourageGro
       // Sorted per ROLE, never across the group: the role order inside `spec`
       // is itself meaningful (ninong before ninang, maid before matron), so
       // sorting the whole group by name would discard it.
-      const holders = rows
-        .filter((row) => row.role === role || (row.extra_roles ?? []).includes(role))
-        .sort(comparePrinted);
+      const holders = holdersOfRoleInPrintOrder(rows, role);
       for (const row of holders) {
         const name = personName(row);
         if (!name) continue;

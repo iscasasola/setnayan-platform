@@ -28,8 +28,8 @@
 
 import type { GuestRole } from './guests';
 import { resolveAttirePaletteColor, type RolePalette } from './mood-board';
-import { ROLE_GROUP_CHIP, roleGroupOf } from './role-groups';
-import { tintedChipFromAccent } from './site-palette';
+import { ROLE_GROUP_CHIP, ROLE_GROUP_TEXT, roleGroupOf } from './role-groups';
+import { accentTextOnRoster, tintedChipFromAccent } from './site-palette';
 
 /** The inline half — a wash, a hue-carrying label, and a 1px inset ring. */
 export type RoleChipInlineStyle = {
@@ -78,4 +78,37 @@ export function roleChipStyle(role: GuestRole, palette: RolePalette): RoleChipSt
       boxShadow: `inset 0 0 0 1px ${tinted.ring}`,
     },
   };
+}
+
+/** The roster's text-only half — same accent, no capsule. */
+export type RoleTextStyle = {
+  /** The fallback text class, or null when the palette answered. */
+  textClass: string | null;
+  /** The palette colour as text, or null when that key is unfilled. */
+  style: { color: string } | null;
+};
+
+/**
+ * The same role, the same colour, rendered as TEXT for the dense roster.
+ *
+ * ⚖ Owner 2026-09-20: "remove the pill boxes ... so it looks neater". The
+ * desktop table drops the capsules; the mobile card keeps them, because one
+ * guest per card is sparse enough that a chip reads as a label rather than as
+ * texture.
+ *
+ * 🔑 TWO PRESENTATIONS, ONE RESOLVER. Both this and `roleChipStyle` above read
+ * the accent from `resolveAttirePaletteColor`, so a role can never be one
+ * colour on a card and a different colour on a row. Resolving the accent twice,
+ * in two components, is exactly how the primary chip and the `+Role` extras
+ * came to disagree before #5755.
+ *
+ * The contrast target differs on purpose: the chip darkens against its own 16%
+ * wash, this darkens against the row. See `accentTextOnRoster`.
+ */
+export function roleTextStyle(role: GuestRole, palette: RolePalette): RoleTextStyle {
+  const group = roleGroupOf(role);
+  const accent = resolveAttirePaletteColor(role, palette, null);
+  const color = accent ? accentTextOnRoster(accent) : null;
+  if (!color) return { textClass: ROLE_GROUP_TEXT[group], style: null };
+  return { textClass: null, style: { color } };
 }

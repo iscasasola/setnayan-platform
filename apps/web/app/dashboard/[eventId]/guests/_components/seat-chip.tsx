@@ -24,6 +24,7 @@ export function SeatChip({
   suggested,
   rsvp,
   hasPlusOne,
+  plain = false,
 }: {
   /** The guest's live seat's table label (from the assignment map), or null. */
   placed: string | null;
@@ -33,6 +34,14 @@ export function SeatChip({
   rsvp: RsvpStatus;
   /** Whether a plus-one rides along (guests.plus_one_allowed). */
   hasPlusOne: boolean;
+  /**
+   * Roster presentation: the table (owner 2026-09-20 — "remove the pill boxes
+   * ... so it looks neater"). Same three states, same labels, no plaque. The
+   * CARD keeps its box, where one guest fills the surface and a box reads as a
+   * label rather than as texture — which is why this is a prop and not an edit
+   * to the markup below.
+   */
+  plain?: boolean;
 }) {
   // The +1 badge — only when the guest is actually coming (a declined guest frees
   // their whole allocation, plus-one included).
@@ -59,7 +68,13 @@ export function SeatChip({
   if (placed) {
     return (
       <span className="inline-flex items-center whitespace-nowrap">
-        <span className="inline-flex items-center rounded-md border border-ink/15 bg-white/70 px-2 py-0.5 font-mono text-[11px] font-bold text-ink/70">
+        <span
+          className={
+            plain
+              ? 'font-mono text-[11px] text-ink/70'
+              : 'inline-flex items-center rounded-md border border-ink/15 bg-white/70 px-2 py-0.5 font-mono text-[11px] font-bold text-ink/70'
+          }
+        >
           {placed}
         </span>
         {plus}
@@ -74,7 +89,11 @@ export function SeatChip({
       <span className="inline-flex items-center whitespace-nowrap">
         <span
           title="Suggested from role + side · place them in the seat plan to confirm"
-          className="inline-flex items-center rounded-md border border-transparent bg-[var(--sn-gold-100)] px-2 py-0.5 font-mono text-[11px] font-bold text-[var(--sn-gold-700)]"
+          className={
+            plain
+              ? 'font-mono text-[11px] text-ink/45'
+              : 'inline-flex items-center rounded-md border border-transparent bg-[var(--sn-gold-100)] px-2 py-0.5 font-mono text-[11px] font-bold text-[var(--sn-gold-700)]'
+          }
         >
           ~{suggested}
         </span>

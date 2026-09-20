@@ -176,3 +176,79 @@ test('⛔ reordering the processional cannot touch a chair', () => {
   }
   assert.match(code, /entourage_order: index/, 'the action no longer writes the line position');
 });
+
+// ── ⚖ "where is the arranging? why do you not build it?" (owner 2026-09-20) ──
+
+const PANEL = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'entourage-order-panel.tsx'),
+  'utf8',
+);
+const DRAG = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'walking-order-lines.tsx'),
+  'utf8',
+);
+
+test('🔑 the arranging is reachable WITHOUT knowing to filter first', () => {
+  /*
+    It was built and it was hidden: the panel rendered only under a role filter,
+    so on the default view the one place to arrange the processional did not
+    exist. From where the owner was standing that is the same as not built.
+  */
+  const { printedGroupsForView } = require('../app/dashboard/[eventId]/guests/_components/entourage-order-panel') as {
+    printedGroupsForView: (v: string) => string[];
+  };
+  assert.ok(printedGroupsForView('all').length > 1, '"All" offers no group to arrange');
+  assert.ok(printedGroupsForView('').length > 1, 'an empty view offers no group to arrange');
+  assert.deepEqual(
+    printedGroupsForView('principal_sponsors'),
+    ['principal_sponsors'],
+    'a role view no longer narrows to its own group',
+  );
+});
+
+test('the panel heads each group with its printed NAME, not a raw key', () => {
+  // A first draft rendered `key.replace(/_/g, ' ')` — "principal sponsors",
+  // lower case, which is a key with its underscores knocked out, not a heading.
+  assert.match(PANEL, /entourageGroupLabel\(key\)/, 'the panel is printing a raw group key');
+});
+
+test('⚖ drag is ADDITIONAL — the buttons remain the always-available path', () => {
+  // The Move ↑ / ↓ forms are plain server-action posts: no JavaScript, works on
+  // a phone and under assistive tech. The drag layer wraps them, never replaces
+  // them, and hides its own handle below `sm`.
+  /* 🪤 Tag boundaries, for the THIRD time in this session: `<MoveButton` is a
+     substring of `<MoveButtonX`, so a bare match passes a renamed mount. A
+     substring is not a mount. */
+  assert.match(PANEL, /<MoveButton[\s/>]/, 'the always-available buttons are gone');
+  assert.match(PANEL, /<WalkingOrderLines[\s/>]/, 'the drag layer is not mounted');
+  assert.match(DRAG, /hidden[^"]*sm:inline-flex/, 'the drag handle is offered on touch');
+});
+
+test('a drag handle answers the keyboard, and says what it did', () => {
+  // 🔑 A handle that only drags is a control half the room cannot use — and a
+  // reorder nobody can hear is indistinguishable from a dead one.
+  for (const [what, re] of [
+    ['grab with Space', /e\.key === ' '/],
+    ['move with arrows', /ArrowUp|ArrowDown/],
+    ['cancel with Escape', /e\.key === 'Escape'/],
+    ['announce its state', /aria-pressed=\{held\}/],
+    ['announce the move', /aria-live="polite"/],
+  ] as const) {
+    assert.match(DRAG, re, `the drag handle cannot ${what}`);
+  }
+});
+
+test('⛔ the drag path posts NAMES, and touches no chair', () => {
+  // A position only means something against the list the client was looking at.
+  // Naming the lines lets a stale order be refused instead of obeyed.
+  const action = readFileSync(
+    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'entourage-order-actions.ts'),
+    'utf8',
+  );
+  const code = action.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  assert.match(code, /setEntourageLineOrder/, 'the explicit-order action is gone');
+  assert.match(code, /order_is_stale/, 'a stale client order is applied instead of refused');
+  for (const seatThing of ['event_seat_assignments', 'seating_priority']) {
+    assert.ok(!code.includes(seatThing), `the drag path touches ${seatThing}`);
+  }
+});

@@ -40,16 +40,48 @@ above Zamora the ninong and discarded the convention `spec.roles` encodes. An
 existing test caught it; the comparator now ranks by placement, then the
 group's role order, then surname.
 
-Guarded by `lib/a-pair-walks-as-one-line.test.ts` — eight tests, the ordering
-ones EXECUTED rather than grepped. Five sabotages confirmed red: ordering per
+Guarded by `lib/a-pair-walks-as-one-line.test.ts` — thirteen tests, the ordering
+ones EXECUTED rather than grepped. Eight sabotages confirmed red: ordering per
 role again · an unplaced line read as position zero · the action writing a seat
-· the roster losing a column · the roster's "walks with" mount renamed.
+· the roster losing a column · the roster's "walks with" mount renamed · the
+panel hidden again on "All" · the drag handle losing its keyboard path · the
+buttons replaced by the drag layer.
 
-⏭ **NOT built, and named rather than implied:** the roster's pair BRACKET. It
-needs the two rows to be adjacent, and the roster orders by the couple's chosen
-sort — so drawing a bracket there today would join rows that are not a pair.
-Making pairs adjacent on the roster is a change to section building that fights
-the sort, and is its own decision. Desktop drag is also unbuilt: the ruling
-makes it "additional", and the always-available buttons are what shipped.
+🪤 Three of those needed the assertion tightened first, all the same mistake:
+`includes('<PartnerLine')` also matches `<PartnerLineX`. **A substring is not a
+mount** — the assertions now match a tag boundary.
+
+## Arranging — it was built, and it was HIDDEN
+
+⚖ Owner 2026-09-20: *"where is the arranging? why do you not build it?"*
+
+The Walking order panel shipped in #5759 rendered **only under a role filter**.
+On the default view it asked for roles, got none, and returned null — so the one
+place a couple can arrange who walks first did not exist unless they already
+knew to filter first. From where the owner was standing that is the same as not
+built, and he was right to call it.
+
+- "All" now offers **every printed group**, which is the whole processional.
+- Each group is headed by its printed NAME. A first draft rendered
+  `key.replace(/_/g, ' ')` — a raw key with its underscores knocked out.
+- **Desktop drag now exists, and it is additional.** The Move ↑ / ↓ forms are
+  untouched and remain the always-available path: no JavaScript, works on a
+  phone and under assistive tech. The drag layer wraps them and hides its own
+  handle below `sm`.
+- 🔑 **A handle that only drags is a control half the room cannot use.** Space
+  grabs, ↑/↓ move, Space drops, Esc restores; `aria-pressed` says whether it is
+  held and every move is announced in a live region — a silent reorder is
+  indistinguishable from a dead control.
+- The drag posts **lead guest ids, not positions**. A position only means
+  something against the list the client was looking at; if another planner has
+  moved a line since, applying positions reorders the wrong ones. Naming the
+  lines lets the server refuse a stale order (`order_is_stale`) instead of
+  obeying it. It touches no chair, exactly like the button path.
+
+⏭ **Still NOT built, named rather than implied:** the roster's pair BRACKET. It
+needs the two rows adjacent, and the roster orders by the couple's chosen sort —
+so a bracket drawn today would join rows that are not a pair. Making pairs
+adjacent there is a change to section building that fights the sort, and is its
+own decision.
 
 SPEC IMPACT: None — no locked decision changes.

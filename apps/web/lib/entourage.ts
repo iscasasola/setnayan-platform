@@ -505,6 +505,15 @@ export function entourageLines(
 /** Every printed group key, in printing order. */
 export const ENTOURAGE_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
 
+/** Every printed group's key and heading, in printing order. */
+export const ENTOURAGE_GROUP_LIST: ReadonlyArray<{ key: string; label: string }> =
+  GROUPS.map((g) => ({ key: g.key, label: g.label }));
+
+/** The heading the invitation prints above a group — never a raw key. */
+export function entourageGroupLabel(key: string): string | null {
+  return GROUPS.find((g) => g.key === key)?.label ?? null;
+}
+
 /** Which printed group a role belongs to, or null when it never prints. */
 export function entourageGroupOfRole(role: string): string | null {
   return GROUPS.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;

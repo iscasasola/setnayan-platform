@@ -180,3 +180,82 @@ export async function clearEntourageOrder(
   revalidatePath('/[slug]', 'layout');
   redirect(backToList(eventId, { order_cleared: String(data?.length ?? 0) }));
 }
+
+/**
+ * Set a whole group's line order at once, from an explicit sequence.
+ *
+ * ⚖ Owner 2026-09-20, asked where the arranging was: the Move ↑ / Move ↓
+ * buttons are the ALWAYS-AVAILABLE path and stay exactly as they are. This is
+ * the additional one — what a desktop drag, or a keyboard grab-and-move, posts
+ * when it lets go.
+ *
+ * 🔑 IT TAKES LEAD IDS, NOT POSITIONS. A position is only meaningful against
+ * the order the client happened to be looking at; if the roster moved under
+ * them (another tab, another planner) applying positions would silently
+ * reorder the wrong lines. Naming the lines means a stale client can be
+ * detected instead of obeyed.
+ *
+ * ⛔ Touches no chair, exactly like the button path.
+ */
+export async function setEntourageLineOrder(
+  eventId: string,
+  groupKey: string,
+  leadGuestIds: readonly string[],
+): Promise<void> {
+  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+    redirect(backToList(eventId, { error: 'not_an_entourage_group' }));
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('guests')
+    .select(ENTOURAGE_COLUMNS)
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (error) {
+    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+  }
+
+  const lines = entourageLines((data ?? []) as EntourageGuestRow[], groupKey);
+  const byLead = new Map<string, (typeof lines)[number]>();
+  for (const line of lines) {
+    const lead = line[0]?.id ?? line[1]?.id;
+    if (lead) byLead.set(lead, line);
+  }
+
+  /*
+    The client's sequence must name EVERY line in this group, exactly once. A
+    short or unrecognised list means the page it was built from is not the page
+    that exists now — refuse rather than apply a partial order, which would
+    leave the processional in a state nobody chose.
+  */
+  const unique = [...new Set(leadGuestIds)];
+  const resolved = unique.map((id) => byLead.get(id)).filter(Boolean);
+  if (unique.length !== leadGuestIds.length || resolved.length !== byLead.size) {
+    redirect(backToList(eventId, { error: 'order_is_stale' }));
+  }
+
+  let written = 0;
+  for (const [index, line] of resolved.entries()) {
+    for (const half of line!) {
+      if (!half?.id) continue;
+      const { data: rows, error: writeErr } = await supabase
+        .from('guests')
+        .update({ entourage_order: index, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('guest_id', half.id)
+        .select('guest_id');
+      if (writeErr) {
+        redirect(backToList(eventId, { error: encodeURIComponent(writeErr.message) }));
+      }
+      written += rows?.length ?? 0;
+    }
+  }
+  if (written === 0) {
+    redirect(backToList(eventId, { error: 'order_not_saved' }));
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  revalidatePath('/[slug]', 'layout');
+  redirect(backToList(eventId, { reordered: String(written) }));
+}

@@ -29,10 +29,13 @@
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { WalkingOrderLines } from './walking-order-lines';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   ENTOURAGE_COLUMNS,
+  ENTOURAGE_GROUP_LIST,
+  entourageGroupLabel,
   entourageGroupOfRole,
   entourageLines,
   ENTOURAGE_ROLES,
@@ -62,6 +65,27 @@ export function printedRolesForView(view: string): GuestRole[] {
   );
 }
 
+/**
+ * Which printed groups this dashboard view should offer to arrange.
+ *
+ * 🔑 "ALL" MEANS THE WHOLE PROCESSIONAL, and that is the fix for a real defect:
+ * the panel used to render ONLY under a role filter, so the one place a couple
+ * can arrange who walks first was invisible unless they already knew to filter
+ * first. Owner, 2026-09-20: *"where is the arranging? why do you not build
+ * it?"* — it was built, and it was hidden, which from where he was standing is
+ * the same thing.
+ */
+export function printedGroupsForView(view: string): string[] {
+  if (!view || view === 'all') return ENTOURAGE_GROUP_LIST.map((g) => g.key);
+  return [
+    ...new Set(
+      printedRolesForView(view)
+        .map((r) => entourageGroupOfRole(r))
+        .filter((k): k is string => Boolean(k)),
+    ),
+  ];
+}
+
 export async function EntourageOrderPanel({
   eventId,
   view,
@@ -69,8 +93,10 @@ export async function EntourageOrderPanel({
   eventId: string;
   view: string;
 }) {
-  const roles = printedRolesForView(view);
-  if (roles.length === 0) return null;
+  // The early return was the bug: under "All" this asked for ROLES, got none,
+  // and rendered nothing — hiding the only way to arrange the processional.
+  const groupKeys = printedGroupsForView(view);
+  if (groupKeys.length === 0) return null;
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -104,9 +130,6 @@ export async function EntourageOrderPanel({
     same one Move ↑ acts on, which is the only way "move this pair up" can mean
     the same thing on all three.
   */
-  const groupKeys = [
-    ...new Set(roles.map((r) => entourageGroupOfRole(r)).filter((k): k is string => Boolean(k))),
-  ];
   const lists = groupKeys
     .map((key) => ({ key, lines: entourageLines(rows, key) }))
     .filter((l) => l.lines.length > 0);
@@ -135,7 +158,9 @@ export async function EntourageOrderPanel({
         {lists.map(({ key, lines }) => (
           <div key={key}>
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-xs font-medium text-ink/70">{key.replace(/_/g, ' ')}</h3>
+              <h3 className="text-xs font-medium text-ink/70">
+                {entourageGroupLabel(key) ?? key}
+              </h3>
               {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
                 <form action={clearEntourageOrder.bind(null, eventId, key)}>
                   <SubmitButton
@@ -149,17 +174,20 @@ export async function EntourageOrderPanel({
               ) : null}
             </div>
 
-            <ol className="mt-1.5 space-y-1">
+            <WalkingOrderLines
+              eventId={eventId}
+              groupKey={key}
+              groupLabel={entourageGroupLabel(key) ?? key}
+              lines={lines.map((line, i) => ({
+                leadId: line[0]?.id ?? line[1]?.id ?? `${key}-${i}`,
+                cells: [<LineCell key="l" half={line[0]} />, <LineCell key="r" half={line[1]} />],
+                label: [line[0]?.name, line[1]?.name].filter(Boolean).join(' and ') || 'Blank line',
+              }))}
+            >
               {lines.map((line, i) => (
-                <li
-                  key={line[0]?.id ?? line[1]?.id ?? `${key}-${i}`}
-                  className="flex items-center gap-2 rounded-md px-2 py-1 text-sm odd:bg-ink/[0.02]"
-                >
-                  <span className="w-5 flex-none font-mono text-[11px] text-ink/40">{i + 1}</span>
-                  <span className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-                    <LineCell half={line[0]} />
-                    <LineCell half={line[1]} />
-                  </span>
+                /* The always-available path — plain forms, no JavaScript
+                   required. The drag layer above never replaces these. */
+                <span key={line[0]?.id ?? line[1]?.id ?? i} className="inline-flex">
                   <MoveButton
                     eventId={eventId}
                     guestId={line[0]?.id ?? line[1]?.id ?? null}
@@ -174,9 +202,9 @@ export async function EntourageOrderPanel({
                     direction="down"
                     disabled={i === lines.length - 1}
                   />
-                </li>
+                </span>
               ))}
-            </ol>
+            </WalkingOrderLines>
           </div>
         ))}
       </div>

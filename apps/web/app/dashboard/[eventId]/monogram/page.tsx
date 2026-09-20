@@ -11,6 +11,7 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkDoors } from './mark-doors';
+import { RevealStep } from './reveal-step';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
@@ -65,6 +66,7 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
   'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
   'ink-saved': { tone: 'ok', text: 'Saved — your mark now wears those colours everywhere.' },
+  'reveal-saved': { tone: 'ok', text: 'Saved — that is how your monogram arrives for your guests.' },
   'using-upload': { tone: 'ok', text: 'Your uploaded logo is your mark again — the designed one is kept.' },
   'using-studio': { tone: 'ok', text: 'Your designed mark is live again — your uploaded logo is kept, not deleted.' },
   'no-studio-mark': { tone: 'error', text: 'Design a mark first — switching now would leave you with none.' },
@@ -264,14 +266,29 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         />
       ) : null}
 
-      {/* ── The reveal's ₱ unlock — ONE row, under whichever door is open, never
-          on the chooser (there is no reveal picked yet there). This replaces the
-          two separate free/paid paragraphs the page used to carry.
+      {/* ── ONE REVEAL, for a mark made either way (owner 2026-09-20,
+          overruling the 2026-06-23 "the reveal lives inside the studio" lock).
+          It sits AFTER the mark exists rather than inside either door, and the
+          ₱500 unlock renders beneath it — the money buys the animation, not the
+          door. Nothing to reveal without a mark, so it waits for one.
 
-          🔒 Withheld in the store shell (App Review 3.1.1). The maker above is
-          free and stays whole — this is the paid block, which carries the live
-          catalogue price on a route the /studio gate never covered. ── */}
-      {!storeShell && mode !== null && <AnimatedMonogramUpgrade eventId={eventId} />}
+          🔒 The unlock is withheld in the store shell (App Review 3.1.1); the
+          reveal itself previews free and stays. ── */}
+      {effectiveSvg ? (
+        <RevealStep
+          eventId={eventId}
+          markSvg={effectiveSvg}
+          monogramText={monogram.text}
+          initialKind={studioConfig?.anim?.kind ?? 'handwriting'}
+          initialTempo={
+            studioConfig?.anim?.preset === 'quick' || studioConfig?.anim?.preset === 'ceremonial'
+              ? studioConfig.anim.preset
+              : 'classic'
+          }
+          owned={ownsAnimated}
+          unlock={!storeShell ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
+        />
+      ) : null}
     </section>
   );
 }

@@ -34,6 +34,8 @@ const FONTS = {
   pinyon: 'PinyonScript-Regular.ttf',
 };
 
+import { ANIM_TEMPO_TIMINGS } from '@/lib/monogram-studio-shared';
+
 export function mountStudio(opts) {
   const root = opts.root;
   const paper = opts.paper;
@@ -173,11 +175,10 @@ export function mountStudio(opts) {
   let presetKey = null;
   // Reveal tempo (§5.4): the lit chip. The stored dur/smooth/delay numbers
   // stay canonical — 'custom' after any fine-tune slider touch.
-  const ANIM_TEMPOS = {
-    quick: { dur: 3, delay: 0.15, smooth: 0.7 },
-    classic: { dur: 6, delay: 0.3, smooth: 0.9 },
-    ceremonial: { dur: 10, delay: 0.6, smooth: 1 },
-  };
+  /* The ONE tempo table (lib/monogram-studio-shared.ts). It used to be a local
+   * copy here; the reveal step on the page needs the same numbers, and two
+   * copies would have shown one duration in the preview and played another. */
+  const ANIM_TEMPOS = ANIM_TEMPO_TIMINGS;
   let animTempo = 'classic';
   let pts = new Map(),
     mode = null,

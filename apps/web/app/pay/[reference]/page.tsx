@@ -4,7 +4,8 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { resolveQrAmount, qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
+import { qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
+import { mintedQrImage } from '@/lib/qr-image.server';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
@@ -143,11 +144,18 @@ export default async function PayPage({ params, searchParams }: Props) {
    * lines down said to type it. `resolveQrAmount` is now the only thing that
    * knows, and `qrWords` is the only thing that phrases it.
    */
-  const gcashQr = resolveQrAmount(settings.gcash_qr_payload, payable.amountPhp);
-  const bdoQr = resolveQrAmount(settings.bdo_qr_payload, payable.amountPhp);
+  //
+  // 🔑 PAINTED HERE, NOT IN THE BROWSER. Both rails are rendered up front
+  // because the payer switches tabs client-side and a tab that has to fetch
+  // its own code re-opens the window this page just closed. Two inline PNGs is
+  // ~10 KB — cheaper than one wrong scan.
+  const [gcashImage, bdoImage] = await Promise.all([
+    mintedQrImage(settings.gcash_qr_payload, payable.amountPhp),
+    mintedQrImage(settings.bdo_qr_payload, payable.amountPhp),
+  ]);
 
   const gcash: ChannelInfo = {
-    payload: gcashQr.payload,
+    mintedUrl: gcashImage?.dataUrl ?? null,
     staticUrl: settings.gcash_qr_url,
     number: settings.gcash_number,
     name: settings.gcash_account_name,
@@ -155,7 +163,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     enabled: isChannelOpen(settings, 'gcash'),
   };
   const bdo: ChannelInfo = {
-    payload: bdoQr.payload,
+    mintedUrl: bdoImage?.dataUrl ?? null,
     staticUrl: settings.bdo_qr_url,
     number: settings.bdo_account_number,
     name: settings.bdo_account_name,
@@ -171,8 +179,11 @@ export default async function PayPage({ params, searchParams }: Props) {
     everyOpenRailCarriesAmount({
       amountPhp: payable.amountPhp,
       rails: [
-        { open: gcash.enabled, payload: settings.gcash_qr_payload },
-        { open: bdo.enabled, payload: settings.bdo_qr_payload },
+        // ⚠ THE RAIL'S ANSWER IS THE IMAGE WE ACTUALLY PAINTED, not the stored
+        // payload. A payload that mints but fails to RENDER puts the static
+        // code on screen, and the sentence must follow the pixels.
+        { open: gcash.enabled, payload: gcashImage ? settings.gcash_qr_payload : null },
+        { open: bdo.enabled, payload: bdoImage ? settings.bdo_qr_payload : null },
       ],
     }),
     payAmount(payable.amountPhp),

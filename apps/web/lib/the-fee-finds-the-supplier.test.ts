@@ -345,6 +345,22 @@ test('the bill notifies at the moment it opens, not on the next dashboard visit'
   const emit = read('lib/notification-emit.ts');
   const allow = emit.slice(emit.indexOf('EMAIL_ENABLED_TYPES'), emit.indexOf('MARKETING_GATED_EMAIL_TYPES'));
   assert.ok(/'order_quoted'/.test(allow), 'order_quoted fell off the email allowlist');
+
+  // FEE-HONEST, one layer down: the two reads that dress the notification (the
+  // due date and the couple's name) fail to `null`, and the sentence still
+  // sends one fact shorter. A bare `return null` there is the
+  // `result-dropped-silently` shape — the reason must be recorded.
+  // SABOTAGE: replace either logQueryError with a bare `return null` → RED.
+  for (const fn of ['readChargeDueDate', 'readEventDisplayName']) {
+    const body = lock.slice(lock.indexOf(`async function ${fn}(`));
+    const scoped = body.slice(0, body.indexOf('\n}') + 2);
+    assert.ok(scoped.length > 50, `${fn} was not found in the charge path`);
+    assert.match(
+      scoped,
+      new RegExp(`logQueryError\\('booking-fee-lock\\.${fn}'`),
+      `${fn} swallows a refused read — the notification loses a fact and says why to nobody`,
+    );
+  }
 });
 
 /* ═══ 6 · OVERDUE IS HONEST ═════════════════════════════════════════════════ */

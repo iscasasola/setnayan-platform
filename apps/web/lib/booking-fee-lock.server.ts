@@ -12,7 +12,15 @@ import { emitNotification } from '@/lib/notification-emit';
 import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
-/** `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unreadable. */
+/**
+ * `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unreadable.
+ *
+ * ⚠ THE REFUSAL KEEPS ITS REASON (FEE-HONEST). Null here silently drops the due
+ * date out of the notification the supplier reads — the sentence still sends,
+ * one fact shorter, and nothing would have said why. Same `result-dropped-
+ * silently` shape the both-ends guard exists to catch, and the same shape #5707
+ * fixed one layer up in this very file.
+ */
 async function readChargeDueDate(
   admin: SupabaseClient,
   chargeId: string,
@@ -22,12 +30,22 @@ async function readChargeDueDate(
     .select('expires_at')
     .eq('charge_id', chargeId)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    logQueryError('booking-fee-lock.readChargeDueDate', error, { chargeId });
+    return null;
+  }
   const at = (data as { expires_at?: string | null } | null)?.expires_at;
   return at ? at.slice(0, 10) : null;
 }
 
-/** The couple as the supplier knows them, or null when unreadable. */
+/**
+ * The couple as the supplier knows them, or null when unreadable.
+ *
+ * ⚠ Same rule as {@link readChargeDueDate}: a refused read costs the
+ * notification the couple's NAME — "your ₱837.50 booking fee is ready to pay"
+ * with no clue which booking it is for — so the reason is recorded rather than
+ * swallowed by a bare `return null`.
+ */
 async function readEventDisplayName(
   admin: SupabaseClient,
   eventId: string,
@@ -37,7 +55,10 @@ async function readEventDisplayName(
     .select('display_name')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    logQueryError('booking-fee-lock.readEventDisplayName', error, { eventId });
+    return null;
+  }
   return (data as { display_name?: string | null } | null)?.display_name ?? null;
 }
 

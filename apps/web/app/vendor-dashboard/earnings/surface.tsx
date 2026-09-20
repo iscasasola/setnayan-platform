@@ -4,6 +4,7 @@ import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readAllPages } from '@/lib/read-all-pages';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
@@ -71,19 +72,36 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
   // payouts so the page can render the confirmed / in-stage / paid split.
   // RLS already lets the vendor read their own payouts, so we use the user
   // client to respect server-side auth scoping.
-  const { data: payoutRows, error: payoutRowsError } = await supabase
-    .from('vendor_payouts')
-    .select(
-      `payout_id, payout_stage, stage, stage_pct, amount_centavos,
-       vendor_net_centavos, gross_centavos, bir_withholding_centavos,
-       gateway_fee_centavos, disbursement_fee_centavos,
-       scheduled_at, paid_at, released_at, dispute_window_ends_at, on_hold,
-       hold_reason, payment_method, payout_method, created_at,
-       order:orders!vendor_payouts_order_id_fkey(reference_code, description)`,
-    )
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .order('scheduled_at', { ascending: true, nullsFirst: false })
-    .limit(100);
+  //
+  // ⚠ THE TOTALS BELOW ARE SUMS, SO THE READ GOES TO THE END. It was
+  // `.limit(100)`: the 101st payout silently left "pending", "paid" and "on
+  // hold". Paged to the server's exact count; a read that stops short is
+  // treated like a refusal — the totals go unset, never smaller.
+  const payoutRead = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await supabase
+        .from('vendor_payouts')
+        .select(
+          `payout_id, payout_stage, stage, stage_pct, amount_centavos,
+           vendor_net_centavos, gross_centavos, bir_withholding_centavos,
+           gateway_fee_centavos, disbursement_fee_centavos,
+           scheduled_at, paid_at, released_at, dispute_window_ends_at, on_hold,
+           hold_reason, payment_method, payout_method, created_at,
+           order:orders!vendor_payouts_order_id_fkey(reference_code, description)`,
+          { count: 'exact' },
+        )
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .order('scheduled_at', { ascending: true, nullsFirst: false })
+        .order('payout_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  );
+  const payoutRowsError = payoutRead.complete
+    ? null
+    : { message: payoutRead.error ?? `read ${payoutRead.rows.length} rows without reaching the server count` };
+  const payoutRows = payoutRead.complete ? payoutRead.rows : null;
 
   type PayoutRow = {
     payout_id: string;

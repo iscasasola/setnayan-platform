@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   isBroadcastCaptureRoute,
+  isRoomDisplayRoute,
   isConsentSuppressedRoute,
 } from './capture-safe-routes';
 
@@ -100,4 +101,21 @@ test('isBroadcastCaptureRoute is exact-prefix and defensive too', () => {
   assert.equal(isBroadcastCaptureRoute(null), false);
   assert.equal(isBroadcastCaptureRoute(undefined), false);
   assert.equal(isBroadcastCaptureRoute(''), false);
+});
+
+test('DAY-12: a paired venue screen hides the consent banner — a room watches it, nobody can dismiss it', () => {
+  assert.equal(isConsentSuppressedRoute('/live/screen'), true);
+  assert.equal(isRoomDisplayRoute('/live/screen'), true);
+});
+
+test('DAY-12: the /live pairing page KEEPS the banner — a person is there to answer it', () => {
+  assert.equal(isConsentSuppressedRoute('/live'), false);
+  assert.equal(isRoomDisplayRoute('/live'), false);
+  assert.equal(isRoomDisplayRoute('/live/screens'), false, 'exact path, not a prefix');
+  assert.equal(isRoomDisplayRoute('/live/screen/extra'), false);
+  assert.equal(isRoomDisplayRoute(null), false);
+});
+
+test('DAY-12: the venue screen is not an encoder-capture surface — the two reasons stay separate', () => {
+  assert.equal(isBroadcastCaptureRoute('/live/screen'), false);
 });

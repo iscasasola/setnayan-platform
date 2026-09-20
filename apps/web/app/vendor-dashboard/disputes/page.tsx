@@ -6,6 +6,9 @@ import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitDisputeContest } from './actions';
 import { ShopEmpty, ShopNotice } from '../_components/kit';
+import { ListPager, keepParamsFrom } from '../_components/list-pager';
+import { paginate } from '@/lib/paginate';
+import { readVendorDisputes } from '@/lib/vendor-disputes-read';
 
 export const metadata = { title: 'Disputes · Vendor' };
 
@@ -68,7 +71,12 @@ const STATUS_TONE: Record<DisputeRow['status'], string> = {
   withdrawn: 'bg-ink/10 text-ink/60',
 };
 
-export default async function VendorDisputesPage() {
+type Props = {
+  searchParams: Promise<{ dpage?: string; [key: string]: string | string[] | undefined }>;
+};
+
+export default async function VendorDisputesPage({ searchParams }: Props) {
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -91,17 +99,17 @@ export default async function VendorDisputesPage() {
 
   // RLS-scoped: only disputes filed against this vendor's profile (or opened by
   // this user). No admin client — the vendor's own session is enough.
-  const { data, error } = await supabase
-    .from('vendor_disputes')
-    .select(
-      'dispute_id,public_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,vendor_contest,vendor_contested_at,created_at',
-    )
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .order('created_at', { ascending: false })
-    .limit(200);
-
-  const rows = (data ?? []) as DisputeRow[];
+  // Read to the END (`readVendorDisputes`), then drawn 20 at a time through the
+  // shared pager. It was `.limit(200)`: the 201st dispute could not be seen,
+  // so it could not be contested.
+  const disputeRead = await readVendorDisputes<DisputeRow>(
+    supabase,
+    profile.vendor_profile_id,
+  );
+  const incomplete = !disputeRead.complete;
+  const rows = disputeRead.rows;
   const openCount = rows.filter((r) => r.status === 'open').length;
+  const disputesPage = paginate(rows, search.dpage);
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
@@ -125,13 +133,15 @@ export default async function VendorDisputesPage() {
         </div>
       </header>
 
-      {error ? (
+      {incomplete ? (
         <ShopNotice tone="gold" role="alert" className="mb-4">
-          Your disputes couldn&apos;t load right now. Refresh in a moment.
+          {rows.length === 0
+            ? 'Your disputes couldn\u2019t load right now. Refresh in a moment.'
+            : 'Some of your disputes couldn\u2019t load right now, so this list may be missing some. Refresh in a moment.'}
         </ShopNotice>
       ) : null}
 
-      {rows.length === 0 && !error ? (
+      {rows.length === 0 && !incomplete ? (
         <ShopEmpty>
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <p className="mt-3 text-sm font-medium text-ink">No disputes — nice work.</p>
@@ -148,11 +158,18 @@ export default async function VendorDisputesPage() {
               {openCount === 1 ? 'dispute is' : 'disputes are'} under review.
             </p>
           ) : null}
-          <ul className="space-y-4">
-            {rows.map((r) => (
+          <ul id="disputes-list" className="scroll-mt-24 space-y-4">
+            {disputesPage.items.map((r) => (
               <DisputeCard key={r.dispute_id} row={r} />
             ))}
           </ul>
+          <ListPager
+            paged={disputesPage}
+            param="dpage"
+            keepParams={keepParamsFrom(search, ['dpage'])}
+            hash="disputes-list"
+            noun="disputes"
+          />
         </>
       )}
     </div>

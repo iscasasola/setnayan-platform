@@ -62,21 +62,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * half is GENERATED from the route folders on disk, so listing `app/live/`
  * before it exists breaks its drift test.
  *
- * ⏭ `app/live/` STILL DOES NOT EXIST, so this path still resolves to nothing.
- * That is unchanged and harmless — the helper has zero application callers. What
- * the ruling and the name bought is that the remaining work is now BOUNDED and
- * its address is safe from being taken in the meantime.
+ * ✅ BUILT 2026-09-20 (DAY-12), after the owner answered the three questions
+ * that had stopped it (screens belong in the unified Live Studio controller;
+ * modes are live background + mirror + off, NEVER the photo wall; the mirror
+ * is fine if the screen says it is behind). What now exists:
+ *   • `app/live/` — the pairing page and `app/live/screen/`, the picture;
+ *   • the controller's screens manager and its writes
+ *     (`app/panood/control/[eventId]/screens-actions.ts`), which call
+ *     `generateScreenPairingCode()` for every new or re-issued code;
+ *   • the mode rules both ends import (`lib/live-screens.ts`) and the device
+ *     credential (`lib/live-screen-session.ts`).
  *
- * ✅ WHAT ALREADY SHIPS, so nobody rebuilds it: the durable `panood_screens` row
- * with its routed `current_source`; the control room writing that routing
- * (`studio/panood/broadcast/actions.ts`); and `generateScreenPairingCode()`, a
- * proper 6-char Crockford-style code with rejection sampling. What is missing is
- * exactly three things — a caller for `provisionPanoodScreensAdmin` (so a screen
- * row is ever created), a caller for the code generator (currently ZERO), and
- * the screen-side pairing route above.
- *
- * The couple-facing note on the cameras page is deliberately an honest "not
- * connected yet" rather than a fake door. Leave it honest until the route exists.
+ * `provisionPanoodScreensAdmin` is still uncalled, deliberately: screens are
+ * added one at a time by the host, not minted in bulk on a payment approval.
+ * Its `current_source` would also be the legacy 'photos' default.
  */
 export const PANOOD_SCREEN_PAIR_PATH = '/live';
 

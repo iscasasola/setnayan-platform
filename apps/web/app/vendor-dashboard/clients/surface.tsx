@@ -7,10 +7,10 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { paginate } from '@/lib/paginate';
 import {
-  fetchVendorBlocks,
+  fetchVendorBlocksDetailed,
   fetchVendorPools,
 } from '@/lib/vendor-schedule';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import { importExternalClient, removeBlock } from '../calendar/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -112,7 +112,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const [pools, bookings, blocks, threadsRead] = await Promise.all([
+  const [pools, roomRead, blocksRead, threadsRead] = await Promise.all([
     fetchVendorPools(supabase, profile.vendor_profile_id),
     // S43 · OFF THE POOL READ, the same rule #5634 (SUP-8) gave Today's
     // Upcoming list. The pool has one writer, reached by one booking path, so a
@@ -121,11 +121,15 @@ export default async function VendorClientsPage({ searchParams }: Props) {
     // Setnayan" list — while the money had in some cases already moved. The
     // room read is the pool PLUS those two arms. A row with no pool is labelled
     // by the arm that admitted it (`bookedLabel` below), never a guessed pool.
-    fetchVendorRoomEvents(supabase, profile.vendor_profile_id),
-    fetchVendorBlocks(supabase, profile.vendor_profile_id),
+    // Detailed: each read says whether it reached the server's count, and the
+    // Booked / Outside lists say so on screen when it did not.
+    fetchVendorRoomEventsDetailed(supabase, profile.vendor_profile_id),
+    fetchVendorBlocksDetailed(supabase, profile.vendor_profile_id),
     fetchVendorThreadsDetailed(supabase, profile.vendor_profile_id),
   ]);
   const threads = threadsRead.threads;
+  const bookings = roomRead.events;
+  const blocks = blocksRead.blocks;
   const notice = search.notice ? NOTICES[search.notice] : undefined;
 
   /*
@@ -383,7 +387,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           keepParams={keepParamsFrom(search, ['cbpage'])}
           hash="clients-booked"
           noun="booked clients"
-          incomplete={!threadsRead.complete}
+          incomplete={!threadsRead.complete || !roomRead.complete}
         />
       </div>
 
@@ -540,7 +544,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           keepParams={keepParamsFrom(search, ['copage'])}
           hash="clients-outside"
           noun="outside clients"
-          incomplete={false}
+          incomplete={!blocksRead.complete}
         />
 
         {pools.length > 0 ? (

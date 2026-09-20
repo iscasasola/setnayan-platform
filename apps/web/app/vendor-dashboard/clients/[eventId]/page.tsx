@@ -106,7 +106,8 @@ import {
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { BookingMoneySummary } from './_components/booking-money-summary';
-import { bookingMoney, type BookingMoney, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
+import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
+import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
   appointmentCategoriesFor,
@@ -144,9 +145,20 @@ import {
 // file used to carry was byte-identical to the kit's dominant card recipe.
 import { ShopCard, ShopCard as Card, ShopEmpty, shopInputClass } from '../../_components/kit';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
+import {
+  acceptedQuoteTerms,
+  firstPaymentSentence,
+  pesoFromCentavos,
+  supplierFirstPaymentStatus,
+  moneyStepLine,
+  type SupplierFirstPaymentStatus,
+} from '@/lib/accepted-quote-terms';
+import { readBookedMoney } from '@/lib/booked-money-step.server';
+import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
+import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -392,6 +404,9 @@ type ProposalRow = {
   valid_until: string | null;
   sent_at: string | null;
   created_at: string;
+  /** Read for the accepted quote's terms (`acceptedQuoteTerms`). */
+  line_items: unknown;
+  payment_schedule: unknown;
 };
 
 type ContractRow = {
@@ -535,7 +550,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .maybeSingle(),
       supabase
         .from('vendor_proposals')
-        .select('proposal_id, public_id, title, status, total_centavos, valid_until, sent_at, created_at')
+        .select('proposal_id, public_id, title, status, total_centavos, valid_until, sent_at, created_at, line_items, payment_schedule')
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false }),
@@ -643,6 +658,63 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     Boolean(completion?.service_marked_complete_at) && !isCompleteConfirmed && !isDisputed;
 
   const proposals = (proposalRows ?? []) as ProposalRow[];
+
+  // THE FIRST PAYMENT YOU ASKED FOR — the supplier's end of the couple's
+  // "First payment requested" line (2026-09-19). Same rule, same quote
+  // (`acceptedQuoteTerms`), plus the couple's recorded deposit row from the
+  // payment log (the one deposit reader, `recordedDepositPhp`). A refused
+  // ledger read leaves the amount unknown ("an amount"), never ₱0.
+  const acceptedTerms = acceptedQuoteTerms(proposals, brief.event.event_date);
+  let recordedDeposit: number | null = null;
+  if (acceptedTerms?.firstPaymentCentavos != null && completion?.vendor_id && completion.deposit_recorded_at) {
+    const { data: depRows, error: depErr } = await admin
+      .from('event_vendor_payments')
+      .select('amount_php, is_deposit_record')
+      .eq('event_id', eventId)
+      .eq('vendor_id', completion.vendor_id)
+      .eq('is_deposit_record', true);
+    if (depErr) {
+      // eslint-disable-next-line no-console
+      console.error('[VendorClientPage] recorded deposit read failed', depErr.message);
+    } else {
+      recordedDeposit = recordedDepositPhp((depRows ?? []) as LoggedPayment[], null);
+    }
+  }
+  const firstPaymentStatus = supplierFirstPaymentStatus({
+    terms: acceptedTerms,
+    recordedPhp: recordedDeposit,
+    recordedAt: completion?.deposit_recorded_at ?? null,
+    acknowledgedAt: completion?.deposit_acknowledged_at ?? null,
+    declinedAt: completion?.deposit_declined_at ?? null,
+  });
+  const firstPaymentSentenceText = firstPaymentSentence(acceptedTerms);
+  // THE NEXT INSTALLMENT, THIS END (2026-09-20). The couple's "Amount to pay"
+  // names the next payment from `moneyStep`; the supplier reads the same step
+  // here, so both ends name the same payment. Only once the first is settled —
+  // before that the status line above says it all.
+  const supplierMoney = acceptedTerms
+    ? await readBookedMoney(admin, {
+        eventId,
+        vendorProfileId: profile.vendor_profile_id,
+        eventDate: brief.event.event_date,
+      })
+    : null;
+  const supplierNextLine =
+    supplierMoney &&
+    (supplierMoney.step.kind === 'installment_due' || supplierMoney.step.kind === 'paid_in_full')
+      ? moneyStepLine(supplierMoney.step, 'vendor', 'the couple')
+      : null;
+  const firstPayment =
+    firstPaymentStatus && acceptedTerms && firstPaymentSentenceText
+      ? {
+          sentence: firstPaymentSentenceText,
+          status: firstPaymentStatus,
+          nextLine: supplierNextLine,
+          laterRows: acceptedTerms.schedule
+            .filter((r) => !r.isFirstPayment)
+            .map((r) => ({ label: r.label, amount: pesoFromCentavos(r.amountCentavos), dueText: r.dueText })),
+        }
+      : null;
   const contracts = (contractRows ?? []) as ContractRow[];
   const hasContract = contracts.length > 0;
 
@@ -773,6 +845,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ownership-gated timeline Today and /payday read. Empty when nothing is
   // logged, or when the read is refused (logged, never shown as money).
   let ledgerMoney: BookingMoney = { rows: [], receivedPhp: 0, expectedPhp: 0 };
+  // ⚠ A LEDGER THAT COULD NOT BE READ IS NOT AN EMPTY ONE. Refused or cut short,
+  // this used to render "No payments to confirm yet" over a real deposit. Now
+  // the Quote and Payments tabs say the payments couldn't load.
+  let ledgerUnreadable = false;
   if (isBooked) {
     const [plans, pending, payday] = await Promise.all([
       fetchPlanProgressForVendor({
@@ -785,17 +861,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
-      supabase.rpc('vendor_payday_installments'),
+      // This event's rows only, paged to the server's exact count
+      // (`lib/vendor-payday-read.ts`) — never one capped request.
+      readVendorPaydayInstallments(supabase, { eventId }),
     ]);
     planRowsAll = plans;
-    if (payday.error) {
-      logQueryError('VendorClientPage.paydayInstallments', payday.error, { eventId }, 'graceful_degrade');
-    } else if (plans.length === 0) {
-      ledgerMoney = bookingMoney(
-        (payday.data ?? []) as unknown as PaydayInstallmentRow[],
-        eventId,
-        eventVendorId,
+    if (!payday.complete) {
+      logQueryError(
+        'VendorClientPage.paydayInstallments',
+        { message: payday.error ?? `read ${payday.rows.length} rows without reaching the server count` },
+        { eventId },
+        'graceful_degrade',
       );
+      ledgerUnreadable = plans.length === 0;
+    } else if (plans.length === 0) {
+      ledgerMoney = bookingMoney(payday.rows, eventId, eventVendorId);
     }
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
@@ -847,15 +927,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     separately (`asksMeasured`) so the panel can say "we could not read this"
     instead of "there is nothing here", which are opposite sentences.
   */
-  const { data: askRows, error: askRowsError } = isBooked && eventVendorId
-    ? await supabase
-        .from('vendor_payment_asks')
-        .select('ask_id, amount_php, note, due_date, status, created_at')
-        .eq('event_vendor_id', eventVendorId)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(20)
-    : { data: null, error: null };
+  // Read to the END (`readOpenPaymentAsks`): it was `.limit(20)`, so a 21st
+  // open ask was hidden and the shop could bill the same thing twice.
+  const askRead = isBooked && eventVendorId
+    ? await readOpenPaymentAsks(supabase, eventVendorId)
+    : { rows: [] as OpenPaymentAskRow[], error: null, complete: true };
+  const askRowsError = askRead.error;
   // 🪤 SAME DEPLOY-WINDOW CARVE-OUT AS THE COUPLE'S SIDE. A relation this build
   // has not seen yet is a TRUE empty — nothing can have been written into a
   // table that does not exist — and reporting it as unmeasured would put the
@@ -870,8 +947,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const asksMeasured = !askRowsError || asksAbsent;
-  const paymentAsks = (askRows ?? []) as PaymentAskRow[];
+  // A read that stopped short of the server's count is NOT measured either —
+  // a shorter list of asks is exactly the double-bill this panel prevents.
+  const asksMeasured = asksAbsent || (!askRowsError && askRead.complete);
+  const paymentAsks = (asksMeasured ? askRead.rows : []) as PaymentAskRow[];
 
   // Delivery handovers (booked). event_vendor scoped — safe to read for the
   // vendor's own booking via their RLS.
@@ -1378,6 +1457,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
+      firstPayment={firstPayment}
       depositAcked={depositAcked}
       depositDeclined={depositDeclined}
       isCompleteConfirmed={isCompleteConfirmed}
@@ -1444,6 +1524,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
       ledgerMoney={ledgerMoney}
+      ledgerUnreadable={ledgerUnreadable}
       threadId={threadId}
       askPanel={askPanel}
     />
@@ -1601,6 +1682,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             Payments
           </p>
+          {ledgerUnreadable ? (
+            <LedgerUnreadableNote />
+          ) : (
+            <>
           <BookingMoneySummary money={ledgerMoney} />
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
@@ -1608,6 +1693,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
               : `No payments to confirm yet. When ${eventName} logs a payment, confirm it here.`}
           </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -2008,6 +2095,18 @@ function OverviewTab(props: {
   depositAcked: boolean;
   /** They answered "it never arrived" — a state that keeps the couple's record. */
   depositDeclined: boolean;
+  /**
+   * The first payment this supplier's ACCEPTED quote asked for, and whether the
+   * couple has recorded it (`supplierFirstPaymentStatus`). null = no accepted
+   * quote, or it requested no first payment.
+   */
+  firstPayment: {
+    sentence: string;
+    status: SupplierFirstPaymentStatus;
+    /** The next installment from `moneyStep`, once the first is settled. */
+    nextLine: string | null;
+    laterRows: { label: string; amount: string; dueText: string }[];
+  } | null;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
@@ -2039,6 +2138,7 @@ function OverviewTab(props: {
     depositRecorded,
     depositAcked,
     depositDeclined,
+    firstPayment,
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
@@ -2383,6 +2483,33 @@ function OverviewTab(props: {
         </Card>
       ) : null}
 
+      {firstPayment ? (
+        <Card>
+          <p className="text-sm font-medium text-ink">{firstPayment.sentence}</p>
+          <p
+            className={
+              firstPayment.status.state === 'recorded_short' || firstPayment.status.state === 'refused'
+                ? 'mt-1 text-xs text-warn-900'
+                : 'mt-1 text-xs text-ink/65'
+            }
+          >
+            {firstPayment.status.line}
+          </p>
+          {firstPayment.nextLine ? (
+            <p className="mt-1 text-xs font-medium text-ink">{firstPayment.nextLine}</p>
+          ) : null}
+          {firstPayment.laterRows.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs text-ink/65">
+              {firstPayment.laterRows.map((r, i) => (
+                <li key={`${i}-${r.label}`}>
+                  {r.label}: {r.amount} — due {r.dueText}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Card>
+      ) : null}
+
       {depositRecorded && eventVendorId ? (
         <Card>
           {search.deposit_ack === 'error' ? (
@@ -2596,6 +2723,8 @@ function QuoteTab(props: {
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
   ledgerMoney: BookingMoney;
+  /** The no-plan ledger read failed or was cut short — say so, never "none". */
+  ledgerUnreadable: boolean;
   threadId: string | null;
   /**
    * "Ask for a payment" — passed in rather than built here so this component
@@ -2604,8 +2733,17 @@ function QuoteTab(props: {
    */
   askPanel: React.ReactNode;
 }) {
-  const { proposals, isBooked, planRollup, planStepRows, pendingPayments, ledgerMoney, threadId, askPanel } =
-    props;
+  const {
+    proposals,
+    isBooked,
+    planRollup,
+    planStepRows,
+    pendingPayments,
+    ledgerMoney,
+    ledgerUnreadable,
+    threadId,
+    askPanel,
+  } = props;
   const steps = planStepRows?.steps ?? null;
 
   return (
@@ -2744,6 +2882,8 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
+        ) : ledgerUnreadable ? (
+          <LedgerUnreadableNote />
         ) : ledgerMoney.rows.length > 0 ? (
           <BookingMoneySummary money={ledgerMoney} />
         ) : (
@@ -3590,5 +3730,18 @@ function LockRequestAnswer({
         </form>
       </details>
     </div>
+  );
+}
+
+/** The booking's payments could not be read — said plainly, never as "none". */
+function LedgerUnreadableNote() {
+  return (
+    <p
+      role="status"
+      className="flex items-center gap-2 rounded-lg border border-warn-300/50 bg-warn-50 px-3 py-2.5 text-sm text-warn-900"
+    >
+      <Wallet aria-hidden className="h-4 w-4 shrink-0" /> Some payments on this booking
+      couldn&rsquo;t load. Reload the page to try again.
+    </p>
   );
 }

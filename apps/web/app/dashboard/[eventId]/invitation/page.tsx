@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
-import { Download, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -30,6 +30,8 @@ import { buildGuestInviteMessage } from '@/lib/guest-invite-message';
 import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { QrActions } from '@/app/_components/qr-actions';
+import { qrFileName, svgDataUri } from '@/lib/qr-download';
 
 export const metadata = { title: 'Invitations' };
 
@@ -470,17 +472,19 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {brandedActive ? (
-                        <a
-                          href={`/api/website/qr/guest/${guest.guest_id}`}
-                          download={`qr-${guestDisplayName(guest)
-                            .replace(/[^a-z0-9]+/gi, '-')
-                            .toLowerCase()}.png`}
-                          className="inline-flex items-center gap-1 text-sm text-ink/70 underline-offset-4 hover:text-ink hover:underline"
-                        >
-                          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                          PNG
-                        </a>
+                      {qr ? (
+                        <QrActions
+                          url={qr.url}
+                          download={
+                            brandedActive
+                              ? {
+                                  href: `/api/website/qr/guest/${guest.guest_id}`,
+                                  filename: qrFileName(guestDisplayName(guest), 'png'),
+                                  label: 'PNG',
+                                }
+                              : { href: svgDataUri(qr.svg), filename: qrFileName(guestDisplayName(guest)) }
+                          }
+                        />
                       ) : null}
                       {/* ⚖ SEND SITS BEFORE RE-ISSUE, and not only for reading order:
                           sending is the ordinary weekly act and re-issuing is the rare
@@ -564,17 +568,19 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   dayOfLive={dayOfLive}
                   rotatedAt={rotatedAtByGuest.get(guest.guest_id) ?? null}
                 />
-                {brandedActive ? (
-                  <a
-                    href={`/api/website/qr/guest/${guest.guest_id}`}
-                    download={`qr-${guestDisplayName(guest)
-                      .replace(/[^a-z0-9]+/gi, '-')
-                      .toLowerCase()}.png`}
-                    className="inline-flex items-center gap-1 text-sm text-ink/70 underline-offset-4 hover:text-ink hover:underline"
-                  >
-                    <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    Download PNG
-                  </a>
+                {qr ? (
+                  <QrActions
+                    url={qr.url}
+                    download={
+                      brandedActive
+                        ? {
+                            href: `/api/website/qr/guest/${guest.guest_id}`,
+                            filename: qrFileName(guestDisplayName(guest), 'png'),
+                            label: 'Download PNG',
+                          }
+                        : { href: svgDataUri(qr.svg), filename: qrFileName(guestDisplayName(guest)) }
+                    }
+                  />
                 ) : null}
               </div>
             </li>

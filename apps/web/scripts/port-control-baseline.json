@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8706b7af4",
+  "generatedFromRef": "d5d0e9ca4",
   "routeCount": 428,
-  "destinations": 918,
+  "destinations": 919,
   "actions": 643,
-  "blocks": 4487,
+  "blocks": 4493,
   "routes": {
     "/": {
       "files": [
@@ -985,6 +985,7 @@
         "MomentsEssay",
         "Monogram",
         "NavLinksRow",
+        "NfcWriteButton",
         "OurLoveStoryWidget",
         "OurPhotosWidget",
         "OurStory",
@@ -5593,6 +5594,7 @@
         "InviteLink",
         "InviteThemePicker",
         "Link",
+        "QrActions",
         "RegenerateInviteQrResult",
         "RegenerateQrButton",
         "SubmitButton"
@@ -5749,6 +5751,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "QrActions",
         "ReissueQrButton",
         "SlugField",
         "StatusBadge",
@@ -6605,6 +6608,7 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
+        "QrActions",
         "StudioBuyHero",
         "UnownedView"
       ]
@@ -7986,6 +7990,7 @@
         "dashboard/[eventId]/website/editor/page.tsx"
       ],
       "destinations": [
+        "/api/website/qr[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
         "/dashboard/[seg]/story",
         "/dashboard/[seg]/studio/save-the-date"
@@ -8024,6 +8029,7 @@
         "PhotoMomentsPanel",
         "PreviewTabKey",
         "ProLockPanel",
+        "QrActions",
         "ReturnTo",
         "RsvpBackdropPanel",
         "SaveButton",
@@ -9664,7 +9670,6 @@
         "ComingSoon",
         "Connected",
         "ContractDraftBody",
-        "CopyButton",
         "CorrectionRequestResult",
         "CountUp",
         "DeleteRequestBody",
@@ -9700,6 +9705,7 @@
         "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
+        "QrActions",
         "QrCard",
         "QuoteDraftBody",
         "ReviewBody",
@@ -10340,12 +10346,12 @@
         "issueLockedQr"
       ],
       "blocks": [
-        "CopyButton",
         "HTMLInputElement",
         "Icon",
         "Link",
         "LockedMode",
         "LockedQrGenerator",
+        "QrActions",
         "Row",
         "ShopCard",
         "ShopNotice",
@@ -10381,9 +10387,9 @@
       ],
       "actions": [],
       "blocks": [
-        "CopyButton",
         "Icon",
         "Link",
+        "QrActions",
         "ShopEmpty",
         "ShopPill",
         "StatusBadge"
@@ -10614,6 +10620,7 @@
         "ModuleConfigurator",
         "ModuleReadout",
         "NonPhotoConsole",
+        "QrActions",
         "RequestsInbox",
         "ServerRead",
         "SetActionResult",

@@ -42,6 +42,14 @@ import {
 import { costCategoryOptions } from '@/lib/event-costs';
 import type { BudgetStripMoney } from '@/lib/budget-page-money';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
+import {
+  ACCEPTED_QUOTE_SELECT,
+  acceptedQuoteTerms,
+  paymentDoor,
+  type AcceptedQuoteRow,
+  type AcceptedQuoteTerms,
+  type PaymentDoor,
+} from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
@@ -418,6 +426,58 @@ export default async function BudgetPage({ params }: Props) {
   );
   const installmentsByVendor = new Map<string, PlanInstance[] | null>(planEntries);
 
+  // THE ACCEPTED QUOTE, HERE TOO (2026-09-20 · #5717 follow-up c). This card
+  // said a quote-locked supplier "hasn't shared pricing yet" — it knew
+  // packages and services, never quotes. Same read, same rule
+  // (`acceptedQuoteTerms`) as the supplier's workspace. And the same door
+  // (`paymentDoor`): a Setnayan supplier's payments go through "Amount to pay",
+  // so "+ Log a payment" here points there instead of being a second writer.
+  // Two batched reads for every finalized supplier. A refused read degrades to
+  // today's card (no quote lines; the log door 'unknown', never a blind 'log').
+  const marketplaceFinalized = finalizedVendors.filter((s) => s.vendor.marketplace_vendor_id);
+  const quoteByVendor = new Map<string, AcceptedQuoteTerms | null>();
+  const doorByVendor = new Map<string, PaymentDoor>();
+  if (marketplaceFinalized.length > 0) {
+    const [{ data: quoteRows, error: quoteErr }, { data: depRows, error: depErr }] = await Promise.all([
+      supabase
+        .from('vendor_proposals')
+        .select(`${ACCEPTED_QUOTE_SELECT}, vendor_profile_id`)
+        .eq('event_id', eventId)
+        .eq('status', 'accepted'),
+      supabase
+        .from('event_vendors')
+        .select('vendor_id, deposit_recorded_at')
+        .eq('event_id', eventId)
+        .in(
+          'vendor_id',
+          marketplaceFinalized.map((s) => s.vendor.vendor_id),
+        ),
+    ]);
+    if (quoteErr) console.error('[budget] accepted-quote read refused', quoteErr.message, { event_id: eventId });
+    if (depErr) console.error('[budget] deposit-marker read refused', depErr.message, { event_id: eventId });
+    const quotes = (quoteRows ?? []) as (AcceptedQuoteRow & { vendor_profile_id: string | null })[];
+    const deps = new Map(
+      ((depRows ?? []) as { vendor_id: string; deposit_recorded_at: string | null }[]).map((r) => [
+        r.vendor_id,
+        r.deposit_recorded_at,
+      ]),
+    );
+    for (const s of marketplaceFinalized) {
+      const vid = s.vendor.vendor_id;
+      quoteByVendor.set(
+        vid,
+        acceptedQuoteTerms(quotes.filter((q) => q.vendor_profile_id === s.vendor.marketplace_vendor_id)),
+      );
+      doorByVendor.set(
+        vid,
+        paymentDoor({
+          isMarketplaceVendor: true,
+          depositRecordedAt: depErr || !deps.has(vid) ? undefined : (deps.get(vid) ?? null),
+        }),
+      );
+    }
+  }
+
   return (
     <section className="sn-col space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
@@ -586,6 +646,9 @@ export default async function BudgetPage({ params }: Props) {
                   variant="card"
                   directPayMethods={directPayByVendor.get(s.vendor.vendor_id) ?? []}
                   installments={installmentsByVendor.get(s.vendor.vendor_id) ?? null}
+                  acceptedQuoteLines={quoteByVendor.get(s.vendor.vendor_id)?.lines ?? null}
+                  acceptedQuoteTotalCentavos={quoteByVendor.get(s.vendor.vendor_id)?.totalCentavos ?? null}
+                  paymentDoor={doorByVendor.get(s.vendor.vendor_id) ?? 'log'}
                 />
               </li>
             ))}

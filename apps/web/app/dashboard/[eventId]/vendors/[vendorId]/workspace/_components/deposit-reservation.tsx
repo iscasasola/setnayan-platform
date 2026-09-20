@@ -26,6 +26,16 @@
 // (`noPayMethodsSentence`) instead of being shown an empty sheet; a refused
 // read says it could not load, never "they have none".
 //
+// ONE "AMOUNT TO PAY" (owner, 2026-09-20): "i think it is better to say amount
+// to pay. since this is not just for the downpayment but also for the next
+// payments". This card is the couple's ONE visible payment door for a booked
+// supplier. `moneyStep` (lib/accepted-quote-terms.ts) names the payment that is
+// due. The FIRST payment still posts `recordDeposit` (date held, supplier asked
+// to confirm, the row marked as THE deposit — its minimum enforced there); a
+// LATER installment posts `logScheduledPayment`, which runs `logPayment`.
+// Neither is re-implemented here. The chat quote card mounts this same
+// component, so the thread and the Payments tab cannot drift apart.
+//
 // OFF-PLATFORM MONEY: this records a host-entered PHP figure for the couple's
 // own ledger and holds the date — it is NOT a charge through Setnayan. Setnayan
 // never holds funds. Recording does NOT change the order status (orthogonal).
@@ -34,6 +44,9 @@
 import { useRef, useState, useTransition } from 'react';
 import { AlertTriangle, CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
 import { recordDeposit } from '../../../actions';
+import { logScheduledPayment } from '@/app/dashboard/[eventId]/budget/actions';
+import { FileUpload } from '@/app/_components/file-upload';
+import { pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { useSaveLoader } from '@/components/sd-loader';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -63,6 +76,25 @@ type Props = {
    */
   payMethods: CoupleFacingMethod[];
   payMethodsState: CouplePayMethodsState;
+  /**
+   * The first payment the accepted quote requested, in centavos — the MINIMUM
+   * the deposit may be (`recordDeposit` refuses less, via
+   * `decideDepositAmount`). null = no accepted quote / no schedule: the form
+   * behaves as it always did.
+   */
+  requestedFirstPaymentCentavos?: number | null;
+  /** "First payment requested: ₱3,350 — due on lock" (`firstPaymentSentence`). */
+  requestedFirstPaymentSentence?: string | null;
+  /** The accepted-quote read was refused — say so rather than show no request. */
+  requestedTermsUnreadable?: boolean;
+  /**
+   * The next money step (`moneyStep`). Drives the later-installment form once
+   * the first payment is confirmed. null/absent = the card behaves as the
+   * first-payment card it always was.
+   */
+  step?: MoneyStep | null;
+  /** Compact chrome for the chat quote card (no anchor id, no outer border). */
+  compact?: boolean;
 };
 
 function fmtDate(iso: string | null): string {
@@ -90,7 +122,16 @@ export function DepositReservation({
   depositDisputeNote,
   payMethods,
   payMethodsState,
+  requestedFirstPaymentCentavos = null,
+  requestedFirstPaymentSentence = null,
+  requestedTermsUnreadable = false,
+  step = null,
+  compact = false,
 }: Props) {
+  const minimumPhp =
+    requestedFirstPaymentCentavos && requestedFirstPaymentCentavos > 0
+      ? requestedFirstPaymentCentavos / 100
+      : null;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -104,6 +145,17 @@ export function DepositReservation({
   // Confirmed or awaiting an answer → paying again is not the next step.
   const owed = (!recorded || declined) && !acked;
   const noMethods = noPayMethodsSentence(payMethodsState, payMethods.length, vendorName);
+  const firstLabel =
+    step && step.kind === 'first_payment_due' ? step.label : 'First payment · locks the date';
+  const later = step && step.kind === 'installment_due' ? step : null;
+  const paidInFull = step && step.kind === 'paid_in_full' ? step : null;
+  // Money already on the ledger with no first payment recorded: the next step
+  // is the next installment (`decideDepositRecord` will not re-record it), so
+  // the first-payment form must not be offered on top of it.
+  const firstPaymentOffered = (!recorded || declined) && !(later && !recorded);
+  // Something is due now: the first payment, or the next installment after it.
+  // ONE pay sheet serves both (the supplier's destinations do not change).
+  const payDue = (owed && firstPaymentOffered) || later !== null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -113,15 +165,15 @@ export function DepositReservation({
     form.set('vendor_id', vendorId);
     startTransition(async () => {
       const result = await save.run(() => recordDeposit(form), {
-        steps: ['Recording the deposit'],
+        steps: ['Recording the payment'],
         hint: 'Saving',
       });
       if (result.status === 'ok') {
         setOpen(false);
       } else if (result.status === 'not_signed_in') {
-        setErrorMsg('Please sign in again to record the deposit.');
+        setErrorMsg('Please sign in again to record the payment.');
       } else {
-        setErrorMsg(result.message ?? 'Could not record the deposit — please try again.');
+        setErrorMsg(result.message ?? 'Could not record the payment — please try again.');
       }
     });
   }
@@ -129,12 +181,16 @@ export function DepositReservation({
   return (
     <div
       id={DEPOSIT_ANCHOR_ID}
-      className="scroll-mt-24 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4"
+      className={
+        compact
+          ? 'space-y-2 pt-1'
+          : 'scroll-mt-24 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4'
+      }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-xs font-semibold text-ink">
           <CalendarCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Deposit reservation
+          Amount to pay
         </p>
 
         {acked ? (
@@ -157,7 +213,7 @@ export function DepositReservation({
 
       {recorded ? (
         <p className="text-[11px] text-ink/60">
-          Deposit recorded {fmtDate(depositRecordedAt)} — your date is held on{' '}
+          First payment recorded {fmtDate(depositRecordedAt)} — your date is held on{' '}
           {vendorName}&rsquo;s schedule.{' '}
           {acked
             ? `Confirmed by ${vendorName} on ${fmtDate(depositAcknowledgedAt)}.`
@@ -173,10 +229,25 @@ export function DepositReservation({
         </p>
       )}
 
+      {/* THE REQUESTED FIRST PAYMENT (owner, 2026-09-19: "i do not see the
+          3350 downpayment"). From the accepted quote's schedule; it is the
+          minimum the form below accepts. */}
+      {owed && firstPaymentOffered && requestedFirstPaymentSentence ? (
+        <p className="rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink">
+          {requestedFirstPaymentSentence}
+        </p>
+      ) : null}
+      {owed && firstPaymentOffered && requestedTermsUnreadable ? (
+        <p role="status" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
+          We couldn&rsquo;t load the payment terms from your accepted quote, so the
+          first payment {vendorName} asked for isn&rsquo;t shown. Refresh to try again.
+        </p>
+      ) : null}
+
       {/* STEP 1 · PAY THEM — the supplier's own destinations, first in the
           reading order, only while a deposit is still owed. The disclosure
           rides inside VendorDirectPay (always-on line + the sheet's locked copy). */}
-      {owed ? (
+      {payDue ? (
         <div className="space-y-1.5 pt-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             1 · Pay {vendorName}
@@ -219,7 +290,7 @@ export function DepositReservation({
           className="inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          View deposit proof
+          View payment proof
         </a>
       ) : null}
 
@@ -229,34 +300,43 @@ export function DepositReservation({
           couple told their payment was refused and given no way to answer — a
           fix nobody can reach. Sending again clears the refusal and puts the
           question back in front of the supplier. */}
-      {(!recorded || declined) && !open ? (
+      {(!recorded || declined) && !open && firstPaymentOffered ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
         >
           <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {declined ? 'Send it again' : 'Record deposit'}
+          {declined ? 'Send it again' : 'Record payment'}
         </button>
       ) : null}
 
       {open ? (
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           <div className="space-y-1">
+            <p className="text-[11px] font-semibold text-ink">{firstLabel}</p>
             <label htmlFor="deposit_php" className="block text-[11px] font-medium text-ink/70">
-              Deposit amount paid (₱)
+              Amount to pay (₱)
             </label>
             <input
               id="deposit_php"
               name="deposit_php"
               type="number"
-              min="1"
+              min={minimumPhp ?? 1}
               step="0.01"
               required
               inputMode="decimal"
-              placeholder="e.g. 10000"
+              defaultValue={minimumPhp ?? undefined}
+              placeholder={minimumPhp ? undefined : 'e.g. 10000'}
+              aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
               className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
+            {minimumPhp ? (
+              <p id="deposit_php_min" className="text-[11px] text-ink/55">
+                At least ₱{minimumPhp.toLocaleString('en-PH', { maximumFractionDigits: 2 })} — the
+                first payment {vendorName} asked for. You may pay more.
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -290,7 +370,7 @@ export function DepositReservation({
 
           <div className="space-y-1">
             <label htmlFor="proof" className="block text-[11px] font-medium text-ink/70">
-              Proof of deposit <span className="text-ink/40">(optional — screenshot/receipt)</span>
+              Proof of payment <span className="text-ink/40">(optional — screenshot/receipt)</span>
             </label>
             <input
               id="proof"
@@ -319,7 +399,7 @@ export function DepositReservation({
               ) : (
                 <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               )}
-              Record &amp; hold date
+              Record payment
             </button>
             <button
               type="button"
@@ -335,6 +415,159 @@ export function DepositReservation({
           </div>
         </form>
       ) : null}
+
+      {/* THE NEXT INSTALLMENT — after the first payment is confirmed (or when
+          money was already logged without one). Prefilled from the accepted
+          quote's schedule; a partial payment is still a payment, so there is
+          no minimum here — only the FIRST payment has a floor. */}
+      {later ? (
+        <LaterInstallment
+          eventId={eventId}
+          vendorId={vendorId}
+          vendorName={vendorName}
+          label={later.label}
+          amountCentavos={later.amountCentavos}
+        />
+      ) : null}
+      {paidInFull ? (
+        <p className="rounded-md border border-success-300 bg-success-50 px-2.5 py-1.5 text-xs font-medium text-success-800">
+          Paid in full — {pesoFromCentavos(paidInFull.paidCentavos)} per the quote you accepted.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function LaterInstallment({
+  eventId,
+  vendorId,
+  vendorName,
+  label,
+  amountCentavos,
+}: {
+  eventId: string;
+  vendorId: string;
+  vendorName: string;
+  label: string;
+  amountCentavos: number | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const save = useSaveLoader();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrorMsg(null);
+    const form = new FormData(e.currentTarget);
+    form.set('event_id', eventId);
+    form.set('vendor_id', vendorId);
+    startTransition(async () => {
+      const result = await save.run(() => logScheduledPayment(form), {
+        steps: ['Recording the payment'],
+        hint: 'Saving',
+      });
+      if (result.status === 'ok') setOpen(false);
+      else setErrorMsg(result.message);
+    });
+  }
+
+  return (
+    <div className="space-y-2 border-t border-ink/10 pt-2">
+      <p className="rounded-md border border-terracotta/25 bg-terracotta/[0.05] px-2.5 py-1.5 text-xs font-medium text-ink">
+        {label}
+        {amountCentavos !== null ? ` · ${pesoFromCentavos(amountCentavos)}` : ''}
+      </p>
+      <p className="sr-only">Pay {vendorName} through one of the destinations above, then record it.</p>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800"
+        >
+          <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Record payment
+        </button>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+          <div className="space-y-1">
+            <label htmlFor="later_amount_php" className="block text-[11px] font-medium text-ink/70">
+              Amount to pay (₱)
+            </label>
+            <input
+              id="later_amount_php"
+              name="amount_php"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              inputMode="decimal"
+              defaultValue={amountCentavos !== null ? amountCentavos / 100 : undefined}
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+            />
+            <p className="text-[11px] text-ink/55">
+              Paying part of it? Enter what you paid — the rest stays due.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              name="method"
+              maxLength={48}
+              aria-label="Method (optional)"
+              placeholder="Method (GCash / BDO / cash)"
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+            />
+            <input
+              name="reference"
+              maxLength={64}
+              aria-label="Reference (optional)"
+              placeholder="Reference #"
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+            />
+          </div>
+          {/* The same private receipt upload the payment log uses — logPayment
+              reads it as `proof_r2_key`. */}
+          <FileUpload
+            name="proof_r2_key"
+            bucket="thread-files"
+            pathPrefix={`payment-proof/events/${eventId}`}
+            maxSizeMB={5}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            label="Attach receipt (optional)"
+            variant="wide"
+          />
+          {errorMsg ? (
+            <p role="alert" className="text-[11px] font-medium text-danger-600">
+              {errorMsg}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
+            >
+              {pending ? (
+                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              )}
+              Record payment
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setErrorMsg(null);
+              }}
+              disabled={pending}
+              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

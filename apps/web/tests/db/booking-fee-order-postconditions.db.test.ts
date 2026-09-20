@@ -102,7 +102,18 @@ let admin: SupabaseClient;
  * that threw would abort the function before the compensating delete and make
  * the rollback untestable while looking like a crash.
  */
-type PgError = { message: string } | null;
+// `code` carries the SQLSTATE, exactly like supabase-js's PostgrestError — the
+// one-bill-per-charge arm branches on '23505', so an adapter that dropped it
+// would make that arm unreachable while every other test stayed green.
+type PgError = { message: string; code?: string } | null;
+
+function asPgError(e: unknown): { message: string; code?: string } {
+  const code = (e as { code?: unknown } | null)?.code;
+  return {
+    message: e instanceof Error ? e.message : String(e),
+    ...(typeof code === 'string' ? { code } : {}),
+  };
+}
 type Row = Record<string, unknown>;
 
 function assertModelled(ok: boolean, what: string): asserts ok {
@@ -204,7 +215,7 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       if (this.op === 'insert' && !this.projection) return { data: null, error: null };
       return { data: (res.rows ?? []) as Row[], error: null };
     } catch (e) {
-      return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+      return { data: null, error: asPgError(e) };
     }
   }
 
@@ -235,7 +246,7 @@ function makeAdminClient(pg: PGlite): SupabaseClient {
         const res = await pg.query<{ result: unknown }>(sql, keys.map((k) => params[k]));
         return { data: res.rows[0]?.result ?? null, error: null };
       } catch (e) {
-        return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+        return { data: null, error: asPgError(e) };
       }
     },
   } as unknown as SupabaseClient;
@@ -927,4 +938,104 @@ test('a card that said NO → the bill is exactly the fee, byte-for-byte as befo
   const [order] = await ordersForCharge(res.chargeId);
   assert.doesNotMatch(order!.description, /Setnayan gift/);
   assert.match(order!.description, /^Setnayan booking fee \(.*\) — up for verification, confirmation within 24 hrs$/);
+});
+
+/* ── 7 · ONE BILL PER CHARGE, ENFORCED BY THE DATABASE (owner 2026-09-20) ────
+ * Migration 20271234849476: a PARTIAL unique index on orders(service_key) for
+ * `vendor_booking_fee__%` keys. The existence check above closes the sequential
+ * re-lock; this closes the RACE — two writers that both read "no order yet".
+ */
+
+/** A minimal order row the way the app writes one (service_role, submitted). */
+async function rawOrderAsService(userId: string, serviceKey: string): Promise<string | null> {
+  await db.exec('SET ROLE service_role');
+  try {
+    await db.query(
+      `INSERT INTO public.orders (user_id, service_key, description, requested_total_php, status, reference_code)
+       VALUES ($1, $2, 'fixture', 100, 'submitted', 'SN' || upper(substr(md5(random()::text), 1, 8)))`,
+      [userId, serviceKey],
+    );
+    return null;
+  } catch (e) {
+    return (e as { code?: string }).code ?? (e instanceof Error ? e.message : String(e));
+  } finally {
+    await db.exec('RESET ROLE').catch(() => {});
+  }
+}
+
+test('the database refuses a SECOND order for one booking-fee charge — and only for booking-fee keys', async () => {
+  const { userId } = await newVendor('uniq-raw@fee.test');
+  const feeKey = bookingFeeLockServiceKey('00000000-0000-4000-8000-00000000abcd');
+
+  assert.equal(await rawOrderAsService(userId, feeKey), null, 'the first bill for the charge is written');
+  assert.equal(await rawOrderAsService(userId, feeKey), '23505', 'a second bill for the SAME charge is refused (unique_violation)');
+  const n = await db.query<{ c: number }>(`SELECT count(*)::int c FROM public.orders WHERE service_key = $1`, [feeKey]);
+  assert.equal(n.rows[0]!.c, 1, 'exactly one bill survives');
+
+  // The CONTROL — why the index is partial. A SKU code is shared by every buyer
+  // (prod 2026-09-20: ONBOARDING_SERVICES × 5) and a branch key is reused on
+  // every renewal. Both must still accept a second order.
+  for (const shared of ['ONBOARDING_SERVICES', 'vendor_additional_branch__00000000-0000-4000-8000-0000000000b1']) {
+    assert.equal(await rawOrderAsService(userId, shared), null, `${shared}: first order`);
+    assert.equal(await rawOrderAsService(userId, shared), null, `${shared}: a repeat purchase / renewal is NOT a double bill`);
+  }
+});
+
+/**
+ * The race, reproduced deterministically: a client whose FIRST existence check
+ * on `orders` answers "no order yet" (as a concurrent writer's would, before the
+ * winner commits), then behaves normally. Everything else is the real adapter.
+ */
+function blindToTheFirstOrderCheck(real: SupabaseClient): SupabaseClient {
+  let blinded = false;
+  return {
+    rpc: real.rpc.bind(real),
+    from(table: string) {
+      const t = real.from(table);
+      if (table !== 'orders' || blinded) return t;
+      return {
+        ...t,
+        select: () => {
+          blinded = true;
+          const blind = {
+            eq: () => blind,
+            limit: () => blind,
+            maybeSingle: async () => ({ data: null, error: null }),
+          };
+          return blind;
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+}
+
+test('a racing second writer gets already_billed — ONE order, ONE payment, pointing at the winner', async () => {
+  const { vendorProfileId } = await newVendor('race@fee.test');
+  await warmPastFree5(vendorProfileId, 'race');
+  const eventId = await newEvent('race-6');
+  const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+
+  const first = await collect(evId);
+  assert.ok(first.status === 'ordered', `first writer bills: ${first.status}`);
+  const censusBefore = await moneyRowCensus();
+
+  // The loser: its existence check saw nothing, so it reaches the insert.
+  const realAdmin = admin;
+  admin = blindToTheFirstOrderCheck(realAdmin);
+  let second: CollectResult;
+  try {
+    second = await collect(evId);
+  } finally {
+    admin = realAdmin;
+  }
+
+  // ROWS FIRST — the harm is a second bill, not a status word.
+  assert.equal((await ordersForCharge(first.chargeId)).length, 1, 'the database kept ONE bill for the charge');
+  assert.equal((await paymentsLinkedToChargeOrder(first.chargeId)).length, 1, 'and one payment row');
+  await assertWroteNoMoneyRows(censusBefore, 'a racing second writer');
+
+  assert.equal(second.status, 'already_billed', 'the loser reads the refusal as "already billed", not a failure');
+  assert.ok(second.status === 'already_billed');
+  assert.equal(second.chargeId, first.chargeId);
+  assert.equal(second.orderId, first.orderId, 'and points at the surviving bill');
 });

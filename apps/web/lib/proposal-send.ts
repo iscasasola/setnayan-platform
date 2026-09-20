@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
@@ -557,7 +558,7 @@ export async function sendCustomProposalCore(
     // committing to any of them. Measured on the first real quote: accepted
     // 06:46, event_vendor_line_items 0 — the behaviour was right and only the
     // sentence was wrong.
-    `Quote from ${profile.business_name ?? 'your vendor'}. Review the line items below. Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Lock.`;
+    `Quote from ${profile.business_name ?? 'your vendor'}. Review the line items below. ${DEFAULT_QUOTE_NOTE_TAIL}`;
 
   const validUntil = (input.validUntil ?? '').trim();
 

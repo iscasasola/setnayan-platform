@@ -4,6 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 
+/**
+ * How a guest was checked in — `guest_checkins.method`, CHECKed in the DB
+ * (migration 20271234853164 added 'nfc_tap'). The desk sets it from the path
+ * that found the guest.
+ */
+export type CheckinMethod = 'qr_scan' | 'nfc_tap' | 'manual_search';
+
 export type CheckinActionResult =
   | { ok: true; checkedInAt: string }
   | { ok: false; error: string };
@@ -34,7 +41,7 @@ async function assertDoorCrew(eventId: string) {
 export async function checkInGuest(
   eventId: string,
   guestId: string,
-  method: 'qr_scan' | 'manual_search',
+  method: CheckinMethod,
 ): Promise<CheckinActionResult> {
   let user;
   try {

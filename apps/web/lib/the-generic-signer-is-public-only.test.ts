@@ -206,6 +206,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   'app/dashboard/[eventId]/disputes/page.tsx': 1, // thread-files → force_majeure_flags.evidence_urls
   'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx': 1, // thread-files → payments.screenshot_url
   'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx': 1, // thread-files → event_vendor_payments.proof_r2_key
+  // Amount to pay's later-installment form (2026-09-20) — the SAME column and
+  // path prefix as the payment log above; it posts `logPayment`, whose
+  // `budgetPaymentProofPolicy` keeps the ref, and whose reader is already scoped.
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx': 1, // thread-files → event_vendor_payments.proof_r2_key
   'app/dashboard/[eventId]/paperwork/page.tsx': 1, // vendor-contracts → event_paperwork.document_r2_key
   'app/vendor-dashboard/shop/_components/verify-pairs.tsx': 1, // vendor-verification → doc_uploads
   'app/vendor-dashboard/shop/_components/docs-body.tsx': 2, // vendor-verification → doc_uploads

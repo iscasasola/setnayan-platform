@@ -224,22 +224,45 @@ test('4 · nsfw-screen.ts logs all three previously-silent capture-table reads',
 test('5 · panood-moments.ts and panood-screens.ts log their degrade + provisioning-failure branches', () => {
   const moments = read('panood-moments.ts');
   const screens = read('panood-screens.ts');
-  assert.equal(countOf(moments, '[supabase-error] lib/panood-moments.ts'), 2);
-  assert.equal(countOf(screens, '[supabase-error] lib/panood-screens.ts'), 2);
+  // Anchored per named site (not the bare per-file marker, which would flap
+  // on any new, distinct log line added to either file later), with a floor.
+  const MOMENTS_SITES = [
+    '[supabase-error] lib/panood-moments.ts · from:panood_moments.select (pre-bootstrap, degraded to [])',
+    '[supabase-error] lib/panood-moments.ts · from:panood_moments.insert (provisionPanoodMomentsAdmin)',
+  ];
+  for (const label of MOMENTS_SITES) assert.ok(countOf(moments, label) >= 1, `missing: ${label}`);
+  assert.ok(countOf(moments, '[supabase-error] lib/panood-moments.ts') >= MOMENTS_SITES.length);
+
+  const SCREENS_SITES = [
+    '[supabase-error] lib/panood-screens.ts · from:panood_screens.select (pre-bootstrap, degraded to [])',
+    '[supabase-error] lib/panood-screens.ts · from:panood_screens.upsert (provisionPanoodScreensAdmin)',
+  ];
+  for (const label of SCREENS_SITES) assert.ok(countOf(screens, label) >= 1, `missing: ${label}`);
+  assert.ok(countOf(screens, '[supabase-error] lib/panood-screens.ts') >= SCREENS_SITES.length);
 });
 
 test('6 · promo-free-windows.ts and venue-recommendations.ts log every previously-silent select', () => {
   const promo = read('promo-free-windows.ts');
   const venue = read('venue-recommendations.ts');
-  assert.equal(
-    countOf(promo, '[supabase-error] lib/promo-free-windows.ts'),
-    2,
-    'couple-audience + vendor-audience window reads',
+  const PROMO_SITES = [
+    '[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (couple audience)',
+    '[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (vendor audience)',
+  ];
+  for (const label of PROMO_SITES) assert.ok(countOf(promo, label) >= 1, `missing: ${label}`);
+  assert.ok(
+    countOf(promo, '[supabase-error] lib/promo-free-windows.ts') >= PROMO_SITES.length,
+    'couple-audience + vendor-audience window reads (floor, not exact)',
   );
-  assert.equal(
-    countOf(venue, '[supabase-error] lib/venue-recommendations.ts'),
-    3,
-    'findPairedCeremonyVenues + findCeremonyVenuesByFaith + findReceptionVenuesByVenueSetting',
+
+  const VENUE_SITES = [
+    '[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findPairedCeremonyVenues)',
+    '[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findCeremonyVenuesByFaith)',
+    '[supabase-error] lib/venue-recommendations.ts · from:venue_directory.select (findReceptionVenuesByVenueSetting)',
+  ];
+  for (const label of VENUE_SITES) assert.ok(countOf(venue, label) >= 1, `missing: ${label}`);
+  assert.ok(
+    countOf(venue, '[supabase-error] lib/venue-recommendations.ts') >= VENUE_SITES.length,
+    'findPairedCeremonyVenues + findCeremonyVenuesByFaith + findReceptionVenuesByVenueSetting (floor, not exact)',
   );
 });
 

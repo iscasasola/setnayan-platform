@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6424
+# facts: 6422
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     562
-#   col       4733
+#   col       4731
 #   policy    876
 #   view      8
 #   func      241
@@ -1503,7 +1503,6 @@ col	public.event_journey_steps.completed_at	anon=SIU authenticated=SIU
 col	public.event_journey_steps.completed_by	anon=SIU authenticated=SIU
 col	public.event_journey_steps.event_id	anon=SIU authenticated=SIU
 col	public.event_journey_steps.step_key	anon=SIU authenticated=SIU
-col	public.event_manual_vendors.address	anon=- authenticated=SIU
 col	public.event_manual_vendors.business_name	anon=- authenticated=SIU
 col	public.event_manual_vendors.contact_number	anon=- authenticated=SIU
 col	public.event_manual_vendors.contact_person	anon=- authenticated=SIU
@@ -1511,8 +1510,6 @@ col	public.event_manual_vendors.created_at	anon=- authenticated=SIU
 col	public.event_manual_vendors.created_by_user_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.event_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.manual_vendor_id	anon=- authenticated=SIU
-col	public.event_manual_vendors.payment_method_note	anon=- authenticated=SIU
-col	public.event_manual_vendors.payment_terms_note	anon=- authenticated=SIU
 col	public.event_manual_vendors.photo_r2_key	anon=- authenticated=SIU
 col	public.event_manual_vendors.updated_at	anon=- authenticated=SIU
 col	public.event_meaningful_dates.created_at	anon=- authenticated=SIU
@@ -4004,6 +4001,7 @@ col	public.users.religion_consent_at	anon=S authenticated=SU
 col	public.users.reminders_enabled	anon=S authenticated=SU
 col	public.users.sex	anon=S authenticated=SU
 col	public.users.sex_consent_at	anon=S authenticated=SU
+col	public.users.share_profile_photo_with_hosts	anon=S authenticated=SU
 col	public.users.slug	anon=S authenticated=SU
 col	public.users.theme_preference	anon=S authenticated=SU
 col	public.users.tour_completed_at	anon=S authenticated=SU

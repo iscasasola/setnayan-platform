@@ -23,6 +23,14 @@
  * hook's own behaviour is covered separately; this file only proves nobody is
  * making the promise without calling it.
  *
+ * ── THE SWEEP BEHIND THE 2026-09-20 TIGHTENING ──────────────────────────────
+ * Before requiring a CALL rather than a mention, the tightened matchers were
+ * run across the tree to see whom they would newly name, because a stricter
+ * rule that turns up real defects must not be weakened back to green: 54 files
+ * render `aria-modal`, 53 are cleared by the tight matchers, 1 is the
+ * exemption below — NEWLY NAMED: ZERO. Nothing was hiding behind the loose
+ * rule, so nothing needed exempting. Re-run that sweep, do not assume it.
+ *
  * ── ADDING AN EXEMPTION ─────────────────────────────────────────────────────
  * Don't, in almost every case. If an overlay genuinely must not trap focus, it
  * should not claim `aria-modal="true"` — drop the attribute instead. The one
@@ -51,12 +59,47 @@ const EXEMPT = new Map<string, string>([
   ],
 ]);
 
-/** Anything that proves the file routes through the shared focus management. */
-const EVIDENCE = [
-  'useModalA11y', // the hook itself
-  '_components/sheet', // <Sheet> — calls the hook
-  'confirm-dialog', // <ConfirmDialog> — manages focus inline
+/**
+ * Anything that proves the file routes through the shared focus management.
+ *
+ * 🔴 EACH MATCHER REQUIRES A USE, NEVER A MENTION — AND THAT IS THE THIRD TIME
+ * THIS DISTINCTION HAS HAD TO BE MADE HERE. The docblock above records the
+ * first two: prose about a construct is not the construct, in either direction,
+ * which is why comments are stripped. An IMPORT is the third form, and it
+ * survives the stripper because an import is code.
+ *
+ * MEASURED 2026-09-20 on `claude/the-reply-is-a-sheet` (#5790): the markers
+ * used to be the bare strings `'useModalA11y'`, `'_components/sheet'` and
+ * `'confirm-dialog'`. Deleting
+ * `useModalA11y({ open, onClose: closeSheet, containerRef: panelRef });` from
+ * `app/[slug]/_components/rsvp-sheet.tsx` — leaving the import line in place —
+ * left this guard GREEN. The sheet still claimed `aria-modal="true"`, still
+ * trapped nothing, and still let Tab walk out into the page behind it. Only
+ * that file's own local assertion caught it.
+ *
+ * 🔑 Two of the three markers were literally import-PATH fragments, so for
+ * those the import WAS the whole test.
+ *
+ * ⚖ `confirm-dialog` is matched by `useConfirm(` as well as by a
+ * `<ConfirmDialog>` render, because that is how it is actually consumed —
+ * checked, not assumed: every current importer takes the `useConfirm` hook and
+ * none renders the component directly. A render-only matcher would have been
+ * tight AND wrong.
+ */
+const EVIDENCE: { name: string; matcher: RegExp }[] = [
+  { name: 'useModalA11y', matcher: /useModalA11y\s*\(/ },
+  { name: '<Sheet>', matcher: /<Sheet[\s/>]/ },
+  { name: 'confirm-dialog', matcher: /<ConfirmDialog[\s/>]|useConfirm\s*\(/ },
 ];
+
+/**
+ * The rule itself, pulled out so the fixtures at the bottom of this file can
+ * EXECUTE it. A guard whose rule exists only inline can be reopened by an edit
+ * that no test observes — which is exactly how the import hole got in.
+ */
+export function overlayManagesFocus(strippedSource: string): boolean {
+  return EVIDENCE.some(({ matcher }) => matcher.test(strippedSource));
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -102,7 +145,7 @@ test('a11y · no overlay claims aria-modal without managing focus', () => {
       checked += 1;
       const rel = relative(WEB_ROOT, file);
       if (EXEMPT.has(rel)) continue;
-      if (!EVIDENCE.some((marker) => src.includes(marker))) offenders.push(rel);
+      if (!overlayManagesFocus(src)) offenders.push(rel);
     }
   }
 
@@ -122,6 +165,47 @@ test('a11y · no overlay claims aria-modal without managing focus', () => {
       `element carrying role="dialog" — or drop aria-modal if it must not trap:\n` +
       offenders.map((f) => `  · ${f}`).join('\n'),
   );
+});
+
+/**
+ * THE RULE, TESTED AGAINST SYNTHETIC SOURCE.
+ *
+ * The scan above can only ever say "nobody in the tree is an offender today".
+ * It cannot say the RULE still distinguishes wired from unwired — and a rule
+ * that stops distinguishing reports a clean tree forever. These fixtures are
+ * the part that fails when somebody relaxes a matcher back to an identifier.
+ */
+test('a11y · the evidence rule wants the CALL, not the import', () => {
+  const importOnly = `import { useModalA11y } from '@/lib/use-modal-a11y';\nexport function S() { return <div aria-modal="true" />; }`;
+  assert.equal(
+    overlayManagesFocus(importOnly),
+    false,
+    'importing the hook and never calling it counts as managing focus again — ' +
+      'this is the exact hole measured on #5790',
+  );
+
+  const called = `${importOnly}\nuseModalA11y({ open, onClose, containerRef });`;
+  assert.equal(overlayManagesFocus(called), true, 'a real call is no longer recognised');
+});
+
+test('a11y · the primitives count when RENDERED or USED, not when imported', () => {
+  const sheetImportOnly = `import { Sheet } from '@/app/_components/sheet';`;
+  assert.equal(overlayManagesFocus(sheetImportOnly), false, 'importing <Sheet> is not rendering it');
+  assert.equal(overlayManagesFocus(`${sheetImportOnly}\n<Sheet open={o} />`), true);
+
+  const confirmImportOnly = `import { useConfirm } from '@/app/_components/confirm-dialog';`;
+  assert.equal(overlayManagesFocus(confirmImportOnly), false, 'importing useConfirm is not calling it');
+  // Both real consumption shapes, because every current importer uses the hook
+  // and a render-only matcher would be tight and wrong.
+  assert.equal(overlayManagesFocus(`${confirmImportOnly}\nconst confirm = useConfirm();`), true);
+  assert.equal(overlayManagesFocus('<ConfirmDialog open={o} />'), true);
+});
+
+test('a11y · a near-miss identifier is not evidence', () => {
+  // `useModalA11yish`, a variable named after the hook, or a type-only import.
+  assert.equal(overlayManagesFocus('const useModalA11yEnabled = true;'), false);
+  assert.equal(overlayManagesFocus('type X = typeof useModalA11y;'), false);
+  assert.equal(overlayManagesFocus('<SheetFooter />'), false);
 });
 
 test('a11y · every exemption names a file that still exists and still needs it', () => {

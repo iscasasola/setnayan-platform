@@ -8,6 +8,38 @@ import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { setnayanGiftBillClause } from '@/lib/setnayan-gift';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { emitNotification } from '@/lib/notification-emit';
+import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+
+/** `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unreadable. */
+async function readChargeDueDate(
+  admin: SupabaseClient,
+  chargeId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select('expires_at')
+    .eq('charge_id', chargeId)
+    .maybeSingle();
+  if (error) return null;
+  const at = (data as { expires_at?: string | null } | null)?.expires_at;
+  return at ? at.slice(0, 10) : null;
+}
+
+/** The couple as the supplier knows them, or null when unreadable. */
+async function readEventDisplayName(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('events')
+    .select('display_name')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { display_name?: string | null } | null)?.display_name ?? null;
+}
 
 /**
  * Collect the vendor Booking Fee AT LOCK — the DB-touching half of the LOCK
@@ -290,6 +322,46 @@ export async function collectBookingFeeAtLock(
         ? `${pErr.message}; rollback of order ${orderId} ALSO failed: ${rollbackError.message}`
         : pErr.message,
     };
+  }
+
+  // 🔴 TELL THEM NOW, NOT WHEN THEY NEXT OPEN THE DASHBOARD.
+  //
+  // Owner, 2026-09-20, having just been billed as the supplier Saysay: "i never
+  // saw the payment screen to pay us." The notification DID exist — but only as
+  // a lazy sweep fired from the vendor-dashboard layout
+  // (`maybeSweepVendorBookingFeeNotifications`), so it materialised on the
+  // supplier's NEXT VISIT rather than when the money became owed. That sweep
+  // stays as the net underneath (it also catches an order minted by the SQL
+  // amendment writer, which never reaches this function) — but the bill's own
+  // moment is here.
+  //
+  // Idempotent with the sweep BY CONSTRUCTION: both key on `related_url =`
+  // the pay path, so whichever runs first, the other skips.
+  //
+  // `order_quoted` is the transactional "you have an order to pay" type and is
+  // on EMAIL_ENABLED_TYPES, so this drops the in-app row AND sends the branded
+  // email. ⚠ Both send NOTHING, silently, if RESEND_API_KEY is unset in Vercel.
+  //
+  // Fail-soft: the bill exists and is now on three supplier surfaces. A failed
+  // notification must never roll back a committed charge.
+  try {
+    const dueOn = await readChargeDueDate(admin, chargeId);
+    const { title, body } = bookingFeeNoticeCopy({
+      orderId,
+      amountPhp,
+      eventId,
+      coupleName: eventId ? await readEventDisplayName(admin, eventId) : null,
+      dueOn,
+    });
+    await emitNotification({
+      userId: payerUserId,
+      type: 'order_quoted',
+      title,
+      body,
+      relatedUrl: vendorBookingFeePayPath(orderId),
+    });
+  } catch (err) {
+    console.warn(`[booking-fee-lock] fee notification failed for order ${orderId}:`, err);
   }
 
   return { status: 'ordered', chargeId, orderId, referenceCode, amountPhp, giftCredits };

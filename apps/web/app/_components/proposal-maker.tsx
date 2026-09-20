@@ -5,6 +5,11 @@ import {
   giftQuoteCopy,
   type GiftQuoteBasis,
 } from '@/lib/setnayan-gift';
+import {
+  bookingFeeForecast,
+  type BookingFeeStanding,
+} from '@/lib/booking-fee-disclosure';
+import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 
 import { useMemo, useState, useTransition } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -173,6 +178,7 @@ export function ProposalMaker({
   paymentMethods = [],
   viewerPromo = null,
   giftBasis = null,
+  feeStanding = null,
   revision = null,
 }: {
   threadId: string;
@@ -195,6 +201,21 @@ export function ProposalMaker({
    * warned about (DECISION_LOG 2026-09-09).
    */
   giftBasis?: GiftQuoteBasis | null;
+  /**
+   * WHERE THIS SHOP STANDS ON THE BOOKING FEE for this thread's couple —
+   * resolved once on the server by `resolveBookingFeeStanding`, then re-priced
+   * in the browser as the total changes.
+   *
+   * 🔴 OWNER, 2026-09-20: "as a vendor i do not know i have to pay." A supplier
+   * deciding what to charge could see the Setnayan GIFT this quote buys their
+   * couple and not the FEE that pays for it. Both now sit under the total.
+   *
+   * ⚠ Unlike `giftBasis`, null is NOT the only silent case and silence is NOT
+   * the default: a free-5 booking says it is free, an imported client says it
+   * carries no fee, and a failed read says we could not check. Only `silent`
+   * (the fee system dark) renders nothing.
+   */
+  feeStanding?: BookingFeeStanding | null;
   /**
    * `chat_threads.pax_at_inquiry` — what the couple ASKED with, and what any
    * earlier quote was written against.
@@ -397,6 +418,16 @@ export function ProposalMaker({
     [netPayable, giftBasis],
   );
   const giftCopy = giftQuoteCopy(gift, 'supplier');
+
+  /**
+   * THE FEE THIS QUOTE WOULD INCUR, re-priced as they type — off the SAME
+   * `netPayable` the gift is priced from and the server re-sums to, through the
+   * same `bookingFeePhp` the SQL charge is pinned against. Never a local rate.
+   */
+  const feeCopy = useMemo(
+    () => (feeStanding ? bookingFeeForecast(feeStanding, netPayable / 100) : null),
+    [feeStanding, netPayable],
+  );
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
   // crew credit) so the downpayment is a % of the full contract; the credit then
@@ -978,6 +1009,12 @@ export function ProposalMaker({
             Renders ONLY when this booking will really be billed for it —
             `giftCopy` is null otherwise, and silence is the honest rendering of
             "no gift" (never "0 photos"). */}
+        {/* WHAT THIS QUOTE WILL COST YOU, beside what it gives your couple.
+            Owner 2026-09-15 on the gift: "show both." The fee is the other
+            half of that sentence — a supplier pricing a job should see the
+            money going out as well as the photos going in. */}
+        <BookingFeeNotice disclosure={feeCopy} />
+
         {giftCopy ? (
           <div
             data-testid="compose-setnayan-gift"

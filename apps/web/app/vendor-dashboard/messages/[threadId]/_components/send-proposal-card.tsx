@@ -10,6 +10,8 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { sendProposalFromChat } from '../proposal-actions';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
+import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
+import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 
 type Option = { id: string; name: string };
 /** A package carries the price the SEND PATH bills — see resolveQuoteTotalCentavos. */
@@ -35,6 +37,7 @@ export function SendProposalCard({
   templates,
   packages,
   giftBasis = null,
+  feeStanding = null,
 }: {
   threadId: string;
   templates: TemplateOption[];
@@ -50,6 +53,21 @@ export function SendProposalCard({
    * whichever half they use. Same derived number, same two voices.
    */
   giftBasis?: GiftQuoteBasis | null;
+  /**
+   * WHERE THIS SHOP STANDS ON THE BOOKING FEE for this thread's couple —
+   * resolved once on the server by `resolveBookingFeeStanding`, then re-priced
+   * in the browser as the total changes.
+   *
+   * 🔴 OWNER, 2026-09-20: "as a vendor i do not know i have to pay." A supplier
+   * deciding what to charge could see the Setnayan GIFT this quote buys their
+   * couple and not the FEE that pays for it. Both now sit under the total.
+   *
+   * ⚠ Unlike `giftBasis`, null is NOT the only silent case and silence is NOT
+   * the default: a free-5 booking says it is free, an imported client says it
+   * carries no fee, and a failed read says we could not check. Only `silent`
+   * (the fee system dark) renders nothing.
+   */
+  feeStanding?: BookingFeeStanding | null;
 }) {
   const [open, setOpen] = useState(false);
   // Controlled so the gift can be re-priced as they type. The field still posts
@@ -83,6 +101,11 @@ export function SendProposalCard({
 
   const gift = previewGiftForTotal(quoteTotalCentavos, giftBasis);
   const giftCopy = giftQuoteCopy(gift, 'supplier');
+  // Same reasoning as the gift line above: a shop that quotes from THIS card
+  // must read the same fee a shop that quotes from the builder reads.
+  const feeCopy = feeStanding
+    ? bookingFeeForecast(feeStanding, quoteTotalCentavos / 100)
+    : null;
 
   if (templates.length === 0) {
     return (
@@ -184,6 +207,11 @@ export function SendProposalCard({
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Title (optional)</span>
             <input name="title" type="text" maxLength={160} placeholder="Auto-titled if blank" className={field} />
           </label>
+
+          {/* WHAT THIS QUOTE WILL COST YOU. Same line the builder above
+              carries — a supplier prices from whichever half they use, so
+              neither may be the only one that names the fee. */}
+          <BookingFeeNotice disclosure={feeCopy} />
 
           {/* THE SETNAYAN GIFT — what the couple gets AND what it costs the
               supplier, re-priced as they type (owner 2026-09-15: "show both").

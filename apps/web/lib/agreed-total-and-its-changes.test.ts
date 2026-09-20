@@ -743,6 +743,14 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/\[b\.vendor_id, agreedTotalNow\(b\.total_cost_php, b\.change_lines\)\]/, 1]],
     column: 3,
   },
+  'lib/booking-fee-disclosure.server.ts': {
+    what: 'the booking-fee forecast the supplier reads before they agree',
+    needles: [
+      [AGREED_NOW, 1],
+      [/agreedTotalNow\(r\.total_cost_php \?\? null, \(lines \?\? \[\]\) as ChangeLineRow\[\]\)/, 1],
+    ],
+    column: 3,
+  },
   'lib/checklist-budget.ts': {
     what: 'checklist budget — committed per plan group (folded in checklist-budget-attribution)',
     needles: [[EMBED, 1]],

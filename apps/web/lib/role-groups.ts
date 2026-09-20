@@ -203,6 +203,34 @@ export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   guest: 'bg-ink/[0.06] text-ink/60 ring-1 ring-ink/10',
 };
 
+/**
+ * The same vocabulary as ROLE_GROUP_CHIP, as TEXT rather than a filled capsule.
+ *
+ * ⚖ Owner 2026-09-20 on the desktop roster: "remove the pill boxes ... so it
+ * looks neater". The dense table drops the capsules and keeps the colour on the
+ * words; the MOBILE card keeps its chips, because one guest per card is sparse
+ * and a chip reads as a label there rather than as texture. Two presentations,
+ * one meaning — and both resolve their colour through lib/role-chip-style.ts,
+ * so a role can never be one colour on a card and another on a row.
+ *
+ * These are the FALLBACKS, used only where the couple has not given that role a
+ * mood-board colour. A filled palette wins, exactly as it does for the chip.
+ */
+export const ROLE_GROUP_TEXT: Record<RoleGroup | 'guest', string> = {
+  couple: 'text-danger-900',
+  vip_family: 'text-danger-950',
+  wedding_party: 'text-terracotta-700',
+  groomsmen: 'text-terracotta-700',
+  bridesmaids: 'text-terracotta-700',
+  principal_sponsors: 'text-violet-800',
+  muslim_principals: 'text-emerald-800',
+  secondary_sponsors: 'text-warn-900',
+  bearers_flower_girl: 'text-success-800',
+  officiants: 'text-sky-800',
+  other_roles: 'text-ink/70',
+  guest: 'text-ink/60',
+};
+
 // Filter a guest list by selected role-group key (or 'all'). Owner
 // directive 2026-05-23 PM removed the social-category filters
 // (family/friends/work/school) — those live in the GROUPS section of

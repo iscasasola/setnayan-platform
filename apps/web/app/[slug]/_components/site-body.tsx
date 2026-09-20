@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
+import { manilaToday } from '@/lib/std-views';
+import { ArrivalActionRow } from './arrival-action';
 import { MapPin, Sparkles } from 'lucide-react';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -577,6 +580,24 @@ export async function SiteBody({
   //
   // Every rule lives in `_lib/site-nav.ts`; nothing is decided here.
   const guestToken = identity.kind === 'guest' ? identity.guest.qr_token : null;
+
+  /* ── ONE ACTION UNDER THE MARK, AND ITS LABEL IS THE STATUS (arrival design
+     slice 2 · lib/arrival-action.ts). Null for an anonymous reader, who keeps
+     the page's existing public call to action.
+
+     🕐 Manila decides the day. `manilaToday()` formats now in Asia/Manila;
+     `new Date('YYYY-MM-DD')` would be midnight UTC — the previous day here —
+     and would flip the day-of branch eight hours early. */
+  const arrivalAction =
+    identity.kind === 'guest'
+      ? resolveArrivalAction({
+          slug: event.slug ?? '',
+          rsvpStatus: identity.guest.rsvp_status,
+          eventDate: event.event_date,
+          today: manilaToday(),
+          hasPass: Boolean(guestToken),
+        })
+      : null;
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null };
@@ -1278,6 +1299,8 @@ export async function SiteBody({
             />
           ) : null}
 
+          <ArrivalActionRow action={arrivalAction} />
+
           {/* ── THE PAGE OPENS ON THE MARK (owner 2026-09-20).
               Until now an identified guest met a box about THEMSELVES — "Hi
               again, <name>" — and the couple's monogram sat a screen and a half
@@ -1625,7 +1648,15 @@ export async function SiteBody({
                   decouple if the host wants QR off (e.g., a couple who doesn't
                   want their wedding photographed). */}
               {plan.qrCardShouldRender ? (
-                <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8">
+                <section
+                  id={PASS_ANCHOR}
+                  className="scroll-mt-6 rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8"
+                >
+                  {/* The anchor the arrival action's day-of label points at. A
+                      fragment link to a missing id fails SILENTLY — the first
+                      version of that action invented `#your-qr`, which existed
+                      nowhere, so "Show your pass" scrolled a guest nowhere at
+                      the door. Pinned by `one-action-says-where-you-stand`. */}
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                     Your invitation QR
                   </p>

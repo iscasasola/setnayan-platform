@@ -24,6 +24,8 @@ import {
   vendorAnswerPartReopen,
   vendorDeclinePart,
 } from '../finalization-actions';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Mood Board · Vendor' };
 
@@ -69,7 +71,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   const { data, error } = await supabase.rpc('get_vendor_mood_board', {
     p_event_id: eventId,
   });
-  if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 
   const board = data as MoodBoardData;
 

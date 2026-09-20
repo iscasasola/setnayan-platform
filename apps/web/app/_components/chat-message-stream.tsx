@@ -62,6 +62,7 @@ import {
   type SupplierReplyActions,
 } from './chat-thread-views';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
+import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
   decisionsNeedingYou,
@@ -225,6 +226,18 @@ type Props = {
    */
   supplierFirstPaymentRowId?: string | null;
   /**
+   * THE RECEIPT THE COUPLE SENT, on the one card where the supplier says the
+   * money reached them (owner, live, 2026-09-20).
+   *
+   * "Confirm it reached you" was a button with NOTHING to look at: the proof
+   * lived on the client page, one navigation away, so the honest answer to
+   * "did it arrive?" required leaving the screen that asks. A short-lived
+   * presigned link resolved by the page (`depositProofDisplayUrl`) — never the
+   * stored `r2://` ref, never a public URL. Null = no receipt on file, and the
+   * card says nothing rather than showing a broken picture.
+   */
+  paymentProofUrl?: string | null;
+  /**
    * The SUPPLIER's side only: can a couple see anywhere to pay this shop?
    * On the live ACCEPTED quote card the supplier gets the same one-tap door
    * the Overview's booking card carries (2026-09-19) — the couple's next step
@@ -262,6 +275,7 @@ export function ChatMessageStream({
   bookedStep = null,
   couplePay = null,
   supplierFirstPaymentRowId = null,
+  paymentProofUrl = null,
   payoutReadiness = 'unreadable',
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -1249,6 +1263,18 @@ export function ChatMessageStream({
                           </p>
                           {viewerRole === 'couple' && couplePay ? (
                             <DepositReservation {...couplePay} step={bookedStep} compact />
+                          ) : null}
+                          {/* ⚖ LOOK BEFORE YOU CONFIRM. The receipt goes ABOVE
+                              the button, because this is the moment the supplier
+                              decides whether a couple's money arrived and the
+                              only thing they had to go on was a sentence. */}
+                          {viewerRole === 'vendor' &&
+                          bookedStep.kind === 'first_payment_sent' &&
+                          paymentProofUrl ? (
+                            <ProofImage
+                              url={paymentProofUrl}
+                              alt="The payment proof the couple sent"
+                            />
                           ) : null}
                           {viewerRole === 'vendor' &&
                           bookedStep.kind === 'first_payment_sent' &&

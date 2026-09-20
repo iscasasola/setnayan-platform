@@ -1134,6 +1134,9 @@ function PaymentSection({
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             label="Attach receipt (optional)"
             variant="wide"
+            /* A receipt is checked by LOOKING at it, never by its filename —
+               owner, live, 2026-09-20. See the prop in file-upload.tsx. */
+            bigPreview
           />
         </div>
         <SubmitButton

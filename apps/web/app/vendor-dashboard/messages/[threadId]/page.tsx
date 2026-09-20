@@ -1586,6 +1586,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}
             supplierFirstPaymentRowId={bookedMoney.firstPaymentRowId}
+            /* The receipt the couple attached, signed through the scoped
+               private signer — see the prop in chat-message-stream.tsx. */
+            paymentProofUrl={bookedMoney.deposit?.proofUrl ?? null}
             payoutReadiness={payoutReadiness}
           />
         </ChatBox>

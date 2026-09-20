@@ -28,15 +28,20 @@ import {
 } from '@/lib/payouts';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
-import { fetchDueFeeBills, FEE_BILLS_UNREADABLE } from '@/lib/booking-fee-disclosure.server';
+import {
+  fetchDueFeeBills,
+  fetchWaivedFeeCharges,
+  FEE_BILLS_UNREADABLE,
+} from '@/lib/booking-fee-disclosure.server';
 import {
   billsForSurface,
   feeDueCopy,
   totalDuePhp,
   feePesos,
   type DueFeeBill,
+  type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
-import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
+import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 
 export const metadata = { title: 'Earnings · Vendor' };
@@ -183,6 +188,13 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
   );
   const earningsFeeBills: DueFeeBill[] =
     feeBillsRead === FEE_BILLS_UNREADABLE ? [] : billsForSurface(feeBillsRead, 'earnings');
+  // The free five, priced. On the money page because "0% commission" and "you
+  // keep 100%" are exactly where a supplier concludes no fee exists at all.
+  const waivedRead = await fetchWaivedFeeCharges(admin, profile.vendor_profile_id).catch(
+    () => FEE_BILLS_UNREADABLE,
+  );
+  const earningsWaived: WaivedFeeCharge[] =
+    waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
 
   const totalPages = Math.max(1, Math.ceil(earnings.length / PAGE_SIZE));
 
@@ -206,6 +218,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         bills={earningsFeeBills}
         copyFor={(b) => feeDueCopy(b, manilaToday())}
       />
+      <WaivedFeeRows charges={earningsWaived} />
 
       <article className="sn-tile flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />

@@ -14,6 +14,7 @@ import {
   bookingFeeForecast,
   type BookingFeeStanding,
   type DueFeeBill,
+  type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -76,7 +77,13 @@ export async function resolveBookingFeeStanding(
   }
 
   // The frozen ordinal for THIS booking, if the ledger already holds one.
+  // ⚠ THE LEDGER IS ASKED FIRST, ALWAYS (owner, 2026-09-20: the position must
+  // come from the real ordinal, not a count derived here). The count below is
+  // reached ONLY when no ledger row exists yet — i.e. the booking has not been
+  // agreed, so there is no real ordinal to read — and what it produces is
+  // flagged as a projection, which the copy words differently.
   let ordinal: number | null = null;
+  let ordinalIsFrozen = false;
   if (args.eventId) {
     const { data: row, error } = await admin
       .from('booking_fee_ledger')
@@ -89,7 +96,10 @@ export async function resolveBookingFeeStanding(
       return { kind: 'unreadable' };
     }
     const n = (row as { booking_ordinal?: number | null } | null)?.booking_ordinal;
-    if (typeof n === 'number' && Number.isFinite(n)) ordinal = n;
+    if (typeof n === 'number' && Number.isFinite(n)) {
+      ordinal = n;
+      ordinalIsFrozen = true;
+    }
   }
 
   // No frozen ordinal → this booking would take the NEXT one.
@@ -106,8 +116,14 @@ export async function resolveBookingFeeStanding(
     ordinal = count + 1;
   }
 
-  if (isFreeBooking(ordinal)) return { kind: 'free', ordinal };
-  return { kind: 'billable', ordinal, schedule: await getBookingFeeSchedule(admin) };
+  // ⚠ THE SCHEDULE IS READ FOR THE FREE ARM TOO. A waived booking must still
+  // NAME the amount it would have cost (owner 2026-09-20), and without the live
+  // schedule that figure cannot be computed — the copy would fall back to a
+  // bare "Free", which is what the ruling forbids.
+  const schedule = await getBookingFeeSchedule(admin);
+  return isFreeBooking(ordinal)
+    ? { kind: 'free', ordinal, ordinalIsFrozen, schedule }
+    : { kind: 'billable', ordinal, ordinalIsFrozen, schedule };
 }
 
 /**
@@ -192,6 +208,84 @@ export async function forecastsForBookings(
     out[id] = results[i] ?? null;
   });
   return out;
+}
+
+/**
+ * EVERY WAIVED BOOKING FEE THIS SHOP HAS HAD — the free-5 charges, with the
+ * amount each WOULD have cost and the position the RPC stamped.
+ *
+ * 🔴 THESE HAD NO SUPPLIER SURFACE AT ALL. A waived charge mints no `orders`
+ * row, and every fee surface read orders — so a shop's free bookings appeared
+ * nowhere, and "free" was something the supplier had to infer from silence.
+ *
+ * ⚠ THE ORDINAL COMES OFF THE LEDGER, by join, never by counting rows here.
+ * ⚠ `computed_fee_centavos` is the recorded "would have been" (prod's waived
+ *   charge carries 50850 against `amount_charged_centavos` 0); a row whose
+ *   column is missing or non-finite carries `computedPhp: null`, and the copy
+ *   then prints no number rather than ₱0.
+ *
+ * Service-role read, explicitly scoped to this shop's `vendor_profile_id` —
+ * `booking_fee_charges` is not readable from a supplier session. The caller has
+ * already proven the profile is theirs (`fetchOwnVendorProfile`).
+ */
+export async function fetchWaivedFeeCharges(
+  admin: SupabaseClient,
+  vendorProfileId: string | null | undefined,
+): Promise<WaivedFeeCharge[] | typeof FEE_BILLS_UNREADABLE> {
+  if (!isBookingFeeEnabled()) return [];
+  if (!vendorProfileId) return [];
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select(
+      'charge_id,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)',
+    )
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'waived_free5')
+    .order('created_at', { ascending: false });
+  if (error) {
+    logQueryError('booking-fee-disclosure: waived charges', error);
+    return FEE_BILLS_UNREADABLE;
+  }
+  const rows = (data ?? []) as Array<{
+    charge_id: string;
+    event_id: string | null;
+    computed_fee_centavos: number | string | null;
+    created_at: string | null;
+    ledger: { booking_ordinal: number | null } | Array<{ booking_ordinal: number | null }> | null;
+  }>;
+  if (rows.length === 0) return [];
+
+  const eventIds = Array.from(
+    new Set(rows.map((r) => r.event_id).filter((id): id is string => !!id)),
+  );
+  const nameByEvent = new Map<string, string | null>();
+  if (eventIds.length > 0) {
+    const { data: events, error: eErr } = await admin
+      .from('events')
+      .select('event_id,display_name')
+      .in('event_id', eventIds);
+    if (eErr) logQueryError('booking-fee-disclosure: waived event names', eErr);
+    for (const e of (events ?? []) as Array<{ event_id: string; display_name: string | null }>) {
+      nameByEvent.set(e.event_id, e.display_name);
+    }
+  }
+
+  return rows.map((r): WaivedFeeCharge => {
+    // PostgREST returns an embedded to-one as an object, but as an ARRAY when it
+    // cannot prove the relationship is to-one. Both shapes are handled so the
+    // ordinal does not silently vanish into `undefined`.
+    const led = Array.isArray(r.ledger) ? r.ledger[0] : r.ledger;
+    const ord = led?.booking_ordinal;
+    const centavos = Number(r.computed_fee_centavos);
+    return {
+      chargeId: r.charge_id,
+      eventId: r.event_id ?? null,
+      coupleName: r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null,
+      computedPhp: Number.isFinite(centavos) ? centavos / 100 : null,
+      ordinal: typeof ord === 'number' && Number.isFinite(ord) ? ord : null,
+      waivedOn: r.created_at ? r.created_at.slice(0, 10) : null,
+    };
+  });
 }
 
 /**

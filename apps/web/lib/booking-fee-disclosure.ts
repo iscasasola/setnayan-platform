@@ -60,8 +60,16 @@ import { monthDay } from '@/lib/format-date';
 export type BookingFeeStanding =
   | { kind: 'silent' }
   | { kind: 'not_sourced' }
-  | { kind: 'free'; ordinal: number }
-  | { kind: 'billable'; ordinal: number; schedule: BookingFeeSchedule }
+  /**
+   * Inside the free-5. ⚠ CARRIES THE SCHEDULE, like `billable` — owner,
+   * 2026-09-20: *"still tell them that there should be a booking fee. but this
+   * will be considered free."* A free booking must NAME the amount it would
+   * have cost, so the first payable one is not a surprise. Without the schedule
+   * here that number cannot be computed, and the copy would fall back to a bare
+   * "Free" — the exact thing the owner ruled against.
+   */
+  | { kind: 'free'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  | { kind: 'billable'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
   | { kind: 'unreadable' };
 
 /**
@@ -114,6 +122,32 @@ function effectiveRateText(feePhp: number, totalPhp: number): string | null {
 }
 
 /**
+ * WHERE THIS BOOKING SITS in the free-5, as one sentence.
+ *
+ * 🔑 `frozen` IS NOT COSMETIC. Once a booking is agreed, the ordinal is stamped
+ * on `booking_fee_ledger.booking_ordinal` and never moves — that is a fact. For
+ * a quote still being written there is no ledger row yet, so the position is a
+ * PROJECTION of what the RPC will assign (its own `count(*)` over the vendor's
+ * lock ledger rows, mirrored in `resolveBookingFeeStanding`). Another booking
+ * agreed in between moves it. The two are worded differently rather than the
+ * projection being presented as a fact.
+ */
+function feePositionSentence(ordinal: number, frozen: boolean, free: boolean): string {
+  const where = frozen
+    ? `This is booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`
+    : `This would be booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`;
+  if (free) {
+    const left = freeBookingsLeftAfter(ordinal);
+    return left > 0
+      ? `${where}, which are free — ${left} more free ${left === 1 ? 'booking' : 'bookings'} after this one.`
+      : `${where}, which are free — and this is the last of them.`;
+  }
+  return frozen
+    ? `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this is number ${ordinal}.`
+    : `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this would be number ${ordinal}.`;
+}
+
+/**
  * The fee this booking WOULD incur — the line shown while the supplier is still
  * deciding (the quote composer) or about to agree (the Agree button).
  *
@@ -142,34 +176,50 @@ export function bookingFeeForecast(
           'imported and returning clients never carry a fee.',
       };
 
-    case 'free': {
-      const left = freeBookingsLeftAfter(standing.ordinal);
-      return {
-        tone: 'good',
-        headline: `Free — booking ${standing.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan.`,
-        detail:
-          left > 0
-            ? `${left} more free ${left === 1 ? 'booking' : 'bookings'} after this one, then a booking fee applies to couples Setnayan brings you.`
-            : 'This is the last of your free bookings — the next Setnayan-sourced booking will carry a booking fee.',
-      };
-    }
-
+    /*
+     * ⚠ THE FREE AND BILLABLE ARMS SHARE ONE LINE SHAPE, DELIBERATELY:
+     *
+     *     Booking fee ₱508.50 — waived.        (inside the free-5)
+     *     Booking fee ₱837.50 — payable…       (booking 6+)
+     *
+     * Owner, 2026-09-20: *"still tell them that there should be a booking fee.
+     * but this will be considered free. or something like this."* A free
+     * booking that says only "Free" teaches the supplier there is no fee, and
+     * the sixth booking then arrives as a surprise charge — which is the whole
+     * defect this module exists to remove, deferred by five bookings.
+     *
+     * 🔑 Both numbers come from the SAME `bookingFeePhp` call. The waived amount
+     * is not a marketing figure: it is what `computed_fee_centavos` will hold on
+     * the charge (prod's waived row carries 50850 against
+     * `amount_charged_centavos` 0), so the forecast and the record agree.
+     */
+    case 'free':
     case 'billable': {
+      const free = standing.kind === 'free';
       const summary = bookingFeeScheduleSummary(standing.schedule);
-      if (!Number.isFinite(totalPhp as number) || (totalPhp as number) <= 0) {
+      const position = feePositionSentence(standing.ordinal, standing.ordinalIsFrozen, free);
+      const total = Number(totalPhp);
+      // ⚠ NO AMOUNT ⇒ SAY SO, NEVER A BARE "Free". The position and the schedule
+      // are still true and still worth reading; only the figure is missing.
+      if (!Number.isFinite(total) || total <= 0) {
         return {
-          tone: 'info',
-          headline: 'A Setnayan booking fee applies if they book.',
-          detail: `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free. From here it is ${summary} of the agreed total, billed to you when the booking is agreed.`,
+          tone: free ? 'good' : 'info',
+          headline: free
+            ? 'Booking fee — waived (we could not work out the amount yet).'
+            : 'Booking fee — payable when they book (we could not work out the amount yet).',
+          detail: `${position} The fee is ${summary} of the agreed total; put a price on this quote and we will show you the exact figure.`,
         };
       }
-      const total = totalPhp as number;
       const fee = bookingFeePhp(total, standing.schedule);
       const rate = effectiveRateText(fee, total);
       return {
-        tone: 'info',
-        headline: `If they book: Setnayan booking fee ${feePesos(fee)}${rate ? ` (${rate})` : ''}.`,
-        detail: `${summary}, on the agreed total of ${feePesos(total)}. You are billed when the booking is agreed, and you pay it on the same GCash/BDO rail your couples use.`,
+        tone: free ? 'good' : 'info',
+        headline: free
+          ? `Booking fee ${feePesos(fee)} — waived.`
+          : `Booking fee ${feePesos(fee)}${rate ? ` (${rate})` : ''} — payable if they book.`,
+        detail: free
+          ? `${position} ${summary} of the agreed total of ${feePesos(total)} — you are not billed for this one.`
+          : `${position} ${summary}, on the agreed total of ${feePesos(total)}. You are billed when the booking is agreed, and you pay it on the same GCash/BDO rail your couples use.`,
       };
     }
 
@@ -182,6 +232,68 @@ export function bookingFeeForecast(
           'Your Booking fees page always carries the live amount.',
       };
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1b · A WAIVED CHARGE THAT ALREADY EXISTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * One `booking_fee_charges` row with `status = 'waived_free5'`.
+ *
+ * 🔴 THESE WERE INVISIBLE. `/vendor-dashboard/booking-fees` lists ORDERS, and a
+ * waived charge mints NO order (`collectBookingFeeAtLock` returns `'free'`
+ * before the insert) — so a supplier's free bookings appeared on no supplier
+ * surface at all. The fee they did not pay was as hidden as the fee they did.
+ *
+ * ⚠ `computedPhp` is `computed_fee_centavos` off the row — a REAL recorded
+ * number (prod's waived charge carries 50850 = ₱508.50), not a figure this
+ * module works out. Null when the column could not be read, and the copy then
+ * prints no number at all.
+ *
+ * ⚠ `ordinal` is `booking_fee_ledger.booking_ordinal`, the position the RPC
+ * stamped — never a count derived on this side (owner's instruction, and the
+ * reason the fetch joins the ledger rather than counting rows).
+ */
+export type WaivedFeeCharge = {
+  chargeId: string;
+  eventId: string | null;
+  coupleName: string | null;
+  /** `computed_fee_centavos` ÷ 100 — what it WOULD have cost. Null ⇒ print none. */
+  computedPhp: number | null;
+  /** `booking_fee_ledger.booking_ordinal`. Null ⇒ the position is not claimed. */
+  ordinal: number | null;
+  /** `YYYY-MM-DD` the charge was opened, or null. */
+  waivedOn: string | null;
+};
+
+/**
+ * THE WAIVED LINE, wherever a waived charge is shown after the fact.
+ *
+ * Same rule as the forecast and for the same reason: name the amount, then say
+ * it was waived and why. A row that reads only "Free" is refused by the guard.
+ */
+export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
+  const who = charge.coupleName?.trim() ? ` for ${charge.coupleName.trim()}` : '';
+  const position =
+    typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
+      ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free.`
+      : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
+  // ⚠ NO NUMBER ⇒ NO NUMBER. An unreadable computed amount must not degrade to
+  // "₱0" — that would state the fee was nothing rather than that it was waived.
+  const amount =
+    typeof charge.computedPhp === 'number' && Number.isFinite(charge.computedPhp)
+      ? feePesos(charge.computedPhp)
+      : null;
+  return {
+    tone: 'good',
+    headline: amount
+      ? `Booking fee ${amount} — waived${who}`
+      : `Booking fee — waived${who} (we could not read the amount)`,
+    detail: amount
+      ? `${position} You were not billed the ${amount}, and nothing is owed on it.`
+      : `${position} Nothing is owed on it.`,
+  };
 }
 
 /**

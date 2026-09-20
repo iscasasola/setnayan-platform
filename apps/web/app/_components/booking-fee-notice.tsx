@@ -20,7 +20,8 @@
  */
 import Link from 'next/link';
 import { AlertTriangle, BadgeCheck, Info, Receipt } from 'lucide-react';
-import type { FeeDisclosure, DueFeeBill } from '@/lib/booking-fee-disclosure';
+import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
+import { waivedFeeCopy } from '@/lib/booking-fee-disclosure';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
 /** Border / accent per tone. `good` is the free-booking and no-fee case. */
@@ -141,6 +142,50 @@ export function BookingFeeBills({
       {bills.map((b) => (
         <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} />
       ))}
+    </>
+  );
+}
+
+/**
+ * THE FREE BOOKINGS, NAMED AND PRICED.
+ *
+ * 🔴 Owner, 2026-09-20: *"still tell them that there should be a booking fee.
+ * but this will be considered free."* A waived charge previously appeared on NO
+ * supplier surface — it mints no `orders` row, and every fee surface read
+ * orders — so a shop learned "free" only from silence, and the sixth booking
+ * arrived as a surprise bill.
+ *
+ * Quieter than {@link BookingFeeBillRow} on purpose: nothing is owed, so there
+ * is no CTA. But the AMOUNT is stated, every time — `waivedFeeCopy` refuses to
+ * render a bare "Free".
+ */
+export function WaivedFeeRows({ charges }: { charges: readonly WaivedFeeCharge[] }) {
+  if (charges.length === 0) return null;
+  return (
+    <>
+      {charges.map((c) => {
+        const copy = waivedFeeCopy(c);
+        return (
+          <div
+            key={c.chargeId}
+            role="note"
+            data-testid="booking-fee-waived"
+            className="mt-3 flex items-start gap-2.5 rounded-xl border p-3"
+            style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
+          >
+            <BadgeCheck
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: TONE.good.accent }}
+            />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-semibold text-ink">{copy.headline}</p>
+              <p className="text-sm text-ink/70">{copy.detail}</p>
+            </div>
+          </div>
+        );
+      })}
     </>
   );
 }

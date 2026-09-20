@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { classifyShopRead } from '@/lib/shop-presence';
 
 export type VendorProfileRow = {
   vendor_profile_id: string;
@@ -351,15 +352,37 @@ export const fetchOwnVendorProfile = cache(async (
   // transient projection error). The `vendor_profiles_member_read` RLS policy
   // admits members; agent data scoping happens on the per-table policies
   // (services / chat), not here.
-  const { data: memberships } = await supabase
+  //
+  // 🔑 THE ERROR IS NOT DESTRUCTURED AWAY (2026-09-20). Until today this read
+  // was `const { data: memberships } = await …`, so a REFUSED or failed
+  // membership read produced `memberships = null` — the identical value a
+  // successful read over zero memberships produces — and this function
+  // returned null. `loadShopData` turns that null into the `'no-vendor'`
+  // sentinel and `/vendor-dashboard/shop` turns THAT into
+  // `redirect('/open-shop')`: the brand-new-shop wizard, shown to a team
+  // member who already has a shop, inviting them to create a second one.
+  // Every other null this function returns is a PROVEN absence (a read that
+  // succeeded and found nothing); `selectVendorProfileBy` already throws when
+  // both its projections fail, so throwing here does not add a failure mode
+  // callers were not already obliged to handle — it just stops one silent
+  // one. `/vendor-dashboard/shop` catches it and renders "couldn't load".
+  const { data: memberships, error: membershipError } = await supabase
     .from('vendor_team_members')
     .select('vendor_profile_id')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
     .limit(1);
+  const presence = classifyShopRead(memberships, membershipError);
+  if (presence === 'unreadable') {
+    throw new Error(
+      `fetchOwnVendorProfile failed: vendor_team_members read unreadable: [${
+        (membershipError as { message?: string } | null)?.message ?? 'no rows and no error'
+      }]`,
+    );
+  }
   const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
     ?.vendor_profile_id;
-  if (!memberVendorProfileId) return null;
+  if (presence === 'no-shop' || !memberVendorProfileId) return null;
   const byId = await selectVendorProfileBy(
     supabase,
     'vendor_profile_id',

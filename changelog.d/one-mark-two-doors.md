@@ -67,3 +67,16 @@ OWNER CALL (not actioned): `OUT_ANCHORS.animated_monogram` is ₱15,500 against 
 same file removed both Papic anchors at 32× for exactly this, writing "silence is
 honest, a fake bargain is not". Flagged, not changed: a pricing claim is the
 owner's.
+
+### CI follow-up · the back link is two links
+
+`lint-port-no-lost-controls` failed: `/dashboard/[eventId]/monogram` "can no
+longer reach /dashboard/[seg]/studio". The link was still there, but only as one
+branch of a ternary `href`, and that guard reads routes statically. Nothing had
+actually been removed — so regenerating its baseline would have recorded a
+removal that never happened.
+
+Fixed at the page instead: two plain links, each with one destination. A route a
+static reader cannot find is a route the next refactor deletes with nothing going
+red, so the guard was right to object. It also reads better — from inside a door
+you want "the other way", and add-ons is one level further out.

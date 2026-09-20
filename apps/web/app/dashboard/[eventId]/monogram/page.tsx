@@ -169,13 +169,32 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   return (
     <section className="space-y-6">
       {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
-      <Link
-        href={mode ? `/dashboard/${eventId}/monogram` : `/dashboard/${eventId}/studio`}
-        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        {mode ? 'Both ways to make it' : 'Back to add-ons'}
-      </Link>
+      {/* TWO controls, each with ONE destination — not one control with a
+          ternary href. `lint-port-no-lost-controls` reads routes statically and
+          could not see the `/studio` branch inside a conditional, so the page
+          registered as having LOST its way back to add-ons. It had not; but a
+          route a static reader cannot find is a route the next refactor can
+          delete without anything going red, and the guard was right to object.
+          Regenerating its baseline would have recorded a removal that never
+          happened. Two plain links also read better: from inside a door you
+          want "the other way", and add-ons is a level further out. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/dashboard/${eventId}/studio`}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to add-ons
+        </Link>
+        {mode ? (
+          <Link
+            href={`/dashboard/${eventId}/monogram`}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+          >
+            Both ways to make it
+          </Link>
+        ) : null}
+      </div>
 
       <PageMasthead title="Your wedding monogram" />
 

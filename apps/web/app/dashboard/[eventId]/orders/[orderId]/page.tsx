@@ -26,6 +26,9 @@ import {
   fetchPlatformSettings,
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
+import { isChannelOpen } from '@/lib/payment-channels';
+import { everyOpenRailCarriesAmount, qrWords } from '@/lib/qr-amount-truth';
+import { payAmount } from '@/lib/pay-amount';
 import { cancelOrder } from '../actions';
 
 export const metadata = { title: 'Order detail' };
@@ -349,9 +352,24 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {totals.remaining > 0 && order.status !== 'cancelled' ? (
         <section className="sn-tile space-y-3 p-5">
           <h2 className="sn-eye">Paying for this</h2>
+          {/* 🔑 NOT A SENTENCE TYPED HERE. What the code on /pay actually
+              carries is decided by `resolveQrAmount` against the SAME stored
+              payloads that page renders from; this line is read off that
+              answer. Written by hand, it said "already has the amount in it"
+              on a day the payment page was showing a static code — see
+              lib/qr-amount-truth.ts. */}
           <p className="text-sm text-ink/70">
-            {formatPhp(totals.remaining)} still to send. The code on the payment page already has
-            the amount in it, so there is nothing to type.
+            {formatPhp(totals.remaining)} still to send.{' '}
+            {qrWords(
+              everyOpenRailCarriesAmount({
+                amountPhp: totals.remaining,
+                rails: [
+                  { open: isChannelOpen(settings, 'gcash'), payload: settings.gcash_qr_payload },
+                  { open: isChannelOpen(settings, 'bdo'), payload: settings.bdo_qr_payload },
+                ],
+              }),
+              payAmount(totals.remaining),
+            ).pointer}
           </p>
           <Link
             href={payPath(order.reference_code)}

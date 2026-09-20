@@ -4,7 +4,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { mintOrderQr } from '@/lib/emv-qr';
+import { resolveQrAmount, qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
@@ -22,7 +22,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * Approved prototype: prototypes/one_payment_page_2026-08-21.html.
  * Three steps, ONE column, top to bottom:
  *   1. what you're paying for (+ the reference that matches it to you)
- *   2. pay this exact amount (the QR carries the figure — nothing to type)
+ *   2. pay this exact amount (the QR carries the figure when it CAN — and
+ *      every sentence about that comes from `lib/qr-amount-truth.ts`, never
+ *      from a line typed here)
  *   3. after you pay (screenshot, kept on screen, + the last 6 digits)
  *
  * Everything a buyer needs is HERE, so a buy button's whole job is to mint the
@@ -52,7 +54,13 @@ export default async function PayPage({ params, searchParams }: Props) {
     redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
   }
 
-  const payable = await fetchPayableByReference(supabase, decodeURIComponent(reference));
+  const payable = await fetchPayableByReference(
+    supabase,
+    decodeURIComponent(reference),
+    // Who is looking decides the way out — a shop paying its own booking fee
+    // must not be pointed at the couple's dashboard. See lib/pay-back-link.ts.
+    user.id,
+  );
   // Not yours and not real are the same answer on purpose — see the resolver.
   if (!payable) notFound();
 
@@ -127,8 +135,19 @@ export default async function PayPage({ params, searchParams }: Props) {
         'We could not read the last picture you sent. Please send a clearer one.')
       : null;
 
+  /**
+   * 🔑 ONE VERDICT PER RAIL, AND EVERY SENTENCE ON THIS PAGE READS OFF IT.
+   * Step 1 below and the caption under the code used to be written by hand in
+   * two files, and on 2026-09-20 they contradicted each other on the owner's
+   * own screen — step 1 said the amount was in the code while the caption six
+   * lines down said to type it. `resolveQrAmount` is now the only thing that
+   * knows, and `qrWords` is the only thing that phrases it.
+   */
+  const gcashQr = resolveQrAmount(settings.gcash_qr_payload, payable.amountPhp);
+  const bdoQr = resolveQrAmount(settings.bdo_qr_payload, payable.amountPhp);
+
   const gcash: ChannelInfo = {
-    payload: mintOrderQr(settings.gcash_qr_payload, payable.amountPhp),
+    payload: gcashQr.payload,
     staticUrl: settings.gcash_qr_url,
     number: settings.gcash_number,
     name: settings.gcash_account_name,
@@ -136,12 +155,29 @@ export default async function PayPage({ params, searchParams }: Props) {
     enabled: isChannelOpen(settings, 'gcash'),
   };
   const bdo: ChannelInfo = {
-    payload: mintOrderQr(settings.bdo_qr_payload, payable.amountPhp),
+    payload: bdoQr.payload,
     staticUrl: settings.bdo_qr_url,
     number: settings.bdo_account_number,
     name: settings.bdo_account_name,
     enabled: isChannelOpen(settings, 'bdo'),
   };
+
+  /**
+   * Step 1 names BOTH rails in one breath, so it may only promise a pre-filled
+   * amount when both OPEN codes carry one — see `everyOpenRailCarriesAmount`.
+   * The caption beside each code then narrows it to the rail they are on.
+   */
+  const words = qrWords(
+    everyOpenRailCarriesAmount({
+      amountPhp: payable.amountPhp,
+      rails: [
+        { open: gcash.enabled, payload: settings.gcash_qr_payload },
+        { open: bdo.enabled, payload: settings.bdo_qr_payload },
+      ],
+    }),
+    payAmount(payable.amountPhp),
+    { reference: payable.reference },
+  );
 
   const activates = payable.isVendorPlan
     ? 'Your plan switches on as soon as our team confirms the payment.'
@@ -252,14 +288,12 @@ export default async function PayPage({ params, searchParams }: Props) {
             <CopyButton value={payable.reference} label="Copy" />
           </div>
         </div>
-        <p className="mt-2 text-xs text-ink/55">
-          Put this in the transfer note. It&rsquo;s how we match your payment to your account.
-        </p>
+        <p className="mt-2 text-xs text-ink/55">{words.note}</p>
 
         {!waiting && (
           <div className="mt-5 border-t border-ink/10 pt-4">
             <p className="sn-eye mb-2">What happens next</p>
-            <Step n={1}>Scan the code with your GCash or bank app — the amount is already in it.</Step>
+            <Step n={1}>{words.scanStep}</Step>
             <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
             <Step n={3}>{activates}</Step>
           </div>

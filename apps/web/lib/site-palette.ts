@@ -476,3 +476,32 @@ export function tintedChipFromAccent(accentHex: string): TintedChip | null {
     ring: toHex(blend(CHIP_SURFACE, accent, 0.4)),
   };
 }
+
+/**
+ * A role's colour as TEXT on the roster, not as a filled chip.
+ *
+ * ⚖ Owner 2026-09-20, looking at the desktop guest list: *"is there a better
+ * way to keep this clean and remove the pill boxes? so it looks neater?"* Five
+ * tinted capsules per row across 77 rows is ~385 coloured shapes and no
+ * hierarchy — the eye gets texture instead of information. The role keeps the
+ * colour (it is the identity, and since PR #5755 it is the couple's own
+ * mood-board colour); it simply stops wearing a box.
+ *
+ * 🔑 THE SURFACE CHANGED, SO THE CONTRAST TARGET MUST TOO. `tintedChipFromAccent`
+ * darkens the label against its own 16% wash. Here the label sits on the ROW,
+ * which alternates between the page and a 2% ink zebra — a different and
+ * slightly darker background. Reusing the chip's colour would be AA against a
+ * surface that is no longer behind it. The zebra is used because it is the
+ * darker of the two, so whichever row a name lands on, it clears.
+ */
+const ROSTER_ZEBRA: RGB = blend(
+  { r: 255, g: 255, b: 255 }, // --color-cream is #FFFFFF (globals.css, owner 2026-08-20)
+  { r: 44, g: 42, b: 41 }, //    --color-ink espresso #2C2A29
+  0.02, //                       the roster's `odd:bg-ink/[0.02]`
+);
+
+export function accentTextOnRoster(accentHex: string): string | null {
+  const accent = hexToRgb(accentHex);
+  if (!accent) return null;
+  return toHex(ensureContrast(accent, ROSTER_ZEBRA, 4.5));
+}

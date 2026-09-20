@@ -7,7 +7,7 @@ import {
 } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
-import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -38,6 +38,13 @@ type Event = {
   // lettered design below — so the chrome icon matches the website hero (one
   // mark everywhere, no letters-in-chrome / SVG-on-hero split).
   monogram_custom_svg?: string | null;
+  /* 🔑 THE UPLOADED MARK OUTRANKS THE STUDIO ONE — and this component used to
+   * read `monogram_custom_svg` ALONE, so a couple who uploaded a logo still saw
+   * their old designed mark in the account switcher, the album shelf, the photos
+   * tab and their public /u/ profile. Four screens quietly disagreeing with the
+   * banner that promises "it outranks the studio mark everywhere".
+   * Both columns in, resolveEventMonogramSvg decides. */
+  monogram_uploaded_svg?: string | null;
 };
 
 type Size = 'sm' | 'md' | 'lg';
@@ -92,7 +99,7 @@ export function EventMonogram({
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
   // (This site already renders via an inert data-URI <img>; the gate is the
   // second layer, and it also stops a poisoned mark reaching the data URI.)
-  const customSvg = safeMonogramSvg(event.monogram_custom_svg);
+  const customSvg = resolveEventMonogramSvg(event);
   if (customSvg) {
     return (
       <span

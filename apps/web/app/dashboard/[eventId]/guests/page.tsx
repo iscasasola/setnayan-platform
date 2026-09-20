@@ -147,6 +147,7 @@ const CATHOLIC_ONLY_VIEW_FILTERS = new Set([
   'bearers_flower_girl',
 ]);
 
+
 function viewFiltersFor(
   roleSetKey: string | null | undefined,
 ): { key: string; label: string }[] {
@@ -290,7 +291,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // after his Movie Night: *"i can still invite"*. It could not have known
         // otherwise — nothing here asked when the celebration was, so every
         // affordance on it addressed a party that had not happened yet.
-        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone')
+        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -593,6 +594,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // <FileUpload> uses. Resolved over the FULL guest list (not `visible`) so
   // re-filtering/sorting never re-signs; signing runs in parallel per the
   // displayUrlForStoredAsset doc guidance.
+  // The base every guest's own invitation link (and NFC tag) is built from.
+  const invitationBase = await fetchInvitationBase(
+    eventId,
+    (eventRow.data as { slug?: string | null } | null)?.slug ?? null,
+  );
+
   const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
   const inspectedGuest = inspectId
@@ -614,6 +621,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
     >
       <GuestDetailBody
+        invitationBase={invitationBase}
         guest={inspectedGuest}
         groupLabels={inspectedGroupLabels}
         eventId={eventId}
@@ -1116,6 +1124,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           client islands that sit idle until acted on. */}
       <UndoToastHost />
       <GuestDrawerHost
+        invitationBase={invitationBase}
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         photoDisplayUrls={photoDisplayUrls}
@@ -1300,6 +1309,19 @@ async function fetchJoinUrl(
   }
   if (!data?.token) return null;
   return `${appUrl}/join/${eventId}?token=${data.token}`;
+}
+
+/**
+ * The event's public address WITHOUT a guest token — `…/u/<owner>/<slug>` or
+ * `…/<slug>`. A guest's own invitation link is this plus `?invite=<token>`,
+ * the same string `buildInvitationUrl` produces for their QR, and the string
+ * an NFC tag holds. Null before the event has a slug.
+ */
+async function fetchInvitationBase(eventId: string, slug: string | null): Promise<string | null> {
+  if (!slug) return null;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+  return `${appUrl}${publicEventPath(slug, ownerSlug)}`;
 }
 
 function pickFlash(search: {

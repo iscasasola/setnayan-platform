@@ -242,6 +242,51 @@ export function guestTokenFromTag(
   return { token: null, reason: 'not-a-guest-code' };
 }
 
+// ── Whose job is this? ────────────────────────────────────────────────────
+//
+// Writing a tag is a PHONE job: the phone's own radio touches the sticker.
+// No desktop browser can do it, and no desktop ever will — a laptop has no
+// NFC writer the web can reach. So a desktop is not "unsupported browser",
+// it is the wrong device, and the sheet should say so.
+
+export type NfcDevice = 'phone' | 'desktop';
+
+/**
+ * Pure: is this a phone-shaped device? Takes what the caller read from the
+ * browser so it can be tested without one. A coarse pointer (finger) plus a
+ * small screen is the honest signal; the user-agent is the fallback for
+ * desktop browsers that lie about neither.
+ */
+export function nfcDeviceKind(env: {
+  coarsePointer: boolean;
+  maxTouchPoints: number;
+  userAgent: string;
+  screenWidth: number;
+}): NfcDevice {
+  const ua = env.userAgent;
+  if (/iPhone|iPod|Android.*Mobile/i.test(ua)) return 'phone';
+  // iPadOS reports a Mac user-agent; it is still a touch device, and it can
+  // run the app. Treat any touch device with a phone/tablet-sized screen as
+  // a phone for this purpose.
+  if (env.coarsePointer && env.maxTouchPoints > 0 && env.screenWidth <= 1180) return 'phone';
+  return 'desktop';
+}
+
+/**
+ * What the sheet says when this device cannot write. Separate from
+ * `nfcFailureCopy` because "you are on a laptop" is not a failure — nothing
+ * went wrong, the job simply belongs on the phone in your pocket.
+ */
+export function nfcWrongDeviceCopy(device: NfcDevice, isIos: boolean): string {
+  if (device === 'desktop') {
+    return 'Writing an NFC tag happens on a phone — a computer has no NFC writer. Copy the link below, open this page on your phone, and write the tag there.';
+  }
+  if (isIos) {
+    return 'On iPhone, tags are written from the Setnayan app. Open this page in the app, or copy the link and write it with a free NFC app such as NFC Tools.';
+  }
+  return 'This browser cannot write NFC tags. Use Chrome on this phone, or copy the link and write it with a free NFC app such as NFC Tools.';
+}
+
 /** Time to wait for a sticker before we call it. */
 export const NFC_WRITE_TIMEOUT_MS = 30_000;
 /** Time to wait for the read-back after a write. */

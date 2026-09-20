@@ -121,8 +121,11 @@ export function GuestDrawerHost({
   eventId,
   brandedQrActive = false,
   photoDisplayUrls = {},
+  invitationBase = null,
 }: {
   eventId: string;
+  /** The event's public address without a guest token — see GuestDetailBody. */
+  invitationBase?: string | null;
   /** Stored photo ref → display URL, resolved by the page's loader. The sheet
    *  opens from a client store that carries only the row, so the map has to
    *  arrive here rather than in the payload. */
@@ -156,6 +159,7 @@ export function GuestDrawerHost({
         groupLabels={groupLabels}
         eventId={eventId}
         brandedQrActive={brandedQrActive}
+        invitationBase={invitationBase}
         headingId={TITLE_ID}
         photoDisplayUrl={photoDisplayUrls[guest.photo_url ?? ''] ?? null}
       />

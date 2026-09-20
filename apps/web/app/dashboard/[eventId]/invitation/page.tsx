@@ -32,6 +32,7 @@ import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { QrActions } from '@/app/_components/qr-actions';
 import { qrFileName, svgDataUri } from '@/lib/qr-download';
+import { TagListDownload } from '@/app/_components/tag-list-download';
 
 export const metadata = { title: 'Invitations' };
 
@@ -153,6 +154,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     })),
   );
   const qrByGuest = new Map(qrEntries.map((e) => [e.guestId, e]));
+  const nameByGuest = new Map(guests.map((g) => [g.guest_id, guestDisplayName(g)]));
 
   const reissuedGuestId = search.reissued ?? null;
   const reissueError = search.reissue_error ?? null;
@@ -249,6 +251,14 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             >
               Print sheet (A4)
             </Link>
+            {/* A batch of guest tags is a desk job, not 180 taps on a phone. */}
+            <TagListDownload
+              rows={qrEntries.map((e) => ({
+                name: nameByGuest.get(e.guestId) ?? 'Guest',
+                url: e.url,
+              }))}
+              eventName={event.display_name ?? null}
+            />
           </div>
         }
       />

@@ -200,6 +200,11 @@ type Props = {
     bulk_grouped?: string;
     bulk_sided?: string;
     bulk_deleted?: string;
+    // pair-actions.ts. These arrived with the pairing feature and were not
+    // registered here, so a finished pair produced no confirmation AND left
+    // the floating SelectionBar holding two guests it had already acted on.
+    paired?: string;
+    unpaired?: string;
     group_created?: string;
     group_saved?: string;
     group_deleted?: string;
@@ -1086,7 +1091,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               recentlyApplied={Boolean(
                 search.bulk_assigned ||
                   search.bulk_grouped ||
-                  search.bulk_sided,
+                  search.bulk_sided ||
+                  // Pairing acts on the SELECTED two and finishes the task, so
+                  // it retracts the bar exactly like an Apply. `unpaired` is
+                  // deliberately absent: it comes from a single row's own
+                  // control, not from the selection, so it must not silently
+                  // discard a selection the host is still building.
+                  search.paired,
               )}
             />
           )}
@@ -1313,6 +1324,8 @@ function pickFlash(search: {
   bulk_grouped?: string;
   bulk_sided?: string;
   bulk_deleted?: string;
+  paired?: string;
+  unpaired?: string;
   group_created?: string;
   group_saved?: string;
   group_deleted?: string;
@@ -1350,6 +1363,8 @@ function pickFlash(search: {
     const n = Number(search.bulk_deleted);
     return `Removed ${n} guest${n === 1 ? '' : 's'} · seats opened up.`;
   }
+  if (search.paired) return 'Paired — they walk in together.';
+  if (search.unpaired) return 'Pair removed.';
   if (search.group_created) return 'Group created.';
   if (search.group_saved) return 'Group saved.';
   if (search.group_deleted) return 'Group deleted.';

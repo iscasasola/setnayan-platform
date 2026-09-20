@@ -160,6 +160,8 @@ import {
   type SupplierFirstPaymentStatus,
 } from '@/lib/accepted-quote-terms';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
+import { PaymentHistoryList } from '@/app/_components/payment-history-list';
+import type { PaymentHistory } from '@/lib/payment-history';
 import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -763,18 +765,29 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // names the next payment from `moneyStep`; the supplier reads the same step
   // here, so both ends name the same payment. Only once the first is settled —
   // before that the status line above says it all.
-  const supplierMoney = acceptedTerms
-    ? await readBookedMoney(admin, {
-        eventId,
-        vendorProfileId: profile.vendor_profile_id,
-        eventDate: brief.event.event_date,
-      })
-    : null;
+  // Read for ANY booked client, not only one with an accepted quote: the
+  // payment HISTORY ("show the current payments done as well") exists whenever
+  // money has been recorded, quote or no quote.
+  const supplierMoney =
+    acceptedTerms || isBooked
+      ? await readBookedMoney(admin, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          eventDate: brief.event.event_date,
+          viewer: 'vendor',
+          otherName: 'the couple',
+        })
+      : null;
   const supplierNextLine =
     supplierMoney &&
-    (supplierMoney.step.kind === 'installment_due' || supplierMoney.step.kind === 'paid_in_full')
+    (supplierMoney.step.kind === 'installment_due' ||
+      // NOTHING DUE FROM THE COUPLE YET — the supplier's end of the same
+      // sentence, so neither side is told a payment is owed when it is not.
+      supplierMoney.step.kind === 'installment_not_due_yet' ||
+      supplierMoney.step.kind === 'paid_in_full')
       ? moneyStepLine(supplierMoney.step, 'vendor', 'the couple')
       : null;
+  const supplierPaymentHistory = supplierMoney?.history ?? null;
   const firstPayment =
     firstPaymentStatus && acceptedTerms && firstPaymentSentenceText
       ? {
@@ -1558,6 +1571,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
       firstPayment={firstPayment}
+      paymentHistory={supplierPaymentHistory}
       depositAcked={depositAcked}
       depositDeclined={depositDeclined}
       isCompleteConfirmed={isCompleteConfirmed}
@@ -2212,6 +2226,12 @@ function OverviewTab(props: {
     nextLine: string | null;
     laterRows: { label: string; amount: string; dueText: string }[];
   } | null;
+  /**
+   * WHAT THE COUPLE HAS ALREADY PAID — `readBookedMoney().history`, the same
+   * shape their own card renders. A refused ledger read arrives as
+   * `{ state: 'unreadable' }` and says so; it is never shown as no payments.
+   */
+  paymentHistory: PaymentHistory | null;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
@@ -2251,6 +2271,7 @@ function OverviewTab(props: {
     depositAcked,
     depositDeclined,
     firstPayment,
+    paymentHistory,
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
@@ -2574,8 +2595,10 @@ function OverviewTab(props: {
         </Card>
       ) : null}
 
-      {firstPayment ? (
+      {firstPayment || paymentHistory ? (
         <Card>
+          {firstPayment ? (
+            <>
           <p className="text-sm font-medium text-ink">{firstPayment.sentence}</p>
           <p
             className={
@@ -2598,6 +2621,11 @@ function OverviewTab(props: {
               ))}
             </ul>
           ) : null}
+            </>
+          ) : null}
+          {/* WHAT THEY HAVE ALREADY PAID — the supplier's end of the couple's
+              own history, from the SAME `readBookedMoney().history`. */}
+          <PaymentHistoryList history={paymentHistory} className="mt-3 border-t border-ink/10 pt-2" />
         </Card>
       ) : null}
 

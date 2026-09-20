@@ -147,8 +147,13 @@ test('the deposit card shows the supplier’s methods FIRST, then "Record paymen
   assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked;/);
   /* ✏️ EVOLVED 2026-09-20: the one pay sheet also serves the NEXT installment
      (Amount to pay), so its gate is `payDue` — built from `owed`, not a second
-     invention. */
-  assert.match(card, /const payDue = \(owed && firstPaymentOffered\) \|\| later !== null;/);
+     invention. ✏️ EVOLVED again the same day ("nothing due now" is its own
+     state): a not-due-yet installment adds no CTA of its own — it only opens
+     the SAME pay sheet if the couple chooses to pay early. */
+  assert.match(
+    card,
+    /const payDue = \(owed && firstPaymentOffered\) \|\| later !== null \|\| \(notDueYet !== null && earlyOpen\);/,
+  );
   assert.match(card, /\{payDue \? \(/, 'the pay step is not gated on what is owed');
   // Exactly one pay sheet in the card.
   assert.equal(card.split('<VendorDirectPay').length - 1, 1);

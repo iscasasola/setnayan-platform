@@ -1265,6 +1265,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     eventId,
     eventVendorId: ev.vendor_id,
     eventDate: acceptedQuoteEventDate,
+    viewer: 'couple',
+    otherName: displayName,
   });
   const itemizationDoor = paymentDoor({
     isMarketplaceVendor: Boolean(ev.marketplace_vendor_id),
@@ -1857,6 +1859,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
             requestedTermsUnreadable={acceptedQuoteUnreadable}
             step={bookedMoney.step}
+            history={bookedMoney.history}
           />
 
           {/*

@@ -342,6 +342,27 @@ test('⛔ NOT A SECOND FIXED BOTTOM BAR — nothing is positioned while closed',
   );
 });
 
+test('🔑 focus is managed by the SHARED hook, not hand-rolled here', () => {
+  // RULE 0, and this one shipped before its own guard caught it. The first
+  // build did its own body-scroll lock, its own Escape listener and its own
+  // `.focus()` — the half of modal behaviour that is visible — while never
+  // trapping Tab and never handing focus back. A sheet claiming
+  // `aria-modal="true"` and doing that is a keyboard dead end: Tab walks
+  // straight out into the invitation behind the scrim.
+  //
+  // `lib/modal-a11y-adoption.test.ts` names any such file repo-wide. This pins
+  // the other direction: that THIS sheet did not satisfy it by quietly dropping
+  // `aria-modal` and keeping the hand-rolled half.
+  assert.match(SHEET_CODE, /useModalA11y\(\{[\s\S]{0,120}containerRef/, 'the shared hook is gone');
+  assert.match(SHEET_CODE, /aria-modal=/, 'the sheet stopped announcing itself as a dialog');
+  for (const [pattern, what] of [
+    [/body\.style\.overflow/, 'a hand-rolled body-scroll lock'],
+    [/key === 'Escape'/, 'a hand-rolled Escape listener'],
+  ] as const) {
+    assert.ok(!pattern.test(SHEET_CODE), `${what} is back alongside the hook — one of the two will win, silently`);
+  }
+});
+
 test('with the bundle dead the reply card is still a reachable section', () => {
   // The flow ⇄ sheet switch hangs off `.sn-sheet-js`, added to <html> by an
   // inline script. With JS off the class never lands, the panel keeps its

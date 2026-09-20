@@ -39,3 +39,19 @@ local dev has no `SUPABASE_SERVICE_ROLE_KEY`, so the invitation cannot render ou
 
 SPEC IMPACT: None. No schema, no locked decision, no price. The reply card's fields, its server
 action and its post-lock behaviour are untouched; only where it is drawn has changed.
+
+### Follow-up, same day — the sheet uses the shared focus hook
+
+The first build hand-rolled the visible half of modal behaviour (body-scroll lock, Escape,
+`.focus()` on open) and none of the half that matters: Tab was never trapped, so it walked straight
+out of the sheet into the invitation behind the scrim, and focus was never handed back to the
+control that opened it — while the panel claimed `aria-modal="true"`. `lib/use-modal-a11y.ts`
+already existed for exactly this (2026-06-25 audit), and `lib/modal-a11y-adoption.test.ts` named
+this file the first time the FULL unit suite ran. RULE 0, caught by the repo's own guard.
+
+Now: `useModalA11y({ open, onClose, containerRef })` owns focus, Tab, Escape and the
+reference-counted body lock; the sheet keeps only the page-scroll position, which the hook does not
+do. A new guard in `the-reply-is-a-sheet.test.ts` pins the call — not merely the import — and
+asserts neither hand-rolled half has crept back beside it.
+
+SPEC IMPACT: None.

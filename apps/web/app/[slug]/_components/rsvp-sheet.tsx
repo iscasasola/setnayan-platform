@@ -63,6 +63,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { hashOpensSheet, sheetOpensOnLoad, type RsvpSheetFlash } from './rsvp-sheet-state';
 
 /**
@@ -195,27 +196,33 @@ export function RsvpSheet({
     };
   }, [openSheet, reopenForFlash]);
 
+  /**
+   * 🔑 THE SHARED HOOK, NOT A HAND-ROLLED ONE — RULE 0, CAUGHT BY ITS OWN GUARD.
+   * The first build of this sheet did its own body-scroll lock, its own Escape
+   * listener and its own `panelRef.current?.focus()`, which LOOKS like modal
+   * behaviour and is the half that does not matter: focus was never trapped, so
+   * Tab wandered straight out of the sheet into the invitation behind it, and on
+   * close it was never handed back to the control that opened it. A sheet
+   * claiming `aria-modal="true"` while doing that is a keyboard and
+   * screen-reader dead end — which is exactly the 2026-06-25 audit finding this
+   * hook exists to close, and `lib/modal-a11y-adoption.test.ts` named this file
+   * on the first full run.
+   *
+   * `useModalA11y` owns focus, Tab, Escape and the (reference-counted) body
+   * lock. What stays below is the one thing it does not do: the page's own
+   * scroll position.
+   */
+  useModalA11y({ open, onClose: closeSheet, containerRef: panelRef });
+
   useEffect(() => {
     if (!open) return;
-    const body = document.body;
-    const previousOverflow = body.style.overflow;
-    body.style.overflow = 'hidden';
     // THE MARK STAYS VISIBLE BEHIND IT (canvas board 2). The sheet covers the
     // lower three-quarters of the screen; what shows above it is whatever the
     // page is scrolled to, so the page goes to its top as the sheet rises —
     // which is where the monogram and the couple's names are. Their reading
     // position is handed back by the effect below when the sheet closes.
     window.scrollTo(0, 0);
-    panelRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeSheet();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, closeSheet]);
+  }, [open]);
 
   useEffect(() => {
     // `hadOpened` matters: a tap captures a position BEFORE the sheet opens, and

@@ -100,3 +100,20 @@ roster count was updated rather than the reads rerouted.
 SPEC IMPACT: `DECISION_LOG.md` — (j) the Add-manually sheet carries all eight
 fields on one screen and saves through one action; the pin is optional even
 where the address is required.
+
+## 2026-09-20 · chore(guards): `crew_meal_covered` now has a reader elsewhere — its baseline line is deleted
+
+`handles-have-gates.db.test.ts` failed the branch, correctly, and the fix is
+the one it asked for: delete the line.
+
+That guard records switch columns read **only by the surface that writes
+them** — a control that promises an effect and delivers none, the shape found
+when `users.planner_mode` turned out to hide a checklist that rendered
+unconditionally anyway. `event_vendors.crew_meal_covered` was on that list as
+*"written and read on the couple's vendors surface"*.
+
+It is no longer true: the claim seed (`lib/couple-card-to-canvas.ts` and its
+fetch half) reads it to carry "the event feeds this crew" onto the supplier's
+first card. The switch now has a consumer somewhere else, which is exactly the
+state the baseline exists to track the absence of — so the declaration goes,
+rather than being edited to stay green.

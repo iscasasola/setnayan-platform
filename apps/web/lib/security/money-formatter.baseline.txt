@@ -26,6 +26,8 @@ R1	phpToCentavos	lib/payouts.ts lib/vendor-service-payment-schedules.ts
 # ── R2 · DROPS THE FRACTION WITH NO `@rounds-to-the-peso` REASON ────────────
 # key: <file>\t<name>
 #
-# The same function as the first R1 row, for the same reason: #5756 deletes the
-# rounding outright, so a marker added here would have to be removed there.
-R2	lib/vendor-service-payment-schedules.ts	centavosToPhp
+# EMPTY, AND IT SHRANK ONCE ALREADY. This section held
+# `lib/vendor-service-payment-schedules.ts  centavosToPhp` while PR #5756 was open;
+# that PR merged mid-review and deleted the rounding, so the row came out. Every
+# money helper in the app that drops the fraction now carries a reason a reviewer
+# can read.

@@ -16,6 +16,7 @@ import {
   INSTALL_STEPS,
   buildEventIconSvg,
   buildEventManifest,
+  homeScreenLabel,
   iconInitials,
   installPlatform,
   safeHex,
@@ -126,4 +127,20 @@ test('the invitation names the manifest AND the apple icon — iOS ignores the m
   assert.match(page, /apple: \[/, 'without this iOS falls back to a screenshot of the page');
   assert.match(page, /180\.png/, 'the size iOS actually asks for first');
   assert.match(page, /appleWebApp:[\s\S]{0,120}title: event\.display_name/, 'the label is the couple, not "Setnayan"');
+});
+
+test('the home-screen label is a word, not a cut — seen in prod as "Indalecio & "', () => {
+  // The real event, the real defect.
+  assert.equal(homeScreenLabel('Indalecio & Claire'), 'Indalecio');
+  assert.equal(buildEventManifest({ slug: 'x', displayName: 'Indalecio & Claire' }).short_name, 'Indalecio');
+
+  assert.equal(homeScreenLabel('Cale & Ice'), 'Cale & Ice', 'a short name is left whole');
+  assert.equal(homeScreenLabel('Maria and Jose'), 'Maria', 'the word "and" separates too');
+  assert.equal(homeScreenLabel('Bartholomew Fitzgerald III'), 'Bartholomew', 'no partner, still a word');
+  assert.equal(homeScreenLabel(''), 'Invitation', 'never empty under an icon');
+  for (const raw of ['Indalecio & Claire', 'A & B & C', 'Maria, Jose, and everyone else']) {
+    const label = homeScreenLabel(raw);
+    assert.ok(label.length <= 12, `${label} fits`);
+    assert.doesNotMatch(label, /[\s&+,.·-]$/, `${label} does not trail on punctuation`);
+  }
 });

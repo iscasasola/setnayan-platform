@@ -1539,10 +1539,16 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
   // without being re-entered, so the supplier must read the figure they will
   // actually put in front of the couple.
   //
-  // ⚠ OPEN PR #5756 FIXES THIS SAME LINE as `formatPhp(Math.round(c) / 100)`.
-  // That is the right arithmetic, but on that branch `formatPhp` still comes
-  // from `@/lib/vendors`, which rounds — so the fix is INERT until this PR
-  // deletes that formatter. Whichever merges second, keep the centavos.
+  // 🔴 PR #5756 (MERGED) WROTE THIS LINE AS `formatPhp(Math.round(c) / 100)` AND
+  // THAT FIX WAS INERT ON `main`. The arithmetic was right, but `formatPhp` in
+  // this file came from `@/lib/vendors`, which did
+  // `maximumFractionDigits: 0` — so a ₱837.50 draft still read ₱838 after the
+  // fix landed. Measured on `main` at 30e6baab5, not inferred.
+  //
+  // 🔑 THAT IS THE WHOLE CASE FOR THIS PR. Removing the caller's rounding
+  // cannot help while the formatter it calls also rounds, and a name collision
+  // is what hid the second one. Now there is one definition (`lib/php.ts`) and
+  // the centavos are entered directly.
   const amount =
     typeof card.totalCentavos === 'number'
       ? formatCentavosPhp(card.totalCentavos)

@@ -120,7 +120,15 @@ export default async function PapicGuestOrderPage({
   const paid = status === 'paid' || status === 'fulfilled';
   const cancelled = status === 'cancelled';
   const canLog = status === 'submitted' || status === 'awaiting_payment';
-  const amount = Number(order.requested_total_php ?? 0);
+  // 🔑 `?? 0` HERE WOULD TELL A GUEST THEIR PACK COSTS NOTHING. `formatPhp`
+  // already renders an absent figure as `—`; the fallback reached it first and
+  // printed ₱0 on the line that names what to send, with a Copy button offering
+  // "0.00". Absent stays absent and the copy control disappears with it.
+  const rawAmount = order.requested_total_php;
+  const amount: number | null =
+    rawAmount === null || rawAmount === undefined || !Number.isFinite(Number(rawAmount))
+      ? null
+      : Number(rawAmount);
   const points = Number((row as { points?: number }).points ?? 0);
   const referenceCode = order.reference_code ?? '';
 
@@ -173,8 +181,10 @@ export default async function PapicGuestOrderPage({
             <p className="text-2xl font-semibold text-ink">{formatPhp(amount)}</p>
           </div>
           {/* Never rounded — `String(837.5)` is "837.5" and is one keystroke
-              from "837.05" in a bank field. Two decimals, as the QR carries. */}
-          <CopyButton value={amount.toFixed(2)} label="Copy" />
+              from "837.05" in a bank field. Two decimals, as the QR carries.
+              No figure ⇒ no Copy: a button that pastes "0.00" into a bank app
+              is worse than no button. */}
+          {amount === null ? null : <CopyButton value={amount.toFixed(2)} label="Copy" />}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-4">
           <div>

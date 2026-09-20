@@ -71,10 +71,12 @@ import {
   resolvePoolIdsForCategory,
 } from '@/lib/schedule-pools';
 import {
+  centavosToPhp,
   computePlanInstances,
   defaultPaymentScheduleRows,
   downpaymentPolicyFromRows,
   isProtectedPolicy,
+  pctOfTotalPhp,
   type PaymentScheduleItemRow,
   type PolicySnapshot,
 } from '@/lib/vendor-service-payment-schedules';
@@ -1343,16 +1345,25 @@ export async function finalizeVendor(
         (targetVendor as { change_lines?: ChangeLineRow[] | null }).change_lines,
       );
       // Resolve the downpayment amount for the evidence snapshot when possible.
+      //
+      // 🔴 THIS ROUNDED TO THE WHOLE PESO AND THE RESULT IS PERSISTED, not
+      // merely shown: `reservationSnapshot` is both the text the couple is
+      // gated on ("reservation_terms_required") and the evidence row written
+      // after the lock. The downpayment is the very first money the couple is
+      // asked to send, so a rounded figure here is an instruction to transfer
+      // an amount the schedule does not name. Same centavo-exact helpers
+      // `computePlanInstances` uses — one rule, two call sites, no third
+      // spelling.
       let downpaymentAmountPhp: number | null = null;
       if (dpRow) {
         if (dpRow.amount_kind === 'fixed' && dpRow.amount_centavos != null) {
-          downpaymentAmountPhp = Math.round(dpRow.amount_centavos / 100);
+          downpaymentAmountPhp = centavosToPhp(dpRow.amount_centavos);
         } else if (
           dpRow.amount_kind === 'percent' &&
           dpRow.percent_bps != null &&
           totalCostPhp != null
         ) {
-          downpaymentAmountPhp = Math.round((totalCostPhp * dpRow.percent_bps) / 10000);
+          downpaymentAmountPhp = pctOfTotalPhp(totalCostPhp, dpRow.percent_bps);
         }
       }
       reservationSnapshot = {

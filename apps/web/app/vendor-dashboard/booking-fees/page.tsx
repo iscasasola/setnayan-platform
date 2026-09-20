@@ -15,7 +15,11 @@ import {
   bucketFeeOrders,
   FEE_ORDERS_UNREADABLE,
 } from '@/lib/vendor-booking-fees.server';
-import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import {
+  feeOrderTotalPhp,
+  sumFeeOrderTotalsPhp,
+  vendorBookingFeePayPath,
+} from '@/lib/vendor-booking-fees';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
@@ -70,10 +74,10 @@ export default async function VendorBookingFeesPage() {
   ).catch(() => FEE_BILLS_UNREADABLE);
   const waived: WaivedFeeCharge[] = waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
 
-  const totalDue = due.reduce(
-    (acc, o) => acc + Number(o.confirmed_total_php ?? o.requested_total_php ?? 0),
-    0,
-  );
+  // `null` when ANY due order's total could not be read — the banner then names
+  // the count and says the amount is unreadable, instead of printing a sum that
+  // silently counted the unreadable one as ₱0.
+  const totalDue = sumFeeOrderTotalsPhp(due);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -94,8 +98,20 @@ export default async function VendorBookingFeesPage() {
           You have{' '}
           <span className="font-semibold">
             {due.length} unpaid {due.length === 1 ? 'fee' : 'fees'}
-          </span>{' '}
-          totalling <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
+          </span>
+          {totalDue === null ? (
+            <>
+              {' '}
+              — we couldn&rsquo;t load the total. Open each one below for the exact
+              amount.
+            </>
+          ) : (
+            <>
+              {' '}
+              totalling{' '}
+              <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
+            </>
+          )}
         </div>
       ) : null}
 
@@ -179,7 +195,9 @@ function FeeGroup({
       </p>
       <ul className="space-y-2">
         {orders.map((o) => {
-          const amount = Number(o.confirmed_total_php ?? o.requested_total_php ?? 0);
+          // `null` → `formatPhp` prints `—`. A fee whose amount we could not
+          // read must never read ₱0 on the row a supplier taps to pay it.
+          const amount = feeOrderTotalPhp(o);
           return (
             <li key={o.order_id}>
               <Link

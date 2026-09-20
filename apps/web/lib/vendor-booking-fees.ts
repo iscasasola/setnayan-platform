@@ -119,6 +119,67 @@ export function selectDueFeeOrders<
   );
 }
 
+/** A fee order as far as its MONEY is concerned. Both columns may be absent. */
+export type FeeOrderAmountSource = {
+  confirmed_total_php: number | string | null | undefined;
+  requested_total_php: number | string | null | undefined;
+};
+
+/**
+ * WHAT THIS FEE COSTS — the confirmed figure, else the requested one, else
+ * `null` because WE COULD NOT READ IT.
+ *
+ * 🔴 EVERY CALLER WROTE `Number(o.confirmed_total_php ?? o.requested_total_php ??
+ * 0)`, AND THAT TRAILING `?? 0` IS THE WHOLE BUG. `formatPhp` already renders an
+ * absent figure as `—`; the `?? 0` reaches it first and turns "we could not read
+ * this" into **₱0** — a bill that says it costs nothing, on the page whose job is
+ * to name what to transfer. The hub's warning banner did it twice over: a single
+ * unreadable order silently contributed 0 to "totalling ₱X", so the headline
+ * under-stated what the supplier owes without anything on screen saying so.
+ *
+ * ⚖ HOW REACHABLE IS IT? `orders.requested_total_php` is `NUMERIC(12,2) NOT
+ * NULL` (migration `20260513150000_iteration_0034_payments.sql`) and a
+ * column-level refusal fails the WHOLE PostgREST query — which
+ * `fetchVendorFeeOrders` already turns into `FEE_ORDERS_UNREADABLE`, never `[]`.
+ * So on a row that exists and was read, this is belt-and-braces rather than a
+ * live defect, and it is claimed as nothing more. Prod row counts were NOT
+ * measured this session (the read-only SQL tool was permission-blocked), so no
+ * claim is made about live data either way.
+ *
+ * 🔑 IT IS STILL WORTH REMOVING, FOR THE REASON `pay-amount.ts` GIVES ABOUT ITS
+ * OWN `maximumFractionDigits`: the declared TYPE admits null, so the render must
+ * answer for null. A guard can hold a total-less order to `—` forever; it cannot
+ * hold a schema column to NOT NULL. And the failure mode this shape produces —
+ * "₱0" for "unknown" — is the exact disease seven merged PRs were spent on: a
+ * failure that renders identically to a fact.
+ */
+export function feeOrderTotalPhp(order: FeeOrderAmountSource): number | null {
+  const raw = order.confirmed_total_php ?? order.requested_total_php;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The sum of a set of fee orders, or `null` IF ANY ONE OF THEM IS UNREADABLE.
+ *
+ * 🔑 A SUM IS ONLY AS HONEST AS ITS WEAKEST TERM. Skipping an unreadable order
+ * yields a smaller number that still looks like a total, which is worse than no
+ * number: the supplier reads a figure, pays it, and is still in arrears. An
+ * empty set legitimately totals ₱0 — that is a real zero, not a missing one.
+ */
+export function sumFeeOrderTotalsPhp(
+  orders: readonly FeeOrderAmountSource[],
+): number | null {
+  let sum = 0;
+  for (const o of orders) {
+    const amount = feeOrderTotalPhp(o);
+    if (amount === null) return null;
+    sum += amount;
+  }
+  return sum;
+}
+
 /*
  * 🪦 `bookingFeeNotificationCopy` LIVED HERE AND IS GONE (2026-09-20).
  *

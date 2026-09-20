@@ -10,6 +10,7 @@ import {
   type VendorCategory,
 } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
+import { pctOfTotalPhp } from '@/lib/vendor-service-payment-schedules';
 import { DUE_ANCHOR_LABELS, type DueAnchor } from '@/lib/vendor-service-payment-schedules';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
@@ -148,12 +149,15 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     const v = Number(r.amount_value ?? 0);
     if (r.amount_kind === 'percent') {
       // 🔴 THIS WAS `Math.round((total * v) / 100)` — a percent installment of a
-      // booking total, rounded to the WHOLE PESO before the couple read it on
-      // the page where they agree to the schedule. 30% of ₱187,501 showed as
-      // ₱56,250 against a ₱56,250.30 obligation. Multiplying to centavos FIRST
-      // keeps the arithmetic integral where it matters; the order of operations
-      // is load-bearing (same reasoning as `pctOfTotalPhp` in PR #5756).
-      return total != null ? formatPhp(Math.round(total * v) / 100) : `${v}%`;
+      // booking total, rounded to the WHOLE PESO on the page where the couple
+      // agrees to the schedule. 30% of ₱187,501 showed as ₱56,250 against a
+      // ₱56,250.30 obligation.
+      //
+      // 🔑 THE SHARED FUNCTION, NOT A THIRD COPY OF THE ARITHMETIC. PR #5756
+      // extracted `pctOfTotalPhp` for exactly this, because "a guard on one
+      // inline expression cannot see the other" — and this page was the other.
+      // It takes BASIS POINTS, so a whole percent is `v * 100`.
+      return total != null ? formatPhp(pctOfTotalPhp(total, v * 100)) : `${v}%`;
     }
     return formatPhp(v);
   };

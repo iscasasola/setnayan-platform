@@ -261,7 +261,10 @@ test('R1+R2 · the baseline may only SHRINK', () => {
   // `formatCentavosPhp` (3) and `formatCentavos` (2) were paid down to zero and
   // seven rounding helpers were given reasons. Lower it when you pay a row down;
   // never raise it.
-  const COMMITTED_ROWS = 3;
+  // It has already gone 3 → 2: PR #5756 merged mid-review and deleted the one R2
+  // row, so that row came out of the file in the same commit that noticed — which
+  // is the behaviour this number exists to force.
+  const COMMITTED_ROWS = 2;
   const { r1, r2 } = readMoneyBaseline();
   assert.ok(
     r1.length + r2.length <= COMMITTED_ROWS,

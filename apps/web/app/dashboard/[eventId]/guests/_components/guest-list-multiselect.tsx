@@ -58,13 +58,12 @@ import {
   type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
-import { getPrimaryColor, paletteKeyForRole, type RolePalette } from '@/lib/mood-board';
+import { type RolePalette } from '@/lib/mood-board';
+import { roleChipStyle } from '@/lib/role-chip-style';
 import { SIDE_AVATAR, SIDE_CHIP, SIDE_RING, SIDE_TINT_FILL } from '@/lib/side-colors';
 import {
   importanceGroupOf,
-  ROLE_GROUP_CHIP,
   ROLE_GROUP_LABELS,
-  roleGroupOf,
   type RoleGroup,
 } from '@/lib/role-groups';
 
@@ -2320,26 +2319,16 @@ function RsvpPill({ status }: { status: RsvpStatus }) {
 }
 
 function RoleChip({ role, palette }: { role: GuestRole; palette: RolePalette }) {
-  const group = roleGroupOf(role);
-  // Taxonomy v2: resolve the accent dot the SAME way the 3D scene resolves
-  // attire — the guest's SPECIFIC palette key first (e.g. `bridesmaids`), then
-  // the coarse group's shared fallback (`wedding_party`). `roleGroupOf` alone
-  // returns only the group key, so a couple who filled a split sub-key but left
-  // `wedding_party` empty would otherwise see no dot even though the avatar is
-  // painted that color. Specific-key-first also gives bride/groom chips their
-  // own attire dot (the `couple` group has no aggregate primary).
-  const accent = getPrimaryColor(palette, paletteKeyForRole(role)) ?? getPrimaryColor(palette, group);
+  // The colour rule lives in lib/role-chip-style.ts — see its docblock for why
+  // it is not resolved here. The accent DOT this chip used to carry is gone on
+  // purpose: it existed to show a mood-board colour the pill itself refused to
+  // take, and a dot the same colour as the pill around it is just noise.
+  const { tintClass, style } = roleChipStyle(role, palette);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${tintClass ?? ''}`}
+      style={style ?? undefined}
     >
-      {accent ? (
-        <span
-          aria-hidden
-          className="inline-block h-2 w-2 rounded-full ring-1 ring-ink/10"
-          style={{ backgroundColor: accent }}
-        />
-      ) : null}
       {ROLE_LABELS[role]}
     </span>
   );
@@ -2356,15 +2345,23 @@ function RoleChips({ guest, palette }: { guest: GuestRow; palette: RolePalette }
           overflow → SSR 500 on the Guests page (the un-merged
           claude/fix-rolechips-recursion branch chased this). */}
       <RoleChip role={guest.role} palette={palette} />
-      {extras.map((r) => (
-        <span
-          key={r}
-          title={`Also ${ROLE_LABELS[r]}`}
-          className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ROLE_GROUP_CHIP[roleGroupOf(r)]}`}
-        >
-          +{ROLE_LABELS[r]}
-        </span>
-      ))}
+      {extras.map((r) => {
+        // The SAME rule as the primary chip. These used to resolve only the
+        // role GROUP, so a guest whose extra role had its own filled palette
+        // key was told one colour by their primary chip and another by the
+        // chip beside it.
+        const extra = roleChipStyle(r, palette);
+        return (
+          <span
+            key={r}
+            title={`Also ${ROLE_LABELS[r]}`}
+            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${extra.tintClass ?? ''}`}
+            style={extra.style ?? undefined}
+          >
+            +{ROLE_LABELS[r]}
+          </span>
+        );
+      })}
     </span>
   );
 }

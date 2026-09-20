@@ -53,3 +53,50 @@ self-added supplier is real instalments in `event_vendor_payment_plan`, with
 quote-maker anchors, that must sum to the agreed total and carry a due date
 each; (i) services-covered is seeded with the booking's own category (locked,
 not persisted) and extended by search.
+
+## 2026-09-20 · feat(add-manual): the eight fields land on one sheet
+
+Owner: *"how about we keep it simple? Vendor Name · Contact Person · Contact
+Number · Address Pin · Services Covered · Inclusions · Price · Payment Plan"*
+
+**Four of those eight used to live on two other tabs**, and that scattering is
+how this whole thread started: the owner was standing on a Quote tab that
+rendered nothing while services, inclusions, price and the plan sat one tab
+away. They are now on the sheet, held by
+`the-add-manual-sheet-carries-all-eight.test.ts` — which asserts the MOUNT, not
+the import, because a component nobody renders is invisible to the couple and
+to a grep.
+
+**Address Pin, not address.** `AddressPinField` wires three shipped parts
+together: `BranchPinMap` (the dependency-free Grab-style crosshair a vendor
+already uses to place a branch), `geocodeAddressWithCity` (the Nominatim proxy
+that owns the PH filter and the rate courtesy), and the address rule. New
+`address_latitude` / `address_longitude` on `event_manual_vendors`, NUMERIC like
+`events.venue_latitude`, with a both-or-neither CHECK — half a coordinate is
+not a location. The pin stays optional even where the address is required: a
+wrong pin routes guests somewhere real and incorrect, which is worse than none.
+
+**One save, not five.** `addManualSupplier` runs the sequence server-side,
+composing `createManualVendor` → `attachManualVendorToCategory` →
+`updateVendorCosts` → `updateHostServiceDetails` → `saveSelfAddedPaymentPlan`
+rather than re-implementing any of them. Five sequential calls from the browser
+could half-succeed and leave a supplier who exists, is attached, has no price
+and no plan — beside a success screen. Past the attach, the supplier EXISTS and
+nothing may report failure: a couple told "failed" adds them again and gets a
+duplicate. Later failures surface as a warning naming what to finish, and the
+payment plan's own refusal ("your payments add up to ₱60,000 of ₱80,000") is
+passed through verbatim, because it is the only sentence that says what to fix.
+
+**The post-save price input is gone.** The sheet now owns `total_cost_php`, so
+keeping the panel's input would have been a second writer of one column — the
+defect this repo keeps re-finding. Guarded: exactly one `total_cost_php` field
+in the file.
+
+**A guard caught a stale count**, correctly: `vendors/actions.ts` went from 11
+to 13 reads of `total_cost_php`. Both new ones WRITE the couple's typed price
+through the canonical writer rather than displaying a stored total, so the
+roster count was updated rather than the reads rerouted.
+
+SPEC IMPACT: `DECISION_LOG.md` — (j) the Add-manually sheet carries all eight
+fields on one screen and saves through one action; the pin is optional even
+where the address is required.

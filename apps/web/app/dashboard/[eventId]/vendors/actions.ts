@@ -106,6 +106,9 @@ import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock'
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress, manualVendorNeedsAddress } from '@/lib/manual-venue-address';
+import { updateHostServiceDetails } from './[vendorId]/workspace/actions';
+import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
+import { geocodeAddressWithCity } from '@/lib/geo';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -3324,6 +3327,19 @@ export async function createManualVendor(
   const address = checkManualVenueAddress(formData.get('category'), formData.get('address'));
   if (!address.ok) return { status: 'error', message: address.message };
 
+  // The map pin, when the couple placed one. BOTH or NEITHER — the table's
+  // own CHECK refuses half a coordinate, and half a coordinate is not a
+  // location. A non-finite value is dropped rather than stored: a NaN
+  // latitude would pass a null check and fail the range CHECK at insert.
+  const pinLat = Number(formData.get('address_latitude'));
+  const pinLng = Number(formData.get('address_longitude'));
+  const hasPin =
+    Number.isFinite(pinLat) &&
+    Number.isFinite(pinLng) &&
+    Math.abs(pinLat) <= 90 &&
+    Math.abs(pinLng) <= 180 &&
+    formData.get('address_latitude') !== null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -3357,6 +3373,8 @@ export async function createManualVendor(
       contact_person: contactPerson.value,
       contact_number: contactNumber.value,
       address: address.value,
+      address_latitude: hasPin ? pinLat : null,
+      address_longitude: hasPin ? pinLng : null,
       photo_r2_key: photoR2Key,
       created_by_user_id: user.id,
     })
@@ -5274,4 +5292,176 @@ export async function dismissVendorLockProposal(
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
   return { ok: true };
+}
+
+// ============================================================================
+// addManualSupplier (2026-09-20) — ONE SAVE FOR THE WHOLE "Add manually" SHEET.
+//
+// Owner's field list, verbatim: "Vendor Name · Contact Person · Contact Number
+// · Address Pin · Services Covered · Inclusions · Price · Payment Plan", with
+// the instruction "how about we keep it simple?".
+//
+// ── Why one action and not five client calls ─────────────────────────────
+// Those eight fields previously landed through FOUR surfaces: this modal (3
+// fields), its post-save panel (price), the workspace Details tab (services +
+// inclusions) and the Payments tab. Consolidating the SCREEN without
+// consolidating the SAVE would have meant the browser firing four or five
+// server actions in sequence, where a failure on the third leaves a supplier
+// that exists, is attached, has no price and no plan — and a couple looking at
+// a success screen. One call, one ordered sequence, one honest result.
+//
+// ── COMPOSES THE PRIMITIVES, NEVER RESTATES THEM ─────────────────────────
+// `createManualVendor` and `attachManualVendorToCategory` are called here
+// rather than re-implemented: they own the photo upload, the address rule, the
+// category validation and the duplicate-attach guard, and a second copy of any
+// of that is a second thing to get wrong. Both already take FormData, so this
+// builds theirs. Price goes through `updateVendorCosts` (the one writer of
+// `total_cost_php`) and the plan through the shape
+// `event_vendor_payment_plan` documents.
+//
+// ── PARTIAL FAILURE IS REPORTED, NEVER SWALLOWED ─────────────────────────
+// The supplier row is the anchor: once it exists and is attached, the add has
+// SUCCEEDED and the modal must close, because a couple who is told "failed"
+// will add them again and get a duplicate. Anything after that point which
+// fails is reported as a WARNING against a real supplier the couple can
+// finish on the workspace — never as a failed add, and never silently.
+// ============================================================================
+
+export type AddManualSupplierResult =
+  | { status: 'ok'; eventVendorId: string; manualVendorId: string; warning?: string }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export async function addManualSupplier(
+  formData: FormData,
+): Promise<AddManualSupplierResult> {
+  const eventId = formData.get('event_id');
+  const category = formData.get('category');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+  if (typeof category !== 'string' || category.length === 0) {
+    return { status: 'error', message: 'Missing category' };
+  }
+
+  // 1 · The contact card. Owns the photo upload and re-asks the address rule,
+  //     so an invalid address stops here — before anything exists.
+  const created = await createManualVendor(formData);
+  if (created.status !== 'ok') return created;
+
+  // 2 · Attach it to the category the sheet was opened from.
+  const attachFd = new FormData();
+  attachFd.set('event_id', eventId);
+  attachFd.set('manual_vendor_id', created.manualVendorId);
+  attachFd.set('category', category);
+  const attached = await attachManualVendorToCategory(attachFd);
+  if (attached.status !== 'ok') return attached;
+
+  const eventVendorId = attached.eventVendorId;
+  const ok = (warning?: string): AddManualSupplierResult => ({
+    status: 'ok',
+    eventVendorId,
+    manualVendorId: created.manualVendorId,
+    ...(warning ? { warning } : {}),
+  });
+
+  // ── Past this line the supplier EXISTS. Nothing below may return an error.
+  const warnings: string[] = [];
+
+  // 3 · Price. `updateVendorCosts` throws; a throw here would surface as a
+  //     failed add for a supplier that was created, so it is caught.
+  const priceRaw = formData.get('total_cost_php');
+  const priceNum = typeof priceRaw === 'string' ? Number(priceRaw.replace(/,/g, '')) : NaN;
+  if (Number.isFinite(priceNum) && priceNum > 0) {
+    try {
+      const costFd = new FormData();
+      costFd.set('event_id', eventId);
+      costFd.set('vendor_id', eventVendorId);
+      costFd.set('total_cost_php', String(Math.round(priceNum)));
+      await updateVendorCosts(costFd);
+    } catch {
+      warnings.push('the price');
+    }
+  }
+
+  // 4 · Services covered + inclusions, through the shipped host-authored path.
+  const covers = formData.getAll('covers').filter((c): c is string => typeof c === 'string');
+  const inclusions = formData.get('inclusions');
+  if (covers.length > 0 || (typeof inclusions === 'string' && inclusions.trim().length > 0)) {
+    try {
+      const detailsFd = new FormData();
+      detailsFd.set('event_id', eventId);
+      detailsFd.set('vendor_id', eventVendorId);
+      detailsFd.set('inclusions', typeof inclusions === 'string' ? inclusions : '');
+      for (const c of covers) detailsFd.append('covers', c);
+      await updateHostServiceDetails(detailsFd);
+    } catch {
+      warnings.push('what they cover');
+    }
+  }
+
+  // 5 · The payment plan. Skipped entirely when the sheet sent no rows — a
+  //     couple who has not agreed terms yet must not be blocked from adding
+  //     the supplier, and `buildCouplePaymentPlan` would refuse an empty set.
+  const planLabels = formData.getAll('plan_label');
+  const hasPlanRows = planLabels.some((l) => typeof l === 'string' && l.trim().length > 0);
+  if (hasPlanRows) {
+    try {
+      const planFd = new FormData();
+      planFd.set('event_id', eventId);
+      planFd.set('vendor_id', eventVendorId);
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+        for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
+      }
+      await saveSelfAddedPaymentPlan(planFd);
+    } catch (e) {
+      // 🔑 THIS ONE CARRIES ITS REASON. A plan is refused for a reason the
+      // couple can act on — "your payments add up to ₱60,000 of ₱80,000" —
+      // and swallowing that into a generic "the payment plan" would hide the
+      // only sentence that tells them what to fix.
+      const msg = e instanceof Error ? e.message : '';
+      warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+
+  if (warnings.length === 0) return ok();
+  return ok(
+    `Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`,
+  );
+}
+
+// ============================================================================
+// locateAddressPin (2026-09-20) — address text → a point on the map.
+//
+// Owner asked for an "Address Pin", not an address. This is the geocoding half:
+// the couple types a street, this returns the coordinates the map centres on,
+// and they drag the crosshair to correct it.
+//
+// ⚖ A SIBLING OF `locateShopAddress` (app/open-shop/city-actions.ts), NOT a
+// second geocoder. Both are four lines around `geocodeAddressWithCity`, which
+// owns the Nominatim call, the PH country filter and the 1-req/sec courtesy.
+// They are separate only because that one is named for a shop's HQ and
+// returns a city for the shop form; importing it into a couple's venue field
+// would put "shop" in the couple's call stack for no gain.
+//
+// Auth: signed-in only. It reads no row and writes nothing — it is a proxy to
+// a public geocoder that exists so the browser does not call OpenStreetMap
+// directly with our User-Agent.
+// ============================================================================
+
+export type AddressPinResult = { lat: number; lng: number; label: string } | null;
+
+export async function locateAddressPin(query: string): Promise<AddressPinResult> {
+  if (typeof query !== 'string' || query.trim().length < 3) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const r = await geocodeAddressWithCity(query);
+  if (!r) return null;
+  return { lat: r.latitude, lng: r.longitude, label: r.displayName };
 }

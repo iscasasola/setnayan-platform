@@ -1,24 +1,56 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
 import { qrWords } from '@/lib/qr-amount-truth';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import {
+  PAY_STAGES,
+  PROOF_STAGE,
+  advanceLabel,
+  nextStage,
+  prevStage,
+  shouldMountProof,
+  stageHref,
+  type PayStage,
+} from '@/lib/pay-stages';
 
 /**
- * The paying half of /pay/[reference] — steps 2 and 3, plus the bar that keeps
- * the next step reachable.
+ * /pay/[reference] — THREE STAGES, ONE AT A TIME.
  *
- * ⚠ WHY THIS IS ONE COLUMN, AND WHY THE BAR EXISTS.
- * The first cut of the prototype put the summary and the QR side by side. On a
- * phone that is not a second column, it is a second SCREEN with nothing
- * pointing at it — the owner reported: *"it just went to the you're paying
- * for… never showed the pay this exact amount and no way to get there."*
- * Do not reintroduce a two-column layout here: the QR is the whole point of
- * the page and it must be unmissable at 375px.
+ * ⚖ OWNER RULING, 2026-09-20. All three tiles used to render together: numbered
+ * like steps, shown as a ~2,039px scroll, with the proof-upload form open for a
+ * payment nobody had made yet.
+ *
+ *   1 · What you're paying   the item, the figure, the reference, who it is for
+ *   2 · Pay                  the code, the account details, the honest line
+ *   3 · Send your proof      the screenshot and the reference digits
+ *
+ * ── HOW IT MOVES, AND WHY IT IS BUILT THIS WAY ─────────────────────────────
+ *
+ * 🔑 THE STAGE IS IN THE URL (`?step=`), following `app/open-shop` rather than
+ * inventing a second spelling. Three things fall out of that and none of them
+ * needed code: **browser Back works**, each stage is **linkable**, and with
+ * JavaScript off or still loading the SERVER renders the right stage — because
+ * every advance control is a real `<a href>` that this component only
+ * intercepts once it is interactive.
+ *
+ * ⚠ AND NOTHING IS UNMOUNTED ON THE WAY BACK. `shouldMountProof` keeps the
+ * proof form in the document from the moment its stage is first reached, so
+ * going back to look at the code again and returning does not empty the picked
+ * file and the typed digits — a file input and React state both die on unmount
+ * and neither says so. Before that stage is reached it is genuinely ABSENT,
+ * which is the other half of the owner's ruling.
+ *
+ * ⚠ WHY THIS IS ONE COLUMN. The first cut of the prototype put the summary and
+ * the QR side by side. On a phone that is not a second column, it is a second
+ * SCREEN with nothing pointing at it — the owner reported: *"it just went to
+ * the you're paying for… never showed the pay this exact amount and no way to
+ * get there."* Do not reintroduce a two-column layout here.
  */
 
 type Channel = 'gcash' | 'bdo';
@@ -54,6 +86,9 @@ export function PayPanel({
   gcash,
   bdo,
   activatesLine,
+  summary,
+  initialStage,
+  carryQuery,
 }: {
   /**
    * TRUE on the render right after we asked them to check their reference
@@ -79,6 +114,16 @@ export function PayPanel({
   gcash: ChannelInfo;
   bdo: ChannelInfo;
   activatesLine: string;
+  /**
+   * Stage 1's contents — the order summary — rendered on the SERVER and handed
+   * in. It reads the payable, the catalogue and the event; none of that belongs
+   * in a client bundle just because the stage machinery is interactive.
+   */
+  summary: ReactNode;
+  /** From `?step=`, so the server paints the stage the address asks for. */
+  initialStage: PayStage;
+  /** Every other query parameter this page was opened with — see `stageHref`. */
+  carryQuery: Record<string, string | undefined>;
 }) {
   // GCash first: a GCash payer sends for free, a bank transfer into BDO costs
   // them ₱10–15 in InstaPay fees (measured 2026-07-31). Default to the rail
@@ -86,105 +131,339 @@ export function PayPanel({
   const [channel, setChannel] = useState<Channel>(gcash.enabled ? 'gcash' : 'bdo');
   const info = channel === 'gcash' ? gcash : bdo;
 
+  const [stage, setStage] = useState<PayStage>(initialStage);
+  /**
+   * Has the proof stage ever been on screen in this visit?
+   *
+   * ⛔ NOT `stage === PROOF_STAGE`. That is the question about NOW, and using
+   * it would unmount the form the instant somebody went back to re-read the
+   * code — losing the file they had picked and the digits they had typed, with
+   * nothing on screen to say it had happened.
+   */
+  const [reachedProof, setReachedProof] = useState(initialStage === PROOF_STAGE);
+  const proofMounted = shouldMountProof(stage, reachedProof);
+
+  /**
+   * 🔑 THE HISTORY ENTRY IS WHAT MAKES BACK WORK, and `popstate` is what makes
+   * it work in BOTH directions. `pushState` rather than a router navigation on
+   * purpose: a navigation re-renders the tree and would unmount the proof form,
+   * which is the one thing this component must not do.
+   */
+  useEffect(() => {
+    const onPop = () => {
+      const url = new URL(window.location.href);
+      const raw = url.searchParams.get('step');
+      const to: PayStage = raw === '3' ? 3 : raw === '2' ? 2 : 1;
+      setStage(to);
+      if (to === PROOF_STAGE) setReachedProof(true);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const go = (to: PayStage) => {
+    setStage(to);
+    if (to === PROOF_STAGE) setReachedProof(true);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', stageHref(reference, to, carryQuery));
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
+  const railsClosed = !gcash.enabled && !bdo.enabled;
+
   return (
     <>
-      <section id="payCard" className="sn-tile mt-5 scroll-mt-4 p-6">
-        <StepHead n={2} title="Pay this exact amount" />
-        {/*
-          🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
-          receiving cap and the owner switched them off — a transfer now
-          fails at the bank. Show no QR and no number (the fallback tab
-          below would otherwise hand out BDO's with BDO switched off).
-          The proof form further down stays: somebody who paid before the
-          switch still needs to send their picture.
-        */}
-        {!gcash.enabled && !bdo.enabled ? (
-          <p role="status" className="rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/75">
-            {PAYMENTS_PAUSED_MESSAGE}
-          </p>
-        ) : (
-        <>
-        <div className="flex gap-2">
-          <ChannelTab
-            label="GCash"
-            note={gcash.enabled ? 'free to send' : 'unavailable right now'}
-            on={channel === 'gcash'}
-            disabled={!gcash.enabled}
-            onClick={() => setChannel('gcash')}
-          />
-          <ChannelTab
-            label="BDO"
-            note={bdo.enabled ? 'bank fee may apply' : 'unavailable right now'}
-            on={channel === 'bdo'}
-            disabled={!bdo.enabled}
-            onClick={() => setChannel('bdo')}
-          />
-        </div>
+      <StageRail stage={stage} reference={reference} carryQuery={carryQuery} onGo={go} />
 
-        <QrTile channel={channel} info={info} amountPhp={amountPhp} reference={reference} />
-
-        {(info.number || info.name) && (
-          <p className="mt-4 text-center text-sm text-ink/70">
-            or send manually to
-            <br />
-            {info.number && (
-              <span className="font-mono text-[15px] font-semibold text-ink">{info.number}</span>
-            )}
-            {info.name && <span className="block text-xs text-ink/55">{info.name}</span>}
-          </p>
-        )}
-
+      {/* ── STAGE 1 ─────────────────────────────────────────────────────────
+          The summary is the server's; the way onward is this component's.
+          `hidden` rather than unmounted, because the summary is cheap and a
+          person who goes back to check the figure should not wait for it. */}
+      <div hidden={stage !== 1}>
+        {summary}
         <div className="mt-5">
-          <button type="button" className="button-primary w-full" onClick={() => jump('proofCard')}>
-            I&rsquo;ve paid &mdash; send my proof
-          </button>
-        </div>
-        </>
-        )}
-
-        <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
-          Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s
-          scanner can open it from your gallery. Sending to BDO from another bank usually costs you
-          a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
-        </p>
-      </section>
-
-      <section id="proofCard" className="sn-tile mt-5 scroll-mt-4 p-6">
-        <StepHead n={3} title="After you pay" />
-        {resubmitNotice && (
-          <p className="mb-4 rounded-lg border border-mulberry/40 bg-mulberry/[0.06] p-3 text-sm text-ink">
-            {resubmitNotice}
-          </p>
-        )}
-        {proofSent ? (
-          <div className="rounded-xl border border-mulberry bg-white p-5 text-center">
-            <h2 className="text-lg font-semibold text-ink">We&rsquo;re checking your payment</h2>
-            <p className="mt-2 text-sm text-ink/65">
-              You&rsquo;ll get an email once it&rsquo;s confirmed &mdash; usually within 24 hours.
-              Nothing else to do.
-            </p>
-          </div>
-        ) : (
-          <ProofForm
-            orderId={orderId}
+          <StageLink
+            stage={2}
             reference={reference}
-            amountPhp={amountPhp}
-            channel={channel}
-            requiresReference={requiresReference}
-            rechecked={rechecked}
-            setup={setup}
-          />
-        )}
-      </section>
+            carryQuery={carryQuery}
+            onGo={go}
+            className="button-primary w-full justify-center"
+          >
+            {advanceLabel(1)}
+          </StageLink>
+        </div>
+        {/* ⚖ NOBODY IS FORCED THROUGH THREE TAPS FOR A NUMBER. Somebody who
+            only wants the account details — because they already know how they
+            are paying, or they are on a desktop copying into a banking app —
+            gets them here without leaving stage 1. */}
+        <details className="mt-4 rounded-lg border border-ink/12 bg-ink/[0.02] px-4 py-3">
+          <summary className="cursor-pointer text-sm font-medium text-ink">
+            Show all the payment details
+          </summary>
+          <div className="mt-3 space-y-3">
+            {railsClosed ? (
+              <p role="status" className="text-sm text-ink/75">
+                {PAYMENTS_PAUSED_MESSAGE}
+              </p>
+            ) : (
+              <>
+                {[gcash, bdo]
+                  .filter((c) => c.enabled && (c.number || c.name))
+                  .map((c) => (
+                    <p key={c.number ?? c.name ?? ''} className="text-sm text-ink/70">
+                      {c.number && (
+                        <span className="font-mono text-[15px] font-semibold text-ink">
+                          {c.number}
+                        </span>
+                      )}
+                      {c.name && <span className="block text-xs text-ink/55">{c.name}</span>}
+                    </p>
+                  ))}
+                <p className="text-sm text-ink/70">
+                  Amount to send:{' '}
+                  <span className="font-mono font-semibold text-ink">{payAmount(amountPhp)}</span>
+                </p>
+              </>
+            )}
+          </div>
+        </details>
+      </div>
 
-      <StickyBar amountPhp={amountPhp} activatesLine={activatesLine} proofSent={proofSent} />
+      {/* ── STAGE 2 ──────────────────────────────────────────────────────── */}
+      <div hidden={stage !== 2}>
+        <section id="payCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+          <StepHead n={2} title="Pay this exact amount" />
+          {/*
+            🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
+            receiving cap and the owner switched them off — a transfer now
+            fails at the bank. Show no QR and no number (the fallback tab
+            below would otherwise hand out BDO's with BDO switched off).
+            The proof stage still exists: somebody who paid before the
+            switch still needs to send their picture.
+          */}
+          {railsClosed ? (
+            <p role="status" className="rounded-lg border border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/75">
+              {PAYMENTS_PAUSED_MESSAGE}
+            </p>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <ChannelTab
+                  label="GCash"
+                  note={gcash.enabled ? 'free to send' : 'unavailable right now'}
+                  on={channel === 'gcash'}
+                  disabled={!gcash.enabled}
+                  onClick={() => setChannel('gcash')}
+                />
+                <ChannelTab
+                  label="BDO"
+                  note={bdo.enabled ? 'bank fee may apply' : 'unavailable right now'}
+                  on={channel === 'bdo'}
+                  disabled={!bdo.enabled}
+                  onClick={() => setChannel('bdo')}
+                />
+              </div>
+
+              <QrTile channel={channel} info={info} amountPhp={amountPhp} reference={reference} />
+
+              {/* ⛔ THE MANUAL FALLBACK DID NOT MOVE OFF THIS STAGE. It is the
+                  route for anyone whose wallet refuses the code, which is the
+                  one thing a code-first screen must never take away. */}
+              {(info.number || info.name) && (
+                <p className="mt-4 text-center text-sm text-ink/70">
+                  or send manually to
+                  <br />
+                  {info.number && (
+                    <span className="font-mono text-[15px] font-semibold text-ink">
+                      {info.number}
+                    </span>
+                  )}
+                  {info.name && <span className="block text-xs text-ink/55">{info.name}</span>}
+                </p>
+              )}
+            </>
+          )}
+
+          <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
+            Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s
+            scanner can open it from your gallery. Sending to BDO from another bank usually costs you
+            a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
+          </p>
+
+          <div className="mt-5 flex flex-col gap-2">
+            <StageLink
+              stage={3}
+              reference={reference}
+              carryQuery={carryQuery}
+              onGo={go}
+              className="button-primary w-full justify-center"
+            >
+              {advanceLabel(2)}
+            </StageLink>
+            <StageLink
+              stage={1}
+              reference={reference}
+              carryQuery={carryQuery}
+              onGo={go}
+              className="text-center text-sm text-ink/60 underline underline-offset-4"
+            >
+              Back
+            </StageLink>
+          </div>
+        </section>
+      </div>
+
+      {/* ── STAGE 3 ──────────────────────────────────────────────────────────
+          ⛔ ABSENT, NOT HIDDEN, UNTIL ITS STAGE IS REACHED — and never
+          unmounted afterwards. See `shouldMountProof`. */}
+      {proofMounted && (
+        <div hidden={stage !== PROOF_STAGE}>
+          <section id="proofCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+            <StepHead n={3} title="Send your proof" />
+            {resubmitNotice && (
+              <p className="mb-4 rounded-lg border border-mulberry/40 bg-mulberry/[0.06] p-3 text-sm text-ink">
+                {resubmitNotice}
+              </p>
+            )}
+            {proofSent ? (
+              <div className="rounded-xl border border-mulberry bg-white p-5 text-center">
+                <h2 className="text-lg font-semibold text-ink">We&rsquo;re checking your payment</h2>
+                <p className="mt-2 text-sm text-ink/65">
+                  You&rsquo;ll get an email once it&rsquo;s confirmed &mdash; usually within 24 hours.
+                  Nothing else to do.
+                </p>
+              </div>
+            ) : (
+              <ProofForm
+                orderId={orderId}
+                reference={reference}
+                amountPhp={amountPhp}
+                channel={channel}
+                requiresReference={requiresReference}
+                rechecked={rechecked}
+                setup={setup}
+              />
+            )}
+            <div className="mt-4">
+              <StageLink
+                stage={2}
+                reference={reference}
+                carryQuery={carryQuery}
+                onGo={go}
+                className="text-sm text-ink/60 underline underline-offset-4"
+              >
+                Back to the code
+              </StageLink>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <StickyBar
+        amountPhp={amountPhp}
+        activatesLine={activatesLine}
+        proofSent={proofSent}
+        stage={stage}
+        reference={reference}
+        carryQuery={carryQuery}
+        onGo={go}
+      />
     </>
   );
 }
 
-function jump(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+/**
+ * The control that leaves a stage.
+ *
+ * 🔑 IT IS AN ANCHOR FIRST AND A BUTTON SECOND. With JavaScript off, still
+ * loading, or broken, this navigates to `?step=N` and the server paints that
+ * stage — the flow keeps working. Once React is listening, `onClick` takes
+ * over so nothing is re-rendered and the proof form is not unmounted.
+ */
+function StageLink({
+  stage,
+  reference,
+  carryQuery,
+  onGo,
+  className,
+  children,
+}: {
+  stage: PayStage;
+  reference: string;
+  carryQuery: Record<string, string | undefined>;
+  onGo: (s: PayStage) => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={stageHref(reference, stage, carryQuery)}
+      className={`inline-flex items-center ${className ?? ''}`}
+      onClick={(e) => {
+        // Let a modified click open a new tab, exactly as any link would.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        e.preventDefault();
+        onGo(stage);
+      }}
+    >
+      {children}
+    </a>
+  );
 }
+
+/** Where they are, and a way back to anywhere they have already been. */
+function StageRail({
+  stage,
+  reference,
+  carryQuery,
+  onGo,
+}: {
+  stage: PayStage;
+  reference: string;
+  carryQuery: Record<string, string | undefined>;
+  onGo: (s: PayStage) => void;
+}) {
+  return (
+    <nav aria-label="Paying, step by step" className="mb-4 flex items-center gap-2">
+      {PAY_STAGES.map(({ n, title }) => {
+        const done = n < stage;
+        const here = n === stage;
+        const dot = (
+          <span
+            className={`grid h-6 w-6 flex-none place-items-center rounded-full text-[12px] font-bold ${
+              here ? 'bg-ink text-white' : done ? 'bg-ink/15 text-ink' : 'bg-ink/[0.06] text-ink/40'
+            }`}
+          >
+            {n}
+          </span>
+        );
+        return (
+          <span key={n} className="flex items-center gap-2">
+            {/* ⚠ ONLY A STAGE ALREADY PASSED IS A LINK. A forward jump would
+                skip paying and land somebody on the upload for a payment they
+                have not made — the thing the owner struck. */}
+            {done ? (
+              <StageLink stage={n} reference={reference} carryQuery={carryQuery} onGo={onGo}>
+                {dot}
+              </StageLink>
+            ) : (
+              dot
+            )}
+            {here && <span className="sn-eye">{title}</span>}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
+/*
+ * ⛔ `jump(id)` LIVED HERE AND IS GONE. It scrolled between the three tiles
+ * because all three were on one page; with one stage on screen at a time there
+ * is nothing to scroll TO, and leaving it would have been a second way to move
+ * that the URL knew nothing about.
+ */
 
 function StepHead({ n, title }: { n: number; title: string }) {
   return (
@@ -462,26 +741,29 @@ function StickyBar({
   amountPhp,
   activatesLine,
   proofSent,
+  stage,
+  reference,
+  carryQuery,
+  onGo,
 }: {
   amountPhp: number;
   activatesLine: string;
   proofSent: boolean;
+  stage: PayStage;
+  reference: string;
+  carryQuery: Record<string, string | undefined>;
+  onGo: (s: PayStage) => void;
 }) {
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const pay = document.getElementById('payCard');
-      if (!pay) return;
-      setStep(pay.getBoundingClientRect().top > 120 ? 0 : 1);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const target = step === 0 ? 'payCard' : proofSent ? 'payCard' : 'proofCard';
-  const label = step === 0 ? 'Show me the QR code' : proofSent ? 'Back to the code' : "I've paid — send my proof";
+  /**
+   * ⛔ THE SCROLL LISTENER IS GONE, AND IT IS NOT A SIMPLIFICATION — it is the
+   * same fact stated once instead of twice. The bar used to guess which step a
+   * person was on from how far they had scrolled, because every step was on
+   * one page. The stage IS the answer now, and a second derivation of it could
+   * only ever disagree with the first.
+   */
+  const last = stage === PROOF_STAGE;
+  const label = proofSent ? 'Back to the code' : (advanceLabel(stage) ?? 'Continue');
+  const target = proofSent ? prevStage(stage) : nextStage(stage);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/12 bg-white/95 px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] backdrop-blur">
@@ -492,12 +774,26 @@ function StickyBar({
           </span>
           {payAmount(amountPhp)}
         </span>
-        <button type="button" className="button-primary flex-1" onClick={() => jump(target)}>
-          {label}
-        </button>
+        {/* On the last stage the bar carries no action: the only thing left to
+            do is the form's own submit, and a second button beside it is a
+            second thing to press that does not send the proof. */}
+        {last && !proofSent ? (
+          <span className="flex-1 text-right text-xs leading-snug text-ink/55">
+            Send your screenshot and reference above.
+          </span>
+        ) : (
+          <StageLink
+            stage={target}
+            reference={reference}
+            carryQuery={carryQuery}
+            onGo={onGo}
+            className="button-primary flex-1 justify-center"
+          >
+            {label}
+          </StageLink>
+        )}
       </div>
       <p className="sr-only">{activatesLine}</p>
     </div>
   );
 }
-

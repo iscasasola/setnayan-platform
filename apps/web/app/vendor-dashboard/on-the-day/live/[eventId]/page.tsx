@@ -26,6 +26,8 @@ import {
 } from '../../_components/pahina-console';
 import { SpecializationSlot } from './_components/specialization-slot';
 import { registeredSpecializationSets } from './_components/specialization-registry';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
 export const metadata = { title: 'Live · Event Hub' };
 
@@ -160,6 +162,29 @@ export default async function VendorOnTheDayLivePage({
   // with the upgrade copy, so it lives in exactly one place.
   if (!isVendorDayOfStillFree(vendorDayOfFreeUntilIso(), Date.now())) {
     redirect('/vendor-dashboard/on-the-day');
+  }
+
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
+  // Item 4 of the ruling — "the event hub access". The console is the day-of
+  // room itself, so it is gated WHOLE rather than field-by-field.
+  //
+  // ⚠ THE GATE IS ON THE SHOP, NOT ON THE CALLER. The grantee path above
+  // resolved `profile` to the GRANTING shop, so a crew member is locked by the
+  // shop's unpaid fee and unlocked by its settled one — a crew member has no
+  // fee of their own and must never be asked to pay one.
+  //
+  // Flag OFF ⇒ 'unlocked' for everyone and this is a no-op.
+  const feeGate = await resolveEventFeeGate(profile.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') {
+    return (
+      <EventLockedPage
+        eventId={eventId}
+        gate={feeGate}
+        threadId={booking.threadId}
+        backHref="/vendor-dashboard/on-the-day"
+        backLabel="Back to the Event Hub"
+      />
+    );
   }
 
   // Brief (couple / pax / booked tiles), run-of-show, override, reviews.

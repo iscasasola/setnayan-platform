@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b85d6996d",
+  "generatedFromRef": "747efb329",
   "routeCount": 430,
-  "destinations": 920,
+  "destinations": 921,
   "actions": 651,
-  "blocks": 4531,
+  "blocks": 4546,
   "routes": {
     "/": {
       "files": [
@@ -8554,6 +8554,7 @@
       ],
       "blocks": [
         "LiveBackground",
+        "Locked",
         "Picture",
         "Ready",
         "ScreenStage",
@@ -9184,8 +9185,11 @@
         "FileUpload",
         "Link",
         "PayPanel",
+        "PayStage",
         "ProofForm",
         "QrTile",
+        "StageLink",
+        "StageRail",
         "Step",
         "StepHead",
         "StickyBar",
@@ -9643,6 +9647,7 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
+        "vendor-dashboard/_components/event-locked-by-fee.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
         "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
@@ -9740,6 +9745,7 @@
         "EarnedTile",
         "EmptyCard",
         "EnergyKpi",
+        "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
         "GuidedTour",
@@ -10070,6 +10076,7 @@
         "Card",
         "CardTabs",
         "ClientNotes",
+        "EventLockedByFee",
         "FileUpload",
         "FilesTab",
         "Icon",
@@ -10113,6 +10120,7 @@
       ],
       "actions": [],
       "blocks": [
+        "EventLockedPage",
         "Link",
         "ShopCard"
       ]
@@ -10130,6 +10138,7 @@
       "blocks": [
         "CocktailEditor",
         "Drag",
+        "EventLockedPage",
         "HTMLDivElement",
         "Link",
         "Result",
@@ -10148,6 +10157,7 @@
       "actions": [],
       "blocks": [
         "EditorialMediaStudio",
+        "EventLockedPage",
         "HTMLInputElement",
         "Link",
         "ShopPill",
@@ -10164,6 +10174,7 @@
       "actions": [],
       "blocks": [
         "ColourLaneEditor",
+        "EventLockedPage",
         "Link",
         "VendorPartSignoff"
       ]
@@ -10182,6 +10193,7 @@
         "deletePortionRule"
       ],
       "blocks": [
+        "EventLockedPage",
         "Link",
         "PrintButton",
         "SubmitButton"
@@ -10196,6 +10208,7 @@
       ],
       "actions": [],
       "blocks": [
+        "EventLockedPage",
         "Link",
         "PinMarker"
       ]
@@ -10667,6 +10680,7 @@
         "vendor-dashboard/on-the-day/shot-list-actions.ts"
       ],
       "destinations": [
+        "/vendor-dashboard",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/on-the-day/live/[seg]",
@@ -10684,6 +10698,7 @@
         "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
+        "EventLockedPage",
         "EventPicker",
         "FamilyIcon",
         "GuestReviewQr",
@@ -10765,6 +10780,7 @@
         "ConsoleRule",
         "Coverage",
         "CueCard",
+        "EventLockedPage",
         "FeedPageSkeleton",
         "FloorActionResult",
         "FloorClock",
@@ -10822,6 +10838,7 @@
       "actions": [],
       "blocks": [
         "BuyVendorPapicPortfolioPackState",
+        "EventLockedPage",
         "Link",
         "OwnCapturesStrip",
         "PapicCaptureController",

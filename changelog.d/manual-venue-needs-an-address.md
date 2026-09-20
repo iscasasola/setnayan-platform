@@ -65,3 +65,22 @@ self-added supplier's claim invite is offered at any booking status, because
 being off-platform and being booked are independent axes; (c) a self-added
 supplier is never asked to quote — the couple records the price directly, with
 no request and no approval.
+
+## 2026-09-20 · chore(security): accept the three new event_manual_vendors columns in the exposure baseline
+
+`exposure-freeze.db.test.ts` failed the branch — correctly. `address`,
+`payment_method_note` and `payment_terms_note` inherit the table's grant to
+`authenticated`, because a column-level grant is not something a new column
+opts into: it arrives with whatever the table already gives out. RLS is
+ROW-level and can never hide a column from someone the row policy admits.
+
+Accepted, not narrowed, and the reason is that the posture is **identical to
+the eight columns already on the table** — every one of them reads
+`anon=- authenticated=SIU`, including `contact_person` and `contact_number`,
+which are the same kind of couple-private fact. `anon` has no reach at all
+(REVOKEd in 20271148681647). The couple must be able to read and write their
+own notes, and `event_manual_vendors_host_all` already scopes every row to
+events they hold.
+
+Baseline regenerated in the same PR so the three added lines show up in
+review, which is the point of the file.

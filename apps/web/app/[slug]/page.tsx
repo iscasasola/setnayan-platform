@@ -216,6 +216,34 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
+    // ── THEIR WEDDING AS AN ICON (owner 2026-09-20 · lib/event-app-icon.ts).
+    // The per-event manifest is what makes an installed tile open THIS
+    // invitation with THEIR mark, instead of our app. iOS ignores manifest
+    // icons entirely, so the apple-touch-icon is named separately, and
+    // `appleWebApp.title` is the label under the icon — without it iOS writes
+    // "Setnayan" under a couple's monogram.
+    //
+    // ⚠ BOTH ROUTES ASK THE VISIBILITY QUESTION THEMSELVES. Naming them here
+    // for a private event would be harmless (they answer 404), but the reverse
+    // — a public event whose metadata omits them — is the failure that leaves a
+    // guest with a grey tile, so they are named on every shareable state.
+    manifest: `/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      title: event.display_name ?? 'Invitation',
+      statusBarStyle: 'default' as const,
+    },
+    icons: {
+      icon: [
+        { url: `/${slug}/icon/192.svg`, type: 'image/svg+xml', sizes: '192x192' },
+        { url: `/${slug}/icon/512.png`, type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [
+        { url: `/${slug}/icon/180.png`, sizes: '180x180', type: 'image/png' },
+        { url: `/${slug}/icon/167.png`, sizes: '167x167', type: 'image/png' },
+        { url: `/${slug}/icon/152.png`, sizes: '152x152', type: 'image/png' },
+      ],
+    },
     description,
     // An Unlisted site that shows its card is still kept out of search.
     ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),

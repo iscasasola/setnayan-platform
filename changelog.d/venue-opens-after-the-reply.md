@@ -22,6 +22,14 @@ Guarded by `apps/web/lib/the-venue-opens-after-the-reply.test.ts` (8 tests). Thr
 each turn one red: removing the default withhold, restoring an operator-precedence bug that
 let the address branch bypass the gate on the hub, and making the widget stop asking.
 
+⚠ **CI caught a wall-clock-vs-instant bug in the first version.** `eventDayHasArrived` read the
+SERVER's calendar, and Vercel runs in UTC — so 7am in Manila on the wedding day is still
+17 December there, and the "nobody is locked out on the day" rule would have opened the address
+EIGHT HOURS LATE, during the ceremony. The day is now compared in the VENUE's timezone
+(`eventTimezoneFromCoords`, defaulting to Manila); both callers pass it, and tests pin the UTC
+case and each call site. Same class as the supplier Today page that read a day behind
+(DECISION_LOG 2026-09-10).
+
 Not verified in prod yet: needs a test event where a guest has not replied.
 
 SPEC IMPACT: `DECISION_LOG.md` 2026-09-20 row — the venue opens after the reply.

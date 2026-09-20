@@ -204,6 +204,44 @@ export function nfcFailureCopy(reason: NfcFailureReason): string {
   }
 }
 
+/**
+ * The same reasons, worded for READING a tag at a desk. Only the reasons a
+ * read can actually hit are distinct; the rest fall back to a plain line.
+ */
+export function nfcReadFailureCopy(reason: NfcFailureReason): string {
+  switch (reason) {
+    case 'permission-denied':
+      return 'This phone did not allow the site to use NFC. Allow it when asked, or scan the QR instead.';
+    case 'nfc-off':
+      return 'NFC is switched off on this phone. Turn it on in Settings, or scan the QR instead.';
+    case 'no-nfc':
+      return 'This phone has no NFC reader. Scan the QR instead.';
+    case 'unsupported-browser':
+      return 'This browser cannot read NFC tags. Use the Setnayan app or Chrome on Android, or scan the QR.';
+    case 'timed-out':
+      return 'The tag reader stopped after a minute with no tag. Tap Read a tag again when the next guest arrives.';
+    default:
+      return 'The tag reader stopped. Tap Read a tag to start it again, or scan the QR.';
+  }
+}
+
+/**
+ * What a desk does with one tag: the first record that decodes to a Setnayan
+ * guest token, or why not. `parse` is the desk's existing QR parser, passed in
+ * so a tag and a QR are judged by the ONE rule.
+ */
+export function guestTokenFromTag(
+  urls: readonly string[],
+  parse: (raw: string) => string | null,
+): { token: string } | { token: null; reason: 'empty' | 'not-a-guest-code' } {
+  if (urls.length === 0) return { token: null, reason: 'empty' };
+  for (const u of urls) {
+    const token = parse(u);
+    if (token) return { token };
+  }
+  return { token: null, reason: 'not-a-guest-code' };
+}
+
 /** Time to wait for a sticker before we call it. */
 export const NFC_WRITE_TIMEOUT_MS = 30_000;
 /** Time to wait for the read-back after a write. */

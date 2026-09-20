@@ -228,9 +228,10 @@ const FLAGS: FlagSpec[] = [
     helper: 'lib/nfc-write-flag.ts',
     fn: 'isNfcWriteEnabled',
     gates: [
-      // The ONE button. Every QR strip and the guest's code keepers mount it;
-      // it asks the flag itself, so with it off no surface shows the control.
-      'app/_components/nfc-write-button.tsx',
+      // The ONE hook both NFC surfaces ask (the write button on every QR strip,
+      // and the check-in desk's tag reader). It ORs the flag with this phone's
+      // own `?nfc-test=1` opt-in; with neither, no surface shows NFC.
+      'app/_components/use-nfc-enabled.ts',
     ],
     pureCores: [
       // Eligibility, byte budget, error naming, read-back: no flag, no DOM.

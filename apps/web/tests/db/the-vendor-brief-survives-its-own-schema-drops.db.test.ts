@@ -46,7 +46,9 @@ type Row = Record<string, unknown>;
 /**
  * Every top-level key the pre-agreement payload returns. `lock_request` is the
  * one key the 'requested' rung adds over 'inquiry' (NULL at inquiry, present as
- * a key either way).
+ * a key either way). Since 20271235469220 (owner, 2026-09-20: "they already see
+ * everything from the starts") the VALUES are the booked ones; only the
+ * roster stays booked-only, because it names other shops.
  */
 const PRE_AGREEMENT_KEYS = [
   'attire_guide',
@@ -66,17 +68,16 @@ const PRE_AGREEMENT_KEYS = [
 /**
  * The booked payload. Same set MINUS `lock_request` (an ask envelope is not a
  * fact about a booking) PLUS `vendor_roster` — the other locked vendors on
- * this event, added 20271213732174, BOOKED STAGE ONLY: an inquiry/requested
- * supplier has not earned the venue address or the running order either, and
- * "who else is booked" is the same class of fact.
+ * this event, added 20271213732174, BOOKED STAGE ONLY: it names other shops,
+ * and a not-yet-committed supplier was granted the locked CATEGORIES only.
  */
 const BOOKED_KEYS = [...PRE_AGREEMENT_KEYS.filter((k) => k !== 'lock_request'), 'vendor_roster'].sort();
 
 /** The one shape a vendor_roster entry may ever have — name + category, nothing else. */
 const VENDOR_ROSTER_ITEM_KEYS = ['category', 'vendor_name'].sort();
 
-/** 🔒 The pre-agreement `event` object. venue_name/venue_address are KEYS but hard-NULL; `region` is the city grain that replaces them. */
-const PRE_AGREEMENT_EVENT_KEYS = [
+/** The `event` object — ONE shape on every rung since 20271235469220: the real venue AND the region. */
+const EVENT_KEYS = [
   'ceremony_type',
   'display_name',
   'event_date',
@@ -84,9 +85,8 @@ const PRE_AGREEMENT_EVENT_KEYS = [
   'venue_address',
   'venue_name',
 ].sort();
-
-/** The booked `event` object — carries the real venue, and drops `region` (the coarse stand-in is no longer needed). */
-const BOOKED_EVENT_KEYS = ['ceremony_type', 'display_name', 'event_date', 'venue_address', 'venue_name'].sort();
+const PRE_AGREEMENT_EVENT_KEYS = EVENT_KEYS;
+const BOOKED_EVENT_KEYS = EVENT_KEYS;
 
 const MONOGRAM_KEYS = ['color', 'custom_svg', 'font_key', 'frame_key', 'text'].sort();
 const SEAT_PLAN_KEYS = ['assigned_guests', 'published', 'published_at', 'table_count'].sort();
@@ -444,10 +444,13 @@ test('an ASKED supplier can call the brief, and it carries every key its callers
   assert.deepEqual(sortedKeys(b.monogram), MONOGRAM_KEYS);
   assert.deepEqual(sortedKeys(b.seat_plan), SEAT_PLAN_KEYS);
 
-  // The ceiling still holds — this file must not become a way to widen it.
-  assert.equal((b.event as Row).venue_name, null);
-  assert.equal((b.event as Row).venue_address, null);
+  // Since 20271235469220 an asked supplier sees the whole brief (owner,
+  // 2026-09-20). Asserted by VALUE so a read that silently resolved to NULL
+  // cannot pass as "the key is there".
+  assert.equal((b.event as Row).venue_name, 'Casa Invocation');
+  assert.equal((b.event as Row).venue_address, '1 Called Street, Makati');
   assert.equal((b.event as Row).region, 'NCR');
+  assert.equal((b.timeline as unknown[]).length, 1);
 });
 
 test('an INQUIRY supplier can call the brief — the third caller of the same payload builder', async () => {

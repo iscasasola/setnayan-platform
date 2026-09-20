@@ -4,12 +4,11 @@
  * Two claims that cannot be checked by reading, and one of them is a PRIVACY
  * boundary:
  *
- *  1. A supplier who has only been ASKED can open the event — and receives the
- *     region, NOT the venue name, NOT the venue address, and NOT one line of the
- *     run-of-show. 🔑 A TEST THAT ONLY CHECKS THE HAPPY STAGE PASSES WHILE
- *     LEAKING, so every assertion here is about what the payload does NOT
- *     contain, and the ceiling is mutation-proved: widen the booked predicate to
- *     include 'pending' and these go red.
+ *  1. A supplier who has only been ASKED can open the event. Until 2026-09-20
+ *     the ask stage was held under a payload ceiling (no venue, no
+ *     run-of-show); the owner reversed that ("they already see everything from
+ *     the starts", 20271235469220), so the ask stage now carries the full
+ *     brief and the stage LABEL is what keeps booked-only behaviour gated.
  *
  *  2. A package is ONE answer spread over N rows. Agreeing to the anchor books
  *     the covered lines and the booking row with it, or the supplier accepts a
@@ -151,30 +150,26 @@ test('an asked supplier can open the event — before slice B this raised not_bo
   // not_booked (42501) and the test reddens.
 });
 
-test('a supplier with NEITHER a booking, an ask, nor a thread is still refused', async () => {
-  const { vpid, uid } = await newVendor('ask-none@sliceb.test');
+test('a supplier with NEITHER a booking, an ask, a link row nor a thread is still refused', async () => {
+  const { uid } = await newVendor('ask-none@sliceb.test');
   const { eventId } = await newEventWithSecrets('none');
-  // A row with NO request marker: the org is linked to the event but nobody
-  // asked them anything.
-  await newBooking(eventId, vpid, { pending: false });
+  // Since 20271235469220 a plain link row (considering / shortlisted) DOES open
+  // the brief — owner, 2026-09-20. What stays shut is a shop with no
+  // relationship to the event at all. the-brief-from-first-contact.db.test.ts
+  // covers the link-row, pending-thread and removed-relationship cases.
 
   await asVendor(uid);
-  await assert.rejects(
-    () => brief(eventId),
-    /not_booked/,
-    'the new rung must open the door for an ASK, not for every linked row',
-  );
-  // MUTATION: change the rung's predicate from `lock_request_state = 'pending'`
-  // to `lock_request_state IS NOT DISTINCT FROM ev.lock_request_state` (always
-  // true) ⇒ this reddens. That mutation is the realistic slip — a predicate that
-  // matches the row rather than the STATE.
+  await assert.rejects(() => brief(eventId), /not_booked/);
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 2 · THE CEILING. Every assertion is a NEGATIVE.
+// 2 · NO CEILING BEFORE AGREEMENT (superseded 2026-09-20).
+// The 2026-07-03 disclosure ladder held the venue, the run-of-show, meals and
+// the seat plan back until an agreement. The owner reversed that: "they
+// already see everything from the starts." These are now POSITIVES by value.
 // ───────────────────────────────────────────────────────────────────────────
 
-test('the ask stage withholds the venue name, the venue address and the run-of-show', async () => {
+test('the ask stage carries the venue name, the venue address and the run-of-show', async () => {
   const { vpid, uid } = await newVendor('ceiling@sliceb.test');
   const { eventId } = await newEventWithSecrets('ceiling');
   await newBooking(eventId, vpid, { pending: true });
@@ -183,31 +178,12 @@ test('the ask stage withholds the venue name, the venue address and the run-of-s
   const b = await brief(eventId);
   const ev = b.event as Row;
 
-  assert.equal(b.stage, 'requested');
-  assert.equal(ev.venue_name, null, 'the venue NAME must not reach a supplier who has not agreed');
-  assert.equal(
-    ev.venue_address,
-    null,
-    'the venue ADDRESS must not reach a supplier who has not agreed',
-  );
-  assert.deepEqual(b.timeline, [], 'the run-of-show is earned by an agreement, never by an ask');
-  assert.equal(b.dietary, null, 'meal counts are earned by an agreement');
-  assert.equal((b.seat_plan as Row).table_count, 0, 'the seat plan is earned by an agreement');
-  assert.equal((b.seat_plan as Row).published, false);
-
-  // 🔑 THE ONE POSITIVE, and it is what makes the negatives meaningful: the
-  // supplier DOES get the region. Without this the whole test would also pass
-  // against a function that returned nothing at all.
-  assert.equal(ev.region, 'NCR', 'the supplier must still get enough to answer');
+  assert.equal(b.stage, 'requested', 'still labelled an ask — booking-only behaviour stays gated');
+  assert.equal(ev.venue_name, 'The Secret Ballroom');
+  assert.equal(ev.venue_address, '12 Private Road, Makati');
+  assert.equal((b.timeline as unknown[]).length, 1);
+  assert.equal(ev.region, 'NCR');
   assert.equal(ev.event_date, '2027-05-05');
-
-  // MUTATION 1: add 'pending' to the BOOKED predicate's status list ⇒ stage
-  // becomes 'booked', venue_address is '12 Private Road, Makati', timeline has
-  // one block, and four assertions above go red at once. That is the exact
-  // two-word "obvious repair" the migration header warns against.
-  // MUTATION 2: give 'requested' its own RETURN that copies the booked payload
-  // ⇒ same four reds. The single shared build object is what makes MUTATION 2
-  // an edit somebody has to consciously write rather than one they can inherit.
 });
 
 test('the ask envelope carries the supplier own row and nothing about the wedding', async () => {

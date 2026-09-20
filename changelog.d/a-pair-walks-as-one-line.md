@@ -41,15 +41,19 @@ existing test caught it; the comparator now ranks by placement, then the
 group's role order, then surname.
 
 Guarded by `lib/a-pair-walks-as-one-line.test.ts` — thirteen tests, the ordering
-ones EXECUTED rather than grepped. Eight sabotages confirmed red: ordering per
+ones EXECUTED rather than grepped. Eleven sabotages confirmed red: ordering per
 role again · an unplaced line read as position zero · the action writing a seat
 · the roster losing a column · the roster's "walks with" mount renamed · the
 panel hidden again on "All" · the drag handle losing its keyboard path · the
-buttons replaced by the drag layer.
+buttons replaced by the drag layer · the tab losing its label · the panel bolted
+back over the roster · a move dropping you out of the view.
 
 🪤 Three of those needed the assertion tightened first, all the same mistake:
 `includes('<PartnerLine')` also matches `<PartnerLineX`. **A substring is not a
-mount** — the assertions now match a tag boundary.
+mount** — the assertions now match a tag boundary. A fourth guard failed on
+CORRECT code: it sliced the page from the first mention of `rosterLensKey`,
+which is its declaration far above the markup, so the window swallowed the very
+branch it was meant to exclude. **A window has to face the thing it judges.**
 
 ## Arranging — it was built, and it was HIDDEN
 
@@ -61,7 +65,16 @@ place a couple can arrange who walks first did not exist unless they already
 knew to filter first. From where the owner was standing that is the same as not
 built, and he was right to call it.
 
-- "All" now offers **every printed group**, which is the whole processional.
+- **There is a way in: a "Walking order" tab**, beside List and Mind map in the
+  guest list's own segmented switcher (`?gview=walk`). Owner, 2026-09-20: *"so
+  how to launch it on the guestlist?"* — there had been no entry point at all.
+- It is a **view, not a banner**. The whole processional pinned above the roster
+  would push the guest list down the page on every visit, for a job a couple
+  does a handful of times.
+- A move **keeps you in the view you made it from**; dropping `gview` on the way
+  back would bounce you out to the roster after every single move, and the
+  control would work while feeling broken.
+- Inside that view, every printed group is offered — the whole processional.
 - Each group is headed by its printed NAME. A first draft rendered
   `key.replace(/_/g, ' ')` — a raw key with its underscores knocked out.
 - **Desktop drag now exists, and it is additional.** The Move ↑ / ↓ forms are

@@ -43,8 +43,15 @@ import {
   type EntourageGuestRow,
 } from '@/lib/entourage';
 
+/**
+ * Back to the WALKING ORDER view, not the roster.
+ *
+ * 🔑 Every caller here is reachable only from `?gview=walk`. Dropping the param
+ * on the way back would bounce the couple out to the guest list after every
+ * single move — the control would work and still feel broken.
+ */
 function backToList(eventId: string, params: Record<string, string>): string {
-  const q = new URLSearchParams(params);
+  const q = new URLSearchParams({ gview: 'walk', ...params });
   return `/dashboard/${eventId}/guests?${q.toString()}`;
 }
 

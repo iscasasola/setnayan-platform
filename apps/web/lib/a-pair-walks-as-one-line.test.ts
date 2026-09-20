@@ -252,3 +252,62 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
     assert.ok(!code.includes(seatThing), `the drag path touches ${seatThing}`);
   }
 });
+
+// ── ⚖ "so how to launch it on the guestlist?" (owner 2026-09-20) ────────────
+
+const SWITCHER = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'view-switcher.tsx'),
+  'utf8',
+);
+const PAGE = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
+  'utf8',
+);
+
+test('🔑 there is a LABELLED way in — a tab, beside List and Mind map', () => {
+  /*
+    The panel had no entry point at all: it rendered under a role filter only,
+    so arranging the processional was reachable solely by somebody who already
+    knew to filter first. A control nobody can find is not a control.
+  */
+  assert.match(SWITCHER, /'walk'/, 'the switcher has no walking-order key');
+  assert.match(SWITCHER, /label: 'Walking order'/, 'the tab has no readable label');
+  assert.match(
+    SWITCHER,
+    /if \(gview !== 'list'\) p\.set\('gview', gview\)/,
+    'the switcher only knows how to link to the map — the new tab would go nowhere',
+  );
+});
+
+test('the walking order is a VIEW, not a banner bolted over the roster', () => {
+  // The whole processional above the guest list would push the list down the
+  // page on every visit, for a job done a handful of times.
+  assert.match(PAGE, /gview === 'walk' \? \(\s*<EntourageOrderPanel/, 'the walk view does not render the panel');
+  assert.match(PAGE, /'list' \| 'map' \| 'walk'/, 'the page cannot parse the walk view');
+  /* 🪤 Slice from the roster's JSX, not from the first mention of its key —
+     `rosterLensKey` is DECLARED far above the markup, so slicing at the
+     identifier swallowed the walk branch and failed on correct code. A window
+     has to face the thing it is judging. */
+  const rosterAt = PAGE.indexOf('<div key={rosterLensKey}');
+  assert.notEqual(rosterAt, -1, 'the roster block is gone — this guard is blind');
+  assert.ok(
+    !/<EntourageOrderPanel/.test(PAGE.slice(rosterAt)),
+    'the panel is still mounted over the roster as well as being a view',
+  );
+  // And exactly one mount overall, so it cannot be in two places at once.
+  assert.equal((PAGE.match(/<EntourageOrderPanel/g) ?? []).length, 1);
+});
+
+test('⚖ a move keeps you in the view you made it from', () => {
+  // Dropping `gview` on the way back would bounce the couple out to the roster
+  // after every single move — the control would work and still feel broken.
+  const action = readFileSync(
+    join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'entourage-order-actions.ts'),
+    'utf8',
+  );
+  assert.match(
+    action,
+    /new URLSearchParams\(\{\s*gview: 'walk'/,
+    'the walking-order actions redirect back to the roster instead of the view',
+  );
+});

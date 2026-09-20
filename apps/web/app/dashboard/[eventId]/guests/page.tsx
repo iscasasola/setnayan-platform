@@ -456,7 +456,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
+  const gview: 'list' | 'map' | 'walk' =
+    search.gview === 'map' ? 'map' : search.gview === 'walk' ? 'walk' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
@@ -1049,7 +1050,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           desktop = node/edge canvas, mobile = vertical expand/collapse tree.
           Mobile reaches map mode only via the carousel's Journey panel (a
           deliberate choice — the default stays "just the list"). */}
-      {gview === 'map' ? (
+      {/* ⚖ Owner 2026-09-20: "so how to launch it on the guestlist?" — Walking
+          order is its own view, reached from the same segmented control as List
+          and Mind map. It is not a banner above the roster: the whole
+          processional on top of the guest list would push the list down the
+          page on every visit, for a job done a handful of times. */}
+      {gview === 'walk' ? (
+        <EntourageOrderPanel eventId={eventId} view={view} />
+      ) : gview === 'map' ? (
         <GuestMindMap
           eventId={eventId}
           guests={guests.map((g) => ({
@@ -1073,11 +1081,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
-          {/* ⚖ Owner 2026-09-20, asked where the reorder control belongs: "on
-              the guest list, per role view". It renders itself away for any
-              view the invitation does not print (all · guest · a custom
-              group), so the default roster is untouched. */}
-          <EntourageOrderPanel eventId={eventId} view={view} />
           {visible.length === 0 ? (
             <EmptyState
               finished={finished}
@@ -1469,7 +1472,7 @@ function SummaryFacetBar({
   q: string;
   sort: SortKey;
   sortOptions: readonly { value: string; label: string }[];
-  gview: 'list' | 'map';
+  gview: 'list' | 'map' | 'walk';
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';

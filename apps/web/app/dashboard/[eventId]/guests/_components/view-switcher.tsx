@@ -1,14 +1,15 @@
 import Link from 'next/link';
-import { List, Network, type LucideIcon } from 'lucide-react';
+import { List, ListOrdered, Network, type LucideIcon } from 'lucide-react';
 
 /**
- * Guests view switcher (redesign Phase 1) — URL-driven (`?gview=list|map`) so it
+ * Guests view switcher (redesign Phase 1) — URL-driven (`?gview=list|map|walk`) so it
  * fits the existing search-param architecture: SSR, shareable, no client island.
- * List is the default; Mind map is a placeholder until Phase 2 builds the editor.
+ * List is the default; Mind map is a placeholder until Phase 2 builds the editor;
+ * Walking order is where a pair is one line and the couple sets who walks first.
  * Carries the active filter params across the switch so the chosen view inherits
  * the couple's current filtering.
  */
-type ViewKey = 'list' | 'map';
+type ViewKey = 'list' | 'map' | 'walk';
 
 const FILTER_KEYS = ['q', 'rsvp', 'view', 'group', 'team', 'tag', 'sort'] as const;
 
@@ -27,7 +28,7 @@ export function GuestsViewSwitcher({
       const v = search[k];
       if (v) p.set(k, v);
     }
-    if (gview === 'map') p.set('gview', 'map');
+    if (gview !== 'list') p.set('gview', gview);
     const qs = p.toString();
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
@@ -35,6 +36,19 @@ export function GuestsViewSwitcher({
   const tabs: { key: ViewKey; label: string; Icon: LucideIcon }[] = [
     { key: 'list', label: 'List', Icon: List },
     { key: 'map', label: 'Mind map', Icon: Network },
+    /*
+      ⚖ OWNER 2026-09-20: *"so how to launch it on the guestlist?"* — the
+      Walking order panel had NO entry point. It rendered under a role filter
+      only, so the one place to arrange who walks first was reachable solely by
+      someone who already knew to filter first, and then only for that filter's
+      group.
+
+      🔑 A TAB, NOT A PERMANENT PANEL. Putting the whole processional above the
+      roster would push the guest list down the page on every visit, for a job a
+      couple does a handful of times. It is a VIEW of the same list, so it lives
+      where the other views live — URL-driven, SSR, shareable, no client island.
+    */
+    { key: 'walk', label: 'Walking order', Icon: ListOrdered },
   ];
 
   return (

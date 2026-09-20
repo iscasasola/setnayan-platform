@@ -6,8 +6,11 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
-import { qrWords } from '@/lib/qr-amount-truth';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import {
+  ChannelToggle,
+  PaymentDetailsBlock,
+} from '@/app/_components/payment/payment-rails';
 import {
   PAY_STAGES,
   PROOF_STAGE,
@@ -248,40 +251,45 @@ export function PayPanel({
             </p>
           ) : (
             <>
-              <div className="flex gap-2">
-                <ChannelTab
-                  label="GCash"
-                  note={gcash.enabled ? 'free to send' : 'unavailable right now'}
-                  on={channel === 'gcash'}
-                  disabled={!gcash.enabled}
-                  onClick={() => setChannel('gcash')}
-                />
-                <ChannelTab
-                  label="BDO"
-                  note={bdo.enabled ? 'bank fee may apply' : 'unavailable right now'}
-                  on={channel === 'bdo'}
-                  disabled={!bdo.enabled}
-                  onClick={() => setChannel('bdo')}
-                />
-              </div>
+              {/* 🔁 THE SAME RAILS THE COUPLE'S CHECKOUT DRAWER SHOWS.
+                  Owner, 2026-09-20: *"cant we have 1 type of payment process?
+                  and just have this one that pops up on the right corner?"* —
+                  so the cards, the code and the account rows are now ONE
+                  component (app/_components/payment/payment-rails.tsx) rather
+                  than a tab row and a QrTile that only ever agreed by hand.
+                  What did NOT move is this page's lifecycle: the order already
+                  exists here, which is what makes /pay an address you can come
+                  back to. */}
+              <ChannelToggle
+                channel={channel}
+                onChange={setChannel}
+                open={[
+                  ...(gcash.enabled ? (['gcash'] as const) : []),
+                  ...(bdo.enabled ? (['bdo'] as const) : []),
+                ]}
+              />
 
-              <QrTile channel={channel} info={info} amountPhp={amountPhp} reference={reference} />
-
-              {/* ⛔ THE MANUAL FALLBACK DID NOT MOVE OFF THIS STAGE. It is the
+              {/* ⛔ THE MANUAL FALLBACK IS INSIDE THIS BLOCK — the account name,
+                  the number and the exact amount, each copyable. It is the
                   route for anyone whose wallet refuses the code, which is the
                   one thing a code-first screen must never take away. */}
-              {(info.number || info.name) && (
-                <p className="mt-4 text-center text-sm text-ink/70">
-                  or send manually to
-                  <br />
-                  {info.number && (
-                    <span className="font-mono text-[15px] font-semibold text-ink">
-                      {info.number}
-                    </span>
-                  )}
-                  {info.name && <span className="block text-xs text-ink/55">{info.name}</span>}
-                </p>
-              )}
+              <PaymentDetailsBlock
+                channel={channel}
+                /* 🔑 `mintedUrl` IS THE SERVER'S IMAGE AND IT STAYS. Handing a
+                   payload down for the browser to draw is what put a ₱0 static
+                   code on screen until the `qrcode` chunk arrived — owner:
+                   "the amount is not filled up. it only shows 0." No payload
+                   is passed, so there is nothing for the browser to draw and
+                   no window in which the wrong code can show. */
+                info={{
+                  name: info.name,
+                  number: info.number,
+                  staticUrl: info.staticUrl,
+                  mintedUrl: info.mintedUrl,
+                }}
+                referenceCode={reference}
+                amountPhp={amountPhp}
+              />
             </>
           )}
 
@@ -476,103 +484,21 @@ function StepHead({ n, title }: { n: number; title: string }) {
   );
 }
 
-function ChannelTab({
-  label,
-  note,
-  on,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  note: string;
-  on: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={on}
-      className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-semibold text-ink disabled:opacity-45 ${
-        on ? 'border-mulberry ring-1 ring-mulberry' : 'border-ink/15'
-      }`}
-    >
-      {label}
-      <span className="block text-[11px] font-normal text-ink/55">{note}</span>
-    </button>
-  );
-}
 
-/**
- * The QR itself — one image, decided on the server.
- *
- * ────────────────────────────────────────────────────────────────────────────
- * ⛔ DO NOT PUT THE RENDERER BACK IN THE BROWSER. This component used to hold
- * `useEffect` + `import('qrcode')`, which meant `minted` was null on every
- * first render and `src` fell through to the STATIC merchant image: a real,
- * scannable code that opens the wallet at ₱0. It then swapped itself for the
- * right one some hundreds of milliseconds later. On a phone on mobile data
- * that window is not theoretical — the owner paid through it on 2026-09-20.
- *
- * 🔑 THERE IS NO LOADING STATE TO GET RIGHT IF THERE IS NOTHING TO LOAD. The
- * server mints and draws both rails before this page is sent, so switching
- * tabs swaps between two images that are already here.
- * ────────────────────────────────────────────────────────────────────────────
- */
-function QrTile({
-  channel,
-  info,
-  amountPhp,
-  reference,
-}: {
-  channel: Channel;
-  info: ChannelInfo;
-  amountPhp: number;
-  reference: string;
-}) {
-  const src = info.mintedUrl ?? info.staticUrl;
-  const exact = Boolean(info.mintedUrl);
-  const label = channel === 'gcash' ? 'GCash' : 'your bank app';
-  const words = qrWords(exact, payAmount(amountPhp), { appLabel: label, reference });
+/* 🔁 ChannelTab AND QrTile ARE GONE — the cards and the code now come from
+   app/_components/payment/payment-rails.tsx, which the couple's checkout
+   drawer renders too (owner, 2026-09-20: "cant we have 1 type of payment
+   process?").
 
-  if (!src) {
-    return (
-      <p className="mt-4 rounded-lg border border-ink/15 p-4 text-center text-sm text-ink/60">
-        Send to the account below. We&rsquo;ll email you a code if this rail changes.
-      </p>
-    );
-  }
-
-  return (
-    <div className="mt-4 rounded-xl border border-ink/15 bg-white p-4 text-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={
-          exact
-            ? `Payment QR code already set to ${payAmount(amountPhp)}`
-            : 'Setnayan payment QR code, which carries no amount'
-        }
-        width={260}
-        height={260}
-        decoding="async"
-        className="mx-auto h-auto w-full max-w-[260px]"
-      />
-      <p className="mt-3 text-sm text-ink/65">{words.caption}</p>
-      {exact && (
-        <a
-          href={src}
-          download={`setnayan-${channel}-${amountPhp}.png`}
-          className="mt-3 inline-block text-sm font-medium text-link underline"
-        >
-          Save code to my photos
-        </a>
-      )}
-    </div>
-  );
-}
+   ⛔ THE ONE THING THAT MUST NOT COME BACK WITH THEM: the renderer in the
+   BROWSER. QrTile used to hold `useEffect` + `import('qrcode')`, so `minted`
+   was null on every first render and the image fell through to the STATIC
+   merchant code — real, scannable, and worth ₱0. It swapped itself for the
+   right one some hundreds of milliseconds later; on a phone on mobile data
+   that window is not theoretical, and the owner paid through it on
+   2026-09-20. This page therefore hands the shared block a `mintedUrl` the
+   SERVER drew and NO payload, so there is nothing for a browser to draw and
+   no window in which the ₱0 code can show. */
 
 /**
  * Proof — screenshot, then the last 6 digits.

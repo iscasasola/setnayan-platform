@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "fee7b7d57",
+  "generatedFromRef": "8e0a1a28e",
   "routeCount": 430,
   "destinations": 922,
   "actions": 651,
@@ -9198,14 +9198,14 @@
       ],
       "blocks": [
         "Channel",
-        "ChannelTab",
+        "ChannelToggle",
         "CopyButton",
         "FileUpload",
         "Link",
         "PayPanel",
         "PayStage",
+        "PaymentDetailsBlock",
         "ProofForm",
-        "QrTile",
         "StageLink",
         "StageRail",
         "Step",

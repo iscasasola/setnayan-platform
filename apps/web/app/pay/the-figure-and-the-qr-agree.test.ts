@@ -34,6 +34,23 @@ const GCASH =
 const HERE = join(process.cwd(), 'app', 'pay', '[reference]');
 const read = (...p: string[]) => readFileSync(join(HERE, ...p), 'utf8');
 
+/**
+ * 🔁 THE RULE MOVED HOUSE ON 2026-09-20 AND THIS GUARD FOLLOWED IT.
+ *
+ * Owner: *"cant we have 1 type of payment process?"* — so the cards, the code
+ * and the account rows are now ONE component that the couple's checkout drawer
+ * renders too. The caption about the code and the figure beside it live THERE
+ * now, not in pay-panel.
+ *
+ * ⚠ FOLLOWING IT IS THE WHOLE JOB. Left pointing only at these two files, this
+ * guard would have gone green on a payment surface whose amount is formatted by
+ * a component it never reads — the "guard pinned to a file path" failure, where
+ * moving a symbol to a new module silently ends the coverage instead of
+ * breaking the build.
+ */
+const SHARED_RAILS = join(process.cwd(), 'app', '_components', 'payment', 'payment-rails.tsx');
+const readRails = () => readFileSync(SHARED_RAILS, 'utf8');
+
 /** EMV tag 54 — the transaction amount the wallet pre-fills. */
 function amountInQr(php: number): string {
   const minted = mintOrderQr(GCASH, php);
@@ -103,9 +120,15 @@ test('the peso sign is the real one, on the page and in the helper', () => {
  * `number | undefined`, which is `error TS2532` here (the runtime was always
  * fine — both keys exist). Literal keys make the lookup exact.
  */
-const FLOOR = { 'page.tsx': 1, 'pay-panel.tsx': 3 } as const;
+const FLOOR = { 'page.tsx': 1, 'pay-panel.tsx': 2, 'payment-rails.tsx': 1 } as const;
 
 /**
+ * ⬇ pay-panel's FLOOR WENT 3 → 2 LATER THE SAME DAY, AND THE MISSING ONE IS NOT
+ * MISSING — it is in `payment-rails.tsx`, which now carries a floor of its own
+ * above. The caption under the code moved into the shared block along with the
+ * code itself. A drop with nowhere to point is a regression; this one has a
+ * forwarding address, and the total across the three files is unchanged.
+ *
  * ⚠ pay-panel's FLOOR WENT 4 → 3 ON 2026-09-20, AND THAT IS NOT A WEAKENING —
  * it is the count catching up with a mechanism change. The caption under the
  * code used to be written twice in this file, once per branch of
@@ -127,6 +150,7 @@ test('neither file keeps a private copy of the rule', () => {
   for (const [name, src] of [
     ['page.tsx', page],
     ['pay-panel.tsx', panel],
+    ['payment-rails.tsx', readRails()],
   ] as const) {
     assert.doesNotMatch(
       src,
@@ -175,9 +199,16 @@ test("the amount reaching qrWords is payAmount's own", () => {
   // comment to SPACES of the same length, so a window measured in characters
   // grows with the prose inside the call and goes red for a reason nobody can
   // see — measured here at 400 characters against a four-line note.
+  /**
+   * ⚠ pay-panel IS NOT IN THIS LIST ANY MORE, AND ITS ABSENCE IS THE POINT.
+   * It no longer phrases anything about the code — `payment-rails.tsx` does,
+   * for both this page and the checkout drawer. Leaving it here would fail on
+   * `calls.length > 0` for a file that correctly stopped having an opinion;
+   * dropping the check entirely would leave the sentence unguarded. It moved.
+   */
   for (const [name, raw] of [
     ['page.tsx', read('page.tsx')],
-    ['pay-panel.tsx', read('_components', 'pay-panel.tsx')],
+    ['payment-rails.tsx', readRails()],
   ] as const) {
     const src = stripComments(raw);
     const calls = [...src.matchAll(/qrWords\(/g)];

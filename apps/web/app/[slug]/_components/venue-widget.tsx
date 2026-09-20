@@ -1,6 +1,7 @@
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
+import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -79,13 +80,25 @@ export function VenueWidget({ event }: { event: EventRow }) {
           {event.venue_address ? (
             <p className="text-sm leading-relaxed text-ink/65">{event.venue_address}</p>
           ) : null}
-          <NavLinksRow
-            latitude={event.venue_latitude ?? null}
-            longitude={event.venue_longitude ?? null}
-            addressFallback={event.venue_address ?? event.venue_name ?? null}
-            label="Get directions"
-            compact
-          />
+          {/* 🔒 CLOSED UNTIL THEY REPLY (owner 2026-09-20 · lib/venue-disclosure.ts).
+              The line is not decoration: an address that simply vanishes reads as a
+              couple who has not booked a venue. It says which it is.
+
+              ⚠ AND THE DIRECTIONS ROW MUST GO WITH IT. `NavLinksRow` falls back to
+              `venue_name` when there is no address or pin, so leaving it mounted
+              would hand out a maps search for the venue by name — the withheld fact,
+              one tap later. */}
+          {event.venue_withheld ? (
+            <p className="text-sm leading-relaxed text-ink/65">{VENUE_WITHHELD_LINE}</p>
+          ) : (
+            <NavLinksRow
+              latitude={event.venue_latitude ?? null}
+              longitude={event.venue_longitude ?? null}
+              addressFallback={event.venue_address ?? event.venue_name ?? null}
+              label="Get directions"
+              compact
+            />
+          )}
         </div>
       </div>
     </section>

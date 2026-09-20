@@ -1,0 +1,31 @@
+# MONEY-FORMATTER BASELINE — what `lib/security/money-formatter-scan.ts` still
+# tolerates. Regenerate with:  pnpm money-formatter:baseline
+#
+# 🔑 THIS FILE MAY ONLY SHRINK. The test fails on any collision or undeclared
+# rounder that is NOT listed here, so a NEW one cannot land. It does not fail
+# when a listed row is fixed elsewhere — a peer PR fixing a row must not turn
+# `main` red, because a guard that punishes a fix is a guard that gets deleted.
+# The test prints the stale rows instead; delete them when you see them.
+#
+# Blank lines and `#` lines are prose. Everything else is a key.
+#
+# ── R1 · TWO DEFINITIONS UNDER ONE NAME ─────────────────────────────────────
+# key: <name>\t<file> <file …>
+#
+# BOTH REMAINING ROWS ARE THE SAME PAIR OF FILES, AND OPEN PR #5756 OWNS THEM.
+# That PR rewrites `lib/vendor-service-payment-schedules.ts#centavosToPhp` from
+# `Math.round(centavos / 100)` to `Math.round(centavos) / 100` — i.e. it makes
+# the two definitions AGREE — and its diff replaces the exact docblock a marker
+# would go in, so touching those lines here would collide with work in flight
+# for no gain. Deliberately left for the follow-up that consolidates the
+# schedule helpers into `lib/php.ts`, which is a rename of ~7 files and belongs
+# in its own PR.
+R1	centavosToPhp	lib/payouts.ts lib/vendor-service-payment-schedules.ts
+R1	phpToCentavos	lib/payouts.ts lib/vendor-service-payment-schedules.ts
+
+# ── R2 · DROPS THE FRACTION WITH NO `@rounds-to-the-peso` REASON ────────────
+# key: <file>\t<name>
+#
+# The same function as the first R1 row, for the same reason: #5756 deletes the
+# rounding outright, so a marker added here would have to be removed there.
+R2	lib/vendor-service-payment-schedules.ts	centavosToPhp

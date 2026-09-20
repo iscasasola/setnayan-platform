@@ -63,8 +63,8 @@ import {
   groupDisplayOptions,
   type VendorCategory,
   displayServiceLabel,
-  formatPhp,
 } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import {

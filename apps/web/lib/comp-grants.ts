@@ -182,9 +182,15 @@ export async function fetchEventsHostedBy(
 
 /**
  * Format centavos as a polite "₱X,XXX" string. Returns "—" when null.
- * Diverges from `lib/orders.ts formatPhp` (which takes pesos): we keep
- * centavos here because the DB column is centavos and any conversion to
- * pesos in the reader would silently truncate.
+ *
+ * @rounds-to-the-peso A GRANT'S NOTIONAL RETAIL VALUE — what a comped item
+ * would have cost. Nobody is charged it and nothing reconciles against it, so
+ * the peso is the right resolution for the sentence it sits in.
+ *
+ * ⚠ ITS OWN DOCBLOCK USED TO CLAIM THE OPPOSITE: "we keep centavos here …
+ * any conversion to pesos in the reader would silently truncate". The body
+ * does `Math.floor(centavos / 100)` — it truncates, and always has. Corrected
+ * 2026-09-20; a docblock is not a measurement.
  */
 export function formatRetailValueCentavos(
   centavos: number | null | undefined,

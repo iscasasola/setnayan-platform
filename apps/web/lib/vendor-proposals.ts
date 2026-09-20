@@ -58,12 +58,14 @@ export function resolveTokens(
   });
 }
 
-export function formatCentavos(centavos: number): string {
-  return `₱${(centavos / 100).toLocaleString('en-PH', {
-    minimumFractionDigits: centavos % 100 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+/**
+ * RE-EXPORTED from `lib/php.ts` (2026-09-20). This module and
+ * `lib/journal-spotlights.ts` each defined their own `formatCentavos`, testing
+ * "is it whole?" two different ways and both capping at
+ * `maximumFractionDigits: 2` — the `₱837.5` spelling PR #5744's suite calls out.
+ * One definition now; the name stays here for this module's importers.
+ */
+export { formatCentavosPhp as formatCentavos } from './php';
 
 export type ProposalLineItem = {
   label: string;

@@ -931,10 +931,21 @@ export function renderBudgetIcs(args: {
   return cal.join('\r\n') + '\r\n';
 }
 
-export function formatPhp(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '—';
-  return `₱${Number(amount).toLocaleString('en-PH', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
+/*
+ * 🪦 `formatPhp` LIVED HERE AND IS GONE (2026-09-20).
+ *
+ * It was `maximumFractionDigits: 0`, and it shared its name with the EXACT
+ * formatter in `lib/orders.ts` that PR #5744 standardised on — so
+ * `formatPhp(owedPhp)` printed ₱838 or ₱837.50 depending only on which import
+ * line sat at the top of the file. Every figure this module produces
+ * (`agreedPhp`, `paidPhp`, `owedPhp`, `overduePhp`, `remainingPhp`, the
+ * ledger's next-due amount) is summed from `event_vendor_line_items.amount_php`
+ * and `event_vendor_payments.amount_php`, both `NUMERIC(12,2)`, and from
+ * `event_vendors.total_cost_php`, which `accept_vendor_proposal` writes as
+ * `v_total_centavos::numeric / 100.0` — so centavos are reachable BY
+ * CONSTRUCTION, not by accident.
+ *
+ * Money figures now import `formatPhp` from `@/lib/orders`; the planner's
+ * targets and bands import `formatPhpRounded` from `@/lib/php`, which says in
+ * its own docblock why rounding is right there. See `lib/php.ts`.
+ */

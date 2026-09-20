@@ -26,7 +26,8 @@
 
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSay, type CompiledCardRecord } from '@/lib/service-card-record';
-import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import {
   pickBestDiscount,
   type VendorServiceInclusion,
@@ -146,7 +147,7 @@ export function toServiceCard(
   const label = row.title?.trim() || displayServiceLabel(row.category);
   const priceLabel =
     !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
-      ? `from ${formatPhp(row.starting_price_php)}`
+      ? `from ${formatPhpRounded(row.starting_price_php)}`
       : 'Inquire';
 
   // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
@@ -167,7 +168,7 @@ export function toServiceCard(
   ) {
     const minPart =
       row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
+    priceDetail = `${formatPhpRounded(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
   } else if (
     row.pricing_basis === 'per_hour' &&
     row.hour_base_php !== null &&
@@ -175,11 +176,11 @@ export function toServiceCard(
   ) {
     const base =
       row.min_hours !== null && row.min_hours > 0
-        ? `${formatPhp(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
-        : formatPhp(row.hour_base_php);
+        ? `${formatPhpRounded(row.hour_base_php)} for ${row.min_hours} hr${row.min_hours === 1 ? '' : 's'}`
+        : formatPhpRounded(row.hour_base_php);
     const extra =
       row.extra_hour_php !== null && row.extra_hour_php > 0
-        ? ` · +${formatPhp(row.extra_hour_php)}/extra hr`
+        ? ` · +${formatPhpRounded(row.extra_hour_php)}/extra hr`
         : '';
     priceDetail = `${base}${extra}`;
   }
@@ -205,7 +206,7 @@ export function toServiceCard(
   // peso worth). Trim to a few; the overflow surfaces as "+N more".
   const allInclusions = (inclusions ?? []).map((inc) =>
     !hidePrices && inc.worth_php !== null && inc.worth_php > 0
-      ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
+      ? `${inc.label} · ${formatPhpRounded(inc.worth_php)} free`
       : inc.label,
   );
   const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
@@ -227,7 +228,7 @@ export function toServiceCard(
   if (!row.transport_included) {
     notIncluded.push(
       !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
-        ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
+        ? `Transport: ${formatPhpRounded(row.transport_flat_fee_php)}`
         : 'Transport not included',
     );
   }

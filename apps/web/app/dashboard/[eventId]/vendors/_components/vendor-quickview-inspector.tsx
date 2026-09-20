@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import type { ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import { shopInitials } from '@/lib/shop-initials';

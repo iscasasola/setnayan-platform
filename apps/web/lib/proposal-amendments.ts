@@ -2,6 +2,8 @@
 // An amendment carries many items shown against the current proposal → new total.
 // Pure module — safe on client + server.
 
+import { formatPhp } from './php';
+
 export type AmendmentItemKind = 'discount' | 'addon' | 'freebie' | 'request';
 export type AmendmentStatus = 'proposed' | 'accepted' | 'declined' | 'withdrawn';
 
@@ -48,7 +50,22 @@ export function newTotalPhp(
   return Math.round(baseTotalCentavos) / 100 + netDeltaPhp(items);
 }
 
+/**
+ * A SIGNED AMENDMENT DELTA — `-1837.5` → `"−₱1,837.50"`.
+ *
+ * 🔴 THIS USED A BARE `toLocaleString('en-PH')`, which is Intl's default: at
+ * most THREE decimals, and a dropped trailing zero. So a ₱1,837.50 change read
+ * **−₱1,837.5** — the exact third spelling
+ * `app/vendor-dashboard/booking-fees/the-exact-peso-reaches-every-surface.test.ts`
+ * calls out by name. It renders `proposal_amendment_items.amount_php` and
+ * `event_vendor_line_items.amount_php`, both `NUMERIC(12,2)`, on the couple's
+ * itemization card and in the chat amendment card — money that moves their
+ * agreed total.
+ *
+ * The magnitude now goes through the app's one money formatter; only the sign
+ * (a typographic MINUS, U+2212, not a hyphen) is local to this surface.
+ */
 export function pesoLabel(n: number): string {
   const sign = n < 0 ? '−' : '';
-  return `${sign}₱${Math.abs(n).toLocaleString('en-PH')}`;
+  return `${sign}${formatPhp(Math.abs(n))}`;
 }

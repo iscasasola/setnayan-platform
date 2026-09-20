@@ -29,7 +29,7 @@
 import { useActionState, useState } from 'react';
 import { CheckCircle2, Plus, QrCode, ReceiptText, Trash2 } from 'lucide-react';
 
-import { formatPhp } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import {
   EVENT_COST_LABEL_MAX,
   EVENT_COST_NOTE_MAX,

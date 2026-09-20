@@ -55,13 +55,13 @@ import {
 } from 'lucide-react';
 import {
   describeSupplierBalance,
-  formatPhp,
   type LineItemRow,
   type PaymentRow,
   type VendorBudgetSummary,
   type VendorControlledLineItem,
   type VendorPriceSource,
 } from '@/lib/budget';
+import { formatPhp } from '@/lib/orders';
 import {
   VENDOR_CATEGORY_LABEL,
   VENDOR_STATUS_LABEL,

@@ -1,4 +1,4 @@
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 
 /**
  * Momentum mini-charts — the visual half of the "Momentum" card. Two pure,

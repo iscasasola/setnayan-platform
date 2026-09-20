@@ -7,9 +7,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { listHostEvents } from '@/lib/vendor-couple-invite';
 import {
   VENDOR_CATEGORY_LABEL,
-  formatPhp,
   type VendorCategory,
 } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { DUE_ANCHOR_LABELS, type DueAnchor } from '@/lib/vendor-service-payment-schedules';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
@@ -147,7 +147,13 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   const rowAmount = (r: ScheduleRow): string => {
     const v = Number(r.amount_value ?? 0);
     if (r.amount_kind === 'percent') {
-      return total != null ? formatPhp(Math.round((total * v) / 100)) : `${v}%`;
+      // 🔴 THIS WAS `Math.round((total * v) / 100)` — a percent installment of a
+      // booking total, rounded to the WHOLE PESO before the couple read it on
+      // the page where they agree to the schedule. 30% of ₱187,501 showed as
+      // ₱56,250 against a ₱56,250.30 obligation. Multiplying to centavos FIRST
+      // keeps the arithmetic integral where it matters; the order of operations
+      // is load-bearing (same reasoning as `pctOfTotalPhp` in PR #5756).
+      return total != null ? formatPhp(Math.round(total * v) / 100) : `${v}%`;
     }
     return formatPhp(v);
   };

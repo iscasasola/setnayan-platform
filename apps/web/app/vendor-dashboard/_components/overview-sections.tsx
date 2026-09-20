@@ -26,7 +26,8 @@ import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
+import { formatCentavosPhp } from '@/lib/php';
 import type {
   OngoingTask,
   UpcomingEventRow,
@@ -1534,9 +1535,17 @@ function MeetingBody({
  * visible.
  */
 function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_draft' }> }) {
+  // Centavo-exact. A draft is not yet an ask, but it becomes one on Send
+  // without being re-entered, so the supplier must read the figure they will
+  // actually put in front of the couple.
+  //
+  // ⚠ OPEN PR #5756 FIXES THIS SAME LINE as `formatPhp(Math.round(c) / 100)`.
+  // That is the right arithmetic, but on that branch `formatPhp` still comes
+  // from `@/lib/vendors`, which rounds — so the fix is INERT until this PR
+  // deletes that formatter. Whichever merges second, keep the centavos.
   const amount =
     typeof card.totalCentavos === 'number'
-      ? formatPhp(Math.round(card.totalCentavos / 100))
+      ? formatCentavosPhp(card.totalCentavos)
       : null;
   return (
     <>

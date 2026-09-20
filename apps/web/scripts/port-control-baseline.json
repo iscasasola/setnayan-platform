@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1f9ab732e",
+  "generatedFromRef": "7ece905cf",
   "routeCount": 430,
-  "destinations": 923,
-  "actions": 653,
-  "blocks": 4562,
+  "destinations": 922,
+  "actions": 654,
+  "blocks": 4568,
   "routes": {
     "/": {
       "files": [
@@ -773,6 +773,8 @@
         "[slug]/_components/reveal/wax-seal.tsx",
         "[slug]/_components/roam-watch-picker.tsx",
         "[slug]/_components/room-footer.tsx",
+        "[slug]/_components/rsvp-sheet-state.ts",
+        "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-widget.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
@@ -1050,6 +1052,7 @@
         "Row",
         "RowGroup",
         "RsvpPill",
+        "RsvpSheet",
         "RsvpWidget",
         "RunOfShowHeader",
         "SVGLineElement",
@@ -5345,6 +5348,7 @@
       "files": [
         "dashboard/[eventId]/guests/_components/active-filters.tsx",
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
+        "dashboard/[eventId]/guests/_components/arrange-controls.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
         "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
@@ -5400,6 +5404,8 @@
         "AddFromPeopleResult",
         "AddFromPeopleSheet",
         "AddToGroupControl",
+        "ArrangeSheet",
+        "ArrangeTh",
         "AssignSheet",
         "BulkApplyForm",
         "CaptureBar",
@@ -5428,6 +5434,7 @@
         "GuestMindMap",
         "GuestPhoto",
         "GuestRole",
+        "GuestRow",
         "GuestSide",
         "GuestsSearch",
         "GuestsViewSwitcher",
@@ -5928,6 +5935,8 @@
         "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
+        "dashboard/[eventId]/monogram/reveal-actions.ts",
+        "dashboard/[eventId]/monogram/reveal-step.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
@@ -5935,14 +5944,14 @@
         "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/monogram",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/monogram"
       ],
       "actions": [
         "clearStudioAction",
         "clearUploadedMarkAction",
         "saveStudioAction",
-        "saveUploadedMarkAction"
+        "saveUploadedMarkAction",
+        "setRevealAction"
       ],
       "blocks": [
         "AnimatedMonogramHero",
@@ -5968,8 +5977,10 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
+        "RevealStep",
         "SDLoader",
         "SaveButton",
+        "SavedMark",
         "StudioAnim",
         "StudioAnimKind",
         "StudioApi",

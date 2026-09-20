@@ -44,6 +44,71 @@ export const VENDOR_CLIENT_TABS = [
 export type VendorClientTab = (typeof VENDOR_CLIENT_TABS)[number];
 
 /**
+ * ── THE SECOND SHELL, AND WHY A TAB NAME ALONE IS NOT A DESTINATION ─────────
+ *
+ * `/vendor-dashboard/clients/<eventId>` renders TWO DIFFERENT TAB STRIPS and
+ * they share only three words. Behind `NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_
+ * ENABLED` (measured `"true"` in production, 2026-09-20) it is the unified
+ * RelationshipTabShell above; with the flag off it is the older Customer Card,
+ * whose `normalizeTab` (app/.../_components/customer-card-nav.tsx) accepts only
+ * the list below and silently rewrites everything else to `overview`.
+ *
+ *     shell ON   chat · quote · payments · files · schedule · details
+ *     shell OFF  overview · quote · files · schedule · script · activity
+ *                          └──────── the whole intersection ────────┘
+ *
+ * So `?tab=payments` is Overview on one arm, and `?tab=activity` is QUOTE on
+ * the other — `RelationshipTabShell` drops an id it does not know onto its
+ * first PANEL tab. Both are the owner's bug wearing a different coat: the
+ * action worked and the supplier is looking at a screen that does not mention
+ * it. 🔑 **NAME THE CONTENT, NOT THE TAB.** A caller asks for the SURFACE its
+ * notice is rendered on; this file knows which word each shell calls it.
+ */
+export const VENDOR_CARD_TABS = [
+  'overview',
+  'quote',
+  'files',
+  'schedule',
+  'script',
+  'activity',
+] as const;
+export type VendorCardTab = (typeof VENDOR_CARD_TABS)[number];
+
+/**
+ * What a supplier is being sent back to LOOK AT, named by the panel that
+ * actually draws the notice — verified against page.tsx, not assumed:
+ *
+ *  • `asks`       — the "ask them to send PHP X" panel. It sits inside
+ *                   `quoteNode` on PURPOSE and is documented there: Quote &
+ *                   Payments is the one money tab BOTH shells render, so the
+ *                   panel is one copy reachable on either arm.
+ *  • `delivery`   — `ScheduleTab`, which holds the run-of-show suggestion
+ *                   notice, the "Deliver the handover" panel AND the
+ *                   Change-Order Trail. All three notices render there and
+ *                   nowhere else, so all three land there.
+ *  • `notes`      — the activity feed + private CRM notes (`activityNode`)
+ *  • `completion` — `VendorCompletionCard`
+ *  • `brief`      — the rest of `OverviewTab` (Papic challenges, booth, cocktail)
+ *
+ * ⚠ `notes`, `completion` and `brief` are three different tabs on the OFF
+ * shell and ONE tab on the ON shell, because the ON shell folds Overview and
+ * Activity into Details. Keeping them as separate surfaces is what lets the
+ * OFF arm stay precise instead of dumping everything on `overview`.
+ */
+export type VendorClientSurface = 'asks' | 'delivery' | 'notes' | 'completion' | 'brief';
+
+export const SURFACE_TABS: Record<
+  VendorClientSurface,
+  { shellOn: VendorClientTab; shellOff: VendorCardTab }
+> = {
+  asks: { shellOn: 'quote', shellOff: 'quote' },
+  delivery: { shellOn: 'schedule', shellOff: 'schedule' },
+  notes: { shellOn: 'details', shellOff: 'activity' },
+  completion: { shellOn: 'details', shellOff: 'overview' },
+  brief: { shellOn: 'details', shellOff: 'overview' },
+};
+
+/**
  * Where money answers land when nothing better is known.
  *
  * ⚠ NOT `chat`. `chat` is a DOOR in that strip, not a room — landing on it is
@@ -55,14 +120,34 @@ const THREAD = /^\/vendor-dashboard\/messages\/[A-Za-z0-9_-]{1,80}$/;
 /** A uuid-ish event id: what the client route actually carries. */
 const EVENT_ID = /^[A-Za-z0-9-]{1,64}$/;
 
+function clientHref(eventId: string, tab: string, query: Record<string, string>): string {
+  const params = new URLSearchParams({ tab, ...query });
+  return `/vendor-dashboard/clients/${eventId}?${params.toString()}`;
+}
+
 /** `/vendor-dashboard/clients/<eventId>?tab=<tab>` plus any notice params. */
 export function vendorClientTabHref(
   eventId: string,
   tab: VendorClientTab,
   query: Record<string, string> = {},
 ): string {
-  const params = new URLSearchParams({ tab, ...query });
-  return `/vendor-dashboard/clients/${eventId}?${params.toString()}`;
+  return clientHref(eventId, tab, query);
+}
+
+/**
+ * The landing for a SURFACE, resolved for the shell the supplier will get.
+ *
+ * `shellOn` is `isRelationshipWorkspaceEnabled()` — passed in rather than read
+ * here so this module stays pure and the test can execute BOTH arms. A server
+ * action that hard-codes a tab string can only ever be right about one of them.
+ */
+export function vendorClientSurfaceHref(
+  eventId: string,
+  surface: VendorClientSurface,
+  opts: { shellOn: boolean; query?: Record<string, string> },
+): string {
+  const pair = SURFACE_TABS[surface];
+  return clientHref(eventId, opts.shellOn ? pair.shellOn : pair.shellOff, opts.query ?? {});
 }
 
 /** The tab named by a client-page path, or null if it names none we know. */

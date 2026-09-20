@@ -442,6 +442,8 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** vendorMarkServiceComplete's outcome — see VendorCompletionCard. */
+    completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
     ask?: string;
   }>;
@@ -773,6 +775,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     never trust it as given. Without it those actions redirect here WITHOUT a
     tab, which this very gate then forwards to the thread.
   */
+  /* The completion flag, read ONCE and handed to both mounts of the card, so
+     the two shells cannot disagree about whether the supplier is told. */
+  const completedNotice = typeof search.completed === 'string' ? search.completed : null;
+
   const depositReturnTo = vendorClientTabHref(
     eventId,
     (VENDOR_CLIENT_TABS as readonly string[]).includes(rawTab ?? '')
@@ -1805,6 +1811,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               isCompleteConfirmed={isCompleteConfirmed}
               isDisputed={isDisputed}
               isVendorMarked={isVendorMarked}
+              notice={completedNotice}
             />
           ) : null}
           {overviewNode}
@@ -1919,14 +1926,40 @@ function VendorCompletionCard({
   isCompleteConfirmed,
   isDisputed,
   isVendorMarked,
+  notice,
 }: {
   eventId: string;
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
+  /**
+   * `?completed=` — and it took a sweep to notice NOBODY WAS READING IT.
+   * `vendorMarkServiceComplete` has redirected with `?completed=1` since the
+   * handshake shipped and no component anywhere in the tree ever looked at the
+   * word, so the one thing that changed on the screen was the state below —
+   * which also changes on a reload, an hour later, for any other reason. 🔑 A
+   * redirect flag that nothing renders is not feedback; it is a log line with
+   * a nicer address. Same disease as the bounce this PR is about, one step
+   * further along: the supplier arrives on the RIGHT tab and is still not told.
+   */
+  notice?: string | null;
 }) {
   return (
     <Card>
+      {notice === '1' ? (
+        <p
+          role="status"
+          className="mb-3 rounded-lg bg-success-50 px-3 py-2 text-xs text-success-900"
+        >
+          Marked complete — the couple has been asked to confirm they received everything.
+        </p>
+      ) : null}
+      {notice === 'notyours' ? (
+        <p role="alert" className="mb-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
+          We couldn&rsquo;t find your booking on this event, so nothing was marked. If you were
+          booked here, open the conversation and tell the couple.
+        </p>
+      ) : null}
       {isCompleteConfirmed ? (
         <div className="flex items-center gap-3 text-sm">
           <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
@@ -2122,7 +2155,7 @@ function OverviewTab(props: {
    *  Details-tab node, so suppress the inline copy here to avoid doubling up.
    *  Flag OFF: false → the card renders inline exactly as before. */
   hideCompletion: boolean;
-  search: { deposit_ack?: string; deposit_reject?: string };
+  search: { deposit_ack?: string; deposit_reject?: string; completed?: string };
   /**
    * The tab this page is showing, as a path the deposit forms post back.
    * Resolved by the PAGE (past its chat-redirect gate, so it is never `chat`)
@@ -2659,6 +2692,7 @@ function OverviewTab(props: {
           isCompleteConfirmed={isCompleteConfirmed}
           isDisputed={isDisputed}
           isVendorMarked={isVendorMarked}
+          notice={typeof search.completed === 'string' ? search.completed : null}
         />
       ) : null}
 

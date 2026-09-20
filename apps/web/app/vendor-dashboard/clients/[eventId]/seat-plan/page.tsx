@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Seat Plan · Vendor' };
 
@@ -123,7 +125,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
   });
   // not_booked / category_not_floor / not_published all land here — the
   // Brief page is the right fallback (it shows the publication status).
-  if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
   const plan = data as Plan;
 
   const placed = plan.tables.filter((t) => t.x !== null && t.y !== null);

@@ -15,5 +15,3 @@
 guest                     — an ordinary guest is not entourage; publishing this would put the whole list on the page.
 bride                     — the couple. The invitation is theirs; they do not stand with themselves.
 groom                     — the couple, as above.
-bride_immediate_family    — ⚠ OWNER CALL, NOT SETTLED. A printed invitation names the PARENTS; siblings and grandparents are not part of the entourage list. Publish these two if the owner wants a "Family" section on the page.
-groom_immediate_family    — ⚠ OWNER CALL, NOT SETTLED. As above.

@@ -54,6 +54,7 @@ import {
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
+import { EntourageOrderPanel } from './_components/entourage-order-panel';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
@@ -206,6 +207,11 @@ type Props = {
     // the floating SelectionBar holding two guests it had already acted on.
     paired?: string;
     unpaired?: string;
+    // entourage-order-actions.ts — a per-ROW control, so these get a flash but
+    // deliberately do NOT feed `recentlyApplied`: reordering one name must not
+    // discard a multi-select the host is still assembling.
+    reordered?: string;
+    order_cleared?: string;
     group_created?: string;
     group_saved?: string;
     group_deleted?: string;
@@ -1067,6 +1073,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
+          {/* ⚖ Owner 2026-09-20, asked where the reorder control belongs: "on
+              the guest list, per role view". It renders itself away for any
+              view the invitation does not print (all · guest · a custom
+              group), so the default roster is untouched. */}
+          <EntourageOrderPanel eventId={eventId} view={view} />
           {visible.length === 0 ? (
             <EmptyState
               finished={finished}
@@ -1348,6 +1359,8 @@ function pickFlash(search: {
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
+  reordered?: string;
+  order_cleared?: string;
   group_created?: string;
   group_saved?: string;
   group_deleted?: string;
@@ -1387,6 +1400,8 @@ function pickFlash(search: {
   }
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';
+  if (search.reordered) return 'Walking order saved.';
+  if (search.order_cleared) return 'Back to alphabetical order.';
   if (search.group_created) return 'Group created.';
   if (search.group_saved) return 'Group saved.';
   if (search.group_deleted) return 'Group deleted.';

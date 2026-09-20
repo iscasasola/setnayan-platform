@@ -121,6 +121,7 @@ export function GuestDrawerHost({
   eventId,
   brandedQrActive = false,
   photoDisplayUrls = {},
+  accountFaceByGuest = {},
   invitationBase = null,
 }: {
   eventId: string;
@@ -130,6 +131,9 @@ export function GuestDrawerHost({
    *  opens from a client store that carries only the row, so the map has to
    *  arrive here rather than in the payload. */
   photoDisplayUrls?: Record<string, string>;
+  /** guest_id → their linked ACCOUNT's photo, the fallback when the couple has
+   *  uploaded none. See lib/guest-account-photos.ts. */
+  accountFaceByGuest?: Record<string, string>;
   /** Paid CUSTOM_QR_GUEST upgrade admin-approved → offer the branded PNG
    *  download directly (else the sheet routes to the Invitation page). */
   brandedQrActive?: boolean;
@@ -161,7 +165,11 @@ export function GuestDrawerHost({
         brandedQrActive={brandedQrActive}
         invitationBase={invitationBase}
         headingId={TITLE_ID}
-        photoDisplayUrl={photoDisplayUrls[guest.photo_url ?? ''] ?? null}
+        photoDisplayUrl={
+          photoDisplayUrls[guest.photo_url ?? ''] ??
+          accountFaceByGuest[guest.guest_id] ??
+          null
+        }
       />
     </Drawer>
   );

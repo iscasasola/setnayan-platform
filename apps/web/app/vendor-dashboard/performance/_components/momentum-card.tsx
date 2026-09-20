@@ -1,5 +1,5 @@
 import { Briefcase, Wallet } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import type { BookingMonthPoint, BookingDayPoint } from '@/lib/vendor-booking-series';
 import { BookingsBars, EarningsSparkline, type ChartPoint } from './momentum-chart';
 import { CountUp } from './count-up';

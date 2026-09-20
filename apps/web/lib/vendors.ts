@@ -339,10 +339,20 @@ export async function fetchEventVendors(
   return (data ?? []) as EventVendorRow[];
 }
 
-export function formatPhp(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '—';
-  return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
+/*
+ * 🪦 `formatPhp` LIVED HERE AND IS GONE (2026-09-20).
+ *
+ * Byte-identical to the one `lib/budget.ts` also carried, and to the same name
+ * in `lib/orders.ts` that does NOT round — three exported functions, one name,
+ * two behaviours, and the call site reads the same either way. It was the
+ * formatter behind the supplier's Payday totals, their earnings, the received /
+ * expected line on a client booking, and every quote, amendment delta and
+ * logged payment in `lib/thread-decisions.ts`.
+ *
+ * Money figures now import `formatPhp` from `@/lib/orders`; genuine
+ * starting-price and band copy imports `formatPhpRounded` from `@/lib/php`.
+ * See `lib/php.ts` for why the exact one is the default.
+ */
 
 /**
  * Display-layer grouping of the 28 canonical categories into 6 phases of a

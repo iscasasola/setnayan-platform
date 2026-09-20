@@ -52,7 +52,7 @@ import {
   Lock,
   SlidersHorizontal,
 } from 'lucide-react';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import {
   STANDING_LABEL,
   standingRollUp,

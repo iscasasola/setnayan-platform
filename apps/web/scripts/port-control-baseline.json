@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "747efb329",
+  "generatedFromRef": "fee7b7d57",
   "routeCount": 430,
-  "destinations": 921,
+  "destinations": 922,
   "actions": 651,
-  "blocks": 4546,
+  "blocks": 4558,
   "routes": {
     "/": {
       "files": [
@@ -47,6 +47,7 @@
         "Script",
         "SiteChrome",
         "SiteFooterChrome",
+        "StaleTabNotice",
         "Suspense",
         "T",
         "ThemeProvider",
@@ -5336,6 +5337,7 @@
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
+        "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
         "dashboard/[eventId]/guests/_components/groups-sidebar.tsx",
         "dashboard/[eventId]/guests/_components/guest-detail-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-drawer.tsx",
@@ -5356,6 +5358,7 @@
         "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
+        "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
         "dashboard/[eventId]/guests/inline-actions.ts",
         "dashboard/[eventId]/guests/loading.tsx",
@@ -5401,6 +5404,7 @@
         "EditGroupForm",
         "EditResult",
         "EmptyState",
+        "EntourageOrderPanel",
         "FacetRow",
         "Fragment",
         "G",
@@ -5444,6 +5448,7 @@
         "MobileSelfJoinCard",
         "MobileTree",
         "ModeSeg",
+        "MoveButton",
         "NewGroupForm",
         "NewGroupInlineForm",
         "NotSharedWithYou",
@@ -5467,9 +5472,11 @@
         "RoleChip",
         "RoleChipEditor",
         "RoleChips",
+        "RoleTexts",
         "RowAvatar",
         "RsvpChipEditor",
         "RsvpPill",
+        "RsvpText",
         "Scrim",
         "SeatChip",
         "Seg",
@@ -5482,6 +5489,7 @@
         "SheetPill",
         "SideChipEditor",
         "SidePill",
+        "SideText",
         "SoftDeleteForUndoResult",
         "SortSelect",
         "SubmitButton",
@@ -5905,15 +5913,19 @@
       "files": [
         "dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx",
         "dashboard/[eventId]/monogram/draft-restore.tsx",
+        "dashboard/[eventId]/monogram/ink-compare.tsx",
         "dashboard/[eventId]/monogram/loading.tsx",
+        "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
-        "dashboard/[eventId]/monogram/upload-mark.tsx"
+        "dashboard/[eventId]/monogram/upload-mark.tsx",
+        "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
+        "/dashboard/[seg]/monogram",
         "/dashboard/[seg]/studio"
       ],
       "actions": [
@@ -5933,9 +5945,13 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
+        "InkChoice",
+        "InkCompare",
         "InlineCheckoutDrawer",
         "Link",
+        "MarkDoors",
         "MarkEverywhere",
+        "MarkInkMode",
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",
@@ -5948,8 +5964,10 @@
         "StudioAnimKind",
         "StudioApi",
         "StudioRevealPlayer",
+        "Tip",
         "UnownedView",
         "UploadMark",
+        "UploadTips",
         "VectorStudio"
       ]
     },

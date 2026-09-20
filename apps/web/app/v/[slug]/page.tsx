@@ -16,12 +16,12 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
-  formatPhp,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
 } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
   isPubliclyVisible,
@@ -1170,7 +1170,7 @@ export async function renderVendorBySlug({
     s.title?.trim() || displayServiceLabel(s.category);
   const servicePriceLabel = (s: VendorServiceRow): string =>
     !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0
-      ? `from ${formatPhp(s.starting_price_php)}`
+      ? `from ${formatPhpRounded(s.starting_price_php)}`
       : 'Inquire';
   const composerInitial = activeServices[0] ?? null;
   const composerAlso: InquiryComposerService[] = activeServices.slice(1).map((s) => ({

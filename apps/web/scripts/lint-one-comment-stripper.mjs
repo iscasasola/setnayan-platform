@@ -59,12 +59,19 @@ const SIGNATURES = [
   String.raw`/(^|[^:])\/\/[^\n]*/g`,
 ];
 
-/** The two files that are ALLOWED to contain the naive pattern in code: the
- *  real stripper's own tests compare against it, and the guard you are reading
- *  has to name what it is looking for. */
+/** The files ALLOWED to contain the naive pattern in code: the real
+ *  stripper's own tests compare against it, the guard you are reading has to
+ *  name what it is looking for, and events-column-privileges.test.ts's
+ *  SABOTAGE block does the same comparison for `stripSqlComments` (a SEPARATE
+ *  stripper for raw SQL text, not TS/TSX source — shared by
+ *  events-column-select-privileges.ts, events-private-details.ts and
+ *  ugat/both-ends.ts's sqlWords()) — proving its table of cases actually
+ *  distinguishes the real implementation from the known-wrong shapes, never
+ *  shipping a second stripper of its own. */
 const ALLOWED = new Set([
   'apps/web/lib/strip-comments.test.ts',
   'apps/web/scripts/lint-one-comment-stripper.mjs',
+  'apps/web/lib/security/events-column-privileges.test.ts',
 ]);
 
 const walk = (dir, out = []) => {

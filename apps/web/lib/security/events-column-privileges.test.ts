@@ -190,3 +190,325 @@ test('META: the extractors are not silently returning empty', () => {
   assert.ok(declared?.includes('live_studio_roam_manifest'));
   assert.ok(asserted?.includes('live_studio_roam_manifest'));
 });
+
+// ── stripSqlComments — table-driven, over the cases a naive stripper breaks ─
+//
+// This function is shared: events-column-select-privileges.ts,
+// events-private-details.ts and lib/ugat/both-ends.ts's `sqlWords()` (which
+// decides whether a DB function or table "has a caller") all import it. Its
+// original version only blanked `--` line comments; a name mentioned ONLY
+// inside a `/* … */` block read as a real reference, which is exactly the
+// shape of miss that lets an orphaned RPC hide (see both-ends.test.ts for the
+// direct reproduction against `sqlWords`).
+
+const STRIP_CASES: Array<{
+  name: string;
+  sql: string;
+  mustContain?: string[];
+  mustNotContain?: string[];
+}> = [
+  {
+    name: 'a plain block comment is blanked',
+    sql: "SELECT 1; /* mentions real_table and secret_fn() */ SELECT 2;",
+    mustContain: ['SELECT 1', 'SELECT 2'],
+    mustNotContain: ['secret_fn', 'real_table'],
+  },
+  {
+    name: 'Postgres block comments NEST — depth, not the first */',
+    // A naive `indexOf('*/')` from the first `/*` stops at the comment
+    // closing the INNER `/* nested */`, leaving everything after it
+    // (including zzz_outer_tail) looking like live code.
+    sql:
+      '/* opens mentioning zzz_inner_orphan /* nested */ still commented, ' +
+      'mentioning zzz_outer_tail_orphan */ real_call_after_nesting();',
+    mustContain: ['real_call_after_nesting'],
+    mustNotContain: ['zzz_inner_orphan', 'zzz_outer_tail_orphan'],
+  },
+  {
+    name: "a `*/` inside a single-quoted string does not end (or start) anything",
+    sql: "SELECT 'closing */ token', real_after_string_orphan();",
+    mustContain: ["'closing */ token'", 'real_after_string_orphan'],
+  },
+  {
+    name: "the SQL '' escape does not desync string tracking (the real migration's own case)",
+    // Mirrors supabase/migrations/20271005100000's own
+    // `event''s master_qr_token` — a doubled quote inside a string.
+    sql: "SELECT 'their own event''s -- not a real comment, still inside the string', real_call_after_escaped_quotes();",
+    mustContain: ["event''s -- not a real comment", 'real_call_after_escaped_quotes'],
+  },
+  {
+    name: 'a single-quoted string may hold a real embedded newline — tracking is not reset per line',
+    sql: "SELECT 'line one\nline two -- looks like a comment but is still inside the string'; SELECT real_call_after_multiline_string();",
+    mustContain: ['real_call_after_multiline_string'],
+  },
+  {
+    name: '-- line comments are still blanked to the real newline',
+    sql: '-- mentions dead_ref_orphan() in prose\nSELECT alive_after_line_comment();',
+    mustContain: ['alive_after_line_comment'],
+    mustNotContain: ['dead_ref_orphan'],
+  },
+  {
+    name: 'a `--`-shaped glob inside a real line comment does not open a fake block comment',
+    // This codebase's own migration headers write exactly this shape:
+    // "-- apps/web/app/dashboard/[eventId]/date-selection/*". The naive
+    // two-regex stripper (block comments first) treats that trailing `/*`
+    // as an opener and eats everything up to the next real `*/`.
+    sql:
+      '-- see apps/web/lib/vendor-autoreply/* for the reader\n' +
+      'SELECT real_call_after_glob_comment();\n' +
+      '/* a real block comment mentioning zzz_should_vanish */\n' +
+      'SELECT another_real_call();',
+    mustContain: ['real_call_after_glob_comment', 'another_real_call'],
+    mustNotContain: ['zzz_should_vanish'],
+  },
+  {
+    name: 'a `--` line comment inside a block comment does nothing special',
+    sql: '/* see -- this is still just comment text, not a real line comment */ real_call_after_dash_in_block();',
+    mustContain: ['real_call_after_dash_in_block'],
+  },
+  {
+    name: '$$ ... $$ dollar-quoted body: a block comment inside it is stripped',
+    sql:
+      "CREATE FUNCTION f() RETURNS void AS $$ /* mentions hidden_in_dollar_block_orphan */ " +
+      "BEGIN PERFORM real_call_in_dollar_body(); END; $$ LANGUAGE plpgsql; " +
+      'SELECT visible_after_dollar_fn();',
+    mustContain: ['real_call_in_dollar_body', 'visible_after_dollar_fn'],
+    mustNotContain: ['hidden_in_dollar_block_orphan'],
+  },
+  {
+    name: "a `-- don't …` apostrophe inside a dollar body cannot desync the scan for the REST OF THE FILE",
+    sql:
+      "DO $$ BEGIN -- don't call orphan_in_dollar_comment() here, it's retired\n" +
+      "PERFORM real_call_in_body(); END $$; " +
+      'SELECT after_dollar_close_orphan_check();',
+    mustContain: ['real_call_in_body', 'after_dollar_close_orphan_check'],
+    mustNotContain: ['orphan_in_dollar_comment'],
+  },
+  {
+    name: 'a custom $tag$ ... $tag$ body is recognised, not just $$',
+    sql:
+      'CREATE FUNCTION f() RETURNS void AS $fn$ /* mentions hidden_tagged_orphan */ ' +
+      'BEGIN NULL; END; $fn$ LANGUAGE plpgsql; SELECT visible_after_tag_fn();',
+    mustContain: ['visible_after_tag_fn'],
+    mustNotContain: ['hidden_tagged_orphan'],
+  },
+  {
+    name: 'a positional parameter ($1, $2) is never mistaken for a dollar-quote opener',
+    sql:
+      'CREATE FUNCTION f(a int) RETURNS int AS $$ SELECT $1 + 1 FROM calls_real_fn(); $$ LANGUAGE sql; ' +
+      'SELECT after_positional_param_orphan_check();',
+    mustContain: ['calls_real_fn', 'after_positional_param_orphan_check', '$1'],
+  },
+  {
+    name: 'an unterminated block comment is NOT treated as a comment (safe direction: never eat real code)',
+    sql: 'SELECT 1; /* never closes\nkeep_this_visible_orphan_check();',
+    mustContain: ['keep_this_visible_orphan_check'],
+  },
+  {
+    name: 'an unterminated dollar-quote is NOT treated as a string (safe direction)',
+    sql: 'SELECT 1; $$ never closes keep_this_too_orphan_check();',
+    mustContain: ['keep_this_too_orphan_check'],
+  },
+];
+
+for (const c of STRIP_CASES) {
+  test(`stripSqlComments: ${c.name}`, () => {
+    const clean = stripSqlComments(c.sql);
+    for (const s of c.mustContain ?? []) {
+      assert.ok(clean.includes(s), `expected cleaned text to still contain ${JSON.stringify(s)}, got:\n${clean}`);
+    }
+    for (const s of c.mustNotContain ?? []) {
+      assert.ok(!clean.includes(s), `expected cleaned text to NOT contain ${JSON.stringify(s)}, got:\n${clean}`);
+    }
+  });
+}
+
+test('stripSqlComments: length and newline count are preserved (byte offsets stay true)', () => {
+  const sql = "SELECT 1; /* a\nmulti-line\ncomment */ SELECT 2; -- trailing\n";
+  const clean = stripSqlComments(sql);
+  assert.equal(clean.length, sql.length, 'comment characters must be replaced with spaces, never deleted');
+  assert.equal(clean.split('\n').length, sql.split('\n').length, 'newline count must be unchanged');
+});
+
+test('stripSqlComments: the CLOSING dollar-quote tag is written back, not dropped', () => {
+  // Regression for a real bug caught before this shipped: the closing tag's
+  // characters were never written into the output buffer, so they silently
+  // became '' (not even a space) on join — deleting "$$" wholesale and
+  // shifting every later `indexOf('$$', …)` in every OTHER consumer (e.g.
+  // h6-mirrors-the-booking-path.test.ts, which finds a function's body by
+  // re-searching the CLEANED text for its own closing tag) onto the wrong
+  // text, or finding nothing at all.
+  const sql = 'CREATE FUNCTION f() RETURNS void AS $$ BEGIN NULL; END; $$ LANGUAGE plpgsql; SELECT real_call_after();';
+  const clean = stripSqlComments(sql);
+  assert.equal(clean.length, sql.length, 'the closing tag must not shrink the output');
+  const opens = [...clean.matchAll(/\$\$/g)].length;
+  assert.equal(opens, 2, `expected both the opening and closing "$$" to survive, got ${opens} occurrence(s) in:\n${clean}`);
+  assert.ok(clean.includes('real_call_after'), 'code after the closing tag must still be found');
+});
+
+// ── SABOTAGE — prove the table above is not vacuous ─────────────────────────
+//
+// Each variant below reproduces one specific way an earlier or naive
+// implementation gets this wrong. If any of these silently satisfied the same
+// cases as the real `stripSqlComments`, the table above would not be proving
+// anything. `lint-one-comment-stripper.mjs` already refuses one of these
+// signatures (the two-regex version) anywhere else in the repo; these local
+// copies exist ONLY to demonstrate the failure, matching the pattern this
+// module's own META tests already use.
+
+/** The ORIGINAL implementation this fix replaced: `--` only, no block comments. */
+function sabotageLineCommentsOnly(sql: string): string {
+  return sql
+    .split('\n')
+    .map((line) => {
+      let inSingle = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === "'") inSingle = !inSingle;
+        if (!inSingle && ch === '-' && line[i + 1] === '-') return line.slice(0, i);
+      }
+      return line;
+    })
+    .join('\n');
+}
+
+/** The well-documented wrong shape: two independent regex passes. */
+function sabotageTwoRegexPasses(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
+}
+
+/** Block comments handled, but with NO depth tracking — stops at the first closer. */
+function sabotageNoNesting(sql: string): string {
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    if (sql[i] === '/' && sql[i + 1] === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      if (end === -1) break;
+      i = end + 2;
+      continue;
+    }
+    if (sql[i] === '-' && sql[i + 1] === '-') {
+      while (i < sql.length && sql[i] !== '\n') i += 1;
+      continue;
+    }
+    out += sql[i];
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * A "smarter" naive attempt: one continuous pass (so it does not have the
+ * per-line-reset bug above), block + line comments, `''`-aware quote
+ * toggling — but NO concept of a dollar-quoted body. Looks reasonable, and
+ * is exactly the shape someone reaches for after fixing the per-line bug.
+ */
+function sabotageNoDollarQuotes(sql: string): string {
+  let out = '';
+  let inSingle = false;
+  let i = 0;
+  while (i < sql.length) {
+    if (!inSingle && sql[i] === '-' && sql[i + 1] === '-') {
+      while (i < sql.length && sql[i] !== '\n') i += 1;
+      continue;
+    }
+    if (!inSingle && sql[i] === '/' && sql[i + 1] === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      if (end === -1) break;
+      i = end + 2;
+      continue;
+    }
+    if (sql[i] === "'") {
+      if (inSingle && sql[i + 1] === "'") {
+        out += "''";
+        i += 2;
+        continue;
+      }
+      inSingle = !inSingle;
+    }
+    out += sql[i];
+    i += 1;
+  }
+  return out;
+}
+
+test('SABOTAGE: line-comments-only misses the block-comment case', () => {
+  const sql = 'SELECT 1; /* mentions secret_fn() */ SELECT 2;';
+  assert.ok(sabotageLineCommentsOnly(sql).includes('secret_fn'), 'sabotage should still leak the name');
+  assert.ok(!stripSqlComments(sql).includes('secret_fn'), 'the real stripper must not');
+});
+
+test('SABOTAGE: two-regex-passes eats real code after a `--`-shaped glob comment', () => {
+  const sql =
+    '-- see apps/web/lib/vendor-autoreply/* for the reader\n' +
+    'SELECT real_call_after_glob_comment();\n' +
+    '/* a real block comment */\n' +
+    'SELECT another_real_call();';
+  assert.ok(
+    !sabotageTwoRegexPasses(sql).includes('real_call_after_glob_comment'),
+    'sabotage should eat the real call between the glob and the next real */',
+  );
+  assert.ok(
+    stripSqlComments(sql).includes('real_call_after_glob_comment'),
+    'the real stripper must keep it',
+  );
+});
+
+test('SABOTAGE: no-nesting stops at the first `*/`, un-hiding the outer tail', () => {
+  const sql =
+    '/* opens mentioning zzz_inner_orphan /* nested */ still commented, ' +
+    'mentioning zzz_outer_tail_orphan */ real_call_after_nesting();';
+  assert.ok(
+    sabotageNoNesting(sql).includes('zzz_outer_tail_orphan'),
+    'sabotage should leave the outer tail looking like live code',
+  );
+  assert.ok(
+    !stripSqlComments(sql).includes('zzz_outer_tail_orphan'),
+    'the real stripper must still see it as commented',
+  );
+});
+
+test('SABOTAGE: resetting quote-tracking per line loses code after a multi-line string', () => {
+  const sql =
+    "SELECT 'line one\nline two -- looks like a comment but is still inside the string'; " +
+    'SELECT real_call_after_multiline_string();';
+  assert.ok(
+    !sabotageLineCommentsOnly(sql).includes('real_call_after_multiline_string'),
+    'sabotage resets in-string tracking at the start of "line two" and wrongly treats the -- there as real, deleting the rest of the line',
+  );
+  assert.ok(
+    stripSqlComments(sql).includes('real_call_after_multiline_string'),
+    'the real stripper scans the whole text at once, so the string opened on line one is still open on line two',
+  );
+});
+
+test('SABOTAGE: no-dollar-quote-awareness lets ONE stray quote inside a body desync the REST OF THE FILE', () => {
+  // `it's_fine_actually` is not valid SQL (identifiers cannot hold an
+  // apostrophe) — it stands in for whatever real-world case leaves a single
+  // unmatched quote inside a dollar-quoted body. Without a dollar-quote
+  // boundary that resyncs regardless of what happened inside, that ONE
+  // stray `'` flips in-string tracking and it never flips back (there is no
+  // later quote to close it), so EVERY comment for the rest of the file
+  // stops being recognised as a comment — a name that should have been
+  // stripped now reads as live code, which is the exact miss this file
+  // exists to close.
+  const sql =
+    "DO $$ BEGIN PERFORM it's_fine_actually(); END $$; " +
+    '-- mentions leaked_because_of_desync_orphan\n' +
+    'SELECT after_dollar_close_orphan_check();';
+  const sabotaged = sabotageNoDollarQuotes(sql);
+  assert.ok(
+    sabotaged.includes('leaked_because_of_desync_orphan'),
+    'sabotage should leak the name out of a comment it can no longer recognise as one',
+  );
+  const clean = stripSqlComments(sql);
+  assert.ok(
+    !clean.includes('leaked_because_of_desync_orphan'),
+    'the real stripper resyncs at the dollar-quote boundary, so the comment after it is still recognised',
+  );
+  assert.ok(
+    clean.includes('after_dollar_close_orphan_check'),
+    'and the real code after that comment is still there',
+  );
+});

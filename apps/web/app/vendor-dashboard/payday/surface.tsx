@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { CalendarClock, Info, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { formatPhp } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { PaydaySummary } from './_components/payday-summary';

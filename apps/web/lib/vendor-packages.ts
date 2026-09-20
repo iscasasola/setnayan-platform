@@ -564,20 +564,25 @@ export type PackageCustomizations = PackageCustomizationsStored;
 /* ──────────────────────────────────────────────────────────────────────── */
 
 /**
- * Format centavos as PHP with thousands separators, no decimals.
- * Mirrors the existing `formatPhp` from @/lib/vendors but operates on
- * centavos (integer) instead of `numeric` peso values. Used on the
- * package detail surfaces.
+ * RE-EXPORTED from `lib/php.ts` (2026-09-20). **This module's own copy did
+ * `Math.round(centavos / 100)`**, so one centavo rendered as `₱1` and a locked
+ * booking total of `12500050` read `₱125,001`. It was the formatter behind the
+ * couple's "Total package" footer in `lock-modal.tsx`, the locked total on
+ * `vendors/packages/[bookingId]`, every `+₱delta` upgrade row, and the picks
+ * message sent into the thread — real money on every one of them.
+ *
+ * 🔑 ITS IDENTICALLY-NAMED SIBLING IN `lib/payouts.ts` DID NOT ROUND, and a
+ * call site reads the same either way; only the import line decided. Same shape
+ * as the `centavosToPhp` collision PR #5756 traced. Fixed by deletion rather
+ * than by a fourth correct copy.
+ *
+ * ⚠ The old body also used `Intl` `style: 'currency'`. Measured before
+ * replacing it: for whole pesos the two render byte-identically (`₱125,000`),
+ * so the pinned strings in `lib/package-picks-summary.test.ts` and
+ * `app/v/[slug]/_components/service-details-dark.test.ts` are unaffected —
+ * they only differ where centavos exist, i.e. only where this was wrong.
  */
-export function formatCentavosPhp(centavos: number | null | undefined): string {
-  if (centavos === null || centavos === undefined) return '—';
-  const peso = Math.round(centavos / 100);
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    maximumFractionDigits: 0,
-  }).format(peso);
-}
+export { formatCentavosPhp } from './php';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Customization math                                                       */

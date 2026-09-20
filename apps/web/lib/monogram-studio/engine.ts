@@ -41,6 +41,13 @@ export function mountStudio(opts) {
   const PaperOffset = opts.PaperOffset;
   const initialConfig = opts.initialConfig || null;
   const initialNames = opts.initialNames || null;
+  /* UPLOAD AS A SOURCE (owner 2026-09-20: "replace the letter with the upload a
+   * photo. that is it"). When present, the base layer is built from THIS mark's
+   * pieces instead of from glyph outlines — everything downstream (frames,
+   * ornaments, colours, the reveal) then works on it unchanged, because it
+   * already works on whatever paper items `base` holds. The couple's ORIGINAL
+   * file is kept untouched by the caller; only the composition is rendered. */
+  const initialUploadSvg = opts.initialUploadSvg || null;
   // gold/molten reveal kinds are React components (CSS GoldMonogramReveal /
   // WebGL MoltenMonogramReveal), not paper.js — the host renders them in an
   // overlay over <canvas id=cv>. play() calls this with (kind, svg) for gold/
@@ -136,6 +143,8 @@ export function mountStudio(opts) {
     selPair = null,
     hit = [],
     regions = [];
+  /* The uploaded mark currently acting as the base layer, or null for letters. */
+  let uploadSrc = initialUploadSvg;
   let drawMode = false,
     mirror = 'v',
     penW = 14,
@@ -333,11 +342,77 @@ export function mountStudio(opts) {
     }
     return it;
   }
+  /* Every leaf path of an imported mark, in document order — one per piece the
+   * tracer found, which is the same granularity the reveals animate. */
+  function leafPaths(item) {
+    const out = [];
+    (function walk(it) {
+      if (!it) return;
+      if (it.className === 'Group' || it.className === 'Layer' || it.className === 'CompoundPath') {
+        if (it.className === 'CompoundPath') {
+          out.push(it);
+          return;
+        }
+        (it.children || []).slice().forEach(walk);
+        return;
+      }
+      out.push(it);
+    })(item);
+    return out;
+  }
+
+  /* An uploaded mark arrives in ITS OWN coordinate space (any viewBox), while
+   * every glyph here is drawn at FS around the origin. Without normalising, a
+   * 512-unit logo lands ~3.4x oversized and the frames — which size themselves
+   * off the letters' bounds — wrap something off-screen.
+   *
+   * ONE factor for the WHOLE mark, never per piece: scaling each piece to fit
+   * would destroy the artwork's proportions and its relative placement, which
+   * is the thing the couple's designer drew. */
+  function buildBaseFromUpload(svg) {
+    layer.activate();
+    let imported = null;
+    try {
+      imported = paper.project.importSVG(svg, { insert: true, expandShapes: true });
+    } catch (e) {
+      imported = null;
+    }
+    if (!imported) return [];
+    const pieces = leafPaths(imported).filter(function (p) {
+      return p && p.bounds && p.bounds.width > 0 && p.bounds.height > 0;
+    });
+    if (pieces.length === 0) {
+      imported.remove();
+      return [];
+    }
+    let box = null;
+    pieces.forEach(function (p) {
+      box = box ? box.unite(p.bounds) : p.bounds.clone();
+    });
+    const span = Math.max(box.width, box.height) || 1;
+    const k = FS / span;
+    const cx = box.center.x;
+    const cy = box.center.y;
+    pieces.forEach(function (p) {
+      // Translate to the origin first, THEN scale about it, so the mark keeps
+      // its own internal geometry and simply arrives glyph-sized and centred.
+      p.translate(new paper.Point(-cx, -cy));
+      p.scale(k, new paper.Point(0, 0));
+      p.remove();
+    });
+    imported.remove();
+    return pieces;
+  }
+
   function buildBase() {
     base.forEach(function (p) {
       if (p) p.remove();
     });
     layer.activate();
+    if (uploadSrc) {
+      base = buildBaseFromUpload(uploadSrc);
+      return;
+    }
     base = letters.map(glyphPath);
     base.forEach(function (p) {
       if (p) p.remove();
@@ -357,6 +432,24 @@ export function mountStudio(opts) {
     return ['M', '&', 'J'];
   }
   function derive() {
+    /* In UPLOAD mode the pieces ARE the base, so `letters` becomes one label per
+     * piece rather than per character. Everything downstream indexes `base`,
+     * `st` and `order` by position — it never asks what a letter says — so the
+     * two sources are interchangeable as long as the three arrays agree in
+     * length. Building base FIRST is what lets letters follow the piece count. */
+    if (uploadSrc) {
+      buildBase();
+      letters = base.map(function (_, i) {
+        return 'piece-' + (i + 1);
+      });
+      initState();
+      undoStack = [];
+      redoStack = [];
+      updU();
+      full();
+      buildPresetStrip();
+      return;
+    }
     letters = computeLetters(namesEl.value);
     buildBase();
     initState();
@@ -371,6 +464,19 @@ export function mountStudio(opts) {
   }
   function initState() {
     st = letters.map(function (_, i) {
+      /* An uploaded mark is already composed: its pieces sit where its designer
+       * put them, so each one starts at full size AND AT ITS OWN CENTRE.
+       *
+       * ⚠ `lp()` assigns `p.position` — an ABSOLUTE point, not an offset. For
+       * letters that is the point (each letter is placed at tx). For a logo it
+       * means tx/ty of 0 would stack every piece on the origin and collapse the
+       * artwork into a pile. The letter defaults would also shrink piece #2 to
+       * 0.62 and spread the pieces along x, taking someone's finished logo
+       * apart the moment they opened it. */
+      if (uploadSrc) {
+        const c = base[i] && base[i].bounds ? base[i].bounds.center : { x: 0, y: 0 };
+        return { tx: c.x, ty: c.y, scale: 1, gap: 6, outline: 3, clean: false, strength: 0.3, rot: 0, skew: 0, flipX: false };
+      }
       return { tx: offX(i), ty: 0, scale: i === 1 ? 0.62 : 1, gap: 6, outline: 3, clean: false, strength: 0.3, rot: 0, skew: 0, flipX: false };
     });
     order = letters.map(function (_, i) {

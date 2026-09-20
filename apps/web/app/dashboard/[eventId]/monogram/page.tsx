@@ -235,6 +235,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           eventId={eventId}
           initialConfig={studioConfig}
           initialNames={monogram.text}
+          /* Compose FROM the logo when that is the couple's current mark and
+           * they have no studio design yet. With a composition already saved,
+           * `initialConfig` rebuilds it and the upload stays the archived
+           * source it was made from — only the re-rendered version is used. */
+          initialUploadSvg={!hasStudio && uploadIsLive ? uploadedRaw : null}
           hasStudio={hasStudio}
           notice={studioNotice}
         />

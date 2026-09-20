@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Crown, Search, Sparkles, ReceiptText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { payPath } from '@/lib/pay-path';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -651,26 +652,31 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             </div>
           )}
           <p className="mt-3 text-sm text-ink/65">
-            Pay {orderedSummary && orderedSummary.amount > 0 ? 'that amount' : 'the amount'}{' '}
-            to our BDO or GCash account and put{' '}
+            Put{' '}
             <span className="font-mono font-semibold text-ink">{search.ordered}</span>{' '}
             in the transfer note so we can match it to your account. It activates
             once our team confirms the payment (within 24 hours).
           </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <PayBox
-              label="BDO"
-              name={settings.bdo_account_name}
-              number={settings.bdo_account_number}
-              qrUrl={settings.bdo_qr_url}
-            />
-            <PayBox
-              label="GCash"
-              name={settings.gcash_account_name}
-              number={settings.gcash_number}
-              qrUrl={settings.gcash_qr_url}
-            />
-          </div>
+          {/* 🔁 TWO `PayBox` TILES SAT HERE AND THEY WERE A THIRD PAYMENT
+              SURFACE (removed 2026-09-20). They printed both receiving accounts
+              beside their STATIC QR codes — codes carrying NO amount, which is
+              the ₱0 scan the owner reported the same day — and offered no way
+              to send the proof afterwards, so a shop that paid from this tile
+              had nowhere to say so.
+
+              🔑 ONE PAYMENT PROCESS, AND IT IS THE ONE THAT CAN TAKE THE
+              MONEY. `/pay/<reference>` mints the code with the figure already
+              inside it, shows the account to type instead, and takes the
+              screenshot — the same rails the couple's checkout drawer renders
+              (app/_components/payment/payment-rails.tsx). Owner, 2026-09-20:
+              *"cant we have 1 type of payment process?"* */}
+          <Link
+            href={payPath(search.ordered)}
+            className="button-primary mt-5 inline-flex items-center gap-2"
+          >
+            Send your payment
+            <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </Link>
           <p className="mt-4 text-[11px] leading-relaxed text-ink/50">
             Setnayan does not hold these funds in escrow — you pay our receiving
             account directly. Your order is credited after our team confirms the
@@ -683,57 +689,3 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   );
 }
 
-function PayBox({
-  label,
-  name,
-  number,
-  qrUrl,
-}: {
-  label: string;
-  name: string | null;
-  number: string | null;
-  qrUrl: string | null;
-}) {
-  const configured = Boolean(number?.trim() || qrUrl?.trim());
-  const hasQr = Boolean(qrUrl?.trim());
-  return (
-    <div
-      className="flex flex-col items-center rounded-md border px-3 py-3 text-center"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
-      <p className="text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</p>
-      {configured ? (
-        <>
-          {hasQr && (
-            <div
-              className="relative mt-2 h-40 w-40 overflow-hidden rounded-lg border bg-white"
-              style={{ borderColor: 'var(--m-line)' }}
-            >
-              {/* External URL · plain <img> (QR assets live on Supabase
-                  storage, not in next/image's whitelisted domains). This tile
-                  is the only QR pattern on the screen. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrUrl as string}
-                alt={`${label} payment QR code`}
-                width={160}
-                height={160}
-                decoding="async"
-                loading="lazy"
-                className="h-full w-full object-contain p-2"
-              />
-            </div>
-          )}
-          {number?.trim() && (
-            <p className="mt-2 font-mono text-sm font-semibold text-ink">{number}</p>
-          )}
-          {name?.trim() && <p className="text-[11px] text-ink/55">{name}</p>}
-        </>
-      ) : (
-        <p className="mt-1 text-[11px] text-ink/45">
-          Account details coming — our team will email them with your reference.
-        </p>
-      )}
-    </div>
-  );
-}

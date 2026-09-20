@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import { isChannelOpen } from '@/lib/payment-channels';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPlatformSettings, hasMerchantPaymentInfo } from '@/lib/platform-settings';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { mintedQrImage } from '@/lib/qr-image.server';
+import { PayRailsBlock, type PayRail } from '@/app/_components/payment/pay-rails-block';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { formatPhp } from '@/lib/orders';
 import { submitPapicGuestPayment } from '../../buy/actions';
@@ -132,6 +134,39 @@ export default async function PapicGuestOrderPage({
   const points = Number((row as { points?: number }).points ?? 0);
   const referenceCode = order.reference_code ?? '';
 
+  /**
+   * 🔑 THE CODE IS PAINTED HERE, ON THE SERVER — the same rule /pay follows.
+   * Minting in the browser leaves the static merchant code (real, scannable,
+   * worth ₱0) on screen until the `qrcode` chunk lands, and a guest who scans
+   * in that window pays nothing and thinks they have paid. Both rails are
+   * rendered up front because switching cards is client-side, and a card that
+   * had to fetch its own code would re-open the window this closes.
+   *
+   * ⚠ `amount ?? 0` NEVER REACHES A CODE. `mintedQrImage` is given the real
+   * amount or nothing: with no figure there is nothing to carry, and the rails
+   * fall back to the static image while `qr-amount-truth` says plainly that the
+   * amount has to be typed. A ₱0 code minted from a missing amount would be the
+   * lie this whole change is about.
+   */
+  const [gcashImage, bdoImage] = await Promise.all([
+    amount === null ? null : mintedQrImage(settings.gcash_qr_payload, amount),
+    amount === null ? null : mintedQrImage(settings.bdo_qr_payload, amount),
+  ]);
+  const gcashRail: PayRail = {
+    name: settings.gcash_account_name,
+    number: settings.gcash_number,
+    staticUrl: settings.gcash_qr_url,
+    mintedUrl: gcashImage?.dataUrl ?? null,
+    enabled: isChannelOpen(settings, 'gcash'),
+  };
+  const bdoRail: PayRail = {
+    name: settings.bdo_account_name,
+    number: settings.bdo_account_number,
+    staticUrl: settings.bdo_qr_url,
+    mintedUrl: bdoImage?.dataUrl ?? null,
+    enabled: isChannelOpen(settings, 'bdo'),
+  };
+
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-8 sm:px-6">
       <header className="space-y-2">
@@ -197,61 +232,26 @@ export default async function PapicGuestOrderPage({
           <CopyButton value={referenceCode} label="Copy" />
         </div>
 
-        {hasMerchantPaymentInfo(settings) ? (
-          <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
-            {isChannelOpen(settings, 'bdo') ? (
-              <div className="sn-row space-y-2 p-4">
-                <p className="sn-eye">BDO bank transfer</p>
-                {settings.bdo_account_name ? (
-                  <p className="text-sm font-medium text-ink">{settings.bdo_account_name}</p>
-                ) : null}
-                {settings.bdo_account_number ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="break-all font-mono text-sm text-ink">
-                      {settings.bdo_account_number}
-                    </p>
-                    <CopyButton value={settings.bdo_account_number} label="Copy" />
-                  </div>
-                ) : null}
-                {settings.bdo_qr_url ? (
-                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={settings.bdo_qr_url}
-                      alt="BDO merchant QR"
-                      className="h-40 w-40 rounded-lg object-contain"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+        {/* 🔁 THE SAME RAILS EVERY OTHER PAYMENT SCREEN SHOWS (2026-09-20).
+            Owner: *"again all payments entering us should be one paying
+            style."* What sat here was this page's own BDO/GCash blocks with
+            the STATIC uploaded codes — codes that carry NO amount, so a guest
+            scanned one and their wallet opened at ₱0, then typed the figure by
+            hand. Same three facts, third spelling.
 
-            {isChannelOpen(settings, 'gcash') ? (
-              <div className="sn-row space-y-2 p-4">
-                <p className="sn-eye">GCash</p>
-                {settings.gcash_account_name ? (
-                  <p className="text-sm font-medium text-ink">{settings.gcash_account_name}</p>
-                ) : null}
-                {settings.gcash_number ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="break-all font-mono text-sm text-ink">
-                      {settings.gcash_number}
-                    </p>
-                    <CopyButton value={settings.gcash_number} label="Copy" />
-                  </div>
-                ) : null}
-                {settings.gcash_qr_url ? (
-                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={settings.gcash_qr_url}
-                      alt="GCash merchant QR"
-                      className="h-40 w-40 rounded-lg object-contain"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            🔑 THE READ STAYS BEARER-TOKEN, ONLY THE PIXELS ARE SHARED. This
+            page is the account-less guest's door: they cannot open /pay, whose
+            read is session-scoped, so the style is what moves here — not the
+            route. The mint happens on the server above, exactly as /pay does
+            it, so this screen gains the amount-carrying code it never had. */}
+        {gcashRail.enabled || bdoRail.enabled ? (
+          <div className="border-t border-ink/10 pt-4">
+            <PayRailsBlock
+              gcash={gcashRail}
+              bdo={bdoRail}
+              amountPhp={amount ?? 0}
+              referenceCode={referenceCode}
+            />
           </div>
         ) : (
           <p className="border-t border-ink/10 pt-4 text-sm text-ink/60">

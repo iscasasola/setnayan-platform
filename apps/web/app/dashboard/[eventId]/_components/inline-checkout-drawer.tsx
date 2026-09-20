@@ -67,7 +67,6 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  Check,
   CheckCircle2,
   CreditCard,
   ExternalLink,
@@ -79,6 +78,11 @@ import {
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
+import {
+  ChannelToggle,
+  PaymentDetailsBlock,
+  railFromSettings,
+} from '@/app/_components/payment/payment-rails';
 import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
 import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
 import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
@@ -91,8 +95,6 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
-import { mintOrderQr } from '@/lib/emv-qr';
-import { qrWords } from '@/lib/qr-amount-truth';
 import { openChannels } from '@/lib/payment-channels';
 
 export type InlineCheckoutDrawerProps = {
@@ -520,7 +522,16 @@ export function InlineCheckoutDrawer({
                 {openRails.length > 0 ? (
                   <PaymentDetailsBlock
                     channel={channel}
-                    settings={settings}
+                    /* ⚠ NO `mintedUrl` YET — this drawer still draws its code
+                       in the BROWSER, so the static ₱0 code holds the screen
+                       until the `qrcode` chunk lands. That is the same window
+                       the owner reported on /pay ("the amount is not filled
+                       up. it only shows 0."), which was fixed there by minting
+                       the image on the server. Moving this one needs each of
+                       the pages that mount the drawer to mint alongside the
+                       settings they already fetch — a separate change, listed
+                       rather than half-done. */
+                    info={railFromSettings(channel, settings)}
                     referenceCode={referenceCode}
                     amountPhp={finalGrossPhp}
                   />
@@ -838,318 +849,11 @@ function VoucherBlock({
   );
 }
 
-function ChannelToggle({
-  channel,
-  onChange,
-  open,
-}: {
-  channel: 'gcash' | 'bdo';
-  onChange: (c: 'gcash' | 'bdo') => void;
-  /** Rails the owner has left open — a closed one is not rendered at all. */
-  open: readonly ('gcash' | 'bdo')[];
-}) {
-  // A rail is closed when its receiving account is at its monthly cap, where
-  // transfers FAIL rather than queue. Showing it greyed-out would invite
-  // "why can't I use GCash?"; omitting it just presents what works. The
-  // server re-checks on submit either way.
-  return (
-    <div className="space-y-2.5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-        Pay manually · available now
-      </p>
-      <div role="radiogroup" aria-label="Payment method" className="space-y-2.5">
-        {open.includes('gcash') ? (
-        <MethodCard
-          selected={channel === 'gcash'}
-          onSelect={() => onChange('gcash')}
-          badge="G"
-          badgeClass="bg-[#0A6CF1] text-white"
-          title="GCash"
-          desc="Scan our GCash QR, or send to our number"
-        />
-        ) : null}
-        {open.includes('bdo') ? (
-        <MethodCard
-          selected={channel === 'bdo'}
-          onSelect={() => onChange('bdo')}
-          badge="BDO"
-          badgeClass="bg-[#0A2C6B] text-white"
-          title="Bank Transfer — BDO"
-          desc="Scan our BDO QR, or transfer to the account"
-        />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MethodCard({
-  selected,
-  onSelect,
-  badge,
-  badgeClass,
-  title,
-  desc,
-}: {
-  selected: boolean;
-  onSelect: () => void;
-  badge: string;
-  badgeClass: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
-        selected
-          ? 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry'
-          : 'border-ink/10 bg-cream hover:border-mulberry/40'
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[11px] font-extrabold tracking-wide ${badgeClass}`}
-      >
-        {badge}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-          {title}
-          <span className="rounded-full border border-success-200 bg-success-50 px-1.5 py-0.5 text-[10px] font-semibold text-success-800">
-            Ready
-          </span>
-        </span>
-        <span className="mt-0.5 block text-xs text-ink/55">{desc}</span>
-      </span>
-      <span
-        aria-hidden
-        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors ${
-          selected ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/25'
-        }`}
-      >
-        {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
-      </span>
-    </button>
-  );
-}
-
-function PaymentDetailsBlock({
-  channel,
-  settings,
-  referenceCode,
-  amountPhp,
-}: {
-  channel: 'gcash' | 'bdo';
-  settings: InlineCheckoutDrawerProps['settings'];
-  referenceCode: string;
-  /** VAT-inclusive gross the couple pays — minted into the QR as tag 54. */
-  amountPhp: number;
-}) {
-  // Pre-resolve the matching name + number + qr per channel.
-  const name = channel === 'gcash' ? settings.gcash_account_name : settings.bdo_account_name;
-  const number = channel === 'gcash' ? settings.gcash_number : settings.bdo_account_number;
-  const qrUrl = channel === 'gcash' ? settings.gcash_qr_url : settings.bdo_qr_url;
-  const qrPayload =
-    channel === 'gcash' ? settings.gcash_qr_payload : settings.bdo_qr_payload;
-  const hasInfo = Boolean(number?.trim());
-
-  /**
-   * Mint a per-order QR carrying this exact amount, replacing the static
-   * uploaded image. Wallet-verified on real money 2026-07-31: GCash and BDO
-   * both pre-fill the figure, centavos included, so the couple never types it.
-   *
-   * Two deliberate choices:
-   *  • `mintOrderQr` returns null for anything it does not fully understand,
-   *    and we then fall through to the static image — the exact behaviour that
-   *    shipped before. A checkout must never show a broken code.
-   *  • `qrcode` is imported dynamically so its renderer stays out of the
-   *    initial bundle; this drawer opens long after first paint.
-   */
-  const mintedPayload = useMemo(
-    () => mintOrderQr(qrPayload, amountPhp),
-    [qrPayload, amountPhp],
-  );
-  const [mintedQr, setMintedQr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!mintedPayload) {
-      setMintedQr(null);
-      return;
-    }
-    let cancelled = false;
-    import('qrcode')
-      .then(({ default: QRCode }) =>
-        QRCode.toDataURL(mintedPayload, {
-          errorCorrectionLevel: 'M',
-          margin: 2,
-          width: 512,
-        }),
-      )
-      .then((url) => {
-        if (!cancelled) setMintedQr(url);
-      })
-      .catch(() => {
-        // Render nothing minted → the static QR below still works.
-        if (!cancelled) setMintedQr(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mintedPayload]);
-
-  const amountDisplay = `₱${amountPhp.toLocaleString('en-PH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-
-  if (!hasInfo) {
-    return (
-      <div className="rounded-lg border border-warn-200 bg-warn-50 px-4 py-3 text-xs text-warn-900">
-        Bank account details will follow via separate email · our team will
-        reach out within the day.
-      </div>
-    );
-  }
-
-  const label = channel === 'gcash' ? 'GCash' : 'BDO';
-
-  return (
-    <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
-      <p className="text-xs text-ink/60">
-        Send your <span className="font-semibold text-ink">{label}</span> payment,
-        then upload your screenshot below.
-      </p>
-
-      {referenceCode ? (
-        <div className="rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-3.5 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
-                Reference code
-              </p>
-              <p className="truncate font-mono text-[15px] font-semibold text-ink">
-                {referenceCode}
-              </p>
-            </div>
-            <CopyButton value={referenceCode} />
-          </div>
-          {/* Wallet-tested 2026-07-31: a scanned QR payment goes out through
-              GCash's Express Send, which does not reliably carry a note the
-              recipient sees — and the reference cannot ride inside the QR
-              either (GCash rejects the EMVCo tag 62 template outright). The
-              note still works when someone transfers manually, so we keep the
-              guidance but stop promising it matches "instantly". */}
-          <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
-            Add this to your {label} transfer note if your app offers one — it
-            helps us match your payment faster.
-          </p>
-        </div>
-      ) : null}
-
-      {qrUrl || mintedQr ? (
-        <div className="flex flex-col items-center gap-2">
-          <div className="rounded-2xl border border-ink/10 bg-white p-3 shadow-sm">
-            {/* Native <img> instead of next/image: the fallback is an
-                admin-uploaded public asset on the platform_settings R2 host
-                (no remotePatterns entry), and the minted code is a data URL
-                next/image cannot optimise anyway. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={mintedQr ?? qrUrl ?? ''}
-              alt={
-                mintedQr
-                  ? `${label} QR code for ${amountDisplay}`
-                  : `${label} QR code`
-              }
-              className="h-40 w-40 rounded-lg object-contain"
-            />
-          </div>
-
-          {mintedQr ? (
-            <>
-              <p className="text-center text-[11px] leading-relaxed text-ink/60">
-                {qrWords(true, amountDisplay, { appLabel: label, reference: referenceCode })
-                  .caption}
-              </p>
-              {/* Same-device path: a couple browsing on their phone cannot
-                  point that phone's camera at its own screen. Both GCash and
-                  the BDO app can scan an image from the gallery, so saving is
-                  the only route that works without a second device. */}
-              <a
-                href={mintedQr}
-                download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
-                className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
-              >
-                Save image · scan from gallery
-              </a>
-            </>
-          ) : (
-            /* 🚨 THIS BRANCH IS THE STATIC UPLOADED CODE, WHICH CARRIES NO
-               AMOUNT. It used to say only "Scan in GCash" — true, and silent
-               about the one thing that decides whether the money arrives.
-               A wallet opens at ₱0 on this code (owner, 2026-09-20). */
-            <p className="text-center text-[11px] leading-relaxed text-ink/60">
-              {qrWords(false, amountDisplay, { appLabel: label, reference: referenceCode })
-                .caption}
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-ink/10" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
-          or {channel === 'gcash' ? 'send to our number' : 'transfer manually'}
-        </span>
-        <span className="h-px flex-1 bg-ink/10" />
-      </div>
-
-      <div className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10">
-        {name ? (
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <span className="min-w-0">
-              <span className="block text-[11px] text-ink/50">
-                {channel === 'gcash' ? 'GCash name' : 'Account name'}
-              </span>
-              <span className="block truncate font-mono text-[13px] text-ink">
-                {name}
-              </span>
-            </span>
-            <CopyButton value={name} />
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          <span className="min-w-0">
-            <span className="block text-[11px] text-ink/50">
-              {channel === 'gcash' ? 'GCash number' : 'Account number'}
-            </span>
-            <span className="block truncate font-mono text-[13px] text-ink">
-              {number}
-            </span>
-          </span>
-          <CopyButton value={number ?? ''} />
-        </div>
-        {/* The exact figure, copyable. Load-bearing on the manual path — where
-            nothing pre-fills — and the fallback whenever the minted QR is
-            unavailable. */}
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          <span className="min-w-0">
-            <span className="block text-[11px] text-ink/50">Exact amount</span>
-            <span className="block truncate font-mono text-[13px] font-semibold text-ink">
-              {amountDisplay}
-            </span>
-          </span>
-          <CopyButton value={amountPhp.toFixed(2)} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
+/* 🔁 ChannelToggle · MethodCard · PaymentDetailsBlock MOVED 2026-09-20 to
+   app/_components/payment/payment-rails.tsx, and /pay/<reference> renders the
+   same three. Owner: "cant we have 1 type of payment process?" — one surface,
+   one set of words, two lifecycles (this drawer mints on submit; /pay settles
+   an order that already exists). Import them; do not copy them back. */
 function SubmitSuccess({
   eventId,
   orderId,

@@ -47,6 +47,8 @@ import {
   type DoorwayFacts,
 } from '../_lib/site-nav';
 import { GuestDoorwayStrip } from './guest-doorway-strip';
+import { EverythingElseSheet } from './everything-else-sheet';
+import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
@@ -2103,6 +2105,35 @@ export async function SiteBody({
           broadcast={broadcastNotice}
           personalised={identity.kind === 'guest'}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+        />
+      )}
+      {/* ARRIVAL S6 — "everything else". Same mount reasoning as the doorway
+          strip above it (outside both trees, not on the full-bleed STD film):
+          every input below is a value this render already resolved for its
+          own use, never a new question asked of the database. See
+          `_lib/everything-else-rows.ts` for what each row is gated on. */}
+      {plan.fullBleed ? null : (
+        <EverythingElseSheet
+          rows={resolveEverythingElseRows({
+            slug: event.slug,
+            viewerKind: identity.kind,
+            isLive: dayOfPhase === 'live',
+            eventDateLabel: event.event_date ? formatEventDate(event.event_date) : '',
+            cameraFeatureOn: hostCameraOpen,
+            broadcastConfigured: plan.liveMediaVisible && Boolean(watchLive),
+            venueWalkHref: doorways.venueWalk,
+            /* The album door, resolved ONCE by `resolveAlbumDoor` in
+               `_lib/loaders.ts` and carried on the anonymous identity. The rows
+               module used to build `/recap` itself, which is a second place
+               deciding where the album lives — `the-album-door-is-one-decision`
+               caught it. A guest branch with no resolved door passes null, and
+               the row falls back to its dated "after" badge instead of a link
+               that may not open. */
+            keepsakeHref: identity.kind === 'anonymous' ? identity.publicAlbumHref : null,
+            recapBodyReady: recapBody,
+            recapHasPhotos,
+            canShare: resolveEffectiveVisibility(event) === 'public',
+          })}
         />
       )}
       {/* STORIES ABOUT THIS DAY — the surface the middle privacy answer needed.

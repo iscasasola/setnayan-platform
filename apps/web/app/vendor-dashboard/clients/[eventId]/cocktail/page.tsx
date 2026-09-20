@@ -4,6 +4,8 @@ import { ArrowLeft, Martini } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CocktailEditor, type CocktailEditorData } from './cocktail-editor';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Cocktail Area · Vendor' };
 
@@ -32,7 +34,7 @@ export default async function VendorCocktailPage({ params }: Props) {
   const { data, error } = await supabase.rpc('get_vendor_cocktail_editor', {
     p_event_id: eventId,
   });
-  if (error || !data) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
   const plan = data as CocktailEditorData;
 
   return (

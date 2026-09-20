@@ -8,6 +8,8 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { fetchVendorChallengePhotos } from '@/lib/papic-games';
 import { displayChallengePrompt } from '@/lib/papic-missions';
 import { ShopCard } from '../../../_components/kit';
+import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
 export const metadata = { title: 'Challenge photos · Vendor' };
 export const dynamic = 'force-dynamic';
@@ -30,7 +32,7 @@ export default async function VendorChallengePhotosPage({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  if (!papicGamesEnabled()) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (!papicGamesEnabled()) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 
   const supabase = await createClient();
   const {

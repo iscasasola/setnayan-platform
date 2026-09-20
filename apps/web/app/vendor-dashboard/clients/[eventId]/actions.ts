@@ -9,7 +9,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
-import { depositAnswerReturnTo } from '@/lib/vendor-client-return';
+import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createVendorChallenge } from '@/lib/papic-games';
@@ -62,7 +63,13 @@ export async function vendorMarkServiceComplete(formData: FormData) {
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (!ev) redirect(`/vendor-dashboard/clients/${eventId}`);
+  if (!ev)
+    redirect(
+      vendorClientSurfaceHref(eventId, 'completion', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { completed: 'notyours' },
+      }),
+    );
 
   if (!ev.service_marked_complete_at && ev.completion_status !== 'confirmed') {
     await admin
@@ -93,7 +100,12 @@ export async function vendorMarkServiceComplete(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?completed=1`);
+  redirect(
+    vendorClientSurfaceHref(eventId, 'completion', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { completed: '1' },
+    }),
+  );
 }
 
 /**
@@ -343,7 +355,7 @@ export async function createClientNote(formData: FormData) {
   });
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 /** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
@@ -368,7 +380,7 @@ export async function toggleClientNoteDone(formData: FormData) {
     .eq('note_id', noteId);
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 /** Delete a private note. Team-shared: any org member may remove any org note. */
@@ -389,7 +401,7 @@ export async function deleteClientNote(formData: FormData) {
   await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 export async function suggestScheduleChange(formData: FormData) {
@@ -456,7 +468,10 @@ export async function suggestScheduleChange(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
-    `/vendor-dashboard/clients/${eventId}?suggest=${error ? 'error' : 'sent'}`,
+    vendorClientSurfaceHref(eventId, 'delivery', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { suggest: error ? 'error' : 'sent' },
+    }),
   );
 }
 
@@ -528,7 +543,7 @@ export async function createVendorChallengeAction(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}`);
+  redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 // ==========================================================================
@@ -583,7 +598,12 @@ export async function vendorPostHandover(formData: FormData) {
   */
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) {
-    redirect(`/vendor-dashboard/clients/${eventId}?handover=error`);
+    redirect(
+      vendorClientSurfaceHref(eventId, 'delivery', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { handover: 'error' },
+      }),
+    );
   }
 
   const label = nullIfBlank(formData.get('label'), 200);
@@ -594,27 +614,47 @@ export async function vendorPostHandover(formData: FormData) {
   if (kind === 'gallery_link') {
     const url = nullIfBlank(formData.get('payload'), 4000);
     if (!url || !/^https?:\/\//i.test(url)) {
-      redirect(`/vendor-dashboard/clients/${eventId}?handover=badurl`);
+      redirect(
+        vendorClientSurfaceHref(eventId, 'delivery', {
+          shellOn: isRelationshipWorkspaceEnabled(),
+          query: { handover: 'badurl' },
+        }),
+      );
     }
     payload = url;
   } else if (kind === 'file') {
     const file = formData.get('file');
     if (!(file instanceof File) || file.size === 0) {
-      redirect(`/vendor-dashboard/clients/${eventId}?handover=nofile`);
+      redirect(
+        vendorClientSurfaceHref(eventId, 'delivery', {
+          shellOn: isRelationshipWorkspaceEnabled(),
+          query: { handover: 'nofile' },
+        }),
+      );
     }
     const up = await uploadPublicAsset({
       pathPrefix: `handovers/${eventId}`,
       file: file as File,
     });
     if (!up.ok) {
-      redirect(`/vendor-dashboard/clients/${eventId}?handover=upload`);
+      redirect(
+        vendorClientSurfaceHref(eventId, 'delivery', {
+          shellOn: isRelationshipWorkspaceEnabled(),
+          query: { handover: 'upload' },
+        }),
+      );
     }
     payload = up.publicUrl;
   } else {
     // note / signoff — free text (signoff text optional).
     payload = nullIfBlank(formData.get('payload'), 4000);
     if (kind === 'note' && !payload) {
-      redirect(`/vendor-dashboard/clients/${eventId}?handover=empty`);
+      redirect(
+        vendorClientSurfaceHref(eventId, 'delivery', {
+          shellOn: isRelationshipWorkspaceEnabled(),
+          query: { handover: 'empty' },
+        }),
+      );
     }
   }
 
@@ -658,7 +698,12 @@ export async function vendorPostHandover(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?handover=${error ? 'error' : 'sent'}`);
+  redirect(
+    vendorClientSurfaceHref(eventId, 'delivery', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { handover: error ? 'error' : 'sent' },
+    }),
+  );
 }
 
 // ==========================================================================
@@ -698,7 +743,12 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   }
   const magnitude = parseAmount(formData.get('amount_php'));
   if (magnitude === null) {
-    redirect(`/vendor-dashboard/clients/${eventId}?change_order=error`);
+    redirect(
+      vendorClientSurfaceHref(eventId, 'delivery', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { change_order: 'error' },
+      }),
+    );
   }
   const isRemoval = formData.get('change_kind') === 'removal';
   const delta = isRemoval ? -magnitude : magnitude;
@@ -722,7 +772,12 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   */
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) {
-    redirect(`/vendor-dashboard/clients/${eventId}?change_order=error`);
+    redirect(
+      vendorClientSurfaceHref(eventId, 'delivery', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { change_order: 'error' },
+      }),
+    );
   }
 
   // RLS enforces: booked on the event, own profile, raised_by='vendor',
@@ -766,7 +821,12 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(`/vendor-dashboard/clients/${eventId}?change_order=${error ? 'error' : 'sent'}`);
+  redirect(
+    vendorClientSurfaceHref(eventId, 'delivery', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { change_order: error ? 'error' : 'sent' },
+    }),
+  );
 }
 
 /**
@@ -840,7 +900,12 @@ export async function vendorRespondChangeOrder(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
-  redirect(`/vendor-dashboard/clients/${eventId}?change_order_resp=${flag}`);
+  redirect(
+    vendorClientSurfaceHref(eventId, 'delivery', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { change_order_resp: flag },
+    }),
+  );
 }
 
 /**
@@ -868,7 +933,12 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   const flag = error ? 'error' : env.status ?? 'ok';
-  redirect(`/vendor-dashboard/clients/${eventId}?change_order_resp=${flag}`);
+  redirect(
+    vendorClientSurfaceHref(eventId, 'delivery', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { change_order_resp: flag },
+    }),
+  );
 }
 
 /**
@@ -1271,7 +1341,12 @@ export async function vendorAskForPayment(formData: FormData) {
   }
   const amount = parseAmount(formData.get('amount_php'));
   if (amount === null) {
-    redirect(`/vendor-dashboard/clients/${eventId}?tab=quote&ask=amount`);
+    redirect(
+      vendorClientSurfaceHref(eventId, 'asks', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { ask: 'amount' },
+      }),
+    );
   }
   const dueRaw = formData.get('due_date');
   const dueDate = typeof dueRaw === 'string' && dueRaw.length > 0 ? dueRaw : null;
@@ -1287,7 +1362,12 @@ export async function vendorAskForPayment(formData: FormData) {
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) {
-    redirect(`/vendor-dashboard/clients/${eventId}?tab=quote&ask=notbooked`);
+    redirect(
+      vendorClientSurfaceHref(eventId, 'asks', {
+        shellOn: isRelationshipWorkspaceEnabled(),
+        query: { ask: 'notbooked' },
+      }),
+    );
   }
 
   // RLS is the fence: confirmed booking ∩ own profile ∩ status='open' ∩
@@ -1336,7 +1416,10 @@ export async function vendorAskForPayment(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
-    `/vendor-dashboard/clients/${eventId}?tab=quote&ask=${error ? 'error' : 'sent'}`,
+    vendorClientSurfaceHref(eventId, 'asks', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { ask: error ? 'error' : 'sent' },
+    }),
   );
 }
 
@@ -1372,6 +1455,9 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
-    `/vendor-dashboard/clients/${eventId}?tab=quote&ask=${ok ? 'withdrawn' : 'error'}`,
+    vendorClientSurfaceHref(eventId, 'asks', {
+      shellOn: isRelationshipWorkspaceEnabled(),
+      query: { ask: ok ? 'withdrawn' : 'error' },
+    }),
   );
 }

@@ -119,7 +119,15 @@ test('both deposit actions redirect through the rule, and neither hard-codes a t
   const src = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
   const uses = src.match(/depositAnswerReturnTo\(formData\.get\('return_to'\), eventId/g) ?? [];
   assert.equal(uses.length, 2, `expected confirm + refuse to use the rule, found ${uses.length}`);
-  assert.match(src, /import \{ depositAnswerReturnTo \} from '@\/lib\/vendor-client-return'/);
+  // ⚠ Pinned on the PROPERTY — the symbol comes from the rule module — and NOT
+  // on the exact import line, which is what this assertion was until a second
+  // symbol (`vendorClientSurfaceHref`) joined the same import and turned it red
+  // without anything being wrong. A phrasing ban convicts innocent code.
+  assert.match(
+    src,
+    /import \{[^}]*\bdepositAnswerReturnTo\b[^}]*\} from '@\/lib\/vendor-client-return'/,
+    'depositAnswerReturnTo is no longer imported from the rule module',
+  );
 
   // The two exact redirects that bounced.
   for (const gone of [/\?deposit_ack=\$\{flag\}`\)/, /\?deposit_reject=\$\{flag\}`\)/]) {

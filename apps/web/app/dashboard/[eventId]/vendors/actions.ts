@@ -105,6 +105,7 @@ import {
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
+import { checkManualVenueAddress, manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -3314,6 +3315,15 @@ export async function createManualVendor(
   const contactNumber = readStringField(formData, 'contact_number', 32);
   if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
 
+  // 🔑 THE ADDRESS GATE RUNS SERVER-SIDE TOO, not only in the modal (owner
+  // 2026-09-20). `category` rides in as a hidden field because the requirement
+  // is a property of the CATEGORY being attached, and this table cannot see it.
+  // The modal marks the input `required`, but a required attribute is a
+  // courtesy, not a gate — the one rule both sides ask lives in
+  // lib/manual-venue-address.ts.
+  const address = checkManualVenueAddress(formData.get('category'), formData.get('address'));
+  if (!address.ok) return { status: 'error', message: address.message };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -3346,6 +3356,7 @@ export async function createManualVendor(
       business_name: businessName.value,
       contact_person: contactPerson.value,
       contact_number: contactNumber.value,
+      address: address.value,
       photo_r2_key: photoR2Key,
       created_by_user_id: user.id,
     })
@@ -3415,6 +3426,34 @@ export async function updateManualVendor(
     return { status: 'error', message: 'Manual vendor not found' };
   }
 
+  // ── The address gate on the EDIT path (owner 2026-09-20) ──────────────────
+  // One manual contact can be attached to several categories, so "does this
+  // row owe an address" is not answerable from the row: it is answerable from
+  // the categories currently attached to it. If ANY of them is a place —
+  // reception or ceremony venue — the address is owed, because clearing it
+  // would blank the map pin and the supplier brief for a booked venue.
+  //
+  // ⚠ Read through the couple's own RLS client, so this cannot report
+  // categories on an event the editor does not hold. A read ERROR is not an
+  // absence: it fails CLOSED onto the rule the caller passed, rather than
+  // silently deciding no address is owed.
+  const { data: attachedRows, error: attachedErr } = await supabase
+    .from('event_vendors')
+    .select('category')
+    .eq('manual_vendor_id', manualVendorIdRaw)
+    .is('archived_at', null);
+  if (attachedErr) {
+    return { status: 'error', message: attachedErr.message };
+  }
+  const attachedCategories = (attachedRows ?? []).map((r) => (r as { category: string | null }).category);
+  const gateCategory =
+    attachedCategories.find((c) => manualVendorNeedsAddress(c)) ??
+    (typeof formData.get('category') === 'string' ? (formData.get('category') as string) : null);
+  const address = checkManualVenueAddress(gateCategory, formData.get('address'));
+  if (!address.ok) {
+    return { status: 'error', message: address.message };
+  }
+
   let nextPhotoR2Key: string | null | undefined = undefined;
   const removePhotoFlag = formData.get('remove_photo');
   if (removePhotoFlag === '1' || removePhotoFlag === 'true') {
@@ -3437,6 +3476,7 @@ export async function updateManualVendor(
     business_name: businessName.value,
     contact_person: contactPerson.value,
     contact_number: contactNumber.value,
+    address: address.value,
     updated_at: new Date().toISOString(),
   };
   if (nextPhotoR2Key !== undefined) {

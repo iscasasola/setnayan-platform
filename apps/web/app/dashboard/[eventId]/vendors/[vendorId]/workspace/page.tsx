@@ -94,7 +94,9 @@ import {
 } from '@/lib/appointments';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
+import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import { HostServiceDetails } from './_components/host-service-details';
+import { SelfAddedContactCard } from './_components/self-added-contact-card';
 import { parseRemovedItemIds, workspaceSections } from './package-sections';
 import {
   readPricingSnapshot,
@@ -604,6 +606,32 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     label: g.label,
   }));
 
+  // ── The contact card the couple filled in, read back (2026-09-20) ────────
+  // Under the couple's own RLS (`event_manual_vendors_host_all`), keyed on the
+  // manual_vendor_id the ownership-proven booking row already carries. Only
+  // for a self-added supplier: a marketplace listing owns its own address.
+  //
+  // A READ ERROR IS NOT AN ABSENCE. `null` here hides the card — which for a
+  // venue also hides the "your guests need this address" prompt — so the two
+  // are told apart: `undefined` data with an error keeps the card mounted with
+  // empty fields rather than silently deciding the couple typed nothing.
+  const manualContactId = isOffPlatformSupplier(ev) ? ev.manual_vendor_id : null;
+  const manualContactRes = manualContactId
+    ? await supabase
+        .from('event_manual_vendors')
+        .select('contact_person, contact_number, address')
+        .eq('manual_vendor_id', manualContactId)
+        .eq('event_id', eventId)
+        .maybeSingle()
+    : null;
+  const manualContact = manualContactRes
+    ? ((manualContactRes.data ?? {
+        contact_person: null,
+        contact_number: null,
+        address: null,
+      }) as { contact_person: string | null; contact_number: string | null; address: string | null })
+    : null;
+
   // ----------------------------------------------------------------------
   // Auto-share-link invite (2026-05-22 owner directive).
   //
@@ -632,13 +660,35 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const inviteEventWord = autoShareInvite
     ? eventNoun((await resolveProfileByEvent(eventId)).eventType)
     : 'wedding';
-  const canOfferInvite =
-    needsInvite &&
-    !autoShareInvite &&
-    (ev.status === 'contracted' ||
-      ev.status === 'deposit_paid' ||
-      ev.status === 'delivered' ||
-      ev.status === 'complete');
+  // ── THE LINK MUST STILL BE THERE TOMORROW (owner, 2026-09-20: "i failed the
+  // qr code to import the vendor. i dont have access for this qr and link to
+  // share to the vendor.") ─────────────────────────────────────────────────
+  //
+  // The add-a-contact modal offers the claim QR the moment a supplier is added
+  // — at status 'considering', per the owner's 2026-07-01 directive. That panel
+  // is ONE-SHOT: close the modal and it is gone. This page, the only other
+  // door, then demanded `status` be contracted+ before it would even offer to
+  // MAKE a link. So between "added" and "locked" the couple had nowhere at all
+  // to get the QR back, and the modal's own offer contradicted the page that
+  // is supposed to own it.
+  //
+  // Measured on prod 2026-09-20: `Seda Vertis North`, added that morning,
+  // category `venue`, status `considering`, `manual_vendor_id` set,
+  // `marketplace_vendor_id` NULL — and ZERO rows in `vendor_invites`. Exactly
+  // the dead end reported. Re-measure, never trust this line:
+  //   select ev.vendor_name, ev.status,
+  //          (select count(*) from vendor_invites vi where vi.vendor_id = ev.vendor_id)
+  //     from public.event_vendors ev where ev.archived_at is null;
+  //
+  // 🔑 STATUS WAS NEVER THE QUESTION. `canInviteSupplier` already answers the
+  // only one that matters — do they have an account to be invited to — and its
+  // own docblock says so: "OFF-PLATFORM AND FINALIZED ARE INDEPENDENT AXES
+  // (owner, 2026-09-02: 'Adding them to their shortlist does not mean it is
+  // final, it just means they are not on the app.')". Minting a claim link
+  // early costs nothing: `ensureAutoShareInvite` is idempotent, so the lock-time
+  // path still finds the same invite, and a supplier who claims early simply
+  // arrives with an account before the booking is settled — which is the point.
+  const canOfferInvite = needsInvite && !autoShareInvite;
 
   // Couple-visibility fix (2026-07-01): the couple's OWN picked-vendor
   // marketplace HEADER (business_name / logo / city / slug),
@@ -1547,6 +1597,23 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           options={coverOptions}
         />
       ) : null;
+
+  /* The couple's own contact card for a self-added supplier — the contact
+     person and number they typed (never rendered anywhere until 2026-09-20)
+     plus the address, which is REQUIRED for the two categories that are a
+     place. Sits beside the inclusions editor on Details: both are "what only
+     the couple can tell us about this supplier". */
+  const selfAddedContactSection = manualContact ? (
+    <SelfAddedContactCard
+      eventId={eventId}
+      vendorId={ev.vendor_id}
+      displayName={displayName}
+      contactPerson={manualContact.contact_person}
+      contactNumber={manualContact.contact_number}
+      initialAddress={manualContact.address}
+      addressRequired={manualVendorNeedsAddress(ev.category)}
+    />
+  ) : null;
 
   /* The vendor's optional add-ons on this package, in their OWN labelled
      section — never folded into "What's included", never hidden. On a
@@ -2608,6 +2675,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       <div className="space-y-6">
         {backNav}
         {heroSection}
+        {selfAddedContactSection}
         {includedSection}
         {choicesSection}
         {addOnsSection}
@@ -2779,6 +2847,21 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // already redirected there above.
 
   const tabIconClass = 'h-3.5 w-3.5';
+  // ── A TAB THAT CAN ONLY EVER BE BLANK IS NOT OFFERED (2026-09-20) ─────────
+  // `VendorProposalsCard` opens with `if (!marketplaceVendorId) return null`,
+  // so for a supplier the couple added themselves the Quote tab rendered
+  // LITERALLY NOTHING — no empty state, no explanation, just a tab you can
+  // land on and find blank. Measured on the owner's own event: a locked,
+  // self-added ceremony venue sitting on the Quote tab with an empty page,
+  // while the price/transport/food editor he was looking for was one tab away
+  // under Payments and the inclusions editor under Details.
+  //
+  // 🔑 A QUOTE IS SOMETHING A SUPPLIER SENDS. A self-added supplier has no
+  // account to send one from, so there is no quote to show and never will be —
+  // this is not an empty state waiting to fill. The money the couple records
+  // themselves already has a home (Costing, on Payments), and adding a second
+  // one here would be a second writer of one price.
+  const hasQuotesToShow = Boolean(ev.marketplace_vendor_id);
   const tabs: RelationshipTab[] = [
     {
       // A DOOR, not a room — the one chat box is the thread page (#5586).
@@ -2788,12 +2871,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       href: conversationHref,
       node: null,
     },
-    {
-      id: 'quote',
-      label: 'Quote',
-      icon: <Receipt aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: proposalsCard,
-    },
+    ...(hasQuotesToShow
+      ? [
+          {
+            id: 'quote',
+            label: 'Quote',
+            icon: <Receipt aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+            node: proposalsCard,
+          } satisfies RelationshipTab,
+        ]
+      : []),
     {
       id: 'payments',
       label: 'Payments',
@@ -2830,6 +2917,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <div className="space-y-6">
           {coupleCompletionSection}
           {colourAccessSection}
+          {selfAddedContactSection}
           {includedSection}
           {choicesSection}
           {addOnsSection}

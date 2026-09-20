@@ -20,6 +20,13 @@ import {
   type MarketplaceVendorSuggestion,
 } from '../vendors/actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import {
+  MANUAL_VENUE_ADDRESS_HINT,
+  MANUAL_VENUE_ADDRESS_LABEL,
+  MANUAL_VENUE_ADDRESS_MAX,
+  MANUAL_VENUE_ADDRESS_PLACEHOLDER,
+  manualVendorNeedsAddress,
+} from '@/lib/manual-venue-address';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -91,6 +98,10 @@ export function NewManualVendorModal({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  /* The two categories that ARE a place owe an exact address (owner
+     2026-09-20). The same predicate `createManualVendor` re-asks server-side —
+     this only decides the label, the hint and the `required` attribute. */
+  const addressRequired = manualVendorNeedsAddress(category);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -382,6 +393,10 @@ export function NewManualVendorModal({
           encType="multipart/form-data"
         >
           <input type="hidden" name="event_id" value={eventId} />
+          {/* The category rides along so `createManualVendor` can re-ask the
+              address rule server-side. The modal is always opened FROM a
+              category card, so this is never a guess. */}
+          <input type="hidden" name="category" value={category} />
 
           {mode.kind === 'linked' ? (
             // LINKED MODE — host picked a marketplace vendor from the
@@ -516,6 +531,35 @@ export function NewManualVendorModal({
                   maxLength={32}
                   disabled={pending}
                   placeholder="+63 9XX XXX XXXX"
+                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                />
+              </Field>
+
+              {/* Exact address (owner 2026-09-20). Present for EVERY category —
+                  a caterer's commissary is worth keeping — but only demanded
+                  for the two that ARE a place, because those are the addresses
+                  guests and suppliers are sent to. `manualVendorNeedsAddress`
+                  is the same predicate `createManualVendor` re-asks server-side:
+                  the `required` attribute below is a courtesy, never the gate. */}
+              <Field
+                label={addressRequired ? MANUAL_VENUE_ADDRESS_LABEL : 'Address'}
+                htmlFor="manual-vendor-address"
+                required={addressRequired}
+                hint={
+                  addressRequired
+                    ? MANUAL_VENUE_ADDRESS_HINT
+                    : 'Optional — handy for a commissary, showroom or studio.'
+                }
+              >
+                <input
+                  id="manual-vendor-address"
+                  name="address"
+                  type="text"
+                  required={addressRequired}
+                  maxLength={MANUAL_VENUE_ADDRESS_MAX}
+                  disabled={pending}
+                  autoComplete="street-address"
+                  placeholder={MANUAL_VENUE_ADDRESS_PLACEHOLDER}
                   className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
                 />
               </Field>

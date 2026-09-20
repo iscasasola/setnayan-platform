@@ -812,6 +812,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':
+    'WRITES the price the couple agreed with a supplier they added themselves (there is nobody to quote it) — the input starts EMPTY and the control unmounts once a price exists, so it never shows a total back',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':
     'WRITES a chat quote into the Service price field — the headline the couple edits',
   'app/dashboard/[eventId]/budget/actions.ts':

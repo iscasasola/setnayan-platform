@@ -34,6 +34,7 @@ import {
   workingNoteAuthorRole,
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
+import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 
 /**
  * Idempotently create (or re-read) the auto-share claim link for a locked
@@ -292,5 +293,99 @@ export async function deleteWorkingNoteAction(formData: FormData): Promise<void>
     .eq('author_user_id', user.id);
   if (error) throw new Error(error.message);
 
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// updateSelfAddedSupplierAddress (2026-09-20)
+//
+// Owner: "the ceremony and reception venues to lock needs an exact address if
+// added manually … they will be used for the event itself", and — on the
+// second pass — "make sure for vendors as well has an address" (the FIELD for
+// everyone; the REQUIREMENT stays on the two categories that are a place).
+//
+// Why a dedicated action instead of reusing `updateManualVendor`: that one
+// rewrites business_name + contact_person + contact_number together, so a form
+// that carries only an address would blank two columns it never showed. This
+// writes ONE column and touches nothing else.
+//
+// ⚠ IT IS ALSO THE ONLY WAY TO FIX A ROW THAT PREDATES THE COLUMN. Every
+// supplier added before 2026-09-20 has `address IS NULL` — including the
+// owner's own locked reception venue — and `updateManualVendor` has no UI
+// caller anywhere in the app (grep it). Shipping the requirement without this
+// would have made the address demandable on new venues and unfixable on old
+// ones.
+//
+// Auth: the couple's own session client. RLS on event_manual_vendors
+// (event_manual_vendors_host_all) is the wall; the event_id equality below is
+// defence in depth, and the manual-row lookup goes through event_vendors so a
+// manual contact id alone is never enough to write.
+// ============================================================================
+export async function updateSelfAddedSupplierAddress(formData: FormData): Promise<void> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof vendorId !== 'string' ||
+    vendorId.length === 0
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // The booking row carries the CATEGORY — the only thing that decides whether
+  // an address is owed — and the link to the manual contact that stores it.
+  const { data: booking, error: bookingErr } = await supabase
+    .from('event_vendors')
+    .select('category, manual_vendor_id, marketplace_vendor_id')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (bookingErr) throw new Error(bookingErr.message);
+  if (!booking) throw new Error('Booking not found');
+
+  // A marketplace supplier's address is theirs to publish, not the couple's to
+  // overwrite. Fails closed rather than writing to somebody else's record.
+  if ((booking as { marketplace_vendor_id: string | null }).marketplace_vendor_id) {
+    throw new Error('This supplier keeps their own address on their Setnayan listing.');
+  }
+
+  const category = (booking as { category: string | null }).category;
+  const checked = checkManualVenueAddress(category, formData.get('address'));
+  if (!checked.ok) {
+    // Surfaced to the couple by the card's error state, which re-reads the
+    // thrown message. The same sentence the modal shows at add time — one rule,
+    // one wording.
+    throw new Error(checked.message);
+  }
+
+  const manualVendorId = (booking as { manual_vendor_id: string | null }).manual_vendor_id;
+  if (!manualVendorId) {
+    throw new Error(
+      'This supplier has no contact card yet — remove and re-add them to record an address.',
+    );
+  }
+
+  // 🔑 `.select()` ON THE UPDATE, and the row count checked. A zero-row UPDATE
+  // returns no error, so without this an RLS refusal would look exactly like a
+  // successful save and the card would say "Saved" over an unchanged address.
+  const { data: written, error } = await supabase
+    .from('event_manual_vendors')
+    .update({ address: checked.value })
+    .eq('manual_vendor_id', manualVendorId)
+    .eq('event_id', eventId)
+    .select('manual_vendor_id');
+  if (error) throw new Error(error.message);
+  if (!written || written.length === 0) {
+    throw new Error('Could not save that address — refresh and try again.');
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }

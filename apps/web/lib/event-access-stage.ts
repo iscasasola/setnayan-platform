@@ -372,13 +372,16 @@ const PHP = new Intl.NumberFormat('en-PH', {
  * the CURRENT flag state, and never asserts its opposite.* Both states are
  * executed in `event-access-stage.test.ts`.
  *
- * ⚠ #5737's guard also pins the absence of `booking_fee` in
- * `lib/vendor-room-access-rule.ts` as its proof that access ignores the fee.
- * That file is deliberately untouched by this PR (folding the fee into
- * `admitRoomBookings` would reach the COUPLE — see this module's header), so
- * that assertion still passes while its premise has become false. It is
- * anchored on the wrong cell: the enforcement lives HERE. When the two PRs are
- * reconciled, that assertion must be re-pointed at `eventAccessUnlocked`.
+ * ✏️ RECONCILED 2026-09-20. #5737's guard used to pin the absence of
+ * `booking_fee` in `lib/vendor-room-access-rule.ts` as its proof that access
+ * ignores the fee — the wrong cell, since that file is deliberately untouched
+ * (folding the fee into `admitRoomBookings` would reach the COUPLE — see this
+ * module's header) while the real, flag-gated consequence lives HERE. That
+ * assertion in `lib/the-fee-finds-the-supplier.test.ts` now calls
+ * `eventAccessUnlocked` directly instead, and `feeDueCopy`
+ * (`lib/booking-fee-disclosure.ts`) calls THIS function rather than
+ * hand-writing the sentence — one cross-lane tripwire in that same file checks
+ * the two can never drift apart again.
  */
 export function feeEnforcementSentence(opts?: { enforced?: boolean }): string {
   const enforced = opts?.enforced ?? isFeeUnlocksEventEnabled();

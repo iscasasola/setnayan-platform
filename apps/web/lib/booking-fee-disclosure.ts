@@ -39,6 +39,7 @@ import {
 } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT, isFreeBooking } from '@/lib/booking-fee-lock';
 import { monthDay } from '@/lib/format-date';
+import { feeEnforcementSentence } from '@/lib/event-access-stage';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · WHERE A SUPPLIER STANDS WITH THE FEE, ON ONE BOOKING
@@ -471,7 +472,7 @@ export function feeDueStage(dueOn: string | null, todayPh: string): FeeDueStage 
 }
 
 /**
- * THE OVERDUE SENTENCE — and why it promises nothing.
+ * THE OVERDUE SENTENCE — and why it promises what is actually true.
  *
  * 🔑 MEASURED 2026-09-20, NOT ASSUMED. `booking_fee_charges.expires_at` is
  * WRITTEN (`NOW() + INTERVAL '7 days'`) and READ BY NOTHING:
@@ -480,15 +481,22 @@ export function feeDueStage(dueOn: string | null, todayPh: string): FeeDueStage 
  *   · the only writer of `status = 'expired'` is the AMENDMENT re-derive path
  *     (`booking_fee_rederive_on_amendment`), which supersedes a charge when the
  *     price changes — it is not a deadline;
- *   · access to the booking comes from `lock_request_state = 'agreed'`
- *     (`lib/vendor-room-access-rule.ts`) and does not consult the fee at all.
+ *   · access to the BOOKING (is this shop booked at all) comes from
+ *     `lock_request_state = 'agreed'` (`lib/vendor-room-access-rule.ts`) and
+ *     does not consult the fee at all, ever — that surface is unrelated to
+ *     the fee by design (folding it in would punish the couple for their
+ *     supplier's unpaid bill).
  *
- * ⇒ When the date passes, NOTHING HAPPENS. The booking stands, the charge stays
- *   `pending`, the couple is unaffected.
- *
- * So the copy escalates in URGENCY and says exactly that, rather than inventing
- * a consequence the code does not implement. If the owner later chooses
- * enforcement, this is the one function that changes.
+ * ⇒ RECONCILED 2026-09-20 with `claude/fee-unlocks-the-event`: a SEPARATE
+ * question — can this shop reach an unsettled booking's DETAILS and day-of
+ * tools — now has a real, flag-gated answer in `eventAccessUnlocked`
+ * (`lib/event-access-stage.ts`). `feeEnforcementSentence` there is the ONE
+ * place that reads `NEXT_PUBLIC_FEE_UNLOCKS_EVENT` and states the consequence
+ * that is true for the CURRENT flag state — off ⇒ "not affected"; on ⇒ the
+ * event stays locked until the fee is settled. This module calls it rather
+ * than hand-writing the sentence a second time, so the promise here and the
+ * gate there cannot drift apart — see `the-fee-finds-the-supplier.test.ts`'s
+ * cross-lane tripwire, which fails loudly the day they do.
  */
 export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
   const stage = feeDueStage(bill.dueOn, todayPh);
@@ -500,9 +508,12 @@ export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
       return {
         tone: 'overdue',
         headline: `Booking fee overdue — ${amount}${who}`,
+        // The consequence clause is `feeEnforcementSentence` — the ONE
+        // function that reads NEXT_PUBLIC_FEE_UNLOCKS_EVENT — so this promise
+        // and the actual gate in `eventAccessUnlocked` cannot disagree.
         detail:
-          `This was due${by ? by.replace(' by ', ' on ') : ''}. Your booking is not affected and your couple sees nothing about it — ` +
-          'but it is money Setnayan is still waiting on. Pay it on the same GCash/BDO rail; it clears within 24 hours of our team confirming it.',
+          `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence()} ` +
+          'Pay it on the same GCash/BDO rail; it clears within 24 hours of our team confirming it.',
       };
     case 'last_day':
       return {

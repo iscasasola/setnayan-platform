@@ -10,6 +10,7 @@
  * picks from and the check the server makes cannot disagree.
  */
 import type { GuestRole, GuestSide } from '@/lib/guests';
+import { parseGuestInput } from '@/lib/guest-parse';
 
 export type LinkCandidate = {
   guest_id: string;
@@ -41,36 +42,59 @@ export function searchCandidates(list: readonly LinkCandidate[], query: string, 
   return list.filter((c) => words.every((w) => fold(candidateName(c)).includes(w))).slice(0, limit);
 }
 
-export type KeepChoice = {
-  first_name: string;
-  last_name: string;
-  side: GuestSide;
-  role: GuestRole;
-  group_id: string | null;
-};
-
-const SIDES: readonly GuestSide[] = ['bride', 'groom', 'both'];
 /** The couple are set when the event is created — never picked here. */
 const NOT_OFFERED: readonly string[] = ['bride', 'groom'];
 
-/** Validate the Keep form against what this event actually offers. */
-export function readKeepChoice(
-  form: { get(name: string): FormDataEntryValue | null },
+export type KeepLine = {
+  prefix: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  suffix: string;
+  side: GuestSide;
+  role: GuestRole;
+  groups: string[];
+  plusOnes: number;
+};
+
+/**
+ * Keep, the quick-add way — owner 2026-09-21: *"the option of adding a quick
+ * add text box? same function as the quick add on the guestlist."* One line in
+ * the SAME grammar the guest list's capture bar reads (`parseGuestInput`):
+ *
+ *     "Shey Ferriol bride #Barkada ninang +2"
+ *
+ * The grammar only names a few roles (vip · ninong · ninang · sponsor), so an
+ * explicit Role pick, when made, wins over the line. A role this event does not
+ * offer falls back to Guest — exactly what the capture bar does — except that
+ * an EXPLICIT pick of an unoffered role is refused, because the couple chose it.
+ */
+export function readKeepLine(
+  line: string,
+  roleOverride: string,
   offeredRoles: readonly GuestRole[],
-  groupIds: ReadonlySet<string>,
-): { ok: true; value: KeepChoice } | { ok: false; error: string } {
-  const text = (k: string) => String(form.get(k) ?? '').replace(/\s+/g, ' ').trim();
-  const first_name = text('first_name');
-  const last_name = text('last_name');
-  if (!first_name) return { ok: false, error: 'Add their first name.' };
-  if (first_name.length > 80 || last_name.length > 80) return { ok: false, error: 'That name is too long.' };
-  const side = text('side') as GuestSide;
-  if (!SIDES.includes(side)) return { ok: false, error: 'Pick a side.' };
-  const role = (text('role') || 'guest') as GuestRole;
-  if (!offeredRoles.includes(role) || NOT_OFFERED.includes(role)) {
+): { ok: true; value: KeepLine } | { ok: false; error: string } {
+  const d = parseGuestInput(line);
+  if (!d.firstName) return { ok: false, error: 'Type their name first — then side, #group, role or +N if you like.' };
+  const offered = (r: string | null): r is GuestRole =>
+    !!r && offeredRoles.includes(r as GuestRole) && !NOT_OFFERED.includes(r);
+  const picked = roleOverride.trim();
+  if (picked && !offered(picked)) {
     return { ok: false, error: 'That role isn’t available for this celebration — pick one from the list.' };
   }
-  const group = text('group_id');
-  if (group && !groupIds.has(group)) return { ok: false, error: 'That group isn’t part of this event.' };
-  return { ok: true, value: { first_name, last_name, side, role, group_id: group || null } };
+  const role: GuestRole = picked ? (picked as GuestRole) : offered(d.roleHint) ? d.roleHint : 'guest';
+  return {
+    ok: true,
+    value: {
+      prefix: d.prefix,
+      first_name: d.firstName,
+      middle_name: d.middleName,
+      last_name: d.lastName,
+      suffix: d.suffix,
+      side: d.side,
+      role,
+      groups: d.groups,
+      plusOnes: d.plusOnes,
+    },
+  };
 }

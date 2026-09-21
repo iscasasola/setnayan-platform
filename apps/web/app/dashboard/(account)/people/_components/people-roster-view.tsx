@@ -302,7 +302,17 @@ export function PeopleRosterView({
                 >
                   <Avatar name={h.name} kind="connection" photoUrl={h.photoUrl} />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium text-ink">{h.name}</span>
+                    <span className="truncate text-sm font-medium text-ink">
+                      {h.name}
+                      {h.handle ? (
+                        <span className="ml-1.5 font-mono text-[11.5px] font-normal text-ink/45">
+                          {h.handle}
+                        </span>
+                      ) : null}
+                    </span>
+                    {h.fullName ? (
+                      <span className="truncate text-[11.5px] text-ink/65">{h.fullName}</span>
+                    ) : null}
                     {h.hint ? (
                       <span className="truncate text-[11.5px] text-ink/50">{h.hint}</span>
                     ) : null}

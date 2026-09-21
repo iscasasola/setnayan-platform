@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readKeepChoice, searchCandidates, unlinkedCandidates, type LinkCandidate } from '@/lib/unlisted-guests';
+import { searchCandidates, unlinkedCandidates, type LinkCandidate } from '@/lib/unlisted-guests';
 
 /** ⚖ Owner 2026-09-21: only not-yet-linked · a search bar · keep with name, side, role, group. */
 
@@ -18,17 +18,6 @@ test('search matches every word, any order, ignoring case and accents', () => {
   assert.deepEqual(searchCandidates(LIST, '   '), [], 'an empty search lists nobody — the couple types first');
 });
 
-const form = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
-const ROLES = ['guest', 'principal_sponsor_ninong', 'bride'] as never[];
-
-test('keeping reads name, side, role and group — and refuses what this event does not offer', () => {
-  const ok = readKeepChoice(form({ first_name: ' Shey ', last_name: 'Ferriol', side: 'bride', role: 'principal_sponsor_ninong', group_id: 'g1' }), ROLES, new Set(['g1']));
-  assert.deepEqual(ok, { ok: true, value: { first_name: 'Shey', last_name: 'Ferriol', side: 'bride', role: 'principal_sponsor_ninong', group_id: 'g1' } });
-  assert.equal(readKeepChoice(form({ first_name: 'A', side: 'bride', role: 'bride' }), ROLES, new Set()).ok, false, 'a second Bride could be picked');
-  assert.equal(readKeepChoice(form({ first_name: 'A', side: 'bride', group_id: 'other-event' }), ROLES, new Set(['g1'])).ok, false, 'another event’s group was accepted');
-  assert.equal(readKeepChoice(form({ first_name: '', side: 'bride' }), ROLES, new Set()).ok, false);
-  assert.equal(readKeepChoice(form({ first_name: 'A', side: 'nobody' }), ROLES, new Set()).ok, false);
-});
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -42,12 +31,38 @@ test('the page offers only unlinked guests, through the search picker', () => {
   assert.ok(!/name="target_guest_id"[\s\S]{0,200}<option/.test(page), 'the 79-name dropdown is back');
 });
 
-test('Keep asks for name, side, role and group — and the server re-checks them', () => {
+test('Keep is the guest list’s quick add — one line, previewed, and re-read on the server', () => {
   const page = read('page.tsx');
-  for (const field of ['name="first_name"', 'name="last_name"', 'name="side"', 'name="role"', 'name="group_id"']) {
-    assert.ok(page.includes(field), `the Keep form lost ${field}`);
-  }
+  assert.match(page, /<KeepQuickAdd\b/, 'the quick-add box is gone from Keep');
+  const box = read('keep-quick-add.tsx');
+  assert.match(box, /name="line"/, 'the line is not posted');
+  assert.match(box, /name="role"/, 'the Role pick is gone');
+  assert.match(box, /readKeepLine\(line, role, offeredRoles\)/, 'the preview is not the server’s reading');
   const action = read('actions.ts');
-  assert.match(action, /const choice = readKeepChoice\(/, 'the Keep action trusts the form');
+  assert.match(action, /const choice = readKeepLine\(/, 'the Keep action trusts the form');
   assert.match(action, /if \(!choice\.ok\) back\(eventId, choice\.error\);/, 'the Keep action checks and ignores the answer');
+  assert.match(action, /quickCreateGroup\(eventId, label, chosen\.side\)/, '#groups are not made on the guest’s side');
+  assert.match(action, /syncExtraSeats\(admin, eventId, guestId\)/, '+N makes no seats');
+});
+
+import { readKeepLine } from '@/lib/unlisted-guests';
+
+test('keep by quick-add line: the guest list’s grammar, in one box', () => {
+  const r = readKeepLine('Shey Ferriol bride #Barkada ninang +2', '', ['guest', 'principal_sponsor_ninang'] as never[]);
+  assert.equal(r.ok, true);
+  const v = (r as { ok: true; value: import('@/lib/unlisted-guests').KeepLine }).value;
+  assert.deepEqual(
+    { f: v.first_name, l: v.last_name, s: v.side, r: v.role, g: v.groups, p: v.plusOnes },
+    { f: 'Shey', l: 'Ferriol', s: 'bride', r: 'principal_sponsor_ninang', g: ['Barkada'], p: 2 },
+  );
+});
+
+test('an explicit Role pick wins; an unoffered hint falls back to Guest; an unoffered PICK is refused', () => {
+  const offered = ['guest', 'bridesmaid'] as never[];
+  const pick = readKeepLine('Shey ninang', 'bridesmaid', offered);
+  assert.equal(pick.ok && pick.value.role, 'bridesmaid');
+  const hint = readKeepLine('Shey ninang', '', offered);
+  assert.equal(hint.ok && hint.value.role, 'guest', 'the capture bar falls back to Guest — so does this');
+  assert.equal(readKeepLine('Shey', 'bride', ['guest', 'bride'] as never[]).ok, false, 'a second Bride could be picked');
+  assert.equal(readKeepLine('   ', '', offered).ok, false);
 });

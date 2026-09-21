@@ -3,11 +3,12 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, UserCheck, UserPlus, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { ROLE_LABELS, SIDE_LABELS, type GuestRole } from '@/lib/guests';
+import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { unlinkedCandidates } from '@/lib/unlisted-guests';
 import { LinkPicker } from './link-picker';
+import { KeepQuickAdd } from './keep-quick-add';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
@@ -138,7 +139,6 @@ export default async function UnlistedGuestsPage({ params, searchParams }: Props
         supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId).order('label'),
       ])
     : [{ offeredRoles: [] as GuestRole[] }, { data: [] }];
-  const roleChoices = offeredRoles.filter((r) => r !== 'bride' && r !== 'groom');
   const groupChoices = (groupsRaw ?? []) as { group_id: string; label: string; team_side: string }[];
 
   return (
@@ -208,54 +208,16 @@ export default async function UnlistedGuestsPage({ params, searchParams }: Props
                     <summary className="button-primary inline-flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
                       <UserCheck className="h-4 w-4" /> Keep on my list
                     </summary>
-                    <form action={keepGuestAction.bind(null, eventId)} className="mt-3 grid gap-3 rounded-lg border border-ink/10 bg-cream/60 p-3 sm:grid-cols-2">
+                    <form action={keepGuestAction.bind(null, eventId)} className="mt-3 space-y-3 rounded-lg border border-ink/10 bg-cream/60 p-3">
                       <input type="hidden" name="guest_id" value={g.guest_id} />
-                      <label className="space-y-1 text-sm">
-                        <span className="text-ink/70">First name</span>
-                        <input name="first_name" required defaultValue={splitName(name).first} className="input-field h-9 w-full py-1" />
-                      </label>
-                      <label className="space-y-1 text-sm">
-                        <span className="text-ink/70">Last name</span>
-                        <input name="last_name" defaultValue={splitName(name).last} className="input-field h-9 w-full py-1" />
-                      </label>
-                      <fieldset className="space-y-1 text-sm sm:col-span-2">
-                        <legend className="text-ink/70">Side</legend>
-                        <span className="flex flex-wrap gap-2">
-                          {(['bride', 'groom', 'both'] as const).map((s) => (
-                            <label key={s} className="cursor-pointer rounded-lg border border-ink/15 px-3 py-1.5 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:font-medium">
-                              <input type="radio" name="side" value={s} required defaultChecked={s === 'both'} className="sr-only" />
-                              {SIDE_LABELS[s]}
-                            </label>
-                          ))}
-                        </span>
-                      </fieldset>
-                      <label className="space-y-1 text-sm">
-                        <span className="text-ink/70">Role</span>
-                        <select name="role" defaultValue="guest" className="input-field h-9 w-full py-1">
-                          {roleChoices.map((r) => (
-                            <option key={r} value={r}>
-                              {ROLE_LABELS[r]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="space-y-1 text-sm">
-                        <span className="text-ink/70">Group</span>
-                        <select name="group_id" defaultValue="" className="input-field h-9 w-full py-1">
-                          <option value="">No group</option>
-                          {groupChoices.map((gr) => (
-                            <option key={gr.group_id} value={gr.group_id}>
-                              {gr.label}
-                              {gr.team_side === 'bride' ? ' · Bride’s' : gr.team_side === 'groom' ? ' · Groom’s' : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="sm:col-span-2">
-                        <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Adding…">
-                          <UserCheck className="h-4 w-4" /> Add to my list
-                        </SubmitButton>
-                      </div>
+                      <KeepQuickAdd
+                        defaultLine={name}
+                        offeredRoles={offeredRoles}
+                        existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
+                      />
+                      <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Adding…">
+                        <UserCheck className="h-4 w-4" /> Add to my list
+                      </SubmitButton>
                     </form>
                   </details>
 
@@ -301,8 +263,3 @@ export default async function UnlistedGuestsPage({ params, searchParams }: Props
   );
 }
 
-/** "Shey" → first "Shey"; "Julian Gerolaga" → "Julian" + "Gerolaga". */
-function splitName(full: string): { first: string; last: string } {
-  const parts = full.trim().split(/\s+/);
-  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') };
-}

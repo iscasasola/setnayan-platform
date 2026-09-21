@@ -91,9 +91,11 @@ test('the new row is scoped to this event and this primary', () => {
 test('a blank box is not a removal', () => {
   // Same rule as the contact boxes: blank means "not decided", never "delete".
   // Removing a +1 destroys a real guest row with its own QR — a host action.
+  // Since 2026-09-21 there is a box per seat; `readSeatNames` drops blank ones
+  // (unit-tested in lib/extra-seats.test.ts), and the write runs only for names.
   assert.match(
     WRITE,
-    /if \(plusOneFirst \|\| plusOneLast\)/,
+    /const seatNames = readSeatNames\(formData\);\s*if \(seatNames\.length > 0\)/,
     'the write runs on an empty submit — a blank box must change nothing',
   );
   assert.ok(!/\.delete\(\)/.test(WRITE), 'the guest-side write can delete a guest row');
@@ -106,7 +108,7 @@ test('naming the +1 clears the "+ TBA" placeholder', () => {
 });
 
 test('the host list stops reading "+ TBA" too', () => {
-  assert.match(WRITE, /plus_one_name: named \|\| null/, 'the primary is not updated');
+  assert.match(WRITE, /\.update\(\{ plus_one_name: firstNamed, updated_at: stamp \}\)/, 'the primary is not updated');
 });
 
 // ── The box itself ─────────────────────────────────────────────────────────

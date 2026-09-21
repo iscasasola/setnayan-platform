@@ -7,7 +7,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { redirect } from 'next/navigation';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
-import { readKeepChoice, type KeepChoice } from '@/lib/unlisted-guests';
+import { readKeepLine, type KeepLine } from '@/lib/unlisted-guests';
+import { quickCreateGroup } from '../quick-add-actions';
+import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 
 /** Back to the page with a sentence the couple can act on. */
 function back(eventId: string, message: string): never {
@@ -72,18 +74,20 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
     return;
   }
 
-  const [{ offeredRoles }, { data: groupRows, error: groupErr }] = await Promise.all([
-    resolveRoleSetForEvent(eventId),
-    admin.from('guest_groups').select('group_id').eq('event_id', eventId),
-  ]);
-  if (groupErr) back(eventId, 'Your groups could not be read just now — nothing was changed.');
-  const choice = readKeepChoice(
-    formData,
-    offeredRoles,
-    new Set((groupRows ?? []).map((g) => g.group_id as string)),
-  );
+  // ⚖ Owner 2026-09-21: "a quick add text box … same function as the quick add
+  // on the guestlist" — one line, the capture bar's grammar (`readKeepLine`).
+  const { offeredRoles } = await resolveRoleSetForEvent(eventId);
+  const choice = readKeepLine(String(formData.get('line') ?? ''), String(formData.get('role') ?? ''), offeredRoles);
   if (!choice.ok) back(eventId, choice.error);
-  const chosen = (choice as { ok: true; value: KeepChoice }).value;
+  const chosen = (choice as { ok: true; value: KeepLine }).value;
+
+  // 🔒 This path writes with the ADMIN client, which the database's own
+  // finalized-list lock lets through (it exempts service_role). So the seat
+  // rule is asked explicitly, before anything is saved (owner 2026-09-21).
+  if (chosen.plusOnes > 0) {
+    const seatCheck = await checkExtraSeats(admin, eventId, guestId, chosen.plusOnes);
+    if (!seatCheck.ok) back(eventId, seatCheck.error);
+  }
 
   // Promote out of the reconcile queue. Drop the legacy self_joined tag too so
   // the row reads as a clean host-list member.
@@ -101,6 +105,9 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
       custom_tags: tags,
       first_name: chosen.first_name,
       last_name: chosen.last_name,
+      name_prefix: chosen.prefix || null,
+      middle_name: chosen.middle_name || null,
+      name_suffix: chosen.suffix || null,
       // The name they typed on joining was a display name; the couple's choice
       // replaces it, so the list shows what the couple wrote.
       display_name: null,
@@ -119,14 +126,31 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
         : 'They could not be added just now — nothing was changed.',
     );
   }
-  if (chosen.group_id) {
+  // #Groups — found or made, on this guest's side, exactly as the guest list's
+  // quick add does (`quickCreateGroup` is case-insensitively idempotent).
+  for (const label of chosen.groups) {
+    const made = await quickCreateGroup(eventId, label, chosen.side);
+    if (!made.ok) back(eventId, `Added to your list, but not to #${label}: ${made.error}`);
+    const groupId = (made as { ok: true; group: { group_id: string } }).group.group_id;
     const { error: memberErr } = await admin
       .from('guest_group_memberships')
-      .upsert([{ group_id: chosen.group_id, guest_id: guestId }], {
+      .upsert([{ group_id: groupId, guest_id: guestId }], {
         onConflict: 'group_id,guest_id',
         ignoreDuplicates: true,
       });
-    if (memberErr) back(eventId, 'Added to your list, but not to that group — add them from the guest list.');
+    if (memberErr) back(eventId, `Added to your list, but not to #${label} — add them from the guest list.`);
+  }
+
+  // +N — the extra seats, beside them (owner 2026-09-21).
+  if (chosen.plusOnes > 0) {
+    const { error: plusErr } = await admin
+      .from('guests')
+      .update({ plus_one_count: chosen.plusOnes, updated_at: new Date().toISOString() })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    if (plusErr) back(eventId, 'Added to your list, but their extra seats were not saved — set them from the guest list.');
+    const seats = await syncExtraSeats(admin, eventId, guestId);
+    if (!seats.ok) back(eventId, `Added to your list, but their seats were not made: ${seats.error}`);
   }
 
   // Smart seat-plan Phase 5: a kept joiner is now a real list member — gap-fill

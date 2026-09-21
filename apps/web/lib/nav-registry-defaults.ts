@@ -857,7 +857,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.profile-menu.settings",
     scope: "customer",
     area: "profile-menu",
-    route: "/dashboard/profile#settings",
+    route: "/dashboard/profile?tab=preferences",
     label: "Settings",
     labelKind: "literal",
     iconKind: "none",

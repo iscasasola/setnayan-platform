@@ -23,6 +23,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 import {
   type GuestRole,
   type GuestSide,
@@ -300,6 +301,11 @@ export async function setGuestPlusOneCount(
     return { ok: false, error: 'Pick none, or +1 to +4.' };
   }
   const supabase = await createClient();
+  // A named plus-one is a person: refuse to go below them BEFORE saving, so a
+  // refused change leaves nothing half-written.
+  const check = await checkExtraSeats(supabase, eventId, guestId, count);
+  if (!check.ok) return { ok: false, error: check.error };
+
   const { data, error } = await supabase
     .from('guests')
     .update({ plus_one_count: count, updated_at: new Date().toISOString() })
@@ -308,6 +314,10 @@ export async function setGuestPlusOneCount(
     .select('guest_id');
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: 'Couldn’t find that guest.' };
+
+  // ⚖ Owner 2026-09-21: "+ will have seats beside the person invited".
+  const seats = await syncExtraSeats(supabase, eventId, guestId);
+  if (!seats.ok) return { ok: false, error: `Saved +${count}, but the seats could not be set: ${seats.error}` };
 
   revalidatePath(guestsPath(eventId));
   return { ok: true };
@@ -404,6 +414,8 @@ export async function addSingleGuest(
         .update({ plus_one_count: Math.min(4, Math.max(1, count)), updated_at: new Date().toISOString() })
         .eq('event_id', eventId)
         .eq('guest_id', guestId);
+      // …and the seats themselves, beside the new guest (owner 2026-09-21).
+      await syncExtraSeats(supabase, eventId, guestId);
     },
 
     // On-failed-add compensation for a group THIS call freshly minted. Guarded

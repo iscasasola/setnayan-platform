@@ -28,7 +28,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { type ScheduleBlockRow } from '@/lib/schedule';
+import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -52,6 +52,7 @@ import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { invitationCard } from '../_lib/invitation-card';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -485,6 +486,13 @@ export async function SiteBody({
   // server and handed to the client half through the provider below. Wedding →
   // 'the couple', so every sentence downstream is byte-identical for a wedding.
   const clientWords = await eventWordsFor(event.event_type);
+  // 🎴 The invitation card's words (canvas "1 · Arrival"), resolved once for
+  // both the stranger's and the guest's first screen. Null for the solemn
+  // register, which keeps its quiet masthead. See _lib/invitation-card.ts.
+  const inviteCard = invitationCard({
+    words: clientWords,
+    firstStartAt: scheduleBlocks[0]?.start_at ?? null,
+  });
   // Which wedding-only parts this event TYPE may show. The words half of the
   // owner's ruling is done; this is the other half — a seven-year-old does not
   // need a neutrally-worded love story, he needs no love story.
@@ -896,6 +904,7 @@ export async function SiteBody({
                 /* Pahina masthead, text-only variant (wave A PR-2). */
                 <PahinaMasthead
                   displayName={event.display_name}
+                  card={inviteCard ?? undefined}
                   twoPeople={clientWords.twoPeople}
                   eventDate={event.event_date}
                   venueName={event.venue_name}
@@ -1260,12 +1269,16 @@ export async function SiteBody({
        at 9pm would tell them to arrive at the send-off. Formatted in the
        event's own timezone, which the venue's coordinates resolve. */
     const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    // 🔴 THE SCHEDULE STORES THE EVENT'S OWN WALL-CLOCK, NOT AN INSTANT.
+    // `start_at` for a 1:30 PM arrival is `…T13:30:00+00` — the clock the
+    // couple typed, parked in UTC. The programme reads it back with
+    // `timeZone: 'UTC'` (`formatBlockTimeRange`, lib/schedule.ts). This line
+    // used to format it in Asia/Manila, adding eight hours a second time, and
+    // the pass told a real guest to "ARRIVE 9:30 PM" for a 1:30 PM arrival
+    // (seen live 2026-09-21 as a test guest on /cale-ice). One formatter, the
+    // programme's, so the pass and the run of show can never disagree.
     const firstScheduleTimeLabel = firstScheduleBlock?.start_at
-      ? new Date(firstScheduleBlock.start_at).toLocaleTimeString('en-PH', {
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZone: 'Asia/Manila',
-        })
+      ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
       : null;
 
     /* The pass's own facts, resolved once so the card and its guard read the
@@ -1459,6 +1472,7 @@ export async function SiteBody({
           ) : plan.body === 'normal' && plan.heroShouldRender ? (
             <PahinaMasthead
               displayName={event.display_name}
+              card={inviteCard ?? undefined}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={event.venue_name}

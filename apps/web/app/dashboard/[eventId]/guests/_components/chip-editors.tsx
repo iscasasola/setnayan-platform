@@ -23,7 +23,7 @@
  * `LockedChip`, which keeps the lock and answers for it in one line.
  */
 
-import { useRef, useState, useTransition, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Popover } from './overlay-primitives';
 import { guestOptimistic } from './guest-optimistic-store';
@@ -310,12 +310,34 @@ export function SideChipEditor({
  * dashed "+" so they can be given some; a guest with some shows "+N". Both
  * open the same menu: None · +1 · +2 · +3 · +4.
  */
+/**
+ * Is the guest list finalized? Provided once by the roster, read by the +N
+ * control — so a finalized list shows the seats without offering to change
+ * them (owner 2026-09-21: extra seats lock with the guest list).
+ */
+export const GuestListFinalizedContext = createContext(false);
+
 export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: GuestRow }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const commit = useFieldEdit(guest.guest_id);
+  const finalized = useContext(GuestListFinalizedContext);
   const name = guestDisplayName(guest);
   const current = plusOneSeats(guest);
+
+  // 🔒 Finalized: the number, and a reason on tap — never the picker. The
+  // server refuses too (`checkExtraSeats`); this only stops offering it.
+  if (finalized) {
+    if (current === 0) return null;
+    return (
+      <LockedChip
+        label={`Why ${name}’s extra seats can’t be changed`}
+        reason="Your guest list is finalized, so the guest count — extra seats included — is locked."
+      >
+        <PlusBadge count={current} />
+      </LockedChip>
+    );
+  }
 
   const pick = (count: number) => {
     setOpen(false);

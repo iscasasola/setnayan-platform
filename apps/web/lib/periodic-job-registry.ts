@@ -29,6 +29,18 @@ export const DAILY_GAP_MS = 20 * 60 * 60 * 1000;
 export const WEEKLY_GAP_MS = 6 * 24 * 60 * 60 * 1000;
 
 /**
+ * How often the unbilled booking-fee repair may run.
+ *
+ * Money, so not the daily tier — a fee that opened and was never billed is
+ * revenue nobody is being asked for, and the supplier is shown nothing owed in
+ * the meantime. Not the 10-minute tier either: the repair is a heal, the
+ * condition is rare, and its body runs a collector per row inside an `after()`
+ * budget. Half an hour bounds the exposure to one window while keeping a quiet
+ * estate (0 charges in this state in production on 2026-09-21) almost free.
+ */
+export const UNBILLED_FEE_REPAIR_GAP_MS = 30 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -266,6 +278,28 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: 60 * 60 * 1000,
     what: 'Renewal of the Google connections (YouTube, Drive, Live Studio)',
+    reportsCount: true,
+  },
+  {
+    /*
+      🔴 ADDED 2026-09-21. THE ONLY REVENUE PATH, FINISHED.
+
+      `collectBookingFeeAtLock` opens the charge through the RPC FIRST and can
+      then fail at five later points — the existing-order check, the charge
+      read, the payer read, the order insert, or the payments insert (which
+      DELETES the order it just made). Each one leaves a `booking_fee_charges`
+      row `pending` with no `orders` row: the supplier is shown nothing owed,
+      the money is never collected, and no screen anywhere said so.
+
+      The per-visitor catch-up could not heal it — it counts a `pending` charge
+      as already-charged and skips exactly the rows that need repair — and a
+      per-visitor sweep is the wrong shape anyway: a supplier who was never
+      billed has no reason to open their dashboard. Fleet-wide, dual-mounted.
+    */
+    key: 'booking-fee-unbilled-repair',
+    kind: 'operational',
+    gapMs: UNBILLED_FEE_REPAIR_GAP_MS,
+    what: 'Raising the booking-fee bill for a fee that opened but was never billed',
     reportsCount: true,
   },
   {

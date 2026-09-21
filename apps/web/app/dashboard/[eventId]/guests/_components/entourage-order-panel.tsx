@@ -31,6 +31,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WalkingOrderLines, type MarchSlot } from './walking-order-lines';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
+import { moveEntourageSection, resetEntourageSections } from '../march-actions';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -39,6 +40,8 @@ import {
   entourageGroupLabel,
   entourageGroupOfRole,
   entourageLines,
+  orderedGroupKeys,
+  sectionsAreArranged,
   ENTOURAGE_ROLES,
   roleLabel,
   type EntourageGuestRow,
@@ -100,6 +103,26 @@ export async function EntourageOrderPanel({
   if (groupKeys.length === 0) return null;
 
   const supabase = await createClient();
+  /*
+    ⚖ Owner 2026-09-21: the couple arranges the SECTIONS too. Read on its own:
+    an unreadable arrangement prints the built-in order and hides the section
+    arrows (moving from an order we could not read would overwrite the one the
+    couple actually has) — it never hides the entourage.
+  */
+  const sectionRead = await supabase
+    .from('events')
+    .select('entourage_section_order')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (sectionRead.error) {
+    logQueryError('EntourageOrderPanel (section order)', sectionRead.error, { eventId });
+  }
+  const savedSections = sectionRead.error
+    ? null
+    : ((sectionRead.data as { entourage_section_order: string[] | null } | null)
+        ?.entourage_section_order ?? null);
+  const canArrangeSections = !sectionRead.error && (!view || view === 'all');
+
   const { data, error } = await supabase
     .from('guests')
     // The only reader of `ceremonyOnly`, so the only read that asks for the
@@ -133,7 +156,8 @@ export async function EntourageOrderPanel({
     same one Move ↑ acts on, which is the only way "move this pair up" can mean
     the same thing on all three.
   */
-  const lists = groupKeys
+  const lists = orderedGroupKeys(savedSections)
+    .filter((key) => groupKeys.includes(key))
     .map((key) => ({ key, lines: entourageLines(rows, key) }))
     .filter((l) => l.lines.length > 0);
 
@@ -157,13 +181,45 @@ export async function EntourageOrderPanel({
         </p>
       </header>
 
+      {canArrangeSections && sectionsAreArranged(savedSections) ? (
+        <form action={resetEntourageSections.bind(null, eventId)} className="mt-2">
+          <SubmitButton
+            className="text-[11px] text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
+            pendingLabel="Resetting…"
+            overlay={false}
+          >
+            Put the sections back in the usual order
+          </SubmitButton>
+        </form>
+      ) : null}
+
       <div className="mt-3 space-y-4">
-        {lists.map(({ key, lines }) => (
+        {lists.map(({ key, lines }, sectionIndex) => (
           <div key={key}>
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-xs font-medium text-ink/70">
-                {entourageGroupLabel(key) ?? key}
-              </h3>
+              <div className="flex items-center gap-1">
+                {canArrangeSections && lists.length > 1 ? (
+                  <span className="inline-flex">
+                    <SectionMoveButton
+                      eventId={eventId}
+                      groupKey={key}
+                      label={entourageGroupLabel(key) ?? key}
+                      direction="up"
+                      disabled={sectionIndex === 0}
+                    />
+                    <SectionMoveButton
+                      eventId={eventId}
+                      groupKey={key}
+                      label={entourageGroupLabel(key) ?? key}
+                      direction="down"
+                      disabled={sectionIndex === lists.length - 1}
+                    />
+                  </span>
+                ) : null}
+                <h3 className="text-xs font-medium text-ink/70">
+                  {entourageGroupLabel(key) ?? key}
+                </h3>
+              </div>
               {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
                 <form action={clearEntourageOrder.bind(null, eventId, key)}>
                   <SubmitButton
@@ -265,6 +321,48 @@ function LineCell({ half }: { half: EntourageRow[number] }) {
         {half.ceremonyOnly ? ' · ceremony only' : ''}
       </span>
     </span>
+  );
+}
+
+/**
+ * Move a whole SECTION (Parents, Immediate Family, …) up or down.
+ *
+ * ⚖ Owner 2026-09-21. A plain form, like the line arrows: works on a phone,
+ * with JavaScript off, and by keyboard. The first/last section keeps a
+ * disabled arrow so the heading does not shift sideways.
+ */
+function SectionMoveButton({
+  eventId,
+  groupKey,
+  label,
+  direction,
+  disabled,
+}: {
+  eventId: string;
+  groupKey: string;
+  label: string;
+  direction: 'up' | 'down';
+  disabled: boolean;
+}) {
+  const Icon = direction === 'up' ? ArrowUp : ArrowDown;
+  if (disabled) {
+    return (
+      <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center text-ink/15">
+        <Icon className="h-3 w-3" strokeWidth={2} />
+      </span>
+    );
+  }
+  return (
+    <form action={moveEntourageSection.bind(null, eventId, groupKey, direction)}>
+      <SubmitButton
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/45 hover:bg-ink/5 hover:text-ink"
+        aria-label={`Move the ${label} section ${direction}`}
+        pendingLabel=""
+        overlay={false}
+      >
+        <Icon className="h-3 w-3" strokeWidth={2} />
+      </SubmitButton>
+    </form>
   );
 }
 

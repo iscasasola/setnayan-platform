@@ -49,14 +49,30 @@ describe('locking keeps the couple’s plan', () => {
 
   it('actually skips the upsert when the couple’s plan must survive', () => {
     // Consulting the rule and ignoring the answer is the other way to lose the
-    // plan — "keep the call, discard its result". The upsert must sit behind
-    // the verdict.
-    assert.match(
-      block,
-      /keepCouplePlan\s*\?\s*\{\s*error:\s*null\s*\}\s*:\s*await planAdmin/,
-      'the upsert is no longer gated on keepCouplePlan — a lock would overwrite ' +
-        'the couple’s own plan with a generic estimate again.',
+    // plan — "keep the call, discard its result". The replacing upsert must sit
+    // behind the verdict. Since 2026-09-21 the keep branch is not a no-op: it
+    // re-dates the couple's OWN plan to the lock day (see the next test) —
+    // what it must never write is the freshly-computed `instances`.
+    const m = block.match(/keepCouplePlan\s*\?([\s\S]*?)\s*:\s*await planAdmin\s*\.from\('event_vendor_payment_plan'\)\s*\.upsert/);
+    assert.ok(m, 'the upsert is no longer gated on keepCouplePlan — a lock would overwrite the couple’s own plan with a generic estimate again.');
+    const keep = m![1]!;
+    assert.match(keep, /\.update\(/, 'the keep branch no longer UPDATEs in place');
+    assert.doesNotMatch(
+      keep,
+      /instances_json:\s*instances\b/,
+      'the keep branch writes the computed estimate — the couple’s plan would be replaced.',
     );
+  });
+
+  it('counts "after lock" from the day Lock was clicked (owner 2026-09-21)', () => {
+    // "on the date you clicked on lock". The keep branch re-dates the
+    // couple's plan to today and stamps that day, so later edits read it back.
+    assert.match(block, /redateOnLockInstalments\(/, 'the lock no longer re-dates the couple’s plan');
+    const stamps = (block.match(/on_lock_anchor_date:\s*lockDateIso/g) ?? []).length;
+    // keep+readable, keep+unreadable, and the upsert for a plan-less supplier.
+    assert.equal(stamps, 3, `expected the lock day stamped on all three paths, found ${stamps}`);
+    assert.match(src, /const lockDateIso = targetVendor\.marketplace_vendor_id\s*\?[^:]+:\s*manilaTodayIso\(\)/,
+      'a self-added supplier’s lock day is no longer the Manila day the couple clicked');
   });
 
   it('does not overwrite a self-added supplier’s plan when the read fails', () => {

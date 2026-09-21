@@ -35,6 +35,19 @@
  */
 
 export const STUDIO_CSS_V2 = `
+/* 2026-09-20 · the studio's own reveal panel is HIDDEN, not removed. The page now
+   has ONE effects row under the editor (owner's concept), and a second picker in
+   here wrote the same field. It stays in the DOM because engine.ts binds
+   listeners to #animbox in three places — removing it would throw and take the
+   whole editor down. */
+#animbox{display:none!important}
+/* ⚖ …and its TAB goes with it (owner 2026-09-21: "on the upper editors should
+   both not have reveal. just the one at the bottom"). Hidden, not deleted, for
+   the same reason as #animbox: engine.ts walks all three [data-vt] buttons and
+   #tab-reveal. The tabs start on Letters and nothing else opens Reveal, so a
+   hidden button is a tab nobody can reach. Letters · Frame stretch to fill. */
+.vsroot .vs .vt[data-vt="reveal"]{display:none!important}
+
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;font-family:var(--font-hanken),system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
 .vsroot .vs .frame{background:transparent;padding:0;max-width:none;margin:0;}

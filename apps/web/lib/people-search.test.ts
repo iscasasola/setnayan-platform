@@ -8,7 +8,15 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeLikeQuery, MAX_RESULTS, MIN_QUERY_LENGTH } from './people-search-query';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  escapeLikeQuery,
+  MAX_QUERY_TERMS,
+  MAX_RESULTS,
+  MIN_QUERY_LENGTH,
+  nameSearchTerms,
+} from './people-search-query';
 
 test('🚨 a typed % searches for a per-cent sign, not for everybody', () => {
   // Unescaped, `%` in an ILIKE pattern means "any run of characters", so a
@@ -43,4 +51,62 @@ test('the thresholds are the enumeration guard, and they are not zero', () => {
   assert.ok(MIN_QUERY_LENGTH >= 2, 'a single character can be searched — that is enumeration');
   // A result list, not a dataset.
   assert.ok(MAX_RESULTS <= 25, 'the result cap is high enough to page a directory');
+});
+
+// ── ANY ORDER (owner, 2026-09-21: "Casasola Ice … this should work also") ──
+
+/** What the users read does with the terms: every word, anywhere, any case. */
+function matches(displayName: string, query: string): boolean {
+  const terms = nameSearchTerms(query);
+  const name = displayName.toLowerCase();
+  return terms.length > 0 && terms.every((t) => name.includes(t.toLowerCase()));
+}
+
+test('surname-first finds the same person as first-name-first', () => {
+  for (const q of ['Ice Casasola', 'Casasola Ice', 'casasola ice', 'Casasola, Ice', '  Ice   Casasola ']) {
+    assert.ok(matches('Ice Casasola', q), `"${q}" did not find Ice Casasola`);
+  }
+  // Parts of words still work, in either order.
+  assert.ok(matches('Ice Casasola', 'sasola ic'));
+  // A single word still works on its own.
+  assert.ok(matches('Ice Casasola', 'Ice'));
+  assert.ok(matches('Ice Casasola', 'Casasola'));
+});
+
+test('every word must be in the name — another word narrows, never widens', () => {
+  assert.equal(matches('Ice Casasola', 'Casasola Maria'), false);
+  assert.equal(matches('Maria Casasola', 'Casasola Ice'), false);
+  assert.ok(matches('Maria Casasola', 'Casasola'));
+});
+
+test('words are split on spaces and commas, and repeats collapse', () => {
+  assert.deepEqual(nameSearchTerms('Casasola, Ice'), ['Casasola', 'Ice']);
+  assert.deepEqual(nameSearchTerms(' Ice\tCasasola  '), ['Ice', 'Casasola']);
+  assert.deepEqual(nameSearchTerms('Ice ice ICE'), ['Ice']);
+  assert.ok(nameSearchTerms('a b c d e f g h').length <= MAX_QUERY_TERMS);
+});
+
+test('the enumeration guard survives the split: single letters alone search nothing', () => {
+  assert.deepEqual(nameSearchTerms(''), []);
+  assert.deepEqual(nameSearchTerms('a'), []);
+  // Two single letters are a crawl of the table, not a name.
+  assert.deepEqual(nameSearchTerms('a b'), []);
+  assert.deepEqual(nameSearchTerms(', ,'), []);
+  // …but an initial beside a real word only narrows the search, so it is kept.
+  assert.deepEqual(nameSearchTerms('Casasola I'), ['Casasola', 'I']);
+});
+
+test('the users read filters on each term, escaped — not on the raw string', () => {
+  const src = readFileSync(join(__dirname, 'people-search.ts'), 'utf8');
+  assert.match(src, /nameSearchTerms\(rawQuery\)/, 'the search no longer splits the query into words');
+  assert.match(
+    src,
+    /for \(const term of terms\)\s*\{\s*query = query\.ilike\('display_name', `%\$\{escapeLikeQuery\(term\)\}%`\);/,
+    'each word must get its own escaped ILIKE on display_name',
+  );
+  assert.equal(
+    (src.match(/\.ilike\(/g) ?? []).length,
+    1,
+    'a second ILIKE on the users read would bring back whole-string matching',
+  );
 });

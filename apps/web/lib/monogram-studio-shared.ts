@@ -151,6 +151,49 @@ export const ANIM_TEMPO_TIMINGS: Record<'quick' | 'classic' | 'ceremonial', { du
 };
 export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
+/**
+ * The reveal's FINE-TUNE sliders — owner 2026-09-21: *"please add that fine
+ * tune on the lower part reveal which will be the official reveal."* Same three
+ * sliders, same ranges and steps the studio's retired panel had, so a timing
+ * saved from either reads back identically. `sanitizeStudioConfig` clamps to
+ * the same bounds.
+ */
+export const REVEAL_FINE_TUNE = {
+  dur: { min: 1, max: 15, step: 0.5 },
+  delay: { min: 0, max: 2, step: 0.1 },
+  smooth: { min: 0, max: 1, step: 0.01 },
+} as const;
+
+export type RevealTiming = { dur: number; delay: number; smooth: number; preset: StudioAnimTempo };
+
+/**
+ * What a save stores for the reveal's timing. Absent or unreadable slider
+ * values fall back to the tempo preset's; values are clamped to the slider
+ * ranges; and the preset is named only when the numbers ARE that preset —
+ * anything else is `custom`, exactly as the studio labelled a hand-tuned reveal.
+ */
+export function resolveRevealTiming(
+  tempo: keyof typeof ANIM_TEMPO_TIMINGS,
+  timing?: { dur?: unknown; delay?: unknown; smooth?: unknown } | null,
+): RevealTiming {
+  const base = ANIM_TEMPO_TIMINGS[tempo];
+  const pick = (v: unknown, k: keyof typeof REVEAL_FINE_TUNE) => {
+    const n = typeof v === 'number' ? v : Number.NaN;
+    if (!Number.isFinite(n)) return base[k];
+    const { min, max } = REVEAL_FINE_TUNE[k];
+    return Math.min(max, Math.max(min, n));
+  };
+  const dur = pick(timing?.dur, 'dur');
+  const delay = pick(timing?.delay, 'delay');
+  const smooth = pick(timing?.smooth, 'smooth');
+  const same = (t: { dur: number; delay: number; smooth: number }) =>
+    Math.abs(t.dur - dur) < 0.01 && Math.abs(t.delay - delay) < 0.01 && Math.abs(t.smooth - smooth) < 0.01;
+  const named = (Object.keys(ANIM_TEMPO_TIMINGS) as (keyof typeof ANIM_TEMPO_TIMINGS)[]).find((k) =>
+    same(ANIM_TEMPO_TIMINGS[k]),
+  );
+  return { dur, delay, smooth, preset: named ?? 'custom' };
+}
+
 export type StudioLetterState = {
   tx: number;
   ty: number;
@@ -224,7 +267,17 @@ export type StudioConfig = {
   frames?: StudioFrame[];
   /** Starting-point provenance — which preset card seeded this design. */
   preset?: StudioPresetKey;
-  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number; preset?: StudioAnimTempo };
+  anim?: {
+    kind: (typeof ANIM_KINDS)[number];
+    dur: number;
+    smooth: number;
+    delay: number;
+    preset?: StudioAnimTempo;
+    /** The couple chose "Use Static Image": guests see the mark STILL, even if
+     *  the animation is paid for. Absent = animate (when owned). See
+     *  markAnimationSwitchedOff — the one place this is read. */
+    off?: true;
+  };
 };
 
 // Bounds — generous but finite; the studio works around a 150-unit glyph size
@@ -373,6 +426,10 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       ...(typeof a.preset === 'string' && (ANIM_TEMPOS as readonly string[]).includes(a.preset)
         ? { preset: a.preset as StudioAnimTempo }
         : {}),
+      // Only a literal `true` switches it off: anything else — absent, "false",
+      // a string — must mean "animate", so a malformed write can never silently
+      // freeze a mark someone paid to see move.
+      ...(a.off === true ? { off: true as const } : {}),
     };
   }
 
@@ -467,4 +524,26 @@ export function sanitizeStudioSvg(raw: string): string | null {
   });
 
   return svg;
+}
+
+
+/**
+ * Has the couple chosen "Use Static Image" — guests see the mark STILL, even
+ * though the animation may be paid for?
+ *
+ * Owner 2026-09-20, asked what a couple who has ALREADY paid ₱500 gets when they
+ * press "Use Static Image": *"Their guests see it still."* So paying unlocks the
+ * animation; it does not force it on. The choice is reversible without paying
+ * again, because it is only a flag beside the reveal (`anim.off`), never a
+ * change to what was bought.
+ *
+ * 🔑 THE ONE PLACE THIS IS READ. Every gate that decides whether GUESTS see the
+ * mark animate must ask this as well as asking whether it is owned —
+ * `lib/hero-monogram-data.ts` (16 surfaces) and `app/[slug]/_lib/loaders.ts`
+ * (the guest site, which calls the paid gate directly). A new animation gate
+ * that asks "owned?" and not "switched off?" plays a mark the couple chose to
+ * keep still; `lib/static-means-static.test.ts` fails when that happens.
+ */
+export function markAnimationSwitchedOff(studioConfig: unknown): boolean {
+  return sanitizeStudioConfig(studioConfig)?.anim?.off === true;
 }

@@ -81,6 +81,15 @@ const JOBS = [
     fn: 'maybeRunDeletionRequestNudge',
     what: 'the day-3 reminder to a supplier sitting on a deletion request',
   },
+  // 2026-09-21. The booking fee is the only revenue path there is, and it can
+  // open a charge without ever raising the bill — the supplier is then shown
+  // nothing owed and no screen anywhere says the money is missing. Drop this
+  // line and that repair simply stops, silently, which is the same disease it
+  // was built to cure.
+  {
+    fn: 'maybeRunUnbilledFeeRepair',
+    what: 'raising the bill for a booking fee that opened but was never billed',
+  },
 ] as const;
 
 test('ANCHOR — the layout source was actually read, and stripping left code behind', () => {

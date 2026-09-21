@@ -30,8 +30,10 @@ import { createClient } from '@/lib/supabase/server';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import {
   buildCouplePaymentPlan,
+  onLockAnchorIso,
   type CouplePlanRowInput,
 } from '@/lib/self-added-payment-plan';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
 
 // ============================================================================
 // saveSelfAddedPaymentPlan (2026-09-20)
@@ -80,7 +82,7 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
 
   const { data: booking, error: bookingErr } = await supabase
     .from('event_vendors')
-    .select('total_cost_php, marketplace_vendor_id, created_at')
+    .select('total_cost_php, marketplace_vendor_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -89,7 +91,6 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
   const bk = booking as {
     total_cost_php: number | string | null;
     marketplace_vendor_id: string | null;
-    created_at: string | null;
   };
   if (bk.marketplace_vendor_id) {
     throw new Error(
@@ -112,13 +113,29 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
   if (evErr) throw new Error(evErr.message);
   const eventDateIso = ((ev as { event_date: string | null } | null)?.event_date ?? null) || null;
 
-  // 🔑 WHAT "AFTER LOCK" MEANS FOR A SUPPLIER WITH NO HANDSHAKE. A marketplace
-  // booking anchors `on_lock` on the day the lock landed. A self-added
-  // supplier never handshakes, so the closest honest date is the day the
-  // couple added them (`event_vendors.created_at`), falling back to today if
-  // that is somehow unreadable. Never `new Date()` alone: re-saving the plan
-  // months later would silently slide every on_lock date forward.
-  const lockDateIso = (bk.created_at ?? new Date().toISOString()).slice(0, 10);
+  // 🔑 WHAT "AFTER LOCK" COUNTS FROM (owner 2026-09-21: "on the date you
+  // clicked on lock"). A self-added supplier never handshakes, so the day is
+  // the one `finalizeVendor` stamped on this plan when the couple locked. Not
+  // locked yet → dates shown as if locked today, and the lock re-dates them.
+  // Never `new Date()` once a lock exists: re-saving months later would
+  // silently slide every "after lock" date forward. Never the day they were
+  // ADDED (the old anchor): a March add locked in June put "7 days after lock"
+  // in the past.
+  // ⚠ An unreadable anchor is a refusal, not "today" — guessing would re-date
+  // a locked plan to the day of the edit.
+  const { data: anchorRow, error: anchorErr } = await supabase
+    .from('event_vendor_payment_plan')
+    .select('on_lock_anchor_date')
+    .eq('event_id', eventId)
+    .eq('event_vendor_id', vendorId)
+    .maybeSingle();
+  if (anchorErr) {
+    throw new Error('Could not read when this booking was locked — try again.');
+  }
+  const lockDateIso = onLockAnchorIso(
+    (anchorRow as { on_lock_anchor_date: string | null } | null)?.on_lock_anchor_date,
+    manilaTodayIso(),
+  );
 
   const rows: CouplePlanRowInput[] = [];
   const labels = formData.getAll('plan_label');

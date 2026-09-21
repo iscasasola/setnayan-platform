@@ -38,6 +38,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { RecolorStudio } from './recolor-studio';
+import { nearestColorName } from '@/lib/color-names';
 import {
   type ColorRangeSlot,
   type RegionEditMap,
@@ -56,6 +57,12 @@ export type BoardCard = {
   regions?: ColorRangeSlot[];
   /** Portrait aspect for figures / tall arrangements. */
   portrait?: boolean;
+  /**
+   * The colors are ALTERNATIVES (a guest wears any one), so draw one figure per
+   * color instead of painting them together onto one outfit. Set from
+   * `PALETTE_LIMITS[key].meaning === 'options'`.
+   */
+  lineup?: boolean;
 };
 
 export type BoardSection = {
@@ -154,6 +161,43 @@ export function MoodboardBoard({
 export function BoardCardView({ card }: { card: BoardCard }) {
   const hasRegions = !!card.regions && card.regions.length > 0;
   const hasPalette = card.paletteColors.length > 0;
+  const isLineup = !!card.lineup && hasRegions && card.paletteColors.length > 1;
+
+  if (isLineup) {
+    return (
+      <li
+        data-lineup={card.paletteColors.length}
+        className="col-span-full overflow-hidden rounded-xl border border-ink/15 bg-cream sm:col-span-2"
+      >
+        <ul className="flex gap-1.5 overflow-x-auto p-2">
+          {card.paletteColors.map((hex, i) => (
+            <li key={`${hex}-${i}`} className="min-w-[5.5rem] flex-1 space-y-1.5">
+              <RecolorStudio
+                imageSrc={card.imageUrl}
+                regions={card.regions!}
+                initialEdits={autoEdits(card.regions!, [hex])}
+                portrait={card.portrait}
+              />
+              <div className="flex items-center gap-1.5 px-0.5">
+                <span
+                  className="h-4 w-4 shrink-0 rounded-full border border-ink/15"
+                  style={{ backgroundColor: hex }}
+                  title={hex}
+                />
+                <span className="truncate text-[11px] text-ink/70">
+                  {nearestColorName(hex) ?? hex}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="space-y-0.5 px-3 pb-3">
+          <p className="text-sm font-medium text-ink">{card.label}</p>
+          <p className="text-xs text-ink/55">Any one of these colors</p>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li className="overflow-hidden rounded-xl border border-ink/15 bg-cream">

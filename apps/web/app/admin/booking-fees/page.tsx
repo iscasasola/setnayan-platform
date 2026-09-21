@@ -5,6 +5,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCentavosPhp } from '@/lib/payouts';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { whyNotBilled, type PendingCharge, type UnbilledVerdict } from '@/lib/unbilled-fee-repair';
+import { gatherUnbilledFacts } from '@/lib/unbilled-fee-repair.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +33,23 @@ export const dynamic = 'force-dynamic';
  * NEXT_PUBLIC_BOOKING_FEE_ENABLED is on, so until the owner flips it this page
  * is legitimately empty. That is stated on the screen rather than left to look
  * like a broken query — an empty list and a switched-off feature look identical.
+ *
+ * ─── 2026-09-21 · THE ROW THAT MEANT TWO OPPOSITE THINGS ─────────────────
+ * Every pending charge with no `orders` row read **"Nothing sent yet"** — the
+ * same six words as a supplier who has been billed and simply has not paid.
+ * They are opposite situations. One is a customer taking their time; the other
+ * is Setnayan never having asked, because the collector opens the charge
+ * through the RPC FIRST and can then fail at five points before the order and
+ * payment rows exist. In that second case the supplier is shown nothing owed
+ * anywhere, and this page — the one place built to answer "who owes us?" —
+ * quietly agreed with them.
+ *
+ * 🔑 NOT BILLED IS NOW ITS OWN STATE, WITH ITS REASON, measured at read time by
+ * `whyNotBilled` (the same judge the repair sweep uses to decide what it can
+ * heal, so the desk and the sweep can never disagree about which charges are a
+ * person's problem). The reason is DERIVED, never stored: see the pure module's
+ * docblock for why writing it onto the charge would let a bookkeeping UPDATE
+ * re-size the supplier's gift through a BEFORE-UPDATE trigger.
  */
 
 type ChargeRow = {
@@ -42,6 +61,7 @@ type ChargeRow = {
   created_at: string;
   vendor_profile_id: string;
   event_id: string;
+  event_vendor_id: string | null;
 };
 
 const num = (v: number | string | null): number => (v == null ? 0 : Number(v));
@@ -58,7 +78,7 @@ export default async function AdminBookingFeesPage() {
   const { data, error } = await admin
     .from('booking_fee_charges')
     .select(
-      'charge_id, public_id, amount_charged_centavos, proposal_amount_centavos, status, created_at, vendor_profile_id, event_id',
+      'charge_id, public_id, amount_charged_centavos, proposal_amount_centavos, status, created_at, vendor_profile_id, event_id, event_vendor_id',
     )
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
@@ -128,6 +148,27 @@ export default async function AdminBookingFeesPage() {
     }
   }
 
+  // WHY a charge has no bill — asked only of the charges that have none, and
+  // answered from rows read just now. `gatherUnbilledFacts` is best-effort: a
+  // refused lookup leaves the charge looking repairable rather than inventing a
+  // durable cause for a read that simply failed.
+  const unbilledCharges: PendingCharge[] = charges
+    .filter((c) => !paidRefs.has(bookingFeeLockServiceKey(c.charge_id)))
+    .map((c) => ({
+      chargeId: c.charge_id,
+      eventVendorId: c.event_vendor_id,
+      status: c.status,
+      createdAt: c.created_at,
+    }));
+  const notBilled = new Map<string, UnbilledVerdict>();
+  if (unbilledCharges.length > 0) {
+    const facts = await gatherUnbilledFacts(admin, unbilledCharges, nowMs);
+    for (const c of unbilledCharges) {
+      const f = facts.get(c.chargeId);
+      if (f) notBilled.set(c.chargeId, whyNotBilled(f));
+    }
+  }
+
   const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
@@ -162,6 +203,15 @@ export default async function AdminBookingFeesPage() {
             <strong>{formatCentavosPhp(owedTotal)}</strong> owed across {charges.length}{' '}
             {charges.length === 1 ? 'booking' : 'bookings'}
           </span>
+          {notBilled.size > 0 ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-sm font-semibold"
+              style={{ color: '#B54708' }}
+            >
+              <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {notBilled.size} {notBilled.size === 1 ? 'has' : 'have'} never been billed
+            </span>
+          ) : null}
           <span className="text-sm text-[color:var(--sn-ink-500)]">
             {withProof} {withProof === 1 ? 'has' : 'have'} sent proof and{' '}
             {withProof === 1 ? 'is' : 'are'} waiting on you
@@ -191,6 +241,10 @@ export default async function AdminBookingFeesPage() {
             const key = bookingFeeLockServiceKey(c.charge_id);
             const pay = paidRefs.get(key);
             const days = ageDays(c.created_at, nowMs);
+            // NOT BILLED is a different state from NOT PAID, and the tile says
+            // which one this is. `pay` is undefined exactly when no order row
+            // exists for the charge — i.e. when nobody was ever asked.
+            const missing = notBilled.get(c.charge_id) ?? null;
             return (
               <li key={c.charge_id} className="sn-tile flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-ink/5">
@@ -198,7 +252,7 @@ export default async function AdminBookingFeesPage() {
                     aria-hidden
                     className="h-5 w-5"
                     strokeWidth={1.75}
-                    style={{ color: pay?.hasProof ? '#B54708' : 'var(--sn-ink-500)' }}
+                    style={{ color: missing || pay?.hasProof ? '#B54708' : 'var(--sn-ink-500)' }}
                   />
                 </span>
 
@@ -211,6 +265,15 @@ export default async function AdminBookingFeesPage() {
                     {formatCentavosPhp(num(c.proposal_amount_centavos))} booking
                     {c.public_id ? ` · ${c.public_id}` : ''}
                   </span>
+                  {missing ? (
+                    <span
+                      className="mt-1 text-xs"
+                      style={{ color: '#B54708' }}
+                      data-unbilled-reason={missing.code}
+                    >
+                      {missing.reason}
+                    </span>
+                  ) : null}
                 </span>
 
                 <span className="flex shrink-0 items-center gap-3">
@@ -222,7 +285,15 @@ export default async function AdminBookingFeesPage() {
                     {days === 0 ? 'today' : `${days}d`}
                   </span>
 
-                  {pay?.hasProof ? (
+                  {missing ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs font-semibold"
+                      style={{ color: '#B54708' }}
+                    >
+                      <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                      Never billed
+                    </span>
+                  ) : pay?.hasProof ? (
                     <Link
                       href="/admin/payments"
                       className="rounded-md px-3 py-1.5 text-xs font-semibold"
@@ -232,7 +303,7 @@ export default async function AdminBookingFeesPage() {
                     </Link>
                   ) : (
                     <span className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
-                      Nothing sent yet
+                      Billed — nothing sent yet
                     </span>
                   )}
                 </span>

@@ -44,7 +44,7 @@ import { eventOwnsCustomQrGuest, eventSeatingPublished } from '@/lib/seat-pass';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
-import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import {
   resolveMonogramMotion,
@@ -377,9 +377,15 @@ export const loadMedia = cache(
       admin,
       event.event_id,
     );
-    const animatedMonogram: MonogramMotionKey | false = ownsAnimatedMonogram
-      ? resolveMonogramMotion(event.monogram_motion_key)
-      : false;
+    /* Owned is not the same as ON: "Use Static Image" keeps a paid mark still
+     * for guests (owner 2026-09-20). This loader calls the paid gate directly
+     * rather than going through resolveEventMonogram, so it must ask too — a
+     * gate that asks "owned?" and not "switched off?" plays a mark the couple
+     * chose to keep still. */
+    const animatedMonogram: MonogramMotionKey | false =
+      ownsAnimatedMonogram && !markAnimationSwitchedOff(event.monogram_studio_config)
+        ? resolveMonogramMotion(event.monogram_motion_key)
+        : false;
 
     // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
     // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
@@ -1437,6 +1443,31 @@ export const loadGuestContext = cache(
  * when this shipped; see the docblock on `lib/entourage.ts` before adding it as
  * a second source.
  */
+/**
+ * The couple's Wedding March SECTION order (`events.entourage_section_order`).
+ *
+ * ⚖ Owner 2026-09-21: the couple arranges the sections themselves.
+ *
+ * 🔑 ITS OWN QUERY, AND A FAILURE IS "BUILT-IN ORDER", NOT A BROKEN PAGE. This
+ * is an arrangement, not content: if it cannot be read the entourage still
+ * prints, everybody in it, in the default order. Folding it into the event's
+ * main select would let one unreadable preference 404 the whole invitation.
+ */
+export const loadEntourageSectionOrder = cache(
+  async (admin: AdminClient, eventId: string): Promise<string[] | null> => {
+    const { data, error } = await admin
+      .from('events')
+      .select('entourage_section_order')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) {
+      logQueryError('loadEntourageSectionOrder', error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return ((data as { entourage_section_order: string[] | null } | null)?.entourage_section_order) ?? null;
+  },
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1480,6 +1511,9 @@ export const loadEntourage = cache(
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
     }
-    return buildEntourage((data ?? []) as EntourageGuestRow[]);
+    return buildEntourage(
+      (data ?? []) as EntourageGuestRow[],
+      await loadEntourageSectionOrder(admin, eventId),
+    );
   },
 );

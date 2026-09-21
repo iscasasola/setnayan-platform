@@ -5,6 +5,7 @@ import { fetchGuestsByEvent } from '@/lib/guests';
 import {
   sanitizeRolePalette,
   paletteKeyForRole,
+  PALETTE_LIMITS,
   ROLE_FAMILY_KEYS,
   type PaletteKey,
 } from '@/lib/mood-board';
@@ -717,6 +718,11 @@ export default async function MoodBoardPage({ params }: Props) {
     // `resolveAttirePaletteColor` uses to dress the figure in the 3D room.
     paletteColors:
       (d.specific && palette[d.specific]?.length ? palette[d.specific] : palette[d.key]) ?? [],
+    // Guests wear ANY ONE of their colors, so they get one figure per color;
+    // every other role is one outfit, main color first (owner, 2026-09-21).
+    lineup:
+      PALETTE_LIMITS[d.specific && palette[d.specific]?.length ? d.specific : d.key].meaning ===
+      'options',
     // MB23 — the figure now recolours, exactly as `ceremonyRow`/`bouquetRow` do.
     // The 🔑 risk this carries is the WHITE: four of the forty seeded figures
     // had a range whose tolerance also swallowed their own opaque background

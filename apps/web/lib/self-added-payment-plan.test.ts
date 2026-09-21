@@ -17,6 +17,9 @@ import {
   PLAN_NEEDS_TOTAL,
   buildCouplePaymentPlan,
   lockMayOverwritePlan,
+  onLockAnchorIso,
+  planInstancesToRows,
+  redateOnLockInstalments,
   type CouplePlanRowInput,
 } from './self-added-payment-plan';
 
@@ -129,7 +132,7 @@ describe('every payment needs a day', () => {
     const r = build(HALF_HALF, 80000, null);
     assert.equal(r.ok, false);
     assert.match(r.ok === false ? r.message : '', /event date isn't fixed yet/);
-    assert.match(r.ok === false ? r.message : '', /Anchor it after the booking instead/);
+    assert.match(r.ok === false ? r.message : '', /Set it for after you lock instead/);
   });
 });
 
@@ -199,5 +202,95 @@ describe('locking a supplier must not erase the plan the couple typed', () => {
       lockMayOverwritePlan({ onPlatform: false, existingInstances: COUPLE_PLAN, existingIsDefaultSeeded: true }),
       true,
     );
+  });
+});
+
+describe('re-opening a supplier shows the plan the couple typed', () => {
+  it('round-trips the RULE, not just the resolved date', () => {
+    // "7 days before the event" cannot be recovered from 2026-12-11. Before
+    // `authored` was stored, the Details sheet had nothing to pre-fill with and
+    // would have shown an empty plan to a couple who had already agreed one.
+    const built = build(HALF_HALF);
+    assert.ok(built.ok);
+    const back = planInstancesToRows(JSON.parse(JSON.stringify(built.instances)));
+    assert.deepEqual(back, [
+      { label: 'Downpayment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },
+      { label: 'Balance', kind: 'percent', value: '50', anchor: 'before_event', days: '7' },
+    ]);
+  });
+
+  it('a round-tripped plan rebuilds to the same money and dates', () => {
+    const first = build(HALF_HALF);
+    assert.ok(first.ok);
+    const rows = planInstancesToRows(first.instances).map((r) => ({
+      label: r.label,
+      amount_kind: r.kind,
+      value: r.value,
+      due_anchor: r.anchor,
+      due_offset_days: r.days,
+    }));
+    const second = build(rows);
+    assert.ok(second.ok);
+    assert.deepEqual(
+      second.instances.map((i) => [i.amount_php, i.due_date]),
+      first.instances.map((i) => [i.amount_php, i.due_date]),
+    );
+  });
+
+  it('a legacy instance with no rule comes back as its money, with the rule left for the couple', () => {
+    // Guessing an anchor from a date would put a rule in the plan the couple
+    // never chose. The amount is known; the rule is asked for.
+    const back = planInstancesToRows([
+      { seq: 0, label: 'Downpayment', amount_php: 40000, due_date: '2026-09-20' },
+    ]);
+    assert.deepEqual(back, [{ label: 'Downpayment', kind: 'fixed', value: '40000', anchor: '', days: '0' }]);
+  });
+
+  it('reads nothing from something that is not a plan', () => {
+    assert.deepEqual(planInstancesToRows(null), []);
+    assert.deepEqual(planInstancesToRows({}), []);
+    assert.deepEqual(planInstancesToRows([null, 3, 'x']), []);
+  });
+});
+
+describe('"after lock" counts from the day Lock was clicked (owner 2026-09-21)', () => {
+  it('uses the stamped lock day once there is one — re-saving never slides it', () => {
+    assert.equal(onLockAnchorIso('2026-06-02', '2026-09-21'), '2026-06-02');
+    assert.equal(onLockAnchorIso('2026-06-02T00:00:00+00:00', '2026-09-21'), '2026-06-02');
+  });
+
+  it('before the lock, shows the dates as if locked today', () => {
+    assert.equal(onLockAnchorIso(null, '2026-09-21'), '2026-09-21');
+    assert.equal(onLockAnchorIso(undefined, '2026-09-21'), '2026-09-21');
+    assert.equal(onLockAnchorIso('garbage', '2026-09-21'), '2026-09-21');
+  });
+
+  it('the lock moves only "after lock" dates — money, labels and event-anchored rows stay', () => {
+    // Added (and planned) on 2026-03-01; locked on 2026-06-02.
+    const added = buildCouplePaymentPlan({
+      rows: [
+        row({ label: 'Downpayment', value: '30', due_anchor: 'on_lock', due_offset_days: '0' }),
+        row({ label: 'Second', value: '30', due_anchor: 'on_lock', due_offset_days: '14' }),
+        row({ label: 'Balance', value: '40', due_anchor: 'before_event', due_offset_days: '7' }),
+      ],
+      totalPhp: 100000,
+      lockDateIso: '2026-03-01',
+      eventDateIso: EVENT,
+    });
+    assert.ok(added.ok);
+    const stored = JSON.parse(JSON.stringify(added.instances));
+    const locked = redateOnLockInstalments(stored, '2026-06-02') as typeof added.instances;
+    assert.deepEqual(locked.map((i) => i.due_date), ['2026-06-02', '2026-06-16', '2026-12-11']);
+    assert.deepEqual(locked.map((i) => i.amount_php), stored.map((i: { amount_php: number }) => i.amount_php));
+    assert.deepEqual(locked.map((i) => i.label), ['Downpayment', 'Second', 'Balance']);
+  });
+
+  it('leaves a legacy instance with no stored rule exactly as it was', () => {
+    const legacy = [{ seq: 0, label: 'Downpayment', amount_php: 40000, due_date: '2026-03-01' }];
+    assert.deepEqual(redateOnLockInstalments(legacy, '2026-06-02'), legacy);
+  });
+
+  it('reads nothing from something that is not a plan', () => {
+    assert.deepEqual(redateOnLockInstalments(null, '2026-06-02'), []);
   });
 });

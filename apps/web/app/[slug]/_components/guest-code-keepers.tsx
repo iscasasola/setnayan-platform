@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
-import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 
 /**
  * "Save the code" + "Copy link" — the two ways a guest takes their invitation
@@ -17,6 +16,13 @@ import { NfcWriteButton } from '@/app/_components/nfc-write-button';
  * same shape the host dashboard already uses for its branded PNG, so the
  * browser does the saving and no JavaScript is required for the half that
  * matters most. Only the clipboard needs a client.
+ *
+ * ⛔ NO "WRITE TO NFC" HERE — owner, 2026-09-21: *"remove the write to NFC on
+ * the event hub."* Writing a tag is a job for the people who PRINT and PLACE
+ * them (the couple, a supplier setting up tables), not for a guest holding their
+ * own invitation. The NFC strip stays on the host and supplier surfaces that
+ * own physical tags. Pinned by `every-qr-carries-the-strip.test.ts`, which now
+ * forbids the button anywhere in the guest tree.
  */
 export function GuestCodeKeepers({
   invitationUrl,
@@ -56,10 +62,6 @@ export function GuestCodeKeepers({
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
         </a>
-        <NfcWriteButton
-          url={invitationUrl}
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
-        />
         <button
           type="button"
           onClick={copy}

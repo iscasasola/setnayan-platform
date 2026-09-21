@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Undo2, UploadCloud } from 'lucide-react';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { StudioRevealPlayer } from '@/app/_components/studio-reveal-player';
-import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
-import { saveUploadedMarkAction, clearUploadedMarkAction } from './upload-actions';
+import { clearUploadedMarkAction } from './upload-actions';
+import { provideMark, onPlay, type PlayDetail } from './mark-bench';
 import { InkCompare } from './ink-compare';
 import { UploadTips } from './upload-tips';
 import { markInks, type MarkInkMode } from '@/lib/monogram-ink';
@@ -17,29 +17,20 @@ import { markInks, type MarkInkMode } from '@/lib/monogram-ink';
  * Drop an SVG or a transparent PNG → the browser DECIPHERS it into vector
  * elements (SVG: the author's own paths; PNG: our dependency-free tracer,
  * one path per connected piece) → preview any reveal playing on the REAL
- * uploaded mark (the same player the live site runs) → Save writes the
- * long-dormant events.monogram_uploaded_svg, which already outranks every
- * other mark on the hero, plus the reveal choice.
+ * uploaded mark (the same player the live site runs). There is no save button
+ * in here: the page's "Use Static Image" / "Unlock Animation & Apply" ask for
+ * the mark through mark-bench.ts and write events.monogram_uploaded_svg.
  *
  * EPS/AI are declined honestly (browsers can't read PostScript) with
  * convert-first guidance. This is the only upload door; the studio's curated
  * path stays the default (verdict §1).
  */
 
-const REVEALS: { kind: StudioAnimKind; label: string }[] = [
-  { kind: 'handwriting', label: 'Handwriting' },
-  { kind: 'droplet', label: 'Bloom' },
-  { kind: 'petalfall', label: 'Petal Fall' },
-  { kind: 'molten', label: 'Molten Gold' },
-  { kind: 'flip3d', label: 'Medallion Turn' },
-];
-
 export function UploadMark({
   eventId,
   hasUpload,
   monogramText,
   notice,
-  ownsAnimated,
   paletteInk,
   savedSvg,
   savedIsLive,
@@ -50,8 +41,6 @@ export function UploadMark({
   monogramText: string;
   /** Upload-flow status banner (success/error), routed here by page.tsx. */
   notice?: { tone: 'ok' | 'error'; text: string } | null;
-  /** Whether the couple owns the paid Animated Monogram (gates the LIVE reveal). */
-  ownsAnimated?: boolean;
   /** The couple's reception colour from their mood board, or null when they
    *  have not chosen one — <InkCompare> withholds the comparison rather than
    *  previewing against a colour that is not theirs. */
@@ -70,8 +59,9 @@ export function UploadMark({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [decoded, setDecoded] = useState<{ svg: string; elements: number; traced: boolean } | null>(null);
-  const [revealKind, setRevealKind] = useState<StudioAnimKind>('handwriting');
-  const [replay, setReplay] = useState(0);
+  /* The effect tapped in the row below, played on the mark shown here. null =
+   * the mark sits still. `n` restarts the player when the same one is tapped. */
+  const [playing, setPlaying] = useState<(PlayDetail & { n: number }) | null>(null);
   /* Default 'file': never silently repaint somebody's existing brand mark. The
    * couple opts INTO the mood board, having seen both. */
   const [inkMode, setInkMode] = useState<MarkInkMode>('file');
@@ -88,8 +78,23 @@ export function UploadMark({
       return;
     }
     setDecoded({ svg: res.svg, elements: res.elements, traced: res.traced });
-    setReplay((n) => n + 1);
   }
+
+  useEffect(() => onPlay((d) => setPlaying((p) => ({ ...d, n: (p?.n ?? 0) + 1 }))), []);
+
+  /* What "Use Static Image" / "Unlock Animation & Apply" save from this side:
+   * a freshly decoded file, else the logo already saved (left as it is). */
+  useEffect(
+    () =>
+      provideMark(() =>
+        decoded
+          ? { ok: true, mark: { source: 'upload', svg: decoded.svg, inkMode } }
+          : hasUpload
+            ? { ok: true, mark: { source: 'none' } }
+            : { ok: false, error: 'Upload your monogram first.' },
+      ),
+    [decoded, inkMode, hasUpload],
+  );
 
   return (
     <section id="upload-mark" className="scroll-mt-24 space-y-4">
@@ -119,7 +124,29 @@ export function UploadMark({
           like as a converted svg to be able to animate" is answerable without
           uploading the file a second time. */}
       {hasUpload && savedSvg && !decoded ? (
-        <SavedMark svg={savedSvg} live={savedIsLive !== false} monogramText={monogramText} />
+        <SavedMark svg={savedSvg} live={savedIsLive !== false} monogramText={monogramText} playing={playing} />
+      ) : null}
+
+      {/* A freshly chosen file sits where the saved logo was — the mark is the
+          first thing on this side, as in the concept, with the file controls
+          under it. */}
+      {decoded ? (
+        <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
+            {decoded.traced
+              ? `Deciphered into ${decoded.elements} ${decoded.elements === 1 ? 'piece' : 'pieces'} — traced to crisp vector`
+              : `${decoded.elements} vector ${decoded.elements === 1 ? 'element' : 'elements'} found`}
+          </p>
+
+          <MarkStage svg={decoded.svg} monogramText={monogramText} playing={playing} />
+
+          <InkCompare
+            svg={decoded.svg}
+            paletteInk={paletteInk ?? null}
+            value={inkMode}
+            onChange={setInkMode}
+          />
+        </div>
       ) : null}
 
       {hasUpload ? (
@@ -166,99 +193,6 @@ export function UploadMark({
           than the breakpoint: guidance first, then get out of the way. */}
       <UploadTips open={!decoded} />
 
-      {decoded ? (
-        <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
-            {decoded.traced
-              ? `Deciphered into ${decoded.elements} ${decoded.elements === 1 ? 'piece' : 'pieces'} — traced to crisp vector`
-              : `${decoded.elements} vector ${decoded.elements === 1 ? 'element' : 'elements'} found`}
-          </p>
-
-          <div
-            className={`mx-auto h-56 max-w-[320px]${
-              revealKind === 'molten' || revealKind === 'flip3d' ? ' rounded-2xl p-4' : ''
-            }`}
-            style={
-              revealKind === 'molten' || revealKind === 'flip3d'
-                ? {
-                    background: 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)',
-                  }
-                : undefined
-            }
-          >
-            <StudioRevealPlayer
-              key={`${revealKind}-${replay}`}
-              svg={decoded.svg}
-              monogram={monogramText}
-              anim={{ kind: revealKind, dur: 6, smooth: 0.9, delay: 0.3 }}
-              allowWebgl={false}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">Animate it</span>
-            {REVEALS.map((r) => (
-              <button
-                key={r.kind}
-                type="button"
-                onClick={() => {
-                  setRevealKind(r.kind);
-                  setReplay((n) => n + 1);
-                }}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  revealKind === r.kind
-                    ? 'border-ink bg-ink text-cream'
-                    : 'border-ink/15 bg-white text-ink/70 hover:bg-ink/5'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setReplay((n) => n + 1)}
-              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-            >
-              ↻ Replay
-            </button>
-          </div>
-
-          <InkCompare
-            svg={decoded.svg}
-            paletteInk={paletteInk ?? null}
-            value={inkMode}
-            onChange={setInkMode}
-          />
-
-          {/* ONE free/paid line on this page, and it is the unlock row below
-              (<AnimatedMonogramUpgrade>, compact). This panel used to carry a
-              SECOND, differently-worded copy of it — two sentences making the
-              same promise in two voices, which is how they drift apart. Only
-              the owned confirmation stays, because it is a status, not a
-              pitch. */}
-          {ownsAnimated ? (
-            <p className="text-xs text-success-800">The reveal you pick here plays live for your guests.</p>
-          ) : null}
-
-          <form action={saveUploadedMarkAction} className="flex flex-wrap items-center gap-3">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="svg" value={decoded.svg} />
-            <input type="hidden" name="anim_kind" value={revealKind} />
-            {/* The colour choice rides with the mark: the action stamps it onto
-                the SVG's root tag, so every read site inherits it without
-                asking. */}
-            <input type="hidden" name="ink_mode" value={inkMode} />
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700"
-            >
-              <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Use this as my monogram
-            </button>
-            <span className="text-xs text-ink/55">Takes over your QR codes, website, and save-the-date.</span>
-          </form>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -274,17 +208,20 @@ export function UploadMark({
  *
  * ⛔ NO REVEAL CHIPS HERE ANY MORE. They used to live in this panel AND inside
  * the Vector Studio — two pickers writing one field, neither visible from the
- * other door. The reveal is now one step of its own after the mark exists
- * (reveal-step.tsx), so it serves a mark made either way. Adding a second
- * picker back here would recreate exactly the split the owner asked to remove.
+ * other door. The effects are one row of their own under whichever editor is
+ * open (mark-bench.tsx) and play ON this mark. Adding a second picker back
+ * here would recreate exactly the split the owner asked to remove.
  */
 function SavedMark({
   svg,
   live,
+  monogramText,
+  playing,
 }: {
   svg: string;
   live: boolean;
   monogramText: string;
+  playing: (PlayDetail & { n: number }) | null;
 }) {
   // Counted from the SAME svg that renders, so the numbers cannot describe a
   // different file from the one on screen.
@@ -301,16 +238,48 @@ function SavedMark({
           {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
         </p>
       </header>
-
-      <div
-        aria-hidden
-        className="mx-auto flex h-48 max-w-[300px] items-center justify-center [&_svg]:max-h-full [&_svg]:max-w-full"
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
-
-      <p className="text-xs text-ink/55">
-        Each piece animates on its own — choose how in <a href="#reveal" className="font-medium text-mulberry underline underline-offset-2">the reveal</a> below.
-      </p>
+      <MarkStage svg={svg} monogramText={monogramText} playing={playing} />
     </section>
+  );
+}
+
+/**
+ * <MarkStage> — the logo, still, until an effect is tapped in the row below;
+ * then that effect plays on it right here, through the same player the live
+ * site runs. Metal reveals get their dark stage so the gold reads.
+ */
+function MarkStage({
+  svg,
+  monogramText,
+  playing,
+}: {
+  svg: string;
+  monogramText: string;
+  playing: (PlayDetail & { n: number }) | null;
+}) {
+  const dark = playing?.kind === 'molten' || playing?.kind === 'flip3d';
+  return (
+    <div
+      className={`mx-auto h-56 max-w-[320px]${dark ? ' rounded-2xl p-4' : ''}`}
+      style={
+        dark ? { background: 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)' } : undefined
+      }
+    >
+      {playing ? (
+        <StudioRevealPlayer
+          key={`${playing.kind}-${playing.n}`}
+          svg={svg}
+          monogram={monogramText}
+          anim={{ kind: playing.kind, dur: playing.dur, smooth: playing.smooth, delay: playing.delay }}
+          allowWebgl={false}
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="flex h-full items-center justify-center [&_svg]:max-h-full [&_svg]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      )}
+    </div>
   );
 }

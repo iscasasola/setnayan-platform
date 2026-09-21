@@ -4184,3 +4184,17 @@ html:active-view-transition .sn-page-enter { animation: none; }
     transform: scaleY(0.8);
   }
 }
+
+/* The invitation top bar's right-hand label gives way to the fixed top-right
+   controls (music · a guest's Account). They are pinned to the viewport
+   corner; on a phone that is exactly where this label sits, so at the top of
+   the page it rendered underneath them. The label is decoration — "Invitation"
+   or the couple's initials, which the hero already shows — and the controls
+   vary in width (Account is wider than music), so it steps out rather than
+   guessing a gap. Only when such a control is on the page, and only while the
+   bar's column reaches the viewport edge. */
+@media (max-width: 55rem) {
+  html:has([data-top-corner]) .sn-top-label {
+    visibility: hidden;
+  }
+}

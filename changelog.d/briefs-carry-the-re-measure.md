@@ -33,3 +33,27 @@ gate on is a flag in Vercel, not a merge.
 SPEC IMPACT: `DECISION_LOG.md` — no new ruling; a row is added recording that the 2026-09-20
 ruling was re-confirmed, that reviews/stats are a delta, and that the register wrongly carried it as
 open. Applied directly in the corpus per the 2026-06-04 standing authorization.
+
+## 2026-09-22 · fix(copy): two supplier-facing surfaces stop promising a commission-free forever
+
+`front-door-feed.tsx` told a prospective supplier **"No commission on your bookings, ever."** on the
+*Open your shop* card, and `vendor-dashboard/earnings/surface.tsx` told a signed-in one **"you always
+get paid directly, 0% commission"** — both beside a real 5% booking fee, with no mention of it.
+
+Per the owner's 2026-08-06 ruling, "no commission" is CORRECT and stays: the couple pays the supplier
+directly and Setnayan never touches that money. The booking fee is a separate bill to the supplier
+for the introduction. **Both sentences are true at once, but only if the second one is actually
+said** — `/pricing` says both; these two said only the first, and added "ever"/"always", which no
+flag can keep true.
+
+- Both now name the fee, with terms **derived** from `bookingFeeScheduleSummary()` and
+  `FREE_BOOKING_LIMIT`, and the front door's launch line gated on `isBookingFeeEnabled()` — the same
+  flag that decides whether anyone is billed, so the promise and the charge cannot disagree.
+- The earnings blurb also promised **"scheduled payouts"**, retired at the 2026-05-28 V2 cutover with
+  `vendor_payouts` empty. Removed in the same sentence.
+- Guard: extended `the-fee-finds-the-supplier.test.ts` (the existing owner of this property) rather
+  than adding a second file. The new assertions are **unconditional**, not keyed on the word
+  "commission" — a phrasing ban misses a reword and convicts innocent code. Three sabotages watched
+  go red: dropping the derivation, re-typing the rate, restoring "ever".
+
+SPEC IMPACT: None — applies the existing 2026-08-06 ruling, makes no new one.

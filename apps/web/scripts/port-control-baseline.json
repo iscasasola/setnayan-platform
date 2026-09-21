@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7d1083830",
+  "generatedFromRef": "ca5d3bcc2",
   "routeCount": 430,
   "destinations": 922,
   "actions": 654,
-  "blocks": 4579,
+  "blocks": 4577,
   "routes": {
     "/": {
       "files": [
@@ -911,7 +911,6 @@
         "DayEntry",
         "DayOfAnnouncement",
         "DayOfBanner",
-        "DayOfFaceEnroll",
         "Detail",
         "DialBar",
         "DoorCard",
@@ -1232,7 +1231,6 @@
       ],
       "actions": [],
       "blocks": [
-        "DayOfFaceEnroll",
         "GuestCodeKeepers",
         "HubShell",
         "Link",

@@ -8,6 +8,7 @@ import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -123,6 +124,13 @@ export default async function PapicGuestPage({
     (ev as { papic_face_mode?: string | null } | null)?.papic_face_mode,
     (ev as { event_type?: string | null } | null)?.event_type,
   );
+
+  // The face step now opens HERE, after the photo rules, on the guest's first
+  // camera tap. So this is the one place it is asked, and it must be gated on
+  // the SAME data-privacy control the matcher enforces: a DPO switch-off
+  // retires the ask instead of collecting a selfie nothing can use. Pinned by
+  // `papic-face-mode-gate.test.ts`.
+  const faceEnrollOn = await isDataPrivacyControlActive('face_enrollment');
 
   // 🔴 THREE STATES, NOT TWO. This is the page every guest reaches on the day —
   // the invitation's Camera button, the day-of bar, and the personal QR all land
@@ -320,7 +328,7 @@ export default async function PapicGuestPage({
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
-      needsFaceEnroll={!liveEnrollment}
+      needsFaceEnroll={faceEnrollOn && !liveEnrollment}
       canKwento={canKwento}
       capApplies={quota.capApplies}
       poolLow={quota.poolLow}

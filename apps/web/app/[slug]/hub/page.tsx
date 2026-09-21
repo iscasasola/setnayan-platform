@@ -55,7 +55,6 @@ import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
-import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { getWallSnapshot, guestWallMirrorActive, type WallArmedChallenge } from '@/lib/live-wall';
@@ -71,9 +70,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { venueIsOpen } from '@/lib/venue-disclosure';
 import { ScheduleWidget } from '../_components/schedule-widget';
-import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
 import { GuestCodeKeepers } from '../_components/guest-code-keepers';
-import { resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { WatchLiveBlock } from '../_components/watch-live-block';
@@ -285,10 +282,6 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   let guestRollCameraReady = false;
   let galleryPhotos: { id: string; url: string }[] = [];
   let galleryTotal = 0;
-  let needsFaceEnroll = false;
-  // Effective face-tag mode for the day-of enroll surface (One-Pool spec §3.4).
-  // Fail-closed default; resolved server-side only when we actually offer enroll.
-  let hubFaceMode: PapicFaceMode = 'mode_b';
   let tableLabel: string | null = null;
   let arrived = false;
   let qrSvg = '';
@@ -345,22 +338,10 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     // 2026-07-16). The gate is now that same control — the one face-match.ts:52
     // checks before matching or persisting a descriptor — so a selfie is asked for
     // only where it can be used, and a DPO revocation retires the prompt by itself.
-    if (
-      guest.rsvp_status !== 'declined' &&
-      (await isDataPrivacyControlActive('face_enrollment'))
-    ) {
-      const { data: liveEnrollment } = await admin
-        .from('guest_face_enrollments')
-        .select('id')
-        .eq('event_id', event.event_id)
-        .eq('guest_id', guest.guest_id)
-        .is('revoked_at', null)
-        .maybeSingle();
-      needsFaceEnroll = !liveEnrollment;
-      if (needsFaceEnroll) {
-        hubFaceMode = await resolvePapicFaceMode(admin, event.event_id);
-      }
-    }
+    // The face-enrolment read that used to live here fed a static "Add your
+    // face" card, removed 2026-09-21 (owner: "not a static widget on event hub").
+    // The camera page decides that for itself, so the hub no longer asks the
+    // database a question it has nothing to do with.
 
     // Seat label + door arrival (graceful-degrade — these tables/columns may not
     // exist on every install).
@@ -962,7 +943,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ) : null}
       </article>
 
-      {needsFaceEnroll ? <DayOfFaceEnroll context="hub" faceMode={hubFaceMode} /> : null}
+      {/* No static face card here either (owner 2026-09-21) — the camera asks, once. */}
     </div>
   ) : null;
 

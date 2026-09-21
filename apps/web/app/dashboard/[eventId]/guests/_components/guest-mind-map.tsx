@@ -100,7 +100,23 @@ const ENTOURAGE_BRANCHES: { key: RoleGroup; defaultRole: GuestRole }[] = [
   { key: 'officiants', defaultRole: 'officiant' },
 ];
 
-const SIDE_ORDER: GuestSide[] = ['bride', 'both', 'groom'];
+/**
+ * The order the three side BRANCHES hang off the root — deliberately NOT the
+ * roster's reading order.
+ *
+ * ⚠ RENAMED FROM `SIDE_ORDER` (2026-09-20) the moment `lib/guests` gained a
+ * real `SIDE_ORDER` for the list sequence the owner ruled on (*"Groom's Side
+ * then Bride's Side then Both then no Side"*). Two constants with one name and
+ * two different values is precisely the shadow `lint:dup-rule` exists to
+ * catch, and the fix is a name that says how they differ rather than an import
+ * that would have silently reshaped this diagram.
+ *
+ * 🔑 THIS ONE IS SPATIAL. 'both' sits BETWEEN the two sides because the branch
+ * that belongs to neither belongs in the middle of a tree drawn from a centre.
+ * A reading sequence has no middle, so the roster's order would be wrong here
+ * and this order would be wrong there.
+ */
+const BRANCH_SIDE_LAYOUT: GuestSide[] = ['bride', 'both', 'groom'];
 
 // Side → accent classes. Pulls the canonical side-colour map (lib/side-colors.ts
 // · SIDE_ACCENT) so the nodes read the same gold / info-slate / lighter-gold
@@ -151,7 +167,7 @@ function buildTree(
   };
 
   if (lens === 'sg') {
-    for (const side of SIDE_ORDER) {
+    for (const side of BRANCH_SIDE_LAYOUT) {
       nodes.push({
         id: `s-${side}`,
         parent: 'root',

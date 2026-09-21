@@ -4,7 +4,8 @@ import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Sparkles } f
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { countUnreadMessages, fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { pendingInquiryDates } from '@/lib/vendor-inquiry-dates';

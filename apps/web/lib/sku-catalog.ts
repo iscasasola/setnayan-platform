@@ -19,7 +19,7 @@
  * flip it in BOTH places or this mirror starts lying again.
  *
  * Pricing is stored in centavos (1 peso = 100 centavos) to match the DB
- * schema. `priceCentavosToPeso` converts for display.
+ * schema. `formatCentavosPhp` (re-exported from `lib/php.ts`) renders it.
  *
  * Spec corpus: 2026-05-16 commit a0fa3c7.
  */
@@ -448,19 +448,16 @@ export function findSku(skuCode: string): SkuRecord | undefined {
   return SKU_CATALOG.find((s) => s.skuCode === skuCode && s.isActive);
 }
 
-/** Convert centavos to whole pesos (rounds for display). */
-function priceCentavosToPeso(centavos: number): number {
-  return Math.round(centavos / 100);
-}
-
-/** Format centavos as a ₱-prefixed display string with PH locale grouping. */
-export function formatCentavosPhp(centavos: number): string {
-  const pesos = priceCentavosToPeso(centavos);
-  return `₱${pesos.toLocaleString('en-PH', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
+/**
+ * RE-EXPORTED from `lib/php.ts` (2026-09-20). This module's own copy did
+ * `Math.round(centavos / 100)` — a catalogue price is what a customer is
+ * CHARGED (`platform_retail_catalog_v2` is admin-managed and is the only price
+ * a customer pays), and the owner's own 2026-08-27 sheet shows he edits these
+ * figures by hand, so a `.50` rung is one keystroke away. Rounding it on the
+ * admin pricing table and in the pricing report is how a mis-priced SKU stays
+ * invisible to the person who set it.
+ */
+export { formatCentavosPhp } from './php';
 
 // ---------------------------------------------------------------------------
 // Retired SKUs — kept here so a stale UI reference doesn't break type checks.

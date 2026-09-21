@@ -136,6 +136,19 @@ export type StudioAnimKind = (typeof ANIM_KINDS)[number];
 // untouched); `preset` only remembers which chip is lit ('custom' after any
 // fine-tune slider touch).
 export const ANIM_TEMPOS = ['quick', 'classic', 'ceremonial', 'custom'] as const;
+
+/**
+ * The timings each named tempo means. Lifted OUT of engine.ts (where it was a
+ * local const) so the reveal step on the page and the engine cannot disagree
+ * about what "Quick" is — two copies of three numbers is two chances to drift,
+ * and the couple would see one duration in the preview and get another live.
+ * `custom` has no entry on purpose: it IS the absence of a preset.
+ */
+export const ANIM_TEMPO_TIMINGS: Record<'quick' | 'classic' | 'ceremonial', { dur: number; delay: number; smooth: number }> = {
+  quick: { dur: 3, delay: 0.15, smooth: 0.7 },
+  classic: { dur: 6, delay: 0.3, smooth: 0.9 },
+  ceremonial: { dur: 10, delay: 0.6, smooth: 1 },
+};
 export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
 export type StudioLetterState = {

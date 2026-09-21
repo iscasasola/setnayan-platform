@@ -182,3 +182,32 @@ test('the payable is resolved on the SESSION client, so RLS scopes it', () => {
     'the ownership read must never run on the service-role client',
   );
 });
+
+test('the reference is not fused to its own label', () => {
+  /**
+   * 🔴 THE OWNER'S SCREENSHOT READ "YOUR REFERENCESNCNJ1E3Y8". `.sn-eye` is
+   * `display: inline-flex`, so a `<p className="sn-eye">` stays INLINE and the
+   * `<code>` beside it butts straight against it — on the one screen where a
+   * payer has to copy a string correctly. Everywhere else in the app `sn-eye`
+   * is followed by a block element, which is why only this place showed it.
+   *
+   * 🔑 THE PREMISE IS PINNED TOO. If `.sn-eye` ever becomes a block, this
+   * `block` is dead weight and whoever changes it should be told, rather than
+   * leaving a defensive class nobody dares remove.
+   */
+  const css = readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8');
+  const eye = css.slice(css.indexOf('.sn-eye {'));
+  assert.match(
+    eye.slice(0, eye.indexOf('}')),
+    /display:\s*inline-flex/,
+    '.sn-eye is no longer inline-flex — the `block` on the reference label can go',
+  );
+
+  const label = page.match(/<p className="sn-eye[^"]*">Your reference<\/p>/);
+  assert.ok(label, 'the reference label is gone or renamed');
+  assert.match(
+    label[0],
+    /\bblock\b/,
+    'the reference label must be a block, or it fuses to the code beside it',
+  );
+});

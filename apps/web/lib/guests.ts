@@ -41,6 +41,23 @@ export type GuestRole =
   | 'officiant'
   | 'reader_lector'
   | 'soloist_musician'
+  // ⚖ THE PERSON THE CELEBRATION IS FOR — owner 2026-09-20: *"on list, the
+  // first one will always be the celebrant. for wedding that is the bride and
+  // groom."* A wedding says that with 'bride' and 'groom'; every other event
+  // type had no word for it, so a birthday's list opened on whoever sorted
+  // first. Enum value added via migration 20271237116021.
+  //
+  // ⛔ NOT THE HOST, and the difference is the reason this exists. Owner
+  // 2026-08-27: *"there can be multiple hosts for every event, but the one
+  // celebratiing is the celebrant."* At Lola's 80th the host is her daughter.
+  // NOT a singleton either — twins share a birthday (same ruling: "single,
+  // couple, or multiple people").
+  //
+  // ⚠ `events.honoree_label` names the celebrant in PROSE and this names the
+  // ROW; nothing reconciles them, so a couple can rename one and not the other.
+  // That is tolerable because they are read in different places and neither
+  // gates anything — but do not build a rule that assumes they agree.
+  | 'celebrant'
   // Generic (non-wedding) roles — iteration 0053 Phase 2. Additive enum values
   // (migration 20270220984328) for the GENERIC profile's role set. All
   // multi-instance (no singleton index). Only surface for non-wedding events.
@@ -338,6 +355,7 @@ export const MEAL_PREFERENCES = Object.keys(MEAL_LABELS) as MealPreference[];
 
 export const ROLE_LABELS: Record<GuestRole, string> = {
   guest: 'Guest',
+  celebrant: 'Celebrant',
   bride: 'Bride',
   groom: 'Groom',
   bride_parents: "Bride's Parents",
@@ -410,6 +428,31 @@ export const SIDE_LABELS: Record<GuestSide, string> = {
   groom: "Groom's side",
   both: 'Both sides',
 };
+
+/**
+ * ⚖ THE ORDER SIDES ARE LISTED IN — owner 2026-09-20, verbatim: *"on side. the
+ * sequence is Groom's Side then Bride's Side then Both then no Side."*
+ *
+ * This REVERSES the first two. The roster had listed the bride's side first
+ * since the side sort shipped, on nobody's instruction — it was the order the
+ * enum happened to be written in.
+ *
+ * ⛔ IT DOES NOT CONTRADICT "BRIDE WILL ALWAYS BE #1 THEN GROOM" (owner
+ * 2026-06-05). That ruling is about the two PEOPLE and is enforced by the
+ * honoree pin, which runs before any sort and is untouched here. This is about
+ * which SIDE's guests are listed first once the couple themselves are past.
+ * The bride is still the first name on the list; her side is no longer the
+ * first block of names after it.
+ *
+ * 🔑 ONE ARRAY, read by both the sort rank and the section order. They were
+ * two literals and could have drifted into a list whose headings ran one way
+ * and whose rows ran the other.
+ *
+ * "No side" is named in the ruling and is currently UNREACHABLE — `GuestSide`
+ * has no null member, so every guest carries one of these three. The roster's
+ * bucket builder still emits a trailing "No …" bucket if one ever appears.
+ */
+export const SIDE_ORDER: readonly GuestSide[] = ['groom', 'bride', 'both'];
 
 export const GROUP_CATEGORY_LABELS: Record<GuestGroupCategory, string> = {
   family: 'Family',

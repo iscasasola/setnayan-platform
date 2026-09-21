@@ -731,6 +731,12 @@ export function isCombinedVenue(
  * placeholders (no booking, no couple sign-up gating). Surfacing a
  * starting-from rate gives couples something to budget against.
  */
+/**
+ * @rounds-to-the-peso A VENUE'S "FROM" DAY RATE. Day rates are stored as WHOLE
+ * PESOS, not centavos (stated in the migration header and re-stated in the
+ * inner helper below), and the surface is an informational directory with no
+ * booking behind it — there is nothing here to pay.
+ */
 export function formatVenueDayRate(
   minPhp: number | null,
   maxPhp: number | null,

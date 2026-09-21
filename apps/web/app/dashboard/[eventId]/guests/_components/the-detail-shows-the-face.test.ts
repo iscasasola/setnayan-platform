@@ -46,15 +46,54 @@ test('it takes a RESOLVED url, never the stored column', () => {
 test('BOTH mounts pass it — the inspector and the sheet', () => {
   // The desktop inspector and the mobile sheet render the SAME body. Wiring one
   // and not the other is how half a fix ships.
-  const inspector = /photoDisplayUrl=\{photoDisplayUrls\[inspectedGuest\.photo_url \?\? ''\]/.test(PAGE);
+  //
+  // 🪤 THIS USED TO PIN THE EXACT ONE-LINE EXPRESSION, and went red the day the
+  // account-photo fallback was added — a change that made both mounts MORE
+  // correct, not less. A guard that forbids a phrasing convicts innocent code
+  // and teaches the next person to weaken it. It now asserts the PROPERTY: each
+  // mount resolves a face from the guest's own photo, and falls back to the
+  // account photo (lib/guest-account-photos.ts), whatever shape that is written
+  // in.
+  const propAt = (src: string) => {
+    const at = src.indexOf('photoDisplayUrl={');
+    return at === -1 ? null : src.slice(at, src.indexOf('}\n', at) + 1);
+  };
+
+  const inspector = propAt(PAGE);
   assert.ok(inspector, 'the desktop inspector does not pass the photo');
-  assert.ok(
-    /photoDisplayUrl=\{photoDisplayUrls\[guest\.photo_url \?\? ''\]/.test(DRAWER),
-    'the mobile sheet does not pass the photo',
+  assert.match(inspector, /photoDisplayUrls\[inspectedGuest\.photo_url \?\? ''\]/);
+  assert.match(
+    inspector,
+    /accountFaceByGuest\[inspectedGuest\.guest_id\]/,
+    'the inspector lost the linked-account fallback',
   );
-  assert.ok(
-    /photoDisplayUrls=\{photoDisplayUrls\}/.test(PAGE),
-    'the sheet opens from a client store carrying only the row, so the page must ' +
-      'hand the map to its host',
+
+  const sheet = propAt(DRAWER);
+  assert.ok(sheet, 'the mobile sheet does not pass the photo');
+  assert.match(sheet, /photoDisplayUrls\[guest\.photo_url \?\? ''\]/);
+  assert.match(
+    sheet,
+    /accountFaceByGuest\[guest\.guest_id\]/,
+    'the mobile sheet lost the linked-account fallback',
+  );
+
+  /*
+    The sheet opens from a client store carrying only the row, so the page must
+    hand BOTH maps to its host or the fallback above resolves to nothing.
+
+    🪤 ANCHORED ON <GuestDrawerHost>, NOT ON THE FILE. Two elements on this page
+    receive these maps — the roster and the drawer host. A file-level match is
+    satisfied by either, so deleting the drawer's copy passed a first draft of
+    this assertion. A guard that cannot say WHICH mount lost the prop is not
+    guarding the mount.
+  */
+  const hostAt = PAGE.indexOf('<GuestDrawerHost');
+  assert.notEqual(hostAt, -1, 'the sheet host is no longer mounted');
+  const host = PAGE.slice(hostAt, PAGE.indexOf('/>', hostAt));
+  assert.match(host, /photoDisplayUrls=\{photoDisplayUrls\}/, 'the sheet host lost the photo map');
+  assert.match(
+    host,
+    /accountFaceByGuest=\{accountFaceByGuest\}/,
+    'the page does not hand the account-photo map to the sheet host',
   );
 });

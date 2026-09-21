@@ -33,8 +33,14 @@ test('formatPeso: whole pesos from centavos with grouping', () => {
   assert.equal(formatPeso(1_230_00), '₱1,230');
   assert.equal(formatPeso(0), '₱0');
   assert.equal(formatPeso(1_500_000_00), '₱1,500,000');
-  // rounds, and non-finite is treated as 0
-  assert.equal(formatPeso(149), '₱1');
+  // ⚠ CHANGED 2026-09-20: this asserted `'₱1'`. `formatPeso` did
+  // `Math.round(centavos / 100)` and threw 49 centavos away; it now delegates to
+  // `formatCentavosPhp` (lib/php.ts), the app's one money spelling. One of the
+  // three figures it renders — `committedCentavos` — is money a couple has
+  // actually agreed to, so the centavos are not noise.
+  assert.equal(formatPeso(149), '₱1.49');
+  assert.equal(formatPeso(83_750), '₱837.50');
+  // non-finite is still treated as 0
   assert.equal(formatPeso(Number.NaN), '₱0');
 });
 

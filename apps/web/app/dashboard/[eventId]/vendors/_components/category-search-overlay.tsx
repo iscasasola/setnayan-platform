@@ -25,7 +25,8 @@ import { SavedPhotoMarker } from './saved-photo-marker';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { benchCardImage } from '@/lib/bench-card-image';
 import { haptic } from '@/lib/haptics';
-import { formatPhp, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import {
   searchCategoryVendors,
   type CategorySearchResult,
@@ -687,7 +688,7 @@ export function CategorySearchOverlay({
                     ? ` for about ${budgetEstimate.pax} guests`
                     : ''}
                   , so we&rsquo;re working from around{' '}
-                  {formatPhp(budgetEstimate.eventBudgetPhp)} for the whole
+                  {formatPhpRounded(budgetEstimate.eventBudgetPhp)} for the whole
                   celebration. Put in your own figure and these results follow it.
                 </p>
                 <a href={`/dashboard/${eventId}/budget`}>Set your budget</a>

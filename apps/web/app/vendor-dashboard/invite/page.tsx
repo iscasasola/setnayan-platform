@@ -10,7 +10,8 @@ import {
 } from '@/lib/vendor-couple-invite';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { VENDOR_CATEGORY_LABEL, formatPhp, type VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { SubmitButton } from '@/app/_components/submit-button';

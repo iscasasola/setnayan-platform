@@ -147,7 +147,13 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/tl/features',
 ]);
 
-/** Peso figure from a PHP amount, e.g. 1299 → "₱1,299" (matches the copy's format). */
+/**
+ * Peso figure from a PHP amount, e.g. 1299 → "₱1,299".
+ *
+ * @rounds-to-the-peso AN AUDIT MIRROR, not a charge — it exists to compare the
+ * spelling `lib/llms-txt.ts#peso` produces, so it must round exactly as that
+ * one does or the health check reports a drift it invented itself.
+ */
 export function pesoFigure(php: number): string {
   return `₱${Math.round(php).toLocaleString('en-US')}`;
 }

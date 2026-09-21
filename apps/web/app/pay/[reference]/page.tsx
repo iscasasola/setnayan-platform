@@ -264,8 +264,15 @@ export default async function PayPage({ params, searchParams }: Props) {
 
     <div className="mt-5 flex items-center gap-3 rounded-lg border border-ink/12 bg-ink/[0.03] px-4 py-3">
       <div>
-        <p className="sn-eye mb-0.5">Your reference</p>
-        <code className="font-mono text-[17px] font-semibold tracking-wide text-ink">
+        {/* ⚠ `block`, NOT the default. `.sn-eye` is `display: inline-flex`
+            (globals.css), so this label stays INLINE and the <code> beside it
+            butts straight against it — the owner's screenshot read
+            "YOUR REFERENCESNCNJ1E3Y8", the reference fused to its own label on
+            the one screen where a payer has to copy it correctly. Everywhere
+            else `sn-eye` is followed by a block element, which is why this is
+            the only place it showed. */}
+        <p className="sn-eye mb-0.5 block">Your reference</p>
+        <code className="block font-mono text-[17px] font-semibold tracking-wide text-ink">
           {payable.reference}
         </code>
       </div>
@@ -398,16 +405,47 @@ export default async function PayPage({ params, searchParams }: Props) {
         </form>
       )}
 
-      {setup && waiting && payable.eventId && (
-        <div className="mt-5 text-center">
-          <Link href={`/dashboard/${payable.eventId}`} className="button-primary inline-flex">
-            Finish setting up
-          </Link>
-          <p className="mt-2 text-xs text-ink/45">
-            Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
-          </p>
-        </div>
-      )}
+      {/*
+        ── THE WAITING PAGE MUST NOT BE A DEAD END ───────────────────────
+
+        Owner, 2026-09-20, looking at his own verifying screen: *"after paying,
+        there is no way to return to that event overview."*
+
+        🔑 HE WAS AT THE BOTTOM OF THE PAGE AND THE ONLY EXIT WAS AT THE TOP.
+        `payable.back` has always rendered — as a small underlined link above the
+        first tile, which is scrolled off by the time somebody has read what they
+        bought, the reference, and the verifying notice. /pay carries no site
+        chrome either (SiteChrome self-gates to the marketing routes), so from
+        there the browser's back button is the whole of the navigation.
+
+        ⚖ THE SET-UP FLOW ALREADY HAD THIS AND THE ORDINARY ONE DID NOT. `setup
+        && waiting` got a "Finish setting up" button here, so the person who paid
+        during onboarding was handed back to their celebration and the person who
+        paid from inside it was left staring at a card. Same state, same need —
+        so the exit is unconditional in `waiting`, and the ordinary arm is built
+        from the SAME `payable.back` the top link uses, never a second spelling
+        of where this buyer came from.
+      */}
+      {waiting &&
+        (setup && payable.eventId ? (
+          <div className="mt-5 text-center">
+            <Link href={`/dashboard/${payable.eventId}`} className="button-primary inline-flex">
+              Finish setting up
+            </Link>
+            <p className="mt-2 text-xs text-ink/45">
+              Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
+            </p>
+          </div>
+        ) : payable.back ? (
+          <div className="mt-5 text-center">
+            <Link href={payable.back.href} className="button-primary inline-flex">
+              {payable.back.label}
+            </Link>
+            <p className="mt-2 text-xs text-ink/45">
+              Nothing else to do here — we&rsquo;ll email you the moment it&rsquo;s confirmed.
+            </p>
+          </div>
+        ) : null)}
 
       {!waiting && (
       <PayPanel

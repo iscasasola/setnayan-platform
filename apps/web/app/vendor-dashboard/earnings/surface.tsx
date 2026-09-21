@@ -26,7 +26,8 @@ import {
   type PayoutStage,
   type VendorVerificationState,
 } from '@/lib/payouts';
-import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
+import { formatPhp } from '@/lib/orders';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import {
   fetchDueFeeBills,

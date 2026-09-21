@@ -192,20 +192,178 @@ export const HOST_EDITABLE_SAMPLE: readonly string[] = [
   'updated_at',
 ];
 
-/** Strip `--` line comments so commented-out entries never count as present. */
+/**
+ * Strip SQL comments so a name that only appears in prose can never read as a
+ * real reference. This is the ONE SQL comment stripper shared by every
+ * SQL-text-scanning module in this family — events-column-select-privileges.ts,
+ * events-private-details.ts, lib/ugat/both-ends.ts (its `sqlWords()`, which
+ * decides whether an RPC or table "has a caller"), and the db tests that
+ * import them.
+ *
+ * ── THE BUG THIS REPLACED ────────────────────────────────────────────────────
+ * The previous version only blanked `--` line comments; `/* … *​/` block
+ * comments passed straight through untouched. `sqlWords()` treats every
+ * identifier-shaped word left standing as "this SQL body references that
+ * name" — so a function whose ONLY mention of `orphan_fn` sat inside
+ * `/* legacy note: used to call orphan_fn() *​/` read as calling it. The
+ * both-ends checker's whole job is "does anything on the other side name
+ * this?", and a name in a comment answered yes when the true answer was no —
+ * exactly the miss that lets a real orphan hide. Reproduced directly against
+ * `sqlWords()` before this fix landed; see both-ends.test.ts.
+ *
+ * ── WHY NOT A SECOND REGEX ───────────────────────────────────────────────────
+ * `src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '')` is the
+ * well-documented wrong shape (lib/strip-comments.ts's docblock has the full
+ * post-mortem for the TS/JS case): it strips block comments FIRST, so a `--`
+ * line that happens to contain `/*`-shaped text — this codebase writes
+ * `-- apps/web/app/dashboard/[eventId]/date-selection/*` and
+ * `-- (apps/web/lib/vendor-autoreply/*)` in real migration headers — opens a
+ * "comment" that runs to the next REAL `*​/`, silently eating everything
+ * between. Deciding whether `/*` starts a real comment requires knowing
+ * whether you are inside a string or a dollar-quoted body first; that is
+ * lexing, not matching, so this is a small single-pass scanner instead.
+ *
+ * Characters are replaced with SPACES (newlines kept as newlines), never
+ * deleted, so a caller that ever wants line numbers from the cleaned text
+ * gets true ones — same convention as lib/strip-comments.ts.
+ *
+ * ── WHAT IT HANDLES ──────────────────────────────────────────────────────────
+ *   • `--` line comments, ended by a real newline.
+ *   • `/* … *​/` block comments — WITH NESTING. Postgres block comments nest
+ *     (`/* outer /* inner *​/ still outer *​/` is ONE comment, ending at the
+ *     SECOND `*​/` — unlike C), so this tracks a depth counter rather than
+ *     jumping to the first `*​/`.
+ *   • single-quoted strings, with the SQL `''` escape (`event''s`) — so a
+ *     `--`, `/*` or `*​/` sitting inside a string's TEXT is left alone: it
+ *     neither starts nor ends a comment. (The migration this module audits
+ *     has exactly this case: `events_master_qr_token_key IS 'Prevents a host
+ *     from pointing their own event''s master_qr_token …'`.)
+ *   • dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`) — every `DO $$ … $$`
+ *     block and `CREATE FUNCTION … AS $$ … $$` in this repo's migrations is
+ *     one. The boundary is found the way Postgres itself finds it: a LITERAL
+ *     search for the same tag reappearing — no comment or quote inside is
+ *     consulted while looking for it, so one mismatched apostrophe inside a
+ *     function body (a comment reading `-- don't do this`, which this
+ *     codebase writes constantly) can never desync tracking for the REST OF
+ *     THE FILE the way a single running quote-toggle would. A positional
+ *     parameter (`$1`, `$2`) is never mistaken for a tag: a real tag's first
+ *     character after `$` must be a letter or underscore, never a digit.
+ *     Once the span is found, its INTERIOR is recursively run through this
+ *     same function — a `--`/`/* *​/` inside a function body is a real
+ *     comment for that body's own execution, and a name sitting only inside
+ *     one must not count as "referenced" either.
+ *
+ * ── WHAT IT DELIBERATELY DOES NOT HANDLE, ALL IN THE SAFE DIRECTION ─────────
+ * (never eats real code; at worst leaves a comment's text un-blanked, which
+ * is the pre-existing miss this file shrinks, not a new one):
+ *   • an UNTERMINATED block comment or dollar-quote body is NOT treated as
+ *     one — mirrors lib/strip-comments.ts's "never closed ⇒ not a comment".
+ *     A migration that actually applied had to parse, so an opener with no
+ *     closer in the text handed to this function is a sign of a truncated
+ *     input, not a license to blank to EOF.
+ *   • Postgres's `E'…'` backslash-escaped strings are scanned as plain
+ *     `'…'` strings (only the standard `''` doubling is honoured). A `\'`
+ *     inside one would end the string a character early here — which can
+ *     only make the safe mistake of scanning the remainder as ordinary code,
+ *     never dropping it.
+ */
 export function stripSqlComments(sql: string): string {
-  return sql
-    .split('\n')
-    .map((line) => {
-      let inSingle = false;
-      for (let i = 0; i < line.length; i += 1) {
-        const ch = line[i];
-        if (ch === "'") inSingle = !inSingle;
-        if (!inSingle && ch === '-' && line[i + 1] === '-') return line.slice(0, i);
+  const len = sql.length;
+  const out: string[] = new Array(len);
+  let i = 0;
+  while (i < len) {
+    const ch = sql[i] as string;
+
+    // ── line comment: `--` to the next real newline ──────────────────────
+    if (ch === '-' && sql[i + 1] === '-') {
+      while (i < len && sql[i] !== '\n') {
+        out[i] = ' ';
+        i += 1;
       }
-      return line;
-    })
-    .join('\n');
+      continue;
+    }
+
+    // ── block comment: `/* … */`, with Postgres's own nesting rule ────────
+    if (ch === '/' && sql[i + 1] === '*') {
+      const openAt = i;
+      let depth = 1;
+      let j = i + 2;
+      while (j < len && depth > 0) {
+        if (sql[j] === '/' && sql[j + 1] === '*') {
+          depth += 1;
+          j += 2;
+        } else if (sql[j] === '*' && sql[j + 1] === '/') {
+          depth -= 1;
+          j += 2;
+        } else {
+          j += 1;
+        }
+      }
+      if (depth === 0) {
+        for (let k = openAt; k < j; k += 1) out[k] = sql[k] === '\n' ? '\n' : ' ';
+        i = j;
+        continue;
+      }
+      // Never closed at this nesting depth ⇒ not a comment. Treat the `/` as
+      // an ordinary character (e.g. `content-type video/*`) rather than
+      // blanking to end of file.
+      out[i] = ch;
+      i += 1;
+      continue;
+    }
+
+    // ── single-quoted string, with the SQL '' escape ──────────────────────
+    if (ch === "'") {
+      out[i] = ch;
+      i += 1;
+      while (i < len) {
+        if (sql[i] === "'" && sql[i + 1] === "'") {
+          out[i] = "'";
+          out[i + 1] = "'";
+          i += 2;
+          continue;
+        }
+        out[i] = sql[i] as string;
+        const closed = sql[i] === "'";
+        i += 1;
+        if (closed) break;
+      }
+      continue;
+    }
+
+    // ── dollar-quoted body: `$$ … $$` / `$tag$ … $tag$` ────────────────────
+    if (ch === '$') {
+      const m = /^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/.exec(sql.slice(i, i + 66));
+      if (m) {
+        const tag = m[0];
+        const bodyStart = i + tag.length;
+        // A literal search — exactly how Postgres itself finds the terminator.
+        // Nothing inside is consulted while looking for it.
+        const closeAt = sql.indexOf(tag, bodyStart);
+        if (closeAt !== -1) {
+          for (let k = 0; k < tag.length; k += 1) out[i + k] = tag[k] as string;
+          // The interior is real code with its own comments and strings —
+          // strip it in a fresh, isolated pass so nothing it contains can
+          // desync the scan that resumes after the closing tag.
+          const inner = stripSqlComments(sql.slice(bodyStart, closeAt));
+          for (let k = 0; k < inner.length; k += 1) out[bodyStart + k] = inner[k] as string;
+          // The CLOSING tag is a delimiter, not comment text — write it too,
+          // or it silently vanishes (an empty `out` slot joins as '', not a
+          // space), corrupting every downstream `indexOf` for the tag.
+          for (let k = 0; k < tag.length; k += 1) out[closeAt + k] = tag[k] as string;
+          i = closeAt + tag.length;
+          continue;
+        }
+        // No closing tag found ⇒ not a dollar-quote (e.g. a `$1` positional
+        // parameter never matches: the char after `$` must be a letter or
+        // underscore). Fall through and treat `$` as an ordinary character.
+      }
+    }
+
+    out[i] = ch;
+    i += 1;
+  }
+  return out.join('');
 }
 
 /**

@@ -60,7 +60,8 @@ import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCirc
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { replyTimeBadgeLabel } from '@/lib/vendor-reply-time';
-import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { displayServiceLabel, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { experienceTier } from '@/lib/vendor-experience';
 import { formatStarRating, NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
@@ -314,7 +315,7 @@ export async function VendorCard({
   // that gating, through the same rule the shop's own page uses. This component
   // is unchanged and always could show a real price — it was never given one.
   const priceLine = vendor.starting_price_php
-    ? `Starts at ${formatPhp(vendor.starting_price_php)}`
+    ? `Starts at ${formatPhpRounded(vendor.starting_price_php)}`
     : isDemoCard && vendor.demo_starts_at_label
       ? vendor.demo_starts_at_label
       : null;

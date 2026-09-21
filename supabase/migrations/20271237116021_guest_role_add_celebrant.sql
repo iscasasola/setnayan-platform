@@ -1,0 +1,34 @@
+-- guest_role_add_celebrant
+--
+-- ⚖ Owner 2026-09-20: *"on list, the first one will always be the celebrant.
+-- for wedding that is the bride and groom."*
+--
+-- A wedding already obeyed this: `sortCompare` pins bride #1 · groom #2 under
+-- EVERY sort (owner 2026-06-05). A birthday could not, because there was
+-- nobody to pin — the generic role set offers host/vip/family/helper, and none
+-- of them is the person the celebration is FOR. At Lola's 80th the host is her
+-- daughter, who arranged the venue; the celebrant is Lola.
+--
+-- 🔑 THE CELEBRANT IS NOT THE HOST, AND THIS IS ALREADY SETTLED. Owner
+-- 2026-08-27, verbatim: *"there can be multiple hosts for every event, but the
+-- one celebratiing is the celebrant."* `lib/event-type-profile.ts` has carried
+-- both nouns per event type since then; the guest list is where the second
+-- noun had no value to hold.
+--
+-- NOT A SINGLETON, deliberately. The same ruling says a celebrant can be
+-- "single, couple, or multiple people" — twins share a birthday, a golden
+-- anniversary has two. So no partial unique index is added here, and
+-- GENERIC_ROLE_SET.singletonRoles stays empty.
+--
+-- Pattern mirrors 20270220984328_guest_role_add_generic.sql and
+-- 20270308910536_guest_role_add_muslim_nikah_roles.sql: ALTER TYPE ... ADD
+-- VALUE is additive + idempotent, and carries NO BEGIN/COMMIT — a newly-added
+-- enum value cannot be referenced in the same transaction it is added in.
+--
+-- PURELY ADDITIVE: every existing value keeps its name and creation order
+-- (Postgres enum sort = creation order). No backfill; no existing row changes.
+-- The bride/groom singleton indexes, the guests_couple_force_attending
+-- trigger, and the guests_extra_roles_no_singletons CHECK all key on literal
+-- 'bride'/'groom' and stay unchanged and inert here.
+
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'celebrant';

@@ -111,3 +111,23 @@ test('the editor offers only the roles this wedding actually has', () => {
   );
   assert.match(field, /value=""[\s\S]{0,40}Not set/, '"Not set" is offered and is the default');
 });
+
+test('a config with ONLY roles still renders — seen on a real event, 2026-09-20', () => {
+  // The couple set outfits for ninong and ninang and nothing else. Before this
+  // fix, `hasAnything` was decided without looking at roles, so every sponsor
+  // was told "your hosts haven't shared the dress code yet" while their own
+  // answer sat in the config.
+  const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'), 'utf8');
+  const minedAt = src.indexOf('const mine = resolveGuestDressCode');
+  const decidedAt = src.indexOf('const hasAnything =');
+  assert.ok(minedAt > 0 && decidedAt > 0, 'precondition: both exist');
+  assert.ok(minedAt < decidedAt, 'the personal answer is computed BEFORE the empty-state decision');
+  const decision = src.slice(decidedAt, src.indexOf(';', decidedAt));
+  assert.match(decision, /mine !== null/, 'and a role answer counts as a dress code');
+
+  // And the rule itself answers for that config.
+  const real = { principal_sponsor_ninong: { style: 'suit' as const, note: 'in the wedding colours' } };
+  const mine = resolveGuestDressCode({ role: 'principal_sponsor_ninong', roles: real, palette: PALETTE });
+  assert.equal(mine?.styleLabel, 'Suit');
+  assert.equal(mine?.note, 'in the wedding colours');
+});

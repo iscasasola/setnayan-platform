@@ -65,12 +65,32 @@ export function DressCodeWidget({
       )
     : [];
 
+  // ── COMPUTED BEFORE THE EMPTY-STATE DECISION, and that ordering is the fix.
+  //
+  // 🔴 SEEN ON A REAL EVENT, 2026-09-20: a couple who had set ONLY per-role
+  // outfits — no title, no palette, no do/don't list — hit `hasAnything ===
+  // false` and their ninongs were told "your hosts haven't shared the dress
+  // code yet", while the answer for their role sat in the config unread. An
+  // answer that exists and is not rendered is the defect this repo keeps
+  // finding; here it was one variable's worth of ordering.
+  const mine = resolveGuestDressCode({
+    role: guestRole,
+    roles: sanitizeRoleAttire(
+      (config as { roles?: unknown } | null)?.roles,
+      (v) => roleLabel(v as GuestRole) !== null,
+    ),
+    palette: rolePalette,
+  });
+
   const hasAnything =
     title.length > 0 ||
     description.length > 0 ||
     dos.length > 0 ||
     donts.length > 0 ||
-    palette.length > 0;
+    palette.length > 0 ||
+    // A line for THIS reader's role is a dress code, even when the couple
+    // filled in nothing else.
+    mine !== null;
 
   // Empty state — section stays visible (so guests know to expect it) but
   // reads as an intentional note in the host's brand voice.
@@ -154,14 +174,6 @@ export function DressCodeWidget({
   // everyone else's instructions, and a ninang does not need the groomsmen's.
   // A reader with no role (or no session) falls through to the general section
   // below, unchanged.
-  const mine = resolveGuestDressCode({
-    role: guestRole,
-    roles: sanitizeRoleAttire(
-      (config as { roles?: unknown } | null)?.roles,
-      (v) => roleLabel(v as GuestRole) !== null,
-    ),
-    palette: rolePalette,
-  });
 
   return (
     <section className="space-y-5">

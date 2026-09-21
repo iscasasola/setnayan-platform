@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { planHostHatWrites } from '@/lib/host-hat';
 import {
   GUEST_GROUP_TEAM_SIDES,
   SINGLETON_GUEST_ROLES,
@@ -94,12 +95,15 @@ export async function bulkApplyRoleAndGroup(
   const rawRole = clean(formData.get('role'));
   const rawGroupId = clean(formData.get('group_id'));
   const rawSide = clean(formData.get('side'));
+  // ⚖ Owner 2026-09-20: "we can also assign if they will be part of the host."
+  // '' = untouched · 'yes' = wear the hat · 'no' = take it off.
+  const rawHost = clean(formData.get('host'));
   const guestIds = parseGuestIds(formData);
 
   if (guestIds.length === 0) {
     redirect(backToList(eventId, { error: 'no_selection' }));
   }
-  if (!rawRole && !rawGroupId && !rawSide) {
+  if (!rawRole && !rawGroupId && !rawSide && !rawHost) {
     // Nothing to do — Apply was clicked with all three selects on
     // placeholder. Silent return rather than red-error since the host
     // might've meant to back out.
@@ -110,6 +114,7 @@ export async function bulkApplyRoleAndGroup(
   let didRole = false;
   let didGroup = false;
   let didSide = false;
+  let didHost = 0;
 
   // ---- Role half ----
   if (rawRole) {
@@ -196,6 +201,45 @@ export async function bulkApplyRoleAndGroup(
     didGroup = true;
   }
 
+  // ---- Host half (owner 2026-09-20) ----
+  //
+  // 🔑 NO COLUMN, NO TABLE. The hat is the existing `host` GuestRole written
+  // into the existing `extra_roles` array — see lib/host-hat.ts for why a
+  // second store of "who is hosting" was the wrong shape here.
+  //
+  // 🪤 A ZERO-ROW UPDATE IS SUCCESS-SHAPED. Read first, compute what actually
+  // changes, and count the guests we really wrote — otherwise a bulk where
+  // everybody already wore the hat reports "12 guests are part of the host
+  // now" having written nothing.
+  if (rawHost === 'yes' || rawHost === 'no') {
+    const { data: rows, error: readErr } = await supabase
+      .from('guests')
+      .select('guest_id, role, extra_roles')
+      .eq('event_id', eventId)
+      .in('guest_id', guestIds);
+    if (readErr) {
+      redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
+    }
+    const plan = planHostHatWrites(
+      (rows ?? []) as { guest_id: string; role: GuestRole; extra_roles: GuestRole[] | null }[],
+      rawHost === 'yes',
+    );
+    for (const write of plan) {
+      // ⚠ `.select()` so a refused or filtered UPDATE cannot come back as a
+      // silent success — the count below is what the host is told.
+      const { data: written, error } = await supabase
+        .from('guests')
+        .update({ extra_roles: write.extraRoles, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .in('guest_id', write.guestIds)
+        .select('guest_id');
+      if (error) {
+        redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+      }
+      didHost += written?.length ?? 0;
+    }
+  }
+
   // Smart seat-plan Phase 5: re-place the changed guests when role or group moved
   // (a side-only change doesn't affect the seating tier, so it's skipped).
   if (didRole || didGroup) {
@@ -208,6 +252,12 @@ export async function bulkApplyRoleAndGroup(
       ...(didRole ? { bulk_assigned: String(guestIds.length) } : {}),
       ...(didGroup ? { bulk_grouped: String(guestIds.length) } : {}),
       ...(didSide ? { bulk_sided: String(guestIds.length) } : {}),
+      // The number WRITTEN, not the number selected — see the trap note above.
+      // ⚠ Two params, not one: "12 guests are part of the host now" is the
+      // wrong sentence for taking the hat OFF twelve people, and one count
+      // cannot say which way it went.
+      ...(didHost > 0 && rawHost === 'yes' ? { bulk_hosted: String(didHost) } : {}),
+      ...(didHost > 0 && rawHost === 'no' ? { bulk_unhosted: String(didHost) } : {}),
     }),
   );
 }

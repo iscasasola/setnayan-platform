@@ -8,7 +8,7 @@ import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveUploadedMarkAction, clearUploadedMarkAction } from './upload-actions';
 import { InkCompare } from './ink-compare';
 import { UploadTips } from './upload-tips';
-import type { MarkInkMode } from '@/lib/monogram-ink';
+import { markInks, type MarkInkMode } from '@/lib/monogram-ink';
 
 /**
  * <UploadMark> — "upload your own mark" on the Monogram Maker (owner
@@ -41,6 +41,8 @@ export function UploadMark({
   notice,
   ownsAnimated,
   paletteInk,
+  savedSvg,
+  savedIsLive,
 }: {
   eventId: string;
   /** An uploaded mark is currently live (events.monogram_uploaded_svg set). */
@@ -54,6 +56,15 @@ export function UploadMark({
    *  have not chosen one — <InkCompare> withholds the comparison rather than
    *  previewing against a colour that is not theirs. */
   paletteInk?: string | null;
+  /** The mark ALREADY saved on this event, gated + ink-resolved by the page.
+   *  Without it this panel showed a couple nothing but a green banner and a
+   *  dropzone: to see their own logo, or how it animates, they had to upload it
+   *  again (owner 2026-09-20: "i do not see the logo. and what it looks like as
+   *  a converted svg to be able to animate"). */
+  savedSvg?: string | null;
+  /** Is that saved mark the one guests see, or has it been switched off in
+   *  favour of the designed one? */
+  savedIsLive?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -108,11 +119,24 @@ export function UploadMark({
         </p>
       ) : null}
 
+      {/* YOUR LOGO, SHOWN. The panel used to prove an upload existed with a
+          sentence and nothing else — no mark, no pieces, no reveal — so the one
+          screen for your uploaded logo was the one screen that never displayed
+          it. Rendered here from the SAVED svg, with the same piece and colour
+          counts a fresh upload reports, and the same player, so "what it looks
+          like as a converted svg to be able to animate" is answerable without
+          uploading the file a second time. */}
+      {hasUpload && savedSvg && !decoded ? (
+        <SavedMark svg={savedSvg} live={savedIsLive !== false} monogramText={monogramText} />
+      ) : null}
+
       {hasUpload ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Your uploaded mark is live — it outranks the studio mark everywhere.
+            {savedIsLive === false
+              ? 'Kept, but not in use — your designed mark is the live one.'
+              : 'Your uploaded mark is live — it outranks the designed mark everywhere.'}
           </p>
           <form action={clearUploadedMarkAction}>
             <input type="hidden" name="event_id" value={eventId} />
@@ -243,6 +267,58 @@ export function UploadMark({
           </form>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * <SavedMark> — the logo you already uploaded, actually on screen: the mark
+ * itself, and how many pieces and colours it carries.
+ *
+ * It was missing entirely because the preview block was gated on `decoded`,
+ * which only exists after picking a file in this session — so the state a
+ * couple is in every time they come back was the state that displayed nothing
+ * (owner: "i do not see the logo").
+ *
+ * ⛔ NO REVEAL CHIPS HERE ANY MORE. They used to live in this panel AND inside
+ * the Vector Studio — two pickers writing one field, neither visible from the
+ * other door. The reveal is now one step of its own after the mark exists
+ * (reveal-step.tsx), so it serves a mark made either way. Adding a second
+ * picker back here would recreate exactly the split the owner asked to remove.
+ */
+function SavedMark({
+  svg,
+  live,
+}: {
+  svg: string;
+  live: boolean;
+  monogramText: string;
+}) {
+  // Counted from the SAME svg that renders, so the numbers cannot describe a
+  // different file from the one on screen.
+  const pieces = (svg.match(/<path[\s>]/gi) ?? []).length;
+  const colours = markInks(svg).length;
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">
+          {live ? 'Your logo, in use' : 'Your logo, kept'}
+        </p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
+          {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
+        </p>
+      </header>
+
+      <div
+        aria-hidden
+        className="mx-auto flex h-48 max-w-[300px] items-center justify-center [&_svg]:max-h-full [&_svg]:max-w-full"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+
+      <p className="text-xs text-ink/55">
+        Each piece animates on its own — choose how in <a href="#reveal" className="font-medium text-mulberry underline underline-offset-2">the reveal</a> below.
+      </p>
     </section>
   );
 }

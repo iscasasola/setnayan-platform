@@ -22,6 +22,7 @@ import {
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
+  SIDE_ORDER,
   TEAM_SIDE_LABELS,
   type GuestGroupWithCount,
   type GuestRow,
@@ -32,10 +33,18 @@ import {
 } from '@/lib/guests';
 import {
   filterByRoleGroup,
+  honoreeRank,
   roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
 } from '@/lib/role-groups';
+import {
+  compareByKeys,
+  groupingFromParams,
+  orderingKeysOf,
+  type ArrangeCtx,
+  type ArrangeKey,
+} from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { SIDE_DOT } from '@/lib/side-colors';
@@ -46,7 +55,11 @@ import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
-import { GuestListMultiselect } from './_components/guest-list-multiselect';
+import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
+import {
+  GuestListMultiselect,
+  ROLE_SECTION_ORDER,
+} from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import {
   AddFromPeopleSheet,
@@ -54,6 +67,7 @@ import {
 } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { GuestsSearch } from './_components/guests-search';
+import { EntourageOrderPanel } from './_components/entourage-order-panel';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
@@ -95,6 +109,10 @@ const SORT_OPTIONS = [
   { value: 'side', label: 'Side' },
   { value: 'group', label: 'Group' },
   { value: 'rsvp', label: 'RSVP status' },
+  // Added 2026-09-20 with the header controls: every column a host can GROUP
+  // by should also be one they can ORDER by, or the Seat header is the only
+  // one whose label does nothing when clicked.
+  { value: 'seat', label: 'Seat' },
   { value: 'newest', label: 'Newest first' },
 ] as const;
 
@@ -189,6 +207,9 @@ type Props = {
     team?: string;
     tag?: string;
     sort?: string;
+    /** Ordered grouping keys, e.g. `side,role`. ABSENT and EMPTY differ — see
+     *  groupingFromParams. */
+    by?: string;
     inspect?: string;
     added?: string;
     saved?: string;
@@ -200,12 +221,19 @@ type Props = {
     bulk_assigned?: string;
     bulk_grouped?: string;
     bulk_sided?: string;
+  bulk_hosted?: string;
+  bulk_unhosted?: string;
     bulk_deleted?: string;
     // pair-actions.ts. These arrived with the pairing feature and were not
     // registered here, so a finished pair produced no confirmation AND left
     // the floating SelectionBar holding two guests it had already acted on.
     paired?: string;
     unpaired?: string;
+    // entourage-order-actions.ts — a per-ROW control, so these get a flash but
+    // deliberately do NOT feed `recentlyApplied`: reordering one name must not
+    // discard a multi-select the host is still assembling.
+    reordered?: string;
+    order_cleared?: string;
     group_created?: string;
     group_saved?: string;
     group_deleted?: string;
@@ -456,6 +484,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
   const tagFilter = (search.tag ?? '').trim();
   const sort = (search.sort ?? 'importance') as SortKey;
+  // ⚖ Owner 2026-09-20 — grouping is its own question now, and its own param.
+  // ⚠ `search.by` is passed THROUGH as possibly-undefined on purpose: absent
+  // derives the old sort-driven sectioning (so every bookmarked ?sort=side
+  // still renders sections), while an EMPTY `?by=` means "no headings". They
+  // are different answers and `?? ''` would have collapsed them into one.
+  const grouping = groupingFromParams(search.by, sort);
 
   // Custom-group filter — its OWN `group` param now (see back-compat note
   // above), independent of the role-group `view`, so a host can stack
@@ -544,7 +578,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // the lookup once. Ungrouped guests sort last (handled in sortCompare).
   const sortGroupKey =
     sort === 'group' ? buildGroupSortKey(groups, membershipsMap) : undefined;
-  visible.sort((a, b) => sortCompare(a, b, sort, sortGroupKey));
+  // The same lookup, needed whenever Groups is one of the ORDERING ticks too.
+  const arrangeGroupKey =
+    sortGroupKey ??
+    (grouping.includes('group') ? buildGroupSortKey(groups, membershipsMap) : undefined);
+  // 🪤 THE SORT MOVED DOWN, past `seatByGuest`. Sorting by Seat needs each
+  // guest's table, and that lookup is built below over the same `visible` set.
+  // Nothing between here and there reads the ORDER of `visible` — only its
+  // membership — so moving the sort changes no other output. (Sorting before
+  // and passing an undefined map would have made `?sort=seat` silently
+  // fall through to last-name, which reads exactly like a working sort.)
 
   // Living Roster P3 — the reactive seat column. Each rendered row resolves to
   // one of three states: PLACED (a live assignment → its table label), DECLINED
@@ -578,6 +621,41 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       }),
     );
 
+  /**
+   * ⚖ EVERY TICKED COLUMN AFTER THE FIRST ONLY ORDERS (owner 2026-09-20:
+   * *"first one only groups[,] the second and succeeding just arranges and
+   * does not group"*). They are applied BEFORE the chosen `?sort=`, because a
+   * host who ticked Role after Side asked for role order inside a side — if
+   * `?sort=` ran first, the ticks would only ever break its ties and would
+   * look inert on any list where two guests differ by name.
+   *
+   * 🔑 The honoree pin still runs ahead of all of it, inside sortCompare.
+   */
+  const orderingKeys = orderingKeysOf(grouping);
+  const arrangeCtx: ArrangeCtx<GuestRow> = {
+    lastName: (g) => g.last_name,
+    sideLabel: (g) => SIDE_LABELS[g.side],
+    roleGroupLabel: (g) => {
+      const grp = roleGroupOf(g.role);
+      return grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp];
+    },
+    groupLabel: (g) => arrangeGroupKey?.get(g.guest_id) ?? null,
+    rsvpLabel: (g) => RSVP_LABELS[g.rsvp_status],
+    seatLabel: (g) => {
+      const seat = seatByGuest[g.guest_id];
+      if (seat?.placed) return `Table ${seat.placed}`;
+      if (seat?.suggested) return `Suggested ${seat.suggested}`;
+      return null;
+    },
+    seatRank: (g) => seatSortRank(g, seatByGuest),
+  };
+  visible.sort(
+    (a, b) =>
+      honoreeRank(a.role) - honoreeRank(b.role) ||
+      compareByKeys(orderingKeys, a, b, arrangeCtx, knownArrangeOrder) ||
+      sortCompare(a, b, sort, sortGroupKey, seatByGuest),
+  );
+
   // Convert the Map<guest_id, group_id[]> to a plain object so it
   // serializes cleanly across the server/client component boundary.
   const groupMemberships: Record<string, string[]> = Object.fromEntries(
@@ -607,6 +685,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
+  /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
+     profile photo, it will show here too". A guest whose row is linked to an
+     account falls back to that account's photo — the couple's own upload still
+     wins. Resolved through the SAME resolver, because the stored value is an
+     `r2://` ref, not a URL. */
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefUrls = await guestPhotoDisplayUrls(
+    Object.values(accountRefByGuest).map((ref) => ({ photo_url: ref })),
+  );
+  const accountFaceByGuest: Record<string, string> = Object.fromEntries(
+    Object.entries(accountRefByGuest)
+      .map(([guestId, ref]) => [guestId, accountRefUrls[ref]] as const)
+      .filter((e): e is [string, string] => Boolean(e[1])),
+  );
+
   const inspectedGuest = inspectId
     ? (guests.find((g) => g.guest_id === inspectId) ?? null)
     : null;
@@ -632,7 +725,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         showFullDetailsLink={false}
-        photoDisplayUrl={photoDisplayUrls[inspectedGuest.photo_url ?? ''] ?? null}
+        photoDisplayUrl={
+          photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
+          accountFaceByGuest[inspectedGuest.guest_id] ??
+          null
+        }
       />
     </InspectorColumn>
   ) : null;
@@ -1067,6 +1164,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
       <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
+          {/* ⚖ Owner 2026-09-20, asked where the reorder control belongs: "on
+              the guest list, per role view". It renders itself away for any
+              view the invitation does not print (all · guest · a custom
+              group), so the default roster is untouched. */}
+          <EntourageOrderPanel eventId={eventId} view={view} />
           {visible.length === 0 ? (
             <EmptyState
               finished={finished}
@@ -1085,21 +1187,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
               selfJoinIds={selfJoinIds}
               seatByGuest={seatByGuest}
               photoDisplayUrls={photoDisplayUrls}
-              groupMode={
-                sort === 'side'
-                  ? 'side'
-                  : sort === 'group'
-                    ? 'group'
-                    : sort === 'importance'
-                      ? 'importance'
-                      : 'flat'
-              }
+              accountFaceByGuest={accountFaceByGuest}
+              grouping={grouping}
+              sort={sort}
               roleSetKey={guestRoleSetKey}
               recentlyDeleted={search.bulk_deleted}
               recentlyApplied={Boolean(
                 search.bulk_assigned ||
                   search.bulk_grouped ||
                   search.bulk_sided ||
+                  search.bulk_hosted ||
+                  search.bulk_unhosted ||
                   // Pairing acts on the SELECTED two and finishes the task, so
                   // it retracts the bar exactly like an Apply. `unpaired` is
                   // deliberately absent: it comes from a single row's own
@@ -1139,6 +1237,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         brandedQrActive={brandedQrActive}
         photoDisplayUrls={photoDisplayUrls}
+        accountFaceByGuest={accountFaceByGuest}
       />
     </section>
   );
@@ -1158,7 +1257,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
 }
 
-const SIDE_SORT_RANK: Record<GuestSide, number> = { bride: 0, groom: 1, both: 2 };
+// Derived from the one order (lib/guests SIDE_ORDER, owner 2026-09-20), so the
+// rows can never run in a different order from the headings above them.
+const SIDE_SORT_RANK: Record<GuestSide, number> = Object.fromEntries(
+  SIDE_ORDER.map((s, i) => [s, i]),
+) as Record<GuestSide, number>;
 
 function lastNameThenFirst(a: GuestRow, b: GuestRow): number {
   return (
@@ -1167,10 +1270,12 @@ function lastNameThenFirst(a: GuestRow, b: GuestRow): number {
   );
 }
 
-// Bride first, groom second, everyone else after — the couple is the event
-// foundation and is pinned first under EVERY sort (owner 2026-06-05).
+// The person the celebration is FOR comes first, under every sort — bride then
+// groom at a wedding (owner 2026-06-05), the celebrant at everything else
+// (owner 2026-09-20). The rule itself lives in lib/role-groups so it can be
+// executed by a test rather than read in a server component.
 function coupleRank(g: GuestRow): number {
-  return g.role === 'bride' ? 0 : g.role === 'groom' ? 1 : 2;
+  return honoreeRank(g.role);
 }
 
 // A guest's wedding-importance rank = their MOST important role (primary or
@@ -1185,10 +1290,12 @@ function sortCompare(
   b: GuestRow,
   sort: SortKey,
   groupKey?: Map<string, string>,
+  seatKey?: Record<string, { placed: string | null; suggested: string | null }>,
 ): number {
-  // Bride/Groom are pinned first under EVERY sort — only when neither row is
-  // the couple does the chosen sort decide order (owner 2026-06-05 "Bride will
-  // always be #1 then groom").
+  // The honoree is pinned first under EVERY sort — only when neither row is
+  // the honoree does the chosen sort decide order (owner 2026-06-05 "Bride
+  // will always be #1 then groom"; owner 2026-09-20 "the first one will always
+  // be the celebrant").
   const ca = coupleRank(a);
   const cb = coupleRank(b);
   if (ca !== cb) return ca - cb;
@@ -1222,12 +1329,46 @@ function sortCompare(
     }
     case 'rsvp':
       return rsvpRank[a.rsvp_status] - rsvpRank[b.rsvp_status];
+    case 'seat': {
+      // A placed table beats a suggested one, and "no table yet" sorts last —
+      // the same three tiers the Seat cell already draws. Table labels are
+      // short strings ('3', '12A'), so numeric-aware compare keeps 3 before 12.
+      const ra = seatSortRank(a, seatKey);
+      const rb = seatSortRank(b, seatKey);
+      if (ra[0] !== rb[0]) return ra[0] - rb[0];
+      return ra[1].localeCompare(rb[1], undefined, { numeric: true }) || lastNameThenFirst(a, b);
+    }
     case 'newest':
       return b.created_at.localeCompare(a.created_at);
     case 'last_name':
     default:
       return lastNameThenFirst(a, b);
   }
+}
+
+/** The known order per column — the same one the headings use. */
+function knownArrangeOrder(key: ArrangeKey): readonly string[] {
+  if (key === 'side') return SIDE_ORDER.map((s) => SIDE_LABELS[s]);
+  if (key === 'rsvp')
+    return [
+      RSVP_LABELS.attending,
+      RSVP_LABELS.pending,
+      RSVP_LABELS.maybe,
+      RSVP_LABELS.declined,
+    ];
+  if (key === 'role') return ROLE_SECTION_ORDER;
+  return [];
+}
+
+/** [tier, label] — 0 placed · 1 suggested · 2 none, then the table's own name. */
+function seatSortRank(
+  g: GuestRow,
+  seatKey?: Record<string, { placed: string | null; suggested: string | null }>,
+): [number, string] {
+  const seat = seatKey?.[g.guest_id];
+  if (seat?.placed) return [0, seat.placed];
+  if (seat?.suggested) return [1, seat.suggested];
+  return [2, ''];
 }
 
 // First (alphabetical) custom-group label per guest, lowercased, for the
@@ -1345,9 +1486,13 @@ function pickFlash(search: {
   bulk_assigned?: string;
   bulk_grouped?: string;
   bulk_sided?: string;
+  bulk_hosted?: string;
+  bulk_unhosted?: string;
   bulk_deleted?: string;
   paired?: string;
   unpaired?: string;
+  reordered?: string;
+  order_cleared?: string;
   group_created?: string;
   group_saved?: string;
   group_deleted?: string;
@@ -1381,12 +1526,25 @@ function pickFlash(search: {
     const n = Number(search.bulk_sided);
     return `Side updated for ${n} guest${n === 1 ? '' : 's'}.`;
   }
+  if (search.bulk_hosted) {
+    // The count is what was WRITTEN, not what was selected — the action drops
+    // guests who already wore the hat, so this never claims a change that did
+    // not happen.
+    const n = Number(search.bulk_hosted);
+    return `${n} guest${n === 1 ? ' is' : 's are'} part of the host now.`;
+  }
+  if (search.bulk_unhosted) {
+    const n = Number(search.bulk_unhosted);
+    return `${n} guest${n === 1 ? ' is' : 's are'} no longer part of the host.`;
+  }
   if (search.bulk_deleted) {
     const n = Number(search.bulk_deleted);
     return `Removed ${n} guest${n === 1 ? '' : 's'} · seats opened up.`;
   }
   if (search.paired) return 'Paired — they walk in together.';
   if (search.unpaired) return 'Pair removed.';
+  if (search.reordered) return 'Walking order saved.';
+  if (search.order_cleared) return 'Back to alphabetical order.';
   if (search.group_created) return 'Group created.';
   if (search.group_saved) return 'Group saved.';
   if (search.group_deleted) return 'Group deleted.';

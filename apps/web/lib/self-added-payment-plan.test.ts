@@ -17,6 +17,7 @@ import {
   PLAN_NEEDS_TOTAL,
   buildCouplePaymentPlan,
   lockMayOverwritePlan,
+  planInstancesToRows,
   type CouplePlanRowInput,
 } from './self-added-payment-plan';
 
@@ -199,5 +200,53 @@ describe('locking a supplier must not erase the plan the couple typed', () => {
       lockMayOverwritePlan({ onPlatform: false, existingInstances: COUPLE_PLAN, existingIsDefaultSeeded: true }),
       true,
     );
+  });
+});
+
+describe('re-opening a supplier shows the plan the couple typed', () => {
+  it('round-trips the RULE, not just the resolved date', () => {
+    // "7 days before the event" cannot be recovered from 2026-12-11. Before
+    // `authored` was stored, the Details sheet had nothing to pre-fill with and
+    // would have shown an empty plan to a couple who had already agreed one.
+    const built = build(HALF_HALF);
+    assert.ok(built.ok);
+    const back = planInstancesToRows(JSON.parse(JSON.stringify(built.instances)));
+    assert.deepEqual(back, [
+      { label: 'Downpayment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },
+      { label: 'Balance', kind: 'percent', value: '50', anchor: 'before_event', days: '7' },
+    ]);
+  });
+
+  it('a round-tripped plan rebuilds to the same money and dates', () => {
+    const first = build(HALF_HALF);
+    assert.ok(first.ok);
+    const rows = planInstancesToRows(first.instances).map((r) => ({
+      label: r.label,
+      amount_kind: r.kind,
+      value: r.value,
+      due_anchor: r.anchor,
+      due_offset_days: r.days,
+    }));
+    const second = build(rows);
+    assert.ok(second.ok);
+    assert.deepEqual(
+      second.instances.map((i) => [i.amount_php, i.due_date]),
+      first.instances.map((i) => [i.amount_php, i.due_date]),
+    );
+  });
+
+  it('a legacy instance with no rule comes back as its money, with the rule left for the couple', () => {
+    // Guessing an anchor from a date would put a rule in the plan the couple
+    // never chose. The amount is known; the rule is asked for.
+    const back = planInstancesToRows([
+      { seq: 0, label: 'Downpayment', amount_php: 40000, due_date: '2026-09-20' },
+    ]);
+    assert.deepEqual(back, [{ label: 'Downpayment', kind: 'fixed', value: '40000', anchor: '', days: '0' }]);
+  });
+
+  it('reads nothing from something that is not a plan', () => {
+    assert.deepEqual(planInstancesToRows(null), []);
+    assert.deepEqual(planInstancesToRows({}), []);
+    assert.deepEqual(planInstancesToRows([null, 3, 'x']), []);
   });
 });

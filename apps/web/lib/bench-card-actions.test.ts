@@ -61,6 +61,7 @@ test('flag OFF: no actions at all — the card renders exactly as pre-replan', (
     withdraw: null,
     lockGroupId: null,
     lockWithheld: null,
+    connect: false,
   });
 });
 
@@ -227,6 +228,7 @@ test('a booked vendor keeps the conversation — Build and Lock are the lies, no
     withdraw: null,
     lockGroupId: null,
     lockWithheld: null,
+    connect: false,
   });
 });
 
@@ -257,6 +259,7 @@ test('a booked OFF-PLATFORM pick still shows nothing — rule 4 outranks rule 2'
     withdraw: null,
     lockGroupId: null,
     lockWithheld: null,
+    connect: true,
   });
 });
 
@@ -362,5 +365,50 @@ test('schedule clash: flag OFF ignores the verdict entirely', () => {
     withdraw: null,
     lockGroupId: null,
     lockWithheld: null,
+    connect: false,
   });
+});
+
+// ── [Connect] (owner 2026-09-21) ────────────────────────────────────────────
+test('a self-added supplier offers [Connect] while you are still deciding', () => {
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ marketplaceVendorId: null }),
+    inBuild: false,
+  });
+  assert.equal(a.connect, true);
+});
+
+test('a LOCKED self-added supplier still offers [Connect] — it used to show no buttons at all', () => {
+  // Rule 2 returns early for a locked card and withholds build and lock. It
+  // must not also withhold the portal: a supplier the couple has booked is the
+  // one most worth bringing onto Setnayan.
+  const a = resolveBenchCardActions({
+    enabled: true,
+    vendor: vendor({ marketplaceVendorId: null, status: 'locked' }),
+    inBuild: false,
+  });
+  assert.equal(a.connect, true);
+  assert.equal(a.lockGroupId, null);
+  assert.equal(a.build, null);
+});
+
+test('a supplier who already has an account never offers [Connect]', () => {
+  for (const status of ['considering', 'locked'] as const) {
+    const a = resolveBenchCardActions({
+      enabled: true,
+      vendor: vendor({ marketplaceVendorId: 'vp-7', status }),
+      inBuild: false,
+    });
+    assert.equal(a.connect, false, status);
+  }
+});
+
+test('flag OFF offers nothing, [Connect] included', () => {
+  const a = resolveBenchCardActions({
+    enabled: false,
+    vendor: vendor({ marketplaceVendorId: null }),
+    inBuild: false,
+  });
+  assert.equal(a.connect, false);
 });

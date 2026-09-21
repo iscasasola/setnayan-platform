@@ -42,10 +42,6 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     lockRequestState: 'none',
     lockRequestExpiresAt: null,
     totalCostPhp: null,
-    // Read-through only: the self-added price control sends these back to
-    // updateVendorCosts unchanged so typing a price cannot blank them.
-    transportPhp: null,
-    foodAllowancePhp: null,
     photoUrl: null,
     city: null,
     rating: null,

@@ -334,15 +334,6 @@ export type ShortlistVendor = {
    *  coercing here would client-block a manual vendor from a lock they're
    *  entitled to (spec §9). */
   verifiedState: boolean | null;
-  /** ── The two money columns the inline price control must NOT blank ────────
-   *  `updateVendorCosts` writes `transport_php` / `food_allowance_php` from
-   *  whatever its FormData holds, treating an absent field as ₱0 (its own copy
-   *  says "Leave a line blank to count it as ₱0"). The bench's self-added price
-   *  control sends only a total, so it sends these two straight back unchanged
-   *  — otherwise typing a price on the card would silently wipe a transport
-   *  figure the couple recorded in the workspace. Never displayed here. */
-  transportPhp: number | null;
-  foodAllowancePhp: number | null;
   /** ── Build-candidate schedule convergence · SOFT tier (Explore Replan PR-G1 ·
    *  spec §6 decision #12) ───────────────────────────────────────────────────
    *  Does this vendor still have a free day inside the BUILD's shared-date
@@ -640,11 +631,6 @@ export function buildShortlistFolders(args: {
       // Reuses the SAME basis the budget badge computed two statements up.
       priceBasisPhp: budgetBasis,
       verifiedState: ext?.is_verified ?? null,
-      // Read-through only — see the field docs. `toNum`-style coercion is
-      // deliberate: these columns come back as strings from PostgREST numerics.
-      transportPhp: v.transport_php == null ? null : Number(v.transport_php),
-      foodAllowancePhp:
-        v.food_allowance_php == null ? null : Number(v.food_allowance_php),
       // ── Schedule convergence, SOFT tier (PR-G1). Both come off maps resolved
       // once upstream from the SAME batched calendar read the date-fit badge
       // above already runs — zero extra queries here, and an absent entry means

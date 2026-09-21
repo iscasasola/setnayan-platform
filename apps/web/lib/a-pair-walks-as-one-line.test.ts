@@ -270,20 +270,23 @@ const PAGE = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'page.tsx'),
   'utf8',
 );
+const ROSTER_DOORS_SRC = readFileSync(join(process.cwd(), 'lib', 'roster-doors.ts'), 'utf8');
 
-test('🔑 there is a LABELLED way in — a tab, beside List and Mind map', () => {
+test('🔑 there is a LABELLED way in — a tab in the guest list’s tab row', () => {
   /*
     The panel had no entry point at all: it rendered under a role filter only,
     so arranging the processional was reachable solely by somebody who already
     knew to filter first. A control nobody can find is not a control.
+
+    🪤 The door MOVED (2026-09-21): from the List · Mind map switcher to the tab
+    row beside Roster (lib/roster-doors.ts), and the switcher's copy was deleted
+    as a duplicate ("wedding march is repeated?"). Executed, not grepped.
   */
-  assert.match(SWITCHER, /'walk'/, 'the switcher has no walking-order key');
-  assert.match(SWITCHER, /label: 'Wedding March'/, 'the tab has no readable label');
-  assert.match(
-    SWITCHER,
-    /if \(gview !== 'list'\) p\.set\('gview', gview\)/,
-    'the switcher only knows how to link to the map — the new tab would go nowhere',
-  );
+  const walk = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true })
+    .tabs.find((d) => d.key === 'walk');
+  assert.ok(walk && walk.kind === 'tab', 'the Wedding March has no way in');
+  assert.equal(walk.label, 'Wedding March', 'the tab has no readable label');
+  assert.equal(walk.href, '/dashboard/E/guests?gview=walk', 'the tab goes nowhere');
 });
 
 test('the walking order is a VIEW, not a banner bolted over the roster', () => {
@@ -335,7 +338,7 @@ test("⚖ the owner's word is the ONLY word the couple sees", () => {
     stripComments(src);
   for (const [what, src] of [
     ['the header button', PAGE],
-    ['the view tab', SWITCHER],
+    ['the view tab', ROSTER_DOORS_SRC],
     ['the panel heading', PANEL],
   ] as const) {
     const copy = copyOf(src);
@@ -367,5 +370,11 @@ test('🔑 a celebration with no processional is not offered one', () => {
   assert.ok(aisle.tabs.some((d) => d.key === 'walk'), 'a wedding lost its Wedding March');
   // …and the page still hands the row the DERIVED answer, not a constant.
   assert.match(PAGE, /hasProcessional=\{hasProcessional\}/, 'the tab row is not given the derived answer');
-  assert.match(SWITCHER, /if \(showWalk\) tabs\.push/, 'the tab shows on every event type');
+  // ⚖ And ONLY there (owner 2026-09-21: "wedding march is repeated?"). The
+  // List · Mind map switcher carried a second, UNGATED copy — birthdays saw it.
+  const switcherCode = stripComments(SWITCHER);
+  assert.ok(
+    !/Wedding March/.test(switcherCode) && !/key: 'walk'/.test(switcherCode),
+    'Wedding March is back in the List · Mind map switcher — two doors, one ungated',
+  );
 });

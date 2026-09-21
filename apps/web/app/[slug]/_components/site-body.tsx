@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
+import { guestPassFacts } from '@/lib/guest-pass';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { MapPin, Sparkles } from 'lucide-react';
@@ -1256,6 +1257,31 @@ export async function SiteBody({
        Each is written ONCE here and mounted in one of two slots below, so the
        reorder is a move rather than a copy: a duplicated block would render
        the QR twice and give the page two elements with one id. */
+    /* When the doors open — the FIRST block of the day, not the next one.
+       A pass is read on arrival, and "next up" on a card in someone's pocket
+       at 9pm would tell them to arrive at the send-off. Formatted in the
+       event's own timezone, which the venue's coordinates resolve. */
+    const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    const firstScheduleTimeLabel = firstScheduleBlock?.start_at
+      ? new Date(firstScheduleBlock.start_at).toLocaleTimeString('en-PH', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'Asia/Manila',
+        })
+      : null;
+
+    /* The pass's own facts, resolved once so the card and its guard read the
+       same list. BOTH are required for the "Bringing" line: `plus_one_allowed`
+       is the couple's permission and `plus_one_name` is an actual person. The
+       allowance alone is not a companion, and a pass must not announce a seat
+       nobody claimed. */
+    const passFacts = guestPassFacts({
+      displayName: displayNameOf(guest),
+      tableLabel: guestHubData.tableLabel,
+      arriveLabel: firstScheduleTimeLabel,
+      plusOneName: guest.plus_one_allowed ? guest.plus_one_name : null,
+    });
+
     const passCard = plan.qrCardShouldRender ? (
       <section
         id={PASS_ANCHOR}
@@ -1276,6 +1302,28 @@ export async function SiteBody({
           Your invitation QR
         </p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
+        {/* ── THE FOUR FACTS A DOOR NEEDS (arrival board "4 · the pass").
+            A code in a box is not a pass. Someone at the door asks who this is
+            and where they sit, and until now the card answered neither.
+            🔑 EVERY FACT IS OMITTED WHEN IT DOES NOT EXIST — no "Table TBA".
+            A pass that states a table the couple never assigned is worse than
+            one that stays quiet: the guest believes it and is moved in front
+            of other people. See lib/guest-pass.ts.
+            `max-w-md` is the PHONE measure, one of the four sanctioned column
+            widths (`_lib/measures.test.ts`); the first version used
+            `max-w-xs` and took the page off its own grid. */}
+        {passFacts.length > 0 ? (
+          <dl className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-left">
+            {passFacts.map((fact) => (
+              <div key={fact.label}>
+                <dt className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/50">
+                  {fact.label}
+                </dt>
+                <dd className="mt-0.5 text-sm font-medium text-ink">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
           Save this to your phone. Photographers will scan it on the day to tag the
           photos they take of you — and you&rsquo;ll be able to grab those photos here

@@ -791,6 +791,15 @@ export function NothingToAnswerFeed({
   declineDeletion: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  /**
+   * Forwarded because this list renders the SAME `<FeedCard>` — see the docblock
+   * above. A `mark_complete` card is an ASK and so never reaches this list, but
+   * the component's props are shared, and leaving it out here would mean the
+   * day somebody changes that disposition the card renders with no button and
+   * no error. `vendor-desk-disposition.ts` is what decides; this just cannot be
+   * the reason it breaks.
+   */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
 }) {
   if (cards.length === 0) return null;
   return (

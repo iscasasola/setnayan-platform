@@ -637,6 +637,7 @@ export default async function VendorOverviewPage({
         declineDeletion={vendorDeclineDeletion}
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
+        markServiceComplete={vendorMarkServiceComplete}
       />
 
       {/* 3 · Ongoing — open tasks */}

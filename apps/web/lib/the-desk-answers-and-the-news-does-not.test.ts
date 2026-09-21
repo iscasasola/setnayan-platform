@@ -35,6 +35,15 @@ const NOW = new Date('2026-09-22T00:00:00.000Z');
 
 /** One real card per kind. Typed as a total Record — see the docblock. */
 const SAMPLES: Record<WhatsNewCard['kind'], WhatsNewCard> = {
+  mark_complete: {
+    kind: 'mark_complete',
+    id: 'c-done',
+    eventVendorId: 'ev-1',
+    eventId: 'e-1',
+    eventName: 'The Santos wedding',
+    eventDate: '2026-08-30',
+    createdAt: T0,
+  },
   inquiry: {
     kind: 'inquiry',
     id: 'c-inq',

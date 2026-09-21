@@ -7,7 +7,7 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import {
   escapeLikeQuery,
   MAX_RESULTS,
-  MIN_QUERY_LENGTH,
+  nameSearchTerms,
   type PersonHit,
 } from '@/lib/people-search-query';
 
@@ -60,8 +60,9 @@ export async function searchPeopleByName(
   rawQuery: string,
   viewerUserId: string,
 ): Promise<PersonHit[]> {
-  const q = (rawQuery ?? '').trim().slice(0, 60);
-  if (q.length < MIN_QUERY_LENGTH) return [];
+  // Word by word, in any order — "Casasola Ice" finds "Ice Casasola".
+  const terms = nameSearchTerms(rawQuery);
+  if (terms.length === 0) return [];
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -94,10 +95,15 @@ export async function searchPeopleByName(
   // The search itself. Admin-read because another account's row is invisible
   // under `users` RLS by design — and NOTHING from this read leaves this
   // function except the four fields of PersonHit.
-  const { data, error } = await admin
+  // One ILIKE per word; PostgREST ANDs repeated filters on a column, so every
+  // word must appear somewhere in the name.
+  let query = admin
     .from('users')
-    .select('user_id, public_id, display_name, profile_photo_url, email, discoverable_by_name')
-    .ilike('display_name', `%${escapeLikeQuery(q)}%`)
+    .select('user_id, public_id, display_name, profile_photo_url, email, discoverable_by_name');
+  for (const term of terms) {
+    query = query.ilike('display_name', `%${escapeLikeQuery(term)}%`);
+  }
+  const { data, error } = await query
     .eq('discoverable_by_name', true)
     .not('display_name', 'is', null)
     .neq('user_id', viewerUserId)

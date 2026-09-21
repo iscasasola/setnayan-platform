@@ -151,6 +151,49 @@ export const ANIM_TEMPO_TIMINGS: Record<'quick' | 'classic' | 'ceremonial', { du
 };
 export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
+/**
+ * The reveal's FINE-TUNE sliders — owner 2026-09-21: *"please add that fine
+ * tune on the lower part reveal which will be the official reveal."* Same three
+ * sliders, same ranges and steps the studio's retired panel had, so a timing
+ * saved from either reads back identically. `sanitizeStudioConfig` clamps to
+ * the same bounds.
+ */
+export const REVEAL_FINE_TUNE = {
+  dur: { min: 1, max: 15, step: 0.5 },
+  delay: { min: 0, max: 2, step: 0.1 },
+  smooth: { min: 0, max: 1, step: 0.01 },
+} as const;
+
+export type RevealTiming = { dur: number; delay: number; smooth: number; preset: StudioAnimTempo };
+
+/**
+ * What a save stores for the reveal's timing. Absent or unreadable slider
+ * values fall back to the tempo preset's; values are clamped to the slider
+ * ranges; and the preset is named only when the numbers ARE that preset —
+ * anything else is `custom`, exactly as the studio labelled a hand-tuned reveal.
+ */
+export function resolveRevealTiming(
+  tempo: keyof typeof ANIM_TEMPO_TIMINGS,
+  timing?: { dur?: unknown; delay?: unknown; smooth?: unknown } | null,
+): RevealTiming {
+  const base = ANIM_TEMPO_TIMINGS[tempo];
+  const pick = (v: unknown, k: keyof typeof REVEAL_FINE_TUNE) => {
+    const n = typeof v === 'number' ? v : Number.NaN;
+    if (!Number.isFinite(n)) return base[k];
+    const { min, max } = REVEAL_FINE_TUNE[k];
+    return Math.min(max, Math.max(min, n));
+  };
+  const dur = pick(timing?.dur, 'dur');
+  const delay = pick(timing?.delay, 'delay');
+  const smooth = pick(timing?.smooth, 'smooth');
+  const same = (t: { dur: number; delay: number; smooth: number }) =>
+    Math.abs(t.dur - dur) < 0.01 && Math.abs(t.delay - delay) < 0.01 && Math.abs(t.smooth - smooth) < 0.01;
+  const named = (Object.keys(ANIM_TEMPO_TIMINGS) as (keyof typeof ANIM_TEMPO_TIMINGS)[]).find((k) =>
+    same(ANIM_TEMPO_TIMINGS[k]),
+  );
+  return { dur, delay, smooth, preset: named ?? 'custom' };
+}
+
 export type StudioLetterState = {
   tx: number;
   ty: number;

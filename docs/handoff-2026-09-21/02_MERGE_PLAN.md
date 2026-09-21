@@ -160,9 +160,11 @@ a session at all, and saying so is better than guessing.
 Each of these is one answer that releases one build. Until answered they should stay **out** of every
 bundle — a build shipped against a guess is a build shipped twice.
 
-1. **Does an unpaid booking fee remove anything?** (A) it stays a bill · (B) access waits for payment
-   · (C) overdue pauses new inquiries and marketplace visibility. Nothing is decided, so today the
-   answer is (A) by default — and dunning cannot be built until it is settled.
+1. ~~**Does an unpaid booking fee remove anything?**~~ ✅ **ANSWERED 2026-09-22 — option (B).** An
+   unpaid fee removes access to the event hub, portfolio, fuller event detail, gathering and sharing
+   data, reviews and stats. It does **not** pause new inquiries (ruled separately). ⚠ The owner's list
+   ends "and more" — **close that list with the owner before building**, then dunning (M5) can be
+   built, because the removal is what a dunning notice has to warn about.
 2. **Is "0% commission" the promise to keep**, beside a 5% booking fee? Claimed five times on public
    pages, including to suppliers. **No wording should be touched until this is answered.**
 3. **Void or credit memo** for a refunded receipt — neither exists in the system.

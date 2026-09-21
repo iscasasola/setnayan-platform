@@ -303,6 +303,21 @@ least two different greppable symbols before calling anything missing.**
   Other shops' names stay hidden. The brief fields are **sealed in SQL**, one platform-settings switch.
 - **No need to pause new inquiries** on an unpaid fee.
 
+**An unpaid booking fee — answered 2026-09-22**
+- **An unpaid booking fee DOES remove access.** Owner, verbatim: *"unpaid booking fee loses access to
+  event hub, portfolio, accessing more details for the event, gathering and sharing data, reviews,
+  stats, and more."* This settles the question the 2026-09-21 register carried as open, and it is
+  **option (B), not (A) or (C)** — access waits for payment rather than the fee merely standing as a bill.
+- ⚠ **It does NOT pause new inquiries.** That was ruled separately and earlier — *"no need to pause new
+  inquiries on an unpaid fee"* — and the list above does not contradict it. **Both hold: a supplier with
+  an unpaid fee keeps taking inquiries and loses the working surfaces.**
+- 🔑 **"and more" is not buildable as written.** The seven named surfaces are clear; the open tail is
+  not. Before this ships, the list must be closed — every gated surface named, and every surface
+  deliberately left ungated named too, because a gate nobody wrote down is indistinguishable from a
+  bug the first time a supplier hits it. **Take the closed list back to the owner; do not infer it.**
+- This unblocks **M5** (dunning): the question "is dunning even needed" is answered yes, and the
+  removal is the consequence a dunning notice must warn about before it lands.
+
 **Money and pricing**
 - The deposit **follows the amount the quote requested, and that is the minimum**.
 - One control reading **"Amount to pay"**, showing the **next due installment** — not just the deposit.
@@ -333,7 +348,7 @@ least two different greppable symbols before calling anything missing.**
 
 | Question | Why it matters | Where it bites |
 |---|---|---|
-| **Does an unpaid booking fee remove anything?** (A) it stays a bill · (B) full access waits for payment · (C) access stays but an overdue fee pauses new inquiries and marketplace visibility. **Nothing is decided, so today the answer is (A) by default.** | Decides whether M5's dunning is even needed | `lib/vendor-room-access-rule.ts` |
+| ~~**Does an unpaid booking fee remove anything?**~~ ✅ **ANSWERED BY THE OWNER 2026-09-22 — see §5.** | — | — |
 | **Flip the subscription paywall on?** `VENDOR_TIER_FEATURE_GATE` is absent from prod, so the ₱1,000/mo ladder collects nothing | The second revenue line does not exist yet | §2d |
 | **Void vs credit memo for a refunded receipt** — `receipts` has no `voided_at`, no status, no reason, and there is no credit-memo table | BIR audit exposure | M13 |
 | **The OR series starts at 8** — 1–7 were burned by rolled-back transactions and there is no record. A BIR series is supposed to be accountable end to end | BIR audit exposure | `select min(or_serial), max(or_serial), count(*) from receipts;` |

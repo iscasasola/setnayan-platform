@@ -37,3 +37,18 @@ unowned event, since its button was merged away. The fuller owned / under-review
 confirmation still renders beneath the step.
 
 SPEC IMPACT: None.
+
+### CI follow-up · a failed save is now recorded, not just returned
+
+`ugat-both-ends` caught `saveRevealChoice` doing `return { ok: false }` on a
+failed write with no log — the error read only as a condition.
+
+It mattered more here than usual. "Unlock & Apply" opens payment REGARDLESS of
+the save's answer, deliberately, so a preference can never block a payment. That
+makes a silent failure the worst kind: the couple pays, the reveal they chose
+never saves, and the animation they bought plays a different one — with nothing
+on screen to say so, because the checkout is already open. The log is the only
+witness, so it now logs via `logQueryError` with the event, kind and tempo.
+
+The guard's instruction was followed rather than bypassed: no baseline line was
+added (that file is inherited debt, not an escape hatch).

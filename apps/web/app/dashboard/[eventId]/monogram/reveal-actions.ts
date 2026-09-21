@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   sanitizeStudioConfig,
   ANIM_KINDS,
@@ -115,7 +116,22 @@ export async function saveRevealChoice(input: {
     .update({ monogram_studio_config: config })
     .eq('event_id', eventId)
     .select('event_id');
-  if (error || !updated || updated.length === 0) return { ok: false };
+  /* ⚠ THIS FAILURE MUST BE RECORDED, NOT JUST RETURNED. "Unlock & Apply" calls
+   * this and then opens payment REGARDLESS of the answer — deliberately, since a
+   * preference must never block someone paying. That makes a silent failure the
+   * worst kind: the couple pays, the reveal they chose never saves, and the
+   * animation they bought plays a different one. The UI cannot surface it (the
+   * checkout is already open), so the log is the only witness. The
+   * `ugat-both-ends` guard caught the bare `return { ok: false }` this was. */
+  if (error || !updated || updated.length === 0) {
+    logQueryError(
+      'saveRevealChoice.events.update',
+      error ?? { message: 'update matched 0 rows (RLS refusal or unknown event)' },
+      { event_id: eventId, kind, tempo },
+      'graceful_degrade',
+    );
+    return { ok: false };
+  }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);

@@ -3776,7 +3776,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     venueAnchor={venueAnchor}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
                     reviews={cardReviews}
-                    activeCategory={category}
+                    activeCategory={filters.category}
                   />
                 </li>
               );

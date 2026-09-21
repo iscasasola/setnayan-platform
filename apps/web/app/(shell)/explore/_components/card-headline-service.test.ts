@@ -77,7 +77,7 @@ test('the grid actually passes the filter in — the whole defect was that nothi
   );
   assert.equal(count(card, /vendor\.services\[0\]/), 0, 'the unconditional read must be gone');
   assert.equal(
-    count(page, /activeCategory=\{category\}/),
+    count(page, /activeCategory=\{filters\.category\}/),
     1,
     'nothing passed the filtered category in — that was the defect, and a rule nobody feeds is the same bug with more code',
   );

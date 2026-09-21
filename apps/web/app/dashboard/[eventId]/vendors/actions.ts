@@ -108,6 +108,7 @@ import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate'
 import { checkManualVenueAddress, manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import { updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
+import { lockMayOverwritePlan } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
 
 function isValidCategory(value: unknown): value is VendorCategory {
@@ -2242,8 +2243,56 @@ export async function finalizeVendor(
       eventDateIso,
     });
 
+    // ── 🔒 THE COUPLE'S OWN PLAN SURVIVES THE LOCK (2026-09-21) ────────────
+    // This snapshot was written when only a marketplace supplier could have a
+    // plan, and its upsert below REPLACED whatever was there. Since 2026-09-20
+    // a couple can author a plan for a supplier they added — and locking that
+    // supplier found no service schedule, seeded a generic 50/50 ESTIMATE, and
+    // overwrote the plan the couple had typed. `lockMayOverwritePlan`
+    // (lib/self-added-payment-plan.ts, executed by its test) holds the rule.
+    //
+    // ⚠ AN UNREADABLE PLAN IS NOT AN ABSENT ONE. If this read fails, a
+    // self-added supplier's plan is LEFT ALONE rather than overwritten blind —
+    // the couple's typed plan is the only copy, and a generic estimate is
+    // recoverable while their plan is not. A marketplace booking keeps the
+    // existing refresh behaviour, since its truth is the supplier's schedule.
+    const onPlatformBooking = Boolean(targetVendor.marketplace_vendor_id);
+    const { data: existingPlan, error: existingPlanErr } = await planAdmin
+      .from('event_vendor_payment_plan')
+      .select('instances_json, is_default_seeded')
+      .eq('event_id', eventId)
+      .eq('event_vendor_id', vendorId)
+      .maybeSingle();
+    if (existingPlanErr) {
+      // Recorded, not just branched on: `ugat-both-ends.db.test.ts` refuses a
+      // money read whose error selects a branch that leaves no trace. The plan
+      // is still protected below — this line is so someone can see it happened.
+      console.error(
+        `[finalizeVendor] could not read the existing payment plan for vendor_id=${vendorId} event_id=${eventId} — ${
+          onPlatformBooking ? 'refreshing it from the supplier schedule' : 'leaving the couple’s plan untouched'
+        }:`,
+        existingPlanErr.message,
+      );
+    }
+    const keepCouplePlan = existingPlanErr
+      ? !onPlatformBooking
+      : !lockMayOverwritePlan({
+          onPlatform: onPlatformBooking,
+          existingInstances: Array.isArray(
+            (existingPlan as { instances_json?: unknown } | null)?.instances_json,
+          )
+            ? ((existingPlan as { instances_json: unknown[] }).instances_json)
+            : null,
+          existingIsDefaultSeeded:
+            (existingPlan as { is_default_seeded?: boolean } | null)?.is_default_seeded === true,
+        });
+
     // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
-    const { error: planErr } = await planAdmin
+    // Skipped entirely when the couple's own plan must survive (see above); the
+    // "your payment info is ready" notice below still fires, because it is.
+    const { error: planErr } = keepCouplePlan
+      ? { error: null }
+      : await planAdmin
       .from('event_vendor_payment_plan')
       .upsert(
         {

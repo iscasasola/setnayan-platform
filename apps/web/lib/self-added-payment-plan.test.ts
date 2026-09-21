@@ -16,6 +16,7 @@ import {
   PLAN_EMPTY,
   PLAN_NEEDS_TOTAL,
   buildCouplePaymentPlan,
+  lockMayOverwritePlan,
   type CouplePlanRowInput,
 } from './self-added-payment-plan';
 
@@ -166,5 +167,37 @@ describe('the guards around the edges', () => {
       row({ label: `Payment ${i + 1}`, value: '7.7', due_offset_days: String(i) }),
     );
     assert.equal(build(many).ok, false);
+  });
+});
+
+describe('locking a supplier must not erase the plan the couple typed', () => {
+  const COUPLE_PLAN = [{ seq: 0, label: 'Downpayment', amount_php: 24000, due_date: '2026-09-21' }];
+
+  it('PRESERVES a couple-authored plan on a self-added supplier — the bug', () => {
+    // Couple typed "30% now, 70% two weeks before", then tapped Lock. Before
+    // the fix the lock snapshot replaced it with a generic 50/50 estimate.
+    assert.equal(
+      lockMayOverwritePlan({ onPlatform: false, existingInstances: COUPLE_PLAN, existingIsDefaultSeeded: false }),
+      false,
+    );
+  });
+
+  it('still refreshes a marketplace supplier’s plan from their own schedule', () => {
+    assert.equal(
+      lockMayOverwritePlan({ onPlatform: true, existingInstances: COUPLE_PLAN, existingIsDefaultSeeded: false }),
+      true,
+    );
+  });
+
+  it('writes a plan when a self-added supplier has none yet', () => {
+    assert.equal(lockMayOverwritePlan({ onPlatform: false, existingInstances: null, existingIsDefaultSeeded: false }), true);
+    assert.equal(lockMayOverwritePlan({ onPlatform: false, existingInstances: [], existingIsDefaultSeeded: false }), true);
+  });
+
+  it('refreshes our own default-seeded estimate — it was only a placeholder', () => {
+    assert.equal(
+      lockMayOverwritePlan({ onPlatform: false, existingInstances: COUPLE_PLAN, existingIsDefaultSeeded: true }),
+      true,
+    );
   });
 });

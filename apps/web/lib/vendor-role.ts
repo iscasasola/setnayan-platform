@@ -140,8 +140,31 @@ export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
  */
 export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
   'profile', // the Overview tab (key kept as 'profile' for localStorage continuity)
+  // 🔴 'customers' WAS MISSING — CTRL-B2 build 6, fixed 2026-09-22.
+  // `VENDOR_SCOPED_NAV_ITEM_KEYS` has granted staff My Customers since the
+  // 5-page IA landed on 2026-07-12, and this list was never updated with it.
+  // The phone was the STRICTER of the two, so an agent or viewer on a phone had
+  // no route to the one operational surface their role exists for — and none to
+  // the day they were granted access to. On desktop the same person could see it.
+  'customers',
   // 'services' retired 2026-07-02 — folded into owner/admin-only My Shop.
 ]);
+
+/**
+ * The ONE key the two scoped lists spell differently: the Overview destination
+ * is `overview` in the sidebar and `profile` in the bottom nav, deliberately —
+ * the tab key is pinned to `profile` for localStorage continuity. Declared here
+ * so the guard can compare the two lists by MEANING rather than by string, and
+ * so a future rename has one place to look.
+ */
+export const VENDOR_NAV_KEY_ALIASES: ReadonlyMap<string, string> = new Map([
+  ['profile', 'overview'],
+]);
+
+/** A bottom-nav key, as the sidebar would spell it. */
+export function canonicalVendorNavKey(key: string): string {
+  return VENDOR_NAV_KEY_ALIASES.get(key) ?? key;
+}
 
 /** Filter a vendor NavGroup[] down to what `role` may see; drops empty groups. */
 export function filterVendorNavGroups(

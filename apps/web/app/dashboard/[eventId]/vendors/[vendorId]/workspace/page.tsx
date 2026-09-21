@@ -2773,7 +2773,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // gap (vendor marked complete, couple hasn't confirmed); `reviewable` nudges
   // the review — but only when the marketplace-info section isn't ALSO showing a
   // review link (it only does so at legacy status 'delivered'/'complete'), so we
-  // never double up. `awaiting_vendor` renders nothing (nothing to do yet).
+  // never double up.
+  //
+  // 🔴 `awaiting_vendor` USED TO RENDER NOTHING — "nothing to do yet" (CTRL-B2
+  // build 2, fixed 2026-09-22). Nothing to DO is not nothing to SAY. After the
+  // celebration a couple opens this page looking for their review and finds a
+  // blank space, which is indistinguishable from a product that has forgotten
+  // them — and they have no way to learn that the next move is the supplier's.
+  //
+  // 🔑 IT IS ONLY HONEST NOW BECAUSE BUILD 1 SHIPPED. Before it, the supplier
+  // was never asked for the mark either, so this card would have promised a
+  // step that nobody would ever take. A waiting-on-them line above a door
+  // nobody is walking through is a worse lie than the blank.
   const reviewHref = `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`;
   const coupleCompletionSection =
     coupleHandshake === 'awaiting_confirm' ? (
@@ -2817,6 +2828,23 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <p className="mt-3 text-[11px] text-ink/55">
           If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still
           go up.
+        </p>
+      </section>
+    ) : coupleHandshake === 'awaiting_vendor' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-ink/10 bg-ink/[0.03] p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <Info aria-hidden className="h-4 w-4 text-ink/50" strokeWidth={1.75} />
+          Waiting on {displayName}
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          Your review opens once {displayName} confirms they delivered their service. We&rsquo;ve
+          asked them — you don&rsquo;t need to do anything yet.
         </p>
       </section>
     ) : coupleHandshake === 'disputed' ? (

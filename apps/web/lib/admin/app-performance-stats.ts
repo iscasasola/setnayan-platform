@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { M_CONFIRM_DAYS } from '@/lib/completion-handshake';
 import { purchaseIdFromVendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import {
   GROWTH_BUCKETS,
@@ -32,7 +33,8 @@ import {
  * migrations 20260513150000 / 20261010000000 / 20260916000000). No ÷100.
  *
  * COMPLETION: the real completed-service signal is
- * event_vendors.completion_status IN ('confirmed','auto_confirmed')
+ * a completion DERIVED the way `reviewState` derives it (confirmed, or the
+ * couple's confirm timestamp, or a mark older than M_CONFIRM_DAYS)
  * (migration 20270101000000 handshake). There is NO completed-event state on
  * events — the cockpit deliberately charts completed SERVICES.
  *
@@ -83,7 +85,7 @@ export type Monetization = {
 };
 
 export type CompletedServices = {
-  /** Completions per current-window bucket (confirmed + auto_confirmed). */
+  /** Completions per current-window bucket, derived — see `rowIsComplete`. */
   count: number[];
   total: number;
   prevTotal: number;
@@ -305,16 +307,62 @@ async function fetchMonetization(admin: Admin, w: Windows): Promise<Monetization
  * handshake timestamp (customer confirm → vendor mark → row created_at
  * fallback for backfilled legacy rows).
  */
+/**
+ * The instant before which a vendor-marked service counts as auto-confirmed.
+ *
+ * ⚠ MIRRORS `M_CONFIRM_DAYS` in `lib/completion-handshake.ts` — the constant
+ * `reviewState` uses. Imported rather than re-typed so the metric and the
+ * couple's screen can never disagree about when a service became complete.
+ */
+function autoConfirmCutoffIso(now: number = Date.now()): string {
+  return new Date(now - M_CONFIRM_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** One row's completion verdict — the same rule the head count filters on. */
+function rowIsComplete(
+  row: {
+    completion_status?: string | null;
+    customer_confirmed_received_at?: string | null;
+    service_marked_complete_at?: string | null;
+  },
+  now: number = Date.now(),
+): boolean {
+  if (row.completion_status === 'disputed') return false;
+  if (row.completion_status === 'confirmed') return true;
+  if (row.customer_confirmed_received_at) return true;
+  const marked = row.service_marked_complete_at;
+  if (!marked) return false;
+  const t = Date.parse(marked);
+  return Number.isFinite(t) && now - t >= M_CONFIRM_DAYS * 24 * 60 * 60 * 1000;
+}
+
 async function fetchLifecycleAndFirstPick(
   admin: Admin,
   w: Windows,
 ): Promise<{ completed: CompletedServices; firstPick: FirstPick }> {
   const [allTimeCompleted, disputed, allTimePicks] = await Promise.all([
+    // 🔴 THIS UNDER-COUNTED FOREVER (CTRL-B2 build 3, fixed 2026-09-22).
+    // `auto_confirmed` has readers in eight files and NO WRITER — not in
+    // TypeScript and not in SQL; prod holds 0 rows at that value. The
+    // auto-confirmation is DERIVED by `reviewState` from elapsed time, which is
+    // deliberately cron-free and correct. So this filter asked for a literal
+    // nothing will ever set, and every auto-confirmed completion was invisible
+    // to admin metrics — silently, because an under-count looks like a number.
+    //
+    // 🔑 THE CHOICE WAS "WRITE IT OR STOP READING IT", AND WRITING IT NEEDS A
+    // SCHEDULER THIS REPO DELIBERATELY DOES NOT HAVE. So the metric now counts
+    // what `reviewState` counts: a confirmed row, or one whose mark has aged
+    // past the auto-confirm window. `customer_confirmed_received_at` is
+    // included because it is what the couple's own confirm writes.
     headCount(
       admin
         .from('event_vendors')
         .select('*', HEAD)
-        .in('completion_status', ['confirmed', 'auto_confirmed']),
+        .or(
+          `completion_status.eq.confirmed,` +
+            `customer_confirmed_received_at.not.is.null,` +
+            `service_marked_complete_at.lt.${autoConfirmCutoffIso()}`,
+        ),
     ),
     headCount(
       admin.from('event_vendors').select('*', HEAD).eq('completion_status', 'disputed'),
@@ -342,10 +390,9 @@ async function fetchLifecycleAndFirstPick(
   let prevPicks = 0;
 
   for (const row of rows) {
-    if (
-      row.completion_status === 'confirmed' ||
-      row.completion_status === 'auto_confirmed'
-    ) {
+    // Same rule as the head count above, applied per row — one definition of
+    // "complete", so the total and the buckets cannot disagree.
+    if (rowIsComplete(row)) {
       const at =
         row.customer_confirmed_received_at ??
         row.service_marked_complete_at ??

@@ -22,6 +22,7 @@ import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import {
+import { emitNotification } from '@/lib/notification-emit';
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
   DEEP_SEARCH_CHAT_MODEL,
@@ -197,6 +198,46 @@ async function transitionVendorVisibility(opts: {
         },
       });
     if (historyErr) return { ok: false, error: historyErr.message };
+  }
+
+  /*
+    📣 THE BEST NEWS THE PRODUCT EVER HAS FOR A SUPPLIER — CTRL-B2 build 4.
+
+    This function wrote an audit row and a tier-history row and called NO
+    NOTIFIER. "Couples can now find you" reached a supplier only if they
+    happened to log in, and the whole point of going live is that they can stop
+    checking. Measured 2026-09-22: `grep -c notify` over this function → 0.
+
+    🔑 BOTH HALVES, OR NEITHER. An emitted notification whose type is missing
+    from `EMAIL_ENABLED_TYPES` is a tray badge reaching nobody away from the
+    console. `vendor_status_change` is already on that allowlist — checked, not
+    assumed, and asserted by the guard so it cannot drop off later.
+
+    Best-effort: the shop is already live, and a failed notification must not
+    make the admin think the transition failed and re-run it.
+  */
+  try {
+    const { data: owner } = await admin
+      .from('vendor_profiles')
+      .select('user_id, business_name')
+      .eq('vendor_profile_id', opts.vendorProfileId)
+      .maybeSingle();
+    const ownerRow = owner as { user_id: string | null; business_name: string | null } | null;
+    if (ownerRow?.user_id) {
+      const live = opts.nextVisibility === 'verified';
+      const name = ownerRow.business_name ?? 'Your shop';
+      await emitNotification({
+        userId: ownerRow.user_id,
+        type: 'vendor_status_change',
+        title: live ? `${name} is live on Setnayan` : `${name} is no longer listed`,
+        body: live
+          ? 'Couples can find you and send enquiries now. Add your services and packages so they can see what you offer.'
+          : 'Your shop has been taken off the marketplace. Open your dashboard to see what is needed.',
+        relatedUrl: '/vendor-dashboard',
+      });
+    }
+  } catch (e) {
+    console.error('[transitionVendorVisibility] going-live notify failed:', e);
   }
 
   return { ok: true };

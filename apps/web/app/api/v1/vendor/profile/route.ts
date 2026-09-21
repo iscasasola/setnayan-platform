@@ -8,6 +8,7 @@ import {
 } from '@/lib/api-auth';
 import { vendorJson } from '@/lib/api-vendor';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isShopLive } from '@/lib/vendor-visibility';
 
 /**
  * GET /api/v1/vendor/profile
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
   const { data: profile, error: profileErr } = await admin
     .from('vendor_profiles')
     .select(
-      'public_id, business_name, business_slug, tagline, logo_url, website, contact_email, contact_phone, location_city, hq_region, services, event_types, compatible_ceremony_types, compatible_venue_settings, capacity_min, capacity_max, venue_type, in_business_since_year, weddings_done_approx, is_published, verification_state, tier_state, created_at',
+      'public_id, business_name, business_slug, tagline, logo_url, website, contact_email, contact_phone, location_city, hq_region, services, event_types, compatible_ceremony_types, compatible_venue_settings, capacity_min, capacity_max, venue_type, in_business_since_year, weddings_done_approx, public_visibility, verification_state, tier_state, created_at',
     )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
@@ -80,8 +81,20 @@ export async function GET(req: Request) {
     return apiErrorResponse(500, 'database_error', 'Profile could not load right now. Try again in a moment.');
   }
 
+  /*
+    🔴 THIS USED TO RETURN THE LEGACY `is_published` BOOLEAN — CTRL-B2 build 5a.
+    `isShopLive` has read `public_visibility` + `verification_state` since the
+    visibility model landed; `is_published` is vestigial and, on the live shop
+    SetnaProd, is FALSE while the shop is verified and findable. So a supplier
+    reading their own API was told "not published" about a shop couples can see.
+
+    🔑 THE API NOW ANSWERS WITH THE DERIVATION, NOT A COLUMN. `is_live` comes
+    from the same `isShopLive` the marketplace uses, so the API and the
+    marketplace cannot disagree about whether a shop is findable. The two raw
+    inputs ride along so an integrator can see WHY.
+  */
   return vendorJson({
-    profile,
+    profile: profile ? { ...profile, is_live: isShopLive(profile) } : profile,
     services: services ?? [],
     packages: packages ?? [],
   });

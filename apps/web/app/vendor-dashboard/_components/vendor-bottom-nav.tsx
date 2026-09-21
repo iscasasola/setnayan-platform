@@ -208,7 +208,10 @@ export function VendorBottomNav({
   threadsBadge?: number | null;
 }) {
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
-  // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
+  // scoped subset. ⚠ This comment said "Phase 1: Home + More" until 2026-09-22
+  // while the SAME FILE says twice, above, that there is no More tab any more —
+  // a stale comment read as a measurement is how this repo has been burned
+  // before. Staff get Overview + My Customers; Phase 2 expands agent tabs once
   // per-service data scoping lands.
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset. "My Services" was retired 2026-07-02 (folded into

@@ -64,3 +64,56 @@ Guard `the-event-is-over-and-somebody-says-so.test.ts` — 8 tests, 8 sabotages 
 top-level function, with a length floor so a collapsed window fails loudly.
 
 SPEC IMPACT: None.
+
+### 2 — the couple is told who they are waiting on
+
+RULE 0: `coupleConfirmReceived` **already existed and was already mounted** on the couple's
+workspace. The gap was one state — the page's own comment read *"`awaiting_vendor` renders nothing
+(nothing to do yet)"*. Nothing to DO is not nothing to SAY: after the celebration a couple opened
+this page looking for their review and found a blank, indistinguishable from a product that had
+forgotten them. Now: **"Waiting on {supplier}"**, with why.
+
+🔑 It is only honest because build 1 shipped. Before it the supplier was never asked for the mark
+either, so this card would have promised a step nobody would take — a worse lie than the blank.
+
+### 3 — admin metrics stop filtering on a status nothing writes
+
+`completion_status = 'auto_confirmed'` had readers in eight files and **no writer in TypeScript or
+SQL**; prod holds 0 rows at it. The choice was "write it or stop reading it", and writing it needs a
+scheduler this repo deliberately does not have — `reviewState` derives auto-confirmation from
+elapsed time and is correct. So the metric now derives completion the same way, off the **same
+exported `M_CONFIRM_DAYS`**, and the head count and the per-row buckets share one definition.
+
+### 4 — going live is no longer silent
+
+`transitionVendorVisibility` wrote an audit row and a tier-history row and called **no notifier**
+(`grep -c notify` → 0). "Couples can now find you" reached a supplier only if they happened to log
+in. Now emits `vendor_status_change`, which was **already on `EMAIL_ENABLED_TYPES`** — checked, not
+assumed, and the guard asserts both halves, because having one is indistinguishable from neither.
+
+### 5a — the v1 API answers with the derivation, not a vestigial column
+
+`/api/v1/vendor/profile` returned the legacy `is_published`, which is **false on SetnaProd while the
+shop is verified and findable** — so a supplier reading their own API was told "not published" about
+a live shop. It now returns `is_live`, from the same `isShopLive` the marketplace uses.
+
+### 6 — an agent's phone offers what their desktop grants
+
+`VENDOR_SCOPED_NAV_ITEM_KEYS` has granted staff **My Customers** since the 5-page IA landed
+(2026-07-12); `VENDOR_SCOPED_BOTTOM_NAV_KEYS` was never updated and held one key. The phone was the
+**stricter** list, so an agent had no route to the one operational surface their role exists for.
+Fixed, plus the stale comment in `vendor-bottom-nav.tsx` that still said "Phase 1: Home + More"
+while the same file says twice that there is no More tab. New `canonicalVendorNavKey` lets the guard
+compare the lists **by meaning**, since Overview is deliberately `profile` on the phone.
+
+Guard `the-loop-closes-and-says-so.test.ts` — 5 tests, 6 sabotages confirmed red.
+🪤 **Four guards in this bundle convicted their own documentation before they worked.** A comment
+saying *"this used to filter on auto_confirmed"* is the opposite of the defect. They now read
+stripped source through the repo's single `stripComments`.
+
+### 5b — DROPPED from the end
+
+The permanently-empty payout section on `/vendor-dashboard/earnings` is untouched. The brief calls
+it last and safe to drop, and its neighbouring lie — the blurb promising "scheduled payouts" — was
+already fixed in PR #5849. Removing a whole section from a shipped money page deserves its own
+change with someone watching.

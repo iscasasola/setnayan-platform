@@ -62,15 +62,15 @@ import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { customerOrderName, orderSubject } from '@/lib/order-naming';
 import {
+  orderNoticeLinkForRow as noticeLinkFor,
+  orderPaidBodyForRow,
+} from '@/lib/pay-back-link';
 import {
   PROMOTABLE_ORDER_STATUSES,
   canPromoteOrderToPaid,
   promotionRefusedReason,
 } from '@/lib/order-promotion-rule';
 import { scanAllPriors } from '@/lib/payment-priors-scan';
-  orderNoticeLinkForRow as noticeLinkFor,
-  orderPaidBodyForRow,
-} from '@/lib/pay-back-link';
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -201,6 +201,12 @@ export async function approvePaymentCore(args: {
   | { ok: true }
   | { ok: false; shortfall: true; message: string }
   | { ok: false; duplicate: true; message: string; blocking: boolean }
+  /**
+   * The order was not in a state that can be promoted to `paid` — CTRL-B1
+   * build 2. The payment stays matched and recorded; only the promotion is
+   * withheld, and `message` names the status that stopped it.
+   */
+  | { ok: false; notPromotable: true; message: string }
 > {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
 

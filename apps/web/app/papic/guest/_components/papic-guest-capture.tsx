@@ -402,6 +402,13 @@ export function PapicGuestCapture({
       const res = await fetch('/api/papic/accept-terms', { method: 'POST' });
       if (!res.ok) throw new Error('accept');
       setAccepted(true);
+      // ── THE FACE STEP POPS ON THE FIRST CLICK (owner 2026-09-21). This is the
+      // moment a guest first opens the camera, so it is where "add your face so
+      // your photos find you" is asked — ONCE, and never on the page itself.
+      // SEPARATE from the terms above and SKIPPABLE (onSkip): biometric consent
+      // under RA 10173 must be freely given, so declining it never costs the
+      // guest the camera. The small in-camera prompt remains for later.
+      if (needsFaceEnroll && !enrolled) setEnrolling(true);
     } catch {
       setAcceptError('Could not save that — check your signal and try again.');
     } finally {

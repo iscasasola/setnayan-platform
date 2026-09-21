@@ -23,7 +23,6 @@ import {
   claimAccountAction,
   saveAttendedVendorAction,
 } from '../actions';
-import { DayOfFaceEnroll } from './day-of-face-enroll';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
@@ -1630,14 +1629,16 @@ export async function SiteBody({
                 <SongRequestCard paused={songRequestDoor === 'paused'} />
               ) : null}
 
-              {/* "Add your face" — shown across the whole pre-event window (gated in
-                  needsFaceEnroll: Papic event · not declined · not yet enrolled) so
-                  guests enroll early, plus a day-of catch for anyone who skipped the
-                  RSVP selfie. One tap enrolls them so their candid photos auto-find
-                  them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
-              {needsFaceEnroll ? (
-                <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} faceMode={faceMode} />
-              ) : null}
+              {/* ⛔ NO STATIC "ADD YOUR FACE" CARD ON THE EVENT HUB — owner,
+                  2026-09-21: "so many text. we want the event hub to be
+                  minimalist" … "should be a pop up on their first click on the
+                  camera" … "not a static widget on event hub".
+                  The face step now opens INSIDE the camera, once, straight after
+                  the guest accepts its terms (papic-guest-capture.tsx), and stays
+                  skippable there — biometric consent under RA 10173 must be freely
+                  given, so it is never a condition of using the camera. The RSVP
+                  sheet's optional selfie is unchanged. Pinned by
+                  `the-face-step-waits-for-the-camera.test.ts`. */}
 
               {/* Inline Papic guest camera — auto-shown in-context when the couple owns
                   the active (admin-approved) PAPIC_GUEST pack, so an identified guest

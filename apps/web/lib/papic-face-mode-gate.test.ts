@@ -222,7 +222,9 @@ test('CAPTURE_FILES + EMBED_EXEMPT_FILES entries exist and still embed', () => {
 // regression this catches.
 for (const rel of [
   'app/[slug]/_lib/loaders.ts',
-  'app/[slug]/hub/page.tsx',
+  // The camera asks for the face after its photo rules (2026-09-21) — the
+  // hub no longer mounts the prompt, so the camera page carries the gate.
+  'app/papic/guest/page.tsx',
 ]) {
   test(`the face-enroll PROMPT is gated on the face_enrollment control in ${rel}`, () => {
     const src = fs.readFileSync(path.join(WEB, rel), 'utf8');

@@ -62,6 +62,10 @@ import {
   ROLE_SECTION_ORDER,
 } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
+import { FilterPopover } from './_components/filter-popover';
+import { FindAddRow } from './_components/find-add-row';
+import { RosterMeters } from './_components/roster-meters';
+import { RosterTabs } from './_components/roster-tabs';
 import {
   AddFromPeopleSheet,
   OpenAddFromPeopleButton,
@@ -865,82 +869,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <span className="sn-h1-tail">Guests</span>
           )
         }
-        actions={
-          <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
-            {/* AFTER THE CELEBRATION the two doors change meaning. "Invite
-                guests" and "Arrange the room" are both about a party still to
-                come; the door that matters now is the record of who actually
-                walked in. Neither of the other two is orphaned — the add paths
-                sit one line below in the roster, and the seat plan keeps its
-                own rail row under "Also in this event". */}
-            {finished ? (
-              <Link
-                href={`/dashboard/${eventId}/guests/checkin`}
-                className="button-secondary inline-flex items-center gap-2"
-              >
-                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Who came
-              </Link>
-            ) : null}
-            {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
-                the one join link + QR) was orphaned when the Living Roster reskin
-                dropped the lifecycle ribbon; this restores its desktop entry point.
-                Same button-secondary weight as the Share affordance beside it —
-                discoverable, not shouty. Share stays; the add paths (primary add,
-                CSV import, quick-add list, full form) live in the capture bar. */}
-            {finished ? null : (
-              <Link
-                href={`/dashboard/${eventId}/guests/invite`}
-                className="button-secondary inline-flex items-center gap-2"
-              >
-                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Invite guests
-              </Link>
-            )}
-            {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
-                (/seating: the "Arrange the room" editor, authoring truth for the
-                3D plan) was reachable ONLY from the mobile carousel's journey pill;
-                the desktop Guests page had no door to it. Same disease the Invite
-                door (beside) just cured. Same button-secondary weight — the proto's
-                `.gseat` glass pill. */}
-            {finished ? null : (
-              <Link
-                href={`/dashboard/${eventId}/seating`}
-                className="button-secondary inline-flex items-center gap-2"
-              >
-                <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Arrange the room
-              </Link>
-            )}
-            {/* ⚖ OWNER 2026-09-20: "Add a button on the upper part beside arrange
-                the room to launch that. [Wedding March]."
-
-                The processional had a tab and nothing else. "Arrange the room"
-                is the door to the seat plan; this is the door to the AISLE, and
-                the two belong side by side because a couple thinks of them
-                together and they are emphatically not the same ordering —
-                moving a pair up the march never moves a chair.
-
-                🔑 THE OWNER NAMED IT, SO THE COUPLE'S WORD IS "WEDDING MARCH"
-                EVERYWHERE THEY SEE IT — this button, the view tab, and the
-                panel's own heading. A button called one thing that opens a view
-                called another is two names for one idea, and the second one
-                always looks like a different feature. The column stays
-                `entourage_order`; that is a schema name, not a word anybody
-                reads. */}
-            {finished || !hasProcessional ? null : (
-              <Link
-                href={`/dashboard/${eventId}/guests?gview=walk`}
-                className="button-secondary inline-flex items-center gap-2"
-              >
-                <ListOrdered aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Wedding March
-              </Link>
-            )}
-            {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
-          </div>
-        }
       />
+      {/* ⚖ THE MASTHEAD'S DOORS BECAME ONE ROW — owner 2026-09-20: "these row
+          can be 1 row". Every door keeps the exact condition it had here
+          (Check-in after · Invite/Arrange/Wedding March before · Share with a
+          link); RosterTabs' docblock lists them. The one thing removed is the
+          duplicate: before the event "Invite guests" and the Share dropdown
+          both handed out the same link, and are one "Share the link" tab now.
+          Desktop only, exactly as the actions were (`hidden … lg:flex`) —
+          phones keep the carousel's own header. */}
+      <div className="hidden lg:block">
+        <RosterTabs
+          eventId={eventId}
+          view={gview}
+          finished={finished}
+          hasProcessional={hasProcessional}
+          hasJoinLink={Boolean(joinUrl)}
+          shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
+          viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
+        />
+      </div>
 
       {/* ─── THE CELEBRATION HAPPENED: LEAD WITH THE RECORD, NOT THE PLAN ───
            One line, because the page header is one line (owner-locked) and this
@@ -1061,51 +1009,35 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Same filter params, same server actions: this is presentation only.
           (Mobile top stays just the list; the carousel carries its own chrome.) */}
       <div className="gl-settle hidden space-y-3 lg:block">
-        {/* Capture-first (Living Roster P2): the CaptureBar heads the chrome as
-            the ADD doorway — parses "Ana Cruz +1 groom vip #Barkada" and lands
-            it inline. A new guest inherits the active Side lens. FIND lives in
-            the SummaryFacetBar query row now (search consolidation 2026-07-13),
-            not behind a mode toggle here. */}
-        {/* ⚠ THE NAME BOX IS THE THING THE OWNER POINTED AT. It invites you to
-            type a guest into a celebration that is over. It is RECEDED, not
-            removed — somebody who turned up unannounced still belongs on the
-            list, and a host writing thank-yous needs them there. Same
-            disclosure the day-of takeover uses for the planning stack, so
-            "receded" means one thing in this product and not two. */}
-        {finished ? (
-          <details className="rounded-xl border border-ink/12 bg-white/50 px-4 py-3">
-            <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
-              Still adding someone? — the list is open
-            </summary>
-            <div className="mt-3">
-              <CaptureBar
-                eventId={eventId}
-                defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-              />
-            </div>
-          </details>
-        ) : (
-          <CaptureBar
-            eventId={eventId}
-            defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-          />
-        )}
-
-        {/* The single facet instrument. Search + Sort + List/Mind-map fold into
-            its query row (they were a separate Toolbar block pre-2026-07-13);
-            desktop chrome is now two blocks, not three. Desktop only — mobile
-            uses the carousel's own compose-row + Journey switch. */}
+        {/* ⚖ THE SHELL — owner 2026-09-20. The CaptureBar no longer heads the
+            chrome on its own: it is the ADD half of one shared row (FindAddRow),
+            with FIND on the other end, and whichever is not in use folds to an
+            icon.
+            ⚠ THE NAME BOX IS STILL THE THING THE OWNER POINTED AT after the
+            event — it invites you to type a guest into a celebration that is
+            over. It stays RECEDED, not removed: somebody who turned up
+            unannounced still belongs on the list. It used to recede into a
+            <details>; it now recedes behind the row's "+", and never opens on
+            its own once the event has passed (`startAdding`). */}
         <SummaryFacetBar
           stats={stats}
           measured={guestsMeasured}
           eventId={eventId}
-          hasProcessional={hasProcessional}
           search={search}
           q={q}
           sort={sort}
           sortOptions={SORT_OPTIONS}
-          gview={gview}
           paxProgress={paxProgress}
+          finished={finished}
+          // After the event the add box still exists — someone who turned up
+          // unannounced belongs on the list — but it never opens on its own;
+          // it waits behind the "+" (receded, not removed).
+          addBar={
+            <CaptureBar
+              eventId={eventId}
+              defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
+            />
+          }
           rsvpActive={rsvpFilter}
           teamActive={teamFilter}
           teamCounts={teamCounts}
@@ -1641,8 +1573,8 @@ function SummaryFacetBar({
   q,
   sort,
   sortOptions,
-  gview,
-  hasProcessional,
+  finished,
+  addBar,
   paxProgress,
   rsvpActive,
   teamActive,
@@ -1662,10 +1594,10 @@ function SummaryFacetBar({
   q: string;
   sort: SortKey;
   sortOptions: readonly { value: string; label: string }[];
-  gview: 'list' | 'map' | 'walk';
-  /** Whether this celebration has a processional — see the derivation in the
-   *  page body; a generic event's roles walk down no aisle. */
-  hasProcessional: boolean;
+  /** The event has happened — the add box then never opens on its own. */
+  finished: boolean;
+  /** The quick-add bar, rendered by the page (it knows the Side lens). */
+  addBar: React.ReactNode;
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';
@@ -1719,9 +1651,6 @@ function SummaryFacetBar({
             g.group_id === currentGroupId,
         );
 
-  const responded = stats.total - stats.pending;
-  const pct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
-  const seg = (n: number) => (stats.total > 0 ? (n / stats.total) * 100 : 0);
 
   // Side facet — same `team` param + "both counts to both sides" rule as the
   // old rail (Everyone clears; Bride / Groom set). Dot cue matches the roster.
@@ -1745,212 +1674,142 @@ function SummaryFacetBar({
     { key: 'maybe', label: 'Maybe', count: stats.maybe },
   ];
 
+  // ⚖ Owner 2026-09-20 — the prototype shell. Three blocks became one row
+  // plus a meter strip: RosterMeters (two meters, one row) · FindAddRow
+  // (search ↔ add sharing one row) · the five facet rows folded into a
+  // FilterPopover. The rows below are MOVED, NOT REWRITTEN: their links,
+  // counts and honesty rules (a count it could not measure is hidden, never a
+  // confident zero) are the same text they were.
+  const activeFilters =
+    (teamActive !== 'all' ? 1 : 0) +
+    (rsvpActive ? 1 : 0) +
+    (view && view !== 'all' ? 1 : 0) +
+    (currentGroupId ? 1 : 0) +
+    (tagFilter ? 1 : 0);
+
   return (
-    /* NO FRAME (owner 2026-08-21: *"we want to remove the framings so it moves
-       cleanly"*). This was a glass panel wrapping four stacked sections that
-       ALREADY separate themselves with hairlines — so the outer edge was a
-       fifth line saying nothing the four inside were not, and it inset every
-       row 16px from the page measure while the roster below sat flush. The
-       sections and their dividers are untouched; the box around them is gone,
-       which is what lets the eye run straight down the page.
-
-       Root still has NO overflow-hidden: the inline group pills' rename/delete
-       kebab opens downward and would otherwise be clipped past the last row.
-       Meters — the pax target + confirmations progress that headlined the old
-       stat strip, kept verbatim (data-display only). */
     <div className="gl-settle">
-      <div className="border-b border-ink/[0.07] py-3">
-        {paxProgress ? (
-          <div className="mb-2.5">
-            <div className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="font-mono uppercase tracking-[0.15em] text-terracotta-700">
-                {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
-              </span>
-              <span className="font-mono tabular-nums text-ink/70">
-                {paxProgress.exceeded ? (
-                  <>
-                    {paxProgress.headcount} guests · {paxProgress.overBy} over your{' '}
-                    {paxProgress.target} minimum
-                  </>
-                ) : (
-                  <>
-                    {paxProgress.headcount} of {paxProgress.target} pax ·{' '}
-                    {paxProgress.progressPct}%
-                  </>
-                )}
-              </span>
-            </div>
-            <div
-              role="img"
-              aria-label={
-                paxProgress.exceeded
-                  ? `Now planning for ${paxProgress.headcount} attending guests, ${paxProgress.overBy} over the ${paxProgress.target} minimum pax`
-                  : `${paxProgress.headcount} attending of a ${paxProgress.target} minimum pax target, ${paxProgress.progressPct}%`
-              }
-              className="sn-bar mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
-            >
-              <i
-                className={paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}
-                style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
-              />
-            </div>
-            {/* Unassigned-pax pool (S1) — fills as guests are LISTED, distinct
-                from the sure-attending meter above. */}
-            <div className="mt-1.5 flex items-baseline justify-between text-[11px] text-ink/55">
-              <span className="font-mono uppercase tracking-[0.12em]">Pax pool</span>
-              <span className="font-mono tabular-nums">
-                {paxProgress.overListed > 0
-                  ? `${paxProgress.listed} listed · ${paxProgress.overListed} over target`
-                  : `${paxProgress.unassigned} unassigned · ${paxProgress.listed} of ${paxProgress.target} listed`}
-              </span>
-            </div>
-          </div>
-        ) : null}
-        <div className="flex items-baseline justify-between text-xs text-ink/55">
-          <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
-          <span className="font-mono tabular-nums">
-            {measured ? (
-              <>
-                {responded} of {stats.total} responded · {pct}%
-                {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
-              </>
-            ) : (
-              // "0 of 0 responded · 0%" is the most confident sentence on this
-              // page, and on a refused read it is pure invention.
-              'not loaded'
-            )}
-          </span>
-        </div>
-        <div
-          role="img"
-          aria-label={
-            measured
-              ? `${responded} of ${stats.total} guests have responded (${stats.attending} attending, ${stats.maybe} maybe, ${stats.declined} declined, ${stats.pending} pending)`
-              : 'Responses could not be loaded'
-          }
-          className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-ink/10"
-        >
-          <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
-          <div className="h-full bg-warn-300" style={{ width: `${seg(stats.maybe)}%` }} />
-          <div className="h-full bg-danger-300" style={{ width: `${seg(stats.declined)}%` }} />
-        </div>
-      </div>
+      <RosterMeters paxProgress={paxProgress} stats={stats} measured={measured} />
 
-      {/* Query row — the always-visible search + instant Sort + List/Mind-map
-          switch (search consolidation 2026-07-13, absorbed from the retired
-          Toolbar so search is never behind a toggle). Search + Sort are
-          Suspense-wrapped client islands (they read useSearchParams); the facet
-          bar itself stays a Server Component. */}
-      <div className="flex items-center gap-2 border-b border-ink/[0.07] py-3">
-        <Suspense fallback={null}>
-          <GuestsSearch initialValue={q} />
-        </Suspense>
-        <div className="flex shrink-0 items-center gap-2">
+      <FindAddRow
+        // An EMPTY list opens on Add — there is nobody yet to find. Never
+        // after the event: the name box there is receded on purpose (the
+        // owner pointed at it inviting guests into a celebration that is over).
+        startAdding={!finished && measured && stats.total === 0}
+        // ⚖ The phrase is the old disclosure's, kept on purpose: after the day
+        // the add path RECEDES rather than disappears, because the cousin who
+        // turned up unannounced still belongs on the list — and it must say
+        // so, not just exist.
+        addLabel={finished ? 'Still adding someone? — the list is open' : 'Add a guest'}
+        search={
           <Suspense fallback={null}>
-            <SortSelect value={sort} options={sortOptions} />
+            <GuestsSearch initialValue={q} />
           </Suspense>
-          <GuestsViewSwitcher
-            eventId={eventId}
-            active={gview}
-            search={search}
-            showWalk={hasProcessional}
-          />
-        </div>
-      </div>
+        }
+        filter={
+          <FilterPopover activeCount={activeFilters}>
+            {/* Sort rides in here: two of its orders (First name, Newest
+                first) have no column header to click. */}
+            <FacetRow label="Sort">
+              <Suspense fallback={null}>
+                <SortSelect value={sort} options={sortOptions} />
+              </Suspense>
+            </FacetRow>
 
-      {/* Facet lens rows — the counts ride the filter pills. */}
-      <div className="flex flex-col gap-2.5 py-3">
-        <FacetRow label="Side">
-          {sideOptions.map((s) => (
-            <LensPill
-              key={s.key}
-              href={buildHref({ team: s.key === 'all' ? null : s.key })}
-              active={teamActive === s.key}
-              // Seven confident zeros beside one small "not loaded" line reads
-              // as "we could not measure it, and it is zero" — the hedge loses.
-              // LensPill hides the badge entirely when the count is undefined,
-              // so the filter still works and only the invented number goes.
-              count={measured ? s.count : undefined}
-              dot={s.dot}
-            >
-              {s.label}
-            </LensPill>
-          ))}
-        </FacetRow>
-
-        <FacetRow label="RSVP">
-          {rsvpOptions.map((r) => {
-            const isActive = rsvpActive === r.key;
-            return (
+          <FacetRow label="Side">
+            {sideOptions.map((s) => (
               <LensPill
-                key={r.key}
-                href={buildHref({ rsvp: isActive ? null : r.key })}
-                active={isActive}
-                count={measured ? r.count : undefined}
-                title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
+                key={s.key}
+                href={buildHref({ team: s.key === 'all' ? null : s.key })}
+                active={teamActive === s.key}
+                // Seven confident zeros beside one small "not loaded" line reads
+                // as "we could not measure it, and it is zero" — the hedge loses.
+                // LensPill hides the badge entirely when the count is undefined,
+                // so the filter still works and only the invented number goes.
+                count={measured ? s.count : undefined}
+                dot={s.dot}
               >
-                {r.label}
+                {s.label}
               </LensPill>
-            );
-          })}
-        </FacetRow>
+            ))}
+          </FacetRow>
 
-        <FacetRow label="View">
-          {views.map((v) => (
-            <LensPill
-              key={v.key}
-              href={buildHref({ view: v.key === 'all' ? null : v.key })}
-              active={view === v.key}
-            >
-              {v.label}
-            </LensPill>
-          ))}
-        </FacetRow>
-
-        {/* Owner 2026-09-14: "groups will be filtered depending on what side as
-            well. so when i press team groom, it will only show groups of the
-            groom". Groups already carry `team_side`, and a roster with a
-            "Family" on each side showed BOTH chips under every lens — two
-            identical-looking pills the host had to tell apart by a dot.
-
-            'both'-sided groups always show: they belong to whichever side you
-            are standing in. And the ACTIVE group always shows even when it does
-            not match the lens — otherwise switching side would hide the chip
-            while its filter stayed applied, leaving a roster narrowed by
-            something invisible. */}
-        <FacetRow label="Group">
-          <GroupsSidebar
-            eventId={eventId}
-            groups={groupsForSide}
-            currentGroupId={currentGroupId}
-            layout="inline"
-            hrefByGroupId={Object.fromEntries(
-              groupsForSide.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
-            )}
-          />
-        </FacetRow>
-
-        {tags.length > 0 ? (
-          <FacetRow label="Tags">
-            {tags.map((t) => {
-              const isActive = tagFilter === t;
+          <FacetRow label="RSVP">
+            {rsvpOptions.map((r) => {
+              const isActive = rsvpActive === r.key;
               return (
                 <LensPill
-                  key={t}
-                  href={buildHref({ tag: isActive ? null : t })}
+                  key={r.key}
+                  href={buildHref({ rsvp: isActive ? null : r.key })}
                   active={isActive}
+                  count={measured ? r.count : undefined}
+                  title={isActive ? `Clear ${r.label} filter` : `Show only ${r.label}`}
                 >
-                  {t}
+                  {r.label}
                 </LensPill>
               );
             })}
           </FacetRow>
-        ) : null}
 
-        {/* Active-filter breadcrumb — the always-visible "what am I looking
-            at" chip row, now the foot of the bar (renders null when clean). */}
-        <ActiveFilters eventId={eventId} search={search} groups={groups} />
-      </div>
+          <FacetRow label="View">
+            {views.map((v) => (
+              <LensPill
+                key={v.key}
+                href={buildHref({ view: v.key === 'all' ? null : v.key })}
+                active={view === v.key}
+              >
+                {v.label}
+              </LensPill>
+            ))}
+          </FacetRow>
+
+          {/* Owner 2026-09-14: "groups will be filtered depending on what side as
+              well. so when i press team groom, it will only show groups of the
+              groom". Groups already carry `team_side`, and a roster with a
+              "Family" on each side showed BOTH chips under every lens — two
+              identical-looking pills the host had to tell apart by a dot.
+
+              'both'-sided groups always show: they belong to whichever side you
+              are standing in. And the ACTIVE group always shows even when it does
+              not match the lens — otherwise switching side would hide the chip
+              while its filter stayed applied, leaving a roster narrowed by
+              something invisible. */}
+          <FacetRow label="Group">
+            <GroupsSidebar
+              eventId={eventId}
+              groups={groupsForSide}
+              currentGroupId={currentGroupId}
+              layout="inline"
+              hrefByGroupId={Object.fromEntries(
+                groupsForSide.map((g) => [g.group_id, buildHref({ group: g.group_id })]),
+              )}
+            />
+          </FacetRow>
+
+          {tags.length > 0 ? (
+            <FacetRow label="Tags">
+              {tags.map((t) => {
+                const isActive = tagFilter === t;
+                return (
+                  <LensPill
+                    key={t}
+                    href={buildHref({ tag: isActive ? null : t })}
+                    active={isActive}
+                  >
+                    {t}
+                  </LensPill>
+                );
+              })}
+            </FacetRow>
+          ) : null}
+          </FilterPopover>
+        }
+        add={addBar}
+      />
+
+      {/* What is applied stays on screen with the rows folded away — the only
+          place an active filter is visible besides the number on the button. */}
+      <ActiveFilters eventId={eventId} search={search} groups={groups} />
     </div>
   );
 }

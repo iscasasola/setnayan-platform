@@ -66,3 +66,34 @@ SPEC IMPACT: None. No product surface reads the column yet — the couple-facing
 approval (`prototypes/your_team_redesign_v2_2026-09-22.html`). The two open
 questions it raises (CASCADE vs SET NULL on event deletion; whether the feed
 groups by supplier) go to the owner, not the corpus.
+
+### Follow-up, same day · the exposure baseline
+
+CI's `exposure-freeze.db.test.ts` failed the first push:
+
+```
+EXPOSURE SURFACE WIDENED — 1 new capability for anon / authenticated
+  ✗ col  public.notifications.event_id
+```
+
+**The guard was right, and it caught the exact trap this migration's own header
+names**: `notifications` grants SELECT/INSERT/UPDATE at the TABLE level, so a new
+column inherits them and the anon-reachable surface grows by one.
+
+Measured before accepting it: `pg_policy` on `notifications` holds
+`notifications_recipient_read` and `notifications_recipient_update`, **both
+scoped to `authenticated` only**. There is **no policy for `anon`**, and RLS is
+enabled — so `anon` can reference the column and never read a row. The widening
+is nominal, which is why the baseline is regenerated rather than the grant
+narrowed (and a column-level REVOKE against a table grant would be a silent
+no-op anyway).
+
+`supabase/security/exposure-surface.baseline.txt` regenerated from the MERGED
+tree: **6437 → 6438 facts**, one added line,
+`col public.notifications.event_id anon=SIU authenticated=SIU`.
+
+🔑 **The local gap that let this reach CI:** `node scripts/lint-exposure-baseline.mjs`
+passes — it is a different guard. The freeze lives in `tests/db/` and only runs
+under `test:db:ci`, and I had run just my own db test plus the two Ugat ones.
+**Adding a column to any anon-granted table means running
+`tests/db/exposure-freeze.db.test.ts` before pushing.**

@@ -35,6 +35,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(HERE, '..');
@@ -75,22 +76,22 @@ const WRITE_CALL = /\.(insert|update|upsert|delete)\s*\(/;
  * can trip.
  */
 /**
- * ⚠ COMMENTS STRIPPED BEFORE SCANNING — the SECOND false positive this guard
- * produced against careful code. After the money-table side was made
- * structural, the note side still matched plain prose: `payment-plan-actions.ts`
- * opens with "Nothing in THIS file may ever read `payment_method_note`", which
- * is the guard's own rule written down, and the guard convicted it for saying
- * so. A rule that punishes documenting it teaches people not to document it.
+ * ⚠ COMMENTS ARE STRIPPED BEFORE SCANNING — with the REPO'S stripper.
  *
- * Conservative on purpose: it removes line and block comments and nothing
- * else. A column name appearing inside a string that also contains `//` (a
- * URL) could be missed — no such string exists, and a false NEGATIVE here is
- * a missed warning rather than a blocked branch, which is the right way round
- * for a guard that has already cried wolf twice.
+ * This guard convicted careful code twice by matching prose: first a docblock
+ * naming the table it deliberately avoids, then `payment-plan-actions.ts`
+ * quoting this very rule. So comments must go before the scan.
+ *
+ * 🔴 AND THE FIRST STRIPPER WRITTEN HERE WAS WRONG IN THE DANGEROUS DIRECTION.
+ * It was a two-replace regex that removed BLOCK comments first — so a line
+ * comment containing `video/*` opens a "block" that runs to the next real `*` +
+ * `/` and blanks the code in between. This guard would then have asserted
+ * against a blank and PASSED: a false negative in a guard whose one job is to
+ * catch a note reaching the money tables. `lint-one-comment-stripper.mjs`
+ * refused it in CI with exactly that explanation. `stripComments` from
+ * `lib/strip-comments.ts` is the one stripper the repo trusts; using it is not
+ * a style preference.
  */
-const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[^\n]*?\/\/[^\n]*$/gm, ' ');
-
 const queriesTable = (src: string, table: string): boolean =>
   new RegExp(String.raw`\.from\(\s*['"\`]` + table + String.raw`['"\`]\s*\)`).test(src);
 

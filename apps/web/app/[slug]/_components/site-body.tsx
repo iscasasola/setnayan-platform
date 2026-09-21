@@ -1308,9 +1308,12 @@ export async function SiteBody({
             🔑 EVERY FACT IS OMITTED WHEN IT DOES NOT EXIST — no "Table TBA".
             A pass that states a table the couple never assigned is worse than
             one that stays quiet: the guest believes it and is moved in front
-            of other people. See lib/guest-pass.ts. */}
+            of other people. See lib/guest-pass.ts.
+            `max-w-md` is the PHONE measure, one of the four sanctioned column
+            widths (`_lib/measures.test.ts`); the first version used
+            `max-w-xs` and took the page off its own grid. */}
         {passFacts.length > 0 ? (
-          <dl className="mx-auto mt-5 grid max-w-xs grid-cols-2 gap-x-6 gap-y-3 text-left">
+          <dl className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-left">
             {passFacts.map((fact) => (
               <div key={fact.label}>
                 <dt className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/50">

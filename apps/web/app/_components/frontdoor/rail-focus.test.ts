@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 import { isRailFocused } from './rail-focus';
 import { ACCOUNT_FOCUS_PATHS } from '../../dashboard/(account)/_components/account-focus-paths';
 
@@ -23,11 +24,7 @@ const WEB = join(HERE, '..', '..', '..');
 function code(rel: string): string {
   const src = readFileSync(join(WEB, rel), 'utf8');
   assert.ok(src.length > 500, `${rel} is missing or a stub.`);
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .filter((l) => !l.trimStart().startsWith('//'))
-    .join('\n');
+  return stripComments(src);
 }
 
 const IN = { inApp: true, signedIn: true };

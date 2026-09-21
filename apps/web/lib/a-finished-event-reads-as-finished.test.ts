@@ -316,7 +316,17 @@ test('the planning dashboard stops stating things that are no longer true', () =
   assert.match(dash, /!eventHasHappened \|\| g\.id === 'pay'/, 'the book/pick/role groups');
   assert.match(dash, /\{eventHasHappened \? null : \(\s*<>/, 'the % planned bar');
   assert.match(dash, /eventHasHappened \? 'Still open' : 'Needs you this week'/);
-  assert.match(dash, /!eventHasHappened && stats\.pending > 0/, 'the RSVP nag');
+  /*
+    ⚠ THIS ASSERTION MOVED WITH ITS MECHANISM (2026-09-22), it was not relaxed.
+    The RSVP nag used to be gated inline as `!eventHasHappened && stats.pending
+    > 0`. It now runs through `shouldChaseRsvps` in
+    lib/one-decision-list-not-two.ts, which takes the phase as a named input —
+    so the same property is asserted here AND executed, arm by arm, in
+    a-date-is-not-a-decision.test.ts. Matching the old literal would have gone
+    red on a change that made the rule stronger, which is what a phrasing ban
+    does; matching the call keeps this guard pointed at the phase.
+  */
+  assert.match(dash, /shouldChaseRsvps\(\{\s*\n?\s*eventHasHappened,/, 'the RSVP nag');
   // And the page hands it down at EVERY mount, not just the one in view.
   const page = src('app/dashboard/[eventId]/page.tsx');
   assert.equal(

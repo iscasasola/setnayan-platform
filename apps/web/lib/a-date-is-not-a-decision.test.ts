@@ -8,6 +8,7 @@ import {
   splitDecisionsAndDates,
   type SplitGroup,
 } from './a-date-is-not-a-decision';
+import { shouldChaseRsvps } from './one-decision-list-not-two';
 
 /*
   Owner-approved 2026-09-22, three rulings off the Overview redesign prototype
@@ -179,4 +180,45 @@ test('the dates still have a home, and the inspector still resolves them', () =>
   );
   console.log(`  hand-rolled decision counts beside the split: ${handRolled}`);
   assert.equal(handRolled, 0, 'a second count is how two numbers start disagreeing');
+});
+
+/* ═══════════ PR 2 · one decision list, not two (owner-approved 2026-09-22) ═══ */
+
+test('the RSVP chase does not ask how many decisions there are', () => {
+  // The bug this replaces: the row was nested inside `flatDecisions.length > 0`,
+  // so an event with no decisions and 77 unanswered invitations said nothing.
+  assert.equal(
+    shouldChaseRsvps({ eventHasHappened: false, pending: 77, repliesStarted: true }),
+    true,
+    'outstanding replies are shown regardless of the decision count',
+  );
+  assert.equal(
+    shouldChaseRsvps({ eventHasHappened: false, pending: 0, repliesStarted: true }),
+    false,
+    'nobody outstanding, nothing to say',
+  );
+  assert.equal(
+    shouldChaseRsvps({ eventHasHappened: false, pending: 141, repliesStarted: false }),
+    false,
+    'a roster nobody has invited yet is not nagged',
+  );
+  assert.equal(
+    shouldChaseRsvps({ eventHasHappened: true, pending: 77, repliesStarted: true }),
+    false,
+    'the party is over — stop chasing replies to it',
+  );
+});
+
+test('the decisions are rendered in exactly ONE place', () => {
+  const boardMaps = countMatches(source, /decisionGroups\.map\(/);
+  console.log(`  decisionGroups.map( call sites: ${boardMaps}`);
+  assert.equal(boardMaps, 1, 'a second map over the same groups is a second list');
+
+  // The flattening that fed the old preview is gone, binding and all.
+  const binding = countMatches(source, /const flatDecisions\s*=/);
+  console.log(`  flatDecisions bindings: ${binding}`);
+  assert.equal(binding, 0, 'nothing should re-flatten the board to preview it');
+
+  // …and the tile keeps ONE way into the board.
+  assert.ok(source.includes('href="#decisions"'), 'the status tile still opens the list');
 });

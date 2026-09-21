@@ -331,7 +331,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── shared records: the own-vs-shared line (DPO questions in the PR) ──
   chat_threads: 'The conversation container is shared with the vendor and co-partner; only the subject’s own MESSAGES are deleted.',
   event_members: 'Membership is the event’s record of who was on it — and erasure’s own lookups resolve through it.',
-  event_manual_vendors: 'Third-party contact PII the subject entered ABOUT someone else — excluded by the same rule as event_vendors.',
+  event_manual_vendors:
+    'Third-party contact PII the subject entered ABOUT someone else — excluded by the same rule as event_vendors. Removed with the event (event_id ON DELETE CASCADE). ⚠ Since 2026-09-20 this row ALSO holds the supplier’s street address + map pin and `payment_method_note` — free text that will routinely contain a supplier’s GCash or BANK ACCOUNT NUMBER, a heavier category than a name and phone. The classification is unchanged (it is still the supplier’s data, not the subject’s), but the DPO question it raises is OPEN: a supplier who later claims an account has no path to erase a couple’s note of their account number, because this table is keyed to the couple’s event, not to them.',
   event_sponsors: 'Third-party PII (sponsor name/email/phone) the subject entered about others.',
 
   // ── the uid is a staff actor, not the subject ──

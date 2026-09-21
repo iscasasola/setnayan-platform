@@ -62,10 +62,24 @@ test('every row surface resolves its face through the ONE helper', () => {
     [],
     `${spelledOut.length} surface(s) still resolve the face inline instead of calling faceFor`,
   );
-  const viaHelper = LIST.match(/displayUrl=\{faceFor\(guest\)\}/g) ?? [];
-  assert.ok(
-    viaHelper.length >= 6,
-    `expected every row surface to use faceFor, found ${viaHelper.length}`,
+  // ⚖ SIX BECAME FOUR, BY RULING — owner 2026-09-20: "remove the grid view on
+  // guest list. make it same sa row view only." The two photo-grid surfaces
+  // (the card and its self-join variant) are gone, so a floor of `>= 6` went
+  // red on a deliberate removal.
+  //
+  // 🔑 NAMED, NOT COUNTED — and stricter than the floor it replaces. `>= 6`
+  // let any one surface quietly drop out as long as enough others remained;
+  // it could not say WHICH. This asserts the exact set, so a surface that stops
+  // asking the helper fails by name, and a new one has to be added here on
+  // purpose rather than slipping under a number.
+  const viaHelper = [...LIST.matchAll(/displayUrl=\{faceFor\(guest\)\}/g)].map((m) => {
+    const opened = [...LIST.slice(0, m.index!).matchAll(/<([A-Z][A-Za-z]+)\b/g)];
+    return opened[opened.length - 1]![1];
+  });
+  assert.deepEqual(
+    [...viaHelper].sort(),
+    ['DesktopRow', 'MobileListRow', 'MobileSelfJoinCard', 'SelfJoinDesktopRow'],
+    `the row surfaces resolving a face through faceFor are: ${viaHelper.join(', ') || 'none'}`,
   );
 });
 

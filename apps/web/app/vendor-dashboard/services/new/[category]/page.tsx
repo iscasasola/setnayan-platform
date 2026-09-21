@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
+import { buildCanvasInitialFromCoupleCard } from '@/lib/vendor-card-from-couple';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
 import {
@@ -162,10 +164,43 @@ export default async function NewServicePage({
   // The id is hostile input: the builder scopes the read to THIS profile and
   // returns null for a foreign, deleted or malformed one, so a bad `?from=`
   // opens an ordinary blank maker instead of an error.
-  const initial =
+  //
+  // ── AND THE SECOND SOURCE: what the couple already told us (2026-09-20) ───
+  // Owner: "when a vendor gets this lock, the service card will be the one
+  // registering for that portfolio. and the price as well."
+  //
+  // A supplier arriving on a claim QR used to meet a BLANK maker, then retype
+  // a price the couple had already agreed with them and recorded. The couple's
+  // booking is seeded into the SAME `initial` prop, through the same type, so
+  // the canvas cannot tell the two doorways apart and every field-parity
+  // guarantee that covers `?from=` covers this too.
+  //
+  // `?from=` WINS when both are present: it is an explicit choice the supplier
+  // just made on this screen, and the claim seed is a default they never asked
+  // for. Precedence is stated here rather than left to whichever read runs
+  // first.
+  //
+  // ⚠ ADMIN CLIENT, AND ONLY BEHIND `showClaimBanner`. The couple's
+  // `event_vendors` row is couple-owned and a freshly signed-up supplier holds
+  // no RLS read on it. `showClaimBanner` is already the four-way proof — the
+  // invite is 'claimed', it belongs to THIS user, it resolved to THIS vendor
+  // profile, and its category matches this route — the same chain
+  // `registerClaimedServiceToCouple` demands before it writes. Seeding on a
+  // weaker condition would hand one couple's agreed price to whoever guessed
+  // a token.
+  const fromCard =
     canvas && typeof from === 'string' && from.length > 0
       ? await buildCanvasInitialFromCard(supabase, profile.vendor_profile_id, from, category)
       : null;
+  const initial =
+    fromCard ??
+    (canvas && showClaimBanner && claimContext
+      ? await buildCanvasInitialFromCoupleCard(
+          createAdminClient(),
+          claimContext.eventVendorId,
+          category,
+        )
+      : null);
   const eventTypeOptions = canvas
     ? (await getEventTypeVocab().catch(() => [])).map((e) => ({
         key: e.key,

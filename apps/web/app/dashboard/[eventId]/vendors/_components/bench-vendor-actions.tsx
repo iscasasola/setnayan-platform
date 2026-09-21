@@ -70,6 +70,7 @@ import { removeBuildPick, setBuildPick } from '../build-pick-actions';
 import { AccordionLockButton } from './accordion-lock';
 import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
+import { SelfAddedPrice } from './self-added-price';
 
 export function BenchVendorActions({
   actions,
@@ -79,6 +80,8 @@ export function BenchVendorActions({
   groupLabel,
   verifiedState,
   lockRequestExpiresAt,
+  transportPhp,
+  foodAllowancePhp,
 }: {
   actions: BenchCardActions;
   eventId: string;
@@ -94,6 +97,14 @@ export function BenchVendorActions({
    * to (spec §9: manual vendors skip the handshake and lock directly).
    */
   verifiedState: boolean | null;
+  /**
+   * Passed through UNCHANGED to `updateVendorCosts` by the self-added price
+   * control. That action writes whatever the FormData holds, so a form that
+   * omitted these two would blank a transport or food figure the couple had
+   * already recorded on the workspace. Never read for display here.
+   */
+  transportPhp?: number | null;
+  foodAllowancePhp?: number | null;
   /** ISO deadline of a still-outstanding ask, read back off the row the DB
    *  stamped. Only meaningful when `actions.withdraw` is non-null. */
   lockRequestExpiresAt?: string | null;
@@ -190,6 +201,16 @@ export function BenchVendorActions({
               <span>{doesntFitReason(actions.build.clashWith)}</span>
             </span>
           </span>
+        ) : actions.build.kind === 'set_price' ? (
+          // A supplier the couple added themselves. There is nobody to ask, so
+          // the couple types the price and the card unblocks (owner
+          // 2026-09-20). Writes through `updateVendorCosts` — the one writer.
+          <SelfAddedPrice
+            eventId={eventId}
+            vendorId={vendorId}
+            transportPhp={transportPhp ?? null}
+            foodAllowancePhp={foodAllowancePhp ?? null}
+          />
         ) : (
           <span className="vact note">
             <Clock size={12} strokeWidth={1.9} aria-hidden />

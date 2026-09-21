@@ -19,6 +19,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { entourageGroupOfRole } from '@/lib/entourage';
 
 function backToList(eventId: string, params: Record<string, string>): string {
   const q = new URLSearchParams(params);
@@ -70,6 +71,41 @@ export async function pairSelectedGuests(
   }
 
   const supabase = await createClient();
+
+  /*
+    ⚖ OWNER 2026-09-20: "a pair may not span two printed groups — refuse with a
+    reason." A line lives inside ONE group, because that is the unit the
+    invitation prints and the unit `entourage_order` numbers. A bridesmaid
+    paired to a ring bearer has no line to be in: whichever group you looked at,
+    half the pair would be missing from it. Refusing with the reason is the
+    honest answer; silently pairing them and printing two singles is not.
+
+    A role that does not print at all (a plain guest) is NOT refused here —
+    pairing is also just "these two arrive together", and the roster shows that
+    perfectly well. Only a pair that straddles two PRINTED groups is impossible.
+  */
+  const { data: bothRows, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, role')
+    .eq('event_id', eventId)
+    .in('guest_id', [a, b]);
+  if (readErr) {
+    redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
+  }
+  const groups = ((bothRows ?? []) as Array<{ guest_id: string; role: string | null }>)
+    .map((r) => (r.role ? entourageGroupOfRole(r.role) : null))
+    .filter((g): g is string => Boolean(g));
+  if (groups.length === 2 && groups[0] !== groups[1]) {
+    redirect(
+      backToList(eventId, {
+        error: encodeURIComponent(
+          'Those two walk in different parts of the entourage, so they cannot share a line. ' +
+            'Give them the same role group first, or leave them unpaired.',
+        ),
+      }),
+    );
+  }
+
   const { error } = await supabase.rpc('pair_guests', {
     p_event_id: eventId,
     p_guest_a: a,

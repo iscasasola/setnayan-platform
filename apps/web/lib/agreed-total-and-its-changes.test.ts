@@ -703,6 +703,24 @@ const FOLD_ROWS = /\bwithAgreedTotalNow\s*\(/;
  * NEW raw read added to one of these files must be looked at, not waved past.
  */
 const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column: number; what: string }> = {
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts': {
+    what: 'the couple’s own instalment plan for a supplier they added',
+    needles: [
+      [AGREED_NOW, 1],
+      [PAGE_READ, 1],
+      [/agreedTotalNow\(bk\.total_cost_php, byVendor\.get\(/, 1],
+    ],
+    column: 3,
+  },
+  'lib/vendor-card-from-couple.ts': {
+    what: 'the seed for a claimed supplier’s first card — the price they publish',
+    needles: [
+      [AGREED_NOW, 1],
+      [PAGE_READ, 1],
+      [/agreedTotalNow\(row\.total_cost_php, byVendor\.get\(/, 1],
+    ],
+    column: 3,
+  },
   'app/dashboard/[eventId]/_components/event-dashboard.tsx': {
     what: 'event home — the committed figure',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const cost = agreedTotalNow\(row\.total_cost_php, row\.change_lines\)/, 1]],
@@ -731,7 +749,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment and the payment plan amounts',
     needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
-    column: 11,
+    column: 13,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',
@@ -812,6 +830,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':
+    'WRITES the price the couple agreed with a supplier they added themselves (there is nobody to quote it) — the input starts EMPTY and the control unmounts once a price exists, so it never shows a total back',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':
     'WRITES a chat quote into the Service price field — the headline the couple edits',
   'app/dashboard/[eventId]/budget/actions.ts':

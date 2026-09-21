@@ -80,6 +80,9 @@ the whole run after each change instead of trusting one green test.
 | M8 | **An unverified shop is charged no booking fee, ever.** `!args.verified` returns `charge:false` before the ordinal is considered. Safe only while unverified shops are unfindable — any import-attribution booking by an unverified shop is free forever. | `git grep -n "if (!args.flagEnabled \|\| !args.verified)" origin/main -- apps/web/lib/booking-fee-lock.ts` | BROKEN (latent) | S |
 | M9 | **The first 5 bookings are invisible on the fee bill.** A waived booking calls `createOrder: false`, so no row exists; `highest_declared_centavos` — the "what it would have cost" figure — has **zero readers in the entire app**. A supplier sees an empty bill for bookings 1–5, then ₱837.50 on #6 with no prior context. ⚠ The owner ruled the opposite: *"still tell them that there should be a booking fee. but this will be considered free."* | `git grep -rln highest_declared -- apps/web/app apps/web/lib` → **empty** | **DECIDED-UNBUILT** | M |
 
+| M18 | **Paying the booking fee does not hold the date.** The owner ruled on 2026-09-18 that the lock on a supplier's schedule happens *upon the vendor paying their booking fee*. `vendor_calendar_blocks` is **0 rows**; `vendors_blocked_on_date` reads only that table; the one automatic writer (`event_vendor_autoblock_on_booking`) returns early unless `status = 'deposit_paid'`, which the lock/fee path never sets — `recordDeposit`'s docblock says the host advances that status separately. **Two live bookings sit in this state today.** 🔑 Capacity *is* held — `acquireSchedulePools` writes `vendor_schedule_pool_bookings` — so a second booking is refused at the door. **The missing half is availability: the supplier looks free while couples are choosing.** | `select count(*) from vendor_calendar_blocks;` → 0 · `git grep -n "event_vendor_autoblock_on_booking" origin/main -- supabase/migrations` | **DECIDED-UNBUILT** | M |
+| M19 | **A send-sourced fee charge still dies with its proposal.** A charge may be anchored on `proposal_id` OR `event_vendor_id`; both still `ON DELETE CASCADE`. Migration `the_money_outlives_the_event` fixed the `event_id` half and **names this one as unfinished in its own comment**: *"a charge anchored on `proposal_id` (source='send') still dies with `vendor_proposals`, which is its own slice."* ⚠ The lock-sourced half **is** already safe (booked rows are preserved) — do not re-fix it. | `git show origin/main:supabase/migrations/20271153200818_the_money_outlives_the_event.sql \| grep -n "its own slice"` | **NOT BUILT** | S |
+
 ### 1b. Reconciliation and records that will not survive real volume
 
 | # | Symptom | Anchor | State | Eff |
@@ -224,6 +227,69 @@ allowlist is transactional-only and correct · all 25 periodic jobs have claimed
 
 ---
 
+## 4b. WALKED THE LIVE SITE — observed, not inferred
+
+Everything above this section was read from code, the database and env state. **This section was seen
+on `https://setnayan.com` on 2026-09-21, logged out.** It is the only part of this document backed by
+a rendered page, which is why it is worth more per row than the rest.
+
+| # | What a visitor sees today | Where | State |
+|---|---|---|---|
+| W1 | **"0% commission" is claimed in five places on public pages** — "Verified suppliers · 0% commission" and "no commission on your suppliers, ever" on the home page, "**No commission on your bookings, ever**" on the *Open your shop* card, and twice more on `/features`. Suppliers are charged **5% of the booking** to ₱100,000, then 1%. The couple-facing reading is defensible (Setnayan never touches the couple's payment); the **supplier-facing** line is not. And `/pricing` is entirely couple-facing — **there is no supplier pricing page, so the fee is disclosed nowhere public.** A supplier learns it exists when the bill arrives. | `/` · `/features` · `/open-shop` (redirects anon to sign-in) | 🔑 **OWNER DECISION**, then copy everywhere |
+| W2 | **A shop page contradicts itself.** `/setnaprod` lists "SERVICES OFFERED · Pabati · Day Of Coordinator" near the top and, lower down, "SetnaProd hasn't listed a service you can ask about yet." The Inquire CTA sits between them. **The same shop is featured on the home page as a verified "first shop" and does not appear on `/explore` at all** — explore is service-card driven. So the front door's featured shop is a page that argues with itself and cannot be contacted. | `/` → `/setnaprod` → `/explore` | **BROKEN** · S–M |
+| W3 | **A public promise the product cannot keep.** Every shop page states *"Bookings through Setnayan generate a review request 24 hours after the event."* Nothing generates it (the review is gated behind `service_marked_complete_at`, set on **0 of 51** bookings, and no supplier is ever told to set it — §2a V5). The code's own rule is **7 days / 30 days**, not 24 hours. `vendor_reviews` is empty. | every `/[shop-slug]` | **BROKEN (copy)** · S |
+| W4 | **The public shop address is a test artifact.** Saysay's live, shareable URL is `/saysay-live-band-and-hosting-fix`. ⚠ **Do not rename it** — it is the only shop with real bookings and a slug change breaks every link already shared. Whether a permanent redirect exists is unmeasured; if it does not, that is itself the build. | `/saysay-live-band-and-hosting-fix` | 🔑 **OWNER DECISION** |
+| W5 | **No way to report a shop** — confirmed by searching the rendered page (`find "report"` → no matches). `ReportPageButton` accepts `event \| user_profile \| chapter`, is never mounted on a shop page, and prod's `user_reports_target_type_check` has no vendor value. | every shop page | **NOT BUILT** · M |
+
+### Corrections this walk forced on THIS document
+
+🔑 **Three claims made earlier the same day did not survive contact with the rendered page.** Recorded
+because the retraction is the useful part, not the finding.
+
+- **The desktop downloads work.** `/api/download/mac` and `/api/download/windows` both return **200**.
+  A claim that visitors are told the download is unavailable does not hold today.
+- **The signup consent box is unchecked by default** (`public_summary_consent`, verified in the DOM).
+  The old hidden-consent defect is genuinely fixed and fenced. Do not re-open it.
+- **The Explore card names the correct trade** — the live cards read "Live Band" and "Host / MC". A
+  report that it names the shop's first service instead **did not reproduce** on the unfiltered
+  marketplace. It may still be true under an active category filter; that is unproven either way.
+
+---
+
+## 4c. HOW MUCH OF A REGISTER IS ALREADY BUILT — measure this before you trust any list
+
+On 2026-09-21 two agents re-measured the 2026-09-18 handoff bundle (456 register rows plus eight
+dispatch briefs) against `origin/main` and prod:
+
+| | |
+|---|---|
+| build-shaped items claimed open | **~106** |
+| dropped as duplicates of a current list | ~18 |
+| actually re-measured | **~75** |
+| **turned out already built** | **~49** |
+| survived | **6** |
+
+**Roughly two in three "NOT BUILT" rows were already built.** Twenty-one closed simply by finding a
+merged PR that named the row's own ID in its title — try that first, it is the cheapest close there is:
+
+```bash
+git log origin/main --oneline --grep="<ROW-ID>"
+gh pr list --state merged --limit 100 --search "<ROW-ID>"
+```
+
+🛑 **And the confident rows decay too.** One row was marked *"🔴 CONFIRMED OPEN — re-measured by TWO
+phrasings"* and had in fact shipped; neither phrasing was the one that shipped. Another register's
+prescribed evidence was a `curl` that still returns 200 for a ruled, correct reason — so the diligent
+check handed out a green light for an already-fixed bug. A third named table `messages` when the real
+table is `chat_messages`, so it returned nothing, **and an empty result reads exactly like "no
+protection exists."**
+
+🔑 **A zero only proves something on a row that asks for an ABSENCE.** A row asking for a PRESENCE
+that greps nothing proves only that the phrasing you tried is not the phrasing that shipped. **Try at
+least two different greppable symbols before calling anything missing.**
+
+---
+
 ## 5. OWNER DECISIONS ALREADY MADE — **DO NOT RE-ASK THESE**
 
 **The booking fee**
@@ -278,6 +344,11 @@ allowlist is transactional-only and correct · all 25 periodic jobs have claimed
 | **May a supplier inside the free five buy a Papic deal outright?** | — | — |
 | **`formatRetailLabel` rounds a customer-facing price** | ₱838 vs ₱837.50 is the class that already cost a fix | `lib/budget.ts` |
 | **Pool-channel reuse** — one couple's strike can delete another couple's wedding film | Irreversible loss | memory `pool-channel-reuse-is-an-open-owner-question` |
+| **Is "0% commission" the promise you want to keep?** It is claimed five times on public pages, including "No commission on your bookings, ever" addressed to suppliers — beside a 5% booking fee. And no supplier pricing page exists, so the fee is disclosed nowhere public | The revenue model versus the public promise. Nothing should be reworded until this is answered | §4b W1 |
+| **Rename the `-fix` shop slug, or leave it?** Renaming breaks every link already shared for the only shop with real bookings; whether a permanent redirect exists is unmeasured | — | §4b W4 |
+| **A decision taken when nobody had ever been billed** rested on "production has never had a lock". That is no longer true — ₱837.50 was charged and paid on 2026-09-20, with `free_tier_booking_cap_enabled = FALSE` | It should be re-put with the real number attached rather than inherited | `platform_settings` |
+| **Turn the captcha on?** Turnstile is configured and the mobile bug is fixed; enforcement is still off in Supabase. **The venue-door throttle is likewise built and shipped OFF** (`VENUE_DOOR_THROTTLE_ENABLED`) — flipping either is a choice, not a build | — | — |
+| **When a guest withdraws her photograph, is the FILE deleted** — given she can undo it? The corpus states this both ways | — | — |
 | **Buy `setnayan.ph`?** It is unregistered, so anyone can take it | — | — |
 | **The stale `~` checkout: delete, update, or keep as a backup?** | It has cost whole sessions (see §8) | — |
 

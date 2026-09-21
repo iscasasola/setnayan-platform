@@ -18,3 +18,25 @@ Documentation only — no app code, migration, or prod row is touched.
 
 SPEC IMPACT: None. The owner decisions summarised in §5 are already recorded in the corpus
 `DECISION_LOG.md`; this file restates them so they survive an account transfer.
+
+## 2026-09-21 · docs(handoff): the live-site walk, the re-measurement arithmetic, four ready briefs
+
+Second pass on the same document, before merge.
+
+- **§4b — walked the live site, logged out.** Five findings observed on a rendered page rather than
+  inferred from code, plus three claims made earlier the same day that the walk forced a retraction
+  of. The retractions are kept deliberately: they are the part that teaches.
+- **§4c — how much of a register is already built.** Two agents re-measured the 2026-09-18 bundle:
+  ~106 items claimed open, ~75 re-measured, **~49 already built**. Twenty-one closed by finding a
+  merged PR that named the row's own ID. Includes the three ways that bundle's own evidence columns
+  misled a diligent reader.
+- **§1a M18/M19** — paying the booking fee does not block the supplier's calendar (owner ruling the
+  code does not follow); a send-sourced fee charge still dies with its proposal, which the migration
+  that fixed the other half names as unfinished in its own comment.
+- **§6** — five further open owner questions, including whether "0% commission" is the promise to
+  keep beside a 5% booking fee.
+- `docs/handoff-2026-09-21/` now also carries four ready-to-dispatch build briefs and the rules for
+  bundling several builds into one PR. **They are documentation of how each item would be done — no
+  build was dispatched.**
+
+SPEC IMPACT: None. The open questions in §6 are recorded as open, not answered.

@@ -58,6 +58,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { isRailFocused, type RailFocus } from './rail-focus';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
@@ -453,6 +454,26 @@ type Props = {
    */
   insideEvent?: boolean;
   /**
+   * FOCUS — the rail becomes the section you are in (owner 2026-09-21: *"When
+   * we enter an Event sidebar will collapse focusing on just everything needed
+   * for that event and an icon to return to Events"*, then *"same concept when
+   * on memories, people, shop, and admin"*).
+   *
+   * 🔄 REVERSES "IT PUSHES, IT DOES NOT SWAP" (One Shell slice 1, 2026-08-13).
+   * With `focus` set, the rail draws ONE back row, then `railContext`, then the
+   * small print — Discover, My Home, and the Planner / Builder / Together tools
+   * are not drawn. Inside an event the Studio group and "Browse by category"
+   * stay, because both open THAT event's tools and suppliers (Studio staying
+   * inside an event is itself owner-ruled, 2026-08-21).
+   *
+   * `paths` narrows focus to some URLs of a layout that serves others too: the
+   * account layout focuses on Memories and People and leaves profile,
+   * notifications and the rest on the full rail. Absent ⇒ every URL.
+   *
+   * App variant, signed in, only. `/` never focuses.
+   */
+  focus?: RailFocus;
+  /**
    * Admin-resolved labels, `getNavSlotMap()`.
    *
    * ⚠ APPLIED IN THE APP VARIANT ONLY, deliberately. On `/` the events row
@@ -617,16 +638,17 @@ export function FrontDoorShell({
   account,
   visibleFolders,
   moreFolders,
-  tools,
-  plannerTools = [],
-  builderTools = [],
-  togetherTools = [],
+  tools: toolsIn,
+  plannerTools: plannerToolsIn = [],
+  builderTools: builderToolsIn = [],
+  togetherTools: togetherToolsIn = [],
   children,
   heading,
   variant = 'front-door',
   railContext,
   contextMatchRows,
   insideEvent = false,
+  focus,
   navLabels,
   topBarSlot,
   createSlot,
@@ -776,13 +798,43 @@ export function FrontDoorShell({
     `RailActiveKeyProvider` for the child to read. There is exactly one match
     list and exactly one resolver in the rail now.
   */
+  /*
+    FOCUSED — see the `focus` prop. Decided from the path during render, like
+    `isBleed` above, so the first paint is already the focused rail.
+  */
+  const focused = isRailFocused(focus, pathname, {
+    inApp,
+    signedIn: account.signedIn,
+  });
+  /*
+    IN FOCUS, THE LISTS THAT DO NOT BELONG ARE EMPTY — decided ONCE, here.
+    `the-rail-renders-what-it-is-handed.test.ts` forbids a second condition at a
+    group's render boundary ("return [] … that is how the caller says 'not
+    here'"). Focus is the one "not here" no caller can say: the account layout
+    focuses on /dashboard/library and not on /dashboard/profile, and a layout
+    does not re-render between its own pages, so only this client component
+    knows which it is. It says it the way the guard asks — by the list.
+    Studio stays inside an event, where its rows open THAT event's tools.
+  */
+  const tools = focused && !insideEvent ? [] : toolsIn;
+  const plannerTools = focused ? [] : plannerToolsIn;
+  const builderTools = focused ? [] : builderToolsIn;
+  const togetherTools = focused ? [] : togetherToolsIn;
   const claimedByEvent = new Set((contextMatchRows ?? []).map((r) => r.href));
   const matchRows = [
-    ...railMatchRows({
-      signedIn: account.signedIn,
-      hasShop: !!account.shopName,
-      isAdmin: account.isAdmin,
-    }),
+    /*
+      🔑 IN FOCUS, ONLY DRAWN ROWS MAY COMPETE. The account rows are not on
+      screen, and `activeRailKey` breaks a tie by list position with them
+      FIRST — so a hidden "Memories" row would win `/dashboard/library` and
+      leave nothing visible lit.
+    */
+    ...(focused
+      ? []
+      : railMatchRows({
+          signedIn: account.signedIn,
+          hasShop: !!account.shopName,
+          isAdmin: account.isAdmin,
+        })),
     /*
       ─── THE STUDIO ROWS, LIT AT LAST (2026-08-23) ────────────────────────
       They were named debt above from 2026-08-21, when they started pointing
@@ -1291,6 +1343,17 @@ export function FrontDoorShell({
           */
           style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
         >
+          {focused && focus ? (
+            /* THE WAY BACK — the only row above the section's own menu. The
+               arrow is the same drawing the front door's "Back to your events"
+               row uses; the words say where it goes. */
+            <Link href={focus.href} className="fd-row">
+              <RailIcon as={ArrowLeft} />
+              <span className="fd-label-text">{focus.label}</span>
+              <span className="fd-icon-caption">{focus.caption}</span>
+            </Link>
+          ) : (
+          <>
           {/* 1 · DESTINATIONS
               `data-on` comes from the resolver on every row. It was the string
               "true" on Home until 2026-08-13, which read correctly on the one
@@ -1565,12 +1628,15 @@ export function FrontDoorShell({
             </>
           )}
 
+          </>
+          )}
+
           {/*
-            2b · THE CONTEXT GROUP — it PUSHES, it does not swap.
-            Nothing above this line is removed when you go into an event or a
-            shop: your own rows stay exactly where they were, which is the
-            entire difference between one shell and two. Slice 0 passes
-            nothing, so this renders nothing.
+            2b · THE CONTEXT GROUP.
+            🔄 It no longer only pushes (owner 2026-09-21). Without `focus`
+            your own rows stay above it, as they did from slice 1. With
+            `focus` — an event, Memories, People, the shop, HQ — the rows
+            above it are replaced by one way back; see the `focus` prop.
           */}
           {/* The wrapper is the ANIMATION HOOK and nothing else — a block box
               inside a block rail, so no row moves by a pixel. `railContext` is
@@ -1757,6 +1823,8 @@ export function FrontDoorShell({
               ⚠ THE MARKETPLACE STILL COLLAPSES. Fifteen supplier categories
               beside a wedding's sections is the list the drawing rejected;
               seven named products under one heading is not the same thing. */}
+          {/* Empty in focus outside an event — see where `tools` is set. */}
+          {tools.length > 0 ? (
           <div className="fd-rgroup">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
@@ -1810,6 +1878,7 @@ export function FrontDoorShell({
                 </Link>
               ))}
           </div>
+          ) : null}
 
           {/* 5 · SMALL PRINT.
               ⚠ "Contact us" does not exist — there is no /contact route, and a

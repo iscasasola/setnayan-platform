@@ -428,6 +428,9 @@ export default async function VendorDashboardLayout({
         bottom-bar grammar. Nothing about this change reaches a phone.
       */}
       <AppRailShell
+        /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
+           plus one row back to My Home. */
+        focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
         railContext={
           /*
             🔴 RAW VALUES ONLY — THIS LAYOUT IS A SERVER COMPONENT.

@@ -396,6 +396,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           reachable only by typing, that is a bug in the menu. */}
       <AdminCommandPalette rows={paletteRows} />
       <AppRailShell
+        /* FOCUS (owner 2026-09-21): inside the console the rail is its own menu
+           plus one row back to My Home. */
+        focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
         railContext={
           <AdminRailContext
             navSlots={navSlots}

@@ -163,8 +163,9 @@ export function EventRailContext({
       <div className="fd-rdiv" />
       {/* The place you are in, then ITS OWN section headings underneath —
           `.rctx` in the binding drawing. Not a link: the way OUT of an event is
-          the "Your events" row that is still sitting above this group, which is
-          the whole point of pushing rather than swapping. */}
+          the "Back to events" row directly above this group — since 2026-09-21
+          the rail FOCUSES on the event (owner) and that row is the only one
+          above it. */}
       <div className="fd-rctx">{eventName}</div>
 
       {groups.map((group) => (

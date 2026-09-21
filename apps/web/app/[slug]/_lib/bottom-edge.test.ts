@@ -28,6 +28,7 @@
  */
 
 import { test } from 'node:test';
+import { stripComments } from '@/lib/strip-comments';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -82,17 +83,9 @@ test('nothing else parks inside the bar strip at bottom-4 or bottom-5', () => {
       'so the leftmost tab (Home) becomes a mute button on any page with music.',
   );
 
-  const actions = read(join(HERE, '..', '..', '_components', 'public-page-actions.tsx'));
-  assert.ok(
-    actions.includes(lifted),
-    'The share/report pill is back inside the bar strip — Share opens whatever ' +
-      'tab is drawn over it.',
-  );
-  assert.match(
-    actions,
-    /aboveMenuBar/,
-    'The pill must be told when a bar is present; it is used on pages that have none.',
-  );
+  // Share/Report no longer float at all (owner 2026-09-21: "make a place at
+  // the bottom for report and share") — see the footer test below, which
+  // asserts they are in the flow, so they cannot park in this strip.
 });
 
 test('the bar reserves its own space, so the last thing on the page is reachable', () => {
@@ -150,29 +143,31 @@ test('the menu is on for a real event, not just the sample', () => {
   );
 });
 
-test('the share/report pill reserves its own footprint instead of covering content', () => {
-  // 🔴 MEASURED ON THE LIVE INVITATION (2026-08-21, 375px): this pill sat over
-  // **85% of the "Sign up free" button** — `elementsFromPoint` at that button's
-  // centre returned SHARE, so the tap that creates an account hit the share
-  // sheet — and over three-quarters of the wedding date on the hero.
-  //
-  // 🪤 AND THE PREVIOUS FIX MOVED THE COLLISION RATHER THAN ENDING IT. The
-  // component's own docblock records it being lifted clear of the menu BAR;
-  // that was right, and it landed the pill on the CONTENT instead. Anything
-  // `fixed` needs its footprint reserved in the flow — lifting it only chooses
-  // a different victim. This asserts the reservation, not the position.
-  const src = read(join(HERE, '..', '..', '_components', 'public-page-actions.tsx'));
-  assert.match(
-    src,
-    /<div aria-hidden className="h-14 print:hidden" \/>/,
-    'the share pill stopped reserving its footprint — it is covering page content again',
-  );
-  // The spacer must be a SIBLING IN THE FLOW, not inside the fixed wrapper
-  // (where it would reserve nothing at all).
-  const spacerAt = src.indexOf('<div aria-hidden className="h-14');
-  const fixedAt = src.indexOf('pointer-events-none fixed inset-x-0');
-  assert.ok(
-    spacerAt > -1 && fixedAt > -1 && spacerAt < fixedAt,
-    'the spacer moved inside the fixed wrapper, where it reserves nothing',
-  );
+test('Share and Report sit in a footer at the END of the page, covering nothing', () => {
+  // 🔴 THE PILL THIS REPLACES FLOATED, AND EVERY FIX MOVED THE COLLISION. It
+  // sat over the menu bar; lifted clear, it sat over **85% of "Sign up free"**
+  // and three-quarters of the wedding date (measured 2026-08-21, 375px).
+  // Owner 2026-09-21: "make a place at the bottom for report and share". In
+  // the flow it covers nothing — so this asserts the flow, not a position.
+  const src = stripComments(read(join(HERE, '..', '..', '_components', 'public-page-actions.tsx')));
+  assert.doesNotMatch(src, /\bfixed\b/, 'Share/Report are floating over the page again');
+  assert.match(src, /<footer/, 'Share/Report must be a footer in the page flow');
+  // The fixed menu bar covers the last ~3.5rem of the viewport, so the LAST
+  // element must carry that room beneath it — and this footer is the last.
+  assert.match(src, /clearOfMenuBar\s*\n?\s*\?\s*'pb-\[calc\(4\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
+
+  // …and it IS the last: every page return in page.tsx ends with it, after the
+  // guest's own section (GuestHubBar), which renders after SiteBody.
+  const page = stripComments(read(join(HERE, '..', 'page.tsx')));
+  const mounts = page.split('{pageFooter}').length - 1;
+  assert.equal(mounts, 3, `the footer closes all three page returns (found ${mounts})`);
+  const hub = page.indexOf('<GuestHubBar');
+  assert.ok(hub > 0 && page.indexOf('{pageFooter}', hub) > hub, 'the footer comes after the guest section');
+  for (const m of page.matchAll(/\{pageFooter\}/g)) {
+    const after = page.slice(m.index! + '{pageFooter}'.length, m.index! + 40);
+    assert.match(after, /^\s*<\/>/, 'nothing renders after the footer');
+  }
+  // SiteBody no longer mounts it — a second copy would put Share mid-page.
+  const body = stripComments(read(join(COMPONENTS, 'site-body.tsx')));
+  assert.doesNotMatch(body, /<PublicPageActions/);
 });

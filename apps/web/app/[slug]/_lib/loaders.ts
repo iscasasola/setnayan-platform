@@ -1078,7 +1078,21 @@ export const loadGuestContext = cache(
     // read, graceful-degrade; ADDITIVE alongside the find-my-table link (a
     // separate INDOOR_BLUEPRINT surface, left untouched). The pass route does its
     // own gating too, so this link only controls whether we advertise it here.
-    const seatPassActive = await eventOwnsCustomQrGuest(admin, event.event_id);
+    //
+    // 🔑 ONE SEAT LINK, AND ONLY WHERE A SEAT EXISTS (owner 2026-09-21). The
+    // custom QR is FREE (2026-09-06, FREE_FOR_ALL_SKUS), so ownership alone now
+    // says "yes" for every event — including a trip, a dinner or a hangout,
+    // whose /seat page is notFound() by `surfaceEnabled(…, 'seating')`. The
+    // link must ask the destination's own questions: does this kind seat
+    // people, and has the couple published the seating? Same two facts the
+    // room footer's "Find your seat" uses (room-links.ts), from the same
+    // cached loader.
+    const [ownsCustomQr, doorway] = await Promise.all([
+      eventOwnsCustomQrGuest(admin, event.event_id),
+      loadDoorwayFacts(admin, event.event_id, event.event_type ?? null),
+    ]);
+    const seatPassActive =
+      ownsCustomQr && doorway.seatingSurfaceEnabled && doorway.seatingPublished;
 
     // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
     // part") — the photos THIS guest is tagged in. Shown through the LIVE window

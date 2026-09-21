@@ -10,8 +10,12 @@
  * The panel's CONTENT is the page's existing, server-rendered facet rows —
  * Side · RSVP · View · Group · Tags — passed in as `children`, with their
  * links, counts and honesty rules untouched. This component only decides
- * whether they are on screen. The Sort select rides inside too, because two
- * of its orders (First name, Newest first) have no column header to click.
+ * whether they are on screen.
+ *
+ * ⚖ FILTERS ONLY — no sort. It held a Sort row until 2026-09-21, when the
+ * owner: *"remove the filter on search since we already have a sort on the
+ * table itself"* — and, shown that the popup ALSO filters and manages groups,
+ * chose to keep it and drop only the Sort. Sorting lives on the table header.
  *
  * ── THREE DECISIONS, EACH WITH A REASON ────────────────────────────────────
  * 🪤 NO `overflow-hidden` ON THE PANEL. The Group row is also where a group is
@@ -39,7 +43,7 @@ export function FilterPopover({
 }: {
   /** How many filters are applied — shown on the button even when shut. */
   activeCount: number;
-  /** The server-rendered facet rows + sort. */
+  /** The server-rendered facet rows. */
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -74,7 +78,7 @@ export function FilterPopover({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={activeCount ? `Filter and sort — ${activeCount} applied` : 'Filter and sort'}
+        aria-label={activeCount ? `Filter — ${activeCount} applied` : 'Filter'}
         // 44px: the same height as the search box and the switch buttons, so
         // the row lines up when it aligns to the top.
         className={`inline-flex h-11 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors ${
@@ -96,7 +100,7 @@ export function FilterPopover({
         <div
           id={panelId}
           role="dialog"
-          aria-label="Filter and sort guests"
+          aria-label="Filter guests"
           // Anchored to the button's LEFT edge on a phone (the button sits at
           // the start of its row) and never wider than the screen minus the
           // gutter; from `sm` it is a fixed-width card. No overflow-hidden —

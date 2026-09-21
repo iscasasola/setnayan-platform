@@ -186,7 +186,12 @@ test('the day-of catch the removal relies on is still mounted', () => {
   // `context={isLive ? 'day_of' : 'pre_event'}`, i.e. it also prompts BEFORE the
   // day, and whether that early prompt survives is an OPEN OWNER QUESTION. These
   // two are the ones the owner's own sentence names.
-  for (const rel of ['app/[slug]/hub/page.tsx', 'app/papic/guest/_components/papic-guest-capture.tsx']) {
+  // ✅ ANSWERED 2026-09-21. The owner closed the open question above, and wider
+  // than asked: "not a static widget on event hub" — so NEITHER the invitation
+  // NOR the day-of hub mounts the card now. The catch is the CAMERA, which opens
+  // the face step once, right after its terms (papic-guest-capture.tsx). That is
+  // the one surface still pinned here; the RSVP sheet's optional selfie remains.
+  for (const rel of ['app/papic/guest/_components/papic-guest-capture.tsx']) {
     assert.match(
       readWeb(rel),
       /<DayOfFaceEnroll/,

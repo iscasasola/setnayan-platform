@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0bd162417",
+  "generatedFromRef": "b912f4132",
   "routeCount": 430,
   "destinations": 923,
   "actions": 652,
-  "blocks": 4580,
+  "blocks": 4577,
   "routes": {
     "/": {
       "files": [
@@ -911,7 +911,6 @@
         "DayEntry",
         "DayOfAnnouncement",
         "DayOfBanner",
-        "DayOfFaceEnroll",
         "Detail",
         "DialBar",
         "DoorCard",
@@ -1233,7 +1232,6 @@
       ],
       "actions": [],
       "blocks": [
-        "DayOfFaceEnroll",
         "GuestCodeKeepers",
         "HubShell",
         "Link",
@@ -5382,7 +5380,6 @@
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
         "dashboard/[eventId]/guests/_components/roster-tabs.tsx",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
-        "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
@@ -5521,7 +5518,6 @@
         "SideChipEditor",
         "SideText",
         "SoftDeleteForUndoResult",
-        "SortSelect",
         "SubmitButton",
         "SummaryFacetBar",
         "Suspense",

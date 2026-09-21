@@ -63,11 +63,22 @@ export function GuestsSearch({ initialValue }: { initialValue: string }) {
       aria-label="Search guests"
       className="flex w-full items-center gap-2 sm:flex-1"
     >
-      <Search className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} aria-hidden />
-      <LiveSearch
-        initialValue={initialValue}
-        placeholder="Search names, roles, groups, RSVP…"
-      />
+      {/* ⚖ Owner 2026-09-21: "place this at the end of the text box inside the
+          search text box". Inside, at the END, with padding reserved for it —
+          this is a native search field, whose own clear "×" also sits at the
+          end, so the icon gets its own lane rather than overlaying it. */}
+      <div className="relative min-w-0 flex-1">
+        <LiveSearch
+          initialValue={initialValue}
+          placeholder="Search names, roles, groups, RSVP…"
+          className="w-full pr-9"
+        />
+        <Search
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+          strokeWidth={2}
+          aria-hidden
+        />
+      </div>
       <span className="hidden shrink-0 rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45 sm:inline">
         ⌘K
       </span>

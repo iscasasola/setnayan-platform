@@ -3,7 +3,7 @@ import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
-import { MapPin, Sparkles } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -23,7 +23,6 @@ import {
   claimAccountAction,
   saveAttendedVendorAction,
 } from '../actions';
-import { DayOfFaceEnroll } from './day-of-face-enroll';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
@@ -31,7 +30,6 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
@@ -1342,31 +1340,24 @@ export async function SiteBody({
             long-press offers nothing and a screenshot was the only
             answer. These are the two ways to take it away. */}
         <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
-        {/* Indoor Blueprint entry point — pure navigation (no DB query on
-            this always-rendered landing). The /find-my-table route does its
-            own SKU gating: it shows a friendly "ask the couple" prompt when
-            the event hasn't bought Indoor Blueprint, so this link is safe to
-            always render. */}
-        <Link
-          href={`/${event.slug}/find-my-table`}
-          className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
-        >
-          <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Find my table
-        </Link>
-        {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
-            ADDITIVE, separately gated, and only when the couple bought the
-            branded-QR SKU. Routes through /seat/claim so the cookie is set
-            before landing on the pass (their exact seat + arrival bloom).
-            The find-my-table link above (a separate INDOOR_BLUEPRINT
-            surface) is untouched — both can show. */}
+        {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
+            "Find my table" (the Indoor Blueprint map) and "Your seat pass"
+            (this guest's exact seat, the same map, their tablemates and the
+            arrival bloom). Both are free now, and the pass does everything the
+            map does, so they were two doors to one question. The pass is the
+            one: it goes through /seat/claim so the guest-session cookie is set
+            before it lands. `seatPassActive` already asks whether this kind of
+            event seats people and whether the seating is published, so the
+            link never opens a notFound() or an empty plan.
+            The Indoor Blueprint map stays reachable from the everything-else
+            sheet's own "Find my table" row. */}
         {seatPassActive && guest.qr_token ? (
           <Link
             href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
-            className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
           >
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Your seat pass
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Find my seat
           </Link>
         ) : null}
       </section>
@@ -1637,14 +1628,16 @@ export async function SiteBody({
                 <SongRequestCard paused={songRequestDoor === 'paused'} />
               ) : null}
 
-              {/* "Add your face" — shown across the whole pre-event window (gated in
-                  needsFaceEnroll: Papic event · not declined · not yet enrolled) so
-                  guests enroll early, plus a day-of catch for anyone who skipped the
-                  RSVP selfie. One tap enrolls them so their candid photos auto-find
-                  them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
-              {needsFaceEnroll ? (
-                <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} faceMode={faceMode} />
-              ) : null}
+              {/* ⛔ NO STATIC "ADD YOUR FACE" CARD ON THE EVENT HUB — owner,
+                  2026-09-21: "so many text. we want the event hub to be
+                  minimalist" … "should be a pop up on their first click on the
+                  camera" … "not a static widget on event hub".
+                  The face step now opens INSIDE the camera, once, straight after
+                  the guest accepts its terms (papic-guest-capture.tsx), and stays
+                  skippable there — biometric consent under RA 10173 must be freely
+                  given, so it is never a condition of using the camera. The RSVP
+                  sheet's optional selfie is unchanged. Pinned by
+                  `the-face-step-waits-for-the-camera.test.ts`. */}
 
               {/* Inline Papic guest camera — auto-shown in-context when the couple owns
                   the active (admin-approved) PAPIC_GUEST pack, so an identified guest
@@ -2163,22 +2156,9 @@ export async function SiteBody({
           hasDesk={supplierDesk != null}
         />
       ) : null}
-      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
-          the event is effectively public (couple launched their Save-the-Date);
-          the abuse-report entry (target_type='event') is present on any listed
-          page. Never rendered on a private page (this whole component is behind
-          the not-private gate). */}
-      {resolveEffectiveVisibility(event) !== 'private' && (
-        <PublicPageActions
-          canShare={resolveEffectiveVisibility(event) === 'public'}
-          reportTargetId={event.event_id}
-          shareTitle={event.display_name}
-          aboveMenuBar={siteMenuEnabled({
-            flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
-            isSample: Boolean(event.is_sample),
-          })}
-        />
-      )}
+      {/* Share and Report live in a footer at the very END of the page now —
+          mounted by page.tsx, after the guest's own section, because this
+          component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={plan.revealEnabled}

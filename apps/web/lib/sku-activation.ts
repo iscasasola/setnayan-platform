@@ -456,7 +456,8 @@ async function grantSetnayanGiftForBookingFee(
 }
 
 /**
- * The pack door — 'vendor_papic_portfolio_pack' → 25 credits for ONE event
+ * The pack door — 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS
+ * credits for ONE event (25 until 2026-09-06; never restate it here)
  * (owner 2026-09-05, credits since RAISED to 100 on 2026-09-06 — the ₱500 did
  * not move: *"they pay 500 pesos for 25 papic credits … the photo importation
  * fee for their portfolio"*). The order must carry the event it is for and the
@@ -1076,11 +1077,14 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // activateVendorDeepSearchOrder.
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
-  // 'vendor_papic_portfolio_pack' → 25 Papic credits for ONE event, into the
-  // supplier's own ledger (owner 2026-09-05, raised to 100 credits 2026-09-06:
-  // "they pay 500 pesos for 25 papic
-  // credits"). The 5% booking-fee door is the `vendor_booking_fee__` prefix
-  // hook below. See grantVendorPapicPortfolioPack.
+  // 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS Papic
+  // credits for ONE event, into the supplier's own ledger. ₱500 bought 25 on
+  // 2026-09-05 and 100 from 2026-09-06 — the price did not move, what it buys
+  // did. ⚠ The figure is NOT repeated here: this comment said "25" for a year
+  // after the rise, and the catalogue title it was echoing was wrong in prod
+  // until migration 20271239096928. Read the constant. The 5% booking-fee door
+  // is the `vendor_booking_fee__` prefix hook below. See
+  // grantVendorPapicPortfolioPack.
   [VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE]: grantVendorPapicPortfolioPack,
 
   // 'MOODBOARD_RENDER_PACK' → the Mood Board "Make it real" render-credit pack

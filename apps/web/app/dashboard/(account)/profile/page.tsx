@@ -41,6 +41,15 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import {
+  atTag,
+  FORMAL_NAME_FIELDS,
+  FORMAL_NAME_LABELS,
+  FORMAL_NAME_PART_MAX,
+  isFormalNameEmpty,
+  type FormalName,
+} from '@/lib/formal-name';
+import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
 import { AnalyticsChoice } from './_components/analytics-choice';
 import {
   CIVIL_STATUSES,
@@ -105,7 +114,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -147,6 +156,18 @@ export default async function ProfilePage({ searchParams }: Props) {
     );
     if (url) photoDisplayMap[profile.profile_photo_url] = url;
   }
+
+  /* THE FORMAL NAME (owner 2026-09-21). Saved parts win. When the profile has
+     never been filled, the name a host already typed on a guest row that is
+     linked to THIS account pre-fills the form — shown, not saved, until the
+     person presses Save. See lib/formal-name-from-guest-list.ts. */
+  const savedFormalName = Object.fromEntries(
+    FORMAL_NAME_FIELDS.map((f) => [f, (profile?.[f] as string | null | undefined) ?? null]),
+  ) as FormalName;
+  const formalNameSuggestion = isFormalNameEmpty(savedFormalName)
+    ? await formalNameFromGuestList(user.id)
+    : null;
+  const formalNameShown = formalNameSuggestion?.name ?? savedFormalName;
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
@@ -376,6 +397,69 @@ export default async function ProfilePage({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          {/* ACCOUNT NAME — the @tag. It is `users.slug`, edited in the Handle
+              form further down; shown here because it is how people find you. */}
+          {atTag(currentSlug) ? (
+            <p className="-mt-2 text-xs text-ink/55">
+              Your account name is{' '}
+              <span className="font-mono font-medium text-ink/80">{atTag(currentSlug)}</span>
+              {' · '}
+              <a href="#slug" className="underline decoration-ink/25 underline-offset-2 hover:text-terracotta">
+                change
+              </a>
+            </p>
+          ) : null}
+
+          {/* FULL NAME — the formal name guest lists and invitations print
+              (owner 2026-09-21). Self-declared, never verified. */}
+          <fieldset className="sn-row space-y-3 p-4">
+            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+              Full name
+            </legend>
+            <p className="text-xs leading-relaxed text-ink/55">
+              How your name is written on guest lists and invitations. Your display name above
+              stays the name people see around the app.
+            </p>
+            {formalNameSuggestion ? (
+              <p className="rounded-tile bg-terracotta/10 px-3 py-2 text-xs text-ink/70">
+                Filled in from{' '}
+                {formalNameSuggestion.eventTitle ? (
+                  <span className="font-medium">{formalNameSuggestion.eventTitle}</span>
+                ) : (
+                  'a guest list you are on'
+                )}
+                . Check it, then press Save to keep it.
+              </p>
+            ) : null}
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,7rem)_minmax(0,1fr)_minmax(0,1fr)]">
+              {(['name_prefix', 'first_name', 'middle_name'] as const).map((f) => (
+                <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
+                  <input
+                    id={f}
+                    name={f}
+                    maxLength={FORMAL_NAME_PART_MAX}
+                    defaultValue={formalNameShown[f] ?? ''}
+                    placeholder={f === 'name_prefix' ? 'Mr., Atty.…' : undefined}
+                    className="input-field"
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,7rem)]">
+              {(['last_name', 'name_suffix'] as const).map((f) => (
+                <Field key={f} label={FORMAL_NAME_LABELS[f]} htmlFor={f}>
+                  <input
+                    id={f}
+                    name={f}
+                    maxLength={FORMAL_NAME_PART_MAX}
+                    defaultValue={formalNameShown[f] ?? ''}
+                    placeholder={f === 'name_suffix' ? 'Jr., II…' : undefined}
+                    className="input-field"
+                  />
+                </Field>
+              ))}
+            </div>
+          </fieldset>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Phone" htmlFor="phone">
               <input
@@ -802,14 +886,12 @@ export default async function ProfilePage({ searchParams }: Props) {
 
           <form action={updateUserSlug} className="sn-tile space-y-3">
             <Field
-              label="Handle"
+              label="Account name"
               htmlFor="slug"
-              help="3–32 characters · lowercase letters, numbers, and hyphens only."
+              help={`Your @tag — how people find you. 3–32 characters · lowercase letters, numbers, and hyphens only. Also your address: ${publicHost}/u/${currentSlug ?? 'your-handle'}`}
             >
               <div className="flex items-center gap-2">
-                <span className="shrink-0 font-mono text-xs text-ink/50">
-                  {publicHost}/u/
-                </span>
+                <span className="shrink-0 font-mono text-sm text-ink/50">@</span>
                 <input
                   id="slug"
                   name="slug"
@@ -827,7 +909,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               className="button-secondary inline-flex items-center gap-2"
               pendingLabel="Saving…"
             >
-              Save handle
+              Save account name
             </SubmitButton>
           </form>
 

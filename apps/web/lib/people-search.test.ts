@@ -101,12 +101,30 @@ test('the users read filters on each term, escaped — not on the raw string', (
   assert.match(src, /nameSearchTerms\(rawQuery\)/, 'the search no longer splits the query into words');
   assert.match(
     src,
-    /for \(const term of terms\)\s*\{\s*query = query\.ilike\('display_name', `%\$\{escapeLikeQuery\(term\)\}%`\);/,
-    'each word must get its own escaped ILIKE on display_name',
+    /for \(const term of terms\)\s*\{\s*query = query\.ilike\('name_search', `%\$\{escapeLikeQuery\(term\)\}%`\);/,
+    'each word must get its own escaped ILIKE on name_search (nickname + full name + @tag)',
   );
   assert.equal(
     (src.match(/\.ilike\(/g) ?? []).length,
     1,
     'a second ILIKE on the users read would bring back whole-string matching',
   );
+});
+
+test('"@ice" searches the tag "ice" — the @ is how a tag is shown, not stored', () => {
+  assert.deepEqual(nameSearchTerms('@ice'), ['ice']);
+  assert.deepEqual(nameSearchTerms('@@ice casasola'), ['ice', 'casasola']);
+  assert.deepEqual(nameSearchTerms('@'), []);
+  assert.deepEqual(nameSearchTerms('@i'), []);
+});
+
+test('the haystack the search reads holds nickname, all five parts and the slug', () => {
+  const sql = readFileSync(
+    join(__dirname, '../../../supabase/migrations/20271237898004_users_formal_name.sql'),
+    'utf8',
+  );
+  const gen = sql.slice(sql.indexOf('name_search TEXT GENERATED'));
+  for (const col of ['display_name', 'name_prefix', 'first_name', 'middle_name', 'last_name', 'name_suffix', 'slug']) {
+    assert.ok(gen.includes(`coalesce(${col},`), `name_search does not include ${col}`);
+  }
 });

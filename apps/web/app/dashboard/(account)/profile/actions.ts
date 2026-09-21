@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
+import { formalNameFromForm } from '@/lib/formal-name';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -90,6 +91,9 @@ export async function updatePersonalInfo(formData: FormData) {
 
   const display_name =
     typeof displayNameRaw === 'string' ? displayNameRaw.trim().slice(0, 128) || null : null;
+  // The formal name (owner 2026-09-21) — five parts, self-declared, never
+  // verified. Same columns and cap as a guest row, so a copy is 1:1.
+  const formalName = formalNameFromForm(formData);
   const phone =
     typeof phoneRaw === 'string' ? phoneRaw.trim().slice(0, 32) || null : null;
   const profile_photo_url = nullIfBlank(photoRaw);
@@ -169,6 +173,7 @@ export async function updatePersonalInfo(formData: FormData) {
     .from('users')
     .update({
       display_name,
+      ...formalName,
       phone,
       profile_photo_url,
       marketing_opt_in,

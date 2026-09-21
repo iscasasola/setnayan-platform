@@ -235,21 +235,22 @@ test('the receipt is mounted on the enrolment card AND on the after-the-fact not
 });
 
 test('every enrolment surface reaches the receipt through SelfieCapture', () => {
-  // The day-of landing, the hub and the Papic guest camera all mount
-  // DayOfFaceEnroll, which mounts SelfieCapture; the Event Hub RSVP card mounts
-  // SelfieCapture directly. One mount, four surfaces. If that stops being true
+  // The Papic guest camera mounts DayOfFaceEnroll, which mounts SelfieCapture;
+  // the RSVP card mounts SelfieCapture directly. (Until 2026-09-21 the day-of
+  // landing and the hub mounted it too — removed by owner ruling, see below.) If that stops being true
   // the receipt silently vanishes from a surface and nothing else notices.
   const enroll = code('app/[slug]/_components/day-of-face-enroll.tsx');
   assert.match(enroll, /<SelfieCapture\b/, 'the day-of enrol card no longer wraps SelfieCapture');
-  for (const rel of [
-    'app/[slug]/_components/site-body.tsx',
-    'app/[slug]/hub/page.tsx',
-    'app/papic/guest/_components/papic-guest-capture.tsx',
-  ]) {
-    assert.match(
-      code(rel),
-      /<DayOfFaceEnroll\b/,
-      `${rel} no longer mounts DayOfFaceEnroll — an enrolment surface without the receipt`,
-    );
+  // 2026-09-21 (owner): "not a static widget on event hub". The invitation and
+  // the day-of hub no longer mount the card; the CAMERA asks, once, after its
+  // terms. So the camera is the one DayOfFaceEnroll surface, and the two pages
+  // are asserted ABSENT — a static card creeping back is the thing to catch.
+  assert.match(
+    code('app/papic/guest/_components/papic-guest-capture.tsx'),
+    /<DayOfFaceEnroll\b/,
+    'the camera no longer mounts DayOfFaceEnroll — an enrolment surface without the receipt',
+  );
+  for (const rel of ['app/[slug]/_components/site-body.tsx', 'app/[slug]/hub/page.tsx']) {
+    assert.doesNotMatch(code(rel), /<DayOfFaceEnroll\b/, `${rel} mounts a static face card again`);
   }
 });

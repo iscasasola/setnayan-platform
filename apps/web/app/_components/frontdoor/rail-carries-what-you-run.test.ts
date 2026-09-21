@@ -155,13 +155,33 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
   );
 });
 
-test('"What you run" renders only alongside a gated row', () => {
+test('Shop and HQ sit inside My Home — no second group, no "What you run"', () => {
+  // 🔁 REVERSED 2026-09-21 (owner): *"my home and what you run must be
+  // combined. So it is My Home · Events · Memories · People · Shop · Admin"*.
+  // This test used to require the "What you run" heading (gated on a row
+  // following it). The heading and its divider are gone; the gated rows now
+  // follow People inside My Home.
   const src = code(readFileSync(SHELL, 'utf8'));
-  assert.match(
+  assert.doesNotMatch(
     src,
-    /\{account\.shopName \|\| account\.isAdmin \?[\s\S]{0,220}?What you run/,
-    'The "What you run" heading is not gated on a row following it. A heading ' +
-      'over nothing is a fake door in label form.',
+    /What you run/,
+    'The "What you run" heading is back. The owner merged it into My Home.',
+  );
+  const home = src.indexOf('>My Home<');
+  const people = src.indexOf('href="/dashboard/people"', home);
+  const shop = src.indexOf('href="/vendor-dashboard"', people);
+  const hq = src.indexOf('href="/admin"', shop);
+  assert.ok(
+    home >= 0 && people > home && shop > people && hq > shop,
+    `Rail order is not My Home → People → Shop → HQ ` +
+      `(found at ${home}, ${people}, ${shop}, ${hq}).`,
+  );
+  const between = src.slice(people, hq);
+  assert.doesNotMatch(
+    between,
+    /fd-rdiv|fd-rlabel/,
+    'A divider or heading sits between People and the Shop/HQ rows — that is a ' +
+      'second group again, which the owner merged away.',
   );
 });
 

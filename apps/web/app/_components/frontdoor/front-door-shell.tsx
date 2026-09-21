@@ -98,11 +98,11 @@ import {
   ChevronDown,
   ChevronUp,
   Compass,
-  Home,
   LayoutGrid,
   PenLine,
   Search,
   Sparkles,
+  Telescope,
   Users,
 } from 'lucide-react';
 /*
@@ -1296,10 +1296,16 @@ export function FrontDoorShell({
               "true" on Home until 2026-08-13, which read correctly on the one
               URL this rail rendered on and would have lit Home on all 296
               pages the moment it rendered anywhere else. */}
+          {/* DISCOVER, NOT "HOME" (owner 2026-09-21: *"change Home to Discover
+              so My Home will be more personal"*). This row is the public feed;
+              "My Home" two rows down is the person's own space. Two "Home"s in
+              one rail read as the same place. The telescope, not a house:
+              Compass is already the Suppliers row's glyph. The slot key stays
+              'home' — it is match data, not a word anyone reads. */}
           <Link href="/" {...rowProps('home')}>
-            <RailIcon as={Home} />
-            <span className="fd-label-text">Home</span>
-            <span className="fd-icon-caption">Home</span>
+            <RailIcon as={Telescope} />
+            <span className="fd-label-text">Discover</span>
+            <span className="fd-icon-caption">Discover</span>
           </Link>
           {/*
             STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner
@@ -1482,21 +1488,15 @@ export function FrontDoorShell({
                 doors that replaced it.
               */}
               {/*
-                WHAT YOU RUN — the second group, and the rule that decides
-                membership is one sentence: does this destination REFUSE a
-                signed-in person? No -> it is a desk you own, it lives above.
-                Yes -> it is a console only some people hold, it lives here and
-                renders only for the people the door admits.
-
-                The label and divider render ONLY when a row follows. A heading
-                over nothing is a fake door in label form.
+                SHOP · HQ — PART OF MY HOME, NOT A SECOND GROUP (owner
+                2026-09-21: *"my home and what you run must be combined. So it
+                is My Home · Events · Memories · People · Shop · Admin"*).
+                These rows sat under their own divider and a "What you run"
+                heading; they now follow People directly. They stay
+                CAPABILITY-GATED — each renders only for someone the door
+                admits, never as a greyed row — so a couple with neither sees
+                exactly Events · Memories · People.
               */}
-              {account.shopName || account.isAdmin ? (
-                <>
-                  <div className="fd-rdiv" />
-                  <div className="fd-rlabel">What you run</div>
-                </>
-              ) : null}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" {...rowProps('shop')}>
                   <span className="fd-gi" aria-hidden="true">

@@ -435,6 +435,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
+.slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
@@ -1177,6 +1178,12 @@ function VendorCard({
         <FitBadges v={v} />
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        ) : null}
+        {/* The same supplier, shown again in a category their package also
+            covers. No price here by design — it is one booking with one price,
+            which lives on the card in the category it was added under. */}
+        {v.includedWith ? (
+          <span className="incl">Included with {v.includedWith}</span>
         ) : null}
         {/* PR-G1 — the vendor's own free days inside the couple's date window,
             in the bench's mono voice. Renders only when there IS a signal; a

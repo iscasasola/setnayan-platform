@@ -34,11 +34,23 @@ import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 /* ------------------------------------------------------------------ */
 const OPEN_EVENT = 'setnayan:quick-add-open';
 
-export function OpenQuickAddButton({ label = '+ Add guest' }: { label?: string } = {}) {
+export function OpenQuickAddButton({
+  label = '+ Add guest',
+  className = 'button-primary',
+  ariaLabel,
+}: {
+  /** Text, or an icon when the button stands in a row of icons. */
+  label?: React.ReactNode;
+  className?: string;
+  /** Required in practice when `label` is an icon — it is then the only name. */
+  ariaLabel?: string;
+} = {}) {
   return (
     <button
       type="button"
-      className="button-primary"
+      className={className}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
       {label}

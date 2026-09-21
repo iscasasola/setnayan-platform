@@ -244,6 +244,9 @@ export type QuickGroupResult =
 export async function quickCreateGroup(
   eventId: string,
   rawLabel: string,
+  /** Which family the new group belongs to. Only a guest's own + passes one
+   *  (owner 2026-09-21); anything unrecognised is 'both', as before. */
+  rawSide?: unknown,
 ): Promise<QuickGroupResult> {
   const label = (rawLabel ?? '').trim();
   if (!label) return { ok: false, error: 'Type a group name.' };
@@ -259,7 +262,7 @@ export async function quickCreateGroup(
   // later in the Groups sidebar). Held in one const so the insert and the 23505
   // reuse-lookup below resolve the SAME (event_id, lower(label), team_side)
   // unique-index key.
-  const teamSide = 'both';
+  const teamSide = rawSide === 'bride' || rawSide === 'groom' ? rawSide : 'both';
 
   const { data: inserted, error } = await supabase
     .from('guest_groups')

@@ -50,6 +50,7 @@ import {
   setGuestRsvp,
   setGuestSide,
 } from '../inline-actions';
+import { groupsForSide, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { quickCreateGroup } from '../quick-add-actions';
 
 type EditResult = { ok: boolean; error?: string };
@@ -547,7 +548,9 @@ export function AddToGroupControl({
   const guestName = guestDisplayName(guest);
 
   const member = new Set(memberGroupIds);
-  const available = groups.filter((g) => !member.has(g.group_id));
+  // ⚖ Owner 2026-09-21: "bride side, then groups from the bride should show."
+  const available = groupsForSide(groups, guest.side).filter((g) => !member.has(g.group_id));
+  const sideWord = guest.side === 'bride' ? 'Bride’s' : guest.side === 'groom' ? 'Groom’s' : null;
 
   const close = () => {
     setOpen(false);
@@ -568,7 +571,8 @@ export function AddToGroupControl({
     if (!label) return;
     close();
     startTransition(async () => {
-      const made = await quickCreateGroup(eventId, label);
+      // Made from this guest's own + → it belongs to their side.
+      const made = await quickCreateGroup(eventId, label, teamSideForNewGroup(guest.side));
       if (!made.ok) {
         toast.error(made.error);
         return;
@@ -607,7 +611,7 @@ export function AddToGroupControl({
       {open ? (
         <Popover anchorRef={ref} onClose={close} width={220}>
           <p className="px-2.5 pb-1 pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/40">
-            Add to group
+            {sideWord ? `Add to a ${sideWord} group` : 'Add to group'}
           </p>
           <div className="max-h-56 overflow-y-auto">
             {available.length > 0 ? (
@@ -617,7 +621,9 @@ export function AddToGroupControl({
                 </OptionRow>
               ))
             ) : (
-              <p className="px-2.5 py-1.5 text-xs text-ink/45">In every group already.</p>
+              <p className="px-2.5 py-1.5 text-xs text-ink/45">
+                {sideWord ? `No other ${sideWord} groups yet — make one below.` : 'In every group already.'}
+              </p>
             )}
           </div>
           {creating ? (

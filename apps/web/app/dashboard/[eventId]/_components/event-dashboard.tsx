@@ -80,6 +80,10 @@ import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import {
+  rankMarkFor,
+  splitDecisionsAndDates,
+} from '@/lib/a-date-is-not-a-decision';
 import { papicCreditVerdict } from '@/lib/papic-credit-estimate';
 import { formatPeso } from '@/lib/checklist-budget-format';
 import {
@@ -1206,7 +1210,27 @@ export async function EventDashboard({
           ],
         }
       : null;
-  if (deadlineGroup) groupsUnordered.push(deadlineGroup);
+  /*
+    ── A DATE IS NOT A DECISION (owner-approved 2026-09-22) ─────────────────
+
+    This group USED TO BE PUSHED INTO `groupsUnordered`, which is what made it
+    a decision: it then sorted into `decisionGroups`, was counted by
+    `openDecisionCount`, and its rows could surface in the digest's top 3.
+
+    Measured on the live page (event 044f7e64, 2026-09-22): the board said
+    "9 open decisions". SIX of the nine were these — recommended deadlines and
+    scheduled blocks, which nobody resolves by reading. The couple was told
+    nine things needed them when four did.
+
+    🔑 THE PAGE WAS ALREADY DISAGREEING WITH ITSELF ABOUT THIS NUMBER. Two
+    inches above the "9", the Sai briefing said "2 decisions need you" — it
+    counts `cockpitModel.decisions`, which never included dates or payments.
+    One screen, two counts of the same noun, neither wrong on its own terms.
+
+    NOTHING IS REMOVED. Every row still renders, still opens its inspector and
+    still links to the same room — just under its own heading, with its own
+    count, below the board. See `datesGroup` at the render site.
+  */
 
   /*
     ── TOP UP PAPIC — A DECISION, AND ONLY WHEN THERE IS ONE ────────────────
@@ -1248,13 +1272,27 @@ export async function EventDashboard({
   // 'deadline' is listed in BOTH orders on purpose: `order.indexOf` returns -1
   // for an unlisted id, which would sort it ABOVE everything else. Leaving it
   // out of the free order would make a stray group jump to the top of the board.
+  // It no longer reaches `groupsUnordered` (see `datesGroup` above) — the entry
+  // stays so that re-adding one cannot silently sort it to the top.
   const freeOrder: DecisionGroupView['id'][] = ['book', 'pick', 'pay', 'role', 'deadline'];
   const aiOrder: DecisionGroupView['id'][] = ['book', 'pay', 'pick', 'role', 'deadline'];
   const order = aiActive ? aiOrder : freeOrder;
-  const decisionGroups = [...groupsUnordered].sort(
+  const sortedGroups = [...groupsUnordered].sort(
     (a, b) => order.indexOf(a.id) - order.indexOf(b.id),
   );
-  const openDecisionCount = decisionGroups.reduce((acc, g) => acc + g.items.length, 0);
+  /*
+    The split is a PURE SIBLING (`lib/a-date-is-not-a-decision.ts`) rather than
+    four lines here, because this file is `server-only` and no test can import
+    it — the rule that matters would otherwise be guarded by grepping a
+    3,000-line component. It also makes the regression unwritable: a dates group
+    handed to the board is pulled back out instead of inflating the count.
+  */
+  const {
+    decisionGroups,
+    datesGroup,
+    openDecisionCount,
+    datesCount,
+  } = splitDecisionsAndDates(sortedGroups, deadlineGroup);
   // Flattened, group-ordered decision list — ONE source of data feeding both the
   // top-grid digest (top 3) AND the full board below (all of them, grouped). The
   // digest links to `#decisions` (the board), so there is no data drift.
@@ -1509,6 +1547,138 @@ export async function EventDashboard({
   const focalHeadColor = focalDark ? '#FFFFFF' : 'var(--sn-ink-900)';
   const focalSubColor = focalDark ? 'rgba(253,251,247,.65)' : 'var(--sn-ink-500)';
 
+  /*
+    ── ONE GROUP RENDERER, TWO SECTIONS (2026-09-22) ───────────────────────
+
+    Lifted verbatim out of the board's `.map` so the Decisions board and the
+    new "Coming up" block below it draw the SAME article from the SAME markup.
+    A second hand-copied version is how two lists that are supposed to look
+    identical start disagreeing about a chip.
+
+    `gi` is the PRIORITY RANK. Pass `null` for a group that is not ranked —
+    the dates are in date order, not Sai order, so a rank there would be a
+    claim nobody made. A null rank shows the plain item count instead.
+  */
+  const renderDecisionGroup = (group: DecisionGroupView, gi: number | null) => {
+              const GroupIcon =
+                group.id === 'book'
+                  ? Store
+                  : group.id === 'pay'
+                    ? Wallet
+                    : group.id === 'role'
+                      ? Users
+                      : group.id === 'deadline'
+                        ? CalendarClock
+                        : Sparkles;
+              return (
+                <article key={group.id} className="sn-tile">
+                  <div className="mb-2 flex items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
+                      style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
+                    >
+                      <GroupIcon className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-extrabold tracking-[-0.015em] text-ink">
+                        {group.title}
+                      </h3>
+                      <p className="text-xs text-ink/45">{group.sub}</p>
+                    </div>
+                    {rankMarkFor(aiActive, gi) !== null ? (
+                      /*
+                        ── ONE RANK MARK, NOT TWO (owner-approved 2026-09-22) ──
+                        This used to read "PRIORITY 1", "PRIORITY 2"… down a
+                        board whose groups are ALREADY in that order. The
+                        word and the position said the same thing, and the
+                        word was the longest element in the header — on a
+                        phone it pushed group titles like "Settle a payment"
+                        into a second line.
+
+                        The number stays (it is the one fact the position
+                        cannot state out loud) and becomes the mark itself:
+                        gold, because a gold rank is what Sai being on looks
+                        like everywhere else on this page. The free state
+                        keeps its plain item count below — there is no
+                        ranking without Sai, and a rank number there would
+                        be a lie about how the list was ordered.
+
+                        🔑 NOT A VISUAL-ONLY CHANGE — the word carried the
+                        MEANING for anyone not looking at the colour, so it
+                        moves into `aria-label` rather than being deleted.
+                      */
+                      <span
+                        aria-label={`Priority ${rankMarkFor(aiActive, gi)}`}
+                        className="ml-auto flex h-7 w-7 flex-none items-center justify-center rounded-full font-mono text-[12px] font-extrabold"
+                        style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
+                      >
+                        {rankMarkFor(aiActive, gi)}
+                      </span>
+                    ) : (
+                      <span
+                        className="ml-auto rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold text-ink/60"
+                        style={{ borderColor: 'rgba(30,26,18,.12)' }}
+                      >
+                        {group.items.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((item, ii) => (
+                      <div key={item.id} className="sn-row px-3.5 py-2.5">
+                        {/* The whole row is one desktop inspector trigger; on
+                         *  mobile / modified clicks it navigates to the same
+                         *  room the CTA below always pointed to. The CTA renders
+                         *  as a styled span inside the anchor (no nested link);
+                         *  the free-venue offer stays a live sibling below. */}
+                        <InspectorTrigger
+                          inspectId={`d:${item.id}`}
+                          href={item.href}
+                          className="-mx-3.5 -my-2.5 block rounded-xl px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <b className="min-w-0 truncate text-sm font-semibold text-ink">
+                              {item.label}
+                            </b>
+                            {item.chip ? (
+                            <span
+                              className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
+                              style={chipToneStyle[item.chipTone]}
+                            >
+                              {item.chip}
+                            </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
+                          <span
+                            className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
+                            /* D-4 · EVERY DECISION CTA IS AN OUTLINE NOW.
+                               The first row of EVERY group used to be filled,
+                               so a couple with three open groups met three
+                               identical "most important" buttons plus the
+                               top-priority one above them — four things
+                               shouting at once, which is the same as none.
+                               The page's single filled action is the
+                               top-priority task; these are the queue behind
+                               it. */
+                            style={{
+                              border: '1px solid var(--sn-gold-500)',
+                              color: 'var(--sn-gold-700)',
+                            }}
+                          >
+                            {item.ctaLabel}
+                          </span>
+                        </InspectorTrigger>
+                        {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
+                          <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+  };
   // ── Inspector column selection (desktop, ≥xl) ───────────────────────────
   // Resolve `?inspect=` to a decision (`d:<id>`) or a Sai-on-watch (`w:<key>`)
   // row already on this page. An unknown/stale id resolves to nothing → the
@@ -1518,7 +1688,9 @@ export async function EventDashboard({
   let inspectorBody: ReactNode = null;
   if (inspectId) {
     if (inspectId.startsWith('d:')) {
-      for (const g of decisionGroups) {
+      // The dates group left the board but kept its inspector — `?inspect=d:u:…`
+      // must still resolve, or every "Coming up" row would open nothing at ≥xl.
+      for (const g of [...decisionGroups, ...(datesGroup ? [datesGroup] : [])]) {
         const item = g.items.find((it) => `d:${it.id}` === inspectId);
         if (item) {
           inspectorBody = (
@@ -1565,8 +1737,24 @@ export async function EventDashboard({
       {label} →
     </span>
   );
+  /*
+    ── AFTER THE DAY, THREE OF THESE STOPPED BEING TRUE (owner-approved 2026-09-22) ──
+
+    A mini states a fact about a celebration that is still coming. Once it has
+    happened, three of them state it about a day that is gone:
+
+      Guests    "4 attending · 77 still to reply"  — nobody is going to reply now,
+                and `FinishedEventSummary` already reports who actually came.
+      Schedule  "Next · 18 Dec · Hair & makeup"    — there is no next.
+      Papic     "100,050 shots ready · 5 cameras out" — capacity for a shoot that
+                is over; the wrap-up's Photos card carries what actually arrived.
+
+    Budget and Messages STAY, and the difference is the whole rule: a balance
+    and an unread thread are still true the morning after. This is not "hide the
+    planning tools after the event" — it is "do not state a fact that has expired".
+  */
   const miniTiles: ReactNode[] = [];
-  if (stats.total > 0) {
+  if (stats.total > 0 && !eventHasHappened) {
     miniTiles.push(
       <Link
         key="guests"
@@ -1687,7 +1875,7 @@ export async function EventDashboard({
       </Link>,
     );
   }
-  if (!schedulePreview.isEmpty) {
+  if (!schedulePreview.isEmpty && !eventHasHappened) {
     miniTiles.push(
       <Link
         key="schedule"
@@ -1804,7 +1992,7 @@ export async function EventDashboard({
   // every combination of which minis have data. (An earlier cut spliced at a
   // fixed index, which silently put Papic *after* Messages whenever Schedule had
   // nothing to show.) The cap below is what makes the order bite.
-  if (papicMini) miniTiles.push(papicMini);
+  if (papicMini && !eventHasHappened) miniTiles.push(papicMini);
 
   if (unreadCount > 0) {
     miniTiles.push(
@@ -2235,6 +2423,12 @@ export async function EventDashboard({
                   <span className="text-[12.5px] text-ink/55">
                     {openDecisionCount === 1 ? 'open decision' : 'open decisions'}
                     {aiActive && openDecisionCount > 0 ? ' · ranked' : ''}
+                    {/* The dates did not vanish when they stopped being decisions —
+                        they are named here so the smaller number cannot read as
+                        "we lost six things". */}
+                    {datesCount > 0
+                      ? ` · ${datesCount} ${datesCount === 1 ? 'date' : 'dates'} coming`
+                      : ''}
                   </span>
                 </div>
                 {flatDecisions.length > 0 ? (
@@ -2453,104 +2647,7 @@ export async function EventDashboard({
           ) : null}
           {decisionGroups.length > 0 ? (
             <div className="grid gap-3.5 lg:grid-cols-2">
-              {decisionGroups.map((group, gi) => {
-                const GroupIcon =
-                  group.id === 'book'
-                    ? Store
-                    : group.id === 'pay'
-                      ? Wallet
-                      : group.id === 'role'
-                        ? Users
-                        : group.id === 'deadline'
-                          ? CalendarClock
-                          : Sparkles;
-                return (
-                  <article key={group.id} className="sn-tile">
-                    <div className="mb-2 flex items-center gap-2.5">
-                      <span
-                        aria-hidden
-                        className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
-                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-                      >
-                        <GroupIcon className="h-4 w-4" strokeWidth={1.75} />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="text-[16px] font-extrabold tracking-[-0.015em] text-ink">
-                          {group.title}
-                        </h3>
-                        <p className="text-xs text-ink/45">{group.sub}</p>
-                      </div>
-                      {aiActive ? (
-                        <span
-                          className="ml-auto rounded-full px-2.5 py-0.5 font-mono text-[11px] font-extrabold tracking-wide"
-                          style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
-                        >
-                          PRIORITY {gi + 1}
-                        </span>
-                      ) : (
-                        <span
-                          className="ml-auto rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold text-ink/60"
-                          style={{ borderColor: 'rgba(30,26,18,.12)' }}
-                        >
-                          {group.items.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {group.items.map((item, ii) => (
-                        <div key={item.id} className="sn-row px-3.5 py-2.5">
-                          {/* The whole row is one desktop inspector trigger; on
-                           *  mobile / modified clicks it navigates to the same
-                           *  room the CTA below always pointed to. The CTA renders
-                           *  as a styled span inside the anchor (no nested link);
-                           *  the free-venue offer stays a live sibling below. */}
-                          <InspectorTrigger
-                            inspectId={`d:${item.id}`}
-                            href={item.href}
-                            className="-mx-3.5 -my-2.5 block rounded-xl px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <b className="min-w-0 truncate text-sm font-semibold text-ink">
-                                {item.label}
-                              </b>
-                              {item.chip ? (
-                              <span
-                                className="ml-auto whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
-                                style={chipToneStyle[item.chipTone]}
-                              >
-                                {item.chip}
-                              </span>
-                              ) : null}
-                            </div>
-                            <p className="mt-0.5 text-[12.5px] text-ink/55">{item.sub}</p>
-                            <span
-                              className="mt-2 inline-block rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
-                              /* D-4 · EVERY DECISION CTA IS AN OUTLINE NOW.
-                                 The first row of EVERY group used to be filled,
-                                 so a couple with three open groups met three
-                                 identical "most important" buttons plus the
-                                 top-priority one above them — four things
-                                 shouting at once, which is the same as none.
-                                 The page's single filled action is the
-                                 top-priority task; these are the queue behind
-                                 it. */
-                              style={{
-                                border: '1px solid var(--sn-gold-500)',
-                                color: 'var(--sn-gold-700)',
-                              }}
-                            >
-                              {item.ctaLabel}
-                            </span>
-                          </InspectorTrigger>
-                          {venueOfferInline && isSaiAssistFreeDecisionId(item.id) ? (
-                            <FreeVenueShortlistOffer eventId={eventId} variant="inline" />
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })}
+              {decisionGroups.map((group, gi) => renderDecisionGroup(group, gi))}
             </div>
           ) : (
             <div className="sn-tile text-sm text-ink/55">
@@ -2592,6 +2689,44 @@ export async function EventDashboard({
             ) : null}
           </div>
         </section>
+
+        {/* ── Coming up — the dates, under their own heading ────────────────
+         *  Owner-approved 2026-09-22: a recommended deadline or a scheduled
+         *  block is not a decision. These rows used to sit INSIDE the board
+         *  above, which is what made "9 open decisions" out of four.
+         *
+         *  🔑 NOTHING MOVED BUT THE HEADING. Same `datesGroup`, same rows,
+         *  same `renderDecisionGroup`, same inspector ids (`d:u:…`) and the
+         *  same hrefs — so a link that worked yesterday still works, and the
+         *  desktop inspector still resolves them (see the `datesGroup` arm of
+         *  the `?inspect=` lookup).
+         *
+         *  Unranked ON PURPOSE (`gi = null`): these are in DATE order, not in
+         *  Sai's order, so the group shows its count rather than a priority
+         *  number it did not earn.
+         *
+         *  ⚠ STILL AI-ONLY, AND THAT IS UNCHANGED, NOT A NEW DECISION.
+         *  `deadlineGroup` has been gated on `aiActive` since it shipped; a
+         *  free event sees no dates block at all. Giving the free page a dates
+         *  rail would hand over part of what Setnayan AI sells, which is an
+         *  owner call — flagged, not taken here. */}
+        {datesGroup ? (
+          <section id="coming-up" aria-label="Coming up" className="scroll-mt-20 !mt-6">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="sn-sec">{spark}Coming up</h2>
+              <span
+                className="rounded-full px-2.5 py-0.5 font-mono text-xs font-bold"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
+              >
+                {datesCount} {datesCount === 1 ? 'date' : 'dates'}
+              </span>
+              <p className="sn-sec-sub">Nothing to decide — just what lands when.</p>
+            </div>
+            <div className="grid gap-3.5 lg:grid-cols-2">
+              {renderDecisionGroup(datesGroup, null)}
+            </div>
+          </section>
+        ) : null}
 
         {/* ── Meanwhile — a delivery is waiting ──────────────────────────
          *  Renders ONLY when a vendor has delivered something still

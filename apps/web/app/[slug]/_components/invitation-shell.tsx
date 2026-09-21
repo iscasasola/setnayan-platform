@@ -99,8 +99,14 @@ export function InvitationShell({
           globals.css. They float over this bar's right end on a phone, and at
           full scroll-top the label sat underneath them (seen live 2026-09-21:
           the music button covering "INVITATION"). */}
-      <header className="relative z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
+      {/* 📌 PINNED, SO THE CORNER BUTTONS ALWAYS SIT ON IT (seen live
+          2026-09-21 as a test guest: scrolled, the pinned music and account
+          buttons sat on top of the pass's header). The band travels with the
+          page top and the corner controls (fixed at top-3, 44px tall) always
+          land on its solid ground — 4rem clears 0.75rem + 2.75rem. z-20: above
+          the page, under the corner controls (z-40 and up) and every sheet. */}
+      <header data-sticky-top className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+        <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">

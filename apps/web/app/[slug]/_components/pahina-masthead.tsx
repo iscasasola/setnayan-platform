@@ -71,6 +71,7 @@ export function PahinaMasthead({
   mediaSlot,
   mediaCaption,
   twoPeople = true,
+  card,
 }: {
   displayName: string;
   eventDate: string | null;
@@ -89,9 +90,80 @@ export function PahinaMasthead({
   mediaSlot?: ReactNode;
   /** Mono caption under the cover plate (e.g. venue line). */
   mediaCaption?: string | null;
+  /**
+   * 🎴 THE INVITATION CARD (owner 2026-09-21, canvas "1 · Arrival": "doesn't
+   * look like the event hub we planned"). When present, the masthead renders
+   * as a paper card with a gold hairline frame — eyebrow, a large mark, the
+   * names, the invitation line, the date between two gold rules, the time —
+   * and a link down into the hub. Every word is resolved by the caller from
+   * `EventWords`, so a birthday never says "marriage" and a funeral carries
+   * no celebration line. Absent → the masthead renders exactly as before.
+   */
+  card?: {
+    eyebrow: string;
+    /** "invite you to celebrate their wedding" — null for the solemn register. */
+    line: string | null;
+    /** The first moment's time, the programme's own clock ("1:30 PM"). */
+    timeLabel: string | null;
+    hubHref: string;
+    hubLabel: string;
+  };
 }) {
   const names = splitCoupleNames(displayName, twoPeople);
   const dateLabel = formatEventDate(eventDate);
+
+  if (card) {
+    return (
+      <header className="text-center">
+        {badgeSlot}
+        <div className="mx-auto max-w-md rounded-[3px] bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
+          <div className="border border-gild/45 px-5 pb-7 pt-8">
+            <p className="text-xs uppercase tracking-[0.36em] text-ink/60">{card.eyebrow}</p>
+            {monogramSlot ? (
+              <div data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
+                {/* The mark renders at its own 80px; the card shows it at
+                    ~150px. A scale, not a second size in every monogram branch:
+                    the marks are SVG, so they stay crisp. */}
+                <div className="scale-[1.85]">{monogramSlot}</div>
+              </div>
+            ) : null}
+            <h1
+              data-motion="arrive-names"
+              className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
+            >
+              <span className="block">{names.first}</span>
+              {names.second ? (
+                <>
+                  <span className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
+                    {names.joiner === '&' ? 'and' : names.joiner}
+                  </span>
+                  <span className="block">{names.second}</span>
+                </>
+              ) : null}
+            </h1>
+            {card.line ? <p className="mt-4 text-sm leading-relaxed text-ink/80">{card.line}</p> : null}
+            {dateLabel ? (
+              <p data-motion="arrive-date" className="mt-4 flex items-center justify-center gap-3">
+                <span aria-hidden className="h-px w-5 bg-gild/60" />
+                <span className="font-pahina text-xl text-ink">{dateLabel}</span>
+                <span aria-hidden className="h-px w-5 bg-gild/60" />
+              </p>
+            ) : null}
+            {card.timeLabel ? (
+              <p className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{card.timeLabel}</p>
+            ) : null}
+          </div>
+        </div>
+        <a
+          href={card.hubHref}
+          className="mx-auto mt-4 inline-flex min-h-[44px] flex-col items-center justify-center gap-1 text-mulberry hover:text-mulberry-600"
+        >
+          <span className="font-pahina text-base italic">{card.hubLabel}</span>
+          <span aria-hidden>↓</span>
+        </a>
+      </header>
+    );
+  }
 
   return (
     <header className="text-center">

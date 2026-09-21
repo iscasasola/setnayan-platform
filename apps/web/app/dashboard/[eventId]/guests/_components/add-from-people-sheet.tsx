@@ -50,11 +50,20 @@ const OPEN_EVENT = 'setnayan:add-from-people-open';
 export function OpenAddFromPeopleButton({
   label = 'Add from your people',
   className = 'button-secondary',
-}: { label?: string; className?: string } = {}) {
+  ariaLabel,
+}: {
+  /** Text, or an icon when the button stands in a row of icons. */
+  label?: React.ReactNode;
+  className?: string;
+  /** Required in practice when `label` is an icon — it is then the only name. */
+  ariaLabel?: string;
+} = {}) {
   return (
     <button
       type="button"
       className={className}
+      aria-label={ariaLabel}
+      title={ariaLabel}
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
       {label}

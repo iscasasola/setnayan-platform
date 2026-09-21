@@ -199,23 +199,41 @@ function drawsAHeading(file: string): boolean {
 function actionsIn(source: string): null | 'always' | 'responsive' | 'conditional' {
   let verdict: null | 'always' | 'responsive' | 'conditional' = null;
   for (const m of source.matchAll(/<PageMasthead\b/g)) {
+    // The PROP is found near its element — 4000 characters is room for any
+    // opening tag and keeps a later element's `actions=` from being mistaken
+    // for this one's.
     const seg = source.slice(m.index!, m.index! + 4000);
     const j = seg.indexOf('actions={');
     if (j < 0) continue;
-    const k = j + 'actions='.length;
+    // 🪤 BUT ITS BRACES ARE MATCHED TO THE END OF THE FILE, NEVER TO THE WINDOW.
+    // The brace scan used to stop at the same 4000 characters. When the guest
+    // page's actions grew a "Wedding March" button with its ruling beside it,
+    // the body ran to 4,042 characters and closed 4,508 in — so the scan never
+    // reached the closing brace, `body` stayed empty, the `continue` below read
+    // that as "this page has NO header buttons", and the guard called the
+    // loading screen's two reserved buttons phantom. The page was right and the
+    // guard was blind — and blind in a direction that could as easily have
+    // passed a real phantom as failed a real button.
+    const start = m.index! + j + 'actions='.length;
     let depth = 0;
-    let body = '';
-    for (let n = k; n < seg.length; n++) {
-      if (seg[n] === '{') depth++;
-      else if (seg[n] === '}') {
+    let body: string | null = null;
+    for (let n = start; n < source.length; n++) {
+      if (source[n] === '{') depth++;
+      else if (source[n] === '}') {
         depth--;
         if (depth === 0) {
-          body = seg.slice(k + 1, n);
+          body = source.slice(start + 1, n);
           break;
         }
       }
     }
-    if (!body.trim()) continue;
+    // ⛔ AN UNCLOSED BODY IS A GUARD THAT GOT LOST, NOT A PAGE WITH NO BUTTONS.
+    // Treating it as empty is exactly how the blindness above stayed silent.
+    assert.ok(
+      body !== null,
+      'found `actions={` on a <PageMasthead> but never its closing brace — this guard cannot parse the page and must not guess "no buttons"',
+    );
+    if (!body!.trim()) continue;
     const flat = body.replace(/\s+/g, ' ').trim();
     // 🔑 AN ACTION THAT MAY NOT BE THERE IS NOT AN ACTION TO RESERVE.
     // `/admin/app-performance`'s overview tab passes

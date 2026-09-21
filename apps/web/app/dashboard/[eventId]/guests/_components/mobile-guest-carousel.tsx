@@ -19,8 +19,8 @@
  * The 3-mode segment and every pill are URL-DRIVEN and reuse the SAME `buildHref`
  * param contract the desktop facet bar writes — NO second encoder (PAGE_LAYOUT
  * risk #3): Roster = `?sort=importance`, Groups = `?sort=group` (the roster's
- * groupMode), Day-of routes to the dedicated `/guests/checkin` desk, density
- * writes `?density=list` (an additive display param the shared
+ * groupMode), Day-of routes to the dedicated `/guests/checkin` desk (an
+ * additive display param the shared
  * GuestListMultiselect reads — the filter params q/rsvp/view/group/team/tag/sort/
  * gview are still emitted identically). The guest ROWS render in
  * `GuestListMultiselect` below (one source of truth — this stays a control
@@ -202,7 +202,7 @@ export function MobileGuestCarousel({
   const currentRsvp = searchParams.get('rsvp') ?? '';
   // In Mind-map mode the guest LIST isn't rendered (page swaps in GuestMindMap),
   // so the carousel's bulk-select would act on guests the user can't see. Gate
-  // the select/density controls to a "back to roster" hint while the map is up.
+  // the select controls to a "back to roster" hint while the map is up.
   const mapMode = searchParams.get('gview') === 'map';
   // 3-mode (Living Roster P4). Groups = the group-bucketed roster (`?sort=group`,
   // GuestListMultiselect's groupMode='group'); Roster = any other sort; Day-of
@@ -210,9 +210,7 @@ export function MobileGuestCarousel({
   // writes — no second encoder.
   const isGroupsMode = currentSort === 'group' && !mapMode;
   const isRosterMode = !isGroupsMode && !mapMode;
-  // Grid/list density for the roster below — the toggle writes `?density=list`,
   // which GuestListMultiselect reads (one URL-driven state, both surfaces).
-  const density = searchParams.get('density') === 'list' ? 'list' : 'grid';
 
   return (
     <>
@@ -220,7 +218,7 @@ export function MobileGuestCarousel({
           five-tab `.sn-seg` swipe carousel with the prototype's single sticky
           surface: masthead (title · Invite · Needs-you) + pax meter + a passive
           progress ribbon, then a 3-mode segment (Roster / Groups / Day-of), the
-          RSVP pills, and a grid/list density toggle. Every control writes the
+          and RSVP pills. Every control writes the
           SAME URL params the desktop facet bar does — filtering stays URL-driven
           + SSR, no second encoder. lg:hidden: desktop keeps its inline chrome.
           `gl-settle` eases the surface in once on mount (frozen under
@@ -349,7 +347,7 @@ export function MobileGuestCarousel({
           </div>
         </div>
 
-        {/* Tools — search compose row + Add, then 3-mode / RSVP / density. */}
+        {/* Tools — search compose row + Add, then 3-mode / RSVP. */}
         <div className="space-y-2.5">
           <div className="flex items-center gap-1">
             <button
@@ -469,17 +467,10 @@ export function MobileGuestCarousel({
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
                 {isGroupsMode ? 'Your groups' : `${allVisibleIds.length} shown`}
               </span>
-              {/* Density only drives the phone card grid (`sm:hidden`); on tablet
-                  the desktop table renders regardless, so hide the toggle there
-                  rather than dangle a no-op control. */}
-              <div className="flex items-center gap-1 sm:hidden" role="group" aria-label="Card or list density">
-                <DensityBtn href={buildHref({ density: null })} active={density === 'grid'} label="Card view">
-                  <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                </DensityBtn>
-                <DensityBtn href={buildHref({ density: 'list' })} active={density === 'list'} label="Compact list view">
-                  <List className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                </DensityBtn>
-              </div>
+              {/* ⚖ Owner 2026-09-20: "remove the grid view on guest list. make it
+                  same sa row view only." The card/list density toggle stood
+                  here; there is one roster now, so the control has nothing to
+                  switch between. */}
             </div>
           )}
 
@@ -847,45 +838,6 @@ function MPill({
   );
 }
 
-// DensityBtn — one of the grid / list density toggles for the roster below. A
-// Link that flips the `density` URL param (GuestListMultiselect reads it), with
-// aria-current so the active layout is announced.
-function DensityBtn({
-  href,
-  active,
-  label,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-label={label}
-      aria-current={active ? 'true' : undefined}
-      title={label}
-      className={`inline-flex h-8 w-9 items-center justify-center rounded-lg border transition-colors ${
-        active
-          ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-          : 'border-ink/12 text-ink/45 hover:text-ink'
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/**
- * Inline quick-entry form for the Add carousel panel.
- *
- * Flow (endless cycle — there is no "finish" key; the panel simply stays
- * ready for the next guest. Owner directive 2026-06-03: no more double-Enter):
- *   Enter on first name  → moves focus to last name (no-op if first is empty)
- *   Enter on last name   → adds the guest, clears both fields, loops to first name
- */
 function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const router = useRouter();
   const [first, setFirst] = useState('');

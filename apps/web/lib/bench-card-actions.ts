@@ -66,6 +66,21 @@ export type BenchBuildAction =
    *  shipped owner rule (2026-06-09, "only services vendors responded a price
    *  for") exists to prevent. The card shows a quiet note instead of a CTA. */
   | { kind: 'needs_price' }
+  /** SAME ABSENCE, DIFFERENT SUPPLIER — and therefore a different answer.
+   *  (owner 2026-09-20: "manual upload can have no requesting. it can be
+   *  automatic uploaded. these do not need approval. so they can just list
+   *  manually.")
+   *
+   *  `needs_price` tells the couple to ASK. For a supplier the couple added
+   *  themselves there is nobody to ask: no account, no inbox, no quote that
+   *  will ever arrive. The card said "Ask for a price to add this to your
+   *  build" beside a venue the couple had already agreed a price with, and the
+   *  ask had no recipient — a wait with no end, which is the same shape as the
+   *  dead QR link on the workspace page.
+   *
+   *  The couple types the number instead (`updateVendorCosts`, the SAME action
+   *  the add modal's post-save panel already uses — not a second writer). */
+  | { kind: 'set_price' }
   /** SOFT schedule clash (Explore Replan PR-G1 · spec §6 decision #12): this
    *  vendor has no free day left inside the build's shared-date window. Adding
    *  or locking them would knowingly create a date the couple's own team cannot
@@ -277,7 +292,11 @@ export function resolveBenchCardActions(args: {
           : inBuild
             ? { kind: 'in_build' }
             : vendor.priceBasisPhp == null
-              ? { kind: 'needs_price' }
+              ? // Who is there to ask? An off-platform supplier has no account
+                // to receive the ask, so the couple records the price instead.
+                vendor.marketplaceVendorId == null
+                ? { kind: 'set_price' }
+                : { kind: 'needs_price' }
               : { kind: 'add' };
 
   // Rule 8 — read, never inferred. Only when nothing else on the card already

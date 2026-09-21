@@ -26,16 +26,24 @@ import { useSaveLoader } from '@/components/sd-loader';
 export function HostServiceDetails({
   eventId,
   vendorId,
+  displayName,
   initialInclusions,
   initialCovers,
   options,
 }: {
   eventId: string;
   vendorId: string;
+  /** Only for the copy — omitted renders a neutral "they handle". */
+  displayName?: string;
   initialInclusions: string[];
   initialCovers: string[];
-  /** Plan groups this vendor may "also cover" (own group excluded server-side). */
-  options: { id: string; label: string }[];
+  /**
+   * EVERY plan group, including this supplier's own (owner 2026-09-20: "so
+   * they can pick all categories"). `locked` marks the group the couple added
+   * them under — rendered on and un-togglable, because it is covered by
+   * construction and switching it off would state something untrue.
+   */
+  options: { id: string; label: string; locked?: boolean }[];
 }) {
   const [pending, startTransition] = useTransition();
   const [text, setText] = useState(initialInclusions.join('\n'));
@@ -45,6 +53,11 @@ export function HostServiceDetails({
   const save = useSaveLoader();
 
   function toggleCover(id: string) {
+    // A locked group is a fact, not a choice. Guarded here as well as in the
+    // disabled attribute: `aria-pressed` buttons stay clickable by keyboard in
+    // some assistive setups, and the server would then store a set that omits
+    // the category the booking is literally filed under.
+    if (options.find((o) => o.id === id)?.locked) return;
     setSaved(false);
     setCovers((prev) => {
       const next = new Set(prev);
@@ -62,6 +75,13 @@ export function HostServiceDetails({
         fd.set('event_id', eventId);
         fd.set('vendor_id', vendorId);
         fd.set('inclusions', text);
+        // ⚖ THE LOCKED OWN-GROUP IS NOT PERSISTED. It is already implied by
+        // `event_vendors.category`, and `bucketForVendor` reads
+        // `covers_plan_groups[0]` as the money bucket — writing it in would
+        // change which bucket existing bookings land in for no gain. The chip
+        // states the fact on screen; the column keeps meaning "ALSO covers".
+        // (A row that already carries its own group keeps it: it is in
+        // `covers` from `initialCovers` and is sent back unchanged.)
         for (const c of covers) fd.append('covers', c);
         await save.run(() => updateHostServiceDetails(fd), {
           steps: ['Saving service details'],
@@ -112,18 +132,23 @@ export function HostServiceDetails({
 
       <p className="mt-4 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
         <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-        Also covers <span className="font-normal normal-case text-ink/45">(optional)</span>
+        What services does this cover
+      </p>
+      <p className="mt-1 text-[11px] leading-snug text-ink/55">
+        Pick every category {displayName ? `${displayName} handles` : 'they handle'} — one
+        booking, one price, counted once across all of them.
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {options.map((o) => {
-          const on = covers.has(o.id);
+          const on = o.locked || covers.has(o.id);
           return (
             <button
               key={o.id}
               type="button"
               onClick={() => toggleCover(o.id)}
               aria-pressed={on}
-              disabled={pending}
+              disabled={pending || Boolean(o.locked)}
+              title={o.locked ? 'This is the category you added them under' : undefined}
               className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 on
                   ? 'border-mulberry/50 bg-mulberry/10 text-mulberry'

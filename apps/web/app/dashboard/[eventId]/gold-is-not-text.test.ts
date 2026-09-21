@@ -89,7 +89,7 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
 const BILL: ReadonlyArray<readonly [string, number]> = [
   ['budget/_components/share-budget-band-toggle.tsx', 1],
   ['guests/[guestId]/page.tsx', 4],
-  ['guests/_components/guest-list-multiselect.tsx', 4],
+  ['guests/_components/guest-list-multiselect.tsx', 3],
   ['guests/_components/mobile-guest-carousel.tsx', 1],
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],

@@ -224,7 +224,17 @@ export type StudioConfig = {
   frames?: StudioFrame[];
   /** Starting-point provenance — which preset card seeded this design. */
   preset?: StudioPresetKey;
-  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number; preset?: StudioAnimTempo };
+  anim?: {
+    kind: (typeof ANIM_KINDS)[number];
+    dur: number;
+    smooth: number;
+    delay: number;
+    preset?: StudioAnimTempo;
+    /** The couple chose "Use Static Image": guests see the mark STILL, even if
+     *  the animation is paid for. Absent = animate (when owned). See
+     *  markAnimationSwitchedOff — the one place this is read. */
+    off?: true;
+  };
 };
 
 // Bounds — generous but finite; the studio works around a 150-unit glyph size
@@ -373,6 +383,10 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       ...(typeof a.preset === 'string' && (ANIM_TEMPOS as readonly string[]).includes(a.preset)
         ? { preset: a.preset as StudioAnimTempo }
         : {}),
+      // Only a literal `true` switches it off: anything else — absent, "false",
+      // a string — must mean "animate", so a malformed write can never silently
+      // freeze a mark someone paid to see move.
+      ...(a.off === true ? { off: true as const } : {}),
     };
   }
 
@@ -467,4 +481,26 @@ export function sanitizeStudioSvg(raw: string): string | null {
   });
 
   return svg;
+}
+
+
+/**
+ * Has the couple chosen "Use Static Image" — guests see the mark STILL, even
+ * though the animation may be paid for?
+ *
+ * Owner 2026-09-20, asked what a couple who has ALREADY paid ₱500 gets when they
+ * press "Use Static Image": *"Their guests see it still."* So paying unlocks the
+ * animation; it does not force it on. The choice is reversible without paying
+ * again, because it is only a flag beside the reveal (`anim.off`), never a
+ * change to what was bought.
+ *
+ * 🔑 THE ONE PLACE THIS IS READ. Every gate that decides whether GUESTS see the
+ * mark animate must ask this as well as asking whether it is owned —
+ * `lib/hero-monogram-data.ts` (16 surfaces) and `app/[slug]/_lib/loaders.ts`
+ * (the guest site, which calls the paid gate directly). A new animation gate
+ * that asks "owned?" and not "switched off?" plays a mark the couple chose to
+ * keep still; `lib/static-means-static.test.ts` fails when that happens.
+ */
+export function markAnimationSwitchedOff(studioConfig: unknown): boolean {
+  return sanitizeStudioConfig(studioConfig)?.anim?.off === true;
 }

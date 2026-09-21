@@ -60,6 +60,11 @@ export function deskDisposition(card: WhatsNewCard): DeskDisposition {
     case 'message':
     case 'quote_draft':
     case 'contract_draft':
+    // CTRL-B2 build 1. The celebration is over and nobody has said the service
+    // was delivered. It carries a control ("I delivered this service"), so by
+    // this module's own rule it is an ASK — and it is the ask that unlocks the
+    // couple's confirm, their review, and the shop's first track record.
+    case 'mark_complete':
       return 'answer';
     // The window shut. Nothing to press; it stays visible for a week so the
     // supplier can see the booking they let go.

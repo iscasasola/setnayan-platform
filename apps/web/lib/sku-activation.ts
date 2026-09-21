@@ -683,6 +683,19 @@ async function reverseBookingFeeCharge(ctx: ActivationContext, chargeId: string)
     reportActivationFault('deactivate:booking_fee_charge', ctx, e);
   }
 
+  // 📅 …AND THE DATE IS RELEASED. A hold with no release is the mirror defect:
+  // a refunded supplier whose calendar stays shut against every other couple.
+  // The RPC excludes this booking's own (now-reversed) charge, or the widened
+  // "still held" check would find it and keep the date closed against itself.
+  try {
+    const { error: relErr } = await ctx.admin.rpc('vendor_release_date_on_fee_reversed', {
+      p_charge_id: chargeId,
+    });
+    if (relErr) reportActivationFault('deactivate:vendor_release_date', ctx, relErr);
+  } catch (e) {
+    reportActivationFault('deactivate:vendor_release_date', ctx, e);
+  }
+
   // (3) — the supplier's portfolio credits, bought by a fee we just gave back.
   // Deleted by `order_id`, the same key `reversePapicPassPoints` uses for the
   // couple's pot, so the two clawbacks cannot disagree about what this order paid for.
@@ -1798,6 +1811,28 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // not `settled` flipped just now, and the database refuses a second
       // landing for the same order.
       await grantSetnayanGiftForBookingFee(ctx, chargeId);
+
+      // 📅 THE DATE IS HELD (owner 2026-09-18, CTRL-B2 build 7): *a lock on the
+      // vendor's schedule … upon the vendor paying their booking fee.* Until
+      // now a supplier could pay us to hold a date and stay bookable — his own
+      // calendar and every couple's availability search both said he was free.
+      //
+      // 🔑 ADDITIVE, NOT A RE-POINTING. `event_vendor_autoblock_on_booking`
+      // fires on `deposit_paid`, a status `recordDeposit`'s docblock says the
+      // HOST advances separately. Moving that trigger would move a status the
+      // host owns as a side effect of a payment. This is a second, independent
+      // reason for a date to be held.
+      //
+      // Non-fatal and idempotent, like every arm here: a failed hold must not
+      // block a payment approval, and a re-approval cannot double-write.
+      try {
+        const { error: holdErr } = await ctx.admin.rpc('vendor_hold_date_on_fee_settled', {
+          p_charge_id: chargeId,
+        });
+        if (holdErr) reportActivationFault('activate:vendor_hold_date', ctx, holdErr);
+      } catch (e) {
+        reportActivationFault('activate:vendor_hold_date', ctx, e);
+      }
     },
   },
   {

@@ -83,6 +83,10 @@ const CARD_KIND: Record<
   Exclude<WhatsNewCard['kind'], 'review'>,
   CardTone
 > = {
+  // CTRL-B2 build 1. Neutral ink, deliberately: this row is an ASK, not news
+  // and not a problem. A gold accent would make it compete with a live inquiry,
+  // and a warm semantic is reserved for genuine status (the repo's colour rule).
+  mark_complete: { accent: 'var(--m-ink)', eye: 'var(--m-ink)', eyebrow: 'Your event has finished' },
   inquiry: { accent: 'var(--sn-gold-500)', eye: 'var(--sn-gold-700)', eyebrow: 'New inquiry' },
   lock: { accent: 'var(--sn-success)', eye: 'var(--sn-success)', eyebrow: 'Lock request' },
   // Amber, not green: this one is a QUESTION with a deadline, not good news to
@@ -643,6 +647,7 @@ export function WhatsNewFeed({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  markServiceComplete,
   payoutReadiness = 'unreadable',
   feeForecasts = {},
   incomplete = false,
@@ -667,6 +672,10 @@ export function WhatsNewFeed({
   /** The review reply is TAKEN HERE — the desk could name an unanswered review and not accept the answer. */
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  /** The completion mark is TAKEN HERE — CTRL-B2 build 1. A desk that names
+   *  an unmarked celebration and cannot accept the mark is the same defect as
+   *  naming a review it cannot accept an answer to. */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
   /**
    * S19 — can a couple see anywhere to pay this supplier? Shown on the booking
    * ask, where agreeing makes the deposit the couple's next step. Defaults to
@@ -740,6 +749,7 @@ export function WhatsNewFeed({
                 declineDeletion={declineDeletion}
                 postReviewReply={postReviewReply}
                 respondMeeting={respondMeeting}
+                markServiceComplete={markServiceComplete}
                 payoutReadiness={payoutReadiness}
                 feeForecasts={feeForecasts}
               />
@@ -781,6 +791,15 @@ export function NothingToAnswerFeed({
   declineDeletion: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
+  /**
+   * Forwarded because this list renders the SAME `<FeedCard>` — see the docblock
+   * above. A `mark_complete` card is an ASK and so never reaches this list, but
+   * the component's props are shared, and leaving it out here would mean the
+   * day somebody changes that disposition the card renders with no button and
+   * no error. `vendor-desk-disposition.ts` is what decides; this just cannot be
+   * the reason it breaks.
+   */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
 }) {
   if (cards.length === 0) return null;
   return (
@@ -814,6 +833,7 @@ function FeedCard({
   declineDeletion,
   postReviewReply,
   respondMeeting,
+  markServiceComplete,
   payoutReadiness,
   feeForecasts,
 }: {
@@ -827,6 +847,8 @@ function FeedCard({
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** Forwarded to MarkCompleteBody — CTRL-B2 build 1. */
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
   payoutReadiness: PayoutReadiness;
@@ -869,6 +891,8 @@ function FeedCard({
         />
       ) : card.kind === 'lock' ? (
         <LockBody card={card} confirmLock={confirmLock} rejectLock={rejectLock} />
+      ) : card.kind === 'mark_complete' ? (
+        <MarkCompleteBody card={card} markServiceComplete={markServiceComplete} />
       ) : card.kind === 'review' ? (
         <ReviewBody card={card} postReviewReply={postReviewReply} />
       ) : card.kind === 'message' ? (
@@ -903,6 +927,44 @@ function AgeLine({ since }: { since: string }) {
     <span style={waited.overdue ? { color: 'var(--m-mulberry)' } : undefined}>
       {waited.label}
     </span>
+  );
+}
+
+function MarkCompleteBody({
+  card,
+  markServiceComplete,
+}: {
+  card: Extract<WhatsNewCard, { kind: 'mark_complete' }>;
+  markServiceComplete: (formData: FormData) => void | Promise<void>;
+}) {
+  /*
+    THE ROW THAT STARTS THE WHOLE AFTER-THE-EVENT CHAIN (CTRL-B2 build 1).
+    Measured 2026-09-22: `service_marked_complete_at` set on 0 of 51 bookings,
+    `vendor_reviews` empty. The couple's confirm is gated on this mark and
+    nothing ever asked a supplier for it.
+
+    🔑 THE COPY SAYS WHAT IT UNLOCKS, not just what it does. "Mark it complete"
+    alone reads like filing; a supplier presses it for the review, which is the
+    thing that wins them their next booking.
+  */
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink/75">
+        {card.eventName} has finished. Confirm you delivered your service — that
+        lets the couple confirm they received it, which is what opens your
+        review.
+      </p>
+      <p className="text-xs text-ink/55">{metaLine([card.eventDate ? formatLongDate(card.eventDate) : null])}</p>
+      {/* 🔑 `event_id` ONLY. The shipped `vendorMarkServiceComplete` resolves the
+          booking from (event, this shop's own profile) and ignores any vendor id
+          — passing one would look like it scoped the write when it did not. */}
+      <form action={markServiceComplete}>
+        <input type="hidden" name="event_id" value={card.eventId} />
+        <button type="submit" className="sn-btn sn-btn-primary text-sm">
+          I delivered this service
+        </button>
+      </form>
+    </div>
   );
 }
 

@@ -29,7 +29,15 @@ export type CompletionFields = {
 export type ReviewState = 'reviewable' | 'awaiting_confirm' | 'disputed' | 'awaiting_vendor';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const M_CONFIRM_DAYS = 7; // customer auto-confirm after the vendor marks complete
+/**
+ * Customer auto-confirm after the vendor marks complete.
+ *
+ * EXPORTED 2026-09-22 (CTRL-B2 build 3) so `lib/admin/app-performance-stats.ts`
+ * can derive "complete" from the SAME number this screen does. It used to
+ * filter on `completion_status = 'auto_confirmed'`, a literal with no writer
+ * anywhere, and therefore under-counted every auto-confirmed completion.
+ */
+export const M_CONFIRM_DAYS = 7;
 const N_COMPLETE_DAYS = 30; // vendor auto-complete after the event (anti-gaming)
 
 function olderThan(iso: string | null, days: number, now: number): boolean {

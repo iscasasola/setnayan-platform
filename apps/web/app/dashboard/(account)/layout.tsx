@@ -9,6 +9,11 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { HomePillNav } from '../(launcher)/_components/home-pill-nav';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { AccountRailContext } from './_components/account-rail-context';
+import { ACCOUNT_FOCUS_PATHS } from './_components/account-focus-paths';
 
 /**
  * Account-scoped chrome — route group `(account)` (URL-transparent), covering
@@ -87,7 +92,7 @@ export default async function AccountDashboardLayout({
     eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
-  const [{ unreadCount }, switcherData] = await Promise.all([
+  const [{ unreadCount }, switcherData, dependentsControlOn] = await Promise.all([
     getDashboardShell(user.id),
     // getSwitcherData never returns null after the 2026-06-17 always-on fix; the
     // .catch guards against any unexpected outer throw so the chrome still paints.
@@ -96,6 +101,11 @@ export default async function AccountDashboardLayout({
       console.error('[Account] switcher data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
+    // The People rail's Alaga row follows the page's own gate exactly: the
+    // flag AND the privacy control. Skipped (false) when the flag is off.
+    dependentPeopleEnabled()
+      ? isDataPrivacyControlActive('dependent_minor_profiles')
+      : Promise.resolve(false),
   ]);
 
   return (
@@ -104,6 +114,21 @@ export default async function AccountDashboardLayout({
     // one click from, instead of the old plain-white background.
     <div className="sn-ambient min-h-dvh">
       <AppRailShell
+        /* FOCUS on Memories and People only (owner 2026-09-21) — their own
+           menu plus one row back to My Home. Every other account page keeps
+           the full rail; `AccountRailContext` renders nothing there. */
+        focus={{
+          href: '/dashboard',
+          label: 'My Home',
+          caption: 'Home',
+          paths: ACCOUNT_FOCUS_PATHS,
+        }}
+        railContext={
+          <AccountRailContext
+            showConnections={peopleConnectionsEnabled()}
+            showDependents={dependentsControlOn}
+          />
+        }
         topBarSlot={
           <>
             <UnreadBellBadge

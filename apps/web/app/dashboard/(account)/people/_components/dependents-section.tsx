@@ -125,7 +125,7 @@ export async function DependentsSection() {
   }
 
   return (
-    <section className="mt-10">
+    <section id="alaga" className="mt-10 scroll-mt-24">
       <header className="mb-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
           Alaga

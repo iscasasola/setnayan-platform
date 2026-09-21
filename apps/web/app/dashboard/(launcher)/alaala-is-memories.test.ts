@@ -46,6 +46,12 @@ const WEB = resolve(HERE, '..', '..', '..');
 const LAUNCHER = resolve(HERE, 'page.tsx');
 const BODY = resolve(WEB, 'app', '_components', 'alaala', 'lens-body.tsx');
 const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', 'page.tsx');
+/*
+  RE-ANCHORED 2026-09-21, NOT relaxed: the lens vocabulary moved out of the page
+  into `_data/library-views.ts` so the desktop rail can draw the same rows the
+  page draws as chips. The page imports it; the declaration now lives there.
+*/
+const LIBRARY_VIEWS = resolve(WEB, 'app', 'dashboard', '(account)', 'library', '_data', 'library-views.ts');
 const DATA = resolve(WEB, 'lib', 'alaala-wall-data.ts');
 
 /** The five, in the tile's order. A body missing one renders `undefined`. */
@@ -159,12 +165,12 @@ test('"With me" is reachable at the account level, where it has to be', () => {
   // The load-bearing product claim: a photo of you from six years ago belongs
   // to no single event, so the lens cannot live inside one. If it ever stops
   // being offered on the account surface, that claim quietly stopped being true.
-  const s = src(ALAALA_PAGE);
+  const s = src(LIBRARY_VIEWS);
   // Anchor on the DECLARED lens list, not on any occurrence of the word: the
   // page names 'with_me' twice (the key list and the chip labels), so a bare
   // /'with_me'/ still matched after the key was deleted — a guard matching a
   // STRING instead of the ACT. Proven by mutation, not assumed.
-  const decl = /const LENS_KEYS = \[([^\]]*)\]/.exec(s);
+  const decl = /export const LENS_KEYS = \[([^\]]*)\]/.exec(s);
   assert.ok(decl, 'no LENS_KEYS declaration on the Alaala page — update this guard');
   assert.ok(
     /'with_me'/.test(decl[1]!),

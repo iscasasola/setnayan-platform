@@ -201,6 +201,12 @@ export async function approvePaymentCore(args: {
   | { ok: true }
   | { ok: false; shortfall: true; message: string }
   | { ok: false; duplicate: true; message: string; blocking: boolean }
+  /**
+   * The order was not in a state that can be promoted to `paid` — CTRL-B1
+   * build 2. The payment stays matched and recorded; only the promotion is
+   * withheld, and `message` names the status that stopped it.
+   */
+  | { ok: false; notPromotable: true; message: string }
 > {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
 

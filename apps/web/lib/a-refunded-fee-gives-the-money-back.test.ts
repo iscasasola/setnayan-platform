@@ -126,7 +126,9 @@ test('a refund does NOT release the frozen booking ordinal', () => {
   const migrations = readdirSync(join(WEB, '..', '..', 'supabase', 'migrations'))
     .filter((f) => f.includes('booking_fee_reverse_charge'));
   assert.equal(migrations.length, 1, 'expected exactly one reverse-charge migration');
-  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', migrations[0]), 'utf8');
+  const only = migrations[0];
+  assert.ok(only, 'no reverse-charge migration found — this guard is pointed at nothing');
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', only), 'utf8');
   // 🪤 THE FIRST VERSION OF THIS ASSERTION FIRED ON ITS OWN DOCUMENTATION.
   // Stripping `--` comments is not enough: `COMMENT ON FUNCTION … IS '…'` is a
   // STRING LITERAL, and this migration's comment says "Does NOT touch

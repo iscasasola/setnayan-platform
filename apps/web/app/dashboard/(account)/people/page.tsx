@@ -53,7 +53,8 @@ export default async function PeoplePage({
   const showDependents =
     dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'));
 
-  // Both flags off (production today) → the honest coming-soon preview.
+  // Both flags off → the honest coming-soon preview. (Both are ON in production
+  // — read 2026-09-21 — so this branch is dev/preview-only today.)
   if (!showConnections && !showDependents) {
     return <PeoplePreview />;
   }

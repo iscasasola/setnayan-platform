@@ -478,6 +478,10 @@ export default async function EventLayout({ children, params }: Props) {
           arbitrating against a menu that is not quite the one on screen.
         */
         contextMatchRows={eventRailMatchRows(eventRailInputs)}
+        /* FOCUS (owner 2026-09-21): inside an event the rail is the event —
+           its menu, its Studio, its suppliers — and one row back to the
+           events board. */
+        focus={{ href: '/dashboard', label: 'Back to events', caption: 'Events' }}
         railContext={
           <EventRailContext
             {...eventRailInputs}

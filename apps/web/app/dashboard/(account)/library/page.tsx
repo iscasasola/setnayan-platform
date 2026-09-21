@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Images, Heart, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
@@ -10,6 +9,14 @@ import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { AlbumShelf } from './_components/album-shelf';
+import {
+  KEPT,
+  LENSES,
+  isLens,
+  resolveLibraryView,
+  type LensKey,
+  type ViewKey,
+} from './_data/library-views';
 
 export const metadata = { title: 'Memories' };
 
@@ -63,61 +70,13 @@ export const metadata = { title: 'Memories' };
  * Component (no client island, no hydration cost on a media-heavy page).
  */
 
-/** The Alaala tile's five lenses, in the tile's own order. */
-const LENS_KEYS = ['recent', 'owned', 'attended', 'people', 'with_me'] as const;
-/**
- * Reachable, deliberately NOT lenses.
- *
- * `albums` is the per-event grid this page used to answer three of the five
- * lenses with. It is a real job — opening one celebration and downloading all
- * of it — but it is a LIST OF EVENTS, and a list of events is the board's
- * answer, not Alaala's. It keeps its door; it stops being the memory.
- */
-const KEPT_KEYS = ['albums', 'editorials', 'vendors'] as const;
-
-type LensKey = (typeof LENS_KEYS)[number];
-type KeptKey = (typeof KEPT_KEYS)[number];
-type ViewKey = LensKey | KeptKey;
-
-const ALL_KEYS: readonly ViewKey[] = [...LENS_KEYS, ...KEPT_KEYS];
-
-function isLens(view: ViewKey): view is LensKey {
-  return (LENS_KEYS as readonly string[]).includes(view);
-}
-
-/**
- * Legacy `?tab=` values, kept working forever. `?tab=photos` is still sent by
- * `lib/daily-email-jobs.ts` (a real email already in people's inboxes) and was
- * the first tab of the old hub; it is the Recent lens now.
- */
-const LEGACY_TAB: Record<string, ViewKey> = {
-  photos: 'recent',
-};
-
-const LENSES: { key: LensKey; label: string }[] = [
-  { key: 'recent', label: 'Recent' },
-  { key: 'owned', label: 'Owned' },
-  { key: 'attended', label: 'Attended' },
-  { key: 'people', label: 'People' },
-  { key: 'with_me', label: 'With me' },
-];
-
-const KEPT: { key: KeptKey; label: string; Icon: typeof Images }[] = [
-  { key: 'albums', label: 'Albums by event', Icon: Images },
-  { key: 'editorials', label: 'Editorials', Icon: Newspaper },
-  { key: 'vendors', label: 'Saved vendors', Icon: Heart },
-];
-
 export default async function AlaalaPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
   const sp = await searchParams;
-  const requested = LEGACY_TAB[sp.tab ?? ''] ?? sp.tab;
-  const active: ViewKey = ALL_KEYS.includes(requested as ViewKey)
-    ? (requested as ViewKey)
-    : 'recent';
+  const active: ViewKey = resolveLibraryView(sp.tab);
 
   const supabase = await createClient();
   const {
@@ -174,8 +133,12 @@ export default async function AlaalaPage({
       <AlbumShelf userId={user.id} />
 
       {/* LENSES — the same five words as the tile. Plain links so the page
-          stays a Server Component. */}
-      <nav aria-label="Memories lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1">
+          stays a Server Component.
+          `lg:hidden`: from 1024px up the rail carries these exact rows (owner
+          2026-09-21, "move the chips into it") — `MemoriesRailContext`, reading
+          the same `LENSES`/`KEPT` from `_data/library-views.ts`. Below 1024 the
+          rail paints nothing, so the phone keeps the chips. */}
+      <nav aria-label="Memories lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         {LENSES.map(({ key, label }) => {
           const isActive = key === active;
           return (
@@ -195,7 +158,7 @@ export default async function AlaalaPage({
           rather than albums; saved vendors are not a memory at all. */}
       <nav
         aria-label="Also kept"
-        className="mb-8 flex flex-wrap items-center gap-2"
+        className="mb-8 flex flex-wrap items-center gap-2 lg:hidden"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
           Also kept

@@ -38,6 +38,15 @@
  *  · drop the setTx(0) reset callback                  → 0 → 1 failing · RED
  *    (the FIRST draft of that assertion scored 0 — a bare /setTx\(0\)/ also
  *     matches this component's tap-to-close handler. It pins the callback now.)
+ *
+ * ⚠ UPDATED 2026-09-20 — THE GRID DENSITY IS RETIRED. Owner: "remove the grid
+ * view on guest list. make it same sa row view only." `MobileGridItem` and its
+ * `GuestCard` are deleted; `MobileListRow` is the only phone roster now, so
+ * "BOTH densities" is no longer a real comparison — there is one row to pin.
+ * The two assertions below MOVED from comparing MobileGridItem against
+ * MobileListRow to pinning MobileListRow alone; they were not deleted, because
+ * the property they guard (the delete survives, the couple gate holds) still
+ * matters with one row exactly as it did with two.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -98,35 +107,28 @@ test('the body extractor reads the BODY, not the destructured params', () => {
   assert.ok(!body.startsWith('{\n  guest,'), 'bodyOf matched the parameter list');
 });
 
-test('BOTH phone densities render the swipe-to-delete — not just the grid', () => {
-  const grid = bodyOf('MobileGridItem');
+test('the phone roster renders the swipe-to-delete', () => {
+  // MobileGridItem is gone (grid density retired 2026-09-20) — MobileListRow is
+  // the only phone row left, so this is the one place left to pin it.
   const list = bodyOf('MobileListRow');
-
-  assert.ok(
-    /<SwipeToDelete/.test(grid),
-    'the photo grid lost its delete — that is the regression this file was written after',
-  );
   assert.ok(
     /<SwipeToDelete/.test(list),
-    'the compact list row has no delete: flipping ?density=list takes the ' +
-      'affordance away from the host on the same guests',
+    'the roster lost its delete — that is the regression this file was written after',
   );
 });
 
-test('the couple is gated out of the swipe in BOTH densities', () => {
+test('the couple is gated out of the swipe', () => {
   // bulkSoftDeleteGuests refuses the couple server-side, so a Delete offered on
-  // their row is a button that can only ever fail. Both rows must not offer it.
-  for (const name of ['MobileGridItem', 'MobileListRow']) {
-    const body = bodyOf(name);
-    assert.ok(
-      /!selectMode/.test(body),
-      `${name}: select mode owns the card for checkbox bulk ops — no swipe there`,
-    );
-    assert.ok(
-      /guest\.role !== 'bride'/.test(body) && /guest\.role !== 'groom'/.test(body),
-      `${name} would dangle a Delete on the couple that always fails server-side`,
-    );
-  }
+  // their row is a button that can only ever fail. The row must not offer it.
+  const body = bodyOf('MobileListRow');
+  assert.ok(
+    /!selectMode/.test(body),
+    'select mode owns the row for checkbox bulk ops — no swipe there',
+  );
+  assert.ok(
+    /guest\.role !== 'bride'/.test(body) && /guest\.role !== 'groom'/.test(body),
+    'MobileListRow would dangle a Delete on the couple that always fails server-side',
+  );
 });
 
 test('there is ONE removal path, not one per density', () => {

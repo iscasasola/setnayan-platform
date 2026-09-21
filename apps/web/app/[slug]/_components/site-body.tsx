@@ -3,7 +3,7 @@ import { resolveArrivalAction, PASS_ANCHOR } from '@/lib/arrival-action';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
-import { MapPin, Sparkles } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -1342,31 +1342,24 @@ export async function SiteBody({
             long-press offers nothing and a screenshot was the only
             answer. These are the two ways to take it away. */}
         <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
-        {/* Indoor Blueprint entry point — pure navigation (no DB query on
-            this always-rendered landing). The /find-my-table route does its
-            own SKU gating: it shows a friendly "ask the couple" prompt when
-            the event hasn't bought Indoor Blueprint, so this link is safe to
-            always render. */}
-        <Link
-          href={`/${event.slug}/find-my-table`}
-          className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
-        >
-          <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Find my table
-        </Link>
-        {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
-            ADDITIVE, separately gated, and only when the couple bought the
-            branded-QR SKU. Routes through /seat/claim so the cookie is set
-            before landing on the pass (their exact seat + arrival bloom).
-            The find-my-table link above (a separate INDOOR_BLUEPRINT
-            surface) is untouched — both can show. */}
+        {/* 🔑 ONE SEAT LINK (owner 2026-09-21). This card used to carry TWO —
+            "Find my table" (the Indoor Blueprint map) and "Your seat pass"
+            (this guest's exact seat, the same map, their tablemates and the
+            arrival bloom). Both are free now, and the pass does everything the
+            map does, so they were two doors to one question. The pass is the
+            one: it goes through /seat/claim so the guest-session cookie is set
+            before it lands. `seatPassActive` already asks whether this kind of
+            event seats people and whether the seating is published, so the
+            link never opens a notFound() or an empty plan.
+            The Indoor Blueprint map stays reachable from the everything-else
+            sheet's own "Find my table" row. */}
         {seatPassActive && guest.qr_token ? (
           <Link
             href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
-            className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
+            className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta-700"
           >
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Your seat pass
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Find my seat
           </Link>
         ) : null}
       </section>

@@ -20,7 +20,9 @@ export function GuestsViewSwitcher({
   showWalk = true,
 }: {
   eventId: string;
-  active: ViewKey;
+  /** The page's view. `share` (the Share the link tab) lights neither List nor
+   *  Mind map — it is not a way of looking at the roster. */
+  active: ViewKey | 'share';
   search: Record<string, string | undefined>;
   /** Whether this celebration has a processional at all — a generic event's
    *  roles (guest · host · vip · family · helper) walk down no aisle, so the

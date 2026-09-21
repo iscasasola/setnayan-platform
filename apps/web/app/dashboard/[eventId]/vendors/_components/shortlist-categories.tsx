@@ -34,6 +34,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import {
   Search,
   ChevronDown,
@@ -1073,12 +1074,54 @@ function VendorCard({
    *  card never does — those results are a search, not the couple's plan). */
   arrange?: CardArrange;
 }) {
+  // ── TAP A SELF-ADDED CARD → ITS DETAILS (owner 2026-09-21) ────────────────
+  // "pressing on the card will open the details … until there is a vendor",
+  // "since clicking a card will open the vendor-user connection". So: while the
+  // supplier has no account (`actions.connect`), a tap opens the same one-screen
+  // sheet, pre-filled, to complete or improve the purchase details. The moment
+  // they claim an account, `connect` goes false and the card goes back to what
+  // every vendor card does — the inspector / the connection page.
+  //
+  // Keyed on `actions.connect`, not on `v.marketplaceVendorId` directly, so the
+  // flag-OFF render stays byte-identical (actions is null there) and ONE value
+  // decides both the [Connect] button and this tap.
+  const selfAdded = Boolean(actions?.connect);
+  const router = useRouter();
+  const [detailsLoading, startDetails] = useTransition();
+  const [details, setDetails] = useState<SelfAddedSupplierPrefill | null>(null);
+
+  function openDetails(e: React.MouseEvent<HTMLAnchorElement>) {
+    // Keep every "open elsewhere" intent the link had: a new tab, a download,
+    // a non-primary button all go to the full page, exactly as before.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    if (detailsLoading) return;
+    startDetails(async () => {
+      const res = await loadSelfAddedSupplier(eventId, v.vendorId);
+      if (res.status === 'ok') {
+        setDetails(res.prefill);
+        return;
+      }
+      // Could not load the details — fall back to the full page rather than
+      // leave a tap that does nothing, which is the failure this repo keeps
+      // finding in its own screens.
+      router.push(v.href);
+    });
+  }
+
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
     // vendor's quick-view in the sticky inspector column instead of navigating;
     // below xl and on modified / new-tab clicks it stays a plain link to `v.href`
     // (the vendor's existing detail room). `?inspect=v:<vendorId>` selects it.
-    <InspectorTrigger inspectId={`v:${v.vendorId}`} href={v.href} className="vc">
+    <InspectorTrigger
+      inspectId={`v:${v.vendorId}`}
+      href={v.href}
+      className="vc"
+      // Replaces the trigger's own click (its props spread AFTER it) — only for
+      // a self-added supplier. Every other card keeps the inspector untouched.
+      {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined } : {})}
+    >
       <span className="img">
         {v.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1149,9 +1192,19 @@ function VendorCard({
   // exactly as it shipped. Only when there ARE actions does the rail item
   // become a wrapper: `.vcw` takes over the carousel sizing + snap so `.vc`
   // keeps its look and the actions sit beneath it, inside the same snap unit.
+  // ⚠ `connect` IS AN ACTION TOO (2026-09-21). This check predates it, and a
+  // LOCKED self-added supplier has no build, inquiry, lock or withdraw — only
+  // [Connect]. Without the last clause the row is judged empty and never
+  // rendered, so the portal would have been missing on exactly the card it was
+  // built for, while every resolver test passed. `bench-connect-reaches-the-card
+  // .test.ts` pins this clause.
   if (
     !actions ||
-    (!actions.build && !actions.inquiry && !actions.lockGroupId && !actions.withdraw)
+    (!actions.build &&
+      !actions.inquiry &&
+      !actions.lockGroupId &&
+      !actions.withdraw &&
+      !actions.connect)
   ) {
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
@@ -1232,9 +1285,22 @@ function VendorCard({
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
-        transportPhp={v.transportPhp ?? null}
-        foodAllowancePhp={v.foodAllowancePhp ?? null}
       />
+      {/* The details sheet a tap opens on a self-added supplier — the SAME
+          one-screen sheet used to add them, in edit mode. */}
+      {details ? (
+        <NewManualVendorModal
+          eventId={eventId}
+          category={details.category}
+          categoryLabel={tileLabel}
+          edit={details}
+          onClose={() => setDetails(null)}
+          onCreated={() => {
+            setDetails(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

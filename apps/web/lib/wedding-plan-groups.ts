@@ -1118,11 +1118,6 @@ export type EventVendorRowInput = {
    *  fuse the sweep enforces are one number. */
   lock_request_expires_at?: string | null;
   total_cost_php?: number | string | null;
-  /** Read through to the bench's self-added price control, which must send
-   *  them back to `updateVendorCosts` unchanged rather than blanking them.
-   *  See `ShortlistVendor.transportPhp` for the whole reasoning. */
-  transport_php?: number | string | null;
-  food_allowance_php?: number | string | null;
   notes?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;

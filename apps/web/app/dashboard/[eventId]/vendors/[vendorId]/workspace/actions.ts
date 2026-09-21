@@ -406,6 +406,27 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   const paymentMethodNote = readNote(formData, 'payment_method_note', PAYMENT_NOTE_MAX);
   const contactPerson = readNote(formData, 'contact_person', CONTACT_PERSON_MAX);
   const contactNumber = readNote(formData, 'contact_number', CONTACT_NUMBER_MAX);
+  const businessName = readNote(formData, 'business_name', 128);
+
+  // ── TWO FORMS WRITE THIS ROW, AND NEITHER OWNS EVERY COLUMN (2026-09-21) ──
+  // The workspace card posts the payment METHOD note but no map pin; the
+  // Details sheet posts a pin and a name but no method note. A column is
+  // therefore written only when the posting form ACTUALLY CARRIES it. Writing
+  // `payment_method_note` unconditionally — as this did — meant saving the
+  // Details sheet would have silently erased the GCash number the couple wrote
+  // on the workspace. Same class of bug as the crew reset in updateVendorCosts.
+  const carriesMethodNote = formData.has('payment_method_note');
+  // A pin is BOTH-OR-NEITHER (the table CHECKs it) and only posted once placed,
+  // so absence means "this form did not set one" — never "clear it".
+  const pinLat = Number(formData.get('address_latitude'));
+  const pinLng = Number(formData.get('address_longitude'));
+  const carriesPin =
+    formData.has('address_latitude') &&
+    formData.has('address_longitude') &&
+    Number.isFinite(pinLat) &&
+    Number.isFinite(pinLng) &&
+    Math.abs(pinLat) <= 90 &&
+    Math.abs(pinLng) <= 180;
 
   if (row.manual_vendor_id) {
     // 🔑 `.select()` AND A ROW COUNT. A zero-row UPDATE returns no error, so an
@@ -413,9 +434,14 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
     // would print "Saved" over unchanged text.
     const update: Record<string, unknown> = {
       address: address.value,
-      payment_method_note: paymentMethodNote,
       updated_at: new Date().toISOString(),
     };
+    if (carriesMethodNote) update.payment_method_note = paymentMethodNote;
+    if (carriesPin) {
+      update.address_latitude = pinLat;
+      update.address_longitude = pinLng;
+    }
+    if (businessName) update.business_name = businessName;
     // NOT NULL columns: only overwritten when the card actually sent a value,
     // so clearing the input cannot violate the constraint or wipe a contact.
     if (contactPerson) update.contact_person = contactPerson;
@@ -442,7 +468,9 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
       .from('event_manual_vendors')
       .insert({
         event_id: eventId,
-        business_name: (row.vendor_name ?? '').trim() || 'Supplier',
+        business_name: businessName ?? ((row.vendor_name ?? '').trim() || 'Supplier'),
+        address_latitude: carriesPin ? pinLat : null,
+        address_longitude: carriesPin ? pinLng : null,
         contact_person: contactPerson,
         contact_number: contactNumber,
         address: address.value,

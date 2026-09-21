@@ -20,10 +20,12 @@
  * workspace Costing editor, which shows all of them together, and the link
  * below points there rather than reproducing them on a 240px card.
  *
- * ⚠ `updateVendorCosts` reads `transport_php` / `food_allowance_php` off the
- * FormData and writes whatever it finds — so omitting them would blank two
- * columns the couple may have already filled. They are sent back unchanged as
- * hidden values for exactly that reason.
+ * ⚠ IT POSTS `price_only`, AND THE HISTORY IS WHY. `updateVendorCosts`
+ * rewrites every costing column on each call, reading an absent field as null
+ * or false. This control first worked around that by echoing transport and
+ * food back — and did not echo crew, so every save here silently reset
+ * `crew_size` and `crew_meal_covered` (found 2026-09-21). Echoing columns from
+ * a caller that does not own them is the bug; `price_only` is the fix.
  */
 
 import Link from 'next/link';
@@ -35,14 +37,9 @@ import { updateVendorCosts } from '../actions';
 export function SelfAddedPrice({
   eventId,
   vendorId,
-  transportPhp,
-  foodAllowancePhp,
 }: {
   eventId: string;
   vendorId: string;
-  /** Sent back untouched — see the docblock. Null means the column is null. */
-  transportPhp: number | null;
-  foodAllowancePhp: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
@@ -63,8 +60,11 @@ export function SelfAddedPrice({
         fd.set('event_id', eventId);
         fd.set('vendor_id', vendorId);
         fd.set('total_cost_php', String(Math.round(n)));
-        if (transportPhp != null) fd.set('transport_php', String(transportPhp));
-        if (foodAllowancePhp != null) fd.set('food_allowance_php', String(foodAllowancePhp));
+        // PRICE ONLY. This control used to echo transport and food back so
+        // updateVendorCosts would not blank them — and did NOT echo crew, so
+        // every save reset crew_size and crew_meal_covered. The writer now has
+        // a price-only mode, which leaves every other column alone.
+        fd.set('price_only', '1');
         await save.run(() => updateVendorCosts(fd), {
           steps: ['Saving the price'],
           hint: 'Saving',

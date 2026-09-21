@@ -802,14 +802,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // form on this page writes a pick's price back as a headline.
       total_cost_php: agreedTotalNow(v.total_cost_php, changeLines.byVendor.get(v.vendor_id)),
       notes: v.notes,
-      // 🔑 CARRIED SO THE BENCH'S INLINE PRICE CANNOT BLANK THEM (2026-09-20).
-      // `updateVendorCosts` writes transport + food from whatever FormData it
-      // is handed and treats an absent field as ₱0. The self-added price
-      // control on the card posts only a total, so it sends these two back
-      // untouched — which it can only do if they reach the card. Display is
-      // NOT what they are for: the card never shows them.
-      transport_php: v.transport_php ?? null,
-      food_allowance_php: v.food_allowance_php ?? null,
       // No contact_email / contact_phone: nothing downstream reads them, and this
       // row feeds a CLIENT prop (see PlanCardPick in lib/wedding-plan-groups.ts).
       marketplace_vendor_id: v.marketplace_vendor_id,

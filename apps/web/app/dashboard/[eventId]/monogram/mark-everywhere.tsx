@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 
 /**
  * <MarkEverywhere> — the "Your monogram, everywhere" save sequence (benchmark
@@ -183,17 +182,17 @@ export function MarkEverywhere({ svg }: { svg: string }) {
               save-the-date now carry this monogram — automatically.
             </p>
             <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-              <Link
-                href="#animated-monogram"
-                onClick={() => setOpen(false)}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-              >
-                Make it reveal live for guests
-              </Link>
+              {/* ONE BUTTON. There used to be a second, "Make it reveal live for
+                  guests", linking to #animated-monogram — a section that renders
+                  only once the animation is PAID, so for everyone else it closed
+                  the popup exactly like Done and landed nowhere. Owner
+                  2026-09-21: "The reveal should only be available when the
+                  payment for animation is paid." The page's own "Unlock
+                  Animation & Apply" is the one way in. */}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-white px-5 py-3 text-sm font-medium text-ink/75 hover:bg-ink/5"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
               >
                 Done
               </button>

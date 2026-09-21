@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useFormStatus, createPortal } from 'react-dom';
+import { createPortal } from 'react-dom';
 import { Check, Undo2 } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { mountStudio } from '@/lib/monogram-studio/engine';
@@ -12,41 +12,34 @@ import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
 import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
-import { saveStudioAction, clearStudioAction } from './studio-actions';
+import { clearStudioAction } from './studio-actions';
+import { provideMark, onPlay } from './mark-bench';
 
 /**
  * VectorStudio — the couple's Vector Monogram Studio (Phase 5 of the monogram
  * overhaul). Real font outlines, directly manipulated (drag · pinch · twist),
  * interlocked with true booleans (per-crossing Combine / Cut / Delete), framed
  * with a mirrored fountain-pen, and stamped with vector symbols. Everything is
- * vector — the saved mark is PURE PATHS, so "Save as my monogram" writes the
+ * vector — the saved mark is PURE PATHS, so saving (the page's two bottom buttons) writes the
  * single canonical events.monogram_custom_svg that every Setnayan surface reads
  * (chrome icon, QR centre, landing hero, save-the-date, PDFs, social cards).
  *
  * The editor DOM + styling are the verified prototype (injected as inert HTML);
  * the imperative paper.js/opentype.js engine (monogram-studio-engine) runs
  * against it after a client-only dynamic import (so paper.js never touches the
- * server render). Save reads the engine's tight-viewBox export + re-editable
- * config into the hidden form, posted to the sanitizing server action.
+ * server render). Saving reads the engine's tight-viewBox export + re-editable
+ * config through mark-bench.ts and posts it to commitMonogram, which sanitizes.
  */
 
 
-type StudioApi = { getExport: () => { svg: string; config: StudioConfig } | null; destroy: () => void };
-
-function SaveButton({ onArm }: { onArm: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      onClick={onArm}
-      disabled={pending}
-      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-      {pending ? 'Saving…' : 'Save as my monogram'}
-    </button>
-  );
-}
+type StudioApi = {
+  getExport: () => { svg: string; config: StudioConfig } | null;
+  destroy: () => void;
+  /** Plays a reveal on the canvas through the same portal preview the engine's
+   *  own panel used — so an effect tapped in the row BELOW plays on the mark
+   *  being edited, in place. */
+  playReveal: (kind: StudioAnimKind, timing?: { dur: number; smooth: number; delay: number }) => void;
+};
 
 export function VectorStudio({
   eventId,
@@ -73,9 +66,6 @@ export function VectorStudio({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<StudioApi | null>(null);
-  const svgRef = useRef<HTMLInputElement>(null);
-  const cfgRef = useRef<HTMLInputElement>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   // gold/molten reveal preview — the engine can't render React components on its
   // paper.js canvas, so it calls onPreviewKind and we portal the REAL shipping
@@ -200,17 +190,32 @@ export function VectorStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function armSubmit(e: React.MouseEvent<HTMLButtonElement>) {
-    const res = apiRef.current?.getExport();
-    if (!res || !res.svg) {
-      e.preventDefault();
-      setExportError('Add at least one initial before saving.');
-      return;
-    }
-    if (svgRef.current) svgRef.current.value = res.svg;
-    if (cfgRef.current) cfgRef.current.value = JSON.stringify(res.config);
-    setExportError(null);
-  }
+  /* No save button in here any more (owner's four-row concept): the page's
+   * "Use Static Image" / "Unlock Animation & Apply" buttons ask for the mark on
+   * the canvas through this provider, and save it. */
+  useEffect(
+    () =>
+      provideMark(() => {
+        const res = apiRef.current?.getExport();
+        if (!res || !res.svg) {
+          return {
+            ok: false,
+            error: apiRef.current ? 'Add at least one initial first.' : 'The studio is still loading — one moment.',
+          };
+        }
+        return { ok: true, mark: { source: 'studio', svg: res.svg, config: res.config } };
+      }),
+    [],
+  );
+
+  // An effect tapped in the row below plays here, on the canvas.
+  useEffect(
+    () =>
+      onPlay(({ kind, dur, smooth, delay }) => {
+        apiRef.current?.playReveal(kind, { dur, smooth, delay });
+      }),
+    [],
+  );
 
   return (
     <section
@@ -308,25 +313,7 @@ export function VectorStudio({
           )
         : null}
 
-      {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
-
-      {/* v2 (§2.3): the save form rides a bottom-sticky bar on phones so "Save
-          as my monogram" is always a thumb away — desktop and v1 stay static.
-          React territory, outside the inert editor subtree. */}
-      <form
-        action={saveStudioAction}
-        className={
-          monogramStudioV2Enabled()
-            ? 'sticky bottom-20 z-20 -mx-4 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none'
-            : 'flex flex-wrap items-center gap-3'
-        }
-      >
-        <input type="hidden" name="event_id" value={eventId} />
-        <input type="hidden" name="svg" ref={svgRef} />
-        <input type="hidden" name="config" ref={cfgRef} />
-        <SaveButton onArm={armSubmit} />
-        <span className="text-xs text-ink/55">{ready ? 'Saved as a crisp vector — it scales to any size.' : 'Starting the studio…'}</span>
-      </form>
+      {ready ? null : <p className="text-xs text-ink/55">Starting the studio…</p>}
     </section>
   );
 }

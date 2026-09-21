@@ -1746,12 +1746,22 @@ export async function EventDashboard({
       Guests    "4 attending · 77 still to reply"  — nobody is going to reply now,
                 and `FinishedEventSummary` already reports who actually came.
       Schedule  "Next · 18 Dec · Hair & makeup"    — there is no next.
-      Papic     "100,050 shots ready · 5 cameras out" — capacity for a shoot that
-                is over; the wrap-up's Photos card carries what actually arrived.
+    Budget, Messages and PAPIC stay, and the difference is the whole rule: a
+    balance and an unread thread are still true the morning after.
 
-    Budget and Messages STAY, and the difference is the whole rule: a balance
-    and an unread thread are still true the morning after. This is not "hide the
-    planning tools after the event" — it is "do not state a fact that has expired".
+    🛑 PAPIC WAS IN THE FIRST LIST ABOVE AND CI TOOK IT BACK OUT, correctly.
+    `papic-home-tile.test.ts` pins an owner ruling of 2026-07-30 — *"always hold
+    a slot. since that is the foundation of the app."* — reversing an earlier cut
+    that gave Papic a slot only when one was free. Gating it here would have
+    re-introduced exactly that, one phase later.
+
+    🔑 AND IT DID NOT NEED GATING. The tile ALREADY self-corrects: `preCapture`
+    flips it from "N shots ready" to "N photos in" the moment the first photo
+    lands, so after the day it reports what arrived, not capacity for a shoot
+    that is over. A tile that restates itself was never stating an expired fact.
+
+    This is not "hide the planning tools after the event" — it is "do not state
+    a fact that has expired", and Papic doesn't.
   */
   const miniTiles: ReactNode[] = [];
   if (stats.total > 0 && !eventHasHappened) {
@@ -1992,7 +2002,7 @@ export async function EventDashboard({
   // every combination of which minis have data. (An earlier cut spliced at a
   // fixed index, which silently put Papic *after* Messages whenever Schedule had
   // nothing to show.) The cap below is what makes the order bite.
-  if (papicMini && !eventHasHappened) miniTiles.push(papicMini);
+  if (papicMini) miniTiles.push(papicMini);
 
   if (unreadCount > 0) {
     miniTiles.push(

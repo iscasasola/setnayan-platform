@@ -25,18 +25,25 @@ in the group header. The number stays and becomes the mark (gold, 28px circle); 
 keeps its plain item count: there is no ranking without Sai, and a rank number there would be a
 lie about how the list was ordered.
 
-**3 · After the day, three minis stopped being true.** Guests (*"77 still to reply"* — nobody is
-going to reply now), Schedule·next (*there is no next*) and Papic (*capacity for a shoot that is
-over*) are gated on `!eventHasHappened`. **Budget and Messages deliberately are not** — a balance
-and an unread thread are still true the morning after. `FinishedEventSummary` already reports who
-actually came and what arrived.
+**3 · After the day, two minis stopped being true.** Guests (*"77 still to reply"* — nobody is
+going to reply now) and Schedule·next (*there is no next*) are gated on `!eventHasHappened`.
+**Budget, Messages and Papic deliberately are not** — a balance and an unread thread are still true
+the morning after. `FinishedEventSummary` already reports who actually came.
+
+🛑 **Papic was in that list, and CI took it back out — correctly.** `papic-home-tile.test.ts` pins
+an owner ruling of **2026-07-30**: *"always hold a slot. since that is the foundation of the app."*
+— which had already reversed an earlier cut that gave Papic a slot only when one was free. Gating it
+here would have re-introduced exactly that, one phase later. It also never needed gating: `preCapture`
+already flips the tile from "N shots ready" to "N photos in" on the first capture, so after the day it
+reports what arrived. **A tile that restates itself was never holding an expired fact.** The guard now
+asserts Papic stays ungated, so the mistake cannot be made twice.
 
 **Guarded, and the guard was probed.** `lib/a-date-is-not-a-decision.test.ts` executes (1) and (2)
 against the pure module and reads the component's source for (3), printing every occurrence count.
-Three sabotage runs: un-gating the Papic mini goes red ✅; hand-rolling the count beside the split
-goes red ✅; and a first attempt at the third assertion — a ban on the phrase
-`groupsUnordered.push(deadlineGroup)` — stayed **green** against `…(deadlineGroup as never)` and
-was replaced with the property it was standing in for.
+Sabotage runs: hand-rolling the count beside the split goes red ✅; un-gating a mini that must stay
+gated goes red ✅. A first attempt at a third assertion — a ban on the phrase
+`groupsUnordered.push(deadlineGroup)` — stayed **green** against `…(deadlineGroup as never)` and was
+replaced with the property it was standing in for.
 
 SPEC IMPACT: `DECISION_LOG.md` row dated 2026-09-22 (applied) + `prototypes/event_overview_redesign_2026-09-22/`.
 

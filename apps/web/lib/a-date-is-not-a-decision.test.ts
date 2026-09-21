@@ -113,23 +113,35 @@ test('the board no longer labels a group PRIORITY (ruling 2)', () => {
   );
 });
 
-test('the three expired minis are gated on the event being ahead (ruling 3)', () => {
-  // Guests · Schedule-next · Papic each state a fact about a day still to come.
-  // Each push must be gated; Budget and Messages must NOT be — a balance and an
-  // unread thread are still true the morning after.
-  const gated = countMatches(source, /&& !eventHasHappened\)/);
-  console.log(`  minis gated on !eventHasHappened: ${gated}`);
-  assert.ok(gated >= 3, `expected at least 3 gated minis, found ${gated}`);
-
+test('the expired minis are gated, and the ones that stayed true are not (ruling 3)', () => {
+  // Guests and Schedule-next each state a fact about a day still to come.
   for (const anchor of [
     'if (stats.total > 0 && !eventHasHappened) {',
     'if (!schedulePreview.isEmpty && !eventHasHappened) {',
-    'if (papicMini && !eventHasHappened) miniTiles.push(papicMini);',
   ]) {
     assert.ok(source.includes(anchor), `missing gate: ${anchor}`);
   }
+  const gated = countMatches(source, /&& !eventHasHappened\)/);
+  console.log(`  minis gated on !eventHasHappened: ${gated}`);
+  assert.equal(gated, 2, 'exactly two minis expire — see below for why Papic does not');
 
-  // Budget stays ungated — this is the half of the rule that is easy to lose.
+  /*
+    🛑 PAPIC IS NOT GATED, AND THIS ASSERTION IS THE SCAR.
+
+    The first cut of ruling 3 gated it with the other two. CI caught it:
+    `papic-home-tile.test.ts` pins an owner ruling of 2026-07-30 — "always hold
+    a slot. since that is the foundation of the app." — which had already
+    reversed an earlier attempt to make the slot conditional.
+
+    It also did not need gating. `preCapture` already flips the tile from
+    "N shots ready" to "N photos in" on the first capture, so after the day it
+    reports what arrived. A tile that restates itself never held an expired fact.
+  */
+  assert.ok(
+    source.includes('if (papicMini) miniTiles.push(papicMini);'),
+    'Papic always holds a slot (owner 2026-07-30) — do not gate it',
+  );
+  // Budget stays ungated too — the half of the rule that is easy to lose.
   assert.ok(
     source.includes('if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {'),
     'the budget mini must NOT be gated on the event being ahead',

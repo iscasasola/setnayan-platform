@@ -32,6 +32,7 @@
  * `self-added-payment-plan.test.ts` rather than grepped.
  */
 
+import { formatPhp } from '@/lib/php';
 import {
   MAX_SCHEDULE_ITEMS,
   computePlanInstances,
@@ -79,12 +80,19 @@ export const PLAN_AMOUNT_REQUIRED = 'Every payment needs an amount above zero.';
 export const PLAN_ANCHOR_REQUIRED =
   'Every payment needs a due date — that is what "until fully paid" means.';
 
+/**
+ * The sentence a couple reads when their plan does not add up.
+ *
+ * 🔑 EXACT TO THE CENTAVO, through the shared `formatPhp`. This used to round
+ * the shortfall to whole pesos with a local `toLocaleString`, so a plan short
+ * by ₱0.50 would have been refused with "₱1 is unaccounted for" — a figure the
+ * couple could not find anywhere in what they typed.
+ */
 export function planShortfallMessage(scheduledPhp: number, totalPhp: number): string {
-  const diff = Math.round(totalPhp - scheduledPhp);
-  const peso = (n: number) => `₱${Math.abs(n).toLocaleString('en-PH')}`;
+  const diff = totalPhp - scheduledPhp;
   return diff > 0
-    ? `Your payments add up to ${peso(scheduledPhp)} of ${peso(totalPhp)} — ${peso(diff)} is unaccounted for.`
-    : `Your payments add up to ${peso(scheduledPhp)}, which is ${peso(diff)} more than the ${peso(totalPhp)} price.`;
+    ? `Your payments add up to ${formatPhp(scheduledPhp)} of ${formatPhp(totalPhp)} — ${formatPhp(diff)} is unaccounted for.`
+    : `Your payments add up to ${formatPhp(scheduledPhp)}, which is ${formatPhp(-diff)} more than the ${formatPhp(totalPhp)} price.`;
 }
 
 /** A synthetic schedule row. Only the fields `computePlanInstances` reads. */

@@ -58,7 +58,10 @@ export function RosterMeters({
   /** False when the guest read was refused — the meters then say so. */
   measured: boolean;
 }) {
-  const responded = stats.attending + stats.maybe + stats.declined;
+  // The page's own formula, byte for byte (`stats.total - stats.pending`). The
+  // sum attending + maybe + declined agrees with it today, but agreeing by
+  // arithmetic is how two definitions drift the day a status is added.
+  const responded = stats.total - stats.pending;
   const repliedPct = stats.total > 0 ? Math.round((responded / stats.total) * 100) : 0;
 
   return (

@@ -123,6 +123,18 @@ const PAGE = join(
 // defect used to render, so a raw-source guard would read the explanation of
 // the fix as the bug itself.
 const page = () => stripComments(readFileSync(PAGE, 'utf8'));
+// 🪤 The confirmations meter MOVED (2026-09-21, the guest-list shell) into its
+// own component. This guard pinned the hedge to page.tsx by path, so it went
+// red on the move while the hedge itself still worked — rendered, the failed-
+// read case reads "not loaded" over an empty track. It now reads the meter
+// where it lives AND asserts the page feeds it the measurement: a correctly
+// gated meter that nobody hands `measured` would still print zeros.
+const METERS = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'app/dashboard/[eventId]/guests/_components/roster-meters.tsx',
+);
+const meters = () => stripComments(readFileSync(METERS, 'utf8'));
 
 test('the guests page asks whether the read happened', () => {
   const src = page();
@@ -159,9 +171,14 @@ test('every claim on the page is gated on that measurement', () => {
     /guestsMeasured \? \(\s*<>\s*<span className="font-mono">\{stats\.total\}/,
     'the masthead headcount must be gated',
   );
-  // 3 · the confirmations meter
-  assert.match(src, /measured \? \(\s*<>\s*\{responded\} of \{stats\.total\}/, 'the RSVP figure must be gated');
-  assert.match(src, /: 'Responses could not be loaded'/, 'including for screen readers');
+  // 3 · the confirmations meter — in its own component now, fed by the page
+  assert.match(meters(), /measured \? \(\s*<>\s*\{responded\} of \{stats\.total\}/, 'the RSVP figure must be gated');
+  assert.match(meters(), /: 'Responses could not be loaded'/, 'including for screen readers');
+  assert.match(
+    src,
+    /<RosterMeters[^>]*\bmeasured=\{measured\}/,
+    'the page renders the meter without telling it whether the read happened',
+  );
   // 5 · the facet pills sit in the SAME panel as that hedge. Seven confident
   //     zeros beside one small "not loaded" line reads as "we could not
   //     measure it, and it is zero" — the hedge loses.

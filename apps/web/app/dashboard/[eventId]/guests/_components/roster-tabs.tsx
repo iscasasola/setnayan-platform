@@ -34,15 +34,24 @@
 
 import Link from 'next/link';
 import { ClipboardCheck, LayoutGrid, Send } from 'lucide-react';
+import { rosterDoors } from '@/lib/roster-doors';
 
 export type RosterView = 'list' | 'map' | 'walk';
+
+const ICON: Record<'share' | 'arrange' | 'checkin', React.ReactNode> = {
+  share: <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />,
+  arrange: <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  checkin: <ClipboardCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+};
 
 export function RosterTabs({
   eventId,
   view,
   finished,
   hasProcessional,
-  trailing,
+  hasJoinLink,
+  shareMenu,
+  viewSwitch,
 }: {
   eventId: string;
   view: RosterView;
@@ -50,13 +59,18 @@ export function RosterTabs({
   finished: boolean;
   /** The event has a processional — a Wedding March is only offered then. */
   hasProcessional: boolean;
-  /** The after-the-event Share dropdown, rendered by the page. */
-  trailing?: React.ReactNode;
+  /** A join link exists — the after-the-event Share menu needs one. */
+  hasJoinLink: boolean;
+  /** The Share dropdown, rendered by the page; shown only when the rules say. */
+  shareMenu?: React.ReactNode;
+  /** The List / Mind map switch — a way of LOOKING at the roster. */
+  viewSwitch?: React.ReactNode;
 }) {
-  const base = `/dashboard/${eventId}/guests`;
-  // `map` is a way of LOOKING at the roster, not a different task, so it lights
-  // the Roster tab rather than leaving the row with nothing selected.
-  const onRoster = view !== 'walk';
+  // 🔑 NOTHING IS DECIDED HERE. Which doors exist, and when, is
+  // `lib/roster-doors.ts` — pure, and executed by its test — so a door cannot
+  // quietly vanish from this row the way nothing noticed it could have when
+  // the masthead's buttons moved in.
+  const { tabs, trailing } = rosterDoors({ eventId, view, finished, hasProcessional, hasJoinLink });
 
   return (
     <div className="flex items-center gap-2 border-b border-ink/[0.07]">
@@ -68,50 +82,45 @@ export function RosterTabs({
         // 380px, the three wedding tabs needed 297px and had 282, so "Share the
         // link" was chopped mid-word at the edge — the same complaint as the
         // header's "CONTA", and a scrollable row gives no other hint that it
-        // scrolls. Two answers: tighter tabs on phones (below) so they FIT at
-        // 380, and an 8px fade on the edge for narrower phones, which fades
-        // empty space when everything fits and reads as "more" when it does not.
+        // scrolls. Two answers: tighter tabs on phones so they FIT at 380, and
+        // an 8px fade on the edge for narrower phones, which fades empty space
+        // when everything fits and reads as "more" when it does not.
         className="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
       >
-        <Tab href={base} current={onRoster}>
-          Roster
-        </Tab>
-        {finished || !hasProcessional ? null : (
-          <Tab href={`${base}?gview=walk`} current={view === 'walk'}>
-            Wedding March
-          </Tab>
-        )}
-        {finished ? null : (
-          <Tab href={`${base}/invite`} icon={<Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}>
-            Share the link
-          </Tab>
+        {tabs.map((d) =>
+          d.kind === 'tab' ? (
+            <Tab key={d.key} href={d.href} current={d.current}>
+              {d.label}
+            </Tab>
+          ) : d.kind === 'link' ? (
+            <Tab key={d.key} href={d.href} icon={ICON[d.key]}>
+              {d.label}
+            </Tab>
+          ) : null,
         )}
       </nav>
 
       <div className="flex shrink-0 items-center gap-1.5 pb-1">
-        {finished ? (
-          <Link
-            href={`${base}/checkin`}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
-          >
-            <ClipboardCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            <span className="hidden sm:inline">Check-in</span>
-            <span className="sr-only sm:hidden">Check-in</span>
-          </Link>
-        ) : (
-          // The one door that LEAVES for another editor. Owner: an icon on a
-          // phone, so it stays in this row instead of wrapping onto its own.
-          <Link
-            href={`/dashboard/${eventId}/seating`}
-            title="Arrange the room"
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
-          >
-            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            <span className="hidden sm:inline">Arrange the room</span>
-            <span className="sr-only sm:hidden">Arrange the room</span>
-          </Link>
+        {viewSwitch}
+        {trailing.map((d) =>
+          d.kind === 'link' ? (
+            // The one door that LEAVES for another editor (or, after the day,
+            // the check-in desk). Owner: an icon on a phone, so it stays in
+            // this row instead of wrapping onto its own.
+            <Link
+              key={d.key}
+              href={d.href}
+              title={d.label}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
+            >
+              {ICON[d.key]}
+              <span className="hidden sm:inline">{d.label}</span>
+              <span className="sr-only sm:hidden">{d.label}</span>
+            </Link>
+          ) : d.kind === 'shareMenu' ? (
+            <span key={d.key}>{shareMenu}</span>
+          ) : null,
         )}
-        {trailing}
       </div>
     </div>
   );

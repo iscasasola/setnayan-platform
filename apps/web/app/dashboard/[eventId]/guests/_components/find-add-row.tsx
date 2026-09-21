@@ -51,6 +51,7 @@ export function FindAddRow({
   filter,
   add,
   startAdding,
+  addLabel = 'Add a guest',
 }: {
   /** The always-live search box (URL-driven). */
   search: React.ReactNode;
@@ -60,6 +61,9 @@ export function FindAddRow({
   add: React.ReactNode;
   /** Open on Add — true for an empty list, where there is nobody to find. */
   startAdding: boolean;
+  /** What the folded "+" is called. After the event it must SAY the list is
+   *  still open — a bare "+" is reachable but tells a host nothing. */
+  addLabel?: string;
 }) {
   const [mode, setMode] = useState<Mode>(startAdding ? 'add' : 'find');
   const findRef = useRef<HTMLDivElement>(null);
@@ -127,7 +131,7 @@ export function FindAddRow({
           {add}
         </div>
         {mode !== 'add' ? (
-          <button type="button" onClick={() => open('add')} aria-label="Add a guest" className={iconBtn}>
+          <button type="button" onClick={() => open('add')} aria-label={addLabel} title={addLabel} className={iconBtn}>
             <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
           </button>
         ) : null}

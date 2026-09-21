@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { rosterDoors } from './roster-doors';
 import { stripComments } from './strip-comments';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -357,6 +358,14 @@ test('🔑 a celebration with no processional is not offered one', () => {
     /const hasProcessional = resolveRoleSet\(guestRoleSetKey\)\.offeredRoles\.some/,
     'the button is no longer derived from the event\'s own roles',
   );
-  assert.match(PAGE, /finished \|\| !hasProcessional \? null/, 'the button shows on every event type');
+  // 🪤 The gate moved when the masthead's doors became one row of tabs
+  // (2026-09-21): it lives in lib/roster-doors.ts now, and is EXECUTED here
+  // rather than matched as a string in a file it no longer lives in.
+  const noAisle = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: false, hasJoinLink: true });
+  assert.ok(!noAisle.tabs.some((d) => d.key === 'walk'), 'the button shows on every event type');
+  const aisle = rosterDoors({ eventId: 'E', view: 'list', finished: false, hasProcessional: true, hasJoinLink: true });
+  assert.ok(aisle.tabs.some((d) => d.key === 'walk'), 'a wedding lost its Wedding March');
+  // …and the page still hands the row the DERIVED answer, not a constant.
+  assert.match(PAGE, /hasProcessional=\{hasProcessional\}/, 'the tab row is not given the derived answer');
   assert.match(SWITCHER, /if \(showWalk\) tabs\.push/, 'the tab shows on every event type');
 });

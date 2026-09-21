@@ -85,6 +85,22 @@ describe('a plan that does not add up is refused', () => {
     assert.match(r.ok === false ? r.message : '', /more than the ₱80,000 price/);
   });
 
+  it('names a shortfall to the centavo, never a rounded peso', () => {
+    // ₱40,000 + ₱39,998.50 = ₱79,998.50 against ₱80,000 → ₱1.50 short, which is
+    // past the ±₱1 tolerance. The old local formatter rounded this to "₱2" —
+    // a figure the couple could not find in anything they typed. PR #5744 is
+    // the same bug on a booking fee (₱837.50 printed as ₱838).
+    const r = build([
+      row({ label: 'Downpayment', amount_kind: 'fixed', value: '40000' }),
+      row({ label: 'Balance', amount_kind: 'fixed', value: '39998.50', due_anchor: 'before_event', due_offset_days: '7' }),
+    ]);
+    assert.equal(r.ok, false);
+    const msg = r.ok === false ? r.message : '';
+    assert.match(msg, /₱79,998\.50 of ₱80,000/);
+    assert.match(msg, /₱1\.50 is unaccounted/);
+    assert.doesNotMatch(msg, /₱2 is unaccounted/);
+  });
+
   it('accepts thirds, which can never be exact', () => {
     // 3 × 33.33% of ₱80,000 lands a peso or two off. A zero tolerance would
     // make the most ordinary plan in the Philippines impossible to save.

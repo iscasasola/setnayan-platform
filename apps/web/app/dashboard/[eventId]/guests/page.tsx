@@ -78,7 +78,6 @@ import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
-import { SortSelect } from './_components/sort-select';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
@@ -1025,8 +1024,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           eventId={eventId}
           search={search}
           q={q}
-          sort={sort}
-          sortOptions={SORT_OPTIONS}
           paxProgress={paxProgress}
           finished={finished}
           // After the event the add box still exists — someone who turned up
@@ -1571,8 +1568,6 @@ function SummaryFacetBar({
   eventId,
   search,
   q,
-  sort,
-  sortOptions,
   finished,
   addBar,
   paxProgress,
@@ -1592,8 +1587,6 @@ function SummaryFacetBar({
   eventId: string;
   search: Record<string, string | undefined>;
   q: string;
-  sort: SortKey;
-  sortOptions: readonly { value: string; label: string }[];
   /** The event has happened — the add box then never opens on its own. */
   finished: boolean;
   /** The quick-add bar, rendered by the page (it knows the Side lens). */
@@ -1708,13 +1701,12 @@ function SummaryFacetBar({
         }
         filter={
           <FilterPopover activeCount={activeFilters}>
-            {/* Sort rides in here: two of its orders (First name, Newest
-                first) have no column header to click. */}
-            <FacetRow label="Sort">
-              <Suspense fallback={null}>
-                <SortSelect value={sort} options={sortOptions} />
-              </Suspense>
-            </FacetRow>
+            {/* ⚖ No Sort row — owner 2026-09-21: "remove the filter on search since
+                we already have a sort on the table itself", then, asked what
+                the popup ALSO held: keep it, drop only its Sort. The table
+                header sorts (the label) and groups (the box). Two orders had
+                no column to click — First name, Newest first — and left the
+                desktop with this row, by that choice. */}
 
           <FacetRow label="Side">
             {sideOptions.map((s) => (

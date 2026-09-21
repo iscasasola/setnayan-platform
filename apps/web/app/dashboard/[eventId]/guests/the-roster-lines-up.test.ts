@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * ⚖ Owner 2026-09-20, on the redesigned roster: *"fix the alignment of the
@@ -24,7 +25,12 @@ import { join } from 'node:path';
  * rendered. So the geometry is asserted here rather than left to the eye.
  */
 
-const SRC = readFileSync(
+// 🪤 COMMENTS STRIPPED, through the repo's one lexer. Every count below looks
+// for a tag like `<th` — and on 2026-09-21 a note EXPLAINING a header-cell fix
+// said "a <th> carries…", which this file counted as a ninth column. A rule
+// about markup must never be readable from prose about the markup.
+const SRC = stripComments(
+  readFileSync(
   join(
     process.cwd(),
     'app',
@@ -35,6 +41,7 @@ const SRC = readFileSync(
     'guest-list-multiselect.tsx',
   ),
   'utf8',
+  ),
 );
 
 /**

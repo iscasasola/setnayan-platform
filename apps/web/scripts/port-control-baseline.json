@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dd815f609",
+  "generatedFromRef": "3ff54a1b7",
   "routeCount": 430,
   "destinations": 922,
   "actions": 654,
-  "blocks": 4578,
+  "blocks": 4577,
   "routes": {
     "/": {
       "files": [
@@ -5380,7 +5380,6 @@
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
         "dashboard/[eventId]/guests/_components/roster-tabs.tsx",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
-        "dashboard/[eventId]/guests/_components/sort-select.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
@@ -5519,7 +5518,6 @@
         "SideChipEditor",
         "SideText",
         "SoftDeleteForUndoResult",
-        "SortSelect",
         "SubmitButton",
         "SummaryFacetBar",
         "Suspense",

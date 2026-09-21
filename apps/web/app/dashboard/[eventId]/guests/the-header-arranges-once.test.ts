@@ -76,7 +76,7 @@ test('the sorting control is a BUTTON, so the two jobs cannot be one hit target'
 test('a URL write always merges — never replaces — the existing params', () => {
   // 🪤 Building a fresh URLSearchParams would drop ?q=, ?rsvp=, ?view= and the
   // rest, so arranging a filtered list would silently unfilter it. Same
-  // contract as sort-select.tsx and live-search.tsx: read the LATEST params
+  // contract as live-search.tsx: read the LATEST params
   // inside the handler so a filter click mid-interaction is not clobbered.
   assert.match(
     SRC,

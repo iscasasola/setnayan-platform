@@ -623,6 +623,96 @@ async function grantPapicCameraPoints(ctx: ActivationContext): Promise<void> {
  * Non-fatal: a failure leaves points a refunded couple should not have, which an
  * admin can clear — it must never block the reversal itself.
  */
+/**
+ * Reverse a booking-fee order: give the money back in the ledger, and take back
+ * the credits it bought.
+ *
+ * ── THE DEFECT THIS CLOSES (CTRL-B1 build 1, measured 2026-09-22) ───────────
+ * `activateOrderSku` has a `vendor_booking_fee__{charge_id}` arm that settles
+ * the charge, rolls it into `booking_fee_ledger`, grants the supplier's 5%
+ * Papic credits and lands the couple's Setnayan gift. `deactivateOrderSku` had
+ * NO booking-fee arm. Refund that order and every one of those stood.
+ *
+ * ── THE FOUR THINGS A REFUND MUST UNDO, AND WHO UNDOES THEM ────────────────
+ *   1. the charge status ......... here, via `booking_fee_reverse_charge`
+ *   2. the ledger roll-up + cap .. same RPC, atomically with (1)
+ *   3. the supplier's 5% credits . here — `vendor_papic_portfolio_credit_grants`
+ *                                  is keyed on `order_id`, exactly like the pot
+ *   4. the couple's gift ......... ALREADY DONE. It lands in
+ *                                  `papic_event_point_grants` carrying this
+ *                                  order's id, and `reversePapicPassPoints`
+ *                                  deletes by `order_id`. Verified 2026-09-22 —
+ *                                  do not add a second deletion for it.
+ *
+ * 🔑 (4) is why this function does less than it looks like it should. The 2026-09-11
+ * design put the gift in the same ledger a paid Papic rung writes to precisely so
+ * the existing reversal would take it back "with no new code". That still holds.
+ *
+ * Non-fatal, like every other arm here: a refund must not be blocked by a
+ * failed clawback, and each step is independently idempotent so a re-run lands
+ * whatever the first pass missed.
+ */
+async function reverseBookingFeeCharge(ctx: ActivationContext, chargeId: string): Promise<void> {
+  // (1) + (2) — one RPC, because a status change without its ledger decrement
+  // (or the reverse) leaves the two disagreeing about the same peso.
+  try {
+    const { data, error } = await ctx.admin.rpc('booking_fee_reverse_charge', {
+      p_charge_id: chargeId,
+      p_reason: `order ${ctx.orderId} refunded or un-approved`,
+    });
+    if (error) {
+      reportActivationFault('deactivate:booking_fee_charge', ctx, error);
+    } else {
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'order_refunded',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          booking_fee_charge_id: chargeId,
+          // The RPC's own verdict, not our assumption about it: `reversed:false`
+          // with a status means it was already not paid, which is a real answer
+          // and not a failure.
+          reversal: data ?? null,
+        },
+      });
+    }
+  } catch (e) {
+    reportActivationFault('deactivate:booking_fee_charge', ctx, e);
+  }
+
+  // (3) — the supplier's portfolio credits, bought by a fee we just gave back.
+  // Deleted by `order_id`, the same key `reversePapicPassPoints` uses for the
+  // couple's pot, so the two clawbacks cannot disagree about what this order paid for.
+  try {
+    const { data, error } = await ctx.admin
+      .from('vendor_papic_portfolio_credit_grants')
+      .delete()
+      .eq('order_id', ctx.orderId)
+      .select('credits');
+    if (error) {
+      reportActivationFault('deactivate:vendor_papic_credits', ctx, error);
+      return;
+    }
+    const revoked = (data ?? []).reduce(
+      (sum, r) => sum + (typeof (r as { credits?: unknown }).credits === 'number' ? (r as { credits: number }).credits : 0),
+      0,
+    );
+    if (revoked > 0) {
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'order_refunded',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, vendor_papic_credits_revoked: revoked },
+      });
+    }
+  } catch (e) {
+    reportActivationFault('deactivate:vendor_papic_credits', ctx, e);
+  }
+}
+
 async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
   try {
     const { data, error } = await ctx.admin
@@ -2262,6 +2352,16 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // and the fail-closed gate stops capture — which is the correct outcome for a
   // reversed order, not a bug to paper over.
   await reversePapicPassPoints(ctx);
+
+  // Booking fee — the SUPPLIER's own bill to Setnayan. Mirrors the
+  // `vendor_booking_fee__{charge_id}` arm in `activateOrderSku`; see
+  // `reverseBookingFeeCharge` for what it undoes and what already undoes itself.
+  // Placed AFTER the pot reversal on purpose: that call takes back the couple's
+  // gift rows by order_id, and this one must not be able to fail it.
+  const reversedChargeId = chargeIdFromBookingFeeLockServiceKey(ctx.serviceKey);
+  if (reversedChargeId) {
+    await reverseBookingFeeCharge(ctx, reversedChargeId);
+  }
 
   // Vendor add-on windows (paid renewal OR free first cycle) — expire the window
   // this order stamped, if it's still the current one. Non-fatal + idempotent.

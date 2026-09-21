@@ -76,12 +76,10 @@ export function HostServiceDetails({
         fd.set('vendor_id', vendorId);
         fd.set('inclusions', text);
         // ⚖ THE LOCKED OWN-GROUP IS NOT PERSISTED. It is already implied by
-        // `event_vendors.category`, and `bucketForVendor` reads
-        // `covers_plan_groups[0]` as the money bucket — writing it in would
-        // change which bucket existing bookings land in for no gain. The chip
-        // states the fact on screen; the column keeps meaning "ALSO covers".
-        // (A row that already carries its own group keeps it: it is in
-        // `covers` from `initialCovers` and is sent back unchanged.)
+        // `event_vendors.category`; the chip states the fact on screen and the
+        // column keeps meaning "ALSO covers". `bucketForVendor` files the money
+        // by the row's own category and never under an ALSO-covered group
+        // (`isHomeGroupFor`, 2026-09-21), so what is sent here cannot move it.
         for (const c of covers) fd.append('covers', c);
         await save.run(() => updateHostServiceDetails(fd), {
           steps: ['Saving service details'],

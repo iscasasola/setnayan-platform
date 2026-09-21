@@ -578,10 +578,19 @@ test('a vendor with empty covers_plan_groups still lands in a real bucket', () =
   // checklist-budget.ts:186 does `if (groups.length === 0) continue;`, which is
   // why ₱810,000 of live commitments read as ₱0 today.
   assert.equal(bucketForVendor(vendor({ vendor_id: 'a', category: 'photographer' })), 'photography');
+  // A group the row's category could belong to is its home (the budget-cost
+  // writer's shape: `category` stamped FROM the group) …
+  assert.equal(
+    bucketForVendor(vendor({ vendor_id: 'a', category: 'transportation', covers_plan_groups: ['logistics'] })),
+    'logistics',
+    'the group the couple picked wins over the category’s first mapping (bridal_car)',
+  );
+  // … but a group the supplier merely ALSO covers is not (2026-09-21 — this
+  // assertion used to expect 'catering', which was the bug).
   assert.equal(
     bucketForVendor(vendor({ vendor_id: 'a', category: 'photographer', covers_plan_groups: ['catering'] })),
-    'catering',
-    'an explicit plan group wins',
+    'photography',
+    'an also-covered group took the money',
   );
   // `misc` is claimed by the Logistics plan group; a category no group claims
   // (the non-wedding gap leaves) falls to Other — and is still COUNTED.

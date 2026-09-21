@@ -92,9 +92,12 @@ async function recordWithSupplier(
       // as AGREED immediately, which is what "if they add a budget it means it
       // is automatically locked" says.
       status: 'contracted',
-      // `bucketForVendor` reads this FIRST, so the money lands in the category
-      // the couple actually picked rather than in whatever the vendor category
-      // happens to map to. It is the same field the plan cards write.
+      // The category the couple picked. `bucketForVendor` takes it as the
+      // money's home because `category` above was stamped FROM this group
+      // (`isHomeGroupFor`) — which is how it tells this row from a supplier's
+      // "also covers" list, the other writer of this column. A vendor
+      // category alone cannot always name its group (`transportation` is in
+      // two; five groups list none), which is why it is written at all.
       covers_plan_groups: [draft.planGroupId],
       // The host typed this themselves — same stamp `attachManualVendorToCategory`
       // uses, so the auto-cascade chip does not fire on a row nobody cascaded.

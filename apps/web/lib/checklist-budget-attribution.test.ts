@@ -103,16 +103,23 @@ test('a null category with no groups still lands somewhere countable', () => {
 // ── The parts that were never the bug must not change ───────────────────────
 
 test('the primary group still takes the whole cost; secondaries are marked at zero', () => {
+  // `category` stamped from the first group — the budget-cost writer's shape,
+  // whose home IS `[0]`. (A hand-added supplier's `[0]` is NOT its home; that
+  // case is pinned in also-covered-is-never-the-money-home.test.ts.)
   for (const enabled of [false, true]) {
     const { byGroup } = attributeCommitted({
       enabled,
       vendors: [
-        row({ total_cost_php: 100_000, covers_plan_groups: ['grp-a', 'grp-b', 'grp-c'] }),
+        row({
+          total_cost_php: 100_000,
+          covers_plan_groups: ['catering', 'cake', 'accommodation'],
+          category: 'catering',
+        }),
       ],
     });
-    assert.equal(byGroup.get('grp-a'), 10_000_000, `primary (enabled=${enabled})`);
-    assert.equal(byGroup.get('grp-b'), 0, `secondary carries no additive cost`);
-    assert.equal(byGroup.get('grp-c'), 0);
+    assert.equal(byGroup.get('catering'), 10_000_000, `primary (enabled=${enabled})`);
+    assert.equal(byGroup.get('cake'), 0, `secondary carries no additive cost`);
+    assert.equal(byGroup.get('accommodation'), 0);
   }
 });
 
@@ -148,14 +155,23 @@ test('blank strings in covers_plan_groups are not a plan group', () => {
 test('R2b · money attributed OUTSIDE the tier scope is no longer dropped from the total', () => {
   const { byGroup } = attributeCommitted({
     enabled: true,
-    vendors: [row({ total_cost_php: 45_000, covers_plan_groups: ['grp-offscope'] })],
+    // A real off-scope group with the category a budget cost stamps for it.
+    // (A made-up group id with no category is no longer a home — its money
+    // goes to 'other', still counted — so the fixture uses the real shape.)
+    vendors: [
+      row({
+        total_cost_php: 45_000,
+        covers_plan_groups: ['travel_honeymoon'],
+        category: 'travel_honeymoon',
+      }),
+    ],
   });
   const extra = groupsCarryingMoney({
     enabled: true,
     byGroup,
     inScope: ['grp-in-scope-1', 'grp-in-scope-2'],
   });
-  assert.deepEqual(extra, ['grp-offscope'], 'the totalling loop must visit it');
+  assert.deepEqual(extra, ['travel_honeymoon'], 'the totalling loop must visit it');
 });
 
 test('R2b · flag OFF widens nothing — the loop is unchanged', () => {

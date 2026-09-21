@@ -6,7 +6,9 @@
  * Owner, verbatim: *"The guests can have the option to use the app on the exact
  * event or when the host allows it."* — so:
  *
- *   host switch OFF (default) → the EVENT DAY only, the whole Manila day
+ *   host switch OFF (default) → the EVENT DAY, whole, in Manila — plus the
+ *                               twelve hours past it that every camera on the
+ *                               celebration now gets (owner 2026-09-22)
  *   host switch ON            → the event's whole Papic capture window
  *
  * ── WHY THIS FILE EXISTS AT ALL ─────────────────────────────────────────────
@@ -25,14 +27,14 @@
  * PURE + unit-testable. No DB, no I/O. Asia/Manila has no DST, so the fixed
  * +08:00 offset used by the shared window helpers is exact.
  */
-import { PAPIC_TZ_OFFSET, manilaDate } from '@/lib/papic-window';
+import { PAPIC_TZ_OFFSET, manilaCaptureCloseIso, manilaDate } from '@/lib/papic-window';
 
 export type GuestCaptureState =
   /** Shoot away. */
   | 'open'
   /** Too early: the host has not opened guest cameras yet. */
   | 'not_open_yet'
-  /** The event day (or the window) has passed. */
+  /** The event day's capture tail (or the window) has run out. */
   | 'closed';
 
 export type GuestCaptureGate = {
@@ -79,11 +81,18 @@ export function guestCaptureGate(opts: {
     return { state: 'open', eventDay };
   }
 
-  // Switch OFF: the event day, whole, in Manila.
+  // Switch OFF: the event day, whole, in Manila — and the owner's twelve hours
+  // past it (2026-09-22), through the same resolver the seat cameras close on.
+  //
+  // 🔑 THE TAIL BELONGS HERE TOO, AND NOT BECAUSE THE RULING NAMED THIS FILE.
+  // It named capture, and this IS a capture gate: without the tail a guest at a
+  // reception that runs past midnight is refused her photograph on the switch's
+  // default, while the couple's own cameras beside her keep shooting until
+  // noon. The direction is OPEN — nothing that worked before stops working.
   if (!eventDay) return { state: 'open', eventDay: null };
 
   const dayStartMs = Date.parse(`${eventDay}T00:00:00${PAPIC_TZ_OFFSET}`);
-  const dayEndMs = Date.parse(`${eventDay}T23:59:59.999${PAPIC_TZ_OFFSET}`);
+  const dayEndMs = Date.parse(manilaCaptureCloseIso(eventDay));
   if (!Number.isFinite(dayStartMs) || !Number.isFinite(dayEndMs)) {
     return { state: 'open', eventDay };
   }

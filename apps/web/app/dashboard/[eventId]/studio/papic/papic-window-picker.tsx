@@ -9,6 +9,9 @@ import {
   manilaDate,
   inclusiveDays,
   resolvePapicWindow,
+  formatCaptureCloseLabel,
+  captureCloseEndDate,
+  PAPIC_CAPTURE_GRACE_HOURS,
   PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
 
@@ -20,7 +23,15 @@ import {
  * Event-type rules (mirrored from lib/papic-window.ts):
  *   • travel  — free range: day 1 → end date of the trip.
  *   • else    — anchored to the event date: covers the day, extend BEFORE it
- *               (capture the prep), never AFTER. The end day is pinned.
+ *               (capture the prep), never past it. The end DAY is pinned.
+ *
+ * ⏰ AND THE COPY NAMES THE CLOSING INSTANT, NOT A DAY. Capture runs twelve
+ * hours past the last day (owner 2026-09-22), so this used to say "cameras run
+ * to the end of that day" while the gate kept shooting until noon the next
+ * morning. The close label is formatted from `preview.window.endIso` — the very
+ * string the gate compares against — so the sentence cannot drift from the
+ * rule; a second "+ 12 hours" computed for the screen is how a page ends up
+ * promising a shutter that is already shut.
  *
  * Pure client preview via resolvePapicWindow (no server-only imports); the
  * server action re-validates with the same resolver before saving.
@@ -50,11 +61,12 @@ export default function PapicWindowPicker({
   // Seed from the saved window, else from the event date.
   const seedStartDate = windowStart ? windowStart.slice(0, 10) : anchor ?? '';
   const seedStartTime = windowStart ? windowStart.slice(11, 16) : '14:00';
+  // ⚠ RECOVER THE CHOSEN DAY — a stored close instant sits on the MORNING
+  // AFTER it, so `windowEnd.slice(0, 10)` seeded a travel picker one day late
+  // and quietly extended the trip every time somebody re-opened the sheet.
   const seedEndDate = windowEnd
-    ? windowEnd.slice(0, 10)
-    : travel
-      ? anchor ?? ''
-      : anchor ?? '';
+    ? captureCloseEndDate(windowEnd) ?? anchor ?? ''
+    : anchor ?? '';
 
   const [startDate, setStartDate] = useState(seedStartDate);
   const [startTime, setStartTime] = useState(seedStartTime || '14:00');
@@ -73,6 +85,10 @@ export default function PapicWindowPicker({
   const previewDays = preview.ok
     ? preview.window.days
     : inclusiveDays(startDate, effectiveEnd);
+  // When the cameras actually stop, straight off the resolved window.
+  const closeLabel = preview.ok
+    ? formatCaptureCloseLabel(preview.window.endIso)
+    : null;
 
   const errorText = !preview.ok
     ? preview.error === 'start_after_end'
@@ -103,8 +119,8 @@ export default function PapicWindowPicker({
           </p>
           <p className="max-w-prose text-xs text-ink/60">
             {travel
-              ? 'Day 1 to the last day of your trip. The window sets how long every camera can shoot.'
-              : 'When your cameras open and close. Start earlier to capture the prep — it ends on your event day. The window sets how long every camera can shoot.'}
+              ? `Day 1 to the last day of your trip, plus ${PAPIC_CAPTURE_GRACE_HOURS} hours after it. The window sets how long every camera can shoot.`
+              : `When your cameras open and close. Start earlier to capture the prep — the last day is your event day, and they keep shooting for ${PAPIC_CAPTURE_GRACE_HOURS} hours after it.`}
           </p>
         </div>
         {windowIsSet ? (
@@ -156,14 +172,17 @@ export default function PapicWindowPicker({
               className="rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink"
             />
             <span className="text-[11px] text-ink/45">
-              Cameras run to the end of this day.
+              {closeLabel
+                ? `Cameras run to the end of this day, then ${PAPIC_CAPTURE_GRACE_HOURS} hours more — they close ${closeLabel}.`
+                : `Cameras run to the end of this day, then ${PAPIC_CAPTURE_GRACE_HOURS} hours more.`}
             </span>
           </label>
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-ink/55">
             <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Ends on your event day{anchor ? ` (${anchor})` : ''} — cameras run to
-            the end of that day.
+            Ends on your event day{anchor ? ` (${anchor})` : ''} — and the
+            cameras keep shooting for {PAPIC_CAPTURE_GRACE_HOURS} hours after it
+            {closeLabel ? `, closing ${closeLabel}` : ''}.
           </p>
         )}
 
@@ -171,8 +190,8 @@ export default function PapicWindowPicker({
           <p className="text-xs text-amber-700">{errorText}</p>
         ) : (
           <p className="text-xs text-ink/55">
-            {previewDays} day{previewDays === 1 ? '' : 's'} of capture — how long
-            every camera can shoot.
+            {previewDays} day{previewDays === 1 ? '' : 's'} of capture
+            {closeLabel ? ` — cameras close ${closeLabel}` : ''}.
           </p>
         )}
 

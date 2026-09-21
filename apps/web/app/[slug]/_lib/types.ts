@@ -376,6 +376,9 @@ export type GuestRow = {
    *  was not missing a name box so much as missing this fact — it had no way to
    *  know the guest was entitled to one. Selected in loaders.ts. */
   plus_one_allowed: boolean;
+  /** How MANY extra seats, 0–4 (owner 2026-09-21). Optional so a read that
+   *  predates it falls back to the boolean's one — see `plusOneSeats`. */
+  plus_one_count?: number | null;
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */
   plus_one_name: string | null;

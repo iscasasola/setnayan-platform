@@ -35,6 +35,7 @@ import {
   RSVP_LABELS,
   SIDE_LABELS,
   type GuestRow,
+  plusOneSeats,
 } from '@/lib/guests';
 import { QrActions } from '@/app/_components/qr-actions';
 
@@ -298,11 +299,13 @@ export function GuestDetailBody({
           <dd className="text-ink/80">{ROLE_LABELS[guest.role]}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink/50">Plus-one</dt>
+          <dt className="text-ink/50">Extra seats</dt>
           <dd className="text-ink/80">
-            {guest.plus_one_allowed
-              ? `+ ${guest.plus_one_name ?? 'TBA'}`
-              : 'None'}
+            {plusOneSeats(guest) === 0
+              ? 'None'
+              : plusOneSeats(guest) === 1
+                ? `+ ${guest.plus_one_name ?? 'TBA'}`
+                : `+${plusOneSeats(guest)}${guest.plus_one_name ? ` · ${guest.plus_one_name}` : ''}`}
           </dd>
         </div>
       </dl>

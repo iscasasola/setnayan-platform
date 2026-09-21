@@ -34,6 +34,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     role: 'guest',
     extra_roles: [],
     plus_one_allowed: false,
+    plus_one_count: 0,
     plus_one_name: null,
     plus_one_of_guest_id: null,
     plus_one_mode: null,
@@ -96,9 +97,10 @@ test('projectAttendance: out-of-range rates are clamped, envelope preserved', ()
 
 test('headcountsFromGuests: plus-one counts as a second head', () => {
   const guests = [
-    guest({ rsvp_status: 'attending', plus_one_allowed: true }), // 2 heads
+    // Real rows keep the two equal (the DB trigger) — so fixtures do too.
+    guest({ rsvp_status: 'attending', plus_one_allowed: true, plus_one_count: 1 }), // 2 heads
     guest({ rsvp_status: 'attending', plus_one_allowed: false }), // 1
-    guest({ rsvp_status: 'pending', plus_one_allowed: true }), // 2
+    guest({ rsvp_status: 'pending', plus_one_allowed: true, plus_one_count: 1 }), // 2
     guest({ rsvp_status: 'declined' }), // 1
   ];
   const heads = headcountsFromGuests(guests);
@@ -122,4 +124,10 @@ test('headcountsFromStats: attributes plus-ones to open buckets, not confirmed',
   assert.equal(heads.attending, 60);
   // the 8 plus-ones split across the 40 open (pending+maybe) heads.
   assert.equal(heads.pending + heads.maybe, 30 + 10 + 8);
+});
+
+test('a +3 is four people, not two', () => {
+  // ⚖ Owner 2026-09-21: "+1/+2/+3/+4 … for the additional seats".
+  const h = headcountsFromGuests([guest({ rsvp_status: 'attending', plus_one_allowed: true, plus_one_count: 3 })]);
+  assert.equal(h.attending, 4);
 });

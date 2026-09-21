@@ -23,7 +23,8 @@ export function SeatChip({
   placed,
   suggested,
   rsvp,
-  hasPlusOne,
+  plusOnes,
+  plusControl,
   plain = false,
 }: {
   /** The guest's live seat's table label (from the assignment map), or null. */
@@ -32,8 +33,12 @@ export function SeatChip({
   suggested: string | null;
   /** The guest's EFFECTIVE (optimistically-projected) RSVP. */
   rsvp: RsvpStatus;
-  /** Whether a plus-one rides along (guests.plus_one_allowed). */
-  hasPlusOne: boolean;
+  /** Extra seats that ride along, 0–4 (guests.plus_one_count). */
+  plusOnes: number;
+  /** The +N control (a `PlusOneChipEditor`). When given it is drawn in the
+   *  badge's place — ALWAYS, so a guest with none can be given some — and the
+   *  plain badge is not. Omitted → the read-only "+N" badge. */
+  plusControl?: React.ReactNode;
   /**
    * Roster presentation: the table (owner 2026-09-20 — "remove the pill boxes
    * ... so it looks neater"). Same three states, same labels, no plaque. The
@@ -46,13 +51,10 @@ export function SeatChip({
   // The +1 badge — only when the guest is actually coming (a declined guest frees
   // their whole allocation, plus-one included).
   const plus =
-    hasPlusOne && rsvp !== 'declined' ? (
-      <span
-        title="Their plus-one is seated with them"
-        className="ml-1 inline-flex rounded-full bg-[var(--sn-gold-100)] px-1.5 py-px text-[10px] font-semibold text-[var(--sn-gold-700)]"
-      >
-        +1
-      </span>
+    rsvp === 'declined' ? null : plusControl ? (
+      <span className="ml-1 inline-flex">{plusControl}</span>
+    ) : plusOnes > 0 ? (
+      <PlusBadge count={plusOnes} />
     ) : null;
 
   // Mono seat chips (Glass PR-3, per the roster proto): placed = a white mono
@@ -103,4 +105,16 @@ export function SeatChip({
   }
 
   return <span className="text-ink/30">—</span>;
+}
+
+/** "+N" — the extra seats that come with a guest (owner 2026-09-21: up to +4). */
+export function PlusBadge({ count }: { count: number }) {
+  return (
+    <span
+      title={count === 1 ? 'Their plus-one is seated with them' : `${count} extra seats come with them`}
+      className="inline-flex rounded-full bg-[var(--sn-gold-100)] px-1.5 py-px text-[10px] font-semibold text-[var(--sn-gold-700)]"
+    >
+      +{count}
+    </span>
+  );
 }

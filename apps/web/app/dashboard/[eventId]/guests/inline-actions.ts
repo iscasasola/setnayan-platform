@@ -281,6 +281,39 @@ export async function setGuestRole(
 */
 
 /**
+ * Set how many extra seats one guest may bring — 0 to 4.
+ *
+ * ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4. can be
+ * +1/+2/+3/+4. these are for the additional seats."
+ *
+ * Writes ONLY `plus_one_count`; the DB trigger keeps `plus_one_allowed` equal
+ * to `count > 0`, so every reader of the old boolean stays right. The row count
+ * is checked: a zero-row UPDATE returns no error and would otherwise be
+ * reported as saved.
+ */
+export async function setGuestPlusOneCount(
+  eventId: string,
+  guestId: string,
+  count: number,
+): Promise<InlineResult> {
+  if (!Number.isInteger(count) || count < 0 || count > 4) {
+    return { ok: false, error: 'Pick none, or +1 to +4.' };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ plus_one_count: count, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .select('guest_id');
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: 'Couldn’t find that guest.' };
+
+  revalidatePath(guestsPath(eventId));
+  return { ok: true };
+}
+
+/**
  * Add a guest to an existing custom group. Ported from `quickAddGuest`'s
  * sticky-group membership upsert: verify the group belongs to this event (RLS
  * guards too) before the idempotent membership upsert.
@@ -363,12 +396,12 @@ export async function addSingleGuest(
         });
     },
 
-    // Plus-one permission from the parsed `+N`.
-    setPlusOne: async (guestId) => {
+    // Extra seats from the parsed `+N` (the trigger sets plus_one_allowed).
+    setPlusOne: async (guestId, count) => {
       const supabase = await createClient();
       await supabase
         .from('guests')
-        .update({ plus_one_allowed: true, updated_at: new Date().toISOString() })
+        .update({ plus_one_count: Math.min(4, Math.max(1, count)), updated_at: new Date().toISOString() })
         .eq('event_id', eventId)
         .eq('guest_id', guestId);
     },

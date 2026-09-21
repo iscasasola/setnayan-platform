@@ -25,7 +25,7 @@
  * "maybe" guests split roughly even, so 50%. Both are overridable per call.
  */
 
-import type { GuestRow, GuestStats } from '@/lib/guests';
+import { plusOneSeats, type GuestRow, type GuestStats } from '@/lib/guests';
 
 /**
  * Standard share of still-PENDING (no-response-yet) guests assumed to attend.
@@ -72,9 +72,9 @@ export type AttendanceProjection = {
   rates: ProjectionRates;
 };
 
-/** A guest contributes themselves + their plus-one (when allowed). */
-function headsForGuest(guest: Pick<GuestRow, 'plus_one_allowed'>): number {
-  return 1 + (guest.plus_one_allowed ? 1 : 0);
+/** A guest contributes themselves + every extra seat they may bring (0–4). */
+function headsForGuest(guest: Pick<GuestRow, 'plus_one_allowed'> & { plus_one_count?: number | null }): number {
+  return 1 + plusOneSeats(guest);
 }
 
 /**

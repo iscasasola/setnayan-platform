@@ -33,7 +33,9 @@ import {
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
+  PLUS_ONE_CHOICES,
   guestDisplayName,
+  plusOneSeats,
   type GuestGroupWithCount,
   type GuestRole,
   type GuestRow,
@@ -49,7 +51,9 @@ import {
   setGuestRole,
   setGuestRsvp,
   setGuestSide,
+  setGuestPlusOneCount,
 } from '../inline-actions';
+import { PlusBadge } from './seat-chip';
 import { groupsForSide, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { quickCreateGroup } from '../quick-add-actions';
 
@@ -287,6 +291,70 @@ export function SideChipEditor({
               swatch={o.swatch}
             >
               {SIDE_LABELS[o.value]}
+            </OptionRow>
+          ))}
+        </Popover>
+      ) : null}
+    </>
+  );
+}
+
+// ── Plus-ones (extra seats) ───────────────────────────────────────────────────
+
+/**
+ * ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4. can be
+ * +1/+2/+3/+4. these are for the additional seats."
+ *
+ * Lives in the Seat column, where the "+1" badge already rode along — the
+ * extra seats sit next to the guest's own. A guest with none shows a quiet
+ * dashed "+" so they can be given some; a guest with some shows "+N". Both
+ * open the same menu: None · +1 · +2 · +3 · +4.
+ */
+export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: GuestRow }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const commit = useFieldEdit(guest.guest_id);
+  const name = guestDisplayName(guest);
+  const current = plusOneSeats(guest);
+
+  const pick = (count: number) => {
+    setOpen(false);
+    if (count === current) return;
+    commit({
+      override: { plus_one_count: count, plus_one_allowed: count > 0 },
+      priorOverride: { plus_one_count: current, plus_one_allowed: current > 0 },
+      label: count === 0 ? `${name} → no extra seats` : `${name} → +${count}`,
+      run: () => setGuestPlusOneCount(eventId, guest.guest_id, count),
+      undoRun: () => setGuestPlusOneCount(eventId, guest.guest_id, current),
+    });
+  };
+
+  return (
+    <>
+      <ChipTrigger
+        triggerRef={ref}
+        onOpen={() => setOpen(true)}
+        label={current > 0 ? `${name} brings ${current} extra — change` : `Give ${name} extra seats`}
+      >
+        {current > 0 ? (
+          <PlusBadge count={current} />
+        ) : (
+          <span
+            aria-hidden
+            className="inline-flex h-4 items-center rounded-full border border-dashed border-ink/25 px-1.5 text-[10px] font-semibold text-ink/40"
+          >
+            +
+          </span>
+        )}
+      </ChipTrigger>
+      {open ? (
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={170}>
+          <p className="px-2.5 pb-1 pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/40">
+            Extra seats
+          </p>
+          {PLUS_ONE_CHOICES.map((n) => (
+            <OptionRow key={n} onClick={() => pick(n)} active={current === n}>
+              {n === 0 ? 'None' : `+${n}`}
             </OptionRow>
           ))}
         </Popover>

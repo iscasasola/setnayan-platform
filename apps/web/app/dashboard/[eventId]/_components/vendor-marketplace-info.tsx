@@ -611,9 +611,24 @@ function ReviewsCard({
           <p className="text-xs text-ink/65">
             {vendorBusinessName} still has no review.
           </p>
+          {/*
+            🔴 THIS PROMISED "a review request 24 hours after the event" —
+            CTRL-B3 build 11, fixed 2026-09-22. Three things were wrong with it:
+            nothing generated a request at all (the review is gated on
+            `service_marked_complete_at`, set on 0 of 51 bookings and never
+            asked for until CTRL-B2); the code's own intervals are 7 and 30
+            days, not 24 hours; and `vendor_reviews` is empty, so it had never
+            once happened.
+
+            🔑 THE REPLACEMENT NAMES NO DURATION AT ALL. The brief asked for the
+            displayed number to be derived from the same constant `reviewState`
+            uses — but a sentence with no number cannot drift from one, and the
+            steps are what a couple actually needs to know. A hand-typed
+            duration in copy is exactly how this said 24 hours in the first place.
+          */}
           <p className="mt-1 text-[11px] text-ink/45">
-            Bookings through Setnayan generate a review request 24 hours after
-            the event.
+            A review opens once your supplier confirms they delivered and you
+            confirm you received it.
           </p>
           {reviewLinkHref ? (
             <Link

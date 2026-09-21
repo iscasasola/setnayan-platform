@@ -593,6 +593,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     ...(guestColumnsOn
       ? [{ key: 'columns', label: 'Guest columns', hint: 'Approve or return what your guests wrote', href: `${base}/studio/guest-columns` }]
       : []),
+    /*
+      🔴 THE THIRD ORPHAN — CTRL-B3 build 3, added 2026-09-22.
+
+      `/website/stories` is the host deciding which supplier-authored stories
+      appear on their celebration (owner, 2026-08-15: *"the user can decide to
+      add it or not"*). It shipped with **no link from anywhere in the app** —
+      only its own `actions.ts` and two test files named the path. The register
+      chased every apparent orphan route in the tree and found the rest were
+      deliberate redirects; this was the single real exception.
+
+      🔑 IT BELONGS ON EXACTLY THIS LIST, for the reason the comment above
+      gives: `our-story` and `guest-columns` were "reachable from the hub and
+      NOWHERE else", and folding the hub would have orphaned a shipped page
+      each. This one was already in that state before the fold — it simply had
+      no hub entry to lose.
+    */
+    { key: 'stories', label: 'Stories about your day', hint: 'Choose which supplier stories appear on your page', href: `${base}/website/stories` },
     { key: 'guests', label: 'Guests and replies', hint: 'Names, invites, who is coming', href: `${base}/guests` },
     { key: 'schedule', label: 'The running order', hint: 'What happens, and when', href: `${base}/schedule` },
     /*

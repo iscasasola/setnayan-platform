@@ -128,7 +128,26 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
   assert.equal(count(supplier, /agreeLock: vendorAgreeToLock,/g), 1);
   assert.equal(count(supplier, /declineLock: vendorDeclineLock,/g), 1);
   assert.equal(count(supplier, /import \{ vendorAgreeToLock, vendorDeclineLock \} from '\.\.\/\.\.\/clients\/\[eventId\]\/actions';/g), 1);
-  assert.equal(count(overview, /agreeLock=\{vendorAgreeToLock\}/g), 1, 'the Overview stopped posting the same action');
+  /*
+    ⚠ WAS `=== 1`, AND THE NUMBER WAS NEVER THE POINT. The Overview mounts two
+    feeds since 2026-09-22 ("Needs your answer" + "Nothing to answer"), so the
+    count is 2 and would grow again with a third. What this line is FOR is that
+    the Overview posts the SAME action the chat card posts — never a wrapper,
+    never a second server action with its own rules. So assert that: every
+    `agreeLock=` binding on the page is `vendorAgreeToLock`, and there is at
+    least one. That survives any number of feeds AND catches the thing a bare
+    `>= 1` would miss — one correct binding beside one wrong one.
+  */
+  const overviewAgreeBindings = overview.match(/agreeLock=\{[^}]*\}/g) ?? [];
+  assert.ok(
+    overviewAgreeBindings.length >= 1,
+    'the Overview stopped posting the same action — no agreeLock binding at all',
+  );
+  assert.deepEqual(
+    [...new Set(overviewAgreeBindings)],
+    ['agreeLock={vendorAgreeToLock}'],
+    `the Overview posts an agree action the chat card does not: ${[...new Set(overviewAgreeBindings)].join(' · ')}`,
+  );
   // Exactly one definition of each answer.
   const defs = (name: string) => count(actions, new RegExp(`export async function ${name}\\(`, 'g'));
   assert.equal(defs('vendorAgreeToLock'), 1);

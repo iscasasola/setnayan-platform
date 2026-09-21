@@ -29,11 +29,47 @@ export async function setRevealAction(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
 
+  /* ONE write path. This used to carry its own copy of the auth check, the
+   * membership test and the merge-not-replace config write; saveRevealChoice
+   * (below) needed the same logic without the redirect, and two copies of the
+   * rule that decides whether a couple's design is preserved is two chances to
+   * delete it. This is now saveRevealChoice plus a destination. */
+  const res = await saveRevealChoice({
+    eventId,
+    kind: String(formData.get('kind') ?? ''),
+    tempo: String(formData.get('tempo') ?? ''),
+  });
+  if (!res.ok) redirect(`/dashboard/${eventId}/monogram?studio_error=save`);
+  redirect(`/dashboard/${eventId}/monogram?studio=reveal-saved#reveal`);
+}
+
+/**
+ * saveRevealChoice — the same write as setRevealAction, but RETURNING instead of
+ * redirecting, so "Unlock & Apply" can record the reveal and then open the
+ * checkout drawer in the same click.
+ *
+ * A redirect here would navigate away before the drawer could open. It returns
+ * `{ ok }` and never throws for an expected refusal; the caller swallows even an
+ * unexpected throw (see InlineCheckoutDrawer.onBeforeOpen), because failing to
+ * save a preference must never stop a couple from paying.
+ *
+ * ⚠ It does NOT skip the checks setRevealAction makes — same auth, same
+ * couple-membership test, same merge-not-replace of the config, same row count.
+ * Only the ending differs.
+ */
+export async function saveRevealChoice(input: {
+  eventId: string;
+  kind: string;
+  tempo: string;
+}): Promise<{ ok: boolean }> {
+  const eventId = String(input.eventId ?? '').trim();
+  if (!eventId) return { ok: false };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) return { ok: false };
 
   const { data: membership } = await supabase
     .from('event_members')
@@ -42,15 +78,12 @@ export async function setRevealAction(formData: FormData): Promise<void> {
     .eq('user_id', user.id)
     .eq('member_type', 'couple')
     .maybeSingle();
-  if (!membership) redirect(`/dashboard/${eventId}/monogram`);
+  if (!membership) return { ok: false };
 
-  const kindRaw = String(formData.get('kind') ?? '');
-  const kind: StudioAnimKind = (ANIM_KINDS as readonly string[]).includes(kindRaw)
-    ? (kindRaw as StudioAnimKind)
+  const kind: StudioAnimKind = (ANIM_KINDS as readonly string[]).includes(input.kind)
+    ? (input.kind as StudioAnimKind)
     : 'handwriting';
-
-  const tempoRaw = String(formData.get('tempo') ?? '');
-  const tempo = tempoRaw in ANIM_TEMPO_TIMINGS ? (tempoRaw as keyof typeof ANIM_TEMPO_TIMINGS) : 'classic';
+  const tempo = input.tempo in ANIM_TEMPO_TIMINGS ? (input.tempo as keyof typeof ANIM_TEMPO_TIMINGS) : 'classic';
   const timing = ANIM_TEMPO_TIMINGS[tempo];
 
   const { data: event } = await supabase
@@ -60,9 +93,6 @@ export async function setRevealAction(formData: FormData): Promise<void> {
     .maybeSingle();
 
   const existing = sanitizeStudioConfig(event?.monogram_studio_config);
-  /* Merge, never replace: the config also carries the letters, their per-piece
-   * transforms and the frame. Writing a fresh config here would silently delete
-   * the couple's whole design to record which reveal they picked. */
   const config = existing
     ? { ...existing, anim: { ...timing, kind, preset: tempo } }
     : sanitizeStudioConfig({
@@ -78,21 +108,16 @@ export async function setRevealAction(formData: FormData): Promise<void> {
         syms: [],
         anim: { ...timing, kind, preset: tempo },
       });
-  if (!config) redirect(`/dashboard/${eventId}/monogram?studio_error=invalid`);
+  if (!config) return { ok: false };
 
-  // `.select()` counts rows: a PostgREST UPDATE matching none returns
-  // error:null, and the redirect below would report a saved reveal that was
-  // never written.
   const { data: updated, error } = await supabase
     .from('events')
     .update({ monogram_studio_config: config })
     .eq('event_id', eventId)
     .select('event_id');
-  if (error || !updated || updated.length === 0) {
-    redirect(`/dashboard/${eventId}/monogram?studio_error=save`);
-  }
+  if (error || !updated || updated.length === 0) return { ok: false };
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/monogram`);
-  redirect(`/dashboard/${eventId}/monogram?studio=reveal-saved#reveal`);
+  return { ok: true };
 }

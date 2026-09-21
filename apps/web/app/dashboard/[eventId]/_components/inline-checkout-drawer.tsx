@@ -151,6 +151,22 @@ export type InlineCheckoutDrawerProps = {
    * use the same `button-primary` etc styling as its existing CTAs.
    */
   triggerClassName?: string;
+  /**
+   * Optional work to finish BEFORE the drawer opens. Additive and opt-in: every
+   * existing caller omits it and behaves exactly as before.
+   *
+   * Why it exists (2026-09-20): the Monogram Maker's "Unlock & Apply" is ONE
+   * button that both records the reveal the couple picked and starts the
+   * payment (owner: "keep this reveal and animate & apply should be 1"). If the
+   * drawer opened first, the couple would pay while the choice on screen was
+   * still unsaved — and could pay for an animation that then plays a DIFFERENT
+   * reveal from the one they were looking at. So the save runs first, and the
+   * drawer only opens once it has settled.
+   *
+   * A throw is swallowed and the drawer still opens: failing to record a
+   * preference must never block somebody from paying for the thing itself.
+   */
+  onBeforeOpen?: () => Promise<void> | void;
 };
 
 /**
@@ -213,8 +229,10 @@ export function InlineCheckoutDrawer({
   settings,
   triggerLabel,
   triggerClassName,
+  onBeforeOpen,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const { isAnonymous } = useAnonGate();
   // Anon-draft: gate at the TRIGGER, not at final submit — so an anonymous
   // buyer is asked to secure their account BEFORE filling payment details and
@@ -349,7 +367,24 @@ export function InlineCheckoutDrawer({
   ) : (
     <button
       type="button"
-      onClick={() => (isAnonymous ? setGateOpen(true) : setOpen(true))}
+      disabled={preparing}
+      onClick={async () => {
+        if (isAnonymous) {
+          setGateOpen(true);
+          return;
+        }
+        if (onBeforeOpen) {
+          setPreparing(true);
+          try {
+            await onBeforeOpen();
+          } catch {
+            /* see onBeforeOpen: a failed preference save never blocks payment */
+          } finally {
+            setPreparing(false);
+          }
+        }
+        setOpen(true);
+      }}
       className={
         triggerClassName ??
         'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'

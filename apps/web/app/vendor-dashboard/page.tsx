@@ -11,6 +11,7 @@ import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   fetchVendorOverviewData,
   fetchVendorEarningsSummary,
+  cardTimestamp,
   type VendorEarningsSummary,
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
@@ -34,9 +35,15 @@ import {
   VendorTodayFocal,
   VendorEnergyStats,
   WhatsNewFeed,
+  NothingToAnswerFeed,
   OngoingTasks,
   UpcomingSchedules,
 } from './_components/overview-sections';
+import {
+  splitDesk,
+  oldestAskWaitDays,
+  deskStatusLine,
+} from '@/lib/vendor-desk-disposition';
 import { SpotlightAwardBanner } from './_components/spotlight-award-banner';
 import { VendorFirstSteps } from './_components/first-steps';
 import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
@@ -292,12 +299,31 @@ export default async function VendorOverviewPage({
 
   const { whatsNew, ongoing, upcoming, deskIncomplete } = data;
 
+  /*
+    ── THE DESK IS CUT IN TWO (2026-09-22) ─────────────────────────────────
+    Owner's drawing, approved 2026-08-26: the one block "mixes five things
+    waiting on you with a 5-star review that needs nothing." `splitDesk` asks
+    the one pure rule in `lib/vendor-desk-disposition.ts`; it does NOT re-sort,
+    because `fetchVendorOverviewData` has already ordered the whole feed
+    oldest-waiting-first and a second sort here would be a second answer to a
+    question that already has one.
+
+    ⚠ `askStatus` may be an empty string, and that is the honest reading: with
+    nothing waiting there is no oldest wait, so the heading carries no number
+    rather than a "0 days" measured over an empty set.
+  */
+  const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(whatsNew);
+  const askStatus = deskStatusLine(
+    needsAnswer.length,
+    oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
+  );
+
   // S19 · can a couple see anywhere to pay this shop? Asked ONLY when a booking
   // ask is on screen — that card is where the nudge sits, because agreeing is
   // what makes the deposit the couple's next step. `unreadable` renders nothing.
   // 2026-09-19 · and whenever the shop holds ANY upcoming booking: a booked
   // couple owes a deposit, and Today is the one screen every supplier opens.
-  const hasLockAsk = whatsNew.some((c) => c.kind === 'lock_request');
+  const hasLockAsk = needsAnswer.some((c) => c.kind === 'lock_request');
   const hasBooking = upcoming.length > 0;
   const payoutReadiness: PayoutReadiness = hasLockAsk || hasBooking
     ? await readSupplierPayoutReadiness({
@@ -332,7 +358,7 @@ export default async function VendorOverviewPage({
     createAdminClient(),
     {
       vendorProfileId: profile.vendor_profile_id,
-      eventVendorIds: whatsNew
+      eventVendorIds: needsAnswer
         .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
         .map((c) => c.eventVendorId),
     },
@@ -366,7 +392,10 @@ export default async function VendorOverviewPage({
   // inquiries / next-booking / earned trio). The hero itself no longer restates
   // them as text — that was the same three numbers a few lines above the focal
   // (deduped 2026-07-16); the hero subline is now a plain orienting lead-in.
-  const heroInquiries = whatsNew.filter((c) => c.kind === 'inquiry').length;
+  // Reads the ASK half. An inquiry is always an ask, so this number does not
+  // move today — but taking it from `whatsNew` would mean the hero counted a
+  // list the feed below no longer shows, the moment a kind changes side.
+  const heroInquiries = needsAnswer.filter((c) => c.kind === 'inquiry').length;
   // Unmeasured (ledger read refused or short) is null, never a ₱0 or short year.
   const heroEarnedPhp = earnings?.earningsMeasured ? earnings.earnedThisYearPhp : null;
 
@@ -560,9 +589,10 @@ export default async function VendorOverviewPage({
         </div>
       ) : null}
 
-      {/* 1 · What's new — the decision feed (centrepiece) */}
+      {/* 1 · Needs your answer — the decision feed (centrepiece) */}
       <WhatsNewFeed
-        cards={whatsNew}
+        cards={needsAnswer}
+        statusLine={askStatus}
         incomplete={deskIncomplete}
         acceptInquiry={acceptInquiry}
         declineInquiry={declineInquiry}
@@ -593,6 +623,21 @@ export default async function VendorOverviewPage({
           the Philippines. Accept to see who they are and start the conversation.
         </p>
       </div>
+
+      {/* 2b · Nothing to answer — the closed lines. Renders nothing when empty. */}
+      <NothingToAnswerFeed
+        cards={nothingToAnswer}
+        acceptInquiry={acceptInquiry}
+        declineInquiry={declineInquiry}
+        confirmLock={vendorAcknowledgeDeposit}
+        rejectLock={vendorRejectDeposit}
+        agreeLock={vendorAgreeToLock}
+        declineLock={vendorDeclineLock}
+        agreeDeletion={vendorAgreeToDeletion}
+        declineDeletion={vendorDeclineDeletion}
+        postReviewReply={postVendorReply}
+        respondMeeting={respondAppointment}
+      />
 
       {/* 3 · Ongoing — open tasks */}
       <OngoingTasks tasks={ongoing} />

@@ -111,6 +111,7 @@ export function HideableWidgetRender({
           nowTrigger={isGuestNowTriggerEnabled()}
           estimated={scheduleEstimated}
           eventType={event.event_type}
+          compact
         />
       ) : null;
 

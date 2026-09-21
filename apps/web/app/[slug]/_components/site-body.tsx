@@ -28,7 +28,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { type ScheduleBlockRow } from '@/lib/schedule';
+import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
@@ -1260,12 +1260,16 @@ export async function SiteBody({
        at 9pm would tell them to arrive at the send-off. Formatted in the
        event's own timezone, which the venue's coordinates resolve. */
     const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    // 🔴 THE SCHEDULE STORES THE EVENT'S OWN WALL-CLOCK, NOT AN INSTANT.
+    // `start_at` for a 1:30 PM arrival is `…T13:30:00+00` — the clock the
+    // couple typed, parked in UTC. The programme reads it back with
+    // `timeZone: 'UTC'` (`formatBlockTimeRange`, lib/schedule.ts). This line
+    // used to format it in Asia/Manila, adding eight hours a second time, and
+    // the pass told a real guest to "ARRIVE 9:30 PM" for a 1:30 PM arrival
+    // (seen live 2026-09-21 as a test guest on /cale-ice). One formatter, the
+    // programme's, so the pass and the run of show can never disagree.
     const firstScheduleTimeLabel = firstScheduleBlock?.start_at
-      ? new Date(firstScheduleBlock.start_at).toLocaleTimeString('en-PH', {
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZone: 'Asia/Manila',
-        })
+      ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
       : null;
 
     /* The pass's own facts, resolved once so the card and its guard read the

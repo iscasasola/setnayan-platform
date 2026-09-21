@@ -124,18 +124,27 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
     (n, f) => n + (readFileSync(f, 'utf8').match(/font-mono text-\[0\.66rem\]/g) ?? []).length,
     0,
   );
-  // 20 since 2026-09-20, deliberately: the per-role dress-code panel adds ONE
-  // eyebrow, "You are <role>", which names the reader's own role above their
-  // outfit and colour (owner's role-specific attire · lib/role-dress-code.ts).
+  // 20 from 2026-09-20 (19 when AP-3 shipped): the per-role dress-code panel
+  // added ONE eyebrow, "You are <role>", which names the reader's own role above
+  // their outfit and colour (owner's role-specific attire · lib/role-dress-code.ts).
   // It is the same protected eyebrow treatment, used for the same job — naming
-  // a section — so it joins the count rather than inventing a second style.
+  // a section — so it joined the count rather than inventing a second style.
+  //
+  // 19 AGAIN SINCE 2026-09-20 (the reply sheet), and this one is a REMOVAL, so
+  // it is written down here rather than absorbed. The `<details>` drawer that
+  // held the reply card for a guest who had already answered is gone — the
+  // half sheet IS the disclosure now — and its `<summary>` carried one of these
+  // eyebrows as a CONTROL label. Its replacement is a row, not a section head,
+  // and the eyebrow's protected job is naming a section. So the treatment is
+  // untouched; there is simply one fewer section to name.
   assert.equal(
     gild,
-    20,
+    19,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 20 from 2026-09-20 (19 when AP-3 shipped). They are an explicitly ` +
-      `PROTECTED design decision — AP-3 must not have crept into them. If a ` +
-      `legitimate change moves this number, change it here deliberately and say why.`,
+      `carried 19 from 2026-09-20 (20 between the role panel and the reply ` +
+      `sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
+      `decision — AP-3 must not have crept into them. If a legitimate change ` +
+      `moves this number, change it here deliberately and say why.`,
   );
 });
 

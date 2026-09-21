@@ -18,9 +18,18 @@ import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
 /** Reusable SELECT column list for any page that resolves the hero monogram. */
 export const HERO_MONOGRAM_COLUMNS =
+  /* ⛔ `role_palette` DELIBERATELY NOT HERE. Adding it made `lint:dup-rule`
+   * fail on 14 hand-typed selects across 8 files: every narrow read that
+   * reproduces part of this list was suddenly "dropping a canonical column".
+   * Those reads are deliberate and pre-existing — lengthening the canonical
+   * list is what broke them, not the reads themselves. And role_palette is a
+   * PALETTE column, not a monogram one; it does not belong in the monogram's
+   * canonical list just because one feature wants it.
+   * The ink is passed instead — see the `ink` option on resolveEventMonogram. */
   'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config';
 
 /** The reveal a BESPOKE mark plays when the couple hasn't tuned the studio panel
@@ -39,6 +48,7 @@ export type HeroMonogramRow = {
   monogram_uploaded_svg: string | null;
   monogram_motion_key: string | null;
   monogram_studio_config: unknown;
+  role_palette?: unknown;
 };
 
 /** Serializable bundle of the <HeroMonogram> inputs. */
@@ -71,10 +81,24 @@ export async function resolveEventMonogram(
   client: SupabaseClient,
   eventId: string,
   row: HeroMonogramRow | null,
+  opts?: {
+    /** The couple's mood-board ink. A caller that already selects
+     *  `role_palette` passes it so an uploaded mark stamped data-ink="palette"
+     *  is repainted; one that does not simply gets the file's own colours,
+     *  which is the safe degrade (lib/monogram-ink.ts). */
+    ink?: string | null;
+  },
 ): Promise<HeroMonogramData | null> {
   if (!row) return null;
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
-  const bespokeSvg = resolveEventMonogramSvg(row);
+  /* The couple's reception colour — the ink a palette-stamped mark is painted
+   * in. `undefined` when they have not chosen a mood board, which the resolver
+   * reads as "keep the file's own colours". */
+  /* The caller's ink wins; otherwise fall back to the row's own palette when
+   * that caller happened to select it. Both paths end at the same resolver. */
+  const markInk =
+    opts?.ink ?? getPrimaryColor(sanitizeRolePalette(row.role_palette), 'reception') ?? null;
+  const bespokeSvg = resolveEventMonogramSvg(row, { ink: markInk });
   const ownsAnimated = await eventAnimatedMonogramActive(client, eventId);
   const animatedMonogram: MonogramMotionKey | false = ownsAnimated
     ? resolveMonogramMotion(row.monogram_motion_key)

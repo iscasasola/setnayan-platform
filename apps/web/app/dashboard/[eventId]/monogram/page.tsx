@@ -11,7 +11,9 @@ import { VectorStudio } from './studio';
 import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkDoors } from './mark-doors';
+import { RevealStep } from './reveal-step';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { applyMarkInk } from '@/lib/monogram-ink';
 import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
 import { UploadMark } from './upload-mark';
 import { MarkEverywhere } from './mark-everywhere';
@@ -64,6 +66,10 @@ const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
   'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
   'ink-saved': { tone: 'ok', text: 'Saved — your mark now wears those colours everywhere.' },
+  'reveal-saved': { tone: 'ok', text: 'Saved — that is how your monogram arrives for your guests.' },
+  'using-upload': { tone: 'ok', text: 'Your uploaded logo is your mark again — the designed one is kept.' },
+  'using-studio': { tone: 'ok', text: 'Your designed mark is live again — your uploaded logo is kept, not deleted.' },
+  'no-studio-mark': { tone: 'error', text: 'Design a mark first — switching now would leave you with none.' },
   'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
@@ -135,8 +141,6 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
-  const effectiveSvg = safeMonogramSvg(event.monogram_uploaded_svg) ?? customSvg;
-  const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
 
   /* ── ONE DOOR AT A TIME (owner 2026-09-20) ────────────────────────────────
    * This page used to stack BOTH ways of getting a mark down one column: the
@@ -160,6 +164,24 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * compare then withholds that side rather than previewing against a colour
    * that is not theirs. */
   const paletteInk = getPrimaryColor(sanitizeRolePalette(event.role_palette), 'reception') ?? null;
+
+  /* BOTH marks, resolved for display. The chooser shows them side by side when
+   * a couple has two, so it needs each one independently — not just whichever
+   * currently wins. `uploadIsLive` is the switch state that decides which wins
+   * (lib/monogram-mark-choice.ts): an uploaded mark stamped data-mark="off" is
+   * kept but not used. */
+  const uploadedRaw = safeMonogramSvg(event.monogram_uploaded_svg);
+  /* The composition wins; the upload stands in only until there is one. */
+  const uploadIsLive = Boolean(uploadedRaw) && !customSvg;
+  const uploadedSvgForDisplay = applyMarkInk(uploadedRaw, undefined, paletteInk);
+
+  /* The mark as every surface draws it: the COMPOSITION first, the uploaded
+   * file only while no composition exists (lib/monogram-svg-safe.ts carries the
+   * same order, and this page must not disagree with it). Ink applied, so the
+   * strip shows what guests see rather than an unpainted variant. */
+  const effectiveSvg = applyMarkInk(customSvg ?? uploadedRaw, undefined, paletteInk);
+  const showEverywhere =
+    (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
   const askedMode = sp.mode === 'design' || sp.mode === 'upload' ? sp.mode : null;
   /* Both actions redirect back here with a notice and the #upload-mark anchor.
    * Open the matching door, or a couple reads "Saved!" on a chooser showing
@@ -169,32 +191,29 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   return (
     <section className="space-y-6">
       {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
-      {/* TWO controls, each with ONE destination — not one control with a
-          ternary href. `lint-port-no-lost-controls` reads routes statically and
-          could not see the `/studio` branch inside a conditional, so the page
-          registered as having LOST its way back to add-ons. It had not; but a
-          route a static reader cannot find is a route the next refactor can
-          delete without anything going red, and the guard was right to object.
-          Regenerating its baseline would have recorded a removal that never
-          happened. Two plain links also read better: from inside a door you
-          want "the other way", and add-ons is a level further out. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* ⛔ NO "BACK TO ADD-ONS" HERE — removed at the owner's request
+          (2026-09-20), pointing at it on the live page: "remove this."
+
+          The route /dashboard/[eventId]/studio is genuinely no longer reachable
+          FROM this page, so `lint-port-no-lost-controls` is right to notice and
+          its baseline is regenerated in this same commit — which is what that
+          guard asks for when a removal is deliberate. Contrast the earlier
+          entry in this file's history: that one regenerated NOTHING, because
+          the link still existed and only the guard's static reader could not
+          see it. A baseline is regenerated when a control is really gone, never
+          to quiet a guard that has found something.
+
+          The app shell's own navigation still reaches add-ons; this was a
+          second, page-level way back sitting above the page title. */}
+      {mode ? (
         <Link
-          href={`/dashboard/${eventId}/studio`}
+          href={`/dashboard/${eventId}/monogram`}
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to add-ons
+          Both ways to make it
         </Link>
-        {mode ? (
-          <Link
-            href={`/dashboard/${eventId}/monogram`}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-          >
-            Both ways to make it
-          </Link>
-        ) : null}
-      </div>
+      ) : null}
 
       <PageMasthead title="Your wedding monogram" />
 
@@ -202,7 +221,13 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
       <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
 
       {mode === null ? (
-        <MarkDoors eventId={eventId} effectiveSvg={effectiveSvg} hasStudio={hasStudio} hasUpload={hasUpload} />
+        <MarkDoors
+          eventId={eventId}
+          liveSvg={effectiveSvg}
+          liveIsComposition={Boolean(customSvg)}
+          hasStudio={hasStudio}
+          hasUpload={hasUpload}
+        />
       ) : null}
 
       {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
@@ -213,6 +238,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           eventId={eventId}
           initialConfig={studioConfig}
           initialNames={monogram.text}
+          /* Compose FROM the logo when that is the couple's current mark and
+           * they have no studio design yet. With a composition already saved,
+           * `initialConfig` rebuilds it and the upload stays the archived
+           * source it was made from — only the re-rendered version is used. */
+          initialUploadSvg={!hasStudio && uploadIsLive ? uploadedRaw : null}
           hasStudio={hasStudio}
           notice={studioNotice}
         />
@@ -228,17 +258,34 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           notice={uploadNotice}
           ownsAnimated={ownsAnimated}
           paletteInk={paletteInk}
+          savedSvg={uploadedSvgForDisplay}
+          savedIsLive={uploadIsLive}
         />
       ) : null}
 
-      {/* ── The reveal's ₱ unlock — ONE row, under whichever door is open, never
-          on the chooser (there is no reveal picked yet there). This replaces the
-          two separate free/paid paragraphs the page used to carry.
+      {/* ── ONE REVEAL, for a mark made either way (owner 2026-09-20,
+          overruling the 2026-06-23 "the reveal lives inside the studio" lock).
+          It sits AFTER the mark exists rather than inside either door, and the
+          ₱500 unlock renders beneath it — the money buys the animation, not the
+          door. Nothing to reveal without a mark, so it waits for one.
 
-          🔒 Withheld in the store shell (App Review 3.1.1). The maker above is
-          free and stays whole — this is the paid block, which carries the live
-          catalogue price on a route the /studio gate never covered. ── */}
-      {!storeShell && mode !== null && <AnimatedMonogramUpgrade eventId={eventId} />}
+          🔒 The unlock is withheld in the store shell (App Review 3.1.1); the
+          reveal itself previews free and stays. ── */}
+      {effectiveSvg ? (
+        <RevealStep
+          eventId={eventId}
+          markSvg={effectiveSvg}
+          monogramText={monogram.text}
+          initialKind={studioConfig?.anim?.kind ?? 'handwriting'}
+          initialTempo={
+            studioConfig?.anim?.preset === 'quick' || studioConfig?.anim?.preset === 'ceremonial'
+              ? studioConfig.anim.preset
+              : 'classic'
+          }
+          owned={ownsAnimated}
+          unlock={!storeShell ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
+        />
+      ) : null}
     </section>
   );
 }

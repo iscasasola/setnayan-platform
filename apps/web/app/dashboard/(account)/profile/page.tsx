@@ -34,6 +34,7 @@ import {
   updatePlannerMode,
   updatePublicProfileEnabled,
   updateDiscoverableByName,
+  updateSharePhotoWithHosts,
   updateRemindersEnabled,
   updateUserSlug,
 } from './actions';
@@ -104,7 +105,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -159,6 +160,10 @@ export default async function ProfilePage({ searchParams }: Props) {
   // Findable by name is ON unless they said otherwise (owner 2026-08-21). A row
   // that predates the column reads NULL, which must mean the default, not off.
   const findableByName = (profile?.discoverable_by_name ?? true) as boolean;
+  /* ⚖ Owner 2026-09-20: "keep it opt-in, add the preference column". The
+     opposite default to its sibling above, for the opposite question — a row
+     that has never been asked reads NULL and must mean OFF. */
+  const sharePhotoWithHosts = (profile?.share_profile_photo_with_hosts ?? false) as boolean;
   const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
     .replace(/\/+$/, '')
     .replace(/^https?:\/\//, '');
@@ -914,6 +919,66 @@ export default async function ProfilePage({ searchParams }: Props) {
                 return (
                   <form key={opt.key} action={updateDiscoverableByName}>
                     <input type="hidden" name="discoverable_by_name" value={opt.key} />
+                    <button
+                      type="submit"
+                      disabled={isActive}
+                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                        isActive
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                        {isActive ? (
+                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                            Active
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-ink/55">{opt.tagline}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t border-ink/10 pt-6">
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-ink">
+                Can the couples you join see your photo?
+              </h3>
+              <p className="text-sm text-ink/60">
+                When this is on, a couple whose celebration you have joined sees your profile
+                photo beside your name on their guest list — only where they have not added a
+                photo for you themselves. It is off unless you turn it on, and turning it off
+                again does not hide your name, your RSVP, or a photo they uploaded for you.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    key: 'true' as const,
+                    label: 'On',
+                    tagline: 'Couples you have joined see your photo',
+                  },
+                  {
+                    key: 'false' as const,
+                    label: 'Off',
+                    tagline: 'They see your initials unless they add a photo',
+                  },
+                ]
+              ).map((opt) => {
+                const isActive = (opt.key === 'true') === sharePhotoWithHosts;
+                return (
+                  <form key={opt.key} action={updateSharePhotoWithHosts}>
+                    <input
+                      type="hidden"
+                      name="share_profile_photo_with_hosts"
+                      value={opt.key}
+                    />
                     <button
                       type="submit"
                       disabled={isActive}

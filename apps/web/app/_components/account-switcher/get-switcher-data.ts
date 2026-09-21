@@ -7,6 +7,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -159,7 +160,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
     const { data: eventRows, error: eventsErr } = await supabase
       .from('events')
       .select(
-        'event_id, display_name, event_type, event_date, is_primary, archived, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg',
+        'event_id, display_name, event_type, event_date, is_primary, archived, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette',
       )
       .in('event_id', eventIds)
       .eq('archived', false)
@@ -194,7 +195,13 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
        * the ink policy is applied): the select below did not even FETCH
        * monogram_uploaded_svg, so an uploaded logo was invisible here — the
        * switcher kept drawing the designed mark the couple had replaced. */
-      monogram_custom_svg: resolveEventMonogramSvg(ev),
+      /* WITH the couple's ink: this chip renders through a data-URI <img>,
+       * which inherits nothing, so a palette-stamped mark MUST arrive already
+       * painted. Measured before the fix: rgb(0,0,0) where the reception colour
+       * was rgb(79,107,74). */
+      monogram_custom_svg: resolveEventMonogramSvg(ev, {
+        ink: getPrimaryColor(sanitizeRolePalette((ev as { role_palette?: unknown }).role_palette), 'reception') ?? null,
+      }),
     }));
   }
 

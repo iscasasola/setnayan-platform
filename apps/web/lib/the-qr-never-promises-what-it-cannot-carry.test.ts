@@ -57,12 +57,35 @@ const code = (rel: string) => stripComments(read(rel));
  * sentence nobody knew about; a list that quietly stops covering a screen is
  * the same failure with a test beside it.
  */
-const SURFACES: ReadonlyArray<{ rel: string; qrWordsCalls: number }> = [
+/**
+ * 🔁 TWO SURFACES NOW DELEGATE THEIR SENTENCE (2026-09-20). The cards, the code
+ * and the account rows moved into ONE component that both the checkout drawer
+ * and /pay render — owner: *"cant we have 1 type of payment process?"* — and
+ * the `qrWords` call went with them.
+ *
+ * 🔑 `phrasedBy` FOLLOWS THE RULE WITHOUT LETTING GO OF THE FILE. The import
+ * and the call-count are asked of whoever actually phrases it; the "no
+ * hand-written promise" checks below still run on the ORIGINAL file, because a
+ * delegating surface growing its own sentence is exactly the regression this
+ * suite exists for. Dropping those two rows instead would have ended their
+ * coverage silently, which is the trap `the-figure-and-the-qr-agree` records.
+ */
+const RAILS = 'app/_components/payment/payment-rails.tsx';
+
+const SURFACES: ReadonlyArray<{
+  rel: string;
+  qrWordsCalls: number;
+  phrasedBy?: string;
+}> = [
   { rel: 'app/pay/[reference]/page.tsx', qrWordsCalls: 1 },
-  { rel: 'app/pay/[reference]/_components/pay-panel.tsx', qrWordsCalls: 1 },
+  { rel: 'app/pay/[reference]/_components/pay-panel.tsx', qrWordsCalls: 2, phrasedBy: RAILS },
   { rel: 'app/vendor-dashboard/booking-fees/[orderId]/page.tsx', qrWordsCalls: 2 },
   { rel: 'app/dashboard/[eventId]/orders/[orderId]/page.tsx', qrWordsCalls: 1 },
-  { rel: 'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx', qrWordsCalls: 2 },
+  {
+    rel: 'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx',
+    qrWordsCalls: 2,
+    phrasedBy: RAILS,
+  },
   { rel: 'app/dashboard/[eventId]/_components/vendor-direct-pay.tsx', qrWordsCalls: 1 },
 ];
 
@@ -199,12 +222,12 @@ test('a payload we did not mint is read, not assumed', () => {
 // ── ANCHORED ────────────────────────────────────────────────────────────────
 
 test('every payment surface reads its sentence off the shared resolver', () => {
-  for (const { rel, qrWordsCalls } of SURFACES) {
-    const src = code(rel);
+  for (const { rel, qrWordsCalls, phrasedBy } of SURFACES) {
+    const src = code(phrasedBy ?? rel);
     assert.match(
       src,
       /from '@\/lib\/qr-amount-truth'/,
-      `${rel} does not import the shared QR wording`,
+      `${phrasedBy ?? rel} does not import the shared QR wording`,
     );
     // ⚠ A FILE-LEVEL MATCH CANNOT SEE ONE CALL SITE GO — the same trap
     // `the-figure-and-the-qr-agree.test.ts` records. Floored per file: a new
@@ -212,7 +235,7 @@ test('every payment surface reads its sentence off the shared resolver', () => {
     const calls = (src.match(/qrWords\(/g) ?? []).length;
     assert.ok(
       calls >= qrWordsCalls,
-      `${rel} calls qrWords ${calls}x, below its floor of ${qrWordsCalls}`,
+      `${phrasedBy ?? rel} calls qrWords ${calls}x, below its floor of ${qrWordsCalls}`,
     );
   }
 });

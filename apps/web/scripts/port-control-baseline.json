@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fee7b7d57",
+  "generatedFromRef": "7ece905cf",
   "routeCount": 430,
   "destinations": 922,
-  "actions": 651,
-  "blocks": 4558,
+  "actions": 654,
+  "blocks": 4568,
   "routes": {
     "/": {
       "files": [
@@ -705,6 +705,7 @@
     },
     "/[slug]": {
       "files": [
+        "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/countdown.tsx",
@@ -726,6 +727,7 @@
         "[slug]/_components/empty-states.tsx",
         "[slug]/_components/entourage-section.tsx",
         "[slug]/_components/event-words-provider.tsx",
+        "[slug]/_components/everything-else-sheet.tsx",
         "[slug]/_components/face-data-notice.tsx",
         "[slug]/_components/face-receipt-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
@@ -771,6 +773,8 @@
         "[slug]/_components/reveal/wax-seal.tsx",
         "[slug]/_components/roam-watch-picker.tsx",
         "[slug]/_components/room-footer.tsx",
+        "[slug]/_components/rsvp-sheet-state.ts",
+        "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-widget.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
@@ -817,6 +821,7 @@
         "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/everything-else-rows.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/host-scope.ts",
         "[slug]/_lib/icon-source.ts",
@@ -856,6 +861,7 @@
         "/dashboard/profile",
         "/login",
         "/papic/guest",
+        "/papic/guest?from=[seg]",
         "/signup",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
@@ -865,6 +871,7 @@
       ],
       "actions": [
         "action",
+        "arrivalAction",
         "submit",
         "toggle",
         "toggleBlur",
@@ -873,6 +880,7 @@
       "blocks": [
         "AnnouncementCard",
         "ArrangedSheet",
+        "ArrivalActionRow",
         "ArrivalGreeting",
         "BackCover",
         "BackCoverBlock",
@@ -921,6 +929,7 @@
         "EventWords",
         "EventWordsContext.Provider",
         "EventWordsProvider",
+        "EverythingElseSheet",
         "FaceDataNotice",
         "FaceGateResult",
         "FaceReceiptCard",
@@ -1041,7 +1050,9 @@
         "RoomLink",
         "RoomPlan",
         "Row",
+        "RowGroup",
         "RsvpPill",
+        "RsvpSheet",
         "RsvpWidget",
         "RunOfShowHeader",
         "SVGLineElement",
@@ -1061,6 +1072,7 @@
         "SelfieCapture",
         "SetnayanExperience",
         "ShareButtons",
+        "Sheet",
         "SheetClip",
         "SheetEntry",
         "SiteBody",
@@ -4500,6 +4512,7 @@
         "updatePlannerMode",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
+        "updateSharePhotoWithHosts",
         "updateUserSlug"
       ],
       "blocks": [
@@ -5335,6 +5348,7 @@
       "files": [
         "dashboard/[eventId]/guests/_components/active-filters.tsx",
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
+        "dashboard/[eventId]/guests/_components/arrange-controls.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/chip-editors.tsx",
         "dashboard/[eventId]/guests/_components/entourage-order-panel.tsx",
@@ -5390,6 +5404,8 @@
         "AddFromPeopleResult",
         "AddFromPeopleSheet",
         "AddToGroupControl",
+        "ArrangeSheet",
+        "ArrangeTh",
         "AssignSheet",
         "BulkApplyForm",
         "CaptureBar",
@@ -5418,6 +5434,7 @@
         "GuestMindMap",
         "GuestPhoto",
         "GuestRole",
+        "GuestRow",
         "GuestSide",
         "GuestsSearch",
         "GuestsViewSwitcher",
@@ -5918,6 +5935,8 @@
         "dashboard/[eventId]/monogram/mark-doors.tsx",
         "dashboard/[eventId]/monogram/mark-everywhere.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
+        "dashboard/[eventId]/monogram/reveal-actions.ts",
+        "dashboard/[eventId]/monogram/reveal-step.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
@@ -5925,14 +5944,14 @@
         "dashboard/[eventId]/monogram/upload-tips.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/monogram",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/monogram"
       ],
       "actions": [
         "clearStudioAction",
         "clearUploadedMarkAction",
         "saveStudioAction",
-        "saveUploadedMarkAction"
+        "saveUploadedMarkAction",
+        "setRevealAction"
       ],
       "blocks": [
         "AnimatedMonogramHero",
@@ -5958,8 +5977,10 @@
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
+        "RevealStep",
         "SDLoader",
         "SaveButton",
+        "SavedMark",
         "StudioAnim",
         "StudioAnimKind",
         "StudioApi",
@@ -9135,7 +9156,8 @@
         "submitPapicGuestPayment"
       ],
       "blocks": [
-        "CopyButton"
+        "CopyButton",
+        "PayRailsBlock"
       ]
     },
     "/papic/pool": {
@@ -9198,14 +9220,14 @@
       ],
       "blocks": [
         "Channel",
-        "ChannelTab",
+        "ChannelToggle",
         "CopyButton",
         "FileUpload",
         "Link",
         "PayPanel",
         "PayStage",
+        "PaymentDetailsBlock",
         "ProofForm",
-        "QrTile",
         "StageLink",
         "StageRail",
         "Step",
@@ -11549,7 +11571,6 @@
         "Link",
         "PageMasthead",
         "PapicChallengeCard",
-        "PayBox",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PlanChangeNotice",

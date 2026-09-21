@@ -245,7 +245,19 @@ test('the manual fallback and the typed-amount line survived the split', async (
   const pay = await paint(2);
   // The route for anyone whose wallet refuses the code. Counted, because
   // "it is still in the file" is not "it is still on the paying stage".
-  assert.match(pay, /or send manually to/, 'the manual account fallback left stage 2');
+  /**
+   * ✏️ THE WORDS MOVED WITH THE COMPONENT (2026-09-20). Stage 2 used to write
+   * its own "or send manually to"; it now renders the shared rails, whose
+   * divider reads "or send to our number" (or "or transfer manually" on BDO).
+   * Both spellings are accepted because the PROPERTY is a route that does not
+   * need the camera — and the line below, which asserts the account number is
+   * actually on the stage, is the half that proves the route exists at all.
+   */
+  assert.match(
+    pay,
+    /or send manually to|or send to our number|or transfer manually/,
+    'the manual account fallback left stage 2',
+  );
   assert.match(pay, /09171234567/, 'the account number left stage 2');
   assert.match(pay, /₱10/, 'the transfer-fee warning left stage 2');
   // The honest line about what the code carries — one resolver, still here.

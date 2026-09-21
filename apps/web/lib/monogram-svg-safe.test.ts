@@ -172,7 +172,14 @@ test('non-strings and blanks are rejected without throwing', () => {
 
 /* ── The resolver ───────────────────────────────────────────────────────────
    Both columns are host-writable, so both must be gated — and a poisoned
-   upload must FALL THROUGH to a clean custom mark rather than blanking it. */
+   column must FALL THROUGH to the clean one rather than blanking the mark.
+
+   ⚠ PRECEDENCE FLIPPED 2026-09-20: `custom ?? uploaded`, where it was
+   `uploaded ?? custom`. The product changed under it — an uploaded logo is no
+   longer a competing mark but the SOURCE the studio composes from, and the
+   composition is what ships. The upload stays as the fallback for a couple who
+   has not composed yet. Measured before flipping: of 11 events in production, 0
+   had both marks and 1 had an upload only, so no live mark changed. */
 
 test('resolver applies the gate to both columns', () => {
   assert.equal(resolveEventMonogramSvg(null), null);
@@ -189,8 +196,15 @@ test('resolver applies the gate to both columns', () => {
       monogram_uploaded_svg: RASTER_UPLOAD,
       monogram_custom_svg: BESPOKE_OUTPUT,
     }),
+    BESPOKE_OUTPUT,
+    'the COMPOSITION wins — the upload is the source it was made from',
+  );
+
+  assert.equal(
+    resolveEventMonogramSvg({ monogram_uploaded_svg: RASTER_UPLOAD }),
     RASTER_UPLOAD,
-    'upload keeps precedence over custom',
+    'and the upload still renders for a couple who has not composed yet — the\n' +
+      'fallback is the whole reason the column is kept, not an archive nobody reads',
   );
 
   assert.equal(

@@ -259,7 +259,7 @@ export type PlanInstance = {
 };
 
 /** Add `days` to an ISO date (YYYY-MM-DD) in UTC; returns ISO date. */
-function shiftIsoDate(isoDate: string, days: number): string | null {
+export function shiftIsoDate(isoDate: string, days: number): string | null {
   const d = new Date(`${isoDate}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return null;
   d.setUTCDate(d.getUTCDate() + days);

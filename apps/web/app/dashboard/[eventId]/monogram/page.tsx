@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { VectorStudio } from './studio';
-import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import { ANIM_TEMPO_TIMINGS, sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
 import { MonogramDraftRestore } from './draft-restore';
 import { MarkToggle } from './mark-toggle';
 import { AnimateRows } from './animate-rows';
@@ -304,6 +304,11 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
           studioConfig?.anim?.preset === 'quick' || studioConfig?.anim?.preset === 'ceremonial'
             ? studioConfig.anim.preset
             : 'classic'
+        }
+        initialTiming={
+          studioConfig?.anim
+            ? { dur: studioConfig.anim.dur, delay: studioConfig.anim.delay, smooth: studioConfig.anim.smooth }
+            : ANIM_TEMPO_TIMINGS.classic
         }
         owned={ownsAnimated}
         checkout={checkout}

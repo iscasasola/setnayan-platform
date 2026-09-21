@@ -121,7 +121,7 @@ export function BackgroundMusic({ src }: { src: string }) {
       {/* Optional background soundtrack the guest opts into — no captions. */}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} src={src} loop preload="none" />
-      {mounted ? (slot ? createPortal(control, slot) : <div className={CORNER_ALONE}>{control}</div>) : null}
+      {mounted ? (slot ? createPortal(control, slot) : <div data-top-corner className={CORNER_ALONE}>{control}</div>) : null}
     </>
   );
 }

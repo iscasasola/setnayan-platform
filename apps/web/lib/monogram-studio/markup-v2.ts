@@ -41,11 +41,16 @@ export const STUDIO_CSS_V2 = `
    listeners to #animbox in three places — removing it would throw and take the
    whole editor down. */
 #animbox{display:none!important}
-/* …and so is the tab that opened it, with its Replay button: with #animbox
-   hidden, "Reveal" opened an empty pane holding only a Replay that played the
-   SAVED reveal, not the one picked in the effects row. The engine looks both up
-   by id / data-vt, so they stay in the DOM and are only hidden. */
-.vsroot .vs [data-vt="reveal"],.vsroot .vs #replay{display:none!important}
+/* ⚖ …and its TAB goes with it (owner 2026-09-21: "on the upper editors should
+   both not have reveal. just the one at the bottom"). Hidden, not deleted, for
+   the same reason as #animbox: engine.ts walks all three [data-vt] buttons and
+   #tab-reveal. The tabs start on Letters and nothing else opens Reveal, so a
+   hidden button is a tab nobody can reach. Letters · Frame stretch to fill. */
+.vsroot .vs .vt[data-vt="reveal"]{display:none!important}
+/* The canvas's own Replay goes too: it replayed the SAVED reveal, not the effect
+   picked in the row below, which has its own "▶ Play". Hidden, not deleted —
+   the engine looks it up by id. */
+.vsroot .vs #replay{display:none!important}
 
 .vsroot .vs{--paper:#FBFBFA;--ink:#1E2229;--ink-soft:#5F5E5A;--line:#E7E1D6;--line2:#D9D2C4;--gold:#C5A059;--gold-deep:#8C6932;font-family:var(--font-hanken),system-ui,sans-serif;color:#1E2229;container-type:inline-size;}
 .vsroot .vs .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}

@@ -66,6 +66,7 @@ import { FilterPopover } from './_components/filter-popover';
 import { FindAddRow } from './_components/find-add-row';
 import { RosterMeters } from './_components/roster-meters';
 import { RosterTabs } from './_components/roster-tabs';
+import { InvitePanel } from './invite/_components/invite-panel';
 import {
   AddFromPeopleSheet,
   OpenAddFromPeopleButton,
@@ -208,6 +209,8 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
+    /** `saved` | `error` — the look picker's result, on the Share the link tab. */
+    theme?: string;
     team?: string;
     tag?: string;
     sort?: string;
@@ -497,8 +500,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' | 'walk' =
-    search.gview === 'map' ? 'map' : search.gview === 'walk' ? 'walk' : 'list';
+  const gview: 'list' | 'map' | 'walk' | 'share' =
+    search.gview === 'map'
+      ? 'map'
+      : search.gview === 'walk'
+        ? 'walk'
+        : search.gview === 'share'
+          ? 'share'
+          : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
@@ -1121,7 +1130,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           and Mind map. It is not a banner above the roster: the whole
           processional on top of the guest list would push the list down the
           page on every visit, for a job done a handful of times. */}
-      {gview === 'walk' ? (
+      {gview === 'share' ? (
+        // ⚖ The Share the link TAB — the invite page's own panel in this page's
+        // body, so the header, tabs and meters stay put (owner 2026-09-21:
+        // "should not clear the whole page. only the body."). The panel checks
+        // for the couple itself; see its note.
+        <InvitePanel
+          eventId={eventId}
+          themeNotice={search.theme === 'saved' ? 'saved' : search.theme === 'error' ? 'error' : null}
+          returnTo="guests-share"
+        />
+      ) : gview === 'walk' ? (
         <EntourageOrderPanel eventId={eventId} view={view} />
       ) : gview === 'map' ? (
         <GuestMindMap

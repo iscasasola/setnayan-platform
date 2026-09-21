@@ -93,7 +93,8 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['guests/_components/mobile-guest-carousel.tsx', 1],
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
-  ['guests/invite/page.tsx', 2],
+  ['guests/invite/_components/invite-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
+  ['guests/invite/page.tsx', 1],
   ['guests/new/page.tsx', 2],
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],
   ['guests/souvenirs/page.tsx', 1],

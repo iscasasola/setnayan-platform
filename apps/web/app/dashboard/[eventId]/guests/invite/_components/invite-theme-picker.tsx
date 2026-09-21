@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { InviteReturn } from '@/lib/invite-return';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { pickableInviteThemes, type InviteThemeId } from '@/lib/invite-themes';
 import { setInviteTheme } from '../actions';
@@ -28,6 +29,7 @@ export function InviteThemePicker({
   ownsPro,
   mayShowStdFilm,
   notice,
+  returnTo = 'invite',
 }: {
   eventId: string;
   selected: InviteThemeId;
@@ -42,6 +44,9 @@ export function InviteThemePicker({
    * never changed a pixel.
    */
   notice: 'saved' | 'error' | null;
+  /** Which page this picker sits on, so saving returns there. The guest list's
+   *  Share the link tab passes 'guests-share'; the invite page the default. */
+  returnTo?: InviteReturn;
 }) {
   const themes = pickableInviteThemes({ mayShowStdFilm });
   const action = setInviteTheme.bind(null, eventId);
@@ -99,6 +104,8 @@ export function InviteThemePicker({
         </p>
       ) : null}
       <form action={action} className="mt-4 space-y-3">
+        {/* The PAGE this form is on — never a URL (lib/invite-return). */}
+        <input type="hidden" name="return_to" value={returnTo} />
         {themes.map((t) => {
           const locked = t.tier === 'pro' && !ownsPro;
           return (

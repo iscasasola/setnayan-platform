@@ -33,6 +33,12 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const PICKER = 'app/dashboard/[eventId]/guests/invite/_components/invite-theme-picker.tsx';
 const PAGE = 'app/dashboard/[eventId]/guests/invite/page.tsx';
+// 🪤 The invite page's reads and markup MOVED (2026-09-21) into a panel both
+// doors render — the invite page and the guest list's Share the link tab. The
+// assertions that were about what the page COMPUTES now read the panel; the
+// ones about what reaches the picker read every door that renders it.
+const PANEL = 'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx';
+const GUESTS = 'app/dashboard/[eventId]/guests/page.tsx';
 const ACTIONS = 'app/dashboard/[eventId]/guests/invite/actions.ts';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -203,7 +209,7 @@ test('the buy page already names the invite link — and must keep naming it', (
    ══════════════════════════════════════════════════════════════════════════ */
 
 test('the picker MEASURES the fence and hands it down — it is never assumed', () => {
-  const page = read(PAGE);
+  const page = read(PANEL);
   assert.match(
     page,
     /resolveWeddingOnlyParts\(p\)\.save_the_date_film/,
@@ -364,12 +370,14 @@ test('🔑 setInviteTheme counts the rows it wrote — a zero-row UPDATE is not 
   );
   assert.match(
     tail,
-    /if \(error \|\| !data \|\| data\.length === 0\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/guests\/invite\?theme=error`\)/,
+    // The outcome travels through lib/invite-return so it lands on whichever
+    // door the couple saved from; the count still decides WHICH outcome.
+    /if \(error \|\| !data \|\| data\.length === 0\) \{\s*redirect\(inviteReturnPath\(eventId, back, 'error'\)\)/,
     'a write that changed nothing must not redirect to ?theme=saved',
   );
   // …and the happy path is still reachable, so the assertions above are not
   // satisfied by an action that can only ever fail.
-  assert.match(tail, /\?theme=saved`\)/, 'the successful save no longer reports itself');
+  assert.match(tail, /redirect\(inviteReturnPath\(eventId, back, 'saved'\)\)/, 'the successful save no longer reports itself');
 });
 
 test('🔑 a failed save SAYS so on screen — ?theme=error is rendered, not just redirected to', () => {
@@ -395,10 +403,15 @@ test('🔑 a failed save SAYS so on screen — ?theme=error is rendered, not jus
 
   // …and the page must actually hand both outcomes over. A picker that can draw
   // the alert is worth nothing if the prop is always null.
-  const page = read(PAGE);
-  assert.match(
-    page,
-    /notice=\{search\.theme === 'saved' \? 'saved' : search\.theme === 'error' \? 'error' : null\}/,
-    'the page drops one of the two outcomes on its way to the picker',
-  );
+  // Both doors must hand BOTH outcomes to the panel, and the panel to the
+  // picker — a door that forwarded only 'saved' would make a refused save on
+  // that door look exactly like a reload.
+  for (const [door, file] of [['the invite page', PAGE], ['the Share the link tab', GUESTS]] as const) {
+    assert.match(
+      read(file),
+      /themeNotice=\{search\.theme === 'saved' \? 'saved' : search\.theme === 'error' \? 'error' : null\}/,
+      `${door} drops one of the two outcomes on its way to the picker`,
+    );
+  }
+  assert.match(read(PANEL), /notice=\{themeNotice\}/, 'the panel drops the outcome on its way to the picker');
 });
